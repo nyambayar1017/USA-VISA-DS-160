@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Submission Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Admin</p>
+        <h1>Visa form submissions</h1>
+        <p class="intro">
+          Review answers submitted through your public intake link.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="dashboard-head">
+          <h2>Responses</h2>
+          <div class="dashboard-actions">
+            <button id="export-button" type="button">Export CSV</button>
+            <button id="refresh-button" type="button">Refresh</button>
+          </div>
+        </div>
+        <p class="helper">
+          Enter your admin token to load submissions. Keep this token private.
+        </p>
+        <div class="token-row">
+          <input id="admin-token" type="password" placeholder="Admin token" />
+        </div>
+        <div id="submission-list" class="submission-list"></div>
+      </section>
+    </main>
+
+    <script src="/admin.js"></script>
+  </body>
+</html>

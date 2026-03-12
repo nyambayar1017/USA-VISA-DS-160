@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ds160-intake-form
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app
+    healthCheckPath: /health
+    disk:
+      name: submissions
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.4
+      - key: DATA_DIR
+        value: /var/data
+      - key: ADMIN_TOKEN
+        sync: false

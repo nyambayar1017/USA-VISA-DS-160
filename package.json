@@ -1,0 +1,9 @@
+{
+  "name": "ds160-intake-form",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simple DS-160 intake form with a review dashboard",
+  "scripts": {
+    "start": "python3 server.py"
+  }
+}
