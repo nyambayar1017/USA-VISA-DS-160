@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visa Intake Form</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">DS-160 Intake</p>
+        <h1>Complete your visa questionnaire online</h1>
+        <p class="intro">
+          Fill out the form once. Your visa preparer will review your answers
+          and use them for the DS-160 application.
+        </p>
+      </section>
+
+      <form id="visa-form" class="card form-grid">
+        <section class="form-section">
+          <h2>Applicant Details</h2>
+          <div class="field-grid">
+            <label>
+              Full name
+              <input name="fullName" required />
+            </label>
+            <label>
+              Email address
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Phone number
+              <input name="phone" />
+            </label>
+            <label>
+              Date of birth
+              <input name="dateOfBirth" type="date" />
+            </label>
+            <label>
+              Place of birth
+              <input name="placeOfBirth" />
+            </label>
+            <label>
+              Nationality
+              <input name="nationality" />
+            </label>
+            <label>
+              Marital status
+              <select name="maritalStatus">
+                <option value="">Select</option>
+                <option>Single</option>
+                <option>Married</option>
+                <option>Divorced</option>
+                <option>Widowed</option>
+              </select>
+            </label>
+            <label>
+              Home address
+              <input name="homeAddress" />
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Passport Details</h2>
+          <div class="field-grid">
+            <label>
+              Passport number
+              <input name="passportNumber" />
+            </label>
+            <label>
+              Passport issuing country
+              <input name="passportCountry" />
+            </label>
+            <label>
+              Passport issue date
+              <input name="passportIssueDate" type="date" />
+            </label>
+            <label>
+              Passport expiry date
+              <input name="passportExpiryDate" type="date" />
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Travel Plan</h2>
+          <div class="field-grid">
+            <label>
+              Visa type
+              <input name="visaType" placeholder="B1/B2, F1, J1..." />
+            </label>
+            <label>
+              Intended travel date
+              <input name="travelDate" type="date" />
+            </label>
+            <label>
+              U.S. arrival city
+              <input name="arrivalCity" />
+            </label>
+            <label>
+              Length of stay
+              <input name="lengthOfStay" placeholder="Example: 2 weeks" />
+            </label>
+            <label class="span-2">
+              U.S. address where you will stay
+              <input name="usStayAddress" />
+            </label>
+            <label class="span-2">
+              Purpose of trip
+              <textarea name="tripPurpose" rows="3"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>U.S. Contact</h2>
+          <div class="field-grid">
+            <label>
+              Contact person or hotel name
+              <input name="usContactName" />
+            </label>
+            <label>
+              Contact phone
+              <input name="usContactPhone" />
+            </label>
+            <label class="span-2">
+              Contact address
+              <input name="usContactAddress" />
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Work and Education</h2>
+          <div class="field-grid">
+            <label>
+              Current employer or school
+              <input name="employerOrSchool" />
+            </label>
+            <label>
+              Job title
+              <input name="jobTitle" />
+            </label>
+            <label class="span-2">
+              Employer or school address
+              <input name="workAddress" />
+            </label>
+            <label class="span-2">
+              Describe your work or studies
+              <textarea name="workDescription" rows="3"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Extra Notes</h2>
+          <div class="field-grid">
+            <label class="span-2">
+              Previous U.S. travel, visa refusals, or anything important to know
+              <textarea name="notes" rows="4"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="submit">Send Answers</button>
+          <p id="form-status" class="status"></p>
+        </div>
+      </form>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
