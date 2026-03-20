@@ -1,32 +1,37 @@
-const form = document.querySelector("#visa-form");
-const statusNode = document.querySelector("#form-status");
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Визийн маягтын хариултууд</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">АДМИН</p>
+        <h1>Визийн маягтын илгээсэн хариултууд</h1>
+        <p class="intro">
+          Монгол үйлчлүүлэгчдийн бөглөсөн бүх мэдээллийг эндээс харж, CSV-аар татаж авч болно.
+        </p>
+      </section>
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
+      <section class="card">
+        <div class="dashboard-head">
+          <h2>Илгээсэн мэдээллүүд</h2>
+          <div class="dashboard-actions">
+            <button id="export-button" type="button">CSV татах</button>
+            <button id="refresh-button" type="button">Шинэчлэх</button>
+          </div>
+        </div>
+        <p class="helper">Админ токеноо оруулж мэдээллээ нээнэ үү.</p>
+        <div class="token-row">
+          <input id="admin-token" type="password" placeholder="Админ токен" />
+        </div>
+        <div id="submission-list" class="submission-list"></div>
+      </section>
+    </main>
 
-  statusNode.textContent = "Sending...";
-
-  const formData = new FormData(form);
-  const payload = Object.fromEntries(formData.entries());
-
-  try {
-    const response = await fetch("/api/submissions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || "Could not submit the form");
-    }
-
-    form.reset();
-    statusNode.textContent = "Thank you. Your answers were submitted.";
-  } catch (error) {
-    statusNode.textContent = error.message;
-  }
-});
+    <script src="/admin.js"></script>
+  </body>
+</html>
