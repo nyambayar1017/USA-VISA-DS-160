@@ -78,6 +78,7 @@ body {
 .intake-form {
   position: relative;
   overflow: hidden;
+  padding: 8px 24px 6px 28px;
 }
 
 .intake-form::before {
@@ -92,6 +93,10 @@ body {
   margin-top: 34px;
   padding-top: 34px;
   border-top: 1px solid var(--line);
+}
+
+.form-section {
+  padding-inline: 6px;
 }
 
 .section-head {
@@ -274,6 +279,14 @@ time {
     border-radius: 22px;
   }
 
+  .intake-form {
+    padding: 6px 10px 4px 16px;
+  }
+
+  .form-section {
+    padding-inline: 4px;
+  }
+
   .field-grid,
   .details-grid {
     grid-template-columns: 1fr;
@@ -298,5 +311,17 @@ time {
   .hero {
     padding-left: 8px;
     padding-right: 8px;
+  }
+
+  .card {
+    padding: 18px 14px;
+  }
+
+  .intake-form {
+    padding: 4px 4px 2px 10px;
+  }
+
+  .form-section {
+    padding-inline: 2px;
   }
 }
