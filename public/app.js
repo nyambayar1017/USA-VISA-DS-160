@@ -1,37 +1,96 @@
-<!DOCTYPE html>
-<html lang="mn">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Визийн маягтын хариултууд</title>
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body>
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">АДМИН</p>
-        <h1>Визийн маягтын илгээсэн хариултууд</h1>
-        <p class="intro">
-          Монгол үйлчлүүлэгчдийн бөглөсөн бүх мэдээллийг эндээс харж, CSV-аар татаж авч болно.
-        </p>
-      </section>
+const form = document.querySelector("#ds160-form");
+const statusNode = document.querySelector("#form-status");
 
-      <section class="card">
-        <div class="dashboard-head">
-          <h2>Илгээсэн мэдээллүүд</h2>
-          <div class="dashboard-actions">
-            <button id="export-button" type="button">CSV татах</button>
-            <button id="refresh-button" type="button">Шинэчлэх</button>
-          </div>
-        </div>
-        <p class="helper">Админ токеноо оруулж мэдээллээ нээнэ үү.</p>
-        <div class="token-row">
-          <input id="admin-token" type="password" placeholder="Админ токен" />
-        </div>
-        <div id="submission-list" class="submission-list"></div>
-      </section>
-    </main>
+const MONGOLIAN_DATE_FORMAT = new Intl.DateTimeFormat("mn-MN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
-    <script src="/admin.js"></script>
-  </body>
-</html>
+function normalizeValue(value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  return value.trim();
+}
+
+function buildPayload(formNode) {
+  const formData = new FormData(formNode);
+  const payload = {};
+
+  for (const [key, value] of formData.entries()) {
+    payload[key] = normalizeValue(value);
+  }
+
+  payload.submittedFrom = "mn-ds160-client-intake";
+  return payload;
+}
+
+function validatePayload(payload) {
+  const requiredFields = [
+    ["surname", "Овог"],
+    ["givenName", "Нэр"],
+    ["dateOfBirth", "Төрсөн өдөр"],
+    ["birthCity", "Төрсөн хот"],
+    ["birthCountry", "Төрсөн улс"],
+    ["nationality", "Иргэншил"],
+    ["email", "Имэйл"],
+    ["primaryPhone", "Үндсэн утас"],
+    ["passportNumber", "Паспортын дугаар"],
+    ["passportIssueDate", "Паспорт олгосон өдөр"],
+    ["passportExpiryDate", "Паспортын хүчинтэй хугацаа"],
+    ["tripPurposeCategory", "Аяллын зорилго"],
+    ["intendedArrivalDate", "АНУ-д очих өдөр"],
+  ];
+
+  const missing = requiredFields.filter(([field]) => !payload[field]).map(([, label]) => label);
+  return missing;
+}
+
+function setSubmittingState(isSubmitting) {
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = isSubmitting;
+  button.textContent = isSubmitting ? "Илгээж байна..." : "Мэдээлэл илгээх";
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const payload = buildPayload(form);
+  const missing = validatePayload(payload);
+
+  if (missing.length) {
+    statusNode.textContent = `Дутуу талбарууд: ${missing.join(", ")}`;
+    return;
+  }
+
+  setSubmittingState(true);
+  statusNode.textContent = "Мэдээлэл хадгалж байна...";
+
+  try {
+    const response = await fetch("/api/ds160", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || "Мэдээлэл илгээх үед алдаа гарлаа.");
+    }
+
+    const submittedAt = result.application?.createdAt
+      ? MONGOLIAN_DATE_FORMAT.format(new Date(result.application.createdAt))
+      : "саяхан";
+
+    form.reset();
+    statusNode.textContent = `Амжилттай. Таны мэдээлэл ${submittedAt} өдөр хадгалагдлаа.`;
+  } catch (error) {
+    statusNode.textContent = error.message;
+  } finally {
+    setSubmittingState(false);
+  }
+});
