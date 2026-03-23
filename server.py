@@ -26,6 +26,7 @@ DS160_FILE = DATA_DIR / "ds160_applications.json"
 FINANCE_FILE = DATA_DIR / "finance_entries.json"
 BOOKINGS_FILE = DATA_DIR / "hotel_bookings.json"
 RESERVATIONS_FILE = DATA_DIR / "reservations.json"
+CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 
@@ -35,7 +36,7 @@ ET.register_namespace("w", WORD_NS)
 def ensure_data_store():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
-    for file_path in [CONTRACTS_FILE, DS160_FILE, FINANCE_FILE, BOOKINGS_FILE, RESERVATIONS_FILE]:
+    for file_path in [CONTRACTS_FILE, DS160_FILE, FINANCE_FILE, BOOKINGS_FILE, RESERVATIONS_FILE, CAMP_RESERVATIONS_FILE]:
         if not file_path.exists():
             file_path.write_text("[]", encoding="utf-8")
 
@@ -88,6 +89,14 @@ def read_reservations():
 
 def write_reservations(records):
     write_json_list(RESERVATIONS_FILE, records)
+
+
+def read_camp_reservations():
+    return read_json_list(CAMP_RESERVATIONS_FILE)
+
+
+def write_camp_reservations(records):
+    write_json_list(CAMP_RESERVATIONS_FILE, records)
 
 
 def json_response(start_response, status, payload):
@@ -685,6 +694,48 @@ def validate_reservation(data):
     return None
 
 
+def build_camp_reservation(payload):
+    return {
+        "id": str(uuid4()),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "inboundCompany": normalize_text(payload.get("inboundCompany")) or "Unlock Steppe Mongolia",
+        "outboundCompany": normalize_text(payload.get("outboundCompany")) or "Delkhii Travel X",
+        "campName": normalize_text(payload.get("campName")),
+        "region": normalize_text(payload.get("region")),
+        "checkIn": normalize_text(payload.get("checkIn")),
+        "checkOut": normalize_text(payload.get("checkOut")),
+        "guestCount": parse_int(payload.get("guestCount")),
+        "gerCount": parse_int(payload.get("gerCount")),
+        "depositAmount": parse_int(payload.get("depositAmount")),
+        "depositStatus": normalize_text(payload.get("depositStatus")).lower() or "not-required",
+        "status": normalize_text(payload.get("status")).lower() or "pending",
+        "contactName": normalize_text(payload.get("contactName")),
+        "contactPhone": normalize_text(payload.get("contactPhone")),
+        "notes": normalize_text(payload.get("notes")),
+    }
+
+
+def validate_camp_reservation(data):
+    required = ["campName", "checkIn", "checkOut", "status"]
+    missing = [field for field in required if not data.get(field)]
+    if missing:
+        return f"Missing required fields: {', '.join(missing)}"
+    if data.get("guestCount", 0) <= 0:
+        return "Guest count must be greater than 0"
+    return None
+
+
+def camp_summary(records):
+    return {
+        "total": len(records),
+        "confirmed": len([record for record in records if record["status"] == "confirmed"]),
+        "pending": len([record for record in records if record["status"] == "pending"]),
+        "rejected": len([record for record in records if record["status"] == "rejected"]),
+        "depositPending": len([record for record in records if record["depositStatus"] == "pending"]),
+        "depositPaid": len([record for record in records if record["depositStatus"] == "paid"]),
+    }
+
+
 def finance_summary(entries):
     income = sum(entry["amount"] for entry in entries if entry["type"] == "income")
     expense = sum(entry["amount"] for entry in entries if entry["type"] == "expense")
@@ -702,6 +753,7 @@ def handle_dashboard_summary(start_response):
     bookings = read_bookings()
     reservations = read_reservations()
     ds160_records = read_ds160_applications()
+    camp_records = read_camp_reservations()
     return json_response(
         start_response,
         "200 OK",
@@ -712,12 +764,14 @@ def handle_dashboard_summary(start_response):
                 "ds160": len(ds160_records),
                 "bookings": len(bookings),
                 "reservations": len(reservations),
+                "campReservations": len(camp_records),
             },
             "bookingStatuses": {
                 "confirmed": len([entry for entry in bookings if entry["status"] == "confirmed"]),
                 "pending": len([entry for entry in bookings if entry["status"] == "pending"]),
                 "cancelled": len([entry for entry in bookings if entry["status"] == "cancelled"]),
             },
+            "campStatuses": camp_summary(camp_records),
         },
     )
 
@@ -816,6 +870,27 @@ def handle_create_reservation(environ, start_response):
     return json_response(start_response, "201 Created", {"ok": True, "reservation": record})
 
 
+def handle_list_camp_reservations(start_response):
+    records = read_camp_reservations()
+    return json_response(start_response, "200 OK", {"entries": records, "summary": camp_summary(records)})
+
+
+def handle_create_camp_reservation(environ, start_response):
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    record = build_camp_reservation(payload)
+    error = validate_camp_reservation(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+
+    records = read_camp_reservations()
+    records.insert(0, record)
+    write_camp_reservations(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record, "summary": camp_summary(records)})
+
+
 def handle_generate_contract(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
@@ -894,16 +969,28 @@ def app(environ, start_response):
             return handle_create_reservation(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/camp-reservations":
+        if method == "GET":
+            return handle_list_camp_reservations(start_response)
+        if method == "POST":
+            return handle_create_camp_reservation(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if method != "GET":
         return json_response(start_response, "404 Not Found", {"error": "Not found"})
 
     if path == "/":
         if request_host(environ) == "backoffice.travelx.mn":
             return file_response(start_response, PUBLIC_DIR / "backoffice.html")
+        if request_host(environ) == "camp.travelx.mn":
+            return file_response(start_response, PUBLIC_DIR / "camp.html")
         return file_response(start_response, PUBLIC_DIR / "index.html")
 
     if path == "/backoffice":
         return file_response(start_response, PUBLIC_DIR / "backoffice.html")
+
+    if path == "/camp":
+        return file_response(start_response, PUBLIC_DIR / "camp.html")
 
     if path == "/admin":
         return file_response(start_response, PUBLIC_DIR / "admin.html")

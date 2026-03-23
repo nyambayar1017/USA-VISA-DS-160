@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USM Camp Reservation</title>
+    <link rel="stylesheet" href="/styles.css?v=camp-1" />
+  </head>
+  <body>
+    <main class="shell camp-shell">
+      <section class="hero camp-hero">
+        <p class="eyebrow">USM CAMP</p>
+        <h1>Unlock Steppe Mongolia Camp Reservation</h1>
+        <p class="intro">
+          Ger camp reservation, deposit tracking, confirmation status, rejected status,
+          and internal notes for Unlock Steppe Mongolia and Delkhii Travel X.
+        </p>
+      </section>
+
+      <section class="camp-summary-grid" id="camp-summary"></section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Camp reservation form</h2>
+          <p>Inbound company нь Unlock Steppe Mongolia, outbound нь Delkhii Travel X гэж default-аар бөглөгдөнө.</p>
+        </div>
+
+        <form id="camp-form" class="field-grid">
+          <label>
+            Inbound company
+            <input name="inboundCompany" value="Unlock Steppe Mongolia" />
+          </label>
+          <label>
+            Outbound company
+            <input name="outboundCompany" value="Delkhii Travel X" />
+          </label>
+          <label>
+            Camp name
+            <input name="campName" required />
+          </label>
+          <label>
+            Region / location
+            <input name="region" placeholder="Terelj, South Gobi, Khuvsgul" />
+          </label>
+          <label>
+            Check-in
+            <input name="checkIn" type="date" required />
+          </label>
+          <label>
+            Check-out
+            <input name="checkOut" type="date" required />
+          </label>
+          <label>
+            Guest count
+            <input name="guestCount" type="number" min="1" value="2" required />
+          </label>
+          <label>
+            Ger count
+            <input name="gerCount" type="number" min="0" value="1" />
+          </label>
+          <label>
+            Deposit amount
+            <input name="depositAmount" inputmode="numeric" placeholder="500000" />
+          </label>
+          <label>
+            Deposit status
+            <select name="depositStatus">
+              <option value="not-required">Not required</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+            </select>
+          </label>
+          <label>
+            Reservation status
+            <select name="status">
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+          <label>
+            Contact person
+            <input name="contactName" placeholder="Camp manager or sales contact" />
+          </label>
+          <label>
+            Contact phone
+            <input name="contactPhone" placeholder="+976 ..." />
+          </label>
+          <label class="full-span">
+            Notes
+            <textarea name="notes" rows="4" placeholder="Deposit condition, cancellation rule, meal note, special request"></textarea>
+          </label>
+          <div class="actions full-span">
+            <button type="submit">Save camp reservation</button>
+            <p id="camp-status" class="status"></p>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Saved reservations</h2>
+          <p>Confirmed, pending, rejected status болон deposit info-г эндээс харна.</p>
+        </div>
+        <div id="camp-list" class="submission-list"></div>
+      </section>
+    </main>
+
+    <script src="/camp.js"></script>
+  </body>
+</html>
