@@ -102,7 +102,7 @@ function addDays(dateValue, days) {
     return "";
   }
   const base = new Date(`${dateValue}T00:00:00`);
-  base.setDate(base.getDate() + Math.max(Number(days) - 1, 0));
+  base.setDate(base.getDate() + Math.max(Number(days), 0));
   return base.toISOString().slice(0, 10);
 }
 
@@ -113,7 +113,7 @@ function diffDays(startValue, endValue) {
   const start = new Date(`${startValue}T00:00:00`);
   const end = new Date(`${endValue}T00:00:00`);
   const delta = Math.round((end - start) / (1000 * 60 * 60 * 24));
-  return String(Math.max(delta + 1, 1));
+  return String(Math.max(delta, 1));
 }
 
 async function fetchJson(url, options) {
