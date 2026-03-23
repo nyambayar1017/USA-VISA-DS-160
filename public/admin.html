@@ -1,48 +1,44 @@
 <!DOCTYPE html>
-<html lang="mn">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Визийн маягтын хариултууд</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>TravelX Admin</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
-      <nav class="site-nav">
-        <a class="site-brand" href="/backoffice">TravelX Backoffice</a>
-        <div class="site-nav-links">
-          <a href="/backoffice">Backoffice</a>
-          <a href="/">DS-160</a>
-          <a href="/camp">Camp</a>
-          <a class="is-active" href="/admin">Admin</a>
-        </div>
-      </nav>
       <section class="hero">
-        <p class="eyebrow">АДМИН</p>
-        <h1>Визийн маягтын илгээсэн хариултууд</h1>
+        <p class="eyebrow">Admin</p>
+        <h1>Team Access And Visa Submissions</h1>
         <p class="intro">
-          Монгол үйлчлүүлэгчдийн бөглөсөн бүх мэдээллийг эндээс харж, CSV-аар татаж авч болно.
+          Approve staff accounts, reject access requests, and review DS-160 submissions from one place.
         </p>
       </section>
 
       <section class="card">
         <div class="dashboard-head">
-          <h2>Илгээсэн мэдээллүүд</h2>
+          <h2>Team Access</h2>
           <div class="dashboard-actions">
-            <button id="export-button" type="button">CSV татах</button>
-            <button id="refresh-button" type="button">Шинэчлэх</button>
+            <button id="users-refresh-button" type="button">Refresh</button>
+            <button id="logout-button" type="button">Logout</button>
           </div>
         </div>
-        <p class="helper">Админ токеноо оруулж мэдээллээ нээнэ үү.</p>
-        <div class="token-row">
-          <input id="admin-token" type="password" placeholder="Админ токен" />
+        <div id="user-list" class="submission-list"></div>
+      </section>
+
+      <section class="card">
+        <div class="dashboard-head">
+          <h2>DS-160 Responses</h2>
+          <div class="dashboard-actions">
+            <button id="export-button" type="button">Export CSV</button>
+            <button id="refresh-button" type="button">Refresh</button>
+          </div>
         </div>
         <div id="submission-list" class="submission-list"></div>
       </section>
     </main>
+
     <script src="/admin.js"></script>
   </body>
 </html>
