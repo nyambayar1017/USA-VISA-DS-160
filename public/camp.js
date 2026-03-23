@@ -5,7 +5,6 @@ const activeTripBox = document.querySelector("#active-trip");
 const campForm = document.querySelector("#camp-form");
 const campStatus = document.querySelector("#camp-status");
 const campList = document.querySelector("#camp-list");
-const campSummary = document.querySelector("#camp-summary");
 const campToggleForm = document.querySelector("#camp-toggle-form");
 const campFormPanel = document.querySelector("#camp-form-panel");
 const reservationTripSelect = document.querySelector("#reservation-trip-select");
@@ -41,9 +40,19 @@ function formatDate(value) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
+function normalizeStatus(status) {
+  return String(status || "").trim().toLowerCase();
+}
+
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
-  const data = await response.json();
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error("Server returned an unexpected response.");
+  }
   if (!response.ok) {
     throw new Error(data.error || "Request failed");
   }
@@ -65,28 +74,6 @@ function setActiveTrip(tripId) {
   renderTrips(currentTrips);
   renderActiveTrip();
   renderEntries(getFilteredEntries());
-}
-
-function renderSummary(summary) {
-  const cards = [
-    ["Reservations", summary.total],
-    ["Trips", summary.trips],
-    ["Confirmed", summary.confirmed],
-    ["Pending", summary.pending],
-    ["Cancelled", summary.cancelled],
-    ["Rejected", summary.rejected],
-  ];
-
-  campSummary.innerHTML = cards
-    .map(
-      ([label, value]) => `
-        <article class="camp-summary-card">
-          <p>${label}</p>
-          <strong>${value}</strong>
-        </article>
-      `
-    )
-    .join("");
 }
 
 function renderTrips(trips) {
@@ -164,9 +151,14 @@ function getFilteredEntries() {
   });
 }
 
+function statusClass(entry) {
+  const status = normalizeStatus(entry.status);
+  return status ? `status-${status}` : "";
+}
+
 function renderReadOnlyRow(entry, index) {
   return `
-    <tr>
+    <tr class="${statusClass(entry)}">
       <td>${index + 1}</td>
       <td>${escapeHtml(entry.tripName)}</td>
       <td>${escapeHtml(entry.campName)}</td>
@@ -178,13 +170,14 @@ function renderReadOnlyRow(entry, index) {
       <td>${entry.gerCount}</td>
       <td>${escapeHtml(entry.roomType)}</td>
       <td>${escapeHtml(entry.staffAssignment || "-")}</td>
-      <td>${entry.status}</td>
+      <td><span class="status-pill is-${normalizeStatus(entry.status)}">${escapeHtml(entry.status)}</span></td>
       <td>${formatMoney(entry.deposit)}</td>
       <td>${formatMoney(entry.totalPayment)}</td>
       <td>${formatMoney(entry.balancePayment)}</td>
       <td>${escapeHtml(entry.notes || "-")}</td>
       <td class="camp-row-actions">
         <button type="button" class="table-action" data-action="edit" data-id="${entry.id}">Edit</button>
+        <a class="table-link secondary" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">View</a>
         <a class="table-link" href="${entry.pdfPath}" download>PDF</a>
       </td>
     </tr>
@@ -193,7 +186,7 @@ function renderReadOnlyRow(entry, index) {
 
 function renderEditableRow(entry, index) {
   return `
-    <tr class="is-editing">
+    <tr class="is-editing ${statusClass(entry)}">
       <td>${index + 1}</td>
       <td>${escapeHtml(entry.tripName)}</td>
       <td><input data-role="campName" data-id="${entry.id}" value="${escapeHtml(entry.campName)}" /></td>
@@ -299,13 +292,30 @@ async function loadTrips() {
 async function loadReservations() {
   const payload = await fetchJson("/api/camp-reservations");
   currentEntries = payload.entries;
-  renderSummary(payload.summary);
   renderActiveTrip();
   renderEntries(getFilteredEntries());
 }
 
 async function updateReservation(id) {
-  const roles = ["campName", "clientCount", "staffCount", "staffAssignment", "checkIn", "checkOut", "nights", "gerCount", "roomType", "breakfast", "lunch", "dinner", "deposit", "totalPayment", "balancePayment", "status", "notes"];
+  const roles = [
+    "campName",
+    "clientCount",
+    "staffCount",
+    "staffAssignment",
+    "checkIn",
+    "checkOut",
+    "nights",
+    "gerCount",
+    "roomType",
+    "breakfast",
+    "lunch",
+    "dinner",
+    "deposit",
+    "totalPayment",
+    "balancePayment",
+    "status",
+    "notes",
+  ];
   const payload = {};
 
   roles.forEach((role) => {

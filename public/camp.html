@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=camp-6" />
+    <link rel="stylesheet" href="/styles.css?v=camp-7" />
   </head>
   <body>
     <main class="shell camp-shell">
@@ -15,7 +15,7 @@
         <a class="site-brand" href="/backoffice">TravelX Backoffice</a>
         <div class="site-nav-links">
           <a href="/backoffice">Backoffice</a>
-          <a href="/">DS-160</a>
+          <a href="/ds160">DS-160</a>
           <a class="is-active" href="/camp">Camp</a>
           <a href="/admin">Admin</a>
         </div>
@@ -29,12 +29,10 @@
         </p>
       </section>
 
-      <section class="camp-summary-grid" id="camp-summary"></section>
-
       <section class="card">
         <div class="section-head">
           <h2>Trips</h2>
-          <p>Эхлээд trip үүсгээд, дараа нь тэр trip дотор бүх camp, ger, hotel reservation-уудаа нэмнэ.</p>
+          <p>Эхлээд trip үүсгэнэ. Дараа нь тухайн trip дотор camp болон hotel reservation-уудаа нэмнэ.</p>
         </div>
         <form id="trip-form" class="field-grid">
           <label>
@@ -212,12 +210,12 @@
       <section class="card">
         <div class="section-head">
           <h2>Saved reservations</h2>
-          <p>Filters real-time ажиллана. Мөр бүр дээр `Edit` дарж бүрэн засварлана.</p>
+          <p>Мөр бүр дээр Edit, View, PDF action-той. Confirmed мөр ногоон өнгөөр ялгарна.</p>
         </div>
         <div id="camp-list" class="submission-list"></div>
       </section>
     </main>
 
-    <script src="/camp.js?v=camp-6"></script>
+    <script src="/camp.js?v=camp-7"></script>
   </body>
 </html>

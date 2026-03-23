@@ -3,16 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TravelX Login</title>
+    <title>TravelX Access</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
+      <nav class="site-nav">
+        <a class="site-brand" href="/backoffice">TravelX</a>
+        <div class="site-nav-links">
+          <a href="/backoffice">Backoffice</a>
+          <a href="/ds160">DS-160</a>
+          <a href="/camp">Camp</a>
+        </div>
+      </nav>
       <section class="hero">
         <p class="eyebrow">Secure Access</p>
-        <h1>Backoffice Login</h1>
+        <h1>Login Or Sign Up</h1>
         <p class="intro">
-          Staff can request access with email. Admin approves users before they can enter the backoffice.
+          Staff first signs up here. After admin approval, they can log in with their own account.
         </p>
       </section>
 
@@ -35,7 +46,7 @@
           </form>
 
           <form id="register-form" class="auth-panel">
-            <h2>Request Access</h2>
+            <h2>Sign Up</h2>
             <label>
               Full name
               <input name="fullName" />
@@ -54,33 +65,6 @@
             </div>
           </form>
         </div>
-
-        <form id="bootstrap-form" class="auth-panel auth-bootstrap">
-          <h2>Create Admin</h2>
-          <p class="helper">Use this once if no admin account exists yet.</p>
-          <div class="field-grid">
-            <label>
-              Full name
-              <input name="fullName" />
-            </label>
-            <label>
-              Email
-              <input name="email" type="email" required />
-            </label>
-            <label>
-              Password
-              <input name="password" type="password" minlength="6" required />
-            </label>
-            <label>
-              Current Admin Token
-              <input name="adminToken" type="password" required />
-            </label>
-          </div>
-          <div class="actions">
-            <button type="submit">Create Admin Account</button>
-            <p id="bootstrap-status" class="status"></p>
-          </div>
-        </form>
       </section>
     </main>
 

@@ -1,9 +1,7 @@
 const loginForm = document.querySelector("#login-form");
 const registerForm = document.querySelector("#register-form");
-const bootstrapForm = document.querySelector("#bootstrap-form");
 const loginStatus = document.querySelector("#login-status");
 const registerStatus = document.querySelector("#register-status");
-const bootstrapStatus = document.querySelector("#bootstrap-status");
 
 function buildPayload(formNode) {
   return Object.fromEntries(new FormData(formNode).entries());
@@ -36,31 +34,16 @@ loginForm.addEventListener("submit", async (event) => {
 
 registerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  registerStatus.textContent = "Sending request...";
+  registerStatus.textContent = "Creating account request...";
   try {
     await fetchJson("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(buildPayload(registerForm)),
     });
-    registerStatus.textContent = "Request sent. Wait for admin approval.";
+    registerStatus.textContent = "Sign up submitted. Wait for admin approval.";
     registerForm.reset();
   } catch (error) {
     registerStatus.textContent = error.message;
-  }
-});
-
-bootstrapForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  bootstrapStatus.textContent = "Creating admin...";
-  try {
-    await fetchJson("/api/auth/bootstrap-admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildPayload(bootstrapForm)),
-    });
-    window.location.href = "/admin";
-  } catch (error) {
-    bootstrapStatus.textContent = error.message;
   }
 });

@@ -678,6 +678,13 @@ time {
   line-height: 1.7;
 }
 
+.module-card h2,
+.module-card p,
+.module-kicker,
+.module-arrow {
+  text-decoration: none;
+}
+
 .module-card-footer {
   display: flex;
   justify-content: space-between;
@@ -736,6 +743,10 @@ time {
   margin: 0;
   color: #52667f;
   line-height: 1.7;
+}
+
+.backoffice-hero-simple {
+  padding: 34px 30px;
 }
 
 .camp-shell {
@@ -916,6 +927,19 @@ time {
   background: rgba(238, 243, 255, 0.75);
 }
 
+.camp-table tbody tr.status-confirmed td {
+  background: rgba(68, 165, 94, 0.12);
+}
+
+.camp-table tbody tr.status-pending td {
+  background: rgba(230, 164, 52, 0.1);
+}
+
+.camp-table tbody tr.status-cancelled td,
+.camp-table tbody tr.status-rejected td {
+  background: rgba(209, 77, 77, 0.09);
+}
+
 .camp-row-actions {
   min-width: 180px;
   display: grid;
@@ -953,6 +977,33 @@ time {
   display: grid;
   gap: 8px;
   margin-top: 10px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-pill.is-confirmed {
+  background: rgba(68, 165, 94, 0.16);
+  color: #25643a;
+}
+
+.status-pill.is-pending {
+  background: rgba(230, 164, 52, 0.16);
+  color: #9a5b00;
+}
+
+.status-pill.is-cancelled,
+.status-pill.is-rejected {
+  background: rgba(209, 77, 77, 0.14);
+  color: #9d2f2f;
 }
 
 @media (max-width: 900px) {

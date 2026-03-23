@@ -39,6 +39,17 @@ SESSION_COOKIE = "travelx_session"
 SESSION_SECRET = os.environ.get("SESSION_SECRET", ADMIN_TOKEN)
 ADMIN_EMAIL = normalize_admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
+STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
+STEPPE_CITY = "Улаанбаатар хот"
+STEPPE_ADDRESS_LINES = [
+    "Хан-Уул дүүрэг, 17-р хороо,",
+    "Их Монгол Улсын гудамж, Кинг Товер, 121-102 тоот",
+    "Улаанбаатар хот, Монгол улс.",
+]
+STEPPE_MANAGER = "Г. Бужинлхам"
+STEPPE_PHONES = "7200-7722, 85178822"
+STEPPE_CONTACT_PHONES = "72007722, 85178822"
+STEPPE_EMAIL = "booking@steppe-mongolia.com"
 
 ET.register_namespace("w", WORD_NS)
 
@@ -952,19 +963,15 @@ def build_camp_document_html(record, pdf_href):
         background: white;
         box-shadow: 0 20px 60px rgba(0,0,0,0.1);
       }}
+      .logo {{
+        width: 320px;
+        display: block;
+      }}
       .top {{
         display: grid;
         grid-template-columns: 1.1fr 1.2fr;
         gap: 24px;
         align-items: start;
-      }}
-      .brand-mark {{
-        display: inline-block;
-        padding: 16px 18px;
-        border-radius: 18px;
-        background: #1a3e72;
-        color: #fff;
-        font: 700 24px/1.05 Arial, sans-serif;
       }}
       .brand-sub {{
         margin-top: 14px;
@@ -1037,18 +1044,18 @@ def build_camp_document_html(record, pdf_href):
     <div class="page">
       <div class="top">
         <div>
-          <div class="brand-mark">STEPPE<br/>MONGOLIA</div>
+          <img class="logo" src="/steppe-mongolia-logo.svg" alt="Steppe Mongolia" />
           <div class="brand-sub">
-            Unlock Steppe Mongolia<br/>
-            Language: {html.escape(record.get('language') or 'Other')}<br/>
-            Staff assignment: {html.escape(record['staffAssignment'] or '-')}
+            {"<br/>".join(html.escape(line) for line in STEPPE_ADDRESS_LINES)}<br/>
+            Утас: {html.escape(STEPPE_PHONES)}<br/>
+            И-мэйл: {html.escape(STEPPE_EMAIL)}
           </div>
         </div>
         <div class="doc-title">
-          <h1>CAMP RESERVATION</h1>
+          <h1>{html.escape(STEPPE_COMPANY_NAME)}</h1>
           <div class="doc-meta">
             <span>{format_pdf_date(record['createdDate'])}</span>
-            <span>Улаанбаатар хот</span>
+            <span>{html.escape(STEPPE_CITY)}</span>
           </div>
         </div>
       </div>
@@ -1088,16 +1095,11 @@ def build_camp_document_html(record, pdf_href):
       </table>
 
       <div class="footer">
+        <div></div>
         <div class="status-box">
-          <p><strong>Status:</strong> {html.escape(record['status'])}</p>
-          <p><strong>Deposit:</strong> {format_money(record['deposit'])} MNT</p>
-          <p><strong>Total payment:</strong> {format_money(record['totalPayment'])} MNT</p>
-          <p><strong>Balance payment:</strong> {format_money(record['balancePayment'])} MNT</p>
-        </div>
-        <div class="status-box">
-          <p><strong>Trip:</strong> {html.escape(record['tripName'])}</p>
-          <p><strong>Language:</strong> {html.escape(record.get('language') or 'Other')}</p>
-          <p><strong>Staff:</strong> {html.escape(record['staffAssignment'] or '-')}</p>
+          <p><strong>Захиалгын менежер:</strong> {html.escape(STEPPE_MANAGER)}</p>
+          <p><strong>Харилцах утас:</strong> {html.escape(STEPPE_CONTACT_PHONES)}</p>
+          <p><strong>Цахим шуудан:</strong> {html.escape(STEPPE_EMAIL)}</p>
         </div>
       </div>
     </div>
@@ -1122,93 +1124,120 @@ def save_camp_reservation_document(record):
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.pdfgen import canvas
+        from reportlab.platypus import Table, TableStyle
 
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            "CampTitle",
-            parent=styles["Heading1"],
-            fontName="Helvetica-Bold",
-            fontSize=18,
-            leading=22,
-            alignment=1,
-        )
-        body_style = ParagraphStyle(
-            "CampBody",
-            parent=styles["BodyText"],
-            fontName="Helvetica",
-            fontSize=10.5,
-            leading=14,
-        )
+        pdf = canvas.Canvas(str(pdf_path), pagesize=A4)
+        width, height = A4
+        font_name = "Helvetica"
+        bold_font_name = "Helvetica-Bold"
 
-        doc = SimpleDocTemplate(
-            str(pdf_path),
-            pagesize=A4,
-            leftMargin=42,
-            rightMargin=42,
-            topMargin=42,
-            bottomMargin=42,
-        )
-        elements = [
-            Paragraph("UNLOCK STEPPE MONGOLIA", title_style),
-            Spacer(1, 10),
-            Paragraph(f"Date: {format_pdf_date(record['createdDate'])} | City: Ulaanbaatar", body_style),
-            Spacer(1, 18),
-            Paragraph(
-                f"Trip name: {html.escape(record['tripName'])}",
-                ParagraphStyle("Sub", parent=body_style, fontName="Helvetica-Bold", fontSize=13, alignment=1),
-            ),
-            Spacer(1, 8),
-            Paragraph(
-                f"Camp reservation - {html.escape(record['campName'])}",
-                ParagraphStyle("Sub2", parent=body_style, fontName="Helvetica-Bold", fontSize=12, alignment=1),
-            ),
-            Spacer(1, 20),
-        ]
+        for candidate in [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+            "/Library/Fonts/Arial Unicode.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        ]:
+            if Path(candidate).exists():
+                pdfmetrics.registerFont(TTFont("TravelXUnicode", candidate))
+                font_name = "TravelXUnicode"
+                bold_font_name = "TravelXUnicode"
+                break
+
+        def draw_logo(x, y):
+            pdf.setFillColor(colors.HexColor("#1d2f86"))
+            pdf.roundRect(x, y - 78, 78, 78, 8, fill=1, stroke=0)
+            pdf.setFillColor(colors.HexColor("#f08b2d"))
+            pdf.circle(x + 62, y - 12, 5, fill=1, stroke=0)
+            pdf.setStrokeColor(colors.HexColor("#f6e7c6"))
+            pdf.setLineWidth(2.2)
+            pdf.line(x + 18, y - 10, x + 24, y - 22)
+            pdf.line(x + 24, y - 22, x + 32, y - 28)
+            pdf.line(x + 20, y - 10, x + 15, y - 22)
+            pdf.line(x + 15, y - 22, x + 8, y - 26)
+            pdf.setFillColor(colors.HexColor("#f6e7c6"))
+            pdf.ellipse(x + 18, y - 58, x + 46, y - 26, fill=1, stroke=0)
+            pdf.ellipse(x + 40, y - 44, x + 58, y - 32, fill=1, stroke=0)
+            pdf.rect(x + 25, y - 78, 2.5, 24, fill=1, stroke=0)
+            pdf.rect(x + 40, y - 78, 2.5, 24, fill=1, stroke=0)
+            pdf.setFillColor(colors.HexColor("#f08b2d"))
+            pdf.rect(x + 48, y - 78, 2.5, 22, fill=1, stroke=0)
+            pdf.setFillColor(colors.HexColor("#1d2f86"))
+            pdf.setFont(bold_font_name, 28)
+            pdf.drawString(x + 92, y - 22, "STEPPE")
+            pdf.setFont(bold_font_name, 22)
+            pdf.drawString(x + 92, y - 52, "MONG")
+            pdf.setFillColor(colors.HexColor("#f08b2d"))
+            pdf.drawString(x + 157, y - 52, "O")
+            pdf.drawString(x + 174, y - 52, "L")
+            pdf.setFillColor(colors.HexColor("#1d2f86"))
+            pdf.drawString(x + 190, y - 52, "IA")
+
+        draw_logo(52, height - 56)
+        pdf.setFillColor(colors.black)
+        pdf.setFont(bold_font_name, 17)
+        pdf.drawString(300, height - 42, STEPPE_COMPANY_NAME)
+        pdf.setFont(font_name, 12)
+        pdf.drawString(308, height - 64, format_pdf_date(record["createdDate"]))
+        pdf.drawRightString(width - 52, height - 64, STEPPE_CITY)
+
+        text = pdf.beginText(60, height - 114)
+        text.setFont(font_name, 10)
+        for line in STEPPE_ADDRESS_LINES:
+            text.textLine(line)
+        text.textLine(f"Утас: {STEPPE_PHONES}")
+        text.textLine(f"И-мэйл: {STEPPE_EMAIL}")
+        pdf.drawText(text)
+
+        pdf.setFont(bold_font_name, 16)
+        pdf.drawCentredString(width / 2, height - 198, f"Аяллын нэр: {record['tripName']}")
+        pdf.drawCentredString(width / 2, height - 240, f"Баазын захиалга - “{record['campName']}”")
 
         table = Table(
             [[
-                "Clients", "Staff", "Arrival", "Departure", "Nights", "Gers", "Room type", "Note", "Meals"
+                "Жуулчны\nтоо",
+                "Ажилчдын\nтоо",
+                "Ирэх\nөдөр",
+                "Явах\nөдөр",
+                "Хоногийн\nтоо",
+                "Өрөөний\nтөрөл",
+                "Нэмэлт\nтэмдэглэл",
+                "Хоолны\nтөрөл",
             ], [
                 str(record["clientCount"]),
                 str(record["staffCount"]),
                 format_pdf_date(record["checkIn"]),
                 format_pdf_date(record["checkOut"]),
                 str(record["nights"]),
-                str(record["gerCount"]),
                 record["roomType"],
                 record["notes"] or "-",
                 meals,
             ]],
-            repeatRows=1,
+            colWidths=[62, 78, 68, 68, 64, 92, 96, 96],
         )
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
             ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 0), (-1, 0), bold_font_name),
+            ("FONTNAME", (0, 1), (-1, -1), font_name),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("FONTSIZE", (0, 0), (-1, -1), 10),
             ("LEADING", (0, 0), (-1, -1), 13),
         ]))
-        elements.extend([table, Spacer(1, 26)])
-        elements.append(
-            Paragraph(
-                f"Status: {record['status']} | Deposit: {format_money(record['deposit'])} MNT | Total: {format_money(record['totalPayment'])} MNT | Balance: {format_money(record['balancePayment'])} MNT",
-                body_style,
-            )
-        )
-        elements.append(Spacer(1, 10))
-        elements.append(
-            Paragraph(
-                f"Trip: {html.escape(record['tripName'])} | Language: {html.escape(record.get('language') or 'Other')}",
-                body_style,
-            )
-        )
-        elements.append(Spacer(1, 10))
-        elements.append(Paragraph(f"Assigned staff: {html.escape(record['staffAssignment'] or '-')}", body_style))
-        doc.build(elements)
+        table.wrapOn(pdf, width - 104, height)
+        table.drawOn(pdf, 52, height - 390)
+
+        pdf.setFont(bold_font_name, 12)
+        pdf.drawString(300, 130, f"Захиалгын менежер: {STEPPE_MANAGER}")
+        pdf.setFont(font_name, 12)
+        pdf.drawString(300, 100, f"Харилцах утас : {STEPPE_CONTACT_PHONES}")
+        pdf.drawString(300, 76, f"Цахим шуудан : {STEPPE_EMAIL}")
+
+        pdf.showPage()
+        pdf.save()
     except Exception:
         pdf_path.write_text("PDF generation unavailable", encoding="utf-8")
 
@@ -1803,6 +1832,11 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "backoffice.html")
+
+    if path == "/ds160":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "index.html")
 
     if path == "/camp":
         if not current_user(environ):

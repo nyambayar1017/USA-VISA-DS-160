@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-label="Steppe Mongolia">
+  <rect width="720" height="180" fill="#ffffff"/>
+  <g transform="translate(10,10)">
+    <rect x="0" y="0" width="160" height="160" rx="12" fill="#1d2f86"/>
+    <circle cx="130" cy="22" r="10" fill="#f08b2d"/>
+    <g fill="none" stroke="#f6e7c6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M48 22 l8 18 12 8" />
+      <path d="M54 24 l-8 16 -10 8" />
+      <path d="M63 26 l12 16 14 6" />
+      <path d="M42 28 l-10 14 -14 4" />
+    </g>
+    <g fill="#f6e7c6">
+      <ellipse cx="70" cy="86" rx="28" ry="36"/>
+      <ellipse cx="98" cy="64" rx="18" ry="14"/>
+      <rect x="53" y="116" width="7" height="34" rx="3"/>
+      <rect x="80" y="116" width="7" height="34" rx="3"/>
+      <rect x="107" y="112" width="7" height="38" rx="3" fill="#f08b2d"/>
+    </g>
+  </g>
+  <g transform="translate(200,20)" font-family="Poppins, Arial, sans-serif" font-weight="800">
+    <text x="0" y="78" font-size="88" fill="#1d2f86">STEPPE</text>
+    <text x="0" y="152" font-size="64" fill="#1d2f86">MONG</text>
+    <text x="182" y="152" font-size="64" fill="#f08b2d">O</text>
+    <text x="226" y="152" font-size="64" fill="#f08b2d">L</text>
+    <text x="262" y="152" font-size="64" fill="#1d2f86">IA</text>
+  </g>
+</svg>
