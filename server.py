@@ -582,6 +582,291 @@ def save_simple_document(prefix, title, subtitle, sections):
     }
 
 
+def format_pdf_date(value):
+    parts = split_date_parts(value)
+    if not parts["year"]:
+        return "-"
+    return f"{parts['year']}.{parts['month']}.{parts['day']}"
+
+
+def build_camp_document_html(record):
+    return f"""<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camp reservation</title>
+    <style>
+      body {{
+        margin: 0;
+        background: #f1f0ec;
+        color: #161616;
+        font-family: Georgia, "Times New Roman", serif;
+      }}
+      .toolbar {{
+        position: sticky;
+        top: 0;
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(255,255,255,0.94);
+        border-bottom: 1px solid rgba(0,0,0,0.08);
+      }}
+      .toolbar button, .toolbar a {{
+        padding: 12px 18px;
+        border: none;
+        border-radius: 999px;
+        background: #17365f;
+        color: #fff;
+        text-decoration: none;
+        font: 600 14px/1 sans-serif;
+        cursor: pointer;
+      }}
+      .page {{
+        width: 920px;
+        margin: 22px auto 40px;
+        padding: 56px 52px 72px;
+        background: white;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+      }}
+      .top {{
+        display: grid;
+        grid-template-columns: 1.1fr 1.2fr;
+        gap: 24px;
+        align-items: start;
+      }}
+      .brand-mark {{
+        display: inline-block;
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: #1a3e72;
+        color: #fff;
+        font: 700 24px/1.05 Arial, sans-serif;
+      }}
+      .brand-sub {{
+        margin-top: 14px;
+        color: #4e4e4e;
+        line-height: 1.55;
+        font-size: 15px;
+      }}
+      .doc-title {{
+        text-align: right;
+      }}
+      .doc-title h1 {{
+        margin: 0;
+        font-size: 29px;
+      }}
+      .doc-meta {{
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 15px;
+      }}
+      .center-title {{
+        margin: 42px 0 28px;
+        text-align: center;
+      }}
+      .center-title h2 {{
+        margin: 0 0 22px;
+        font-size: 22px;
+      }}
+      .center-title p {{
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }}
+      table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }}
+      th, td {{
+        border: 1px solid #2a2a2a;
+        padding: 12px 10px;
+        text-align: center;
+        vertical-align: top;
+        font-size: 16px;
+      }}
+      th {{
+        background: #d8e4f2;
+      }}
+      .footer {{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 54px;
+      }}
+      .status-box {{
+        padding: 18px;
+        border-radius: 18px;
+        background: #f7f8fb;
+      }}
+      .status-box p {{
+        margin: 0 0 8px;
+      }}
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button onclick="window.print()">Print / Save PDF</button>
+      <a href="{html.escape(record['pdfPath'])}" download>Download PDF</a>
+    </div>
+    <div class="page">
+      <div class="top">
+        <div>
+          <div class="brand-mark">STEPPE<br/>MONGOLIA</div>
+          <div class="brand-sub">
+            {html.escape(record['inboundCompany'])}<br/>
+            Улаанбаатар хот, Монгол улс<br/>
+            {html.escape(record['contactPhone'] or 'Contact phone pending')}<br/>
+            {html.escape(record['contactName'] or 'Reservation team')}
+          </div>
+        </div>
+        <div class="doc-title">
+          <h1>“{html.escape(record['inboundCompany'])}”</h1>
+          <div class="doc-meta">
+            <span>{format_pdf_date(record['createdDate'])}</span>
+            <span>Улаанбаатар хот</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="center-title">
+        <h2>Аяллын нэр: {html.escape(record['tourName'])}</h2>
+        <p>Баазын захиалга - “{html.escape(record['campName'])}”</p>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Жуулчны тоо</th>
+            <th>Ажилчдын тоо</th>
+            <th>Ирэх өдөр</th>
+            <th>Явах өдөр</th>
+            <th>Хоногийн тоо</th>
+            <th>Өрөөний төрөл</th>
+            <th>Нэмэлт тэмдэглэл</th>
+            <th>Хоолны төрөл</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{record['guestCount']}</td>
+            <td>{record['staffCount']}</td>
+            <td>{format_pdf_date(record['checkIn'])}</td>
+            <td>{format_pdf_date(record['checkOut'])}</td>
+            <td>{record['nights']}</td>
+            <td>{html.escape(record['roomType'])}</td>
+            <td>{html.escape(record['notes'] or '-')}</td>
+            <td>{html.escape(record['mealType'])}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <div class="status-box">
+          <p><strong>Status:</strong> {html.escape(record['status'])}</p>
+          <p><strong>Deposit:</strong> {format_money(record['depositAmount'])} MNT / {html.escape(record['depositStatus'])}</p>
+          <p><strong>Outbound:</strong> {html.escape(record['outboundCompany'])}</p>
+        </div>
+        <div class="status-box">
+          <p><strong>Reservation manager:</strong> {html.escape(record['contactName'] or '-')}</p>
+          <p><strong>Contact phone:</strong> {html.escape(record['contactPhone'] or '-')}</p>
+          <p><strong>Region:</strong> {html.escape(record['region'] or '-')}</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+"""
+
+
+def save_camp_reservation_document(record):
+    ensure_data_store()
+    filename_stem = slugify(f"camp-{record['tourName']}-{record['campName']}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}")
+    html_filename = f"{filename_stem}.html"
+    pdf_filename = f"{filename_stem}.pdf"
+    html_path = GENERATED_DIR / html_filename
+    pdf_path = GENERATED_DIR / pdf_filename
+
+    html_path.write_text(build_camp_document_html(record), encoding="utf-8")
+
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            "CampTitle",
+            parent=styles["Heading1"],
+            fontName="Helvetica-Bold",
+            fontSize=18,
+            leading=22,
+            alignment=1,
+        )
+        body_style = ParagraphStyle(
+            "CampBody",
+            parent=styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=10.5,
+            leading=14,
+        )
+
+        doc = SimpleDocTemplate(str(pdf_path), pagesize=A4, leftMargin=42, rightMargin=42, topMargin=42, bottomMargin=42)
+        elements = [
+            Paragraph("UNLOCK STEPPE MONGOLIA", title_style),
+            Spacer(1, 10),
+            Paragraph(f"Date: {format_pdf_date(record['createdDate'])} | City: Ulaanbaatar", body_style),
+            Spacer(1, 18),
+            Paragraph(f"Trip name: {html.escape(record['tourName'])}", ParagraphStyle("Sub", parent=body_style, fontName="Helvetica-Bold", fontSize=13, alignment=1)),
+            Spacer(1, 8),
+            Paragraph(f"Camp reservation - {html.escape(record['campName'])}", ParagraphStyle("Sub2", parent=body_style, fontName="Helvetica-Bold", fontSize=12, alignment=1)),
+            Spacer(1, 20),
+        ]
+
+        table = Table(
+            [[
+                "Guests", "Staff", "Arrival", "Departure", "Nights", "Room type", "Note", "Meal type"
+            ], [
+                str(record["guestCount"]),
+                str(record["staffCount"]),
+                format_pdf_date(record["checkIn"]),
+                format_pdf_date(record["checkOut"]),
+                str(record["nights"]),
+                record["roomType"],
+                record["notes"] or "-",
+                record["mealType"],
+            ]],
+            repeatRows=1,
+        )
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("LEADING", (0, 0), (-1, -1), 13),
+        ]))
+        elements.extend([table, Spacer(1, 26)])
+        elements.append(Paragraph(f"Status: {record['status']} | Deposit: {format_money(record['depositAmount'])} MNT / {record['depositStatus']}", body_style))
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph(f"Inbound: {html.escape(record['inboundCompany'])} | Outbound: {html.escape(record['outboundCompany'])}", body_style))
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph(f"Contact: {html.escape(record['contactName'] or '-')} | Phone: {html.escape(record['contactPhone'] or '-')}", body_style))
+        doc.build(elements)
+    except Exception:
+        pdf_path.write_text("PDF generation unavailable", encoding="utf-8")
+
+    return {
+        "pdfViewPath": f"/generated/{html_filename}",
+        "pdfPath": f"/generated/{pdf_filename}",
+    }
+
+
 def build_ds160_application(payload):
     cleaned = {}
     for key, value in payload.items():
@@ -695,17 +980,24 @@ def validate_reservation(data):
 
 
 def build_camp_reservation(payload):
+    created_date = normalize_text(payload.get("createdDate")) or datetime.now().strftime("%Y-%m-%d")
     return {
         "id": str(uuid4()),
         "createdAt": datetime.now(timezone.utc).isoformat(),
+        "createdDate": created_date,
         "inboundCompany": normalize_text(payload.get("inboundCompany")) or "Unlock Steppe Mongolia",
         "outboundCompany": normalize_text(payload.get("outboundCompany")) or "Delkhii Travel X",
+        "tourName": normalize_text(payload.get("tourName")) or "USM CAMP RESERVATION",
         "campName": normalize_text(payload.get("campName")),
         "region": normalize_text(payload.get("region")),
         "checkIn": normalize_text(payload.get("checkIn")),
         "checkOut": normalize_text(payload.get("checkOut")),
         "guestCount": parse_int(payload.get("guestCount")),
+        "staffCount": parse_int(payload.get("staffCount")),
         "gerCount": parse_int(payload.get("gerCount")),
+        "nights": parse_int(payload.get("nights")),
+        "roomType": normalize_text(payload.get("roomType")) or "Standard ger",
+        "mealType": normalize_text(payload.get("mealType")) or "Breakfast / Lunch / Dinner",
         "depositAmount": parse_int(payload.get("depositAmount")),
         "depositStatus": normalize_text(payload.get("depositStatus")).lower() or "not-required",
         "status": normalize_text(payload.get("status")).lower() or "pending",
@@ -716,7 +1008,7 @@ def build_camp_reservation(payload):
 
 
 def validate_camp_reservation(data):
-    required = ["campName", "checkIn", "checkOut", "status"]
+    required = ["tourName", "campName", "checkIn", "checkOut", "status", "roomType", "mealType"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -730,6 +1022,7 @@ def camp_summary(records):
         "total": len(records),
         "confirmed": len([record for record in records if record["status"] == "confirmed"]),
         "pending": len([record for record in records if record["status"] == "pending"]),
+        "cancelled": len([record for record in records if record["status"] == "cancelled"]),
         "rejected": len([record for record in records if record["status"] == "rejected"]),
         "depositPending": len([record for record in records if record["depositStatus"] == "pending"]),
         "depositPaid": len([record for record in records if record["depositStatus"] == "paid"]),
@@ -885,10 +1178,32 @@ def handle_create_camp_reservation(environ, start_response):
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})
 
+    record.update(save_camp_reservation_document(record))
     records = read_camp_reservations()
     records.insert(0, record)
     write_camp_reservations(records)
     return json_response(start_response, "201 Created", {"ok": True, "entry": record, "summary": camp_summary(records)})
+
+
+def handle_update_camp_reservation(environ, start_response, reservation_id):
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    records = read_camp_reservations()
+    for index, record in enumerate(records):
+        if record["id"] != reservation_id:
+            continue
+
+        record["status"] = normalize_text(payload.get("status")).lower() or record["status"]
+        record["depositStatus"] = normalize_text(payload.get("depositStatus")).lower() or record["depositStatus"]
+        record["notes"] = normalize_text(payload.get("notes")) if "notes" in payload else record["notes"]
+        record.update(save_camp_reservation_document(record))
+        records[index] = record
+        write_camp_reservations(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": record, "summary": camp_summary(records)})
+
+    return json_response(start_response, "404 Not Found", {"error": "Camp reservation not found"})
 
 
 def handle_generate_contract(environ, start_response):
@@ -974,6 +1289,12 @@ def app(environ, start_response):
             return handle_list_camp_reservations(start_response)
         if method == "POST":
             return handle_create_camp_reservation(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/camp-reservations/"):
+        reservation_id = path.replace("/api/camp-reservations/", "", 1)
+        if method in {"PUT", "PATCH", "POST"} and reservation_id:
+            return handle_update_camp_reservation(environ, start_response, reservation_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if method != "GET":

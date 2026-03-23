@@ -797,14 +797,85 @@ time {
   grid-column: 1 / -1;
 }
 
+.camp-entry-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #17365f;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.table-link.secondary {
+  background: #f06b2a;
+}
+
+.camp-table-wrap {
+  overflow-x: auto;
+  margin-top: 18px;
+}
+
+.camp-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.camp-table th,
+.camp-table td {
+  padding: 14px 12px;
+  border: 1px solid rgba(22, 44, 84, 0.12);
+  text-align: center;
+  vertical-align: top;
+}
+
+.camp-table th {
+  background: #dce8f6;
+  color: #17365f;
+}
+
+.camp-update-row {
+  display: grid;
+  grid-template-columns: 180px 180px minmax(0, 1fr) 160px;
+  gap: 14px;
+  margin-top: 18px;
+  align-items: end;
+}
+
+.camp-note-field {
+  min-width: 0;
+}
+
+.camp-update-button {
+  width: 100%;
+}
+
 @media (max-width: 820px) {
   .camp-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .camp-update-row {
     grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 560px) {
   .camp-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .camp-update-row {
     grid-template-columns: 1fr;
   }
 }

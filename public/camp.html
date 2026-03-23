@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>USM Camp Reservation</title>
-    <link rel="stylesheet" href="/styles.css?v=camp-1" />
+    <link rel="stylesheet" href="/styles.css?v=camp-2" />
   </head>
   <body>
     <main class="shell camp-shell">
@@ -35,6 +35,14 @@
             <input name="outboundCompany" value="Delkhii Travel X" />
           </label>
           <label>
+            Reservation date
+            <input name="createdDate" type="date" />
+          </label>
+          <label>
+            Tour name
+            <input name="tourName" placeholder="STEPPE MONGOLIA 0802" required />
+          </label>
+          <label>
             Camp name
             <input name="campName" required />
           </label>
@@ -55,8 +63,24 @@
             <input name="guestCount" type="number" min="1" value="2" required />
           </label>
           <label>
+            Staff count
+            <input name="staffCount" type="number" min="0" value="0" />
+          </label>
+          <label>
             Ger count
             <input name="gerCount" type="number" min="0" value="1" />
+          </label>
+          <label>
+            Nights
+            <input name="nights" type="number" min="1" value="1" />
+          </label>
+          <label>
+            Room type
+            <input name="roomType" placeholder="00, душтэй өрөө" required />
+          </label>
+          <label>
+            Meal type
+            <input name="mealType" placeholder="Өглөөний цай / Өдрийн хоол / Оройн хоол" required />
           </label>
           <label>
             Deposit amount
@@ -100,7 +124,7 @@
       <section class="card">
         <div class="section-head">
           <h2>Saved reservations</h2>
-          <p>Confirmed, pending, rejected status болон deposit info-г эндээс харна.</p>
+          <p>Table-ээр харж, status солих, PDF татах боломжтой.</p>
         </div>
         <div id="camp-list" class="submission-list"></div>
       </section>
