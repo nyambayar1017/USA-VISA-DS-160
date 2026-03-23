@@ -31,6 +31,7 @@ BOOKINGS_FILE = DATA_DIR / "hotel_bookings.json"
 RESERVATIONS_FILE = DATA_DIR / "reservations.json"
 CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
+CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -50,6 +51,22 @@ STEPPE_MANAGER = "Г. Бужинлхам"
 STEPPE_PHONES = "7200-7722, 85178822"
 STEPPE_CONTACT_PHONES = "72007722, 85178822"
 STEPPE_EMAIL = "booking@steppe-mongolia.com"
+DEFAULT_ROOM_CHOICES = [
+    "Double Standard Ger",
+    "Twin Standard Ger",
+    "Standard Ger 3/4 pax",
+    "Luxury Ger with bathroom",
+    "Luxury Ger without bathroom",
+]
+DEFAULT_LANGUAGES = [
+    "English",
+    "French",
+    "Mongolian",
+    "Korean",
+    "Spanish",
+    "Italian",
+    "Other",
+]
 
 ET.register_namespace("w", WORD_NS)
 
@@ -70,6 +87,19 @@ def ensure_data_store():
     ]:
         if not file_path.exists():
             file_path.write_text("[]", encoding="utf-8")
+    if not CAMP_SETTINGS_FILE.exists():
+        CAMP_SETTINGS_FILE.write_text(
+            json.dumps(
+                {
+                    "campNames": ["Khustai camp"],
+                    "staffAssignments": [STEPPE_MANAGER],
+                    "roomChoices": DEFAULT_ROOM_CHOICES,
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
     bootstrap_admin_user()
 
 
@@ -81,6 +111,25 @@ def read_json_list(file_path):
 def write_json_list(file_path, records):
     ensure_data_store()
     file_path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def read_json_object(file_path, default):
+    ensure_data_store()
+    if not file_path.exists():
+        file_path.write_text(json.dumps(default, indent=2, ensure_ascii=False), encoding="utf-8")
+        return copy.deepcopy(default)
+    try:
+        data = json.loads(file_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        data = copy.deepcopy(default)
+    if not isinstance(data, dict):
+        data = copy.deepcopy(default)
+    return data
+
+
+def write_json_object(file_path, payload):
+    ensure_data_store()
+    file_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def read_contracts():
@@ -137,6 +186,36 @@ def read_camp_trips():
 
 def write_camp_trips(records):
     write_json_list(CAMP_TRIPS_FILE, records)
+
+
+def normalize_option_list(values):
+    cleaned = []
+    for value in values or []:
+        text = normalize_text(value)
+        if text and text not in cleaned:
+            cleaned.append(text)
+    return cleaned
+
+
+def default_camp_settings():
+    return {
+        "campNames": ["Khustai camp"],
+        "staffAssignments": [STEPPE_MANAGER],
+        "roomChoices": DEFAULT_ROOM_CHOICES,
+    }
+
+
+def read_camp_settings():
+    payload = read_json_object(CAMP_SETTINGS_FILE, default_camp_settings())
+    return {
+        "campNames": normalize_option_list(payload.get("campNames")) or ["Khustai camp"],
+        "staffAssignments": normalize_option_list(payload.get("staffAssignments")) or [STEPPE_MANAGER],
+        "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
+    }
+
+
+def write_camp_settings(payload):
+    write_json_object(CAMP_SETTINGS_FILE, payload)
 
 
 def json_response(start_response, status, payload, extra_headers=None):
@@ -440,6 +519,16 @@ def sanitize_user(user):
     }
 
 
+def actor_snapshot(user):
+    if not user:
+        return {"id": "", "email": "system", "name": "System"}
+    return {
+        "id": user.get("id", ""),
+        "email": user.get("email", ""),
+        "name": user.get("fullName") or user.get("email", ""),
+    }
+
+
 def find_user_by_email(email):
     needle = normalize_text(email).lower()
     for user in read_users():
@@ -509,7 +598,7 @@ def require_admin(environ, start_response):
 
 
 def split_date_parts(value):
-    raw = str(value or "")
+    raw = str(value or "").split("T", 1)[0]
     parts = raw.split("-")
     if len(parts) == 3:
         return {
@@ -964,9 +1053,12 @@ def build_camp_document_html(record, pdf_href):
         box-shadow: 0 20px 60px rgba(0,0,0,0.1);
       }}
       .logo {{
-        width: 320px;
-        display: block;
+        color: #1d2f86;
+        font: 800 34px/1 "Poppins", Arial, sans-serif;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }}
+      .logo span {{ color: #f08b2d; }}
       .top {{
         display: grid;
         grid-template-columns: 1.1fr 1.2fr;
@@ -1044,7 +1136,7 @@ def build_camp_document_html(record, pdf_href):
     <div class="page">
       <div class="top">
         <div>
-          <img class="logo" src="/steppe-mongolia-logo.svg" alt="Steppe Mongolia" />
+          <div class="logo">Unlock <span>Steppe</span> Mongolia</div>
           <div class="brand-sub">
             {"<br/>".join(html.escape(line) for line in STEPPE_ADDRESS_LINES)}<br/>
             Утас: {html.escape(STEPPE_PHONES)}<br/>
@@ -1075,7 +1167,6 @@ def build_camp_document_html(record, pdf_href):
             <th>Хоногийн тоо</th>
             <th>Гэрийн тоо</th>
             <th>Өрөөний төрөл</th>
-            <th>Нэмэлт тэмдэглэл</th>
             <th>Хоол</th>
           </tr>
         </thead>
@@ -1088,11 +1179,14 @@ def build_camp_document_html(record, pdf_href):
             <td>{record['nights']}</td>
             <td>{record['gerCount']}</td>
             <td>{html.escape(record['roomType'])}</td>
-            <td>{html.escape(record['notes'] or '-')}</td>
             <td>{html.escape(meals)}</td>
           </tr>
         </tbody>
       </table>
+
+      <div style="margin-top: 18px; font-size: 18px; line-height: 1.7;">
+        <strong>Нэмэлт тэмдэглэл:</strong> {html.escape(record['notes'] or '-')}
+      </div>
 
       <div class="footer">
         <div></div>
@@ -1153,32 +1247,12 @@ def save_camp_reservation_document(record):
 
         def draw_logo(x, y):
             pdf.setFillColor(colors.HexColor("#1d2f86"))
-            pdf.roundRect(x, y - 78, 78, 78, 8, fill=1, stroke=0)
+            pdf.setFont(bold_font_name, 20)
+            pdf.drawString(x, y - 16, "UNLOCK")
             pdf.setFillColor(colors.HexColor("#f08b2d"))
-            pdf.circle(x + 62, y - 12, 5, fill=1, stroke=0)
-            pdf.setStrokeColor(colors.HexColor("#f6e7c6"))
-            pdf.setLineWidth(2.2)
-            pdf.line(x + 18, y - 10, x + 24, y - 22)
-            pdf.line(x + 24, y - 22, x + 32, y - 28)
-            pdf.line(x + 20, y - 10, x + 15, y - 22)
-            pdf.line(x + 15, y - 22, x + 8, y - 26)
-            pdf.setFillColor(colors.HexColor("#f6e7c6"))
-            pdf.ellipse(x + 18, y - 58, x + 46, y - 26, fill=1, stroke=0)
-            pdf.ellipse(x + 40, y - 44, x + 58, y - 32, fill=1, stroke=0)
-            pdf.rect(x + 25, y - 78, 2.5, 24, fill=1, stroke=0)
-            pdf.rect(x + 40, y - 78, 2.5, 24, fill=1, stroke=0)
-            pdf.setFillColor(colors.HexColor("#f08b2d"))
-            pdf.rect(x + 48, y - 78, 2.5, 22, fill=1, stroke=0)
+            pdf.drawString(x + 92, y - 16, "STEPPE")
             pdf.setFillColor(colors.HexColor("#1d2f86"))
-            pdf.setFont(bold_font_name, 28)
-            pdf.drawString(x + 92, y - 22, "STEPPE")
-            pdf.setFont(bold_font_name, 22)
-            pdf.drawString(x + 92, y - 52, "MONG")
-            pdf.setFillColor(colors.HexColor("#f08b2d"))
-            pdf.drawString(x + 157, y - 52, "O")
-            pdf.drawString(x + 174, y - 52, "L")
-            pdf.setFillColor(colors.HexColor("#1d2f86"))
-            pdf.drawString(x + 190, y - 52, "IA")
+            pdf.drawString(x + 192, y - 16, "MONGOLIA")
 
         draw_logo(52, height - 56)
         pdf.setFillColor(colors.black)
@@ -1207,8 +1281,8 @@ def save_camp_reservation_document(record):
                 "Ирэх\nөдөр",
                 "Явах\nөдөр",
                 "Хоногийн\nтоо",
+                "Гэрийн\nтоо",
                 "Өрөөний\nтөрөл",
-                "Нэмэлт\nтэмдэглэл",
                 "Хоолны\nтөрөл",
             ], [
                 str(record["clientCount"]),
@@ -1216,11 +1290,11 @@ def save_camp_reservation_document(record):
                 format_pdf_date(record["checkIn"]),
                 format_pdf_date(record["checkOut"]),
                 str(record["nights"]),
+                str(record["gerCount"]),
                 record["roomType"],
-                record["notes"] or "-",
                 meals,
             ]],
-            colWidths=[62, 78, 68, 68, 64, 92, 96, 96],
+            colWidths=[62, 72, 68, 68, 58, 58, 120, 116],
         )
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
@@ -1236,6 +1310,7 @@ def save_camp_reservation_document(record):
         table.drawOn(pdf, 52, height - 390)
 
         pdf.setFont(bold_font_name, 12)
+        pdf.drawString(52, 170, f"Нэмэлт тэмдэглэл: {record['notes'] or '-'}")
         pdf.drawString(300, 130, f"Захиалгын менежер: {STEPPE_MANAGER}")
         pdf.setFont(font_name, 12)
         pdf.drawString(300, 100, f"Харилцах утас : {STEPPE_CONTACT_PHONES}")
@@ -1365,19 +1440,30 @@ def validate_reservation(data):
     return None
 
 
-def build_camp_trip(payload):
+def build_camp_trip(payload, actor=None):
     return {
         "id": str(uuid4()),
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "tripName": normalize_text(payload.get("tripName")),
+        "startDate": normalize_text(payload.get("startDate")),
+        "participantCount": parse_int(payload.get("participantCount")),
+        "staffCount": parse_int(payload.get("staffCount")),
         "language": normalize_text(payload.get("language")) or "Other",
+        "status": normalize_text(payload.get("status")).lower() or "planning",
         "inboundCompany": "Unlock Steppe Mongolia",
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
     }
 
 
 def validate_camp_trip(data):
-    if not data.get("tripName"):
-        return "Trip name is required"
+    required = ["tripName", "startDate", "language"]
+    missing = [field for field in required if not data.get(field)]
+    if missing:
+        return f"Missing required fields: {', '.join(missing)}"
+    if data.get("participantCount", 0) <= 0:
+        return "Number of participants must be greater than 0"
     return None
 
 
@@ -1388,7 +1474,7 @@ def find_camp_trip(trip_id):
     return None
 
 
-def build_camp_reservation(payload):
+def build_camp_reservation(payload, actor=None):
     created_date = normalize_text(payload.get("createdDate")) or datetime.now().strftime("%Y-%m-%d")
     return {
         "id": str(uuid4()),
@@ -1414,6 +1500,9 @@ def build_camp_reservation(payload):
         "totalPayment": parse_int(payload.get("totalPayment")),
         "balancePayment": parse_int(payload.get("balancePayment")),
         "notes": normalize_text(payload.get("notes")),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
     }
 
 
@@ -1508,6 +1597,9 @@ def handle_list_finance(start_response):
 
 
 def handle_create_finance(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
@@ -1518,6 +1610,8 @@ def handle_create_finance(environ, start_response):
         return json_response(start_response, "400 Bad Request", {"error": error})
 
     records = read_finance_entries()
+    record["createdBy"] = actor_snapshot(actor)
+    record["updatedBy"] = actor_snapshot(actor)
     records.insert(0, record)
     write_finance_entries(records)
     return json_response(start_response, "201 Created", {"ok": True, "entry": record, "summary": finance_summary(records)})
@@ -1528,6 +1622,9 @@ def handle_list_bookings(start_response):
 
 
 def handle_create_booking(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
@@ -1538,6 +1635,8 @@ def handle_create_booking(environ, start_response):
         return json_response(start_response, "400 Bad Request", {"error": error})
 
     records = read_bookings()
+    record["createdBy"] = actor_snapshot(actor)
+    record["updatedBy"] = actor_snapshot(actor)
     records.insert(0, record)
     write_bookings(records)
     return json_response(start_response, "201 Created", {"ok": True, "booking": record})
@@ -1548,6 +1647,9 @@ def handle_list_reservations(start_response):
 
 
 def handle_create_reservation(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
@@ -1568,6 +1670,8 @@ def handle_create_reservation(environ, start_response):
         ],
     )
     record.update(document)
+    record["createdBy"] = actor_snapshot(actor)
+    record["updatedBy"] = actor_snapshot(actor)
     records = read_reservations()
     records.insert(0, record)
     write_reservations(records)
@@ -1584,12 +1688,39 @@ def handle_list_camp_trips(start_response):
     return json_response(start_response, "200 OK", {"entries": trips})
 
 
+def handle_list_camp_settings(start_response):
+    return json_response(start_response, "200 OK", {"entry": read_camp_settings()})
+
+
+def handle_update_camp_settings(environ, start_response):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    settings = {
+        "campNames": normalize_option_list(payload.get("campNames")),
+        "staffAssignments": normalize_option_list(payload.get("staffAssignments")),
+        "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
+    }
+    if not settings["campNames"]:
+        settings["campNames"] = ["Khustai camp"]
+    if not settings["staffAssignments"]:
+        settings["staffAssignments"] = [STEPPE_MANAGER]
+    write_camp_settings(settings)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": settings})
+
+
 def handle_create_camp_trip(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
-    record = build_camp_trip(payload)
+    record = build_camp_trip(payload, actor)
     error = validate_camp_trip(record)
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})
@@ -1600,12 +1731,44 @@ def handle_create_camp_trip(environ, start_response):
     return json_response(start_response, "201 Created", {"ok": True, "entry": record})
 
 
+def handle_update_camp_trip(environ, start_response, trip_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    trips = read_camp_trips()
+    for index, trip in enumerate(trips):
+        if trip["id"] != trip_id:
+            continue
+        merged = {**trip}
+        for key in ["tripName", "startDate", "language", "status"]:
+            if key in payload:
+                merged[key] = normalize_text(payload.get(key))
+        for key in ["participantCount", "staffCount"]:
+            if key in payload:
+                merged[key] = parse_int(payload.get(key))
+        error = validate_camp_trip(merged)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        merged["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
+        trips[index] = merged
+        write_camp_trips(trips)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+    return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
+
+
 def handle_create_camp_reservation(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
-    record = build_camp_reservation(payload)
+    record = build_camp_reservation(payload, actor)
     trip = find_camp_trip(record["tripId"])
     if trip is None:
         return json_response(start_response, "400 Bad Request", {"error": "Please create or select a trip first"})
@@ -1623,6 +1786,9 @@ def handle_create_camp_reservation(environ, start_response):
 
 
 def handle_update_camp_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
@@ -1656,6 +1822,8 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})
 
+        merged["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
         merged.update(save_camp_reservation_document(merged))
         records[index] = merged
         write_camp_reservations(records)
@@ -1665,6 +1833,9 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
 
 
 def handle_generate_contract(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
@@ -1682,6 +1853,8 @@ def handle_generate_contract(environ, start_response):
         return json_response(start_response, "500 Internal Server Error", {"error": "Could not generate contract"})
 
     contracts = read_contracts()
+    record["createdBy"] = actor_snapshot(actor)
+    record["updatedBy"] = actor_snapshot(actor)
     contracts.insert(0, record)
     write_contracts(contracts)
     return json_response(start_response, "201 Created", {"ok": True, "contract": record})
@@ -1809,12 +1982,27 @@ def app(environ, start_response):
             return handle_create_camp_trip(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/camp-settings":
+        if method == "GET":
+            if not require_login(environ, start_response):
+                return []
+            return handle_list_camp_settings(start_response)
+        if method == "POST":
+            return handle_update_camp_settings(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path.startswith("/api/camp-reservations/"):
         reservation_id = path.replace("/api/camp-reservations/", "", 1).strip("/")
         if method == "POST" and reservation_id:
             if not require_login(environ, start_response):
                 return []
             return handle_update_camp_reservation(environ, start_response, reservation_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/camp-trips/"):
+        trip_id = path.replace("/api/camp-trips/", "", 1).strip("/")
+        if method == "POST" and trip_id:
+            return handle_update_camp_trip(environ, start_response, trip_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if method != "GET":

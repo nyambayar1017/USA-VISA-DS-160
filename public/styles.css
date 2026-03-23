@@ -112,6 +112,38 @@ body {
   margin-bottom: 22px;
 }
 
+.workspace-profile {
+  min-width: 240px;
+  padding: 16px 18px;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.workspace-profile-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #7a88a1;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.workspace-profile strong,
+.workspace-profile span {
+  display: block;
+}
+
+.workspace-profile strong {
+  color: var(--brand);
+}
+
+.workspace-profile span:last-child {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
 .workspace-kicker {
   margin: 0 0 8px;
   color: var(--accent);
@@ -877,6 +909,10 @@ time {
   justify-content: flex-end;
 }
 
+.camp-trip-filters {
+  margin-bottom: 20px;
+}
+
 .camp-active-trip {
   display: flex;
   justify-content: space-between;
@@ -961,6 +997,66 @@ time {
   color: var(--muted);
 }
 
+.camp-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.camp-setting-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.camp-setting-head h3 {
+  margin: 0 0 12px;
+  color: var(--brand);
+}
+
+.camp-setting-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.camp-setting-inline button {
+  min-width: 84px;
+  padding-inline: 16px;
+}
+
+.camp-setting-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.setting-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(37, 58, 119, 0.08);
+  color: var(--brand);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.setting-pill button {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(37, 58, 119, 0.14);
+  color: var(--brand);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 .camp-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1005,6 +1101,11 @@ time {
   font-weight: 800;
 }
 
+.table-link.secondary {
+  background: rgba(22, 44, 84, 0.08);
+  color: var(--brand);
+}
+
 .camp-table-wrap {
   overflow-x: auto;
   margin-top: 18px;
@@ -1034,9 +1135,17 @@ time {
   border-radius: 12px;
 }
 
+.camp-table .table-primary-cell strong {
+  color: var(--brand);
+}
+
 .camp-table th {
   background: #dce8f6;
   color: #17365f;
+}
+
+.camp-table tbody tr.is-trip-active td {
+  background: rgba(37, 58, 119, 0.08);
 }
 
 .camp-table tbody tr.is-editing {
@@ -1062,11 +1171,18 @@ time {
   gap: 10px;
 }
 
+.camp-row-actions.compact {
+  min-width: 104px;
+  gap: 8px;
+}
+
 .camp-table td:nth-child(2),
 .camp-table td:nth-child(3),
 .camp-table td:nth-child(10),
 .camp-table td:nth-child(11),
-.camp-table td:nth-child(16) {
+.camp-table td:nth-child(16),
+.camp-table td:nth-child(17),
+.camp-table td:nth-child(18) {
   text-align: left;
 }
 
@@ -1082,6 +1198,14 @@ time {
   cursor: pointer;
 }
 
+.table-action.compact,
+.table-link.compact {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .table-action.secondary,
 .secondary-button {
   background: rgba(22, 44, 84, 0.08);
@@ -1095,6 +1219,12 @@ time {
   font-family: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.inline-status-select {
+  min-width: 120px;
+  padding: 8px 10px;
+  border-radius: 12px;
 }
 
 .camp-inline-grid {
@@ -1182,7 +1312,8 @@ time {
   }
 
   .backoffice-modules,
-  .backoffice-footer-note {
+  .backoffice-footer-note,
+  .camp-settings-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1197,10 +1328,6 @@ time {
   .workspace-topbar {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .camp-summary-grid {
-    grid-template-columns: 1fr 1fr;
   }
 
   .camp-filters {
@@ -1241,7 +1368,6 @@ time {
     align-items: flex-start;
   }
 
-  .camp-summary-grid,
   .camp-filters {
     grid-template-columns: 1fr;
   }

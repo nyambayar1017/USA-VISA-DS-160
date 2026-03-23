@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-8" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-9" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -21,10 +21,10 @@
           <a class="sidebar-link" href="/admin">Team / Admin</a>
         </div>
         <div class="sidebar-group">
-          <p class="sidebar-label">Sub Pages</p>
-          <a class="sidebar-link is-active" href="/camp">Reservation List</a>
-          <a class="sidebar-link is-disabled" href="#">Trips</a>
+          <p class="sidebar-label">Camp Pages</p>
+          <a class="sidebar-link is-active" href="/camp">Trips & Reservations</a>
           <a class="sidebar-link is-disabled" href="#">Hotels</a>
+          <a class="sidebar-link is-disabled" href="#">Reports</a>
         </div>
       </aside>
 
@@ -33,198 +33,287 @@
           <div>
             <p class="workspace-kicker">USM Camp</p>
             <h1>Unlock Steppe Mongolia Camp Reservation</h1>
-            <p class="workspace-subtitle">Эхлээд trip үүсгэнэ. Дараа нь тухайн trip дотор олон reservation нэмнэ.</p>
+            <p class="workspace-subtitle">Trip үүсгээд, тухайн trip дотор camp reservation-уудаа оруулж, шүүж, засварлаж, PDF-р гаргана.</p>
+          </div>
+          <div class="workspace-profile" id="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
           </div>
         </section>
 
         <section class="card">
-        <div class="section-head">
-          <h2>Trips</h2>
-          <p>Эхлээд trip үүсгэнэ. Дараа нь тухайн trip дотор camp болон hotel reservation-уудаа нэмнэ.</p>
-        </div>
-        <form id="trip-form" class="field-grid">
-          <label>
-            Trip Name
-            <input name="tripName" placeholder="STEPPE MONGOLIA 0802" required />
-          </label>
-          <label>
-            Language
-            <select name="language" required>
-              <option value="">Choose language</option>
-              <option value="English">English</option>
-              <option value="French">French</option>
-              <option value="Mongolian">Mongolian</option>
-              <option value="Korean">Korean</option>
-              <option value="Spanish">Spanish</option>
-              <option value="Italian">Italian</option>
-              <option value="Other">Other</option>
-            </select>
-          </label>
-          <div class="actions full-span">
-            <button type="submit">Create Trip</button>
-            <p id="trip-status" class="status"></p>
-          </div>
-        </form>
-        <div id="trip-list" class="camp-trip-list"></div>
-        </section>
-
-        <section class="card">
-        <div class="section-head">
-          <h2>CAMP RESERVATION</h2>
-          <div class="camp-toolbar">
-            <button type="button" id="camp-toggle-form">Add reservation</button>
-          </div>
-        </div>
-
-        <div id="active-trip" class="camp-active-trip empty">
-          <strong>No active trip selected</strong>
-          <span>Create or open a trip first.</span>
-        </div>
-
-        <div class="camp-filters">
-          <label>
-            Camp
-            <input id="filter-camp-name" placeholder="Filter by camp" />
-          </label>
-          <label>
-            Trip Name
-            <select id="filter-trip-name">
-              <option value="">All trips</option>
-            </select>
-          </label>
-          <label>
-            Status
-            <select id="filter-status">
-              <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </label>
-        </div>
-
-        <div id="camp-form-panel" class="camp-form-panel is-hidden">
-          <div class="section-head camp-form-head">
-            <h2>New reservation</h2>
-            <p>Энэ reservation нь идэвхтэй trip дотор хадгалагдана.</p>
+          <div class="section-head">
+            <h2>Trips</h2>
+            <div class="camp-toolbar">
+              <button type="button" id="trip-toggle-form">Create Trip</button>
+            </div>
           </div>
 
-          <form id="camp-form" class="field-grid">
+          <div class="camp-filters camp-trip-filters">
             <label>
-              Selected Trip
-              <select name="tripId" id="reservation-trip-select" required></select>
-            </label>
-            <label>
-              Reservation date
-              <input name="createdDate" type="date" />
-            </label>
-            <label>
-              Camp
-              <input name="campName" required />
-            </label>
-            <label>
-              Check-in
-              <input name="checkIn" type="date" required />
-            </label>
-            <label>
-              Check-out
-              <input name="checkOut" type="date" required />
-            </label>
-            <label>
-              Number of clients
-              <input name="clientCount" type="number" min="1" value="2" required />
-            </label>
-            <label>
-              Number of staff
-              <input name="staffCount" type="number" min="0" value="0" />
-            </label>
-            <label>
-              Staff Assignment
-              <input name="staffAssignment" placeholder="Бужинлхам, Тулгаа..." />
-            </label>
-            <label>
-              Number of nights
-              <input name="nights" type="number" min="1" value="1" />
-            </label>
-            <label>
-              Number of Gers
-              <input name="gerCount" type="number" min="1" value="1" required />
-            </label>
-            <label>
-              Ger / Room choice
-              <select name="roomType" required>
-                <option value="">Choose</option>
-                <option>Standard Ger (Double / Twin)</option>
-                <option>Standard Ger (3-4 pax)</option>
-                <option>Luxury Ger with bathroom</option>
-                <option>Luxury Ger without bathroom</option>
-              </select>
-            </label>
-            <label>
-              Breakfast
-              <select name="breakfast">
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
-              </select>
-            </label>
-            <label>
-              Lunch
-              <select name="lunch">
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
-              </select>
-            </label>
-            <label>
-              Dinner
-              <select name="dinner">
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
-              </select>
-            </label>
-            <label>
-              Deposit
-              <input name="deposit" inputmode="numeric" />
-            </label>
-            <label>
-              Total Payment
-              <input name="totalPayment" inputmode="numeric" />
-            </label>
-            <label>
-              Balance Payment
-              <input name="balancePayment" inputmode="numeric" />
+              Start date from
+              <input id="trip-filter-start-date" type="date" />
             </label>
             <label>
               Status
-              <select name="status">
+              <select id="trip-filter-status">
+                <option value="">All statuses</option>
+                <option value="planning">Planning</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="travelling">Travelling</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label>
+              Language
+              <select id="trip-filter-language">
+                <option value="">All languages</option>
+              </select>
+            </label>
+            <label>
+              Created date
+              <input id="trip-filter-created-date" type="date" />
+            </label>
+          </div>
+
+          <div id="trip-form-panel" class="camp-form-panel is-hidden">
+            <div class="section-head camp-form-head">
+              <h2>New trip</h2>
+              <p>Trip нэр, эхлэх өдөр, оролцогчдын тоо, staff, language-г бөглөөд хадгална.</p>
+            </div>
+            <form id="trip-form" class="field-grid">
+              <label>
+                Trip name
+                <input name="tripName" placeholder="STEPPE MONGOLIA 0802" required />
+              </label>
+              <label>
+                Starting date
+                <input name="startDate" type="date" required />
+              </label>
+              <label>
+                Number of participants
+                <input name="participantCount" type="number" min="1" value="2" required />
+              </label>
+              <label>
+                Number of staff
+                <input name="staffCount" type="number" min="0" value="0" required />
+              </label>
+              <label>
+                Language
+                <select name="language" id="trip-language-select" required></select>
+              </label>
+              <label>
+                Status
+                <select name="status">
+                  <option value="planning">Planning</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="travelling">Travelling</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <div class="actions full-span">
+                <button type="submit">Save Trip</button>
+                <p id="trip-status" class="status"></p>
+              </div>
+            </form>
+          </div>
+
+          <div id="trip-list" class="submission-list"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <h2>Camp Reservations</h2>
+            <div class="camp-toolbar">
+              <button type="button" id="camp-toggle-form">Add reservation</button>
+            </div>
+          </div>
+
+          <div id="active-trip" class="camp-active-trip empty">
+            <strong>No active trip selected</strong>
+            <span>Create or open a trip first.</span>
+          </div>
+
+          <div class="camp-filters">
+            <label>
+              Camp
+              <select id="filter-camp-name">
+                <option value="">All camps</option>
+              </select>
+            </label>
+            <label>
+              Trip Name
+              <select id="filter-trip-name">
+                <option value="">All trips</option>
+              </select>
+            </label>
+            <label>
+              Status
+              <select id="filter-status">
+                <option value="">All statuses</option>
                 <option value="pending">Pending</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="cancelled">Cancelled</option>
                 <option value="rejected">Rejected</option>
               </select>
             </label>
-            <label class="full-span">
-              Note
-              <textarea name="notes" rows="4"></textarea>
-            </label>
-            <div class="actions full-span">
-              <button type="submit">Save reservation</button>
-              <p id="camp-status" class="status"></p>
+          </div>
+
+          <div id="camp-form-panel" class="camp-form-panel is-hidden">
+            <div class="section-head camp-form-head">
+              <h2>New reservation</h2>
+              <p>Financial хэсэг нь дотоод хэрэглээнд үлдэнэ. PDF болон View дээр харагдахгүй.</p>
             </div>
-          </form>
-        </div>
+
+            <form id="camp-form" class="field-grid">
+              <label>
+                Selected Trip
+                <select name="tripId" id="reservation-trip-select" required></select>
+              </label>
+              <label>
+                Reservation date
+                <input name="createdDate" type="datetime-local" />
+              </label>
+              <label>
+                Camp
+                <select name="campName" id="camp-name-select" required></select>
+              </label>
+              <label>
+                Check-in
+                <input name="checkIn" id="camp-checkin" type="date" required />
+              </label>
+              <label>
+                Number of stays
+                <input name="nights" id="camp-stays" type="number" min="1" value="1" required />
+              </label>
+              <label>
+                Check-out
+                <input name="checkOut" id="camp-checkout" type="date" required />
+              </label>
+              <label>
+                Number of clients
+                <input name="clientCount" type="number" min="1" value="2" required />
+              </label>
+              <label>
+                Number of staff
+                <input name="staffCount" type="number" min="0" value="0" />
+              </label>
+              <label>
+                Staff Assignment
+                <select name="staffAssignment" id="staff-assignment-select"></select>
+              </label>
+              <label>
+                Number of Gers
+                <input name="gerCount" type="number" min="1" value="1" required />
+              </label>
+              <label>
+                Ger / Room choice
+                <select name="roomType" id="room-type-select" required></select>
+              </label>
+              <label>
+                Breakfast
+                <select name="breakfast">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+              <label>
+                Lunch
+                <select name="lunch">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+              <label>
+                Dinner
+                <select name="dinner">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </label>
+              <label>
+                Deposit
+                <input name="deposit" inputmode="numeric" />
+              </label>
+              <label>
+                Total Payment
+                <input name="totalPayment" inputmode="numeric" />
+              </label>
+              <label>
+                Balance Payment
+                <input name="balancePayment" inputmode="numeric" />
+              </label>
+              <label>
+                Status
+                <select name="status">
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </label>
+              <label class="full-span">
+                Note
+                <textarea name="notes" rows="4"></textarea>
+              </label>
+              <div class="actions full-span">
+                <button type="submit">Save reservation</button>
+                <p id="camp-status" class="status"></p>
+              </div>
+            </form>
+          </div>
+
+          <div id="camp-list" class="submission-list"></div>
         </section>
 
         <section class="card">
-        <div class="section-head">
-          <h2>Saved reservations</h2>
-          <p>Мөр бүр дээр Edit, View, PDF action-той. Confirmed мөр ногоон өнгөөр ялгарна.</p>
-        </div>
-        <div id="camp-list" class="submission-list"></div>
+          <div class="section-head">
+            <h2>Camp Settings</h2>
+            <p>Camp name, staff assignment, room choice-уудаа энд удирдана. Reservation form дээр dropdown болж харагдана.</p>
+          </div>
+          <div class="camp-settings-grid">
+            <form class="camp-setting-card" data-settings-group="campNames">
+              <div class="camp-setting-head">
+                <h3>Camp names</h3>
+              </div>
+              <div class="camp-setting-inline">
+                <input name="value" placeholder="Add camp name" />
+                <button type="submit">Add</button>
+              </div>
+              <div class="camp-setting-list" id="settings-campNames"></div>
+            </form>
+
+            <form class="camp-setting-card" data-settings-group="staffAssignments">
+              <div class="camp-setting-head">
+                <h3>Staff assignment</h3>
+              </div>
+              <div class="camp-setting-inline">
+                <input name="value" placeholder="Add staff name" />
+                <button type="submit">Add</button>
+              </div>
+              <div class="camp-setting-list" id="settings-staffAssignments"></div>
+            </form>
+
+            <form class="camp-setting-card" data-settings-group="roomChoices">
+              <div class="camp-setting-head">
+                <h3>Ger / room choice</h3>
+              </div>
+              <div class="camp-setting-inline">
+                <input name="value" placeholder="Add room choice" />
+                <button type="submit">Add</button>
+              </div>
+              <div class="camp-setting-list" id="settings-roomChoices"></div>
+            </form>
+          </div>
+          <p id="settings-status" class="status"></p>
         </section>
       </main>
     </div>
 
-    <script src="/camp.js?v=workspace-8"></script>
+    <script src="/app-shell.js?v=workspace-9"></script>
+    <script src="/camp.js?v=workspace-9"></script>
   </body>
 </html>
