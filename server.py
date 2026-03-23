@@ -589,7 +589,7 @@ def format_pdf_date(value):
     return f"{parts['year']}.{parts['month']}.{parts['day']}"
 
 
-def build_camp_document_html(record):
+def build_camp_document_html(record, pdf_href):
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -710,7 +710,7 @@ def build_camp_document_html(record):
   <body>
     <div class="toolbar">
       <button onclick="window.print()">Print / Save PDF</button>
-      <a href="{html.escape(record['pdfPath'])}" download>Download PDF</a>
+      <a href="{html.escape(pdf_href)}" download>Download PDF</a>
     </div>
     <div class="page">
       <div class="top">
@@ -790,7 +790,8 @@ def save_camp_reservation_document(record):
     html_path = GENERATED_DIR / html_filename
     pdf_path = GENERATED_DIR / pdf_filename
 
-    html_path.write_text(build_camp_document_html(record), encoding="utf-8")
+    pdf_href = f"/generated/{pdf_filename}"
+    html_path.write_text(build_camp_document_html(record, pdf_href), encoding="utf-8")
 
     try:
         from reportlab.lib import colors
@@ -863,7 +864,7 @@ def save_camp_reservation_document(record):
 
     return {
         "pdfViewPath": f"/generated/{html_filename}",
-        "pdfPath": f"/generated/{pdf_filename}",
+        "pdfPath": pdf_href,
     }
 
 
