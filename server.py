@@ -150,6 +150,11 @@ def is_authorized(environ):
     return params.get("token") == ADMIN_TOKEN or environ.get("HTTP_X_ADMIN_TOKEN") == ADMIN_TOKEN
 
 
+def request_host(environ):
+    host = environ.get("HTTP_HOST") or environ.get("SERVER_NAME") or ""
+    return host.split(":", 1)[0].strip().lower()
+
+
 def format_money(value):
     digits = re.sub(r"[^\d]", "", str(value or "0"))
     if not digits:
@@ -893,6 +898,8 @@ def app(environ, start_response):
         return json_response(start_response, "404 Not Found", {"error": "Not found"})
 
     if path == "/":
+        if request_host(environ) == "backoffice.travelx.mn":
+            return file_response(start_response, PUBLIC_DIR / "backoffice.html")
         return file_response(start_response, PUBLIC_DIR / "index.html")
 
     if path == "/backoffice":
