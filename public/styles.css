@@ -377,6 +377,11 @@ time {
   pointer-events: none;
 }
 
+.backoffice-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
 .backoffice-badge {
   display: inline-flex;
   align-items: center;
@@ -446,6 +451,7 @@ time {
 }
 
 .module-card {
+  display: block;
   position: relative;
   overflow: hidden;
   min-height: 240px;
@@ -455,6 +461,13 @@ time {
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 18px 44px rgba(22, 44, 84, 0.1);
   text-decoration: none;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.module-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 54px rgba(22, 44, 84, 0.16);
+  border-color: rgba(16, 32, 57, 0.16);
 }
 
 .module-card::before {
@@ -500,6 +513,12 @@ time {
   max-width: 32ch;
   color: #5a6d87;
   line-height: 1.7;
+}
+
+.module-card h2,
+.module-card .module-kicker,
+.module-card .module-status {
+  pointer-events: none;
 }
 
 .module-status {
