@@ -795,7 +795,7 @@ def build_camp_document_html(record, pdf_href):
 
 def save_camp_reservation_document(record):
     ensure_data_store()
-    filename_stem = slugify(f"camp-{record['tourName']}-{record['campName']}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}")
+    filename_stem = slugify(f"camp-{record['tripName']}-{record['campName']}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}")
     html_filename = f"{filename_stem}.html"
     pdf_filename = f"{filename_stem}.pdf"
     html_path = GENERATED_DIR / html_filename
