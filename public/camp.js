@@ -14,13 +14,16 @@ const campNameSelect = document.querySelector("#camp-name-select");
 const staffAssignmentSelect = document.querySelector("#staff-assignment-select");
 const roomTypeSelect = document.querySelector("#room-type-select");
 const tripLanguageSelect = document.querySelector("#trip-language-select");
+const tripFilterName = document.querySelector("#trip-filter-name");
 const tripFilterStartDate = document.querySelector("#trip-filter-start-date");
 const tripFilterStatus = document.querySelector("#trip-filter-status");
 const tripFilterLanguage = document.querySelector("#trip-filter-language");
 const tripFilterCreatedDate = document.querySelector("#trip-filter-created-date");
 const filterCampName = document.querySelector("#filter-camp-name");
 const filterTripName = document.querySelector("#filter-trip-name");
+const filterTripStartDate = document.querySelector("#filter-trip-start-date");
 const filterStatus = document.querySelector("#filter-status");
+const campExportPdf = document.querySelector("#camp-export-pdf");
 const campCheckin = document.querySelector("#camp-checkin");
 const campCheckout = document.querySelector("#camp-checkout");
 const campStays = document.querySelector("#camp-stays");
@@ -56,11 +59,15 @@ function formatDate(value, withTime = false) {
   if (!value) {
     return "-";
   }
-  const options = withTime
-    ? { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
-    : { year: "numeric", month: "short", day: "numeric" };
   const iso = value.includes("T") ? value : `${value}T00:00:00`;
-  return new Intl.DateTimeFormat("mn-MN", options).format(new Date(iso));
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  if (withTime) {
+    return iso.slice(0, 16).replace("T", " ");
+  }
+  return iso.slice(0, 10);
 }
 
 function normalizeStatus(status) {
@@ -95,7 +102,7 @@ function addDays(dateValue, days) {
     return "";
   }
   const base = new Date(`${dateValue}T00:00:00`);
-  base.setDate(base.getDate() + Number(days));
+  base.setDate(base.getDate() + Math.max(Number(days) - 1, 0));
   return base.toISOString().slice(0, 10);
 }
 
@@ -106,7 +113,7 @@ function diffDays(startValue, endValue) {
   const start = new Date(`${startValue}T00:00:00`);
   const end = new Date(`${endValue}T00:00:00`);
   const delta = Math.round((end - start) / (1000 * 60 * 60 * 24));
-  return delta > 0 ? String(delta) : "1";
+  return String(Math.max(delta + 1, 1));
 }
 
 async function fetchJson(url, options) {
@@ -152,11 +159,12 @@ function setActiveTrip(tripId) {
 
 function getFilteredTrips() {
   return sortByDateDesc(currentTrips, "startDate").filter((trip) => {
+    const matchesTripName = !tripFilterName.value || String(trip.tripName || "").toLowerCase().includes(tripFilterName.value.trim().toLowerCase());
     const matchesStartDate = !tripFilterStartDate.value || String(trip.startDate || "") >= tripFilterStartDate.value;
     const matchesStatus = !tripFilterStatus.value || trip.status === tripFilterStatus.value;
     const matchesLanguage = !tripFilterLanguage.value || trip.language === tripFilterLanguage.value;
-    const matchesCreated = !tripFilterCreatedDate.value || String(trip.createdAt || "").slice(0, 10) === tripFilterCreatedDate.value;
-    return matchesStartDate && matchesStatus && matchesLanguage && matchesCreated;
+    const matchesCreated = !tripFilterCreatedDate.value || String(trip.createdAt || "").slice(0, 16) === tripFilterCreatedDate.value;
+    return matchesTripName && matchesStartDate && matchesStatus && matchesLanguage && matchesCreated;
   });
 }
 
@@ -166,10 +174,12 @@ function getFilteredEntries() {
   const status = filterStatus.value;
 
   return sortByDateDesc(currentEntries, "checkIn").filter((entry) => {
+    const trip = getTripById(entry.tripId);
     const matchesCamp = !campNeedle || entry.campName === campNeedle;
     const matchesTrip = !tripId || entry.tripId === tripId;
     const matchesStatus = !status || entry.status === status;
-    return matchesCamp && matchesTrip && matchesStatus;
+    const matchesTripStart = !filterTripStartDate.value || String(trip?.startDate || "") === filterTripStartDate.value;
+    return matchesCamp && matchesTrip && matchesStatus && matchesTripStart;
   });
 }
 
@@ -281,6 +291,7 @@ function renderTrips() {
                         .map((option) => `<option value="${option}" ${trip.status === option ? "selected" : ""}>${formatStatusLabel(option)}</option>`)
                         .join("")}
                     </select>
+                    <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
                   </td>
                 </tr>
               `
@@ -331,8 +342,10 @@ function renderReadOnlyRow(entry, index) {
       <td>${index + 1}</td>
       <td>${escapeHtml(entry.tripName)}</td>
       <td>${escapeHtml(entry.campName)}</td>
+      <td>${escapeHtml(entry.reservationType === "hotel" ? "Буудал" : entry.reservationType === "herder" ? "Малчин айл" : "Бааз")}</td>
       <td>${entry.clientCount}</td>
       <td>${entry.staffCount}</td>
+      <td>${formatDate(entry.createdDate)}</td>
       <td>${formatDate(entry.checkIn)}</td>
       <td>${entry.nights}</td>
       <td>${formatDate(entry.checkOut)}</td>
@@ -345,11 +358,15 @@ function renderReadOnlyRow(entry, index) {
       <td>${formatMoney(entry.balancePayment)}</td>
       <td>${escapeHtml(entry.createdBy?.name || entry.createdBy?.email || "-")}</td>
       <td>${escapeHtml(entry.updatedBy?.name || entry.updatedBy?.email || "-")}</td>
-      <td>${escapeHtml(entry.notes || "-")}</td>
+      <td>
+        <strong>${escapeHtml(entry.notes || "-")}</strong>
+        <div class="table-subline">${escapeHtml([entry.breakfast === "Yes" && "Breakfast", entry.lunch === "Yes" && "Lunch", entry.dinner === "Yes" && "Dinner"].filter(Boolean).join(" / ") || "No meal")}</div>
+      </td>
       <td class="camp-row-actions compact">
         <button type="button" class="table-action compact" data-action="edit" data-id="${entry.id}">Edit</button>
         <a class="table-link compact secondary" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">View</a>
         <a class="table-link compact" href="${entry.pdfPath}" target="_blank" rel="noreferrer">PDF</a>
+        <button type="button" class="table-action compact danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
       </td>
     </tr>
   `;
@@ -365,8 +382,16 @@ function renderEditableRow(entry, index) {
           ${campSettings.campNames.map((option) => `<option value="${escapeHtml(option)}" ${entry.campName === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
         </select>
       </td>
+      <td>
+        <select data-role="reservationType" data-id="${entry.id}">
+          <option value="camp" ${entry.reservationType === "camp" ? "selected" : ""}>Баазын захиалга</option>
+          <option value="hotel" ${entry.reservationType === "hotel" ? "selected" : ""}>Буудлын захиалга</option>
+          <option value="herder" ${entry.reservationType === "herder" ? "selected" : ""}>Малчин айлын захиалга</option>
+        </select>
+      </td>
       <td><input data-role="clientCount" data-id="${entry.id}" type="number" min="1" value="${entry.clientCount}" /></td>
       <td><input data-role="staffCount" data-id="${entry.id}" type="number" min="0" value="${entry.staffCount}" /></td>
+      <td><input data-role="createdDate" data-id="${entry.id}" type="date" value="${String(entry.createdDate || "").slice(0, 10)}" /></td>
       <td><input data-role="checkIn" data-id="${entry.id}" type="date" value="${entry.checkIn}" /></td>
       <td><input data-role="nights" data-id="${entry.id}" type="number" min="1" value="${entry.nights}" /></td>
       <td><input data-role="checkOut" data-id="${entry.id}" type="date" value="${entry.checkOut}" /></td>
@@ -443,8 +468,10 @@ function renderEntries() {
             <th>#</th>
             <th>Trip</th>
             <th>Camp</th>
+            <th>Type</th>
             <th>Clients</th>
             <th>Staff</th>
+            <th>Reservation date</th>
             <th>Check-in</th>
             <th>Stays</th>
             <th>Check-out</th>
@@ -544,6 +571,8 @@ async function updateTripStatus(id, status) {
 async function updateReservation(id) {
   const roles = [
     "campName",
+    "reservationType",
+    "createdDate",
     "clientCount",
     "staffCount",
     "staffAssignment",
@@ -581,6 +610,53 @@ async function updateReservation(id) {
     editingReservationId = "";
     campStatus.textContent = "Reservation updated.";
     await loadReservations();
+  } catch (error) {
+    campStatus.textContent = error.message;
+  }
+}
+
+async function deleteTrip(id) {
+  tripStatus.textContent = "Deleting trip...";
+  try {
+    await fetchJson(`/api/camp-trips/${id}`, { method: "DELETE" });
+    if (activeTripId === id) {
+      activeTripId = "";
+      editingReservationId = "";
+    }
+    tripStatus.textContent = "Trip deleted.";
+    await loadTrips();
+    await loadReservations();
+  } catch (error) {
+    tripStatus.textContent = error.message;
+  }
+}
+
+async function deleteReservation(id) {
+  campStatus.textContent = "Deleting reservation...";
+  try {
+    await fetchJson(`/api/camp-reservations/${id}`, { method: "DELETE" });
+    if (editingReservationId === id) {
+      editingReservationId = "";
+    }
+    campStatus.textContent = "Reservation deleted.";
+    await loadReservations();
+  } catch (error) {
+    campStatus.textContent = error.message;
+  }
+}
+
+async function exportCurrentReservations() {
+  const entries = getFilteredEntries();
+  if (!entries.length) {
+    campStatus.textContent = "No reservations to export.";
+    return;
+  }
+  campStatus.textContent = "Preparing PDF export...";
+  try {
+    const ids = entries.map((entry) => entry.id).join(",");
+    const result = await fetchJson(`/api/camp-reservations/export?ids=${encodeURIComponent(ids)}`);
+    window.open(result.entry.pdfPath, "_blank", "noopener");
+    campStatus.textContent = "PDF export ready.";
   } catch (error) {
     campStatus.textContent = error.message;
   }
@@ -628,7 +704,7 @@ campForm.addEventListener("submit", async (event) => {
     });
     campStatus.textContent = "Reservation saved.";
     campForm.reset();
-    campCreatedDate.value = new Date().toISOString().slice(0, 16);
+    campCreatedDate.value = new Date().toISOString().slice(0, 10);
     campForm.querySelector('[name="clientCount"]').value = "2";
     campForm.querySelector('[name="staffCount"]').value = "0";
     campForm.querySelector('[name="gerCount"]').value = "1";
@@ -678,6 +754,13 @@ tripList.addEventListener("click", (event) => {
     const totalPages = Math.max(1, Math.ceil(getFilteredTrips().length / PAGE_SIZE));
     currentTripPage = Math.min(totalPages, currentTripPage + 1);
     renderTrips();
+    return;
+  }
+
+  if (actionTarget.dataset.action === "delete-trip") {
+    if (window.confirm("Delete this trip and all linked reservations?")) {
+      deleteTrip(actionTarget.dataset.tripId);
+    }
   }
 });
 
@@ -718,8 +801,15 @@ campList.addEventListener("click", (event) => {
   if (action === "page-next") {
     const totalPages = Math.max(1, Math.ceil(getFilteredEntries().length / PAGE_SIZE));
     currentPage = Math.min(totalPages, currentPage + 1);
+    renderEntries();
+    return;
   }
-  renderEntries();
+  if (action === "delete-reservation") {
+    if (window.confirm("Delete this reservation?")) {
+      deleteReservation(target.dataset.id);
+    }
+    return;
+  }
 });
 
 campList.addEventListener("input", (event) => {
@@ -762,7 +852,7 @@ campList.addEventListener("change", (event) => {
   }
 });
 
-[filterCampName, filterTripName, filterStatus].forEach((node) => {
+[filterCampName, filterTripName, filterTripStartDate, filterStatus].forEach((node) => {
   node.addEventListener("input", () => {
     currentPage = 1;
     renderEntries();
@@ -773,7 +863,7 @@ campList.addEventListener("change", (event) => {
   });
 });
 
-[tripFilterStartDate, tripFilterStatus, tripFilterLanguage, tripFilterCreatedDate].forEach((node) => {
+[tripFilterName, tripFilterStartDate, tripFilterStatus, tripFilterLanguage, tripFilterCreatedDate].forEach((node) => {
   node.addEventListener("input", () => {
     currentTripPage = 1;
     renderTrips();
@@ -787,6 +877,7 @@ campList.addEventListener("change", (event) => {
 campCheckin.addEventListener("change", syncCheckoutFromStay);
 campStays.addEventListener("input", syncCheckoutFromStay);
 campCheckout.addEventListener("change", syncStayFromCheckout);
+campExportPdf?.addEventListener("click", exportCurrentReservations);
 
 document.querySelectorAll("[data-settings-group]").forEach((formNode) => {
   formNode.addEventListener("submit", async (event) => {
@@ -817,7 +908,7 @@ document.addEventListener("click", async (event) => {
 });
 
 async function init() {
-  campCreatedDate.value = new Date().toISOString().slice(0, 16);
+  campCreatedDate.value = new Date().toISOString().slice(0, 10);
   await loadSettings();
   await loadTrips();
   await loadReservations();

@@ -22,9 +22,9 @@
         </div>
         <div class="sidebar-group">
           <p class="sidebar-label">Camp Pages</p>
-          <a class="sidebar-link is-active" href="/camp">Trips & Reservations</a>
-          <a class="sidebar-link is-disabled" href="#">Hotels</a>
-          <a class="sidebar-link is-disabled" href="#">Reports</a>
+          <a class="sidebar-link is-active" href="#trips-section">Trips</a>
+          <a class="sidebar-link" href="#reservations-section">Reservations</a>
+          <a class="sidebar-link" href="#settings-section">Settings</a>
         </div>
       </aside>
 
@@ -42,7 +42,7 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" id="trips-section">
           <div class="section-head">
             <h2>Trips</h2>
             <div class="camp-toolbar">
@@ -51,6 +51,10 @@
           </div>
 
           <div class="camp-filters camp-trip-filters">
+            <label>
+              Filter by Trip Name
+              <input id="trip-filter-name" type="search" placeholder="Search trip name" />
+            </label>
             <label>
               Start date from
               <input id="trip-filter-start-date" type="date" />
@@ -73,8 +77,8 @@
               </select>
             </label>
             <label>
-              Created date
-              <input id="trip-filter-created-date" type="date" />
+              Created date / time
+              <input id="trip-filter-created-date" type="datetime-local" />
             </label>
           </div>
 
@@ -124,10 +128,11 @@
           <div id="trip-list" class="submission-list"></div>
         </section>
 
-        <section class="card">
+        <section class="card" id="reservations-section">
           <div class="section-head">
             <h2>Camp Reservations</h2>
             <div class="camp-toolbar">
+              <button type="button" id="camp-export-pdf" class="secondary-button">Export current list PDF</button>
               <button type="button" id="camp-toggle-form">Add reservation</button>
             </div>
           </div>
@@ -149,6 +154,10 @@
               <select id="filter-trip-name">
                 <option value="">All trips</option>
               </select>
+            </label>
+            <label>
+              Trip start date
+              <input id="filter-trip-start-date" type="date" />
             </label>
             <label>
               Status
@@ -175,11 +184,19 @@
               </label>
               <label>
                 Reservation date
-                <input name="createdDate" type="datetime-local" />
+                <input name="createdDate" type="date" />
               </label>
               <label>
                 Camp
                 <select name="campName" id="camp-name-select" required></select>
+              </label>
+              <label>
+                Reservation type
+                <select name="reservationType" required>
+                  <option value="camp">Баазын захиалга</option>
+                  <option value="hotel">Буудлын захиалга</option>
+                  <option value="herder">Малчин айлын захиалга</option>
+                </select>
               </label>
               <label>
                 Check-in
@@ -269,7 +286,7 @@
           <div id="camp-list" class="submission-list"></div>
         </section>
 
-        <section class="card">
+        <section class="card" id="settings-section">
           <div class="section-head">
             <h2>Camp Settings</h2>
             <p>Camp name, staff assignment, room choice-уудаа энд удирдана. Reservation form дээр dropdown болж харагдана.</p>
