@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>USM Camp Reservation</title>
-    <link rel="stylesheet" href="/styles.css?v=camp-2" />
+    <link rel="stylesheet" href="/styles.css?v=camp-3" />
   </head>
   <body>
     <main class="shell camp-shell">
@@ -21,11 +21,34 @@
 
       <section class="card">
         <div class="section-head">
-          <h2>Camp reservation form</h2>
-          <p>Inbound company нь Unlock Steppe Mongolia, outbound нь Delkhii Travel X гэж default-аар бөглөгдөнө.</p>
+          <h2>Reservations</h2>
+          <div class="camp-toolbar">
+            <button type="button" id="camp-toggle-form">Add reservation</button>
+          </div>
         </div>
 
-        <form id="camp-form" class="field-grid">
+        <div class="camp-filters">
+          <label>
+            Camp name
+            <input id="filter-camp-name" placeholder="Search by camp name" />
+          </label>
+          <label>
+            Check-in from
+            <input id="filter-date-from" type="date" />
+          </label>
+          <label>
+            Check-in to
+            <input id="filter-date-to" type="date" />
+          </label>
+        </div>
+
+        <div id="camp-form-panel" class="camp-form-panel is-hidden">
+          <div class="section-head camp-form-head">
+            <h2>New camp reservation</h2>
+            <p>Inbound company нь Unlock Steppe Mongolia, outbound нь Delkhii Travel X гэж default-аар бөглөгдөнө.</p>
+          </div>
+
+          <form id="camp-form" class="field-grid">
           <label>
             Inbound company
             <input name="inboundCompany" value="Unlock Steppe Mongolia" />
@@ -47,10 +70,6 @@
             <input name="campName" required />
           </label>
           <label>
-            Region / location
-            <input name="region" placeholder="Terelj, South Gobi, Khuvsgul" />
-          </label>
-          <label>
             Check-in
             <input name="checkIn" type="date" required />
           </label>
@@ -67,20 +86,50 @@
             <input name="staffCount" type="number" min="0" value="0" />
           </label>
           <label>
-            Ger count
-            <input name="gerCount" type="number" min="0" value="1" />
-          </label>
-          <label>
             Nights
             <input name="nights" type="number" min="1" value="1" />
           </label>
           <label>
-            Room type
-            <input name="roomType" placeholder="00, душтэй өрөө" required />
+            Ger / room choice
+            <select name="roomType" required>
+              <option value="">Choose</option>
+              <option>Standard ger</option>
+              <option>Luxury ger</option>
+              <option>Double room</option>
+              <option>Twin room</option>
+              <option>Family room</option>
+              <option>Ensuite room</option>
+            </select>
           </label>
           <label>
-            Meal type
-            <input name="mealType" placeholder="Өглөөний цай / Өдрийн хоол / Оройн хоол" required />
+            Accommodation
+            <select name="accommodation" required>
+              <option value="">Choose</option>
+              <option>Accommodation only</option>
+              <option>Accommodation with breakfast</option>
+              <option>Full board</option>
+            </select>
+          </label>
+          <label>
+            Breakfast
+            <select name="breakfast">
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+          </label>
+          <label>
+            Lunch
+            <select name="lunch">
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+          </label>
+          <label>
+            Dinner
+            <select name="dinner">
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
           </label>
           <label>
             Deposit amount
@@ -110,6 +159,10 @@
             Contact phone
             <input name="contactPhone" placeholder="+976 ..." />
           </label>
+          <label>
+            Region / location
+            <input name="region" placeholder="Terelj, South Gobi, Khuvsgul" />
+          </label>
           <label class="full-span">
             Notes
             <textarea name="notes" rows="4" placeholder="Deposit condition, cancellation rule, meal note, special request"></textarea>
@@ -118,7 +171,8 @@
             <button type="submit">Save camp reservation</button>
             <p id="camp-status" class="status"></p>
           </div>
-        </form>
+          </form>
+        </div>
       </section>
 
       <section class="card">

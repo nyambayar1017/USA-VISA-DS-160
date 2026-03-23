@@ -762,6 +762,30 @@ time {
   max-width: 860px;
 }
 
+.camp-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.camp-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.camp-form-panel {
+  padding-top: 8px;
+}
+
+.camp-form-panel.is-hidden {
+  display: none;
+}
+
+.camp-form-head {
+  margin-bottom: 18px;
+}
+
 .camp-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -827,7 +851,7 @@ time {
 
 .camp-table {
   width: 100%;
-  min-width: 920px;
+  min-width: 1180px;
   border-collapse: collapse;
 }
 
@@ -865,6 +889,7 @@ time {
     grid-template-columns: 1fr 1fr;
   }
 
+  .camp-filters,
   .camp-update-row {
     grid-template-columns: 1fr 1fr;
   }
@@ -875,6 +900,7 @@ time {
     grid-template-columns: 1fr;
   }
 
+  .camp-filters,
   .camp-update-row {
     grid-template-columns: 1fr;
   }

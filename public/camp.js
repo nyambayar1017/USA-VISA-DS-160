@@ -2,6 +2,13 @@ const campForm = document.querySelector("#camp-form");
 const campStatus = document.querySelector("#camp-status");
 const campList = document.querySelector("#camp-list");
 const campSummary = document.querySelector("#camp-summary");
+const campToggleForm = document.querySelector("#camp-toggle-form");
+const campFormPanel = document.querySelector("#camp-form-panel");
+const filterCampName = document.querySelector("#filter-camp-name");
+const filterDateFrom = document.querySelector("#filter-date-from");
+const filterDateTo = document.querySelector("#filter-date-to");
+
+let currentEntries = [];
 
 function escapeHtml(value) {
   return String(value || "")
@@ -28,7 +35,11 @@ function formatDate(value) {
 }
 
 function buildPayload(formNode) {
-  return Object.fromEntries(new FormData(formNode).entries());
+  const payload = Object.fromEntries(new FormData(formNode).entries());
+  payload.mealType = [payload.breakfast === "Yes" ? "Breakfast" : "", payload.lunch === "Yes" ? "Lunch" : "", payload.dinner === "Yes" ? "Dinner" : ""]
+    .filter(Boolean)
+    .join(" / ") || "No meal";
+  return payload;
 }
 
 async function fetchJson(url, options) {
@@ -65,6 +76,19 @@ function renderSummary(summary) {
     .join("");
 }
 
+function getFilteredEntries() {
+  const campNameNeedle = filterCampName.value.trim().toLowerCase();
+  const dateFrom = filterDateFrom.value;
+  const dateTo = filterDateTo.value;
+
+  return currentEntries.filter((entry) => {
+    const matchesCamp = !campNameNeedle || entry.campName.toLowerCase().includes(campNameNeedle);
+    const matchesFrom = !dateFrom || entry.checkIn >= dateFrom;
+    const matchesTo = !dateTo || entry.checkIn <= dateTo;
+    return matchesCamp && matchesFrom && matchesTo;
+  });
+}
+
 function renderEntries(entries) {
   if (!entries.length) {
     campList.innerHTML = '<p class="empty">No camp reservations yet.</p>';
@@ -95,7 +119,10 @@ function renderEntries(entries) {
                   <th>Departure</th>
                   <th>Nights</th>
                   <th>Room type</th>
-                  <th>Meal type</th>
+                  <th>Accommodation</th>
+                  <th>Breakfast</th>
+                  <th>Lunch</th>
+                  <th>Dinner</th>
                   <th>Deposit</th>
                   <th>Status</th>
                 </tr>
@@ -108,7 +135,10 @@ function renderEntries(entries) {
                   <td>${formatDate(entry.checkOut)}</td>
                   <td>${escapeHtml(entry.nights || "-")}</td>
                   <td>${escapeHtml(entry.roomType)}</td>
-                  <td>${escapeHtml(entry.mealType)}</td>
+                  <td>${escapeHtml(entry.accommodation || "-")}</td>
+                  <td>${escapeHtml(entry.breakfast || "No")}</td>
+                  <td>${escapeHtml(entry.lunch || "No")}</td>
+                  <td>${escapeHtml(entry.dinner || "No")}</td>
                   <td>${formatMoney(entry.depositAmount)} MNT</td>
                   <td>${escapeHtml(entry.status)}</td>
                 </tr>
@@ -174,8 +204,9 @@ async function updateReservation(id) {
 
 async function loadCampReservations() {
   const payload = await fetchJson("/api/camp-reservations");
+  currentEntries = payload.entries;
   renderSummary(payload.summary);
-  renderEntries(payload.entries);
+  renderEntries(getFilteredEntries());
 }
 
 campForm.addEventListener("submit", async (event) => {
@@ -198,8 +229,11 @@ campForm.addEventListener("submit", async (event) => {
     campForm.createdDate.valueAsDate = new Date();
     campForm.guestCount.value = "2";
     campForm.staffCount.value = "0";
-    campForm.gerCount.value = "1";
     campForm.nights.value = "1";
+    campForm.breakfast.value = "No";
+    campForm.lunch.value = "No";
+    campForm.dinner.value = "No";
+    campFormPanel.classList.add("is-hidden");
     await loadCampReservations();
   } catch (error) {
     campStatus.textContent = error.message;
@@ -215,6 +249,19 @@ campList.addEventListener("click", (event) => {
   updateReservation(button.dataset.id);
 });
 
+campToggleForm.addEventListener("click", () => {
+  campFormPanel.classList.toggle("is-hidden");
+});
+
+[filterCampName, filterDateFrom, filterDateTo].forEach((node) => {
+  node.addEventListener("input", () => {
+    renderEntries(getFilteredEntries());
+  });
+});
+
 campForm.createdDate.valueAsDate = new Date();
+campForm.breakfast.value = "No";
+campForm.lunch.value = "No";
+campForm.dinner.value = "No";
 
 loadCampReservations();
