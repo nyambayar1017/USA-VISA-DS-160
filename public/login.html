@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelX Login</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Secure Access</p>
+        <h1>Backoffice Login</h1>
+        <p class="intro">
+          Staff can request access with email. Admin approves users before they can enter the backoffice.
+        </p>
+      </section>
+
+      <section class="card auth-card">
+        <div class="auth-grid">
+          <form id="login-form" class="auth-panel">
+            <h2>Login</h2>
+            <label>
+              Email
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" required />
+            </label>
+            <div class="actions">
+              <button type="submit">Login</button>
+              <p id="login-status" class="status"></p>
+            </div>
+          </form>
+
+          <form id="register-form" class="auth-panel">
+            <h2>Request Access</h2>
+            <label>
+              Full name
+              <input name="fullName" />
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" minlength="6" required />
+            </label>
+            <div class="actions">
+              <button type="submit">Request Access</button>
+              <p id="register-status" class="status"></p>
+            </div>
+          </form>
+        </div>
+
+        <form id="bootstrap-form" class="auth-panel auth-bootstrap">
+          <h2>Create Admin</h2>
+          <p class="helper">Use this once if no admin account exists yet.</p>
+          <div class="field-grid">
+            <label>
+              Full name
+              <input name="fullName" />
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" minlength="6" required />
+            </label>
+            <label>
+              Current Admin Token
+              <input name="adminToken" type="password" required />
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit">Create Admin Account</button>
+            <p id="bootstrap-status" class="status"></p>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/login.js"></script>
+  </body>
+</html>

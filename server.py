@@ -1,9 +1,12 @@
 import copy
 import html
+import hashlib
+import hmac
 import json
 import mimetypes
 import os
 import re
+import secrets
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,8 +29,14 @@ DS160_FILE = DATA_DIR / "ds160_applications.json"
 FINANCE_FILE = DATA_DIR / "finance_entries.json"
 BOOKINGS_FILE = DATA_DIR / "hotel_bookings.json"
 RESERVATIONS_FILE = DATA_DIR / "reservations.json"
+USERS_FILE = DATA_DIR / "users.json"
+SESSIONS_FILE = DATA_DIR / "sessions.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
+SESSION_COOKIE = "travelx_session"
+SESSION_SECRET = os.environ.get("SESSION_SECRET", ADMIN_TOKEN)
+ADMIN_EMAIL = normalize_admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
 
 ET.register_namespace("w", WORD_NS)
 
@@ -35,9 +44,10 @@ ET.register_namespace("w", WORD_NS)
 def ensure_data_store():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
-    for file_path in [CONTRACTS_FILE, DS160_FILE, FINANCE_FILE, BOOKINGS_FILE, RESERVATIONS_FILE]:
+    for file_path in [CONTRACTS_FILE, DS160_FILE, FINANCE_FILE, BOOKINGS_FILE, RESERVATIONS_FILE, USERS_FILE, SESSIONS_FILE]:
         if not file_path.exists():
             file_path.write_text("[]", encoding="utf-8")
+    bootstrap_admin_user()
 
 
 def read_json_list(file_path):
@@ -90,42 +100,50 @@ def write_reservations(records):
     write_json_list(RESERVATIONS_FILE, records)
 
 
-def json_response(start_response, status, payload):
+def json_response(start_response, status, payload, extra_headers=None):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = [
         ("Content-Type", "application/json; charset=utf-8"),
         ("Content-Length", str(len(body))),
     ]
+    if extra_headers:
+        headers.extend(extra_headers)
     start_response(status, headers)
     return [body]
 
 
-def text_response(start_response, status, text):
+def text_response(start_response, status, text, extra_headers=None):
     body = text.encode("utf-8")
     headers = [
         ("Content-Type", "text/plain; charset=utf-8"),
         ("Content-Length", str(len(body))),
     ]
+    if extra_headers:
+        headers.extend(extra_headers)
     start_response(status, headers)
     return [body]
 
 
-def bytes_response(start_response, status, body, content_type):
+def bytes_response(start_response, status, body, content_type, extra_headers=None):
     headers = [
         ("Content-Type", content_type),
         ("Content-Length", str(len(body))),
     ]
+    if extra_headers:
+        headers.extend(extra_headers)
     start_response(status, headers)
     return [body]
 
 
-def file_response(start_response, file_path):
+def file_response(start_response, file_path, extra_headers=None):
     mime_type, _ = mimetypes.guess_type(file_path.name)
     body = file_path.read_bytes()
     headers = [
         ("Content-Type", mime_type or "application/octet-stream"),
         ("Content-Length", str(len(body))),
     ]
+    if extra_headers:
+        headers.extend(extra_headers)
     start_response("200 OK", headers)
     return [body]
 
@@ -148,6 +166,160 @@ def is_authorized(environ):
         key, value = pair.split("=", 1)
         params[key] = value
     return params.get("token") == ADMIN_TOKEN or environ.get("HTTP_X_ADMIN_TOKEN") == ADMIN_TOKEN
+
+
+def build_user_account(payload):
+    return {
+        "id": str(uuid4()),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "approvedAt": "",
+        "lastLoginAt": "",
+        "fullName": normalize_text(payload.get("fullName")),
+        "email": normalize_text(payload.get("email")).lower(),
+        "passwordHash": hash_password(payload.get("password") or ""),
+        "role": "staff",
+        "status": "pending",
+    }
+
+
+def validate_user_account(payload):
+    email = normalize_text(payload.get("email")).lower()
+    password = str(payload.get("password") or "")
+    if not email or "@" not in email:
+        return "Valid email is required"
+    if len(password) < 6:
+        return "Password must be at least 6 characters"
+    return None
+
+
+def create_session(user_id):
+    sessions = read_sessions()
+    token = secrets.token_urlsafe(32)
+    sessions = [item for item in sessions if item.get("userId") != user_id]
+    sessions.insert(0, {
+        "token": token,
+        "userId": user_id,
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    })
+    write_sessions(sessions)
+    return token
+
+
+def handle_auth_register(environ, start_response):
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    error = validate_user_account(payload)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    if find_user_by_email(payload.get("email")):
+        return json_response(start_response, "400 Bad Request", {"error": "This email is already registered"})
+    users = read_users()
+    users.insert(0, build_user_account(payload))
+    write_users(users)
+    return json_response(start_response, "201 Created", {"ok": True, "message": "Your account request was sent. Wait for admin approval."})
+
+
+def handle_auth_bootstrap_admin(environ, start_response):
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    if payload.get("adminToken") != ADMIN_TOKEN:
+        return json_response(start_response, "401 Unauthorized", {"error": "Invalid admin token"})
+    if any(user.get("role") == "admin" for user in read_users()):
+        return json_response(start_response, "400 Bad Request", {"error": "Admin account already exists"})
+    error = validate_user_account(payload)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    user = build_user_account(payload)
+    user["role"] = "admin"
+    user["status"] = "approved"
+    user["approvedAt"] = datetime.now(timezone.utc).isoformat()
+    users = read_users()
+    users.insert(0, user)
+    write_users(users)
+    token = create_session(user["id"])
+    return json_response(
+        start_response,
+        "201 Created",
+        {"ok": True, "user": sanitize_user(user)},
+        extra_headers=[("Set-Cookie", make_session_cookie(token))],
+    )
+
+
+def handle_auth_login(environ, start_response):
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    user = find_user_by_email(payload.get("email"))
+    if not user or user.get("passwordHash") != hash_password(payload.get("password") or ""):
+        return json_response(start_response, "401 Unauthorized", {"error": "Incorrect email or password"})
+    if user.get("status") != "approved":
+        return json_response(start_response, "403 Forbidden", {"error": f"Your account is {user.get('status', 'pending')}. Wait for admin approval."})
+    token = create_session(user["id"])
+    users = read_users()
+    for item in users:
+        if item["id"] == user["id"]:
+            item["lastLoginAt"] = datetime.now(timezone.utc).isoformat()
+    write_users(users)
+    return json_response(
+        start_response,
+        "200 OK",
+        {"ok": True, "user": sanitize_user(find_user_by_id(user["id"]))},
+        extra_headers=[("Set-Cookie", make_session_cookie(token))],
+    )
+
+
+def handle_auth_logout(environ, start_response):
+    token = parse_cookies(environ).get(SESSION_COOKIE)
+    if token:
+        sessions = [item for item in read_sessions() if item.get("token") != token]
+        write_sessions(sessions)
+    return json_response(
+        start_response,
+        "200 OK",
+        {"ok": True},
+        extra_headers=[("Set-Cookie", clear_session_cookie())],
+    )
+
+
+def handle_auth_me(environ, start_response):
+    user = current_user(environ)
+    if not user:
+        return json_response(start_response, "401 Unauthorized", {"error": "Not logged in"})
+    return json_response(start_response, "200 OK", {"user": user})
+
+
+def handle_list_users(environ, start_response):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    users = [sanitize_user(user) for user in read_users()]
+    return json_response(start_response, "200 OK", {"entries": users})
+
+
+def handle_update_user(environ, start_response, user_id):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    users = read_users()
+    for user in users:
+        if user["id"] != user_id:
+            continue
+        if "status" in payload:
+            user["status"] = normalize_text(payload.get("status")).lower()
+            if user["status"] == "approved":
+                user["approvedAt"] = datetime.now(timezone.utc).isoformat()
+        if "role" in payload:
+            user["role"] = normalize_text(payload.get("role")).lower() or user["role"]
+        if "fullName" in payload:
+            user["fullName"] = normalize_text(payload.get("fullName"))
+        write_users(users)
+        return json_response(start_response, "200 OK", {"ok": True, "user": sanitize_user(user)})
+    return json_response(start_response, "404 Not Found", {"error": "User not found"})
 
 
 def request_host(environ):
@@ -175,6 +347,126 @@ def slugify(value):
 def parse_int(value):
     digits = re.sub(r"[^\d]", "", str(value or "0"))
     return int(digits or "0")
+
+
+def read_users():
+    return read_json_list(USERS_FILE)
+
+
+def write_users(records):
+    write_json_list(USERS_FILE, records)
+
+
+def read_sessions():
+    return read_json_list(SESSIONS_FILE)
+
+
+def write_sessions(records):
+    write_json_list(SESSIONS_FILE, records)
+
+
+def hash_password(password):
+    return hashlib.sha256(f"{SESSION_SECRET}:{password}".encode("utf-8")).hexdigest()
+
+
+def parse_cookies(environ):
+    raw = environ.get("HTTP_COOKIE", "")
+    cookies = {}
+    for part in raw.split(";"):
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        cookies[key.strip()] = value.strip()
+    return cookies
+
+
+def make_session_cookie(token, max_age=60 * 60 * 24 * 30):
+    return f"{SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}"
+
+
+def clear_session_cookie():
+    return f"{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+
+
+def sanitize_user(user):
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "fullName": user.get("fullName", ""),
+        "role": user.get("role", "staff"),
+        "status": user.get("status", "pending"),
+        "createdAt": user.get("createdAt"),
+        "approvedAt": user.get("approvedAt"),
+        "lastLoginAt": user.get("lastLoginAt"),
+    }
+
+
+def find_user_by_email(email):
+    needle = normalize_text(email).lower()
+    for user in read_users():
+        if user.get("email") == needle:
+            return user
+    return None
+
+
+def find_user_by_id(user_id):
+    for user in read_users():
+        if user.get("id") == user_id:
+            return user
+    return None
+
+
+def bootstrap_admin_user():
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+        return
+    users = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+    if any(user.get("role") == "admin" for user in users):
+        return
+    users.insert(0, {
+        "id": str(uuid4()),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "approvedAt": datetime.now(timezone.utc).isoformat(),
+        "lastLoginAt": "",
+        "fullName": "Admin",
+        "email": ADMIN_EMAIL,
+        "passwordHash": hash_password(ADMIN_PASSWORD),
+        "role": "admin",
+        "status": "approved",
+    })
+    USERS_FILE.write_text(json.dumps(users, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def current_user(environ):
+    token = parse_cookies(environ).get(SESSION_COOKIE)
+    if not token:
+        return None
+    sessions = read_sessions()
+    match = next((item for item in sessions if item.get("token") == token), None)
+    if not match:
+        return None
+    user = find_user_by_id(match.get("userId"))
+    if not user or user.get("status") != "approved":
+        return None
+    return sanitize_user(user)
+
+
+def require_login(environ, start_response):
+    user = current_user(environ)
+    if user:
+        return user
+    json_response(start_response, "401 Unauthorized", {"error": "Login required"})
+    return None
+
+
+def require_admin(environ, start_response):
+    user = current_user(environ)
+    if not user:
+        json_response(start_response, "401 Unauthorized", {"error": "Login required"})
+        return None
+    if user.get("role") != "admin":
+        json_response(start_response, "403 Forbidden", {"error": "Admin access required"})
+        return None
+    return user
 
 
 def split_date_parts(value):
@@ -848,25 +1140,58 @@ def app(environ, start_response):
 
     method = environ["REQUEST_METHOD"]
     path = environ.get("PATH_INFO", "/")
+    host = request_host(environ)
 
     if method == "GET" and path == "/health":
         return text_response(start_response, "200 OK", "ok")
 
+    if path == "/api/auth/register" and method == "POST":
+        return handle_auth_register(environ, start_response)
+
+    if path == "/api/auth/bootstrap-admin" and method == "POST":
+        return handle_auth_bootstrap_admin(environ, start_response)
+
+    if path == "/api/auth/login" and method == "POST":
+        return handle_auth_login(environ, start_response)
+
+    if path == "/api/auth/logout" and method == "POST":
+        return handle_auth_logout(environ, start_response)
+
+    if path == "/api/auth/me" and method == "GET":
+        return handle_auth_me(environ, start_response)
+
+    if path == "/api/users":
+        if method == "GET":
+            return handle_list_users(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/users/"):
+        user_id = path.replace("/api/users/", "", 1).strip("/")
+        if method == "POST" and user_id:
+            return handle_update_user(environ, start_response, user_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/backoffice/summary":
         if method == "GET":
+            if not require_login(environ, start_response):
+                return []
             return handle_dashboard_summary(start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/contracts":
         if method == "GET":
+            if not require_login(environ, start_response):
+                return []
             return handle_list_contracts(start_response)
         if method == "POST":
+            if not require_login(environ, start_response):
+                return []
             return handle_generate_contract(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/ds160":
         if method == "GET":
-            if not is_authorized(environ):
+            if not current_user(environ) and not is_authorized(environ):
                 return json_response(start_response, "401 Unauthorized", {"error": "Unauthorized"})
             return handle_list_ds160(start_response)
         if method == "POST":
@@ -875,37 +1200,61 @@ def app(environ, start_response):
 
     if path == "/api/finance":
         if method == "GET":
+            if not require_login(environ, start_response):
+                return []
             return handle_list_finance(start_response)
         if method == "POST":
+            if not require_login(environ, start_response):
+                return []
             return handle_create_finance(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/bookings":
         if method == "GET":
+            if not require_login(environ, start_response):
+                return []
             return handle_list_bookings(start_response)
         if method == "POST":
+            if not require_login(environ, start_response):
+                return []
             return handle_create_booking(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/reservations":
         if method == "GET":
+            if not require_login(environ, start_response):
+                return []
             return handle_list_reservations(start_response)
         if method == "POST":
+            if not require_login(environ, start_response):
+                return []
             return handle_create_reservation(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if method != "GET":
         return json_response(start_response, "404 Not Found", {"error": "Not found"})
 
+    if path == "/login":
+        return file_response(start_response, PUBLIC_DIR / "login.html")
+
     if path == "/":
-        if request_host(environ) == "backoffice.travelx.mn":
+        if host in {"backoffice.travelx.mn", "www.backoffice.travelx.mn"}:
+            if not current_user(environ):
+                return file_response(start_response, PUBLIC_DIR / "login.html")
             return file_response(start_response, PUBLIC_DIR / "backoffice.html")
         return file_response(start_response, PUBLIC_DIR / "index.html")
 
     if path == "/backoffice":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "backoffice.html")
 
     if path == "/admin":
+        user = current_user(environ)
+        if not user:
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        if user.get("role") != "admin":
+            return text_response(start_response, "403 Forbidden", "Admin access required")
         return file_response(start_response, PUBLIC_DIR / "admin.html")
 
     if path.startswith("/generated/"):

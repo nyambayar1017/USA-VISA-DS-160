@@ -1,39 +1,31 @@
 const submissionList = document.querySelector("#submission-list");
+const userList = document.querySelector("#user-list");
 const refreshButton = document.querySelector("#refresh-button");
+const usersRefreshButton = document.querySelector("#users-refresh-button");
 const exportButton = document.querySelector("#export-button");
-const tokenInput = document.querySelector("#admin-token");
+const logoutButton = document.querySelector("#logout-button");
 
 const CSV_COLUMNS = [
   "createdAt",
-  "fullName",
+  "surname",
+  "givenName",
   "email",
-  "phone",
+  "primaryPhone",
   "dateOfBirth",
-  "placeOfBirth",
+  "birthCity",
+  "birthCountry",
   "nationality",
   "maritalStatus",
-  "homeAddress",
   "passportNumber",
-  "passportCountry",
   "passportIssueDate",
   "passportExpiryDate",
-  "visaType",
-  "travelDate",
-  "arrivalCity",
-  "lengthOfStay",
-  "usStayAddress",
-  "tripPurpose",
-  "usContactName",
-  "usContactPhone",
-  "usContactAddress",
-  "employerOrSchool",
-  "jobTitle",
-  "workAddress",
-  "workDescription",
+  "tripPurposeCategory",
+  "intendedArrivalDate",
   "notes",
 ];
 
 let currentSubmissions = [];
+let currentUsers = [];
 
 function renderValue(label, value) {
   return `
@@ -44,9 +36,52 @@ function renderValue(label, value) {
   `;
 }
 
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+  return data;
+}
+
+function renderUsers(users) {
+  currentUsers = users;
+  if (!users.length) {
+    userList.innerHTML = '<p class="empty">No users yet.</p>';
+    return;
+  }
+
+  userList.innerHTML = users
+    .map(
+      (user) => `
+        <article class="submission-card">
+          <div class="submission-top">
+            <div>
+              <h3>${user.fullName || user.email}</h3>
+              <p>${user.email}</p>
+            </div>
+            <time>${user.status}</time>
+          </div>
+          <div class="details-grid">
+            ${renderValue("Role", user.role)}
+            ${renderValue("Status", user.status)}
+            ${renderValue("Created", user.createdAt ? new Date(user.createdAt).toLocaleString() : "-")}
+            ${renderValue("Approved", user.approvedAt ? new Date(user.approvedAt).toLocaleString() : "-")}
+          </div>
+          <div class="dashboard-actions card-actions">
+            <button type="button" data-status="approved" data-id="${user.id}">Approve</button>
+            <button type="button" data-status="rejected" data-id="${user.id}">Reject</button>
+            <button type="button" data-role="admin" data-id="${user.id}">Make Admin</button>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
 function renderSubmissions(submissions) {
   currentSubmissions = submissions;
-
   if (!submissions.length) {
     submissionList.innerHTML = '<p class="empty">No submissions yet.</p>';
     return;
@@ -58,35 +93,23 @@ function renderSubmissions(submissions) {
         <article class="submission-card">
           <div class="submission-top">
             <div>
-              <h3>${entry.fullName}</h3>
-              <p>${entry.email}</p>
+              <h3>${entry.surname || ""} ${entry.givenName || ""}</h3>
+              <p>${entry.email || "-"}</p>
             </div>
             <time>${new Date(entry.createdAt).toLocaleString()}</time>
           </div>
           <div class="details-grid">
-            ${renderValue("Phone", entry.phone)}
+            ${renderValue("Phone", entry.primaryPhone)}
             ${renderValue("DOB", entry.dateOfBirth)}
-            ${renderValue("Birth place", entry.placeOfBirth)}
+            ${renderValue("Birth city", entry.birthCity)}
+            ${renderValue("Birth country", entry.birthCountry)}
             ${renderValue("Nationality", entry.nationality)}
             ${renderValue("Marital status", entry.maritalStatus)}
-            ${renderValue("Home address", entry.homeAddress)}
             ${renderValue("Passport no.", entry.passportNumber)}
-            ${renderValue("Passport country", entry.passportCountry)}
             ${renderValue("Issue date", entry.passportIssueDate)}
             ${renderValue("Expiry date", entry.passportExpiryDate)}
-            ${renderValue("Visa type", entry.visaType)}
-            ${renderValue("Travel date", entry.travelDate)}
-            ${renderValue("Arrival city", entry.arrivalCity)}
-            ${renderValue("Length of stay", entry.lengthOfStay)}
-            ${renderValue("U.S. stay address", entry.usStayAddress)}
-            ${renderValue("Trip purpose", entry.tripPurpose)}
-            ${renderValue("U.S. contact", entry.usContactName)}
-            ${renderValue("U.S. contact phone", entry.usContactPhone)}
-            ${renderValue("U.S. contact address", entry.usContactAddress)}
-            ${renderValue("Employer or school", entry.employerOrSchool)}
-            ${renderValue("Job title", entry.jobTitle)}
-            ${renderValue("Work address", entry.workAddress)}
-            ${renderValue("Work details", entry.workDescription)}
+            ${renderValue("Visa category", entry.tripPurposeCategory)}
+            ${renderValue("Arrival date", entry.intendedArrivalDate)}
             ${renderValue("Notes", entry.notes)}
           </div>
         </article>
@@ -95,27 +118,23 @@ function renderSubmissions(submissions) {
     .join("");
 }
 
+async function loadUsers() {
+  userList.innerHTML = '<p class="empty">Loading users...</p>';
+  try {
+    const payload = await fetchJson("/api/users");
+    renderUsers(payload.entries);
+  } catch (error) {
+    userList.innerHTML = `<p class="empty">${error.message}</p>`;
+  }
+}
+
 async function loadSubmissions() {
   submissionList.innerHTML = '<p class="empty">Loading submissions...</p>';
-  const token = tokenInput.value.trim();
-
-  if (!token) {
-    submissionList.innerHTML = '<p class="empty">Enter your admin token first.</p>';
-    return;
-  }
-
   try {
-    const response = await fetch(`/api/submissions?token=${encodeURIComponent(token)}`);
-
-    if (response.status === 401) {
-      submissionList.innerHTML = '<p class="empty">Incorrect admin token.</p>';
-      return;
-    }
-
-    const submissions = await response.json();
+    const submissions = await fetchJson("/api/ds160");
     renderSubmissions(submissions);
   } catch (error) {
-    submissionList.innerHTML = '<p class="empty">Could not load submissions.</p>';
+    submissionList.innerHTML = `<p class="empty">${error.message}</p>`;
   }
 }
 
@@ -144,10 +163,39 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
-refreshButton.addEventListener("click", loadSubmissions);
-exportButton.addEventListener("click", exportCsv);
-tokenInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    loadSubmissions();
+userList.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-id]");
+  if (!button) {
+    return;
+  }
+  const payload = {};
+  if (button.dataset.status) {
+    payload.status = button.dataset.status;
+  }
+  if (button.dataset.role) {
+    payload.role = button.dataset.role;
+    payload.status = "approved";
+  }
+  try {
+    await fetchJson(`/api/users/${button.dataset.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    loadUsers();
+  } catch (error) {
+    userList.insertAdjacentHTML("afterbegin", `<p class="empty">${error.message}</p>`);
   }
 });
+
+logoutButton.addEventListener("click", async () => {
+  await fetchJson("/api/auth/logout", { method: "POST" });
+  window.location.href = "/login";
+});
+
+refreshButton.addEventListener("click", loadSubmissions);
+usersRefreshButton.addEventListener("click", loadUsers);
+exportButton.addEventListener("click", exportCsv);
+
+loadUsers();
+loadSubmissions();

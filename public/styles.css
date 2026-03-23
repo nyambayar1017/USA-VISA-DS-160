@@ -252,6 +252,39 @@ time {
   margin-top: 18px;
 }
 
+.auth-card {
+  display: grid;
+  gap: 24px;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.auth-panel {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.auth-panel h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: var(--brand);
+}
+
+.auth-bootstrap {
+  background: var(--brand-soft);
+}
+
+.card-actions {
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
 .detail {
   display: grid;
   gap: 8px;
@@ -295,7 +328,8 @@ time {
   }
 
   .field-grid,
-  .details-grid {
+  .details-grid,
+  .auth-grid {
     grid-template-columns: 1fr;
   }
 
