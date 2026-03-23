@@ -4,51 +4,108 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TravelX Backoffice</title>
-    <link rel="stylesheet" href="/styles.css?v=backoffice-2" />
+    <link rel="stylesheet" href="/styles.css?v=backoffice-3" />
   </head>
   <body class="backoffice-body">
     <main class="backoffice-home">
       <section class="backoffice-hero">
-        <div class="backoffice-badge">backoffice.travelx.mn</div>
-        <h1>TravelX Backoffice</h1>
-        <p class="backoffice-lead">
-          Танай багийн өдөр тутмын ажлын үндсэн нүүр. Эндээс тусдаа домэйнтай
-          DS-160, гэрээ, camp reservation болон дараагийн шинэ хэсгүүд рүү орно.
-        </p>
+        <div class="backoffice-hero-copy">
+          <div class="backoffice-badge">backoffice.travelx.mn</div>
+          <p class="backoffice-mini-title">Internal command center</p>
+          <h1>TravelX Backoffice</h1>
+          <p class="backoffice-lead">
+            Танай багийн өдөр тутмын ажлыг нэг цэгээс удирдах premium нүүр.
+            Эндээс DS-160, гэрээ, camp reservation болон дараа нь нэмэгдэх бүх
+            module-ууд өөрийн тусдаа domain руугаа орно.
+          </p>
 
-        <div class="backoffice-hero-actions">
-          <a class="backoffice-primary-link" href="#modules">Хэсгүүдийг харах</a>
-          <a class="backoffice-secondary-link" href="/admin">Админ хэсэг</a>
+          <div class="backoffice-hero-actions">
+            <a class="backoffice-primary-link" href="#modules">Хэсгүүдийг харах</a>
+            <a class="backoffice-secondary-link" href="/admin">Админ хэсэг</a>
+          </div>
+
+          <div class="backoffice-signals">
+            <div>
+              <strong>1 Service</strong>
+              <span>One Render app, many subdomains</span>
+            </div>
+            <div>
+              <strong>Modular</strong>
+              <span>Page бүрийг дарааллаар тусад нь нэмж болно</span>
+            </div>
+          </div>
         </div>
+
+        <aside class="backoffice-hero-panel">
+          <p class="hero-panel-label">Live domains</p>
+          <ul class="hero-domain-list">
+            <li>
+              <span>Backoffice</span>
+              <strong>backoffice.travelx.mn</strong>
+            </li>
+            <li>
+              <span>DS-160</span>
+              <strong>ds160.travelx.mn</strong>
+            </li>
+            <li>
+              <span>Contract</span>
+              <strong>contract.travelx.mn</strong>
+            </li>
+            <li>
+              <span>Camp</span>
+              <strong>camp.travelx.mn</strong>
+            </li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="backoffice-strip">
+        <p>Travel operations</p>
+        <p>Visa workflow</p>
+        <p>Contract generation</p>
+        <p>Camp reservation</p>
+        <p>Subdomain-based expansion</p>
       </section>
 
       <section id="modules" class="backoffice-modules">
         <a class="module-card module-card-contract" href="https://contract.travelx.mn">
-          <p class="module-kicker">01</p>
+          <p class="module-kicker">01 • Contract</p>
           <h2>Гэрээ хийх</h2>
           <p>Харилцагчийн гэрээ бэлдэх, үүсгэх, хэвлэх тусдаа хуудас.</p>
-          <span class="module-status is-planned">Coming soon</span>
+          <div class="module-card-footer">
+            <span class="module-status is-planned">Coming soon</span>
+            <span class="module-arrow">Open</span>
+          </div>
         </a>
 
         <a class="module-card module-card-budget" href="https://finance.travelx.mn">
-          <p class="module-kicker">02</p>
+          <p class="module-kicker">02 • Finance</p>
           <h2>Аяллын тооцоо</h2>
           <p>Аяллын үнэ, үйлчилгээ, зардал, ашгийн тооцооны хэсэг.</p>
-          <span class="module-status is-planned">Coming soon</span>
+          <div class="module-card-footer">
+            <span class="module-status is-planned">Coming soon</span>
+            <span class="module-arrow">Open</span>
+          </div>
         </a>
 
         <a class="module-card module-card-ds160" href="https://ds160.travelx.mn">
-          <p class="module-kicker">03</p>
+          <p class="module-kicker">03 • Visa</p>
           <h2>DS-160 Form</h2>
           <p>АНУ-ын визийн мэдээлэл цуглуулах одоогийн live form.</p>
-          <span class="module-status is-live">Live</span>
+          <div class="module-card-footer">
+            <span class="module-status is-live">Live</span>
+            <span class="module-arrow">Open</span>
+          </div>
         </a>
 
         <a class="module-card module-card-camp" href="https://camp.travelx.mn">
-          <p class="module-kicker">04</p>
+          <p class="module-kicker">04 • Camp</p>
           <h2>USM Camp Reservation</h2>
           <p>Camp захиалга, бүртгэл, багц мэдээллийн тусдаа хэсэг.</p>
-          <span class="module-status is-planned">Coming soon</span>
+          <div class="module-card-footer">
+            <span class="module-status is-planned">Coming soon</span>
+            <span class="module-arrow">Open</span>
+          </div>
         </a>
       </section>
 
