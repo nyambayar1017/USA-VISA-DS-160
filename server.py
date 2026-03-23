@@ -27,6 +27,7 @@ FINANCE_FILE = DATA_DIR / "finance_entries.json"
 BOOKINGS_FILE = DATA_DIR / "hotel_bookings.json"
 RESERVATIONS_FILE = DATA_DIR / "reservations.json"
 CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
+CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 
@@ -36,7 +37,7 @@ ET.register_namespace("w", WORD_NS)
 def ensure_data_store():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
-    for file_path in [CONTRACTS_FILE, DS160_FILE, FINANCE_FILE, BOOKINGS_FILE, RESERVATIONS_FILE, CAMP_RESERVATIONS_FILE]:
+    for file_path in [CONTRACTS_FILE, DS160_FILE, FINANCE_FILE, BOOKINGS_FILE, RESERVATIONS_FILE, CAMP_RESERVATIONS_FILE, CAMP_TRIPS_FILE]:
         if not file_path.exists():
             file_path.write_text("[]", encoding="utf-8")
 
@@ -97,6 +98,14 @@ def read_camp_reservations():
 
 def write_camp_reservations(records):
     write_json_list(CAMP_RESERVATIONS_FILE, records)
+
+
+def read_camp_trips():
+    return read_json_list(CAMP_TRIPS_FILE)
+
+
+def write_camp_trips(records):
+    write_json_list(CAMP_TRIPS_FILE, records)
 
 
 def json_response(start_response, status, payload):
@@ -717,14 +726,13 @@ def build_camp_document_html(record, pdf_href):
         <div>
           <div class="brand-mark">STEPPE<br/>MONGOLIA</div>
           <div class="brand-sub">
-            {html.escape(record['inboundCompany'])}<br/>
-            Улаанбаатар хот, Монгол улс<br/>
-            {html.escape(record['contactPhone'] or 'Contact phone pending')}<br/>
-            {html.escape(record['contactName'] or 'Reservation team')}
+            Unlock Steppe Mongolia<br/>
+            {html.escape(record['address'] or 'Ulaanbaatar city, Mongolia')}<br/>
+            Staff assignment: {html.escape(record['staffAssignment'] or '-')}
           </div>
         </div>
         <div class="doc-title">
-          <h1>“{html.escape(record['inboundCompany'])}”</h1>
+          <h1>CAMP RESERVATION</h1>
           <div class="doc-meta">
             <span>{format_pdf_date(record['createdDate'])}</span>
             <span>Улаанбаатар хот</span>
@@ -733,7 +741,7 @@ def build_camp_document_html(record, pdf_href):
       </div>
 
       <div class="center-title">
-        <h2>Аяллын нэр: {html.escape(record['tourName'])}</h2>
+        <h2>Аяллын нэр: {html.escape(record['tripName'])}</h2>
         <p>Баазын захиалга - “{html.escape(record['campName'])}”</p>
       </div>
 
@@ -745,21 +753,23 @@ def build_camp_document_html(record, pdf_href):
             <th>Ирэх өдөр</th>
             <th>Явах өдөр</th>
             <th>Хоногийн тоо</th>
+            <th>Гэрийн тоо</th>
             <th>Өрөөний төрөл</th>
             <th>Нэмэлт тэмдэглэл</th>
-            <th>Хоолны төрөл</th>
+            <th>Хоол</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>{record['guestCount']}</td>
+            <td>{record['clientCount']}</td>
             <td>{record['staffCount']}</td>
             <td>{format_pdf_date(record['checkIn'])}</td>
             <td>{format_pdf_date(record['checkOut'])}</td>
             <td>{record['nights']}</td>
+            <td>{record['gerCount']}</td>
             <td>{html.escape(record['roomType'])}</td>
             <td>{html.escape(record['notes'] or '-')}</td>
-            <td>{html.escape(record['mealType'])}</td>
+            <td>{html.escape(' / '.join([meal for meal in [record['breakfast'] == 'Yes' and 'Breakfast', record['lunch'] == 'Yes' and 'Lunch', record['dinner'] == 'Yes' and 'Dinner'] if meal]) or 'No meal')}</td>
           </tr>
         </tbody>
       </table>
@@ -767,13 +777,14 @@ def build_camp_document_html(record, pdf_href):
       <div class="footer">
         <div class="status-box">
           <p><strong>Status:</strong> {html.escape(record['status'])}</p>
-          <p><strong>Deposit:</strong> {format_money(record['depositAmount'])} MNT / {html.escape(record['depositStatus'])}</p>
-          <p><strong>Outbound:</strong> {html.escape(record['outboundCompany'])}</p>
+          <p><strong>Deposit:</strong> {format_money(record['deposit'])} MNT</p>
+          <p><strong>Total payment:</strong> {format_money(record['totalPayment'])} MNT</p>
+          <p><strong>Balance payment:</strong> {format_money(record['balancePayment'])} MNT</p>
         </div>
         <div class="status-box">
-          <p><strong>Reservation manager:</strong> {html.escape(record['contactName'] or '-')}</p>
-          <p><strong>Contact phone:</strong> {html.escape(record['contactPhone'] or '-')}</p>
-          <p><strong>Region:</strong> {html.escape(record['region'] or '-')}</p>
+          <p><strong>Trip:</strong> {html.escape(record['tripName'])}</p>
+          <p><strong>Address:</strong> {html.escape(record['address'] or '-')}</p>
+          <p><strong>Staff:</strong> {html.escape(record['staffAssignment'] or '-')}</p>
         </div>
       </div>
     </div>
@@ -822,7 +833,7 @@ def save_camp_reservation_document(record):
             Spacer(1, 10),
             Paragraph(f"Date: {format_pdf_date(record['createdDate'])} | City: Ulaanbaatar", body_style),
             Spacer(1, 18),
-            Paragraph(f"Trip name: {html.escape(record['tourName'])}", ParagraphStyle("Sub", parent=body_style, fontName="Helvetica-Bold", fontSize=13, alignment=1)),
+            Paragraph(f"Trip name: {html.escape(record['tripName'])}", ParagraphStyle("Sub", parent=body_style, fontName="Helvetica-Bold", fontSize=13, alignment=1)),
             Spacer(1, 8),
             Paragraph(f"Camp reservation - {html.escape(record['campName'])}", ParagraphStyle("Sub2", parent=body_style, fontName="Helvetica-Bold", fontSize=12, alignment=1)),
             Spacer(1, 20),
@@ -830,16 +841,17 @@ def save_camp_reservation_document(record):
 
         table = Table(
             [[
-                "Guests", "Staff", "Arrival", "Departure", "Nights", "Room type", "Note", "Meal type"
+                "Clients", "Staff", "Arrival", "Departure", "Nights", "Gers", "Room type", "Note", "Meals"
             ], [
-                str(record["guestCount"]),
+                str(record["clientCount"]),
                 str(record["staffCount"]),
                 format_pdf_date(record["checkIn"]),
                 format_pdf_date(record["checkOut"]),
                 str(record["nights"]),
+                str(record["gerCount"]),
                 record["roomType"],
                 record["notes"] or "-",
-                record["mealType"],
+                " / ".join([meal for meal in ["Breakfast" if record["breakfast"] == "Yes" else "", "Lunch" if record["lunch"] == "Yes" else "", "Dinner" if record["dinner"] == "Yes" else ""] if meal]) or "No meal",
             ]],
             repeatRows=1,
         )
@@ -853,11 +865,11 @@ def save_camp_reservation_document(record):
             ("LEADING", (0, 0), (-1, -1), 13),
         ]))
         elements.extend([table, Spacer(1, 26)])
-        elements.append(Paragraph(f"Status: {record['status']} | Deposit: {format_money(record['depositAmount'])} MNT / {record['depositStatus']}", body_style))
+        elements.append(Paragraph(f"Status: {record['status']} | Deposit: {format_money(record['deposit'])} MNT | Total: {format_money(record['totalPayment'])} MNT | Balance: {format_money(record['balancePayment'])} MNT", body_style))
         elements.append(Spacer(1, 10))
-        elements.append(Paragraph(f"Inbound: {html.escape(record['inboundCompany'])} | Outbound: {html.escape(record['outboundCompany'])}", body_style))
+        elements.append(Paragraph(f"Trip: {html.escape(record['tripName'])} | Address: {html.escape(record['address'] or '-')}", body_style))
         elements.append(Spacer(1, 10))
-        elements.append(Paragraph(f"Contact: {html.escape(record['contactName'] or '-')} | Phone: {html.escape(record['contactPhone'] or '-')}", body_style))
+        elements.append(Paragraph(f"Assigned staff: {html.escape(record['staffAssignment'] or '-')}", body_style))
         doc.build(elements)
     except Exception:
         pdf_path.write_text("PDF generation unavailable", encoding="utf-8")
@@ -980,44 +992,67 @@ def validate_reservation(data):
     return None
 
 
+def build_camp_trip(payload):
+    return {
+        "id": str(uuid4()),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "tripName": normalize_text(payload.get("tripName")),
+        "address": normalize_text(payload.get("address")),
+        "inboundCompany": "Unlock Steppe Mongolia",
+    }
+
+
+def validate_camp_trip(data):
+    if not data.get("tripName"):
+        return "Trip name is required"
+    return None
+
+
+def find_camp_trip(trip_id):
+    for trip in read_camp_trips():
+        if trip["id"] == trip_id:
+            return trip
+    return None
+
+
 def build_camp_reservation(payload):
     created_date = normalize_text(payload.get("createdDate")) or datetime.now().strftime("%Y-%m-%d")
     return {
         "id": str(uuid4()),
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "createdDate": created_date,
-        "inboundCompany": normalize_text(payload.get("inboundCompany")) or "Unlock Steppe Mongolia",
-        "outboundCompany": normalize_text(payload.get("outboundCompany")) or "Delkhii Travel X",
-        "tourName": normalize_text(payload.get("tourName")) or "USM CAMP RESERVATION",
+        "tripId": normalize_text(payload.get("tripId")),
+        "tripName": normalize_text(payload.get("tripName")),
+        "address": normalize_text(payload.get("address")),
         "campName": normalize_text(payload.get("campName")),
-        "region": normalize_text(payload.get("region")),
         "checkIn": normalize_text(payload.get("checkIn")),
         "checkOut": normalize_text(payload.get("checkOut")),
-        "guestCount": parse_int(payload.get("guestCount")),
+        "clientCount": parse_int(payload.get("clientCount")),
         "staffCount": parse_int(payload.get("staffCount")),
+        "staffAssignment": normalize_text(payload.get("staffAssignment")),
+        "gerCount": parse_int(payload.get("gerCount")),
         "nights": parse_int(payload.get("nights")),
-        "roomType": normalize_text(payload.get("roomType")) or "Standard ger",
-        "accommodation": normalize_text(payload.get("accommodation")) or "Accommodation only",
+        "roomType": normalize_text(payload.get("roomType")),
         "breakfast": normalize_text(payload.get("breakfast")) or "No",
         "lunch": normalize_text(payload.get("lunch")) or "No",
         "dinner": normalize_text(payload.get("dinner")) or "No",
-        "mealType": normalize_text(payload.get("mealType")) or "Breakfast / Lunch / Dinner",
-        "depositAmount": parse_int(payload.get("depositAmount")),
-        "depositStatus": normalize_text(payload.get("depositStatus")).lower() or "not-required",
         "status": normalize_text(payload.get("status")).lower() or "pending",
-        "contactName": normalize_text(payload.get("contactName")),
-        "contactPhone": normalize_text(payload.get("contactPhone")),
+        "deposit": parse_int(payload.get("deposit")),
+        "totalPayment": parse_int(payload.get("totalPayment")),
+        "balancePayment": parse_int(payload.get("balancePayment")),
         "notes": normalize_text(payload.get("notes")),
     }
 
 
 def validate_camp_reservation(data):
-    required = ["tourName", "campName", "checkIn", "checkOut", "status", "roomType", "mealType"]
+    required = ["tripId", "tripName", "campName", "checkIn", "checkOut", "status", "roomType"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
-    if data.get("guestCount", 0) <= 0:
-        return "Guest count must be greater than 0"
+    if data.get("clientCount", 0) <= 0:
+        return "Number of clients must be greater than 0"
+    if data.get("gerCount", 0) <= 0:
+        return "Number of gers must be greater than 0"
     return None
 
 
@@ -1028,8 +1063,7 @@ def camp_summary(records):
         "pending": len([record for record in records if record["status"] == "pending"]),
         "cancelled": len([record for record in records if record["status"] == "cancelled"]),
         "rejected": len([record for record in records if record["status"] == "rejected"]),
-        "depositPending": len([record for record in records if record["depositStatus"] == "pending"]),
-        "depositPaid": len([record for record in records if record["depositStatus"] == "paid"]),
+        "trips": len({record["tripId"] for record in records if record.get("tripId")}),
     }
 
 
@@ -1172,12 +1206,38 @@ def handle_list_camp_reservations(start_response):
     return json_response(start_response, "200 OK", {"entries": records, "summary": camp_summary(records)})
 
 
+def handle_list_camp_trips(start_response):
+    trips = read_camp_trips()
+    return json_response(start_response, "200 OK", {"entries": trips})
+
+
+def handle_create_camp_trip(environ, start_response):
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    record = build_camp_trip(payload)
+    error = validate_camp_trip(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+
+    trips = read_camp_trips()
+    trips.insert(0, record)
+    write_camp_trips(trips)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
 def handle_create_camp_reservation(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
     record = build_camp_reservation(payload)
+    trip = find_camp_trip(record["tripId"])
+    if trip is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Please create or select a trip first"})
+    record["tripName"] = trip["tripName"]
+    record["address"] = trip["address"]
     error = validate_camp_reservation(record)
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})
@@ -1199,13 +1259,34 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
         if record["id"] != reservation_id:
             continue
 
-        record["status"] = normalize_text(payload.get("status")).lower() or record["status"]
-        record["depositStatus"] = normalize_text(payload.get("depositStatus")).lower() or record["depositStatus"]
-        record["notes"] = normalize_text(payload.get("notes")) if "notes" in payload else record["notes"]
-        record.update(save_camp_reservation_document(record))
-        records[index] = record
+        merged = {**record}
+        for key in [
+            "campName",
+            "checkIn",
+            "checkOut",
+            "roomType",
+            "status",
+            "staffAssignment",
+            "notes",
+            "breakfast",
+            "lunch",
+            "dinner",
+        ]:
+            if key in payload:
+                merged[key] = normalize_text(payload.get(key))
+
+        for key in ["clientCount", "staffCount", "gerCount", "nights", "deposit", "totalPayment", "balancePayment"]:
+            if key in payload:
+                merged[key] = parse_int(payload.get(key))
+
+        error = validate_camp_reservation(merged)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+
+        merged.update(save_camp_reservation_document(merged))
+        records[index] = merged
         write_camp_reservations(records)
-        return json_response(start_response, "200 OK", {"ok": True, "entry": record, "summary": camp_summary(records)})
+        return json_response(start_response, "200 OK", {"ok": True, "entry": merged, "summary": camp_summary(records)})
 
     return json_response(start_response, "404 Not Found", {"error": "Camp reservation not found"})
 
@@ -1293,6 +1374,13 @@ def app(environ, start_response):
             return handle_list_camp_reservations(start_response)
         if method == "POST":
             return handle_create_camp_reservation(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/camp-trips":
+        if method == "GET":
+            return handle_list_camp_trips(start_response)
+        if method == "POST":
+            return handle_create_camp_trip(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/camp-reservations/"):
