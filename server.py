@@ -727,7 +727,7 @@ def build_camp_document_html(record, pdf_href):
           <div class="brand-mark">STEPPE<br/>MONGOLIA</div>
           <div class="brand-sub">
             Unlock Steppe Mongolia<br/>
-            {html.escape(record['address'] or 'Ulaanbaatar city, Mongolia')}<br/>
+            Language: {html.escape(record.get('language') or 'Other')}<br/>
             Staff assignment: {html.escape(record['staffAssignment'] or '-')}
           </div>
         </div>
@@ -783,7 +783,7 @@ def build_camp_document_html(record, pdf_href):
         </div>
         <div class="status-box">
           <p><strong>Trip:</strong> {html.escape(record['tripName'])}</p>
-          <p><strong>Address:</strong> {html.escape(record['address'] or '-')}</p>
+          <p><strong>Language:</strong> {html.escape(record.get('language') or 'Other')}</p>
           <p><strong>Staff:</strong> {html.escape(record['staffAssignment'] or '-')}</p>
         </div>
       </div>
@@ -867,7 +867,7 @@ def save_camp_reservation_document(record):
         elements.extend([table, Spacer(1, 26)])
         elements.append(Paragraph(f"Status: {record['status']} | Deposit: {format_money(record['deposit'])} MNT | Total: {format_money(record['totalPayment'])} MNT | Balance: {format_money(record['balancePayment'])} MNT", body_style))
         elements.append(Spacer(1, 10))
-        elements.append(Paragraph(f"Trip: {html.escape(record['tripName'])} | Address: {html.escape(record['address'] or '-')}", body_style))
+        elements.append(Paragraph(f"Trip: {html.escape(record['tripName'])} | Language: {html.escape(record.get('language') or 'Other')}", body_style))
         elements.append(Spacer(1, 10))
         elements.append(Paragraph(f"Assigned staff: {html.escape(record['staffAssignment'] or '-')}", body_style))
         doc.build(elements)
@@ -997,7 +997,7 @@ def build_camp_trip(payload):
         "id": str(uuid4()),
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "tripName": normalize_text(payload.get("tripName")),
-        "address": normalize_text(payload.get("address")),
+        "language": normalize_text(payload.get("language")) or "Other",
         "inboundCompany": "Unlock Steppe Mongolia",
     }
 
@@ -1023,7 +1023,7 @@ def build_camp_reservation(payload):
         "createdDate": created_date,
         "tripId": normalize_text(payload.get("tripId")),
         "tripName": normalize_text(payload.get("tripName")),
-        "address": normalize_text(payload.get("address")),
+        "language": normalize_text(payload.get("language")) or "Other",
         "campName": normalize_text(payload.get("campName")),
         "checkIn": normalize_text(payload.get("checkIn")),
         "checkOut": normalize_text(payload.get("checkOut")),
@@ -1237,7 +1237,7 @@ def handle_create_camp_reservation(environ, start_response):
     if trip is None:
         return json_response(start_response, "400 Bad Request", {"error": "Please create or select a trip first"})
     record["tripName"] = trip["tripName"]
-    record["address"] = trip["address"]
+    record["language"] = trip.get("language") or "Other"
     error = validate_camp_reservation(record)
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})

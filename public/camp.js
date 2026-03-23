@@ -1,6 +1,7 @@
 const tripForm = document.querySelector("#trip-form");
 const tripStatus = document.querySelector("#trip-status");
 const tripList = document.querySelector("#trip-list");
+const activeTripBox = document.querySelector("#active-trip");
 const campForm = document.querySelector("#camp-form");
 const campStatus = document.querySelector("#camp-status");
 const campList = document.querySelector("#camp-list");
@@ -14,6 +15,8 @@ const filterStatus = document.querySelector("#filter-status");
 
 let currentTrips = [];
 let currentEntries = [];
+let activeTripId = "";
+let editingReservationId = "";
 
 function escapeHtml(value) {
   return String(value || "")
@@ -51,6 +54,19 @@ function buildPayload(formNode) {
   return Object.fromEntries(new FormData(formNode).entries());
 }
 
+function getTripById(tripId) {
+  return currentTrips.find((trip) => trip.id === tripId) || null;
+}
+
+function setActiveTrip(tripId) {
+  activeTripId = tripId || "";
+  reservationTripSelect.value = activeTripId;
+  filterTripName.value = activeTripId;
+  renderTrips(currentTrips);
+  renderActiveTrip();
+  renderEntries(getFilteredEntries());
+}
+
 function renderSummary(summary) {
   const cards = [
     ["Reservations", summary.total],
@@ -84,22 +100,54 @@ function renderTrips(trips) {
   tripList.innerHTML = trips
     .map(
       (trip) => `
-        <article class="camp-trip-card ${reservationTripSelect.value === trip.id ? "is-active" : ""}" data-trip-id="${trip.id}">
-          <strong>${escapeHtml(trip.tripName)}</strong>
-          <span>${escapeHtml(trip.address || "No address")}</span>
+        <article class="camp-trip-card ${activeTripId === trip.id ? "is-active" : ""}" data-trip-id="${trip.id}">
+          <div class="camp-trip-card-top">
+            <strong>${escapeHtml(trip.tripName)}</strong>
+            <button type="button" class="secondary-button" data-action="open-trip" data-trip-id="${trip.id}">
+              ${activeTripId === trip.id ? "Opened" : "Open trip"}
+            </button>
+          </div>
+          <span>Language: ${escapeHtml(trip.language || "Other")}</span>
         </article>
       `
     )
     .join("");
 
-  reservationTripSelect.innerHTML = `
-    <option value="">Select trip</option>
-    ${trips.map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`).join("")}
-  `;
+  const tripOptions = trips
+    .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
+    .join("");
 
-  filterTripName.innerHTML = `
-    <option value="">All trips</option>
-    ${trips.map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`).join("")}
+  reservationTripSelect.innerHTML = `<option value="">Select trip</option>${tripOptions}`;
+  filterTripName.innerHTML = `<option value="">All trips</option>${tripOptions}`;
+
+  if (activeTripId) {
+    reservationTripSelect.value = activeTripId;
+    filterTripName.value = activeTripId;
+  }
+}
+
+function renderActiveTrip() {
+  const trip = getTripById(activeTripId);
+  if (!trip) {
+    activeTripBox.className = "camp-active-trip empty";
+    activeTripBox.innerHTML = `
+      <strong>No active trip selected</strong>
+      <span>Create or open a trip first.</span>
+    `;
+    return;
+  }
+
+  const tripReservations = currentEntries.filter((entry) => entry.tripId === trip.id);
+  activeTripBox.className = "camp-active-trip";
+  activeTripBox.innerHTML = `
+    <div>
+      <strong>${escapeHtml(trip.tripName)}</strong>
+      <span>Language: ${escapeHtml(trip.language || "Other")}</span>
+    </div>
+    <div>
+      <strong>${tripReservations.length}</strong>
+      <span>reservations in this trip</span>
+    </div>
   `;
 }
 
@@ -116,6 +164,88 @@ function getFilteredEntries() {
   });
 }
 
+function renderReadOnlyRow(entry, index) {
+  return `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${escapeHtml(entry.tripName)}</td>
+      <td>${escapeHtml(entry.campName)}</td>
+      <td>${entry.clientCount}</td>
+      <td>${entry.staffCount}</td>
+      <td>${formatDate(entry.checkIn)}</td>
+      <td>${formatDate(entry.checkOut)}</td>
+      <td>${entry.nights}</td>
+      <td>${entry.gerCount}</td>
+      <td>${escapeHtml(entry.roomType)}</td>
+      <td>${escapeHtml(entry.staffAssignment || "-")}</td>
+      <td>${entry.status}</td>
+      <td>${formatMoney(entry.deposit)}</td>
+      <td>${formatMoney(entry.totalPayment)}</td>
+      <td>${formatMoney(entry.balancePayment)}</td>
+      <td>${escapeHtml(entry.notes || "-")}</td>
+      <td class="camp-row-actions">
+        <button type="button" class="table-action" data-action="edit" data-id="${entry.id}">Edit</button>
+        <a class="table-link" href="${entry.pdfPath}" download>PDF</a>
+      </td>
+    </tr>
+  `;
+}
+
+function renderEditableRow(entry, index) {
+  return `
+    <tr class="is-editing">
+      <td>${index + 1}</td>
+      <td>${escapeHtml(entry.tripName)}</td>
+      <td><input data-role="campName" data-id="${entry.id}" value="${escapeHtml(entry.campName)}" /></td>
+      <td><input data-role="clientCount" data-id="${entry.id}" type="number" min="1" value="${entry.clientCount}" /></td>
+      <td><input data-role="staffCount" data-id="${entry.id}" type="number" min="0" value="${entry.staffCount}" /></td>
+      <td><input data-role="checkIn" data-id="${entry.id}" type="date" value="${entry.checkIn}" /></td>
+      <td><input data-role="checkOut" data-id="${entry.id}" type="date" value="${entry.checkOut}" /></td>
+      <td><input data-role="nights" data-id="${entry.id}" type="number" min="1" value="${entry.nights}" /></td>
+      <td><input data-role="gerCount" data-id="${entry.id}" type="number" min="1" value="${entry.gerCount}" /></td>
+      <td>
+        <select data-role="roomType" data-id="${entry.id}">
+          ${["Standard Ger (Double / Twin)", "Standard Ger (3-4 pax)", "Luxury Ger with bathroom", "Luxury Ger without bathroom"]
+            .map((option) => `<option value="${option}" ${entry.roomType === option ? "selected" : ""}>${option}</option>`)
+            .join("")}
+        </select>
+      </td>
+      <td><input data-role="staffAssignment" data-id="${entry.id}" value="${escapeHtml(entry.staffAssignment || "")}" /></td>
+      <td>
+        <select data-role="status" data-id="${entry.id}">
+          ${["pending", "confirmed", "cancelled", "rejected"]
+            .map((option) => `<option value="${option}" ${entry.status === option ? "selected" : ""}>${option}</option>`)
+            .join("")}
+        </select>
+      </td>
+      <td><input data-role="deposit" data-id="${entry.id}" inputmode="numeric" value="${entry.deposit}" /></td>
+      <td><input data-role="totalPayment" data-id="${entry.id}" inputmode="numeric" value="${entry.totalPayment}" /></td>
+      <td><input data-role="balancePayment" data-id="${entry.id}" inputmode="numeric" value="${entry.balancePayment}" /></td>
+      <td>
+        <textarea data-role="notes" data-id="${entry.id}" rows="2">${escapeHtml(entry.notes || "")}</textarea>
+        <div class="camp-inline-grid">
+          <select data-role="breakfast" data-id="${entry.id}">
+            <option value="No" ${entry.breakfast === "No" ? "selected" : ""}>Breakfast: No</option>
+            <option value="Yes" ${entry.breakfast === "Yes" ? "selected" : ""}>Breakfast: Yes</option>
+          </select>
+          <select data-role="lunch" data-id="${entry.id}">
+            <option value="No" ${entry.lunch === "No" ? "selected" : ""}>Lunch: No</option>
+            <option value="Yes" ${entry.lunch === "Yes" ? "selected" : ""}>Lunch: Yes</option>
+          </select>
+          <select data-role="dinner" data-id="${entry.id}">
+            <option value="No" ${entry.dinner === "No" ? "selected" : ""}>Dinner: No</option>
+            <option value="Yes" ${entry.dinner === "Yes" ? "selected" : ""}>Dinner: Yes</option>
+          </select>
+        </div>
+      </td>
+      <td class="camp-row-actions">
+        <button type="button" class="table-action" data-action="save" data-id="${entry.id}">Save</button>
+        <button type="button" class="table-action secondary" data-action="cancel-edit">Cancel</button>
+      </td>
+    </tr>
+  `;
+}
+
 function renderEntries(entries) {
   if (!entries.length) {
     campList.innerHTML = '<p class="empty">No reservations for the selected filters.</p>';
@@ -124,7 +254,7 @@ function renderEntries(entries) {
 
   campList.innerHTML = `
     <div class="camp-table-wrap">
-      <table class="camp-table camp-table-editor">
+      <table class="camp-table">
         <thead>
           <tr>
             <th>#</th>
@@ -132,84 +262,23 @@ function renderEntries(entries) {
             <th>Camp</th>
             <th>Clients</th>
             <th>Staff</th>
-            <th>Assigned Staff</th>
             <th>Check-in</th>
             <th>Check-out</th>
             <th>Nights</th>
             <th>Gers</th>
             <th>Room</th>
-            <th>Breakfast</th>
-            <th>Lunch</th>
-            <th>Dinner</th>
+            <th>Assigned Staff</th>
+            <th>Status</th>
             <th>Deposit</th>
             <th>Total</th>
             <th>Balance</th>
-            <th>Status</th>
-            <th>Note</th>
-            <th>PDF</th>
-            <th>Save</th>
+            <th>Notes / Meals</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           ${entries
-            .map(
-              (entry, index) => `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td>${escapeHtml(entry.tripName)}</td>
-                  <td><input data-role="campName" data-id="${entry.id}" value="${escapeHtml(entry.campName)}" /></td>
-                  <td><input data-role="clientCount" data-id="${entry.id}" type="number" min="1" value="${entry.clientCount}" /></td>
-                  <td><input data-role="staffCount" data-id="${entry.id}" type="number" min="0" value="${entry.staffCount}" /></td>
-                  <td><input data-role="staffAssignment" data-id="${entry.id}" value="${escapeHtml(entry.staffAssignment || "")}" /></td>
-                  <td><input data-role="checkIn" data-id="${entry.id}" type="date" value="${entry.checkIn}" /></td>
-                  <td><input data-role="checkOut" data-id="${entry.id}" type="date" value="${entry.checkOut}" /></td>
-                  <td><input data-role="nights" data-id="${entry.id}" type="number" min="1" value="${entry.nights}" /></td>
-                  <td><input data-role="gerCount" data-id="${entry.id}" type="number" min="1" value="${entry.gerCount}" /></td>
-                  <td>
-                    <select data-role="roomType" data-id="${entry.id}">
-                      ${["Standard Ger (Double / Twin)", "Standard Ger (3-4 pax)", "Luxury Ger with bathroom", "Luxury Ger without bathroom"]
-                        .map((option) => `<option value="${option}" ${entry.roomType === option ? "selected" : ""}>${option}</option>`)
-                        .join("")}
-                    </select>
-                  </td>
-                  <td>
-                    <select data-role="breakfast" data-id="${entry.id}">
-                      <option value="No" ${entry.breakfast === "No" ? "selected" : ""}>No</option>
-                      <option value="Yes" ${entry.breakfast === "Yes" ? "selected" : ""}>Yes</option>
-                    </select>
-                  </td>
-                  <td>
-                    <select data-role="lunch" data-id="${entry.id}">
-                      <option value="No" ${entry.lunch === "No" ? "selected" : ""}>No</option>
-                      <option value="Yes" ${entry.lunch === "Yes" ? "selected" : ""}>Yes</option>
-                    </select>
-                  </td>
-                  <td>
-                    <select data-role="dinner" data-id="${entry.id}">
-                      <option value="No" ${entry.dinner === "No" ? "selected" : ""}>No</option>
-                      <option value="Yes" ${entry.dinner === "Yes" ? "selected" : ""}>Yes</option>
-                    </select>
-                  </td>
-                  <td><input data-role="deposit" data-id="${entry.id}" inputmode="numeric" value="${entry.deposit}" /></td>
-                  <td><input data-role="totalPayment" data-id="${entry.id}" inputmode="numeric" value="${entry.totalPayment}" /></td>
-                  <td><input data-role="balancePayment" data-id="${entry.id}" inputmode="numeric" value="${entry.balancePayment}" /></td>
-                  <td>
-                    <select data-role="status" data-id="${entry.id}">
-                      ${["pending", "confirmed", "cancelled", "rejected"]
-                        .map((option) => `<option value="${option}" ${entry.status === option ? "selected" : ""}>${option}</option>`)
-                        .join("")}
-                    </select>
-                  </td>
-                  <td><input data-role="notes" data-id="${entry.id}" value="${escapeHtml(entry.notes || "")}" /></td>
-                  <td>
-                    <a class="table-link" href="${entry.pdfPath}" download>PDF</a>
-                  </td>
-                  <td>
-                    <button type="button" class="camp-update-button" data-action="update" data-id="${entry.id}">Save</button>
-                  </td>
-                </tr>
-              `
-            )
+            .map((entry, index) => (editingReservationId === entry.id ? renderEditableRow(entry, index) : renderReadOnlyRow(entry, index)))
             .join("")}
         </tbody>
       </table>
@@ -221,12 +290,17 @@ async function loadTrips() {
   const payload = await fetchJson("/api/camp-trips");
   currentTrips = payload.entries;
   renderTrips(currentTrips);
+  if (activeTripId && !getTripById(activeTripId)) {
+    activeTripId = "";
+  }
+  renderActiveTrip();
 }
 
 async function loadReservations() {
   const payload = await fetchJson("/api/camp-reservations");
   currentEntries = payload.entries;
   renderSummary(payload.summary);
+  renderActiveTrip();
   renderEntries(getFilteredEntries());
 }
 
@@ -236,10 +310,12 @@ async function updateReservation(id) {
 
   roles.forEach((role) => {
     const node = document.querySelector(`[data-role="${role}"][data-id="${id}"]`);
-    payload[role] = node.value;
+    if (node) {
+      payload[role] = node.value;
+    }
   });
 
-  campStatus.textContent = "Updating...";
+  campStatus.textContent = "Updating reservation...";
 
   try {
     await fetchJson(`/api/camp-reservations/${id}`, {
@@ -247,6 +323,7 @@ async function updateReservation(id) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    editingReservationId = "";
     campStatus.textContent = "Reservation updated.";
     await loadReservations();
   } catch (error) {
@@ -267,9 +344,7 @@ tripForm.addEventListener("submit", async (event) => {
     tripStatus.textContent = `Trip created: ${result.entry.tripName}`;
     tripForm.reset();
     await loadTrips();
-    reservationTripSelect.value = result.entry.id;
-    filterTripName.value = result.entry.id;
-    renderEntries(getFilteredEntries());
+    setActiveTrip(result.entry.id);
   } catch (error) {
     tripStatus.textContent = error.message;
   }
@@ -279,15 +354,15 @@ campForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   campStatus.textContent = "Saving reservation...";
 
-  const selectedTrip = currentTrips.find((trip) => trip.id === reservationTripSelect.value);
+  const selectedTrip = getTripById(reservationTripSelect.value || activeTripId);
   if (!selectedTrip) {
-    campStatus.textContent = "Please create or select a trip first.";
+    campStatus.textContent = "Please create or open a trip first.";
     return;
   }
 
   const payload = buildPayload(campForm);
+  payload.tripId = selectedTrip.id;
   payload.tripName = selectedTrip.tripName;
-  payload.address = selectedTrip.address;
 
   try {
     await fetchJson("/api/camp-reservations", {
@@ -311,30 +386,45 @@ campForm.addEventListener("submit", async (event) => {
 });
 
 campToggleForm.addEventListener("click", () => {
-  if (!currentTrips.length) {
-    campStatus.textContent = "Create a trip first.";
+  if (!activeTripId) {
+    campStatus.textContent = "Open a trip first.";
     return;
   }
+  reservationTripSelect.value = activeTripId;
   campFormPanel.classList.toggle("is-hidden");
 });
 
 tripList.addEventListener("click", (event) => {
+  const button = event.target.closest('[data-action="open-trip"]');
   const card = event.target.closest("[data-trip-id]");
-  if (!card) {
+  const tripId = button?.dataset.tripId || card?.dataset.tripId;
+  if (!tripId) {
     return;
   }
-  reservationTripSelect.value = card.dataset.tripId;
-  filterTripName.value = card.dataset.tripId;
-  renderTrips(currentTrips);
-  renderEntries(getFilteredEntries());
+  setActiveTrip(tripId);
+  tripStatus.textContent = `Opened trip: ${getTripById(tripId)?.tripName || ""}`;
 });
 
 campList.addEventListener("click", (event) => {
-  const button = event.target.closest('[data-action="update"]');
-  if (!button) {
+  const target = event.target.closest("[data-action]");
+  if (!target) {
     return;
   }
-  updateReservation(button.dataset.id);
+
+  const action = target.dataset.action;
+  if (action === "edit") {
+    editingReservationId = target.dataset.id;
+    renderEntries(getFilteredEntries());
+    return;
+  }
+  if (action === "save") {
+    updateReservation(target.dataset.id);
+    return;
+  }
+  if (action === "cancel-edit") {
+    editingReservationId = "";
+    renderEntries(getFilteredEntries());
+  }
 });
 
 [filterCampName, filterTripName, filterStatus].forEach((node) => {

@@ -801,6 +801,35 @@ time {
   justify-content: flex-end;
 }
 
+.camp-active-trip {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(37, 58, 119, 0.16);
+  border-radius: 22px;
+  background: rgba(238, 243, 255, 0.92);
+}
+
+.camp-active-trip.empty {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.camp-active-trip strong,
+.camp-active-trip span {
+  display: block;
+}
+
+.camp-active-trip strong {
+  color: var(--brand);
+}
+
+.camp-active-trip span {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
 .camp-filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -834,6 +863,13 @@ time {
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.84);
   cursor: pointer;
+}
+
+.camp-trip-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
 }
 
 .camp-trip-card.is-active {
@@ -914,7 +950,7 @@ time {
 
 .camp-table {
   width: 100%;
-  min-width: 1640px;
+  min-width: 1500px;
   border-collapse: collapse;
 }
 
@@ -927,16 +963,12 @@ time {
 }
 
 .camp-table td input,
-.camp-table td select {
+.camp-table td select,
+.camp-table td textarea {
+  width: 100%;
   min-width: 100px;
   padding: 10px 12px;
   border-radius: 12px;
-}
-
-.camp-table-editor td:first-child,
-.camp-table-editor td:nth-child(2) {
-  font-weight: 600;
-  color: var(--brand);
 }
 
 .camp-table th {
@@ -944,20 +976,47 @@ time {
   color: #17365f;
 }
 
-.camp-update-row {
+.camp-table tbody tr.is-editing {
+  background: rgba(238, 243, 255, 0.75);
+}
+
+.camp-row-actions {
+  min-width: 180px;
   display: grid;
-  grid-template-columns: 180px 180px minmax(0, 1fr) 160px;
-  gap: 14px;
-  margin-top: 18px;
-  align-items: end;
+  gap: 10px;
 }
 
-.camp-note-field {
-  min-width: 0;
-}
-
-.camp-update-button {
+.table-action {
   width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  background: #17365f;
+  color: #fff;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.table-action.secondary,
+.secondary-button {
+  background: rgba(22, 44, 84, 0.08);
+  color: var(--brand);
+}
+
+.secondary-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.camp-inline-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 @media (max-width: 820px) {
@@ -965,9 +1024,14 @@ time {
     grid-template-columns: 1fr 1fr;
   }
 
-  .camp-filters,
-  .camp-update-row {
+  .camp-filters {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .camp-active-trip,
+  .camp-trip-card-top {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .site-nav {
@@ -981,8 +1045,7 @@ time {
     grid-template-columns: 1fr;
   }
 
-  .camp-filters,
-  .camp-update-row {
+  .camp-filters {
     grid-template-columns: 1fr;
   }
 }

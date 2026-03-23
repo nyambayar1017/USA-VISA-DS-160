@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=camp-5" />
+    <link rel="stylesheet" href="/styles.css?v=camp-6" />
   </head>
   <body>
     <main class="shell camp-shell">
@@ -34,7 +34,7 @@
       <section class="card">
         <div class="section-head">
           <h2>Trips</h2>
-          <p>Trip бүр дотор олон reservation хадгална.</p>
+          <p>Эхлээд trip үүсгээд, дараа нь тэр trip дотор бүх camp, ger, hotel reservation-уудаа нэмнэ.</p>
         </div>
         <form id="trip-form" class="field-grid">
           <label>
@@ -42,8 +42,17 @@
             <input name="tripName" placeholder="STEPPE MONGOLIA 0802" required />
           </label>
           <label>
-            Address
-            <input name="address" placeholder="Улаанбаатар хот, Хан-Уул дүүрэг..." />
+            Language
+            <select name="language" required>
+              <option value="">Choose language</option>
+              <option value="English">English</option>
+              <option value="French">French</option>
+              <option value="Mongolian">Mongolian</option>
+              <option value="Korean">Korean</option>
+              <option value="Spanish">Spanish</option>
+              <option value="Italian">Italian</option>
+              <option value="Other">Other</option>
+            </select>
           </label>
           <div class="actions full-span">
             <button type="submit">Create Trip</button>
@@ -59,6 +68,11 @@
           <div class="camp-toolbar">
             <button type="button" id="camp-toggle-form">Add reservation</button>
           </div>
+        </div>
+
+        <div id="active-trip" class="camp-active-trip empty">
+          <strong>No active trip selected</strong>
+          <span>Create or open a trip first.</span>
         </div>
 
         <div class="camp-filters">
@@ -87,7 +101,7 @@
         <div id="camp-form-panel" class="camp-form-panel is-hidden">
           <div class="section-head camp-form-head">
             <h2>New reservation</h2>
-            <p>Энэ reservation нь сонгосон trip дотор хадгалагдана.</p>
+            <p>Энэ reservation нь идэвхтэй trip дотор хадгалагдана.</p>
           </div>
 
           <form id="camp-form" class="field-grid">
@@ -198,12 +212,12 @@
       <section class="card">
         <div class="section-head">
           <h2>Saved reservations</h2>
-          <p>Filters real-time ажиллана. Бүх мөр editable байна.</p>
+          <p>Filters real-time ажиллана. Мөр бүр дээр `Edit` дарж бүрэн засварлана.</p>
         </div>
         <div id="camp-list" class="submission-list"></div>
       </section>
     </main>
 
-    <script src="/camp.js?v=camp-5"></script>
+    <script src="/camp.js?v=camp-6"></script>
   </body>
 </html>
