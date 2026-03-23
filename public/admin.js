@@ -26,6 +26,9 @@ const CSV_COLUMNS = [
 
 let currentSubmissions = [];
 let currentUsers = [];
+let userPage = 1;
+let submissionPage = 1;
+const PAGE_SIZE = 20;
 
 function renderValue(label, value) {
   return `
@@ -45,6 +48,21 @@ async function fetchJson(url, options) {
   return data;
 }
 
+function renderPagination(total, page, kind) {
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const start = total ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const end = total ? Math.min(total, page * PAGE_SIZE) : 0;
+  return `
+    <div class="table-pagination mini-pagination">
+      <p>Showing ${start}-${end} of ${total}</p>
+      <div class="pagination-actions">
+        <button type="button" data-action="${kind}-prev" ${page === 1 ? "disabled" : ""}>Previous</button>
+        <button type="button" data-action="${kind}-next" ${page === totalPages ? "disabled" : ""}>Next</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderUsers(users) {
   currentUsers = users;
   if (!users.length) {
@@ -52,7 +70,13 @@ function renderUsers(users) {
     return;
   }
 
-  userList.innerHTML = users
+  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+  userPage = Math.min(userPage, totalPages);
+  const startIndex = (userPage - 1) * PAGE_SIZE;
+  const visibleUsers = users.slice(startIndex, startIndex + PAGE_SIZE);
+
+  userList.innerHTML =
+    visibleUsers
     .map(
       (user) => `
         <article class="submission-card">
@@ -77,7 +101,7 @@ function renderUsers(users) {
         </article>
       `
     )
-    .join("");
+    .join("") + renderPagination(users.length, userPage, "users");
 }
 
 function renderSubmissions(submissions) {
@@ -87,7 +111,13 @@ function renderSubmissions(submissions) {
     return;
   }
 
-  submissionList.innerHTML = submissions
+  const totalPages = Math.max(1, Math.ceil(submissions.length / PAGE_SIZE));
+  submissionPage = Math.min(submissionPage, totalPages);
+  const startIndex = (submissionPage - 1) * PAGE_SIZE;
+  const visibleSubmissions = submissions.slice(startIndex, startIndex + PAGE_SIZE);
+
+  submissionList.innerHTML =
+    visibleSubmissions
     .map(
       (entry) => `
         <article class="submission-card">
@@ -115,7 +145,7 @@ function renderSubmissions(submissions) {
         </article>
       `
     )
-    .join("");
+    .join("") + renderPagination(submissions.length, submissionPage, "submissions");
 }
 
 async function loadUsers() {
@@ -164,6 +194,19 @@ function exportCsv() {
 }
 
 userList.addEventListener("click", async (event) => {
+  const paginationTarget = event.target.closest("[data-action]");
+  if (paginationTarget?.dataset.action === "users-prev") {
+    userPage = Math.max(1, userPage - 1);
+    renderUsers(currentUsers);
+    return;
+  }
+  if (paginationTarget?.dataset.action === "users-next") {
+    const totalPages = Math.max(1, Math.ceil(currentUsers.length / PAGE_SIZE));
+    userPage = Math.min(totalPages, userPage + 1);
+    renderUsers(currentUsers);
+    return;
+  }
+
   const button = event.target.closest("button[data-id]");
   if (!button) {
     return;
@@ -185,6 +228,23 @@ userList.addEventListener("click", async (event) => {
     loadUsers();
   } catch (error) {
     userList.insertAdjacentHTML("afterbegin", `<p class="empty">${error.message}</p>`);
+  }
+});
+
+submissionList.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-action]");
+  if (!target) {
+    return;
+  }
+  if (target.dataset.action === "submissions-prev") {
+    submissionPage = Math.max(1, submissionPage - 1);
+    renderSubmissions(currentSubmissions);
+    return;
+  }
+  if (target.dataset.action === "submissions-next") {
+    const totalPages = Math.max(1, Math.ceil(currentSubmissions.length / PAGE_SIZE));
+    submissionPage = Math.min(totalPages, submissionPage + 1);
+    renderSubmissions(currentSubmissions);
   }
 });
 

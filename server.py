@@ -18,7 +18,7 @@ from wsgiref.simple_server import make_server
 
 BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = BASE_DIR / "public"
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = Path(os.environ.get("DATA_DIR", str(BASE_DIR / "data"))).expanduser()
 GENERATED_DIR = DATA_DIR / "generated"
 PORT = int(os.environ.get("PORT", "3000"))
 HOST = os.environ.get("HOST", "0.0.0.0")
@@ -37,7 +37,7 @@ WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 SESSION_COOKIE = "travelx_session"
 SESSION_SECRET = os.environ.get("SESSION_SECRET", ADMIN_TOKEN)
-ADMIN_EMAIL = normalize_admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
@@ -1121,6 +1121,8 @@ def save_camp_reservation_document(record):
     pdf_href = f"/generated/{pdf_filename}"
     html_path.write_text(build_camp_document_html(record, pdf_href), encoding="utf-8")
 
+    pdf_ready = False
+
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
@@ -1136,7 +1138,10 @@ def save_camp_reservation_document(record):
 
         for candidate in [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
             "/Library/Fonts/Arial Unicode.ttf",
             "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
         ]:
@@ -1238,12 +1243,13 @@ def save_camp_reservation_document(record):
 
         pdf.showPage()
         pdf.save()
+        pdf_ready = True
     except Exception:
-        pdf_path.write_text("PDF generation unavailable", encoding="utf-8")
+        pdf_href = f"/generated/{html_filename}"
 
     return {
         "pdfViewPath": f"/generated/{html_filename}",
-        "pdfPath": pdf_href,
+        "pdfPath": pdf_href if pdf_ready else f"/generated/{html_filename}",
     }
 
 

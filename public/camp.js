@@ -16,6 +16,8 @@ let currentTrips = [];
 let currentEntries = [];
 let activeTripId = "";
 let editingReservationId = "";
+let currentPage = 1;
+const PAGE_SIZE = 20;
 
 function escapeHtml(value) {
   return String(value || "")
@@ -71,6 +73,7 @@ function setActiveTrip(tripId) {
   activeTripId = tripId || "";
   reservationTripSelect.value = activeTripId;
   filterTripName.value = activeTripId;
+  currentPage = 1;
   renderTrips(currentTrips);
   renderActiveTrip();
   renderEntries(getFilteredEntries());
@@ -245,6 +248,11 @@ function renderEntries(entries) {
     return;
   }
 
+  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  currentPage = Math.min(currentPage, totalPages);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const visibleEntries = entries.slice(startIndex, startIndex + PAGE_SIZE);
+
   campList.innerHTML = `
     <div class="camp-table-wrap">
       <table class="camp-table">
@@ -270,11 +278,22 @@ function renderEntries(entries) {
           </tr>
         </thead>
         <tbody>
-          ${entries
-            .map((entry, index) => (editingReservationId === entry.id ? renderEditableRow(entry, index) : renderReadOnlyRow(entry, index)))
+          ${visibleEntries
+            .map((entry, index) =>
+              editingReservationId === entry.id
+                ? renderEditableRow(entry, startIndex + index)
+                : renderReadOnlyRow(entry, startIndex + index)
+            )
             .join("")}
         </tbody>
       </table>
+    </div>
+    <div class="table-pagination">
+      <p>Showing ${startIndex + 1}-${startIndex + visibleEntries.length} of ${entries.length}</p>
+      <div class="pagination-actions">
+        <button type="button" data-action="page-prev" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
+        <button type="button" data-action="page-next" ${currentPage === totalPages ? "disabled" : ""}>Next</button>
+      </div>
     </div>
   `;
 }
@@ -434,12 +453,29 @@ campList.addEventListener("click", (event) => {
   if (action === "cancel-edit") {
     editingReservationId = "";
     renderEntries(getFilteredEntries());
+    return;
+  }
+  if (action === "page-prev") {
+    currentPage = Math.max(1, currentPage - 1);
+    renderEntries(getFilteredEntries());
+    return;
+  }
+  if (action === "page-next") {
+    const totalPages = Math.max(1, Math.ceil(getFilteredEntries().length / PAGE_SIZE));
+    currentPage = Math.min(totalPages, currentPage + 1);
+    renderEntries(getFilteredEntries());
   }
 });
 
 [filterCampName, filterTripName, filterStatus].forEach((node) => {
-  node.addEventListener("input", () => renderEntries(getFilteredEntries()));
-  node.addEventListener("change", () => renderEntries(getFilteredEntries()));
+  node.addEventListener("input", () => {
+    currentPage = 1;
+    renderEntries(getFilteredEntries());
+  });
+  node.addEventListener("change", () => {
+    currentPage = 1;
+    renderEntries(getFilteredEntries());
+  });
 });
 
 async function init() {

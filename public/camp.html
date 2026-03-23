@@ -7,29 +7,37 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=camp-7" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-8" />
   </head>
-  <body>
-    <main class="shell camp-shell">
-      <nav class="site-nav">
-        <a class="site-brand" href="/backoffice">TravelX Backoffice</a>
-        <div class="site-nav-links">
-          <a href="/backoffice">Backoffice</a>
-          <a href="/ds160">DS-160</a>
-          <a class="is-active" href="/camp">Camp</a>
-          <a href="/admin">Admin</a>
+  <body class="app-body">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar">
+        <a class="sidebar-brand" href="/backoffice">TravelX</a>
+        <div class="sidebar-group">
+          <p class="sidebar-label">Backoffice</p>
+          <a class="sidebar-link" href="/backoffice">Dashboard</a>
+          <a class="sidebar-link is-active" href="/camp">Camp Reservations</a>
+          <a class="sidebar-link" href="/ds160">DS-160</a>
+          <a class="sidebar-link" href="/admin">Team / Admin</a>
         </div>
-      </nav>
+        <div class="sidebar-group">
+          <p class="sidebar-label">Sub Pages</p>
+          <a class="sidebar-link is-active" href="/camp">Reservation List</a>
+          <a class="sidebar-link is-disabled" href="#">Trips</a>
+          <a class="sidebar-link is-disabled" href="#">Hotels</a>
+        </div>
+      </aside>
 
-      <section class="hero camp-hero">
-        <p class="eyebrow">USM CAMP</p>
-        <h1>Unlock Steppe Mongolia Camp Reservation</h1>
-        <p class="intro">
-          Эхлээд trip үүсгэнэ. Дараа нь тухайн trip дотор олон camp reservation нэмнэ.
-        </p>
-      </section>
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">USM Camp</p>
+            <h1>Unlock Steppe Mongolia Camp Reservation</h1>
+            <p class="workspace-subtitle">Эхлээд trip үүсгэнэ. Дараа нь тухайн trip дотор олон reservation нэмнэ.</p>
+          </div>
+        </section>
 
-      <section class="card">
+        <section class="card">
         <div class="section-head">
           <h2>Trips</h2>
           <p>Эхлээд trip үүсгэнэ. Дараа нь тухайн trip дотор camp болон hotel reservation-уудаа нэмнэ.</p>
@@ -58,9 +66,9 @@
           </div>
         </form>
         <div id="trip-list" class="camp-trip-list"></div>
-      </section>
+        </section>
 
-      <section class="card">
+        <section class="card">
         <div class="section-head">
           <h2>CAMP RESERVATION</h2>
           <div class="camp-toolbar">
@@ -205,17 +213,18 @@
             </div>
           </form>
         </div>
-      </section>
+        </section>
 
-      <section class="card">
+        <section class="card">
         <div class="section-head">
           <h2>Saved reservations</h2>
           <p>Мөр бүр дээр Edit, View, PDF action-той. Confirmed мөр ногоон өнгөөр ялгарна.</p>
         </div>
         <div id="camp-list" class="submission-list"></div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
 
-    <script src="/camp.js?v=camp-7"></script>
+    <script src="/camp.js?v=workspace-8"></script>
   </body>
 </html>
