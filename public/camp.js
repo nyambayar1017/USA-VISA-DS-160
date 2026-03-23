@@ -22,6 +22,7 @@ const tripFilterCreatedDate = document.querySelector("#trip-filter-created-date"
 const filterCampName = document.querySelector("#filter-camp-name");
 const filterTripName = document.querySelector("#filter-trip-name");
 const filterTripStartDate = document.querySelector("#filter-trip-start-date");
+const filterReservedDate = document.querySelector("#filter-reserved-date");
 const filterStatus = document.querySelector("#filter-status");
 const campExportPdf = document.querySelector("#camp-export-pdf");
 const campCheckin = document.querySelector("#camp-checkin");
@@ -39,6 +40,7 @@ let campSettings = {
 };
 let activeTripId = "";
 let editingReservationId = "";
+let editingTripId = "";
 let currentPage = 1;
 let currentTripPage = 1;
 const PAGE_SIZE = 20;
@@ -87,8 +89,8 @@ function formatStatusLabel(status) {
   return labels[normalizeStatus(status)] || status || "-";
 }
 
-function sortByDateDesc(items, field) {
-  return [...items].sort((left, right) => String(right[field] || "").localeCompare(String(left[field] || "")));
+function sortByDateAsc(items, field) {
+  return [...items].sort((left, right) => String(left[field] || "").localeCompare(String(right[field] || "")));
 }
 
 function renderOptionMarkup(values, placeholder) {
@@ -150,7 +152,6 @@ function syncStayFromCheckout() {
 function setActiveTrip(tripId) {
   activeTripId = tripId || "";
   reservationTripSelect.value = activeTripId;
-  filterTripName.value = activeTripId;
   currentPage = 1;
   renderTrips();
   renderActiveTrip();
@@ -158,7 +159,7 @@ function setActiveTrip(tripId) {
 }
 
 function getFilteredTrips() {
-  return sortByDateDesc(currentTrips, "startDate").filter((trip) => {
+  return sortByDateAsc(currentTrips, "startDate").filter((trip) => {
     const matchesTripName = !tripFilterName.value || String(trip.tripName || "").toLowerCase().includes(tripFilterName.value.trim().toLowerCase());
     const matchesStartDate = !tripFilterStartDate.value || String(trip.startDate || "") >= tripFilterStartDate.value;
     const matchesStatus = !tripFilterStatus.value || trip.status === tripFilterStatus.value;
@@ -171,15 +172,17 @@ function getFilteredTrips() {
 function getFilteredEntries() {
   const campNeedle = filterCampName.value;
   const tripId = filterTripName.value;
+  const reservedDate = filterReservedDate.value;
   const status = filterStatus.value;
 
-  return sortByDateDesc(currentEntries, "checkIn").filter((entry) => {
+  return sortByDateAsc(currentEntries, "checkIn").filter((entry) => {
     const trip = getTripById(entry.tripId);
     const matchesCamp = !campNeedle || entry.campName === campNeedle;
     const matchesTrip = !tripId || entry.tripId === tripId;
     const matchesStatus = !status || entry.status === status;
     const matchesTripStart = !filterTripStartDate.value || String(trip?.startDate || "") === filterTripStartDate.value;
-    return matchesCamp && matchesTrip && matchesStatus && matchesTripStart;
+    const matchesReservedDate = !reservedDate || String(entry.createdDate || "").slice(0, 10) === reservedDate;
+    return matchesCamp && matchesTrip && matchesStatus && matchesTripStart && matchesReservedDate;
   });
 }
 
@@ -264,7 +267,7 @@ function renderTrips() {
             <th>Language</th>
             <th>Status</th>
             <th>Created</th>
-            <th>By</th>
+            <th>Registered Name</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -275,7 +278,7 @@ function renderTrips() {
                 <tr class="${activeTripId === trip.id ? "is-trip-active" : ""}">
                   <td>${startIndex + index + 1}</td>
                   <td class="table-primary-cell">
-                    <strong>${escapeHtml(trip.tripName)}</strong>
+                    <button type="button" class="table-link compact secondary trip-select-link" data-action="select-trip" data-trip-id="${trip.id}">${escapeHtml(trip.tripName)}</button>
                   </td>
                   <td>${formatDate(trip.startDate)}</td>
                   <td>${trip.participantCount}</td>
@@ -283,14 +286,14 @@ function renderTrips() {
                   <td>${escapeHtml(trip.language)}</td>
                   <td><span class="status-pill is-${normalizeStatus(trip.status)}">${formatStatusLabel(trip.status)}</span></td>
                   <td>${formatDate(trip.createdAt, true)}</td>
-                  <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
+                  <td>${escapeHtml(trip.createdBy?.name || "-")}</td>
                   <td class="camp-row-actions compact">
-                    <button type="button" class="table-action compact" data-action="open-trip" data-trip-id="${trip.id}">${activeTripId === trip.id ? "Opened" : "Open"}</button>
                     <select class="inline-status-select" data-action="trip-status" data-trip-id="${trip.id}">
                       ${["planning", "confirmed", "travelling", "completed", "cancelled"]
                         .map((option) => `<option value="${option}" ${trip.status === option ? "selected" : ""}>${formatStatusLabel(option)}</option>`)
                         .join("")}
                     </select>
+                    <button type="button" class="table-action compact secondary" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
                     <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
                   </td>
                 </tr>
@@ -568,6 +571,22 @@ async function updateTripStatus(id, status) {
   }
 }
 
+function startTripEdit(id) {
+  const trip = getTripById(id);
+  if (!trip) {
+    return;
+  }
+  editingTripId = id;
+  tripFormPanel.classList.remove("is-hidden");
+  tripForm.elements.tripName.value = trip.tripName || "";
+  tripForm.elements.startDate.value = String(trip.startDate || "").slice(0, 10);
+  tripForm.elements.participantCount.value = String(trip.participantCount || 0);
+  tripForm.elements.staffCount.value = String(trip.staffCount || 0);
+  tripForm.elements.language.value = trip.language || "";
+  tripForm.elements.status.value = trip.status || "planning";
+  tripStatus.textContent = `Editing trip: ${trip.tripName}`;
+}
+
 async function updateReservation(id) {
   const roles = [
     "campName",
@@ -664,16 +683,17 @@ async function exportCurrentReservations() {
 
 tripForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  tripStatus.textContent = "Saving trip...";
+  tripStatus.textContent = editingTripId ? "Updating trip..." : "Saving trip...";
 
   try {
-    const result = await fetchJson("/api/camp-trips", {
+    const result = await fetchJson(editingTripId ? `/api/camp-trips/${editingTripId}` : "/api/camp-trips", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(buildPayload(tripForm)),
     });
-    tripStatus.textContent = `Trip created: ${result.entry.tripName}`;
+    tripStatus.textContent = editingTripId ? `Trip updated: ${result.entry.tripName}` : `Trip created: ${result.entry.tripName}`;
     tripForm.reset();
+    editingTripId = "";
     tripFormPanel.classList.add("is-hidden");
     await loadTrips();
     setActiveTrip(result.entry.id);
@@ -738,9 +758,14 @@ tripList.addEventListener("click", (event) => {
     return;
   }
 
-  if (actionTarget.dataset.action === "open-trip") {
+  if (actionTarget.dataset.action === "select-trip") {
     setActiveTrip(actionTarget.dataset.tripId);
-    tripStatus.textContent = `Opened trip: ${getTripById(actionTarget.dataset.tripId)?.tripName || ""}`;
+    tripStatus.textContent = `Selected trip: ${getTripById(actionTarget.dataset.tripId)?.tripName || ""}`;
+    return;
+  }
+
+  if (actionTarget.dataset.action === "edit-trip") {
+    startTripEdit(actionTarget.dataset.tripId);
     return;
   }
 
@@ -852,7 +877,7 @@ campList.addEventListener("change", (event) => {
   }
 });
 
-[filterCampName, filterTripName, filterTripStartDate, filterStatus].forEach((node) => {
+[filterTripName, filterCampName, filterTripStartDate, filterReservedDate, filterStatus].forEach((node) => {
   node.addEventListener("input", () => {
     currentPage = 1;
     renderEntries();

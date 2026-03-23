@@ -132,23 +132,12 @@
           <div class="section-head">
             <h2>Camp Reservations</h2>
             <div class="camp-toolbar">
-              <button type="button" id="camp-export-pdf" class="secondary-button">Export current list PDF</button>
+              <button type="button" id="camp-export-pdf" class="secondary-button">Download filtered PDF</button>
               <button type="button" id="camp-toggle-form">Add reservation</button>
             </div>
           </div>
 
-          <div id="active-trip" class="camp-active-trip empty">
-            <strong>No active trip selected</strong>
-            <span>Create or open a trip first.</span>
-          </div>
-
           <div class="camp-filters">
-            <label>
-              Camp
-              <select id="filter-camp-name">
-                <option value="">All camps</option>
-              </select>
-            </label>
             <label>
               Trip Name
               <select id="filter-trip-name">
@@ -156,8 +145,18 @@
               </select>
             </label>
             <label>
+              Camp
+              <select id="filter-camp-name">
+                <option value="">All camps</option>
+              </select>
+            </label>
+            <label>
               Trip start date
               <input id="filter-trip-start-date" type="date" />
+            </label>
+            <label>
+              Reserved date
+              <input id="filter-reserved-date" type="date" />
             </label>
             <label>
               Status
@@ -169,6 +168,11 @@
                 <option value="rejected">Rejected</option>
               </select>
             </label>
+          </div>
+
+          <div id="active-trip" class="camp-active-trip empty">
+            <strong>No active trip selected</strong>
+            <span>Create or open a trip first.</span>
           </div>
 
           <div id="camp-form-panel" class="camp-form-panel is-hidden">

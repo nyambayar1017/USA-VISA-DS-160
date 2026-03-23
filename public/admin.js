@@ -92,11 +92,13 @@ function renderUsers(users) {
             ${renderValue("Status", user.status)}
             ${renderValue("Created", user.createdAt ? new Date(user.createdAt).toLocaleString() : "-")}
             ${renderValue("Approved", user.approvedAt ? new Date(user.approvedAt).toLocaleString() : "-")}
+            ${renderValue("Reset request", user.resetRequestedAt ? new Date(user.resetRequestedAt).toLocaleString() : "-")}
           </div>
           <div class="dashboard-actions card-actions">
             <button type="button" data-status="approved" data-id="${user.id}">Approve</button>
             <button type="button" data-status="rejected" data-id="${user.id}">Reject</button>
             <button type="button" data-role="admin" data-id="${user.id}">Make Admin</button>
+            <button type="button" data-reset-password="true" data-id="${user.id}">Set Password</button>
           </div>
         </article>
       `
@@ -212,6 +214,13 @@ userList.addEventListener("click", async (event) => {
     return;
   }
   const payload = {};
+  if (button.dataset.resetPassword) {
+    const nextPassword = window.prompt("Enter the new password for this user:");
+    if (!nextPassword) {
+      return;
+    }
+    payload.password = nextPassword;
+  }
   if (button.dataset.status) {
     payload.status = button.dataset.status;
   }

@@ -296,6 +296,7 @@ def build_user_account(payload):
         "id": str(uuid4()),
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "approvedAt": "",
+        "resetRequestedAt": "",
         "lastLoginAt": "",
         "fullName": normalize_text(payload.get("fullName")),
         "email": normalize_text(payload.get("email")).lower(),
@@ -312,6 +313,8 @@ def validate_user_account(payload):
         return "Valid email is required"
     if len(password) < 6:
         return "Password must be at least 6 characters"
+    if "confirmPassword" in payload and str(payload.get("confirmPassword") or "") != password:
+        return "Passwords do not match"
     return None
 
 
@@ -341,6 +344,22 @@ def handle_auth_register(environ, start_response):
     users.insert(0, build_user_account(payload))
     write_users(users)
     return json_response(start_response, "201 Created", {"ok": True, "message": "Your account request was sent. Wait for admin approval."})
+
+
+def handle_auth_request_reset(environ, start_response):
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    email = normalize_text(payload.get("email")).lower()
+    if not email or "@" not in email:
+        return json_response(start_response, "400 Bad Request", {"error": "Valid email is required"})
+    users = read_users()
+    for user in users:
+        if user.get("email") == email:
+            user["resetRequestedAt"] = datetime.now(timezone.utc).isoformat()
+            break
+    write_users(users)
+    return json_response(start_response, "200 OK", {"ok": True, "message": "If the account exists, a reset request was sent to admin."})
 
 
 def handle_auth_bootstrap_admin(environ, start_response):
@@ -440,6 +459,12 @@ def handle_update_user(environ, start_response, user_id):
             user["role"] = normalize_text(payload.get("role")).lower() or user["role"]
         if "fullName" in payload:
             user["fullName"] = normalize_text(payload.get("fullName"))
+        if "password" in payload:
+            password = str(payload.get("password") or "")
+            if len(password) < 6:
+                return json_response(start_response, "400 Bad Request", {"error": "Password must be at least 6 characters"})
+            user["passwordHash"] = hash_password(password)
+            user["resetRequestedAt"] = ""
         write_users(users)
         return json_response(start_response, "200 OK", {"ok": True, "user": sanitize_user(user)})
     return json_response(start_response, "404 Not Found", {"error": "User not found"})
@@ -520,6 +545,7 @@ def sanitize_user(user):
         "status": user.get("status", "pending"),
         "createdAt": user.get("createdAt"),
         "approvedAt": user.get("approvedAt"),
+        "resetRequestedAt": user.get("resetRequestedAt"),
         "lastLoginAt": user.get("lastLoginAt"),
     }
 
@@ -559,6 +585,7 @@ def bootstrap_admin_user():
         "id": str(uuid4()),
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "approvedAt": datetime.now(timezone.utc).isoformat(),
+        "resetRequestedAt": "",
         "lastLoginAt": "",
         "fullName": "Admin",
         "email": ADMIN_EMAIL,
@@ -2303,6 +2330,9 @@ def app(environ, start_response):
 
     if path == "/api/auth/login" and method == "POST":
         return handle_auth_login(environ, start_response)
+
+    if path == "/api/auth/request-reset" and method == "POST":
+        return handle_auth_request_reset(environ, start_response)
 
     if path == "/api/auth/logout" and method == "POST":
         return handle_auth_logout(environ, start_response)

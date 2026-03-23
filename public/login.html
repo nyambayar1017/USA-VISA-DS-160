@@ -59,12 +59,29 @@
               Password
               <input name="password" type="password" minlength="6" required />
             </label>
+            <label>
+              Confirm password
+              <input name="confirmPassword" type="password" minlength="6" required />
+            </label>
             <div class="actions">
               <button type="submit">Request Access</button>
               <p id="register-status" class="status"></p>
             </div>
           </form>
         </div>
+
+        <form id="reset-form" class="auth-panel">
+          <h2>Forgot Password</h2>
+          <label>
+            Email
+            <input name="email" type="email" required />
+          </label>
+          <div class="actions">
+            <button type="submit">Request Reset</button>
+            <p id="reset-status" class="status"></p>
+          </div>
+          <p class="status">Admin will review the request and set a new password for you.</p>
+        </form>
       </section>
     </main>
 

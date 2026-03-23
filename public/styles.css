@@ -946,7 +946,7 @@ time {
 
 .camp-filters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 22px;
 }
@@ -1118,11 +1118,17 @@ time {
   min-width: 1500px;
   border-collapse: collapse;
   table-layout: fixed;
+  font-size: 0.9rem;
+}
+
+.trip-table {
+  min-width: 1050px;
+  table-layout: auto;
 }
 
 .camp-table th,
 .camp-table td {
-  padding: 14px 12px;
+  padding: 10px 8px;
   border: 1px solid rgba(22, 44, 84, 0.12);
   text-align: center;
   vertical-align: top;
@@ -1181,8 +1187,8 @@ time {
 }
 
 .camp-row-actions.compact {
-  min-width: 104px;
-  gap: 8px;
+  min-width: 90px;
+  gap: 6px;
 }
 
 .camp-table td:nth-child(2),
@@ -1212,7 +1218,7 @@ time {
 .table-link.compact {
   min-height: 30px;
   padding: 0 10px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
 }
 
@@ -1237,9 +1243,10 @@ time {
 }
 
 .inline-status-select {
-  min-width: 120px;
-  padding: 8px 10px;
+  min-width: 92px;
+  padding: 6px 8px;
   border-radius: 12px;
+  font-size: 0.82rem;
 }
 
 .camp-inline-grid {
@@ -1252,11 +1259,38 @@ time {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 96px;
-  padding: 8px 12px;
+  min-width: 84px;
+  padding: 6px 10px;
   border-radius: 999px;
   font-weight: 700;
+  font-size: 0.8rem;
   text-transform: capitalize;
+}
+
+.trip-select-link {
+  width: auto;
+  min-width: 0;
+  padding-inline: 8px;
+}
+
+.trip-table th:nth-child(1),
+.trip-table td:nth-child(1) {
+  width: 42px;
+}
+
+.trip-table th:nth-child(8),
+.trip-table td:nth-child(8) {
+  width: 142px;
+}
+
+.trip-table th:nth-child(9),
+.trip-table td:nth-child(9) {
+  width: 120px;
+}
+
+.trip-table th:nth-child(10),
+.trip-table td:nth-child(10) {
+  width: 120px;
 }
 
 .status-pill.is-confirmed {
