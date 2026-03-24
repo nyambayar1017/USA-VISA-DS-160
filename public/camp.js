@@ -10,6 +10,7 @@ const campList = document.querySelector("#camp-list");
 const campToggleForm = document.querySelector("#camp-toggle-form");
 const campFormPanel = document.querySelector("#camp-form-panel");
 const reservationTripSelect = document.querySelector("#reservation-trip-select");
+const reservationTripDisplay = document.querySelector("#reservation-trip-display");
 const campNameSelect = document.querySelector("#camp-name-select");
 const staffAssignmentSelect = document.querySelector("#staff-assignment-select");
 const roomTypeSelect = document.querySelector("#room-type-select");
@@ -152,6 +153,9 @@ function syncStayFromCheckout() {
 function setActiveTrip(tripId) {
   activeTripId = tripId || "";
   reservationTripSelect.value = activeTripId;
+  if (reservationTripDisplay) {
+    reservationTripDisplay.value = getTripById(activeTripId)?.tripName || "";
+  }
   currentPage = 1;
   renderTrips();
   renderActiveTrip();
@@ -198,9 +202,6 @@ function renderSettingsOptions() {
   const languages = [...new Set(currentTrips.map((trip) => trip.language).filter(Boolean).concat(["English", "French", "Mongolian", "Korean", "Spanish", "Italian", "Other"]))];
   tripLanguageSelect.innerHTML = renderOptionMarkup(languages, "Choose language");
   tripFilterLanguage.innerHTML = renderOptionMarkup(languages, "All languages");
-  reservationTripSelect.innerHTML = `<option value="">Select trip</option>${currentTrips
-    .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
-    .join("")}`;
   filterTripName.innerHTML = `<option value="">All trips</option>${currentTrips
     .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
     .join("")}`;
@@ -214,6 +215,9 @@ function renderSettingsOptions() {
 
   if (activeTripId) {
     reservationTripSelect.value = activeTripId;
+    if (reservationTripDisplay) {
+      reservationTripDisplay.value = getTripById(activeTripId)?.tripName || "";
+    }
     filterTripName.value = activeTripId;
   }
 }
@@ -267,7 +271,7 @@ function renderTrips() {
             <th>Language</th>
             <th>Status</th>
             <th>Created</th>
-            <th>Registered Name</th>
+            <th>Manager</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -287,14 +291,16 @@ function renderTrips() {
                   <td><span class="status-pill is-${normalizeStatus(trip.status)}">${formatStatusLabel(trip.status)}</span></td>
                   <td>${formatDate(trip.createdAt, true)}</td>
                   <td>${escapeHtml(trip.createdBy?.name || "-")}</td>
-                  <td class="camp-row-actions compact">
-                    <select class="inline-status-select" data-action="trip-status" data-trip-id="${trip.id}">
-                      ${["planning", "confirmed", "travelling", "completed", "cancelled"]
-                        .map((option) => `<option value="${option}" ${trip.status === option ? "selected" : ""}>${formatStatusLabel(option)}</option>`)
-                        .join("")}
-                    </select>
-                    <button type="button" class="table-action compact secondary" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
-                    <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
+                  <td>
+                    <div class="trip-row-actions">
+                      <select class="inline-status-select" data-action="trip-status" data-trip-id="${trip.id}">
+                        ${["planning", "confirmed", "travelling", "completed", "cancelled"]
+                          .map((option) => `<option value="${option}" ${trip.status === option ? "selected" : ""}>${formatStatusLabel(option)}</option>`)
+                          .join("")}
+                      </select>
+                      <button type="button" class="table-action compact secondary" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
+                      <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
+                    </div>
                   </td>
                 </tr>
               `
@@ -348,7 +354,6 @@ function renderReadOnlyRow(entry, index) {
       <td>${escapeHtml(entry.reservationType === "hotel" ? "Буудал" : entry.reservationType === "herder" ? "Малчин айл" : "Бааз")}</td>
       <td>${entry.clientCount}</td>
       <td>${entry.staffCount}</td>
-      <td>${formatDate(entry.createdDate)}</td>
       <td>${formatDate(entry.checkIn)}</td>
       <td>${entry.nights}</td>
       <td>${formatDate(entry.checkOut)}</td>
@@ -356,9 +361,6 @@ function renderReadOnlyRow(entry, index) {
       <td>${escapeHtml(entry.roomType)}</td>
       <td>${escapeHtml(entry.staffAssignment || "-")}</td>
       <td><span class="status-pill is-${normalizeStatus(entry.status)}">${formatStatusLabel(entry.status)}</span></td>
-      <td>${formatMoney(entry.deposit)}</td>
-      <td>${formatMoney(entry.totalPayment)}</td>
-      <td>${formatMoney(entry.balancePayment)}</td>
       <td>${escapeHtml(entry.createdBy?.name || entry.createdBy?.email || "-")}</td>
       <td>${escapeHtml(entry.updatedBy?.name || entry.updatedBy?.email || "-")}</td>
       <td>
@@ -394,7 +396,6 @@ function renderEditableRow(entry, index) {
       </td>
       <td><input data-role="clientCount" data-id="${entry.id}" type="number" min="1" value="${entry.clientCount}" /></td>
       <td><input data-role="staffCount" data-id="${entry.id}" type="number" min="0" value="${entry.staffCount}" /></td>
-      <td><input data-role="createdDate" data-id="${entry.id}" type="date" value="${String(entry.createdDate || "").slice(0, 10)}" /></td>
       <td><input data-role="checkIn" data-id="${entry.id}" type="date" value="${entry.checkIn}" /></td>
       <td><input data-role="nights" data-id="${entry.id}" type="number" min="1" value="${entry.nights}" /></td>
       <td><input data-role="checkOut" data-id="${entry.id}" type="date" value="${entry.checkOut}" /></td>
@@ -421,9 +422,6 @@ function renderEditableRow(entry, index) {
             .join("")}
         </select>
       </td>
-      <td><input data-role="deposit" data-id="${entry.id}" inputmode="numeric" value="${entry.deposit}" /></td>
-      <td><input data-role="totalPayment" data-id="${entry.id}" inputmode="numeric" value="${entry.totalPayment}" /></td>
-      <td><input data-role="balancePayment" data-id="${entry.id}" inputmode="numeric" value="${entry.balancePayment}" /></td>
       <td>${escapeHtml(entry.createdBy?.name || entry.createdBy?.email || "-")}</td>
       <td>${escapeHtml(entry.updatedBy?.name || entry.updatedBy?.email || "-")}</td>
       <td>
@@ -474,7 +472,6 @@ function renderEntries() {
             <th>Type</th>
             <th>Clients</th>
             <th>Staff</th>
-            <th>Reservation date</th>
             <th>Check-in</th>
             <th>Stays</th>
             <th>Check-out</th>
@@ -482,9 +479,6 @@ function renderEntries() {
             <th>Room</th>
             <th>Assigned Staff</th>
             <th>Status</th>
-            <th>Deposit</th>
-            <th>Total</th>
-            <th>Balance</th>
             <th>Created by</th>
             <th>Updated by</th>
             <th>Notes / Meals</th>
@@ -730,6 +724,9 @@ campForm.addEventListener("submit", async (event) => {
     campForm.querySelector('[name="gerCount"]').value = "1";
     campForm.querySelector('[name="nights"]').value = "1";
     reservationTripSelect.value = selectedTrip.id;
+    if (reservationTripDisplay) {
+      reservationTripDisplay.value = selectedTrip.tripName;
+    }
     syncCheckoutFromStay();
     campFormPanel.classList.add("is-hidden");
     await loadReservations();
@@ -744,10 +741,13 @@ tripToggleForm.addEventListener("click", () => {
 
 campToggleForm.addEventListener("click", () => {
   if (!activeTripId) {
-    campStatus.textContent = "Open a trip first.";
+    campStatus.textContent = "Select a trip first.";
     return;
   }
   reservationTripSelect.value = activeTripId;
+  if (reservationTripDisplay) {
+    reservationTripDisplay.value = getTripById(activeTripId)?.tripName || "";
+  }
   syncCheckoutFromStay();
   campFormPanel.classList.toggle("is-hidden");
 });

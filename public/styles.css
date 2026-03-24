@@ -22,7 +22,7 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--text);
-  font-family: "Poppins", "Avenir Next", "Segoe UI", sans-serif;
+  font-family: "Montserrat", "Avenir Next", "Segoe UI", sans-serif;
   background:
     radial-gradient(circle at top left, rgba(37, 58, 119, 0.14), transparent 22%),
     radial-gradient(circle at top right, rgba(234, 106, 79, 0.12), transparent 18%),
@@ -212,7 +212,6 @@ body {
 .hero h1 {
   margin: 0;
   max-width: 860px;
-  font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(2.4rem, 6vw, 4.8rem);
   line-height: 0.96;
   color: var(--brand);
@@ -1210,14 +1209,30 @@ time {
   gap: 5px;
 }
 
+.trip-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trip-row-actions .inline-status-select {
+  min-width: 96px;
+}
+
+.trip-row-actions .table-action.compact {
+  width: auto;
+}
+
 .camp-table td:nth-child(2),
 .camp-table td:nth-child(3),
 .camp-table td:nth-child(4),
+.camp-table td:nth-child(11),
 .camp-table td:nth-child(12),
-.camp-table td:nth-child(13),
-.camp-table td:nth-child(18),
-.camp-table td:nth-child(19),
-.camp-table td:nth-child(20) {
+.camp-table td:nth-child(14),
+.camp-table td:nth-child(15),
+.camp-table td:nth-child(16) {
   text-align: left;
 }
 
@@ -1327,18 +1342,18 @@ time {
 
 .trip-table th:nth-child(8),
 .trip-table td:nth-child(8) {
-  width: 142px;
+  width: 134px;
 }
 
 .trip-table th:nth-child(9),
 .trip-table td:nth-child(9) {
-  width: 140px;
+  width: 130px;
   text-align: left;
 }
 
 .trip-table th:nth-child(10),
 .trip-table td:nth-child(10) {
-  width: 156px;
+  width: 250px;
 }
 
 .camp-table th:nth-child(1),
@@ -1351,12 +1366,21 @@ time {
   width: 78px;
 }
 
+.camp-table th:nth-child(2),
+.camp-table td:nth-child(2),
+.camp-table th:nth-child(3),
+.camp-table td:nth-child(3) {
+  width: 138px;
+}
+
 .camp-table th:nth-child(5),
 .camp-table td:nth-child(5),
 .camp-table th:nth-child(6),
 .camp-table td:nth-child(6),
-.camp-table th:nth-child(9),
-.camp-table td:nth-child(9),
+.camp-table th:nth-child(8),
+.camp-table td:nth-child(8),
+.camp-table th:nth-child(10),
+.camp-table td:nth-child(10),
 .camp-table th:nth-child(11),
 .camp-table td:nth-child(11) {
   width: 62px;
@@ -1364,10 +1388,8 @@ time {
 
 .camp-table th:nth-child(7),
 .camp-table td:nth-child(7),
-.camp-table th:nth-child(8),
-.camp-table td:nth-child(8),
-.camp-table th:nth-child(10),
-.camp-table td:nth-child(10) {
+.camp-table th:nth-child(9),
+.camp-table td:nth-child(9) {
   width: 96px;
 }
 
@@ -1378,38 +1400,29 @@ time {
 
 .camp-table th:nth-child(13),
 .camp-table td:nth-child(13) {
-  width: 104px;
+  width: 90px;
 }
 
 .camp-table th:nth-child(14),
 .camp-table td:nth-child(14) {
-  width: 90px;
+  width: 112px;
 }
 
 .camp-table th:nth-child(15),
 .camp-table td:nth-child(15),
 .camp-table th:nth-child(16),
-.camp-table td:nth-child(16),
-.camp-table th:nth-child(17),
-.camp-table td:nth-child(17) {
-  width: 92px;
-}
-
-.camp-table th:nth-child(18),
-.camp-table td:nth-child(18),
-.camp-table th:nth-child(19),
-.camp-table td:nth-child(19) {
+.camp-table td:nth-child(16) {
   width: 112px;
 }
 
-.camp-table th:nth-child(20),
-.camp-table td:nth-child(20) {
-  width: 220px;
+.camp-table th:nth-child(17),
+.camp-table td:nth-child(17) {
+  width: 128px;
 }
 
-.camp-table th:nth-child(21),
-.camp-table td:nth-child(21) {
-  width: 128px;
+.camp-table th:nth-child(16),
+.camp-table td:nth-child(16) {
+  width: 220px;
 }
 
 .status-pill.is-confirmed {
