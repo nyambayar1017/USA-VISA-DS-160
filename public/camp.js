@@ -347,6 +347,9 @@ function renderActiveTrip() {
 
 function renderReadOnlyRow(entry, index) {
   const isSelected = selectedReservationIds.has(entry.id);
+  const meals = [entry.breakfast === "Yes" && "Breakfast", entry.lunch === "Yes" && "Lunch", entry.dinner === "Yes" && "Dinner"]
+    .filter(Boolean)
+    .join(" / ");
   return `
     <tr class="${statusClass(entry)}">
       <td>
@@ -365,13 +368,12 @@ function renderReadOnlyRow(entry, index) {
       <td>${escapeHtml(entry.staffAssignment || "-")}</td>
       <td><span class="status-pill is-${normalizeStatus(entry.status)}">${formatStatusLabel(entry.status)}</span></td>
       <td>${escapeHtml(entry.createdBy?.name || entry.createdBy?.email || "-")}</td>
-      <td>${escapeHtml(entry.updatedBy?.name || entry.updatedBy?.email || "-")}</td>
       <td>
         <strong>${escapeHtml(entry.notes || "-")}</strong>
-        <div class="table-subline">${escapeHtml([entry.breakfast === "Yes" && "Breakfast", entry.lunch === "Yes" && "Lunch", entry.dinner === "Yes" && "Dinner"].filter(Boolean).join(" / ") || "No meal")}</div>
       </td>
+      <td>${escapeHtml(meals || "-")}</td>
       <td>
-        <div class="camp-row-actions compact horizontal pills">
+        <div class="camp-row-actions compact stacked-pills">
           <button type="button" class="table-action compact secondary" data-action="edit" data-id="${entry.id}">Edit</button>
           <a class="table-link compact secondary" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">View</a>
           <a class="table-link compact" href="${entry.pdfPath}" target="_blank" rel="noreferrer">PDF</a>
@@ -428,9 +430,10 @@ function renderEditableRow(entry, index) {
         </select>
       </td>
       <td>${escapeHtml(entry.createdBy?.name || entry.createdBy?.email || "-")}</td>
-      <td>${escapeHtml(entry.updatedBy?.name || entry.updatedBy?.email || "-")}</td>
       <td>
         <textarea data-role="notes" data-id="${entry.id}" rows="2">${escapeHtml(entry.notes || "")}</textarea>
+      </td>
+      <td>
         <div class="camp-inline-grid">
           <select data-role="breakfast" data-id="${entry.id}">
             <option value="No" ${entry.breakfast === "No" ? "selected" : ""}>Breakfast: No</option>
@@ -485,8 +488,8 @@ function renderEntries() {
             <th>Assigned Staff</th>
             <th>Status</th>
             <th>Created by</th>
-            <th>Updated by</th>
-            <th>Notes / Meals</th>
+            <th>Notes</th>
+            <th>Meals</th>
             <th>Actions</th>
           </tr>
         </thead>
