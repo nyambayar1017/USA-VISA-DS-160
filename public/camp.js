@@ -49,6 +49,18 @@ let activeTripDayFilter = "";
 let activeTripPanelHidden = false;
 const PAGE_SIZE = 20;
 
+function openPanel(panel) {
+  panel.classList.remove("is-hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closePanel(panel) {
+  panel.classList.add("is-hidden");
+  if (tripFormPanel.classList.contains("is-hidden") && campFormPanel.classList.contains("is-hidden")) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -837,7 +849,7 @@ tripForm.addEventListener("submit", async (event) => {
     tripStatus.textContent = editingTripId ? `Trip updated: ${result.entry.tripName}` : `Trip created: ${result.entry.tripName}`;
     tripForm.reset();
     editingTripId = "";
-    tripFormPanel.classList.add("is-hidden");
+    closePanel(tripFormPanel);
     await loadTrips();
     setActiveTrip(result.entry.id);
   } catch (error) {
@@ -874,7 +886,7 @@ campForm.addEventListener("submit", async (event) => {
     campForm.querySelector('[name="nights"]').value = "1";
     reservationTripSelect.value = selectedTrip.id;
     syncCheckoutFromStay();
-    campFormPanel.classList.add("is-hidden");
+    closePanel(campFormPanel);
     await loadReservations();
   } catch (error) {
     campStatus.textContent = error.message;
@@ -882,14 +894,14 @@ campForm.addEventListener("submit", async (event) => {
 });
 
 tripToggleForm.addEventListener("click", () => {
-  tripFormPanel.classList.toggle("is-hidden");
+  openPanel(tripFormPanel);
 });
 
 campToggleForm.addEventListener("click", () => {
   reservationTripSelect.value = activeTripId || reservationTripSelect.value || "";
   campStatus.textContent = activeTripId ? `Adding reservation for: ${getTripById(activeTripId)?.tripName || ""}` : "Choose a trip, then add the reservation.";
   syncCheckoutFromStay();
-  campFormPanel.classList.toggle("is-hidden");
+  openPanel(campFormPanel);
 });
 
 tripList.addEventListener("click", (event) => {
@@ -1132,6 +1144,15 @@ document.querySelectorAll("[data-settings-group]").forEach((formNode) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const modalAction = event.target.closest("[data-action]");
+  if (modalAction?.dataset.action === "close-trip-modal") {
+    closePanel(tripFormPanel);
+    return;
+  }
+  if (modalAction?.dataset.action === "close-camp-modal") {
+    closePanel(campFormPanel);
+    return;
+  }
   const target = event.target.closest('[data-action="remove-setting"]');
   if (!target) {
     return;
