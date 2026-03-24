@@ -85,13 +85,13 @@
           <div id="trip-form-panel" class="camp-modal is-hidden">
             <div class="camp-modal-backdrop" data-action="close-trip-modal"></div>
             <div class="camp-modal-dialog">
-              <div class="section-head camp-form-head">
-                <h2>New trip</h2>
-                <div class="camp-toolbar">
-                  <button type="button" class="secondary-button" data-action="close-trip-modal">Close</button>
+              <div class="camp-modal-header">
+                <div>
+                  <h2>New trip</h2>
+                  <p class="camp-modal-copy">Trip нэр, эхлэх өдөр, оролцогчдын тоо, staff, language-г бөглөөд хадгална.</p>
                 </div>
+                <button type="button" class="camp-modal-close" data-action="close-trip-modal" aria-label="Close trip form">×</button>
               </div>
-              <p class="camp-modal-copy">Trip нэр, эхлэх өдөр, оролцогчдын тоо, staff, language-г бөглөөд хадгална.</p>
               <form id="trip-form" class="field-grid">
                 <label>
                   Trip name
@@ -188,14 +188,13 @@
           <div id="camp-form-panel" class="camp-modal is-hidden">
             <div class="camp-modal-backdrop" data-action="close-camp-modal"></div>
             <div class="camp-modal-dialog camp-modal-dialog-wide">
-              <div class="section-head camp-form-head">
-                <h2>New reservation</h2>
-                <div class="camp-toolbar">
-                  <button type="button" class="secondary-button" data-action="close-camp-modal">Close</button>
+              <div class="camp-modal-header">
+                <div>
+                  <h2>New reservation</h2>
+                  <p class="camp-modal-copy">Financial хэсэг нь дотоод хэрэглээнд үлдэнэ. PDF болон View дээр харагдахгүй.</p>
                 </div>
+                <button type="button" class="camp-modal-close" data-action="close-camp-modal" aria-label="Close reservation form">×</button>
               </div>
-              <p class="camp-modal-copy">Financial хэсэг нь дотоод хэрэглээнд үлдэнэ. PDF болон View дээр харагдахгүй.</p>
-
               <form id="camp-form" class="field-grid">
                 <label>
                   Selected Trip
