@@ -350,19 +350,16 @@ function renderReadOnlyRow(entry, index) {
   return `
     <tr class="${statusClass(entry)}">
       <td>
-        <div class="row-select-stack">
-          <input type="checkbox" class="row-selector" data-action="toggle-select" data-id="${entry.id}" ${isSelected ? "checked" : ""} />
-          <span>${index + 1}</span>
-        </div>
+        <input type="checkbox" class="row-selector" data-action="toggle-select" data-id="${entry.id}" ${isSelected ? "checked" : ""} />
       </td>
-      <td>${escapeHtml(entry.tripName)}</td>
+      <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
       <td>${escapeHtml(entry.campName)}</td>
       <td>${escapeHtml(entry.reservationType === "hotel" ? "Буудал" : entry.reservationType === "herder" ? "Малчин айл" : "Бааз")}</td>
       <td>${entry.clientCount}</td>
       <td>${entry.staffCount}</td>
-      <td>${formatDate(entry.checkIn)}</td>
+      <td class="table-nowrap">${formatDate(entry.checkIn)}</td>
       <td>${entry.nights}</td>
-      <td>${formatDate(entry.checkOut)}</td>
+      <td class="table-nowrap">${formatDate(entry.checkOut)}</td>
       <td>${entry.gerCount}</td>
       <td>${escapeHtml(entry.roomType)}</td>
       <td>${escapeHtml(entry.staffAssignment || "-")}</td>
@@ -373,11 +370,21 @@ function renderReadOnlyRow(entry, index) {
         <strong>${escapeHtml(entry.notes || "-")}</strong>
         <div class="table-subline">${escapeHtml([entry.breakfast === "Yes" && "Breakfast", entry.lunch === "Yes" && "Lunch", entry.dinner === "Yes" && "Dinner"].filter(Boolean).join(" / ") || "No meal")}</div>
       </td>
-      <td class="camp-row-actions compact">
-        <button type="button" class="table-action compact icon-action" title="Edit" aria-label="Edit" data-action="edit" data-id="${entry.id}">✎</button>
-        <a class="table-link compact secondary icon-action" title="View" aria-label="View" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">◫</a>
-        <a class="table-link compact icon-action" title="PDF" aria-label="PDF" href="${entry.pdfPath}" target="_blank" rel="noreferrer">⤓</a>
-        <button type="button" class="table-action compact danger icon-action" title="Delete" aria-label="Delete" data-action="delete-reservation" data-id="${entry.id}">✕</button>
+      <td>
+        <div class="camp-row-actions compact horizontal">
+          <button type="button" class="table-action compact icon-action secondary" title="Edit" aria-label="Edit" data-action="edit" data-id="${entry.id}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1 1 0 0 0 0-1.41l-2.5-2.5a1 1 0 0 0-1.41 0l-1.5 1.5 3.75 3.75 1.66-1.34Z"/></svg>
+          </button>
+          <a class="table-link compact secondary icon-action" title="View" aria-label="View" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c5.5 0 9.5 4.5 10.8 6.2.27.36.27 1.24 0 1.6C21.5 14.5 17.5 19 12 19S2.5 14.5 1.2 12.8a1.4 1.4 0 0 1 0-1.6C2.5 9.5 6.5 5 12 5Zm0 2C8 7 4.8 10 3.3 12 4.8 14 8 17 12 17s7.2-3 8.7-5C19.2 10 16 7 12 7Zm0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z"/></svg>
+          </a>
+          <a class="table-link compact icon-action" title="PDF" aria-label="PDF" href="${entry.pdfPath}" target="_blank" rel="noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V9h5.5L13 3.5ZM8 13h2.4a2.3 2.3 0 0 1 0 4.6H9.5V20H8v-7Zm1.5 1.4v1.8h.8a.9.9 0 1 0 0-1.8h-.8Zm4-.4h2.2a2.9 2.9 0 1 1 0 5.8h-2.2V14Zm1.5 1.4v3h.6a1.5 1.5 0 0 0 0-3H15.1Zm4.2-1.4H22v1.4h-2.7V17H22v1.4h-2.7V20h-1.5v-6Z"/></svg>
+          </a>
+          <button type="button" class="table-action compact danger icon-action" title="Delete" aria-label="Delete" data-action="delete-reservation" data-id="${entry.id}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v8h-2V9Zm4 0h2v8h-2V9ZM6 7h12l-1 13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 7Z"/></svg>
+          </button>
+        </div>
       </td>
     </tr>
   `;
