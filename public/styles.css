@@ -1504,6 +1504,22 @@ time {
   margin-top: 8px;
 }
 
+.trip-detail-toolbar {
+  gap: 12px;
+}
+
+.trip-day-filter-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.trip-day-filter-label select {
+  min-width: 118px;
+}
+
 .status-pill.is-confirmed {
   background: rgba(68, 165, 94, 0.16);
   color: #25643a;

@@ -45,6 +45,8 @@ let editingTripId = "";
 let currentPage = 1;
 let currentTripPage = 1;
 let selectedReservationIds = new Set();
+let activeTripDayFilter = "";
+let activeTripPanelHidden = false;
 const PAGE_SIZE = 20;
 
 function escapeHtml(value) {
@@ -153,6 +155,8 @@ function syncStayFromCheckout() {
 
 function setActiveTrip(tripId) {
   activeTripId = tripId || "";
+  activeTripDayFilter = "";
+  activeTripPanelHidden = false;
   reservationTripSelect.value = activeTripId;
   currentPage = 1;
   renderTrips();
@@ -353,12 +357,42 @@ function renderActiveTripReservations() {
     return;
   }
   const trip = getTripById(activeTripId);
-  const entries = sortByDateAsc(currentEntries.filter((entry) => entry.tripId === activeTripId), "checkIn");
+  const baseEntries = sortByDateAsc(currentEntries.filter((entry) => entry.tripId === activeTripId), "checkIn");
+  const totalDays = Math.max(Number(trip?.totalDays || 1), 1);
+  const entries = activeTripDayFilter
+    ? baseEntries.filter((entry) => {
+        if (!trip?.startDate || !entry.checkIn) return false;
+        const start = new Date(`${trip.startDate}T00:00:00`);
+        const checkIn = new Date(`${entry.checkIn}T00:00:00`);
+        const delta = Math.round((checkIn - start) / (1000 * 60 * 60 * 24)) + 1;
+        return String(delta) === String(activeTripDayFilter);
+      })
+    : baseEntries;
+  if (activeTripPanelHidden) {
+    activeTripReservations.innerHTML = `
+      <div class="section-head">
+        <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
+        <div class="camp-toolbar">
+          <button type="button" class="secondary-button" data-action="show-trip-panel">Show table</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
   if (!entries.length) {
     activeTripReservations.innerHTML = `
       <div class="section-head">
         <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
-        <p>Only reservations linked to this trip.</p>
+        <div class="camp-toolbar trip-detail-toolbar">
+          <label class="trip-day-filter-label">
+            <span>Filter by day</span>
+            <select data-action="trip-day-filter">
+              <option value="">All days</option>
+              ${Array.from({ length: totalDays }, (_, index) => `<option value="${index + 1}" ${String(index + 1) === String(activeTripDayFilter) ? "selected" : ""}>Day ${index + 1}</option>`).join("")}
+            </select>
+          </label>
+          <button type="button" class="secondary-button" data-action="hide-trip-panel">Hide table</button>
+        </div>
       </div>
       <p class="empty">No reservations for this trip yet.</p>
     `;
@@ -368,7 +402,16 @@ function renderActiveTripReservations() {
   activeTripReservations.innerHTML = `
     <div class="section-head">
       <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
-      <p>Only reservations linked to this trip.</p>
+      <div class="camp-toolbar trip-detail-toolbar">
+        <label class="trip-day-filter-label">
+          <span>Filter by day</span>
+          <select data-action="trip-day-filter">
+            <option value="">All days</option>
+            ${Array.from({ length: totalDays }, (_, index) => `<option value="${index + 1}" ${String(index + 1) === String(activeTripDayFilter) ? "selected" : ""}>Day ${index + 1}</option>`).join("")}
+          </select>
+        </label>
+        <button type="button" class="secondary-button" data-action="hide-trip-panel">Hide table</button>
+      </div>
     </div>
     <div class="camp-table-wrap">
       <table class="camp-table camp-table-detail">
@@ -438,7 +481,7 @@ function renderReadOnlyRow(entry, index) {
         <div class="camp-row-actions compact stacked-pills">
           <button type="button" class="table-action compact secondary" data-action="edit" data-id="${entry.id}">Edit</button>
           <a class="table-link compact secondary" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">View</a>
-          <a class="table-link compact" href="${entry.pdfPath}" target="_blank" rel="noreferrer">PDF</a>
+          <a class="table-link compact" href="${entry.pdfPath}" download rel="noreferrer">PDF</a>
           <button type="button" class="table-action compact danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
         </div>
       </td>
@@ -742,7 +785,12 @@ async function exportCurrentReservations() {
   try {
     const ids = entries.map((entry) => entry.id).join(",");
     const result = await fetchJson(`/api/camp-reservations/export?ids=${encodeURIComponent(ids)}`);
-    window.open(result.entry.pdfPath, "_blank", "noopener");
+    const link = document.createElement("a");
+    link.href = result.entry.pdfPath;
+    link.download = "";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
     campStatus.textContent = "PDF export ready.";
   } catch (error) {
     campStatus.textContent = error.message;
@@ -924,6 +972,16 @@ function handleCampTableClick(event) {
     renderActiveTripReservations();
     return;
   }
+  if (action === "hide-trip-panel") {
+    activeTripPanelHidden = true;
+    renderActiveTripReservations();
+    return;
+  }
+  if (action === "show-trip-panel") {
+    activeTripPanelHidden = false;
+    renderActiveTripReservations();
+    return;
+  }
 }
 
 function handleCampTableInput(event) {
@@ -949,6 +1007,11 @@ function handleCampTableInput(event) {
 function handleCampTableChange(event) {
   const node = event.target;
   if (!(node instanceof HTMLElement)) {
+    return;
+  }
+  if (node.dataset.action === "trip-day-filter") {
+    activeTripDayFilter = node.value;
+    renderActiveTripReservations();
     return;
   }
   if (node.dataset.action === "toggle-select") {
