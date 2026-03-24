@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-15" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-16" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -105,6 +105,10 @@
                 <input name="staffCount" type="number" min="0" value="0" required />
               </label>
               <label>
+                Total days of tour
+                <input name="totalDays" type="number" min="1" value="1" required />
+              </label>
+              <label>
                 Language
                 <select name="language" id="trip-language-select" required></select>
               </label>
@@ -174,6 +178,8 @@
             <strong>No active trip selected</strong>
             <span>Create or open a trip first.</span>
           </div>
+
+          <div id="active-trip-reservations" class="mini-pagination"></div>
 
           <div id="camp-form-panel" class="camp-form-panel is-hidden">
             <div class="section-head camp-form-head">
@@ -334,7 +340,7 @@
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-15"></script>
-    <script src="/camp.js?v=workspace-15"></script>
+    <script src="/app-shell.js?v=workspace-16"></script>
+    <script src="/camp.js?v=workspace-16"></script>
   </body>
 </html>

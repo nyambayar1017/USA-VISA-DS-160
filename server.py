@@ -1891,6 +1891,7 @@ def build_camp_trip(payload, actor=None):
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "tripName": normalize_text(payload.get("tripName")),
         "startDate": normalize_text(payload.get("startDate")),
+        "totalDays": parse_int(payload.get("totalDays")) or 1,
         "participantCount": parse_int(payload.get("participantCount")),
         "staffCount": parse_int(payload.get("staffCount")),
         "language": normalize_text(payload.get("language")) or "Other",
@@ -1909,6 +1910,8 @@ def validate_camp_trip(data):
         return f"Missing required fields: {', '.join(missing)}"
     if data.get("participantCount", 0) <= 0:
         return "Number of participants must be greater than 0"
+    if data.get("totalDays", 0) <= 0:
+        return "Total days must be greater than 0"
     return None
 
 
@@ -2192,7 +2195,7 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         for key in ["tripName", "startDate", "language", "status"]:
             if key in payload:
                 merged[key] = normalize_text(payload.get(key))
-        for key in ["participantCount", "staffCount"]:
+        for key in ["participantCount", "staffCount", "totalDays"]:
             if key in payload:
                 merged[key] = parse_int(payload.get(key))
         error = validate_camp_trip(merged)

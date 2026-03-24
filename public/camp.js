@@ -4,6 +4,7 @@ const tripList = document.querySelector("#trip-list");
 const tripToggleForm = document.querySelector("#trip-toggle-form");
 const tripFormPanel = document.querySelector("#trip-form-panel");
 const activeTripBox = document.querySelector("#active-trip");
+const activeTripReservations = document.querySelector("#active-trip-reservations");
 const campForm = document.querySelector("#camp-form");
 const campStatus = document.querySelector("#camp-status");
 const campList = document.querySelector("#camp-list");
@@ -157,6 +158,7 @@ function setActiveTrip(tripId) {
   renderTrips();
   renderActiveTrip();
   renderEntries();
+  renderActiveTripReservations();
 }
 
 function getFilteredTrips() {
@@ -285,12 +287,12 @@ function renderTrips() {
                     <button type="button" class="table-link compact secondary trip-select-link" data-action="select-trip" data-trip-id="${trip.id}">${escapeHtml(trip.tripName)}</button>
                   </td>
                   <td>${formatDate(trip.startDate)}</td>
-                  <td>${trip.participantCount}</td>
+                  <td class="trip-pax-cell">${trip.participantCount}</td>
                   <td>${trip.staffCount}</td>
                   <td>${escapeHtml(trip.language)}</td>
                   <td><span class="status-pill is-${normalizeStatus(trip.status)}">${formatStatusLabel(trip.status)}</span></td>
                   <td>${formatDate(trip.createdAt, true)}</td>
-                  <td>${escapeHtml(trip.createdBy?.name || "-")}</td>
+                  <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
                   <td>
                     <div class="trip-row-actions">
                       <select class="inline-status-select" data-action="trip-status" data-trip-id="${trip.id}">
@@ -336,11 +338,71 @@ function renderActiveTrip() {
   activeTripBox.innerHTML = `
     <div>
       <strong>${escapeHtml(trip.tripName)}</strong>
-      <span>${formatDate(trip.startDate)} · ${escapeHtml(trip.language || "-")} · ${trip.participantCount || 0} pax / ${trip.staffCount || 0} staff</span>
+      <span>${formatDate(trip.startDate)} · ${escapeHtml(trip.language || "-")} · ${trip.participantCount || 0} pax / ${trip.staffCount || 0} staff · ${trip.totalDays || 1} days</span>
     </div>
     <div>
       <strong>${tripReservations.length} reservations</strong>
       <span>Internal camp cost: ${formatMoney(totalInternalCost)}</span>
+    </div>
+  `;
+}
+
+function renderActiveTripReservations() {
+  if (!activeTripId) {
+    activeTripReservations.innerHTML = "";
+    return;
+  }
+  const trip = getTripById(activeTripId);
+  const entries = sortByDateAsc(currentEntries.filter((entry) => entry.tripId === activeTripId), "checkIn");
+  if (!entries.length) {
+    activeTripReservations.innerHTML = `
+      <div class="section-head">
+        <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
+        <p>Only reservations linked to this trip.</p>
+      </div>
+      <p class="empty">No reservations for this trip yet.</p>
+    `;
+    return;
+  }
+
+  activeTripReservations.innerHTML = `
+    <div class="section-head">
+      <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
+      <p>Only reservations linked to this trip.</p>
+    </div>
+    <div class="camp-table-wrap">
+      <table class="camp-table camp-table-detail">
+        <thead>
+          <tr>
+            <th><input type="checkbox" data-action="toggle-select-all-detail" ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} /></th>
+            <th>Trip</th>
+            <th>Camp</th>
+            <th>Type</th>
+            <th>Clients</th>
+            <th>Staff</th>
+            <th>Check-in</th>
+            <th>Stays</th>
+            <th>Check-out</th>
+            <th>Gers</th>
+            <th>Room</th>
+            <th>Assigned Staff</th>
+            <th>Status</th>
+            <th>Created by</th>
+            <th>Notes</th>
+            <th>Meals</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries
+            .map((entry, index) =>
+              editingReservationId === entry.id
+                ? renderEditableRow(entry, index)
+                : renderReadOnlyRow(entry, index)
+            )
+            .join("")}
+        </tbody>
+      </table>
     </div>
   `;
 }
@@ -363,7 +425,7 @@ function renderReadOnlyRow(entry, index) {
       <td class="table-nowrap">${formatDate(entry.checkIn)}</td>
       <td>${entry.nights}</td>
       <td class="table-nowrap">${formatDate(entry.checkOut)}</td>
-      <td>${entry.gerCount}</td>
+      <td class="table-nowrap">${entry.gerCount}</td>
       <td>${escapeHtml(entry.roomType)}</td>
       <td>${escapeHtml(entry.staffAssignment || "-")}</td>
       <td><span class="status-pill is-${normalizeStatus(entry.status)}">${formatStatusLabel(entry.status)}</span></td>
@@ -536,6 +598,7 @@ async function loadReservations() {
   currentEntries = payload.entries || [];
   selectedReservationIds = new Set([...selectedReservationIds].filter((id) => currentEntries.some((entry) => entry.id === id)));
   renderActiveTrip();
+  renderActiveTripReservations();
   renderEntries();
 }
 
@@ -585,6 +648,7 @@ function startTripEdit(id) {
   tripForm.elements.startDate.value = String(trip.startDate || "").slice(0, 10);
   tripForm.elements.participantCount.value = String(trip.participantCount || 0);
   tripForm.elements.staffCount.value = String(trip.staffCount || 0);
+  tripForm.elements.totalDays.value = String(trip.totalDays || 1);
   tripForm.elements.language.value = trip.language || "";
   tripForm.elements.status.value = trip.status || "planning";
   tripStatus.textContent = `Editing trip: ${trip.tripName}`;
@@ -798,7 +862,7 @@ tripList.addEventListener("change", (event) => {
   updateTripStatus(select.dataset.tripId, select.value);
 });
 
-campList.addEventListener("click", (event) => {
+function handleCampTableClick(event) {
   const target = event.target.closest("[data-action]");
   if (!target) {
     return;
@@ -846,11 +910,23 @@ campList.addEventListener("click", (event) => {
       visibleIds.forEach((id) => selectedReservationIds.delete(id));
     }
     renderEntries();
+    renderActiveTripReservations();
     return;
   }
-});
+  if (action === "toggle-select-all-detail") {
+    const visibleIds = sortByDateAsc(currentEntries.filter((entry) => entry.tripId === activeTripId), "checkIn").map((entry) => entry.id);
+    if (target.checked) {
+      visibleIds.forEach((id) => selectedReservationIds.add(id));
+    } else {
+      visibleIds.forEach((id) => selectedReservationIds.delete(id));
+    }
+    renderEntries();
+    renderActiveTripReservations();
+    return;
+  }
+}
 
-campList.addEventListener("input", (event) => {
+function handleCampTableInput(event) {
   const node = event.target;
   if (!(node instanceof HTMLElement)) {
     return;
@@ -868,9 +944,9 @@ campList.addEventListener("input", (event) => {
       checkOutNode.value = addDays(checkInNode.value, nightsNode.value);
     }
   }
-});
+}
 
-campList.addEventListener("change", (event) => {
+function handleCampTableChange(event) {
   const node = event.target;
   if (!(node instanceof HTMLElement)) {
     return;
@@ -896,16 +972,25 @@ campList.addEventListener("change", (event) => {
       nightsNode.value = diffDays(checkInNode.value, checkOutNode.value);
     }
   }
-});
+}
+
+campList.addEventListener("click", handleCampTableClick);
+campList.addEventListener("input", handleCampTableInput);
+campList.addEventListener("change", handleCampTableChange);
+activeTripReservations.addEventListener("click", handleCampTableClick);
+activeTripReservations.addEventListener("input", handleCampTableInput);
+activeTripReservations.addEventListener("change", handleCampTableChange);
 
 [filterTripName, filterCampName, filterTripStartDate, filterReservedDate, filterStatus].forEach((node) => {
   node.addEventListener("input", () => {
     currentPage = 1;
     renderEntries();
+    renderActiveTripReservations();
   });
   node.addEventListener("change", () => {
     currentPage = 1;
     renderEntries();
+    renderActiveTripReservations();
   });
 });
 
