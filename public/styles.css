@@ -1209,6 +1209,18 @@ time {
   gap: 5px;
 }
 
+.row-select-stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-selector {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
 .trip-row-actions {
   display: flex;
   align-items: center;
@@ -1225,14 +1237,23 @@ time {
   width: auto;
 }
 
+.icon-action {
+  min-width: 30px;
+  width: 30px;
+  padding: 0;
+  font-size: 0.82rem;
+}
+
 .camp-table td:nth-child(2),
 .camp-table td:nth-child(3),
 .camp-table td:nth-child(4),
+.camp-table td:nth-child(10),
 .camp-table td:nth-child(11),
-.camp-table td:nth-child(12),
+.camp-table td:nth-child(13),
 .camp-table td:nth-child(14),
 .camp-table td:nth-child(15),
-.camp-table td:nth-child(16) {
+.camp-table td:nth-child(16),
+.camp-table td:nth-child(17) {
   text-align: left;
 }
 
@@ -1358,7 +1379,7 @@ time {
 
 .camp-table th:nth-child(1),
 .camp-table td:nth-child(1) {
-  width: 44px;
+  width: 54px;
 }
 
 .camp-table th:nth-child(4),
@@ -1379,50 +1400,53 @@ time {
 .camp-table td:nth-child(6),
 .camp-table th:nth-child(8),
 .camp-table td:nth-child(8),
-.camp-table th:nth-child(10),
-.camp-table td:nth-child(10),
-.camp-table th:nth-child(11),
-.camp-table td:nth-child(11) {
+.camp-table th:nth-child(9),
+.camp-table td:nth-child(9) {
   width: 62px;
 }
 
 .camp-table th:nth-child(7),
 .camp-table td:nth-child(7),
-.camp-table th:nth-child(9),
-.camp-table td:nth-child(9) {
+.camp-table th:nth-child(10),
+.camp-table td:nth-child(10) {
   width: 96px;
+}
+
+.camp-table th:nth-child(11),
+.camp-table td:nth-child(11) {
+  width: 108px;
 }
 
 .camp-table th:nth-child(12),
 .camp-table td:nth-child(12) {
-  width: 108px;
+  width: 90px;
 }
 
 .camp-table th:nth-child(13),
 .camp-table td:nth-child(13) {
-  width: 90px;
+  width: 112px;
 }
 
 .camp-table th:nth-child(14),
-.camp-table td:nth-child(14) {
+.camp-table td:nth-child(14),
+.camp-table th:nth-child(15),
+.camp-table td:nth-child(15) {
   width: 112px;
 }
 
-.camp-table th:nth-child(15),
-.camp-table td:nth-child(15),
 .camp-table th:nth-child(16),
 .camp-table td:nth-child(16) {
-  width: 112px;
+  width: 128px;
 }
 
 .camp-table th:nth-child(17),
 .camp-table td:nth-child(17) {
-  width: 128px;
+  width: 220px;
 }
 
-.camp-table th:nth-child(16),
-.camp-table td:nth-child(16) {
-  width: 220px;
+.camp-table th:nth-child(18),
+.camp-table td:nth-child(18) {
+  width: 144px;
 }
 
 .status-pill.is-confirmed {

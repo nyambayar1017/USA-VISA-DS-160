@@ -10,7 +10,6 @@ const campList = document.querySelector("#camp-list");
 const campToggleForm = document.querySelector("#camp-toggle-form");
 const campFormPanel = document.querySelector("#camp-form-panel");
 const reservationTripSelect = document.querySelector("#reservation-trip-select");
-const reservationTripDisplay = document.querySelector("#reservation-trip-display");
 const campNameSelect = document.querySelector("#camp-name-select");
 const staffAssignmentSelect = document.querySelector("#staff-assignment-select");
 const roomTypeSelect = document.querySelector("#room-type-select");
@@ -44,6 +43,7 @@ let editingReservationId = "";
 let editingTripId = "";
 let currentPage = 1;
 let currentTripPage = 1;
+let selectedReservationIds = new Set();
 const PAGE_SIZE = 20;
 
 function escapeHtml(value) {
@@ -153,9 +153,6 @@ function syncStayFromCheckout() {
 function setActiveTrip(tripId) {
   activeTripId = tripId || "";
   reservationTripSelect.value = activeTripId;
-  if (reservationTripDisplay) {
-    reservationTripDisplay.value = getTripById(activeTripId)?.tripName || "";
-  }
   currentPage = 1;
   renderTrips();
   renderActiveTrip();
@@ -199,9 +196,13 @@ function renderSettingsOptions() {
   const currentTripFilter = filterTripName.value;
   const currentCampFilter = filterCampName.value;
   const currentLanguageFilter = tripFilterLanguage.value;
+  const currentReservationTrip = reservationTripSelect.value;
   const languages = [...new Set(currentTrips.map((trip) => trip.language).filter(Boolean).concat(["English", "French", "Mongolian", "Korean", "Spanish", "Italian", "Other"]))];
   tripLanguageSelect.innerHTML = renderOptionMarkup(languages, "Choose language");
   tripFilterLanguage.innerHTML = renderOptionMarkup(languages, "All languages");
+  reservationTripSelect.innerHTML = `<option value="">Choose trip</option>${currentTrips
+    .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
+    .join("")}`;
   filterTripName.innerHTML = `<option value="">All trips</option>${currentTrips
     .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
     .join("")}`;
@@ -215,10 +216,9 @@ function renderSettingsOptions() {
 
   if (activeTripId) {
     reservationTripSelect.value = activeTripId;
-    if (reservationTripDisplay) {
-      reservationTripDisplay.value = getTripById(activeTripId)?.tripName || "";
-    }
     filterTripName.value = activeTripId;
+  } else if (currentReservationTrip) {
+    reservationTripSelect.value = currentReservationTrip;
   }
 }
 
@@ -346,9 +346,15 @@ function renderActiveTrip() {
 }
 
 function renderReadOnlyRow(entry, index) {
+  const isSelected = selectedReservationIds.has(entry.id);
   return `
     <tr class="${statusClass(entry)}">
-      <td>${index + 1}</td>
+      <td>
+        <div class="row-select-stack">
+          <input type="checkbox" class="row-selector" data-action="toggle-select" data-id="${entry.id}" ${isSelected ? "checked" : ""} />
+          <span>${index + 1}</span>
+        </div>
+      </td>
       <td>${escapeHtml(entry.tripName)}</td>
       <td>${escapeHtml(entry.campName)}</td>
       <td>${escapeHtml(entry.reservationType === "hotel" ? "Буудал" : entry.reservationType === "herder" ? "Малчин айл" : "Бааз")}</td>
@@ -368,10 +374,10 @@ function renderReadOnlyRow(entry, index) {
         <div class="table-subline">${escapeHtml([entry.breakfast === "Yes" && "Breakfast", entry.lunch === "Yes" && "Lunch", entry.dinner === "Yes" && "Dinner"].filter(Boolean).join(" / ") || "No meal")}</div>
       </td>
       <td class="camp-row-actions compact">
-        <button type="button" class="table-action compact" data-action="edit" data-id="${entry.id}">Edit</button>
-        <a class="table-link compact secondary" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">View</a>
-        <a class="table-link compact" href="${entry.pdfPath}" target="_blank" rel="noreferrer">PDF</a>
-        <button type="button" class="table-action compact danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
+        <button type="button" class="table-action compact icon-action" title="Edit" aria-label="Edit" data-action="edit" data-id="${entry.id}">✎</button>
+        <a class="table-link compact secondary icon-action" title="View" aria-label="View" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">◫</a>
+        <a class="table-link compact icon-action" title="PDF" aria-label="PDF" href="${entry.pdfPath}" target="_blank" rel="noreferrer">⤓</a>
+        <button type="button" class="table-action compact danger icon-action" title="Delete" aria-label="Delete" data-action="delete-reservation" data-id="${entry.id}">✕</button>
       </td>
     </tr>
   `;
@@ -466,7 +472,7 @@ function renderEntries() {
       <table class="camp-table">
         <thead>
           <tr>
-            <th>#</th>
+            <th><input type="checkbox" data-action="toggle-select-all" ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} /></th>
             <th>Trip</th>
             <th>Camp</th>
             <th>Type</th>
@@ -526,6 +532,7 @@ async function loadSettings() {
 async function loadReservations() {
   const payload = await fetchJson("/api/camp-reservations");
   currentEntries = payload.entries || [];
+  selectedReservationIds = new Set([...selectedReservationIds].filter((id) => currentEntries.some((entry) => entry.id === id)));
   renderActiveTrip();
   renderEntries();
 }
@@ -659,7 +666,8 @@ async function deleteReservation(id) {
 }
 
 async function exportCurrentReservations() {
-  const entries = getFilteredEntries();
+  const selectedEntries = getFilteredEntries().filter((entry) => selectedReservationIds.has(entry.id));
+  const entries = selectedEntries.length ? selectedEntries : getFilteredEntries();
   if (!entries.length) {
     campStatus.textContent = "No reservations to export.";
     return;
@@ -702,7 +710,7 @@ campForm.addEventListener("submit", async (event) => {
 
   const selectedTrip = getTripById(reservationTripSelect.value || activeTripId);
   if (!selectedTrip) {
-    campStatus.textContent = "Please create or open a trip first.";
+    campStatus.textContent = "Please choose a trip first.";
     return;
   }
 
@@ -724,9 +732,6 @@ campForm.addEventListener("submit", async (event) => {
     campForm.querySelector('[name="gerCount"]').value = "1";
     campForm.querySelector('[name="nights"]').value = "1";
     reservationTripSelect.value = selectedTrip.id;
-    if (reservationTripDisplay) {
-      reservationTripDisplay.value = selectedTrip.tripName;
-    }
     syncCheckoutFromStay();
     campFormPanel.classList.add("is-hidden");
     await loadReservations();
@@ -740,14 +745,8 @@ tripToggleForm.addEventListener("click", () => {
 });
 
 campToggleForm.addEventListener("click", () => {
-  if (!activeTripId) {
-    campStatus.textContent = "Select a trip first.";
-    return;
-  }
-  reservationTripSelect.value = activeTripId;
-  if (reservationTripDisplay) {
-    reservationTripDisplay.value = getTripById(activeTripId)?.tripName || "";
-  }
+  reservationTripSelect.value = activeTripId || reservationTripSelect.value || "";
+  campStatus.textContent = activeTripId ? `Adding reservation for: ${getTripById(activeTripId)?.tripName || ""}` : "Choose a trip, then add the reservation.";
   syncCheckoutFromStay();
   campFormPanel.classList.toggle("is-hidden");
 });
@@ -835,6 +834,18 @@ campList.addEventListener("click", (event) => {
     }
     return;
   }
+  if (action === "toggle-select-all") {
+    const visibleIds = getFilteredEntries()
+      .slice((currentPage - 1) * PAGE_SIZE, (currentPage - 1) * PAGE_SIZE + PAGE_SIZE)
+      .map((entry) => entry.id);
+    if (target.checked) {
+      visibleIds.forEach((id) => selectedReservationIds.add(id));
+    } else {
+      visibleIds.forEach((id) => selectedReservationIds.delete(id));
+    }
+    renderEntries();
+    return;
+  }
 });
 
 campList.addEventListener("input", (event) => {
@@ -860,6 +871,14 @@ campList.addEventListener("input", (event) => {
 campList.addEventListener("change", (event) => {
   const node = event.target;
   if (!(node instanceof HTMLElement)) {
+    return;
+  }
+  if (node.dataset.action === "toggle-select") {
+    if (node.checked) {
+      selectedReservationIds.add(node.dataset.id);
+    } else {
+      selectedReservationIds.delete(node.dataset.id);
+    }
     return;
   }
   const id = node.dataset.id;
