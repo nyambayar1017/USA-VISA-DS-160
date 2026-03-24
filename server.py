@@ -493,6 +493,25 @@ def handle_update_user(environ, start_response, user_id):
     return json_response(start_response, "404 Not Found", {"error": "User not found"})
 
 
+def handle_delete_user(environ, start_response, user_id):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    if user_id == admin.get("id"):
+        return json_response(start_response, "400 Bad Request", {"error": "You cannot delete your own admin account"})
+
+    users = read_users()
+    before = len(users)
+    users = [user for user in users if user.get("id") != user_id]
+    if len(users) == before:
+        return json_response(start_response, "404 Not Found", {"error": "User not found"})
+
+    sessions = [session for session in read_sessions() if session.get("userId") != user_id]
+    write_users(users)
+    write_sessions(sessions)
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
 def request_host(environ):
     host = environ.get("HTTP_HOST") or environ.get("SERVER_NAME") or ""
     return host.split(":", 1)[0].strip().lower()
@@ -2375,6 +2394,8 @@ def app(environ, start_response):
         user_id = path.replace("/api/users/", "", 1).strip("/")
         if method == "POST" and user_id:
             return handle_update_user(environ, start_response, user_id)
+        if method == "DELETE" and user_id:
+            return handle_delete_user(environ, start_response, user_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/backoffice/summary":

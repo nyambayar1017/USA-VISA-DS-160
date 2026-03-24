@@ -99,6 +99,7 @@ function renderUsers(users) {
             <button type="button" data-status="rejected" data-id="${user.id}">Reject</button>
             <button type="button" data-role="admin" data-id="${user.id}">Make Admin</button>
             <button type="button" data-reset-password="true" data-id="${user.id}">Set Password</button>
+            <button type="button" data-delete-user="true" data-id="${user.id}">Delete</button>
           </div>
         </article>
       `
@@ -229,11 +230,20 @@ userList.addEventListener("click", async (event) => {
     payload.status = "approved";
   }
   try {
-    await fetchJson(`/api/users/${button.dataset.id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    if (button.dataset.deleteUser) {
+      if (!window.confirm("Delete this user request?")) {
+        return;
+      }
+      await fetchJson(`/api/users/${button.dataset.id}`, {
+        method: "DELETE",
+      });
+    } else {
+      await fetchJson(`/api/users/${button.dataset.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    }
     loadUsers();
   } catch (error) {
     userList.insertAdjacentHTML("afterbegin", `<p class="empty">${error.message}</p>`);

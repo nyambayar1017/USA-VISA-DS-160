@@ -1213,6 +1213,8 @@ time {
   width: 16px;
   height: 16px;
   margin: 0;
+  display: block;
+  margin-inline: auto;
 }
 
 .trip-row-actions {
@@ -1231,22 +1233,6 @@ time {
   width: auto;
 }
 
-.icon-action {
-  min-width: 32px;
-  width: 32px;
-  min-height: 32px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-action svg {
-  width: 15px;
-  height: 15px;
-  fill: currentColor;
-}
-
 .camp-row-actions.horizontal {
   display: flex;
   flex-direction: row;
@@ -1254,6 +1240,18 @@ time {
   justify-content: flex-start;
   min-width: 152px;
   gap: 6px;
+}
+
+.camp-row-actions.horizontal.pills {
+  min-width: 228px;
+  flex-wrap: nowrap;
+}
+
+.camp-row-actions.horizontal.pills .table-action.compact,
+.camp-row-actions.horizontal.pills .table-link.compact {
+  width: auto;
+  min-width: 52px;
+  padding-inline: 10px;
 }
 
 .table-nowrap {
@@ -1402,7 +1400,7 @@ time {
 
 .camp-table th:nth-child(1),
 .camp-table td:nth-child(1) {
-  width: 42px;
+  width: 52px;
 }
 
 .camp-table th:nth-child(4),
@@ -1415,6 +1413,11 @@ time {
 .camp-table th:nth-child(3),
 .camp-table td:nth-child(3) {
   width: 152px;
+}
+
+.camp-table th:nth-child(2),
+.camp-table td:nth-child(2) {
+  padding-left: 12px;
 }
 
 .camp-table th:nth-child(5),
@@ -1469,7 +1472,7 @@ time {
 
 .camp-table th:nth-child(18),
 .camp-table td:nth-child(18) {
-  width: 152px;
+  width: 232px;
 }
 
 .status-pill.is-confirmed {
