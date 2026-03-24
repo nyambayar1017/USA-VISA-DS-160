@@ -1286,10 +1286,8 @@ time {
 .camp-table td:nth-child(2),
 .camp-table td:nth-child(3),
 .camp-table td:nth-child(4),
-.camp-table td:nth-child(10),
-.camp-table td:nth-child(11),
+.camp-table td:nth-child(12),
 .camp-table td:nth-child(13),
-.camp-table td:nth-child(14),
 .camp-table td:nth-child(15),
 .camp-table td:nth-child(16),
 .camp-table td:nth-child(17) {
@@ -1409,13 +1407,28 @@ time {
 
 .trip-table th:nth-child(9),
 .trip-table td:nth-child(9) {
-  width: 130px;
+  width: 136px;
   text-align: left;
 }
 
 .trip-table th:nth-child(10),
 .trip-table td:nth-child(10) {
   width: 206px;
+}
+
+.trip-table .status-pill.is-planning {
+  background: rgba(118, 134, 173, 0.16);
+  color: #4d5c85;
+}
+
+.trip-table .status-pill.is-travelling {
+  background: rgba(74, 140, 214, 0.16);
+  color: #1f5fa8;
+}
+
+.trip-table .status-pill.is-completed {
+  background: rgba(88, 160, 120, 0.18);
+  color: #2f6c45;
 }
 
 .camp-table th:nth-child(1),
@@ -1426,53 +1439,52 @@ time {
   padding-right: 0;
 }
 
-.camp-table th:nth-child(4),
-.camp-table td:nth-child(4) {
-  width: 78px;
-}
-
-.camp-table th:nth-child(2),
-.camp-table td:nth-child(2),
-.camp-table th:nth-child(3),
-.camp-table td:nth-child(3) {
-  width: 152px;
-}
-
 .camp-table th:nth-child(2),
 .camp-table td:nth-child(2) {
   padding-left: 18px;
   white-space: nowrap;
+  width: 164px;
+}
+
+.camp-table th:nth-child(3),
+.camp-table td:nth-child(3) {
+  width: 78px;
+}
+
+.camp-table th:nth-child(4),
+.camp-table td:nth-child(4) {
+  width: 156px;
 }
 
 .camp-table th:nth-child(5),
-.camp-table td:nth-child(5),
+.camp-table td:nth-child(5) {
+  width: 86px;
+}
+
 .camp-table th:nth-child(6),
 .camp-table td:nth-child(6),
-.camp-table th:nth-child(8),
-.camp-table td:nth-child(8),
-.camp-table th:nth-child(10),
-.camp-table td:nth-child(10) {
+.camp-table th:nth-child(7),
+.camp-table td:nth-child(7),
+.camp-table th:nth-child(9),
+.camp-table td:nth-child(9),
+.camp-table th:nth-child(11),
+.camp-table td:nth-child(11) {
   width: 62px;
 }
 
-.camp-table th:nth-child(7),
-.camp-table td:nth-child(7) {
+.camp-table th:nth-child(8),
+.camp-table td:nth-child(8) {
   width: 110px;
 }
 
-.camp-table th:nth-child(9),
-.camp-table td:nth-child(9) {
-  width: 126px;
-}
-
-.camp-table th:nth-child(11),
-.camp-table td:nth-child(11) {
+.camp-table th:nth-child(10),
+.camp-table td:nth-child(10) {
   width: 126px;
 }
 
 .camp-table th:nth-child(12),
 .camp-table td:nth-child(12) {
-  width: 100px;
+  width: 126px;
 }
 
 .camp-table th:nth-child(13),
@@ -1482,21 +1494,26 @@ time {
 
 .camp-table th:nth-child(14),
 .camp-table td:nth-child(14) {
-  width: 122px;
+  width: 112px;
 }
 
 .camp-table th:nth-child(15),
 .camp-table td:nth-child(15) {
-  width: 180px;
+  width: 122px;
 }
 
 .camp-table th:nth-child(16),
 .camp-table td:nth-child(16) {
-  width: 140px;
+  width: 180px;
 }
 
 .camp-table th:nth-child(17),
 .camp-table td:nth-child(17) {
+  width: 140px;
+}
+
+.camp-table th:nth-child(18),
+.camp-table td:nth-child(18) {
   width: 176px;
 }
 

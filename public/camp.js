@@ -145,6 +145,20 @@ function getTripById(tripId) {
   return currentTrips.find((trip) => trip.id === tripId) || null;
 }
 
+function getTripDayLabel(entry) {
+  const trip = getTripById(entry.tripId);
+  if (!trip?.startDate || !entry.checkIn) {
+    return "-";
+  }
+  const start = new Date(`${trip.startDate}T00:00:00`);
+  const checkIn = new Date(`${entry.checkIn}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(checkIn.getTime())) {
+    return "-";
+  }
+  const delta = Math.round((checkIn - start) / (1000 * 60 * 60 * 24)) + 1;
+  return delta > 0 ? `Day ${delta}` : "-";
+}
+
 function syncCheckoutFromStay() {
   campCheckout.value = addDays(campCheckin.value, campStays.value);
 }
@@ -163,6 +177,7 @@ function setActiveTrip(tripId) {
   renderActiveTrip();
   renderEntries();
   renderActiveTripReservations();
+  activeTripReservations.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function getFilteredTrips() {
@@ -419,6 +434,7 @@ function renderActiveTripReservations() {
           <tr>
             <th><input type="checkbox" data-action="toggle-select-all-detail" ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} /></th>
             <th>Trip</th>
+            <th>Day</th>
             <th>Camp</th>
             <th>Type</th>
             <th>Clients</th>
@@ -461,6 +477,7 @@ function renderReadOnlyRow(entry, index) {
         <input type="checkbox" class="row-selector" data-action="toggle-select" data-id="${entry.id}" ${isSelected ? "checked" : ""} />
       </td>
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
+      <td class="table-nowrap">${getTripDayLabel(entry)}</td>
       <td>${escapeHtml(entry.campName)}</td>
       <td>${escapeHtml(entry.reservationType === "hotel" ? "Буудал" : entry.reservationType === "herder" ? "Малчин айл" : "Бааз")}</td>
       <td>${entry.clientCount}</td>
@@ -494,6 +511,7 @@ function renderEditableRow(entry, index) {
     <tr class="is-editing ${statusClass(entry)}">
       <td>${index + 1}</td>
       <td>${escapeHtml(entry.tripName)}</td>
+      <td class="table-nowrap">${getTripDayLabel(entry)}</td>
       <td>
         <select data-role="campName" data-id="${entry.id}">
           ${campSettings.campNames.map((option) => `<option value="${escapeHtml(option)}" ${entry.campName === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
@@ -581,6 +599,7 @@ function renderEntries() {
           <tr>
             <th><input type="checkbox" data-action="toggle-select-all" ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} /></th>
             <th>Trip</th>
+            <th>Day</th>
             <th>Camp</th>
             <th>Type</th>
             <th>Clients</th>
@@ -1069,7 +1088,9 @@ activeTripReservations.addEventListener("change", handleCampTableChange);
 });
 
 campCheckin.addEventListener("change", syncCheckoutFromStay);
+campCheckin.addEventListener("input", syncCheckoutFromStay);
 campStays.addEventListener("input", syncCheckoutFromStay);
+campStays.addEventListener("change", syncCheckoutFromStay);
 campCheckout.addEventListener("change", syncStayFromCheckout);
 campExportPdf?.addEventListener("click", exportCurrentReservations);
 
