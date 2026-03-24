@@ -1431,13 +1431,14 @@ time {
   text-align: center !important;
   padding-left: 0;
   padding-right: 0;
+  vertical-align: middle;
 }
 
 .camp-table th:nth-child(2),
 .camp-table td:nth-child(2) {
-  padding-left: 18px;
+  padding-left: 14px;
   white-space: nowrap;
-  width: 164px;
+  width: 170px;
 }
 
 .camp-table th:nth-child(3),
@@ -1473,7 +1474,7 @@ time {
 
 .camp-table th:nth-child(10),
 .camp-table td:nth-child(10) {
-  width: 126px;
+  width: 134px;
 }
 
 .camp-table th:nth-child(12),
@@ -1509,6 +1510,24 @@ time {
 .camp-table th:nth-child(18),
 .camp-table td:nth-child(18) {
   width: 176px;
+}
+
+.camp-table tbody td {
+  font-size: 13px;
+  line-height: 1.35;
+  vertical-align: top;
+}
+
+.camp-table .checkbox-col,
+.camp-table .checkbox-col input,
+.camp-table th.checkbox-col {
+  text-align: center !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.camp-table .table-center {
+  text-align: center;
 }
 
 .camp-table-detail {

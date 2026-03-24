@@ -271,6 +271,12 @@ def file_response(start_response, file_path, extra_headers=None):
     return [body]
 
 
+def generated_download_headers(file_path):
+    if file_path.suffix.lower() != ".pdf":
+        return None
+    return [("Content-Disposition", f'attachment; filename="{file_path.name}"')]
+
+
 def collect_json(environ):
     try:
         content_length = int(environ.get("CONTENT_LENGTH") or "0")
@@ -2325,6 +2331,24 @@ def handle_export_camp_reservations(environ, start_response):
     return json_response(start_response, "200 OK", {"ok": True, "entry": document})
 
 
+def handle_camp_reservation_document(environ, start_response, reservation_id):
+    if not require_login(environ, start_response):
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    mode = (params.get("mode", ["view"])[0] or "view").strip().lower()
+    records = read_camp_reservations()
+    record = next((item for item in records if item["id"] == reservation_id), None)
+    if not record:
+        return json_response(start_response, "404 Not Found", {"error": "Camp reservation not found"})
+    document = save_camp_reservation_document(record)
+    relative_path = document["pdfViewPath"] if mode == "view" else document["pdfPath"]
+    safe_path = (GENERATED_DIR / unquote(relative_path.replace("/generated/", "", 1))).resolve()
+    if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
+        return json_response(start_response, "404 Not Found", {"error": "Document not found"})
+    extra_headers = generated_download_headers(safe_path) if mode == "download" else None
+    return file_response(start_response, safe_path, extra_headers=extra_headers)
+
+
 def handle_generate_contract(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -2499,6 +2523,9 @@ def app(environ, start_response):
 
     if path.startswith("/api/camp-reservations/"):
         reservation_id = path.replace("/api/camp-reservations/", "", 1).strip("/")
+        if method == "GET" and reservation_id.endswith("/document"):
+            reservation_id = reservation_id[:-len("/document")].strip("/")
+            return handle_camp_reservation_document(environ, start_response, reservation_id)
         if method == "POST" and reservation_id:
             if not require_login(environ, start_response):
                 return []
@@ -2559,7 +2586,9 @@ def app(environ, start_response):
         safe_path = (GENERATED_DIR / unquote(path.replace("/generated/", "", 1))).resolve()
         if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
             return json_response(start_response, "404 Not Found", {"error": "Not found"})
-        return file_response(start_response, safe_path)
+        params = parse_qs(environ.get("QUERY_STRING", ""))
+        extra_headers = generated_download_headers(safe_path) if params.get("download", ["0"])[0] == "1" else None
+        return file_response(start_response, safe_path, extra_headers=extra_headers)
 
     safe_path = (PUBLIC_DIR / path.lstrip("/")).resolve()
     if not str(safe_path).startswith(str(PUBLIC_DIR.resolve())) or not safe_path.exists():

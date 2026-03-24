@@ -160,7 +160,12 @@ function getTripDayLabel(entry) {
 }
 
 function syncCheckoutFromStay() {
-  campCheckout.value = addDays(campCheckin.value, campStays.value);
+  if (!campCheckin.value) {
+    campCheckout.value = "";
+    return;
+  }
+  const stays = Math.max(Number(campStays.value || 0), 1);
+  campCheckout.value = addDays(campCheckin.value, stays);
 }
 
 function syncStayFromCheckout() {
@@ -177,7 +182,9 @@ function setActiveTrip(tripId) {
   renderActiveTrip();
   renderEntries();
   renderActiveTripReservations();
-  activeTripReservations.scrollIntoView({ behavior: "smooth", block: "start" });
+  requestAnimationFrame(() => {
+    activeTripReservations.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 }
 
 function getFilteredTrips() {
@@ -384,11 +391,7 @@ function renderActiveTripReservations() {
       })
     : baseEntries;
   if (activeTripPanelHidden) {
-    activeTripReservations.innerHTML = `
-      <div class="camp-toolbar trip-panel-collapsed">
-        <button type="button" class="secondary-button" data-action="show-trip-panel">Show trip reservations</button>
-      </div>
-    `;
+    activeTripReservations.innerHTML = "";
     return;
   }
   if (!entries.length) {
@@ -429,7 +432,7 @@ function renderActiveTripReservations() {
       <table class="camp-table camp-table-detail">
         <thead>
           <tr>
-            <th><input type="checkbox" data-action="toggle-select-all-detail" ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} /></th>
+            <th class="checkbox-col"><input type="checkbox" data-action="toggle-select-all-detail" ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} /></th>
             <th>Trip</th>
             <th>Day</th>
             <th>Camp</th>
@@ -470,7 +473,7 @@ function renderReadOnlyRow(entry, index) {
     .join(" / ");
   return `
     <tr class="${statusClass(entry)}">
-      <td>
+      <td class="checkbox-col">
         <input type="checkbox" class="row-selector" data-action="toggle-select" data-id="${entry.id}" ${isSelected ? "checked" : ""} />
       </td>
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
@@ -480,9 +483,9 @@ function renderReadOnlyRow(entry, index) {
       <td>${entry.clientCount}</td>
       <td>${entry.staffCount}</td>
       <td class="table-nowrap">${formatDate(entry.checkIn)}</td>
-      <td>${entry.nights}</td>
+      <td class="table-center">${entry.nights}</td>
       <td class="table-nowrap">${formatDate(entry.checkOut)}</td>
-      <td class="table-nowrap">${entry.gerCount}</td>
+      <td class="table-nowrap table-center">${entry.gerCount}</td>
       <td>${escapeHtml(entry.roomType)}</td>
       <td>${escapeHtml(entry.staffAssignment || "-")}</td>
       <td><span class="status-pill is-${normalizeStatus(entry.status)}">${formatStatusLabel(entry.status)}</span></td>
@@ -494,8 +497,8 @@ function renderReadOnlyRow(entry, index) {
       <td>
         <div class="camp-row-actions compact stacked-pills">
           <button type="button" class="table-action compact secondary" data-action="edit" data-id="${entry.id}">Edit</button>
-          <a class="table-link compact secondary" href="${entry.pdfViewPath}" target="_blank" rel="noreferrer">View</a>
-          <a class="table-link compact" href="${entry.pdfPath}" download rel="noreferrer">PDF</a>
+          <button type="button" class="table-action compact secondary" data-action="view-pdf" data-id="${entry.id}">View</button>
+          <button type="button" class="table-action compact" data-action="download-pdf" data-id="${entry.id}">PDF</button>
           <button type="button" class="table-action compact danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
         </div>
       </td>
@@ -594,7 +597,7 @@ function renderEntries() {
       <table class="camp-table">
         <thead>
           <tr>
-            <th><input type="checkbox" data-action="toggle-select-all" ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} /></th>
+            <th class="checkbox-col"><input type="checkbox" data-action="toggle-select-all" ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} /></th>
             <th>Trip</th>
             <th>Day</th>
             <th>Camp</th>
@@ -802,8 +805,8 @@ async function exportCurrentReservations() {
     const ids = entries.map((entry) => entry.id).join(",");
     const result = await fetchJson(`/api/camp-reservations/export?ids=${encodeURIComponent(ids)}`);
     const link = document.createElement("a");
-    link.href = result.entry.pdfPath;
-    link.download = "";
+    link.href = appendDownloadQuery(result.entry.pdfPath);
+    link.download = "camp-reservations.pdf";
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -942,6 +945,19 @@ function handleCampTableClick(event) {
     updateReservation(target.dataset.id);
     return;
   }
+  if (action === "view-pdf") {
+    window.open(`/api/camp-reservations/${target.dataset.id}/document?mode=view`, "_blank", "noopener,noreferrer");
+    return;
+  }
+  if (action === "download-pdf") {
+    const link = document.createElement("a");
+    link.href = `/api/camp-reservations/${target.dataset.id}/document?mode=download`;
+    link.download = "";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return;
+  }
   if (action === "cancel-edit") {
     editingReservationId = "";
     renderEntries();
@@ -993,11 +1009,10 @@ function handleCampTableClick(event) {
     renderActiveTripReservations();
     return;
   }
-  if (action === "show-trip-panel") {
-    activeTripPanelHidden = false;
-    renderActiveTripReservations();
-    return;
-  }
+}
+
+function appendDownloadQuery(path) {
+  return path.includes("?") ? `${path}&download=1` : `${path}?download=1`;
 }
 
 function handleCampTableInput(event) {
