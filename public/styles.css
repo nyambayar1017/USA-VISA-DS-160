@@ -1186,17 +1186,11 @@ time {
   background: rgba(238, 243, 255, 0.75);
 }
 
-.camp-table tbody tr.status-confirmed td {
-  background: rgba(68, 165, 94, 0.12);
-}
-
-.camp-table tbody tr.status-pending td {
-  background: rgba(230, 164, 52, 0.1);
-}
-
+.camp-table tbody tr.status-confirmed td,
+.camp-table tbody tr.status-pending td,
 .camp-table tbody tr.status-cancelled td,
 .camp-table tbody tr.status-rejected td {
-  background: rgba(209, 77, 77, 0.09);
+  background: #ffffff;
 }
 
 .camp-row-actions {
@@ -1535,6 +1529,11 @@ time {
 
 .trip-day-filter-label select {
   min-width: 118px;
+}
+
+.trip-panel-collapsed {
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 
 .status-pill.is-confirmed {

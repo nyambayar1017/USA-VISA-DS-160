@@ -385,11 +385,8 @@ function renderActiveTripReservations() {
     : baseEntries;
   if (activeTripPanelHidden) {
     activeTripReservations.innerHTML = `
-      <div class="section-head">
-        <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
-        <div class="camp-toolbar">
-          <button type="button" class="secondary-button" data-action="show-trip-panel">Show table</button>
-        </div>
+      <div class="camp-toolbar trip-panel-collapsed">
+        <button type="button" class="secondary-button" data-action="show-trip-panel">Show trip reservations</button>
       </div>
     `;
     return;
