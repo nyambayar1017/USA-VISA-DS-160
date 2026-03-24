@@ -155,8 +155,16 @@ function getTripDayLabel(entry) {
   if (Number.isNaN(start.getTime()) || Number.isNaN(checkIn.getTime())) {
     return "-";
   }
-  const delta = Math.round((checkIn - start) / (1000 * 60 * 60 * 24)) + 1;
-  return delta > 0 ? `Day ${delta}` : "-";
+  const startDay = Math.round((checkIn - start) / (1000 * 60 * 60 * 24)) + 1;
+  if (startDay <= 0) {
+    return "-";
+  }
+  const stayCount = Math.max(Number(entry.nights || 1), 1);
+  if (stayCount === 1) {
+    return `Day ${startDay}`;
+  }
+  const endDay = startDay + stayCount - 1;
+  return `Day ${startDay},${endDay}`;
 }
 
 function syncCheckoutFromStay() {

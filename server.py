@@ -1558,6 +1558,7 @@ def save_camp_reservation_document(record):
 
         reservation_title = camp_reservation_title(record)
         manager_name = record.get("staffAssignment") or STEPPE_MANAGER
+        meals = camp_reservation_meals(record)
 
         def draw_logo(x, y):
             pdf.setFillColor(colors.HexColor("#1d2f86"))
