@@ -432,6 +432,29 @@ def handle_auth_me(environ, start_response):
     return json_response(start_response, "200 OK", {"user": user})
 
 
+def handle_auth_profile_update(environ, start_response):
+    user = require_login(environ, start_response)
+    if not user:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    full_name = normalize_text(payload.get("fullName"))
+    if len(full_name) < 2:
+        return json_response(start_response, "400 Bad Request", {"error": "Name must be at least 2 characters"})
+
+    users = read_users()
+    for record in users:
+        if record.get("id") != user.get("id"):
+            continue
+        record["fullName"] = full_name
+        write_users(users)
+        return json_response(start_response, "200 OK", {"ok": True, "user": sanitize_user(record)})
+
+    return json_response(start_response, "404 Not Found", {"error": "User not found"})
+
+
 def handle_list_users(environ, start_response):
     admin = require_admin(environ, start_response)
     if not admin:
@@ -2339,6 +2362,9 @@ def app(environ, start_response):
 
     if path == "/api/auth/me" and method == "GET":
         return handle_auth_me(environ, start_response)
+
+    if path == "/api/auth/profile" and method == "POST":
+        return handle_auth_profile_update(environ, start_response)
 
     if path == "/api/users":
         if method == "GET":
