@@ -1006,8 +1006,8 @@ time {
 .camp-modal-dialog {
   position: relative;
   z-index: 1;
-  width: min(860px, calc(100vw - 48px));
-  max-height: calc(100vh - 48px);
+  width: min(1080px, calc(100vw - 40px));
+  max-height: calc(100vh - 32px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1028,7 +1028,7 @@ time {
   max-height: none;
   overflow-y: auto;
   padding-right: 8px;
-  padding-bottom: 8px;
+  padding-bottom: 14px;
 }
 
 .camp-modal-header {
@@ -1351,6 +1351,18 @@ body.modal-open {
   gap: 6px;
 }
 
+.trip-row-actions-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.trip-row-actions-grid .inline-status-select,
+.trip-row-actions-grid .table-action.compact {
+  width: 100%;
+}
+
 .payment-row-actions {
   flex-wrap: nowrap;
 }
@@ -1523,13 +1535,13 @@ body.modal-open {
 .trip-table td:nth-child(5),
 .trip-table th:nth-child(6),
 .trip-table td:nth-child(6) {
-  width: 64px;
+  width: 56px;
   text-align: center;
 }
 
 .trip-table th:nth-child(7),
 .trip-table td:nth-child(7) {
-  width: 92px;
+  width: 78px;
 }
 
 .trip-table th:nth-child(8),
@@ -1550,7 +1562,7 @@ body.modal-open {
 
 .trip-table th:nth-child(11),
 .trip-table td:nth-child(11) {
-  width: 260px;
+  width: 300px;
 }
 
 .trip-table .status-pill.is-planning {
@@ -1678,16 +1690,37 @@ body.modal-open {
 
 .camp-table th.checkbox-col,
 .camp-table td.checkbox-col {
-  width: 44px;
+  width: 52px;
   padding-inline: 0;
   text-align: center !important;
   vertical-align: middle;
 }
 
-.camp-table .checkbox-col input,
-.camp-table input.row-selector {
-  display: block;
+.row-selector-button {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin: 0 auto;
+  padding: 0;
+  border-radius: 4px;
+  border: 1.5px solid rgba(23, 54, 95, 0.28);
+  background: #fff;
+  color: #17365f;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.row-selector-button.is-selected {
+  background: #17365f;
+  border-color: #17365f;
+  color: #fff;
+}
+
+.camp-edit-panel-form {
+  margin-top: 10px;
 }
 
 .camp-payment-table td:nth-child(4),
