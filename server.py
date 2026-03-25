@@ -205,6 +205,7 @@ def normalize_option_list(values):
 def default_camp_settings():
     return {
         "campNames": ["Khustai camp"],
+        "locationNames": ["Khustai"],
         "staffAssignments": [STEPPE_MANAGER],
         "roomChoices": DEFAULT_ROOM_CHOICES,
     }
@@ -214,6 +215,7 @@ def read_camp_settings():
     payload = read_json_object(CAMP_SETTINGS_FILE, default_camp_settings())
     return {
         "campNames": normalize_option_list(payload.get("campNames")) or ["Khustai camp"],
+        "locationNames": normalize_option_list(payload.get("locationNames")) or ["Khustai"],
         "staffAssignments": normalize_option_list(payload.get("staffAssignments")) or [STEPPE_MANAGER],
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
     }
@@ -1957,6 +1959,7 @@ def build_camp_reservation(payload, actor=None):
         "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
         "language": normalize_text(payload.get("language")) or "Other",
         "campName": normalize_text(payload.get("campName")),
+        "locationName": normalize_text(payload.get("locationName")),
         "newCampName": normalize_text(payload.get("newCampName")),
         "reservationType": normalize_text(payload.get("reservationType")).lower() or "camp",
         "checkIn": check_in,
@@ -1972,9 +1975,13 @@ def build_camp_reservation(payload, actor=None):
         "dinner": normalize_text(payload.get("dinner")) or "No",
         "status": normalize_text(payload.get("status")).lower() or "pending",
         "deposit": parse_int(payload.get("deposit")),
+        "depositPaidDate": normalize_text(payload.get("depositPaidDate")),
+        "secondPayment": parse_int(payload.get("secondPayment")),
+        "secondPaidDate": normalize_text(payload.get("secondPaidDate")),
         "totalPayment": parse_int(payload.get("totalPayment")),
         "balancePayment": parse_int(payload.get("balancePayment")),
         "paidAmount": parse_int(payload.get("paidAmount")),
+        "paymentStatus": normalize_text(payload.get("paymentStatus")) or "in_progress",
         "notes": normalize_text(payload.get("notes")),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
@@ -2177,11 +2184,14 @@ def handle_update_camp_settings(environ, start_response):
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     settings = {
         "campNames": normalize_option_list(payload.get("campNames")),
+        "locationNames": normalize_option_list(payload.get("locationNames")),
         "staffAssignments": normalize_option_list(payload.get("staffAssignments")),
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
     }
     if not settings["campNames"]:
         settings["campNames"] = ["Khustai camp"]
+    if not settings["locationNames"]:
+        settings["locationNames"] = ["Khustai"]
     if not settings["staffAssignments"]:
         settings["staffAssignments"] = [STEPPE_MANAGER]
     write_camp_settings(settings)
@@ -2298,6 +2308,7 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
         merged = {**record}
         for key in [
             "campName",
+            "locationName",
             "reservationName",
             "reservationType",
             "createdDate",
@@ -2310,6 +2321,9 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
             "breakfast",
             "lunch",
             "dinner",
+            "depositPaidDate",
+            "secondPaidDate",
+            "paymentStatus",
         ]:
             if key in payload:
                 merged[key] = normalize_text(payload.get(key))
@@ -2321,7 +2335,7 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
                 settings["campNames"] = normalize_option_list(settings["campNames"] + [merged["campName"]])
                 write_camp_settings(settings)
 
-        for key in ["clientCount", "staffCount", "gerCount", "nights", "deposit", "totalPayment", "balancePayment", "paidAmount"]:
+        for key in ["clientCount", "staffCount", "gerCount", "nights", "deposit", "secondPayment", "totalPayment", "balancePayment", "paidAmount"]:
             if key in payload:
                 merged[key] = parse_int(payload.get(key))
 

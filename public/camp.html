@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-31" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-33" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -184,11 +184,6 @@
             </label>
           </div>
 
-          <div id="active-trip" class="camp-active-trip empty">
-            <strong>No active trip selected</strong>
-            <span>Create or open a trip first.</span>
-          </div>
-
           <div id="camp-form-panel" class="camp-modal is-hidden">
             <div class="camp-modal-backdrop" data-action="close-camp-modal"></div>
             <div class="camp-modal-dialog camp-modal-dialog-wide">
@@ -221,6 +216,12 @@
                     <label>
                       Camp
                       <select name="campName" id="camp-name-select" required></select>
+                    </label>
+                    <label>
+                      Location
+                      <select name="locationName" id="location-name-select">
+                        <option value="">Choose location</option>
+                      </select>
                     </label>
                     <label>
                       New Camp
@@ -324,6 +325,28 @@
                       Paid Amount
                       <input name="paidAmount" inputmode="numeric" />
                     </label>
+                    <label>
+                      Deposit paid date
+                      <input name="depositPaidDate" type="date" />
+                    </label>
+                    <label>
+                      2nd payment
+                      <input name="secondPayment" inputmode="numeric" />
+                    </label>
+                    <label>
+                      2nd paid date
+                      <input name="secondPaidDate" type="date" />
+                    </label>
+                    <label>
+                      Payment status
+                      <select name="paymentStatus">
+                        <option value="in_progress">In progress</option>
+                        <option value="paid_deposit">Paid deposit</option>
+                        <option value="paid">Paid</option>
+                        <option value="paid_100">Paid 100%</option>
+                        <option value="finished">Finished</option>
+                      </select>
+                    </label>
                   </div>
                 </div>
                 <div class="actions full-span">
@@ -335,6 +358,8 @@
           </div>
 
           <div id="camp-list" class="submission-list"></div>
+
+          <div id="active-trip" class="card camp-active-trip is-hidden"></div>
 
           <div id="active-trip-reservations" class="card camp-trip-detail-panel mini-pagination"></div>
           <div id="active-camp-reservations" class="card camp-trip-detail-panel mini-pagination"></div>
@@ -365,6 +390,17 @@
               <div class="camp-setting-list" id="settings-campNames"></div>
             </form>
 
+            <form class="camp-setting-card" data-settings-group="locationNames">
+              <div class="camp-setting-head">
+                <h3>Locations</h3>
+              </div>
+              <div class="camp-setting-inline">
+                <input name="value" placeholder="Add location name" />
+                <button type="submit">Add</button>
+              </div>
+              <div class="camp-setting-list" id="settings-locationNames"></div>
+            </form>
+
             <form class="camp-setting-card" data-settings-group="staffAssignments">
               <div class="camp-setting-head">
                 <h3>Staff assignment</h3>
@@ -392,7 +428,7 @@
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-31"></script>
-    <script src="/camp.js?v=workspace-31"></script>
+    <script src="/app-shell.js?v=workspace-33"></script>
+    <script src="/camp.js?v=workspace-33"></script>
   </body>
 </html>
