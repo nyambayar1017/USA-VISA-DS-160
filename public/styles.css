@@ -1020,7 +1020,7 @@ time {
 }
 
 .camp-modal-dialog-wide {
-  width: min(1120px, calc(100vw - 48px));
+  width: min(1180px, calc(100vw - 40px));
 }
 
 .camp-modal-dialog form {
@@ -1133,6 +1133,10 @@ body.modal-open {
 
 .camp-trip-detail-panel {
   margin-top: 22px;
+}
+
+.camp-trip-detail-panel.is-hidden {
+  display: none;
 }
 
 .camp-trip-card strong {
@@ -1332,10 +1336,11 @@ body.modal-open {
 }
 
 .row-selector {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   margin: 0 auto;
   display: block;
+  accent-color: #17365f;
 }
 
 .trip-row-actions {

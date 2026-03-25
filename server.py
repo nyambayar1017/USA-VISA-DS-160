@@ -2602,6 +2602,8 @@ def app(environ, start_response):
         return json_response(start_response, "404 Not Found", {"error": "Not found"})
 
     if path == "/login":
+        if current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "backoffice.html")
         return file_response(start_response, PUBLIC_DIR / "login.html")
 
     if path == "/":

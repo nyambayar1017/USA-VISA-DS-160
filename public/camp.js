@@ -565,10 +565,12 @@ function renderActiveTripReservations() {
       })
     : baseEntries;
   if (activeTripPanelHidden) {
+    activeTripReservations.classList.add("is-hidden");
     activeTripReservations.innerHTML = "";
     return;
   }
   if (!entries.length) {
+    activeTripReservations.classList.remove("is-hidden");
     activeTripReservations.innerHTML = `
       <div class="section-head">
         <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
@@ -588,6 +590,7 @@ function renderActiveTripReservations() {
     return;
   }
 
+  activeTripReservations.classList.remove("is-hidden");
   activeTripReservations.innerHTML = `
     <div class="section-head">
       <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
@@ -644,14 +647,17 @@ function renderActiveTripReservations() {
 
 function renderActiveCampReservations() {
   if (!activeCampName || activeCampPanelHidden) {
+    activeCampReservations.classList.add("is-hidden");
     activeCampReservations.innerHTML = "";
     return;
   }
   const entries = sortByDateAsc(currentEntries.filter((entry) => entry.campName === activeCampName), "checkIn");
   if (!entries.length) {
+    activeCampReservations.classList.add("is-hidden");
     activeCampReservations.innerHTML = "";
     return;
   }
+  activeCampReservations.classList.remove("is-hidden");
   activeCampReservations.innerHTML = `
     <div class="section-head">
       <h2>${escapeHtml(activeCampName)} reservations</h2>
@@ -1111,6 +1117,10 @@ function editPaymentGroup(groupKey) {
   if (!entries.length) {
     return;
   }
+  activeTripPanelHidden = true;
+  activeCampPanelHidden = true;
+  renderActiveTripReservations();
+  renderActiveCampReservations();
   startReservationEdit(entries[0].id);
 }
 
@@ -1246,6 +1256,8 @@ tripList.addEventListener("click", (event) => {
 
   if (actionTarget.dataset.action === "select-trip") {
     setActiveTrip(actionTarget.dataset.tripId);
+    activeCampPanelHidden = true;
+    renderActiveCampReservations();
     tripStatus.textContent = `Selected trip: ${getTripById(actionTarget.dataset.tripId)?.tripName || ""}`;
     return;
   }
@@ -1257,6 +1269,8 @@ tripList.addEventListener("click", (event) => {
 
   if (actionTarget.dataset.action === "add-reservation") {
     setActiveTrip(actionTarget.dataset.tripId);
+    activeCampPanelHidden = true;
+    renderActiveCampReservations();
     openReservationModal(actionTarget.dataset.tripId);
     return;
   }
