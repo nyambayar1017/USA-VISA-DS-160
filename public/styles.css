@@ -1353,9 +1353,10 @@ body.modal-open {
 
 .trip-row-actions-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(124px, 1fr) minmax(72px, auto);
   gap: 6px;
   align-items: center;
+  min-width: 286px;
 }
 
 .trip-row-actions-grid .inline-status-select,
@@ -1535,13 +1536,14 @@ body.modal-open {
 .trip-table td:nth-child(5),
 .trip-table th:nth-child(6),
 .trip-table td:nth-child(6) {
-  width: 56px;
+  width: 40px;
   text-align: center;
 }
 
 .trip-table th:nth-child(7),
 .trip-table td:nth-child(7) {
-  width: 78px;
+  width: 64px;
+  text-align: center;
 }
 
 .trip-table th:nth-child(8),
@@ -1562,7 +1564,7 @@ body.modal-open {
 
 .trip-table th:nth-child(11),
 .trip-table td:nth-child(11) {
-  width: 300px;
+  width: 286px;
 }
 
 .trip-table .status-pill.is-planning {
@@ -1582,7 +1584,7 @@ body.modal-open {
 
 .camp-table th:nth-child(1),
 .camp-table td:nth-child(1) {
-  width: 44px;
+  width: 54px;
   text-align: center !important;
   padding-left: 0;
   padding-right: 0;
@@ -1690,15 +1692,17 @@ body.modal-open {
 
 .camp-table th.checkbox-col,
 .camp-table td.checkbox-col {
-  width: 52px;
+  width: 54px;
+  min-width: 54px;
   padding-inline: 0;
   text-align: center !important;
   vertical-align: middle;
+  overflow: visible;
 }
 
 .row-selector-button {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1713,6 +1717,11 @@ body.modal-open {
   line-height: 1;
 }
 
+.camp-table th.checkbox-col .row-selector-button,
+.camp-table td.checkbox-col .row-selector-button {
+  margin-inline: auto;
+}
+
 .row-selector-button.is-selected {
   background: #17365f;
   border-color: #17365f;
@@ -1721,6 +1730,12 @@ body.modal-open {
 
 .camp-edit-panel-form {
   margin-top: 10px;
+}
+
+.camp-table .trip-pax-cell,
+.camp-table td:nth-child(6),
+.camp-table td:nth-child(7) {
+  text-align: center;
 }
 
 .camp-payment-table td:nth-child(4),
