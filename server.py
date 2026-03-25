@@ -1255,7 +1255,7 @@ def build_camp_document_html(record, pdf_href):
       </div>
 
       <div class="center-title">
-        <h2>Аяллын нэр: {html.escape(record['tripName'])}</h2>
+        <h2>Аяллын нэр: {html.escape(record.get('reservationName') or record['tripName'])}</h2>
         <p>{reservation_title} - “{html.escape(record['campName'])}”</p>
       </div>
 
@@ -1312,14 +1312,14 @@ def build_camp_bundle_document_html(records, pdf_href):
     reservation_title = camp_reservation_title(first)
     manager_name = first.get("staffAssignment") or STEPPE_MANAGER
     note_lines = [
-        f"{index + 1}. {record.get('tripName') or '-'}: {record.get('notes') or '-'}"
+        f"{index + 1}. {record.get('reservationName') or record.get('tripName') or '-'}: {record.get('notes') or '-'}"
         for index, record in enumerate(records)
     ]
     row_markup = "".join(
         f"""
           <tr>
             <td>{index + 1}</td>
-            <td>{html.escape(record['tripName'])}</td>
+            <td>{html.escape(record.get('reservationName') or record['tripName'])}</td>
             <td>{record['clientCount']}</td>
             <td>{record['staffCount']}</td>
             <td>{format_pdf_date(record['checkIn'])}</td>
@@ -1476,7 +1476,7 @@ def build_camp_bundle_document_html(records, pdf_href):
         </div>
       </div>
       <div class="center-title">
-        <h2>Аяллын нэр: {html.escape(first['tripName'])}</h2>
+        <h2>Аяллын нэр: {html.escape(first.get('reservationName') or first['tripName'])}</h2>
         <p>{reservation_title} - “{html.escape(first['campName'])}”</p>
       </div>
       <table>
@@ -1516,7 +1516,7 @@ def build_camp_bundle_document_html(records, pdf_href):
 def save_camp_reservation_document(record):
     ensure_data_store()
     filename_stem = slugify(
-        f"camp-{record['tripName']}-{record['campName']}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        f"camp-{record.get('reservationName') or record['tripName']}-{record['campName']}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     )
     html_filename = f"{filename_stem}.html"
     pdf_filename = f"{filename_stem}.pdf"
@@ -1530,14 +1530,14 @@ def save_camp_reservation_document(record):
 
     try:
         from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.pagesizes import A4, landscape
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
         from reportlab.pdfgen import canvas
         from reportlab.platypus import Table, TableStyle
 
-        pdf = canvas.Canvas(str(pdf_path), pagesize=A4)
-        width, height = A4
+        pdf = canvas.Canvas(str(pdf_path), pagesize=landscape(A4))
+        width, height = landscape(A4)
         font_name = "Helvetica"
         bold_font_name = "Helvetica-Bold"
 
@@ -1565,16 +1565,16 @@ def save_camp_reservation_document(record):
             pdf.setFont(bold_font_name, 18)
             pdf.drawString(x, y - 16, "UNLOCK STEPPE MONGOLIA")
 
-        draw_logo(52, height - 56)
+        draw_logo(40, height - 40)
         pdf.setFillColor(colors.HexColor("#1d2f86"))
         pdf.setFont(bold_font_name, 15)
-        pdf.drawString(300, height - 42, STEPPE_COMPANY_NAME)
+        pdf.drawString(width - 360, height - 36, STEPPE_COMPANY_NAME)
         pdf.setFillColor(colors.black)
         pdf.setFont(font_name, 12)
-        pdf.drawRightString(width - 52, height - 64, STEPPE_CITY)
-        pdf.drawRightString(width - 52, height - 82, format_pdf_date(record["createdDate"]))
+        pdf.drawRightString(width - 40, height - 58, STEPPE_CITY)
+        pdf.drawRightString(width - 40, height - 76, format_pdf_date(record["createdDate"]))
 
-        text = pdf.beginText(60, height - 114)
+        text = pdf.beginText(40, height - 92)
         text.setFont(font_name, 10)
         for line in STEPPE_ADDRESS_LINES:
             text.textLine(line)
@@ -1583,8 +1583,8 @@ def save_camp_reservation_document(record):
         pdf.drawText(text)
 
         pdf.setFont(bold_font_name, 16)
-        pdf.drawCentredString(width / 2, height - 198, f"Аяллын нэр: {record['tripName']}")
-        pdf.drawCentredString(width / 2, height - 240, f"{reservation_title} - “{record['campName']}”")
+        pdf.drawCentredString(width / 2, height - 160, f"Аяллын нэр: {record.get('reservationName') or record['tripName']}")
+        pdf.drawCentredString(width / 2, height - 190, f"{reservation_title} - “{record['campName']}”")
 
         table = Table(
             [[
@@ -1606,7 +1606,7 @@ def save_camp_reservation_document(record):
                 record["roomType"],
                 meals,
             ]],
-            colWidths=[62, 72, 68, 68, 58, 58, 120, 116],
+            colWidths=[68, 68, 74, 74, 62, 62, 150, 118],
         )
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
@@ -1618,15 +1618,15 @@ def save_camp_reservation_document(record):
             ("FONTSIZE", (0, 0), (-1, -1), 10),
             ("LEADING", (0, 0), (-1, -1), 13),
         ]))
-        table.wrapOn(pdf, width - 104, height)
-        table.drawOn(pdf, 52, height - 390)
+        table.wrapOn(pdf, width - 80, height)
+        table.drawOn(pdf, 40, height - 320)
 
         pdf.setFont(bold_font_name, 12)
-        pdf.drawString(52, 170, f"Нэмэлт тэмдэглэл: {record['notes'] or '-'}")
-        pdf.drawString(300, 130, f"Захиалгын менежер: {manager_name}")
+        pdf.drawString(40, 120, f"Нэмэлт тэмдэглэл: {record['notes'] or '-'}")
+        pdf.drawString(width - 320, 110, f"Захиалгын менежер: {manager_name}")
         pdf.setFont(font_name, 12)
-        pdf.drawString(300, 100, f"Харилцах утас : {STEPPE_CONTACT_PHONES}")
-        pdf.drawString(300, 76, f"Цахим шуудан : {STEPPE_EMAIL}")
+        pdf.drawString(width - 320, 84, f"Харилцах утас : {STEPPE_CONTACT_PHONES}")
+        pdf.drawString(width - 320, 60, f"Цахим шуудан : {STEPPE_EMAIL}")
 
         pdf.showPage()
         pdf.save()
@@ -1706,7 +1706,7 @@ def save_camp_reservations_bundle(records):
         pdf.drawText(text)
 
         pdf.setFont(bold_font_name, 16)
-        pdf.drawCentredString(width / 2, height - 160, f"Аяллын нэр: {first['tripName']}")
+        pdf.drawCentredString(width / 2, height - 160, f"Аяллын нэр: {first.get('reservationName') or first['tripName']}")
         pdf.drawCentredString(width / 2, height - 190, f"{reservation_title} - “{first['campName']}”")
 
         table_rows = [[
@@ -1724,7 +1724,7 @@ def save_camp_reservations_bundle(records):
         for index, record in enumerate(records, start=1):
             table_rows.append([
                 str(index),
-                record["tripName"],
+                record.get("reservationName") or record["tripName"],
                 str(record["clientCount"]),
                 str(record["staffCount"]),
                 format_iso_date(record["checkIn"]),
@@ -1897,6 +1897,7 @@ def build_camp_trip(payload, actor=None):
         "id": str(uuid4()),
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "tripName": normalize_text(payload.get("tripName")),
+        "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
         "startDate": normalize_text(payload.get("startDate")),
         "totalDays": parse_int(payload.get("totalDays")) or 1,
         "participantCount": parse_int(payload.get("participantCount")),
@@ -1929,24 +1930,42 @@ def find_camp_trip(trip_id):
     return None
 
 
+def ensure_checkout_from_nights(check_in, nights, check_out):
+    check_in = normalize_text(check_in)
+    check_out = normalize_text(check_out)
+    stay_count = parse_int(nights) or 1
+    try:
+        base = datetime.strptime(check_in, "%Y-%m-%d")
+    except Exception:
+        return check_out
+    expected = (base + timedelta(days=max(stay_count, 1))).strftime("%Y-%m-%d")
+    if not check_out or check_out == check_in:
+        return expected
+    return check_out
+
+
 def build_camp_reservation(payload, actor=None):
     created_date = normalize_text(payload.get("createdDate")) or datetime.now().strftime("%Y-%m-%d")
+    nights = parse_int(payload.get("nights"))
+    check_in = normalize_text(payload.get("checkIn"))
     return {
         "id": str(uuid4()),
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "createdDate": created_date,
         "tripId": normalize_text(payload.get("tripId")),
         "tripName": normalize_text(payload.get("tripName")),
+        "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
         "language": normalize_text(payload.get("language")) or "Other",
         "campName": normalize_text(payload.get("campName")),
+        "newCampName": normalize_text(payload.get("newCampName")),
         "reservationType": normalize_text(payload.get("reservationType")).lower() or "camp",
-        "checkIn": normalize_text(payload.get("checkIn")),
-        "checkOut": normalize_text(payload.get("checkOut")),
+        "checkIn": check_in,
+        "checkOut": ensure_checkout_from_nights(check_in, nights, payload.get("checkOut")),
         "clientCount": parse_int(payload.get("clientCount")),
         "staffCount": parse_int(payload.get("staffCount")),
         "staffAssignment": normalize_text(payload.get("staffAssignment")),
         "gerCount": parse_int(payload.get("gerCount")),
-        "nights": parse_int(payload.get("nights")),
+        "nights": nights,
         "roomType": normalize_text(payload.get("roomType")),
         "breakfast": normalize_text(payload.get("breakfast")) or "No",
         "lunch": normalize_text(payload.get("lunch")) or "No",
@@ -1955,6 +1974,7 @@ def build_camp_reservation(payload, actor=None):
         "deposit": parse_int(payload.get("deposit")),
         "totalPayment": parse_int(payload.get("totalPayment")),
         "balancePayment": parse_int(payload.get("balancePayment")),
+        "paidAmount": parse_int(payload.get("paidAmount")),
         "notes": normalize_text(payload.get("notes")),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
@@ -1963,7 +1983,7 @@ def build_camp_reservation(payload, actor=None):
 
 
 def validate_camp_reservation(data):
-    required = ["tripId", "tripName", "campName", "reservationType", "checkIn", "checkOut", "status", "roomType"]
+    required = ["tripId", "tripName", "reservationName", "campName", "reservationType", "checkIn", "checkOut", "status", "roomType"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -2199,7 +2219,7 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         if trip["id"] != trip_id:
             continue
         merged = {**trip}
-        for key in ["tripName", "startDate", "language", "status"]:
+        for key in ["tripName", "reservationName", "startDate", "language", "status"]:
             if key in payload:
                 merged[key] = normalize_text(payload.get(key))
         for key in ["participantCount", "staffCount", "totalDays"]:
@@ -2243,7 +2263,14 @@ def handle_create_camp_reservation(environ, start_response):
     if trip is None:
         return json_response(start_response, "400 Bad Request", {"error": "Please create or select a trip first"})
     record["tripName"] = trip["tripName"]
+    record["reservationName"] = record.get("reservationName") or trip.get("reservationName") or trip["tripName"]
     record["language"] = trip.get("language") or "Other"
+    if record.get("newCampName"):
+        record["campName"] = record["newCampName"]
+        settings = read_camp_settings()
+        if record["campName"] not in settings["campNames"]:
+            settings["campNames"] = normalize_option_list(settings["campNames"] + [record["campName"]])
+            write_camp_settings(settings)
     error = validate_camp_reservation(record)
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})
@@ -2271,6 +2298,7 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
         merged = {**record}
         for key in [
             "campName",
+            "reservationName",
             "reservationType",
             "createdDate",
             "checkIn",
@@ -2286,9 +2314,18 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
             if key in payload:
                 merged[key] = normalize_text(payload.get(key))
 
-        for key in ["clientCount", "staffCount", "gerCount", "nights", "deposit", "totalPayment", "balancePayment"]:
+        if normalize_text(payload.get("newCampName")):
+            merged["campName"] = normalize_text(payload.get("newCampName"))
+            settings = read_camp_settings()
+            if merged["campName"] not in settings["campNames"]:
+                settings["campNames"] = normalize_option_list(settings["campNames"] + [merged["campName"]])
+                write_camp_settings(settings)
+
+        for key in ["clientCount", "staffCount", "gerCount", "nights", "deposit", "totalPayment", "balancePayment", "paidAmount"]:
             if key in payload:
                 merged[key] = parse_int(payload.get(key))
+
+        merged["checkOut"] = ensure_checkout_from_nights(merged.get("checkIn"), merged.get("nights"), merged.get("checkOut"))
 
         error = validate_camp_reservation(merged)
         if error:
@@ -2329,6 +2366,8 @@ def handle_export_camp_reservations(environ, start_response):
     if not selected:
         return json_response(start_response, "400 Bad Request", {"error": "No reservations selected"})
     document = save_camp_reservations_bundle(selected)
+    if not str(document.get("pdfPath", "")).endswith(".pdf"):
+        return json_response(start_response, "500 Internal Server Error", {"error": "PDF generation failed"})
     return json_response(start_response, "200 OK", {"ok": True, "entry": document})
 
 
@@ -2342,6 +2381,8 @@ def handle_camp_reservation_document(environ, start_response, reservation_id):
     if not record:
         return json_response(start_response, "404 Not Found", {"error": "Camp reservation not found"})
     document = save_camp_reservation_document(record)
+    if mode == "download" and not str(document.get("pdfPath", "")).endswith(".pdf"):
+        return json_response(start_response, "500 Internal Server Error", {"error": "PDF generation failed"})
     relative_path = document["pdfViewPath"] if mode == "view" else document["pdfPath"]
     safe_path = (GENERATED_DIR / unquote(relative_path.replace("/generated/", "", 1))).resolve()
     if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():

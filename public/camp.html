@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-19" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-31" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -96,6 +96,10 @@
                 <label>
                   Trip name
                   <input name="tripName" placeholder="STEPPE MONGOLIA 0802" required />
+                </label>
+                <label>
+                  Reservation name
+                  <input name="reservationName" placeholder="STEPPE MONGOLIA 0802" required />
                 </label>
                 <label>
                   Starting date
@@ -191,109 +195,137 @@
               <div class="camp-modal-header">
                 <div>
                   <h2>New reservation</h2>
-                  <p class="camp-modal-copy">Financial хэсэг нь дотоод хэрэглээнд үлдэнэ. PDF болон View дээр харагдахгүй.</p>
+                  <p class="camp-modal-copy">Trip сонгоод reservation details болон camp payment хэсгийг тусад нь бөглөөд хадгална.</p>
                 </div>
                 <button type="button" class="camp-modal-close" data-action="close-camp-modal" aria-label="Close reservation form">×</button>
               </div>
               <form id="camp-form" class="field-grid">
-                <label>
-                  Selected Trip
-                  <select name="tripId" id="reservation-trip-select" required></select>
-                </label>
-                <label>
-                  Reservation date
-                  <input name="createdDate" type="date" />
-                </label>
-                <label>
-                  Camp
-                  <select name="campName" id="camp-name-select" required></select>
-                </label>
-                <label>
-                  Reservation type
-                  <select name="reservationType" required>
-                    <option value="camp">Баазын захиалга</option>
-                    <option value="hotel">Буудлын захиалга</option>
-                    <option value="herder">Малчин айлын захиалга</option>
-                  </select>
-                </label>
-                <label>
-                  Check-in
-                  <input name="checkIn" id="camp-checkin" type="date" required />
-                </label>
-                <label>
-                  Number of stays
-                  <input name="nights" id="camp-stays" type="number" min="1" value="1" required />
-                </label>
-                <label>
-                  Check-out
-                  <input name="checkOut" id="camp-checkout" type="date" required />
-                </label>
-                <label>
-                  Number of clients
-                  <input name="clientCount" type="number" min="1" value="2" required />
-                </label>
-                <label>
-                  Number of staff
-                  <input name="staffCount" type="number" min="0" value="0" />
-                </label>
-                <label>
-                  Staff Assignment
-                  <select name="staffAssignment" id="staff-assignment-select"></select>
-                </label>
-                <label>
-                  Number of Gers
-                  <input name="gerCount" type="number" min="1" value="1" required />
-                </label>
-                <label>
-                  Ger / Room choice
-                  <select name="roomType" id="room-type-select" required></select>
-                </label>
-                <label>
-                  Breakfast
-                  <select name="breakfast">
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
-                  </select>
-                </label>
-                <label>
-                  Lunch
-                  <select name="lunch">
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
-                  </select>
-                </label>
-                <label>
-                  Dinner
-                  <select name="dinner">
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
-                  </select>
-                </label>
-                <label>
-                  Deposit
-                  <input name="deposit" inputmode="numeric" />
-                </label>
-                <label>
-                  Total Payment
-                  <input name="totalPayment" inputmode="numeric" />
-                </label>
-                <label>
-                  Balance Payment
-                  <input name="balancePayment" inputmode="numeric" />
-                </label>
-                <label>
-                  Status
-                  <select name="status">
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </label>
-                <label class="full-span">
-                  Note
-                  <textarea name="notes" rows="4"></textarea>
-                </label>
+                <div class="camp-form-section full-span">
+                  <div class="camp-form-section-head">
+                    <h3>Reservation details</h3>
+                    <p>PDF болон View дээр харагдах үндсэн мэдээлэл.</p>
+                  </div>
+                  <div class="field-grid field-grid-compact">
+                    <label>
+                      Selected Trip
+                      <select name="tripId" id="reservation-trip-select" required></select>
+                    </label>
+                    <label>
+                      Reservation Name
+                      <input name="reservationName" placeholder="STEPPE MONGOLIA 0802" required />
+                    </label>
+                    <label>
+                      Reservation date
+                      <input name="createdDate" type="date" />
+                    </label>
+                    <label>
+                      Camp
+                      <select name="campName" id="camp-name-select" required></select>
+                    </label>
+                    <label>
+                      New Camp
+                      <input name="newCampName" id="new-camp-name" placeholder="Create new camp if not listed" />
+                    </label>
+                    <label>
+                      Reservation type
+                      <select name="reservationType" required>
+                        <option value="camp">Баазын захиалга</option>
+                        <option value="hotel">Буудлын захиалга</option>
+                        <option value="herder">Малчин айлын захиалга</option>
+                      </select>
+                    </label>
+                    <label>
+                      Check-in
+                      <input name="checkIn" id="camp-checkin" type="date" required />
+                    </label>
+                    <label>
+                      Number of nights
+                      <input name="nights" id="camp-stays" type="number" min="1" value="1" required />
+                    </label>
+                    <label>
+                      Check-out
+                      <input name="checkOut" id="camp-checkout" type="date" required />
+                    </label>
+                    <label>
+                      Number of clients
+                      <input name="clientCount" type="number" min="1" value="2" required />
+                    </label>
+                    <label>
+                      Number of staff
+                      <input name="staffCount" type="number" min="0" value="0" />
+                    </label>
+                    <label>
+                      Staff Assignment
+                      <select name="staffAssignment" id="staff-assignment-select"></select>
+                    </label>
+                    <label>
+                      Number of Gers
+                      <input name="gerCount" type="number" min="1" value="1" required />
+                    </label>
+                    <label>
+                      Ger / Room choice
+                      <select name="roomType" id="room-type-select" required></select>
+                    </label>
+                    <label>
+                      Breakfast
+                      <select name="breakfast">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </label>
+                    <label>
+                      Lunch
+                      <select name="lunch">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </label>
+                    <label>
+                      Dinner
+                      <select name="dinner">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </label>
+                    <label>
+                      Status
+                      <select name="status">
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </label>
+                    <label class="full-span">
+                      Note
+                      <textarea name="notes" rows="4"></textarea>
+                    </label>
+                  </div>
+                </div>
+                <div class="camp-form-section full-span">
+                  <div class="camp-form-section-head">
+                    <h3>Camp payment</h3>
+                    <p>Дотоод санхүүгийн хэсэг. PDF болон View дээр харагдахгүй.</p>
+                  </div>
+                  <div class="field-grid field-grid-compact">
+                    <label>
+                      Deposit
+                      <input name="deposit" inputmode="numeric" />
+                    </label>
+                    <label>
+                      Total Payment
+                      <input name="totalPayment" inputmode="numeric" />
+                    </label>
+                    <label>
+                      Balance Payment
+                      <input name="balancePayment" inputmode="numeric" />
+                    </label>
+                    <label>
+                      Paid Amount
+                      <input name="paidAmount" inputmode="numeric" />
+                    </label>
+                  </div>
+                </div>
                 <div class="actions full-span">
                   <button type="submit">Save reservation</button>
                   <p id="camp-status" class="status"></p>
@@ -305,6 +337,15 @@
           <div id="camp-list" class="submission-list"></div>
 
           <div id="active-trip-reservations" class="card camp-trip-detail-panel mini-pagination"></div>
+          <div id="active-camp-reservations" class="card camp-trip-detail-panel mini-pagination"></div>
+        </section>
+
+        <section class="card" id="payments-section">
+          <div class="section-head">
+            <h2>Camp Payments</h2>
+            <p>Trip болон camp-аар бүлэглэсэн дотоод төлбөрийн харагдац.</p>
+          </div>
+          <div id="camp-payment-list" class="submission-list"></div>
         </section>
 
         <section class="card" id="settings-section">
@@ -351,7 +392,7 @@
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-21"></script>
-    <script src="/camp.js?v=workspace-21"></script>
+    <script src="/app-shell.js?v=workspace-31"></script>
+    <script src="/camp.js?v=workspace-31"></script>
   </body>
 </html>
