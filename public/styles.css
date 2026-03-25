@@ -986,9 +986,10 @@ time {
   inset: 0;
   z-index: 80;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 24px;
+  overflow-y: auto;
 }
 
 .camp-modal.is-hidden {
@@ -1005,11 +1006,12 @@ time {
 .camp-modal-dialog {
   position: relative;
   z-index: 1;
-  width: min(760px, calc(100vw - 48px));
-  max-height: min(92vh, 980px);
+  width: min(860px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  margin: 0 auto;
   padding: 18px 18px 16px;
   border: 1px solid rgba(37, 58, 119, 0.14);
   border-radius: 16px;
@@ -1018,7 +1020,7 @@ time {
 }
 
 .camp-modal-dialog-wide {
-  width: min(940px, calc(100vw - 48px));
+  width: min(1120px, calc(100vw - 48px));
 }
 
 .camp-modal-dialog form {
@@ -1486,16 +1488,8 @@ body.modal-open {
   min-width: 0;
   padding: 8px 12px;
   justify-content: flex-start;
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 2px;
   text-align: left;
   white-space: normal;
-}
-
-.trip-select-link small {
-  font-size: 0.7rem;
-  color: rgba(23, 54, 95, 0.72);
 }
 
 .trip-table th:nth-child(1),
@@ -1505,46 +1499,52 @@ body.modal-open {
 
 .trip-table th:nth-child(2),
 .trip-table td:nth-child(2) {
-  width: 260px;
+  width: 220px;
   text-align: left;
 }
 
 .trip-table th:nth-child(3),
 .trip-table td:nth-child(3) {
-  width: 108px;
+  width: 190px;
+  text-align: left;
 }
 
 .trip-table th:nth-child(4),
-.trip-table td:nth-child(4),
+.trip-table td:nth-child(4) {
+  width: 108px;
+}
+
 .trip-table th:nth-child(5),
-.trip-table td:nth-child(5) {
+.trip-table td:nth-child(5),
+.trip-table th:nth-child(6),
+.trip-table td:nth-child(6) {
   width: 64px;
   text-align: center;
 }
 
-.trip-table th:nth-child(6),
-.trip-table td:nth-child(6) {
-  width: 92px;
-}
-
 .trip-table th:nth-child(7),
 .trip-table td:nth-child(7) {
-  width: 104px;
+  width: 92px;
 }
 
 .trip-table th:nth-child(8),
 .trip-table td:nth-child(8) {
-  width: 134px;
+  width: 104px;
 }
 
 .trip-table th:nth-child(9),
 .trip-table td:nth-child(9) {
-  width: 136px;
-  text-align: left;
+  width: 134px;
 }
 
 .trip-table th:nth-child(10),
 .trip-table td:nth-child(10) {
+  width: 136px;
+  text-align: left;
+}
+
+.trip-table th:nth-child(11),
+.trip-table td:nth-child(11) {
   width: 260px;
 }
 
@@ -1565,18 +1565,18 @@ body.modal-open {
 
 .camp-table th:nth-child(1),
 .camp-table td:nth-child(1) {
-  width: 56px;
+  width: 44px;
   text-align: center !important;
-  padding-left: 8px;
-  padding-right: 8px;
+  padding-left: 0;
+  padding-right: 0;
   vertical-align: middle;
 }
 
 .camp-table th:nth-child(2),
 .camp-table td:nth-child(2) {
-  padding-left: 16px;
+  padding-left: 12px;
   white-space: nowrap;
-  width: 168px;
+  width: 180px;
 }
 
 .camp-table th:nth-child(3),
@@ -1622,7 +1622,12 @@ body.modal-open {
 
 .camp-table th:nth-child(12),
 .camp-table td:nth-child(12) {
-  width: 122px;
+  width: 132px;
+}
+
+.camp-table th:nth-child(13),
+.camp-table td:nth-child(13) {
+  width: 72px;
 }
 
 .camp-table th:nth-child(14),
@@ -1666,17 +1671,18 @@ body.modal-open {
   vertical-align: top;
 }
 
-.camp-table .checkbox-col,
-.camp-table .checkbox-col input,
-.camp-table th.checkbox-col {
-  text-align: center !important;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 .camp-table th.checkbox-col,
 .camp-table td.checkbox-col {
+  width: 44px;
+  padding-inline: 0;
+  text-align: center !important;
   vertical-align: middle;
+}
+
+.camp-table .checkbox-col input,
+.camp-table input.row-selector {
+  display: block;
+  margin: 0 auto;
 }
 
 .camp-payment-table td:nth-child(4),

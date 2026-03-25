@@ -59,6 +59,17 @@ const PAGE_SIZE = 20;
 function openPanel(panel) {
   panel.classList.remove("is-hidden");
   document.body.classList.add("modal-open");
+  const dialog = panel.querySelector(".camp-modal-dialog");
+  const form = panel.querySelector("form");
+  requestAnimationFrame(() => {
+    window.scrollTo(0, 0);
+    if (dialog) {
+      dialog.scrollTop = 0;
+    }
+    if (form) {
+      form.scrollTop = 0;
+    }
+  });
 }
 
 function closePanel(panel) {
@@ -360,7 +371,8 @@ function renderTrips() {
         <thead>
           <tr>
             <th>#</th>
-            <th>Trip / Reservation</th>
+            <th>Trip</th>
+            <th>Reservation Name</th>
             <th>Start</th>
             <th>Pax</th>
             <th>Staff</th>
@@ -378,11 +390,9 @@ function renderTrips() {
                 <tr class="${activeTripId === trip.id ? "is-trip-active" : ""}">
                   <td>${startIndex + index + 1}</td>
                   <td class="table-primary-cell">
-                    <button type="button" class="table-link compact secondary trip-select-link" data-action="select-trip" data-trip-id="${trip.id}">
-                      <span>${escapeHtml(trip.tripName)}</span>
-                      <small>${escapeHtml(trip.reservationName || trip.tripName)}</small>
-                    </button>
+                    <button type="button" class="table-link compact secondary trip-select-link" data-action="select-trip" data-trip-id="${trip.id}">${escapeHtml(trip.tripName)}</button>
                   </td>
+                  <td>${escapeHtml(trip.reservationName || trip.tripName)}</td>
                   <td>${formatDate(trip.startDate)}</td>
                   <td class="trip-pax-cell">${trip.participantCount}</td>
                   <td>${trip.staffCount}</td>
@@ -1359,6 +1369,17 @@ function handleCampTableClick(event) {
     }
     renderEntries();
     renderActiveTripReservations();
+    return;
+  }
+  if (action === "toggle-select") {
+    if (target.checked) {
+      selectedReservationIds.add(target.dataset.id);
+    } else {
+      selectedReservationIds.delete(target.dataset.id);
+    }
+    renderEntries();
+    renderActiveTripReservations();
+    renderActiveCampReservations();
     return;
   }
   if (action === "hide-trip-panel") {
