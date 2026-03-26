@@ -1536,13 +1536,13 @@ body.modal-open {
 .trip-table td:nth-child(5),
 .trip-table th:nth-child(6),
 .trip-table td:nth-child(6) {
-  width: 40px;
+  width: 32px;
   text-align: center;
 }
 
 .trip-table th:nth-child(7),
 .trip-table td:nth-child(7) {
-  width: 64px;
+  width: 56px;
   text-align: center;
 }
 
@@ -1564,7 +1564,7 @@ body.modal-open {
 
 .trip-table th:nth-child(11),
 .trip-table td:nth-child(11) {
-  width: 286px;
+  width: 320px;
 }
 
 .trip-table .status-pill.is-planning {
@@ -1692,40 +1692,21 @@ body.modal-open {
 
 .camp-table th.checkbox-col,
 .camp-table td.checkbox-col {
-  width: 54px;
-  min-width: 54px;
-  padding-inline: 0;
+  width: 64px;
+  min-width: 64px;
+  padding-inline: 8px;
   text-align: center !important;
   vertical-align: middle;
   overflow: visible;
 }
 
-.row-selector-button {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.row-selector-checkbox,
+.row-selector {
+  width: 16px;
+  height: 16px;
   margin: 0 auto;
-  padding: 0;
-  border-radius: 4px;
-  border: 1.5px solid rgba(23, 54, 95, 0.28);
-  background: #fff;
-  color: #17365f;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.camp-table th.checkbox-col .row-selector-button,
-.camp-table td.checkbox-col .row-selector-button {
-  margin-inline: auto;
-}
-
-.row-selector-button.is-selected {
-  background: #17365f;
-  border-color: #17365f;
-  color: #fff;
+  display: block;
+  accent-color: #17365f;
 }
 
 .camp-edit-panel-form {

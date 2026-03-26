@@ -45,6 +45,7 @@ let campSettings = {
   locationNames: [],
   staffAssignments: [],
   roomChoices: [],
+  campLocations: {},
 };
 let activeTripId = "";
 let activeCampName = "";
@@ -59,11 +60,11 @@ let activeTripPanelHidden = false;
 let activeCampPanelHidden = false;
 const PAGE_SIZE = 20;
 const TRIP_STATUS_OPTIONS = [
-  ["planning", "Төлөвлөж буй"],
-  ["confirmed", "Баталгаажсан"],
-  ["travelling", "Явж буй"],
-  ["completed", "Дууссан"],
-  ["cancelled", "Цуцлагдсан"],
+  ["planning", "Planning"],
+  ["confirmed", "Confirmed"],
+  ["travelling", "Travelling"],
+  ["completed", "Completed"],
+  ["cancelled", "Cancelled"],
 ];
 
 function openPanel(panel) {
@@ -104,9 +105,22 @@ function hideSelectionPanels() {
   activeTripDayFilter = "";
   activeTripPanelHidden = true;
   activeCampPanelHidden = true;
+  closeInlineEditPanels();
   renderActiveTrip();
   renderActiveTripReservations();
   renderActiveCampReservations();
+}
+
+function closeReservationEditPanel() {
+  editingReservationId = "";
+  reservationEditPanel.classList.add("is-hidden");
+  reservationEditPanel.innerHTML = "";
+}
+
+function closePaymentEditPanel() {
+  editingPaymentGroupKey = "";
+  paymentEditPanel.classList.add("is-hidden");
+  paymentEditPanel.innerHTML = "";
 }
 
 function escapeHtml(value) {
@@ -142,18 +156,18 @@ function normalizeStatus(status) {
 
 function formatStatusLabel(status) {
   const labels = {
-    planning: "Төлөвлөж буй",
-    confirmed: "Баталгаажсан",
-    travelling: "Явж буй",
-    completed: "Дууссан",
-    cancelled: "Цуцлагдсан",
-    rejected: "Татгалзсан",
-    pending: "Хүлээгдэж буй",
-    in_progress: "Явцад байна",
-    paid_deposit: "Урьдчилгаа төлсөн",
-    paid: "Төлсөн",
-    paid_100: "100% төлсөн",
-    finished: "Дууссан",
+    planning: "Planning",
+    confirmed: "Confirmed",
+    travelling: "Travelling",
+    completed: "Completed",
+    cancelled: "Cancelled",
+    rejected: "Rejected",
+    pending: "Pending",
+    in_progress: "In progress",
+    paid_deposit: "Deposit paid",
+    paid: "Paid",
+    paid_100: "Paid 100%",
+    finished: "Finished",
   };
   return labels[normalizeStatus(status)] || status || "-";
 }
@@ -174,7 +188,7 @@ function renderCampSelectOptions(selectedValue = "") {
     values.unshift(selectedValue);
   }
   return [
-    '<option value="">Кэмп сонгох</option>',
+    '<option value="">Choose camp</option>',
     ...values.map((value) => `<option value="${escapeHtml(value)}" ${selectedValue === value ? "selected" : ""}>${escapeHtml(value)}</option>`),
   ].join("");
 }
@@ -335,19 +349,19 @@ function renderSettingsOptions() {
   const currentLanguageFilter = tripFilterLanguage.value;
   const currentReservationTrip = reservationTripSelect.value;
   const languages = [...new Set(currentTrips.map((trip) => trip.language).filter(Boolean).concat(["English", "French", "Mongolian", "Korean", "Spanish", "Italian", "Other"]))];
-  tripLanguageSelect.innerHTML = renderOptionMarkup(languages, "Хэл сонгох");
-  tripFilterLanguage.innerHTML = renderOptionMarkup(languages, "Бүх хэл");
-  reservationTripSelect.innerHTML = `<option value="">Трип сонгох</option>${currentTrips
+  tripLanguageSelect.innerHTML = renderOptionMarkup(languages, "Choose language");
+  tripFilterLanguage.innerHTML = renderOptionMarkup(languages, "All languages");
+  reservationTripSelect.innerHTML = `<option value="">Choose trip</option>${currentTrips
     .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
     .join("")}`;
-  filterTripName.innerHTML = `<option value="">Бүх трип</option>${currentTrips
+  filterTripName.innerHTML = `<option value="">All trips</option>${currentTrips
     .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
     .join("")}`;
   campNameSelect.innerHTML = renderCampSelectOptions();
-  locationNameSelect.innerHTML = renderGenericSelectOptions(campSettings.locationNames, "Байршил сонгох");
-  filterCampName.innerHTML = renderOptionMarkup(campSettings.campNames, "Бүх кэмп");
-  staffAssignmentSelect.innerHTML = renderOptionMarkup(campSettings.staffAssignments, "Ажилтан сонгох");
-  roomTypeSelect.innerHTML = renderOptionMarkup(campSettings.roomChoices, "Төрөл сонгох");
+  locationNameSelect.innerHTML = renderGenericSelectOptions(campSettings.locationNames, "Choose location");
+  filterCampName.innerHTML = renderOptionMarkup(campSettings.campNames, "All camps");
+  staffAssignmentSelect.innerHTML = renderOptionMarkup(campSettings.staffAssignments, "Choose staff");
+  roomTypeSelect.innerHTML = renderOptionMarkup(campSettings.roomChoices, "Choose room type");
   tripFilterLanguage.value = currentLanguageFilter;
   filterTripName.value = currentTripFilter;
   filterCampName.value = currentCampFilter;
@@ -360,9 +374,40 @@ function renderSettingsOptions() {
   }
 }
 
+function getCampLocation(campName) {
+  return campSettings.campLocations?.[campName] || "";
+}
+
+function applyCampLocationToForm(formNode) {
+  if (!formNode) return;
+  const campNode = formNode.querySelector('[name="campName"]');
+  const locationNode = formNode.querySelector('[name="locationName"]');
+  const newCampNode = formNode.querySelector('[name="newCampName"]');
+  if (!campNode || !locationNode) return;
+  if (newCampNode && newCampNode.value.trim()) return;
+  const mapped = getCampLocation(campNode.value);
+  if (mapped) {
+    locationNode.value = mapped;
+  }
+}
+
 function renderSettingGroup(groupName, values) {
   const container = document.querySelector(`#settings-${groupName}`);
   if (!container) {
+    return;
+  }
+  if (groupName === "campNames") {
+    container.innerHTML = values
+      .map((value) => {
+        const location = campSettings.campLocations?.[value] || "";
+        return `
+          <span class="setting-pill">
+            ${escapeHtml(value)}${location ? ` · ${escapeHtml(location)}` : ""}
+            <button type="button" data-action="remove-setting" data-group="${groupName}" data-value="${escapeHtml(value)}">×</button>
+          </span>
+        `;
+      })
+      .join("");
     return;
   }
   container.innerHTML = values
@@ -388,7 +433,7 @@ function renderAllSettings() {
 function renderTrips() {
   const trips = getFilteredTrips();
   if (!trips.length) {
-    tripList.innerHTML = '<p class="empty">Сонгосон шүүлтэд тохирох трип алга.</p>';
+    tripList.innerHTML = '<p class="empty">No trips found for the selected filters.</p>';
     return;
   }
 
@@ -403,16 +448,16 @@ function renderTrips() {
         <thead>
           <tr>
             <th>#</th>
-            <th>Трип</th>
-            <th>Захиалгын нэр</th>
-            <th>Эхлэх өдөр</th>
-            <th>Жуулчин</th>
-            <th>Ажилтан</th>
-            <th>Хэл</th>
-            <th>Төлөв</th>
-            <th>Үүсгэсэн</th>
-            <th>Менежер</th>
-            <th>Үйлдэл</th>
+            <th>Trip</th>
+            <th>Reservation Name</th>
+            <th>Start</th>
+            <th>Pax</th>
+            <th>Staff</th>
+            <th>Language</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Manager</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -439,9 +484,9 @@ function renderTrips() {
                           .map(([value, label]) => `<option value="${value}" ${trip.status === value ? "selected" : ""}>${label}</option>`)
                           .join("")}
                       </select>
-                      <button type="button" class="table-action compact secondary" data-action="edit-trip" data-trip-id="${trip.id}">Засах</button>
-                      <button type="button" class="table-action compact" data-action="add-reservation" data-trip-id="${trip.id}">Захиалга нэмэх</button>
-                      <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Устгах</button>
+                      <button type="button" class="table-action compact secondary" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
+                      <button type="button" class="table-action compact" data-action="add-reservation" data-trip-id="${trip.id}">Add Reservation</button>
+                      <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -454,8 +499,8 @@ function renderTrips() {
     <div class="table-pagination">
       <p>${startIndex + 1}-${startIndex + visibleTrips.length} / ${trips.length}</p>
       <div class="pagination-actions">
-        <button type="button" data-action="trip-page-prev" ${currentTripPage === 1 ? "disabled" : ""}>Өмнөх</button>
-        <button type="button" data-action="trip-page-next" ${currentTripPage === totalPages ? "disabled" : ""}>Дараах</button>
+        <button type="button" data-action="trip-page-prev" ${currentTripPage === 1 ? "disabled" : ""}>Previous</button>
+        <button type="button" data-action="trip-page-next" ${currentTripPage === totalPages ? "disabled" : ""}>Next</button>
       </div>
     </div>
   `;
@@ -475,12 +520,12 @@ function renderActiveTrip() {
   activeTripBox.innerHTML = `
     <div>
       <strong>${escapeHtml(trip.tripName)}</strong>
-      <span>${formatDate(trip.startDate)} · ${escapeHtml(trip.language || "-")} · ${trip.participantCount || 0} жуулчин / ${trip.staffCount || 0} ажилтан · ${trip.totalDays || 1} хоног</span>
-      <span>Захиалгын нэр: ${escapeHtml(trip.reservationName || trip.tripName)}</span>
+      <span>${formatDate(trip.startDate)} · ${escapeHtml(trip.language || "-")} · ${trip.participantCount || 0} pax / ${trip.staffCount || 0} staff · ${trip.totalDays || 1} days</span>
+      <span>Reservation Name: ${escapeHtml(trip.reservationName || trip.tripName)}</span>
     </div>
     <div>
-      <strong>${tripReservations.length} захиалга</strong>
-      <span>Дотоод кэмп зардал: ${formatMoney(totalInternalCost)}</span>
+      <strong>${tripReservations.length} reservations</strong>
+      <span>Internal camp cost: ${formatMoney(totalInternalCost)}</span>
     </div>
   `;
 }
@@ -523,7 +568,7 @@ function renderCampPayments() {
     return tripCompare || String(left.campName || "").localeCompare(String(right.campName || ""));
   });
   if (!rows.length) {
-    campPaymentList.innerHTML = '<p class="empty">Кэмпийн төлбөрийн мэдээлэл алга.</p>';
+    campPaymentList.innerHTML = '<p class="empty">No camp payment data yet.</p>';
     return;
   }
   campPaymentList.innerHTML = `
@@ -531,19 +576,19 @@ function renderCampPayments() {
       <table class="camp-table camp-payment-table">
         <thead>
           <tr>
-            <th>Трип</th>
-            <th>Захиалгын нэр</th>
-            <th>Кэмп</th>
-            <th>Захиалга</th>
-            <th>Урьдчилгаа</th>
-            <th>Урьдчилгаа төлсөн өдөр</th>
-            <th>2-р төлбөр</th>
-            <th>2-р төлбөрийн өдөр</th>
-            <th>Төлсөн</th>
-            <th>Үлдэгдэл</th>
-            <th>Нийт</th>
-            <th>Төлөв</th>
-            <th>Үйлдэл</th>
+            <th>Trip</th>
+            <th>Reservation Name</th>
+            <th>Camp</th>
+            <th>Reservations</th>
+            <th>Deposit</th>
+            <th>Deposit paid date</th>
+            <th>2nd payment</th>
+            <th>2nd paid date</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -565,8 +610,8 @@ function renderCampPayments() {
                   <td><span class="status-pill is-${normalizeStatus(row.paymentStatus || "in_progress")}">${formatStatusLabel(row.paymentStatus || "in_progress")}</span></td>
                   <td>
                     <div class="trip-row-actions payment-row-actions">
-                      <button type="button" class="table-action compact secondary" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Засах</button>
-                      <button type="button" class="table-action compact danger" data-action="delete-payment-group" data-group-key="${escapeHtml(row.key)}">Устгах</button>
+                      <button type="button" class="table-action compact secondary" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Edit</button>
+                      <button type="button" class="table-action compact danger" data-action="delete-payment-group" data-group-key="${escapeHtml(row.key)}">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -606,19 +651,19 @@ function renderActiveTripReservations() {
     activeTripReservations.classList.remove("is-hidden");
     activeTripReservations.innerHTML = `
       <div class="section-head">
-        <h2>${escapeHtml(trip?.tripName || "Трип")} захиалгууд</h2>
+        <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
         <div class="camp-toolbar trip-detail-toolbar">
           <label class="trip-day-filter-label">
-            <span>Өдрөөр шүүх</span>
+            <span>Filter by day</span>
             <select data-action="trip-day-filter">
-              <option value="">Бүх өдөр</option>
-              ${Array.from({ length: totalDays }, (_, index) => `<option value="${index + 1}" ${String(index + 1) === String(activeTripDayFilter) ? "selected" : ""}>Өдөр ${index + 1}</option>`).join("")}
+              <option value="">All days</option>
+              ${Array.from({ length: totalDays }, (_, index) => `<option value="${index + 1}" ${String(index + 1) === String(activeTripDayFilter) ? "selected" : ""}>Day ${index + 1}</option>`).join("")}
             </select>
           </label>
-          <button type="button" class="secondary-button" data-action="hide-trip-panel">Хаах</button>
+          <button type="button" class="secondary-button" data-action="hide-trip-panel">Hide table</button>
         </div>
       </div>
-      <p class="empty">Энэ трипт захиалга алга.</p>
+      <p class="empty">No reservations found for this trip.</p>
     `;
     return;
   }
@@ -626,42 +671,42 @@ function renderActiveTripReservations() {
   activeTripReservations.classList.remove("is-hidden");
   activeTripReservations.innerHTML = `
     <div class="section-head">
-      <h2>${escapeHtml(trip?.tripName || "Трип")} захиалгууд</h2>
+        <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
       <div class="camp-toolbar trip-detail-toolbar">
         <label class="trip-day-filter-label">
-          <span>Өдрөөр шүүх</span>
-          <select data-action="trip-day-filter">
-            <option value="">Бүх өдөр</option>
-            ${Array.from({ length: totalDays }, (_, index) => `<option value="${index + 1}" ${String(index + 1) === String(activeTripDayFilter) ? "selected" : ""}>Өдөр ${index + 1}</option>`).join("")}
+            <span>Filter by day</span>
+            <select data-action="trip-day-filter">
+            <option value="">All days</option>
+            ${Array.from({ length: totalDays }, (_, index) => `<option value="${index + 1}" ${String(index + 1) === String(activeTripDayFilter) ? "selected" : ""}>Day ${index + 1}</option>`).join("")}
           </select>
         </label>
-        <button type="button" class="secondary-button" data-action="hide-trip-panel">Хаах</button>
+        <button type="button" class="secondary-button" data-action="hide-trip-panel">Hide table</button>
       </div>
     </div>
     <div class="camp-table-wrap">
       <table class="camp-table camp-table-detail">
         <thead>
           <tr>
-            <th class="checkbox-col"><button type="button" class="row-selector-button ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "is-selected" : ""}" data-action="toggle-select-all-detail" aria-label="Бүгдийг сонгох">${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "✓" : ""}</button></th>
-            <th>Трип</th>
-            <th>Захиалгын нэр</th>
-            <th>Өдөр</th>
-            <th>Кэмп</th>
-            <th>Байршил</th>
-            <th>Төрөл</th>
-            <th>Жуулчин</th>
-            <th>Ажилтан</th>
-            <th>Очих</th>
-            <th>Хоног</th>
-            <th>Явах</th>
-            <th>Гэр</th>
-            <th>Өрөө</th>
-            <th>Хариуцсан</th>
-            <th>Төлөв</th>
-            <th>Үүсгэсэн</th>
-            <th>Тэмдэглэл</th>
-            <th>Хоол</th>
-            <th>Үйлдэл</th>
+            <th class="checkbox-col"><input type="checkbox" class="row-selector-checkbox" data-action="toggle-select-all-detail" ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} aria-label="Select all" /></th>
+            <th>Trip</th>
+            <th>Reservation Name</th>
+            <th>Day</th>
+            <th>Camp</th>
+            <th>Location</th>
+            <th>Type</th>
+            <th>Clients</th>
+            <th>Staff</th>
+            <th>Check-in</th>
+            <th>Nights</th>
+            <th>Check-out</th>
+            <th>Gers</th>
+            <th>Room</th>
+            <th>Assigned Staff</th>
+            <th>Status</th>
+            <th>Created by</th>
+            <th>Notes</th>
+            <th>Meals</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -693,34 +738,34 @@ function renderActiveCampReservations() {
   activeCampReservations.classList.remove("is-hidden");
   activeCampReservations.innerHTML = `
     <div class="section-head">
-      <h2>${escapeHtml(activeCampName)} захиалгууд</h2>
+      <h2>${escapeHtml(activeCampName)} reservations</h2>
       <div class="camp-toolbar trip-detail-toolbar">
-        <button type="button" class="secondary-button" data-action="hide-camp-panel">Хаах</button>
+        <button type="button" class="secondary-button" data-action="hide-camp-panel">Hide table</button>
       </div>
     </div>
     <div class="camp-table-wrap">
       <table class="camp-table camp-table-detail">
         <thead>
           <tr>
-            <th>Трип</th>
-            <th>Захиалгын нэр</th>
-            <th>Өдөр</th>
-            <th>Кэмп</th>
-            <th>Байршил</th>
-            <th>Төрөл</th>
-            <th>Жуулчин</th>
-            <th>Ажилтан</th>
-            <th>Очих</th>
-            <th>Хоног</th>
-            <th>Явах</th>
-            <th>Гэр</th>
-            <th>Өрөө</th>
-            <th>Хариуцсан</th>
-            <th>Төлөв</th>
-            <th>Үүсгэсэн</th>
-            <th>Тэмдэглэл</th>
-            <th>Хоол</th>
-            <th>Үйлдэл</th>
+            <th>Trip</th>
+            <th>Reservation Name</th>
+            <th>Day</th>
+            <th>Camp</th>
+            <th>Location</th>
+            <th>Type</th>
+            <th>Clients</th>
+            <th>Staff</th>
+            <th>Check-in</th>
+            <th>Nights</th>
+            <th>Check-out</th>
+            <th>Gers</th>
+            <th>Room</th>
+            <th>Assigned Staff</th>
+            <th>Status</th>
+            <th>Created by</th>
+            <th>Notes</th>
+            <th>Meals</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -734,18 +779,18 @@ function renderActiveCampReservations() {
 function renderReadOnlyRow(entry, index, options = {}) {
   const { includeCheckbox = true } = options;
   const isSelected = selectedReservationIds.has(entry.id);
-  const meals = [entry.breakfast === "Yes" && "Өглөөний цай", entry.lunch === "Yes" && "Өдрийн хоол", entry.dinner === "Yes" && "Оройн хоол"]
+  const meals = [entry.breakfast === "Yes" && "Breakfast", entry.lunch === "Yes" && "Lunch", entry.dinner === "Yes" && "Dinner"]
     .filter(Boolean)
     .join(" / ");
   return `
     <tr class="${statusClass(entry)}">
-      ${includeCheckbox ? `<td class="checkbox-col"><button type="button" class="row-selector-button ${isSelected ? "is-selected" : ""}" data-action="toggle-select" data-id="${entry.id}" aria-label="Сонгох">${isSelected ? "✓" : ""}</button></td>` : ""}
+      ${includeCheckbox ? `<td class="checkbox-col"><input type="checkbox" class="row-selector-checkbox" data-action="toggle-select" data-id="${entry.id}" ${isSelected ? "checked" : ""} aria-label="Select reservation" /></td>` : ""}
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
       <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(entry.campName)}">${escapeHtml(entry.campName)}</button></td>
       <td>${escapeHtml(entry.locationName || "-")}</td>
-      <td>${escapeHtml(entry.reservationType === "hotel" ? "Буудал" : entry.reservationType === "herder" ? "Малчин айл" : "Бааз")}</td>
+      <td>${escapeHtml(entry.reservationType === "hotel" ? "Hotel" : entry.reservationType === "herder" ? "Herder" : "Camp")}</td>
       <td>${entry.clientCount}</td>
       <td>${entry.staffCount}</td>
       <td class="table-nowrap">${formatDate(entry.checkIn)}</td>
@@ -762,10 +807,10 @@ function renderReadOnlyRow(entry, index, options = {}) {
       <td>${escapeHtml(meals || "-")}</td>
       <td>
         <div class="camp-row-actions stacked-pills">
-          <button type="button" class="table-action compact secondary" data-action="edit" data-id="${entry.id}">Засах</button>
-          <button type="button" class="table-action compact secondary" data-action="view-pdf" data-id="${entry.id}">Харах</button>
+          <button type="button" class="table-action compact secondary" data-action="edit" data-id="${entry.id}">Edit</button>
+          <button type="button" class="table-action compact secondary" data-action="view-pdf" data-id="${entry.id}">View</button>
           <button type="button" class="table-action compact" data-action="download-pdf" data-id="${entry.id}">PDF</button>
-          <button type="button" class="table-action compact danger" data-action="delete-reservation" data-id="${entry.id}">Устгах</button>
+          <button type="button" class="table-action compact danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
         </div>
       </td>
     </tr>
@@ -775,8 +820,9 @@ function renderReadOnlyRow(entry, index, options = {}) {
 function renderEditableRow(entry, index) {
   return `
     <tr class="is-editing ${statusClass(entry)}">
-      <td>${index + 1}</td>
-      <td>${escapeHtml(entry.tripName)}</td>
+      <td class="checkbox-col"></td>
+      <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
+      <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
       <td>
         <select data-role="campName" data-id="${entry.id}">
@@ -785,15 +831,15 @@ function renderEditableRow(entry, index) {
       </td>
       <td>
         <select data-role="locationName" data-id="${entry.id}">
-          <option value="">Байршил сонгох</option>
+          <option value="">Choose location</option>
           ${campSettings.locationNames.map((option) => `<option value="${escapeHtml(option)}" ${entry.locationName === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
         </select>
       </td>
       <td>
         <select data-role="reservationType" data-id="${entry.id}">
-          <option value="camp" ${entry.reservationType === "camp" ? "selected" : ""}>Баазын захиалга</option>
-          <option value="hotel" ${entry.reservationType === "hotel" ? "selected" : ""}>Буудлын захиалга</option>
-          <option value="herder" ${entry.reservationType === "herder" ? "selected" : ""}>Малчин айлын захиалга</option>
+          <option value="camp" ${entry.reservationType === "camp" ? "selected" : ""}>Camp reservation</option>
+          <option value="hotel" ${entry.reservationType === "hotel" ? "selected" : ""}>Hotel reservation</option>
+          <option value="herder" ${entry.reservationType === "herder" ? "selected" : ""}>Herder family reservation</option>
         </select>
       </td>
       <td><input data-role="clientCount" data-id="${entry.id}" type="number" min="1" value="${entry.clientCount}" /></td>
@@ -811,7 +857,7 @@ function renderEditableRow(entry, index) {
       </td>
       <td>
         <select data-role="staffAssignment" data-id="${entry.id}">
-          <option value="">Ажилтан сонгох</option>
+          <option value="">Choose staff</option>
           ${campSettings.staffAssignments
             .map((option) => `<option value="${escapeHtml(option)}" ${entry.staffAssignment === option ? "selected" : ""}>${escapeHtml(option)}</option>`)
             .join("")}
@@ -831,22 +877,22 @@ function renderEditableRow(entry, index) {
       <td>
         <div class="camp-inline-grid">
           <select data-role="breakfast" data-id="${entry.id}">
-            <option value="No" ${entry.breakfast === "No" ? "selected" : ""}>Өглөө: Үгүй</option>
-            <option value="Yes" ${entry.breakfast === "Yes" ? "selected" : ""}>Өглөө: Тийм</option>
+            <option value="No" ${entry.breakfast === "No" ? "selected" : ""}>Breakfast: No</option>
+            <option value="Yes" ${entry.breakfast === "Yes" ? "selected" : ""}>Breakfast: Yes</option>
           </select>
           <select data-role="lunch" data-id="${entry.id}">
-            <option value="No" ${entry.lunch === "No" ? "selected" : ""}>Өдөр: Үгүй</option>
-            <option value="Yes" ${entry.lunch === "Yes" ? "selected" : ""}>Өдөр: Тийм</option>
+            <option value="No" ${entry.lunch === "No" ? "selected" : ""}>Lunch: No</option>
+            <option value="Yes" ${entry.lunch === "Yes" ? "selected" : ""}>Lunch: Yes</option>
           </select>
           <select data-role="dinner" data-id="${entry.id}">
-            <option value="No" ${entry.dinner === "No" ? "selected" : ""}>Орой: Үгүй</option>
-            <option value="Yes" ${entry.dinner === "Yes" ? "selected" : ""}>Орой: Тийм</option>
+            <option value="No" ${entry.dinner === "No" ? "selected" : ""}>Dinner: No</option>
+            <option value="Yes" ${entry.dinner === "Yes" ? "selected" : ""}>Dinner: Yes</option>
           </select>
         </div>
       </td>
       <td class="camp-row-actions compact">
-        <button type="button" class="table-action compact" data-action="save" data-id="${entry.id}">Хадгалах</button>
-        <button type="button" class="table-action compact secondary" data-action="cancel-edit">Болих</button>
+        <button type="button" class="table-action compact" data-action="save" data-id="${entry.id}">Save</button>
+        <button type="button" class="table-action compact secondary" data-action="cancel-edit">Cancel</button>
       </td>
     </tr>
   `;
@@ -855,7 +901,7 @@ function renderEditableRow(entry, index) {
 function renderEntries() {
   const entries = getFilteredEntries();
   if (!entries.length) {
-    campList.innerHTML = '<p class="empty">Сонгосон шүүлтэд тохирох захиалга алга.</p>';
+    campList.innerHTML = '<p class="empty">No reservations found for the selected filters.</p>';
     return;
   }
 
@@ -869,26 +915,26 @@ function renderEntries() {
       <table class="camp-table">
         <thead>
           <tr>
-            <th class="checkbox-col"><button type="button" class="row-selector-button ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "is-selected" : ""}" data-action="toggle-select-all" aria-label="Бүгдийг сонгох">${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "✓" : ""}</button></th>
-            <th>Трип</th>
-            <th>Захиалгын нэр</th>
-            <th>Өдөр</th>
-            <th>Кэмп</th>
-            <th>Байршил</th>
-            <th>Төрөл</th>
-            <th>Жуулчин</th>
-            <th>Ажилтан</th>
-            <th>Очих</th>
-            <th>Хоног</th>
-            <th>Явах</th>
-            <th>Гэр</th>
-            <th>Өрөө</th>
-            <th>Хариуцсан</th>
-            <th>Төлөв</th>
-            <th>Үүсгэсэн</th>
-            <th>Тэмдэглэл</th>
-            <th>Хоол</th>
-            <th>Үйлдэл</th>
+            <th class="checkbox-col"><input type="checkbox" class="row-selector-checkbox" data-action="toggle-select-all" ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} aria-label="Select all" /></th>
+            <th>Trip</th>
+            <th>Reservation Name</th>
+            <th>Day</th>
+            <th>Camp</th>
+            <th>Location</th>
+            <th>Type</th>
+            <th>Clients</th>
+            <th>Staff</th>
+            <th>Check-in</th>
+            <th>Nights</th>
+            <th>Check-out</th>
+            <th>Gers</th>
+            <th>Room</th>
+            <th>Assigned Staff</th>
+            <th>Status</th>
+            <th>Created by</th>
+            <th>Notes</th>
+            <th>Meals</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -905,8 +951,8 @@ function renderEntries() {
     <div class="table-pagination">
       <p>${startIndex + 1}-${startIndex + visibleEntries.length} / ${entries.length}</p>
       <div class="pagination-actions">
-        <button type="button" data-action="page-prev" ${currentPage === 1 ? "disabled" : ""}>Өмнөх</button>
-        <button type="button" data-action="page-next" ${currentPage === totalPages ? "disabled" : ""}>Дараах</button>
+        <button type="button" data-action="page-prev" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
+        <button type="button" data-action="page-next" ${currentPage === totalPages ? "disabled" : ""}>Next</button>
       </div>
     </div>
   `;
@@ -945,132 +991,132 @@ function renderReservationEditPanel(reservation, options = {}) {
   reservationEditPanel.classList.remove("is-hidden");
   reservationEditPanel.innerHTML = `
     <div class="section-head">
-      <h2>${isCreate ? "Шинэ захиалга" : "Захиалга засварлах"}</h2>
+      <h2>${isCreate ? "New reservation" : "Edit reservation"}</h2>
       <div class="camp-toolbar trip-detail-toolbar">
-        <button type="button" class="secondary-button" data-action="hide-reservation-edit">Хаах</button>
+        <button type="button" class="secondary-button" data-action="hide-reservation-edit">Hide</button>
       </div>
     </div>
     <form id="${isCreate ? "reservation-create-form" : "reservation-edit-form"}" class="field-grid camp-edit-panel-form">
       <input type="hidden" name="id" value="${reservationData.id || ""}" />
       <div class="camp-form-section full-span">
         <div class="camp-form-section-head">
-          <h3>Захиалгын мэдээлэл</h3>
-          <p>${isCreate ? "Шинэ захиалгын мэдээллийг бөглөөд хадгална." : "Захиалгын мэдээллийг засварлаад хадгална."}</p>
+          <h3>Reservation details</h3>
+          <p>${isCreate ? "Fill the reservation details and save." : "Update the reservation details and save."}</p>
         </div>
         <div class="field-grid field-grid-compact">
           <label>
-            Сонгосон трип
+            Selected Trip
             <select name="tripId" required>
               ${currentTrips.map((trip) => `<option value="${escapeHtml(trip.id)}" ${trip.id === reservationData.tripId ? "selected" : ""}>${escapeHtml(trip.tripName)}</option>`).join("")}
             </select>
           </label>
           <label>
-            Захиалгын нэр
+            Reservation Name
             <input name="reservationName" value="${escapeHtml(reservationData.reservationName || reservationData.tripName || "")}" required />
           </label>
           <label>
-            Захиалсан өдөр
+            Reservation date
             <input name="createdDate" type="date" value="${escapeHtml(reservationData.createdDate || "")}" />
           </label>
           <label>
-            Кэмп
+            Camp
             <select name="campName" required>
               ${renderCampSelectOptions(reservationData.campName)}
             </select>
           </label>
           <label>
-            Байршил
+            Location
             <select name="locationName">
-              ${renderGenericSelectOptions(campSettings.locationNames, "Байршил сонгох", reservationData.locationName || "")}
+              ${renderGenericSelectOptions(campSettings.locationNames, "Choose location", reservationData.locationName || "")}
             </select>
           </label>
           <label>
-            Шинэ кэмп
-            <input name="newCampName" placeholder="Жагсаалтад байхгүй бол шинэ кэмп нэмэх" />
+            New Camp
+            <input name="newCampName" placeholder="Create new camp if not listed" />
           </label>
           <label>
-            Захиалгын төрөл
+            Reservation type
             <select name="reservationType" required>
-              <option value="camp" ${reservationData.reservationType === "camp" ? "selected" : ""}>Баазын захиалга</option>
-              <option value="hotel" ${reservationData.reservationType === "hotel" ? "selected" : ""}>Буудлын захиалга</option>
-              <option value="herder" ${reservationData.reservationType === "herder" ? "selected" : ""}>Малчин айлын захиалга</option>
+              <option value="camp" ${reservationData.reservationType === "camp" ? "selected" : ""}>Camp reservation</option>
+              <option value="hotel" ${reservationData.reservationType === "hotel" ? "selected" : ""}>Hotel reservation</option>
+              <option value="herder" ${reservationData.reservationType === "herder" ? "selected" : ""}>Herder family reservation</option>
             </select>
           </label>
           <label>
-            Очих өдөр
+            Check-in
             <input name="checkIn" type="date" value="${escapeHtml(reservationData.checkIn || "")}" required />
           </label>
           <label>
-            Хоногийн тоо
+            Number of nights
             <input name="nights" type="number" min="1" value="${Number(reservationData.nights || 1)}" required />
           </label>
           <label>
-            Явах өдөр
+            Check-out
             <input name="checkOut" type="date" value="${escapeHtml(reservationData.checkOut || "")}" required />
           </label>
           <label>
-            Жуулчны тоо
+            Number of clients
             <input name="clientCount" type="number" min="1" value="${Number(reservationData.clientCount || 2)}" required />
           </label>
           <label>
-            Ажилтны тоо
+            Number of staff
             <input name="staffCount" type="number" min="0" value="${Number(reservationData.staffCount || 0)}" />
           </label>
           <label>
-            Хариуцсан ажилтан
+            Staff Assignment
             <select name="staffAssignment">
-              ${renderGenericSelectOptions(campSettings.staffAssignments, "Ажилтан сонгох", reservationData.staffAssignment || "")}
+              ${renderGenericSelectOptions(campSettings.staffAssignments, "Choose staff", reservationData.staffAssignment || "")}
             </select>
           </label>
           <label>
-            Гэр / өрөөний тоо
+            Number of Gers
             <input name="gerCount" type="number" min="1" value="${Number(reservationData.gerCount || 1)}" required />
           </label>
           <label>
-            Гэр / өрөөний төрөл
+            Ger / Room choice
             <select name="roomType" required>
-              ${renderGenericSelectOptions(campSettings.roomChoices, "Төрөл сонгох", reservationData.roomType || "")}
+              ${renderGenericSelectOptions(campSettings.roomChoices, "Choose room type", reservationData.roomType || "")}
             </select>
           </label>
           <label>
-            Өглөөний цай
+            Breakfast
             <select name="breakfast">
-              <option value="No" ${reservationData.breakfast === "No" ? "selected" : ""}>Үгүй</option>
-              <option value="Yes" ${reservationData.breakfast === "Yes" ? "selected" : ""}>Тийм</option>
+              <option value="No" ${reservationData.breakfast === "No" ? "selected" : ""}>No</option>
+              <option value="Yes" ${reservationData.breakfast === "Yes" ? "selected" : ""}>Yes</option>
             </select>
           </label>
           <label>
-            Өдрийн хоол
+            Lunch
             <select name="lunch">
-              <option value="No" ${reservationData.lunch === "No" ? "selected" : ""}>Үгүй</option>
-              <option value="Yes" ${reservationData.lunch === "Yes" ? "selected" : ""}>Тийм</option>
+              <option value="No" ${reservationData.lunch === "No" ? "selected" : ""}>No</option>
+              <option value="Yes" ${reservationData.lunch === "Yes" ? "selected" : ""}>Yes</option>
             </select>
           </label>
           <label>
-            Оройн хоол
+            Dinner
             <select name="dinner">
-              <option value="No" ${reservationData.dinner === "No" ? "selected" : ""}>Үгүй</option>
-              <option value="Yes" ${reservationData.dinner === "Yes" ? "selected" : ""}>Тийм</option>
+              <option value="No" ${reservationData.dinner === "No" ? "selected" : ""}>No</option>
+              <option value="Yes" ${reservationData.dinner === "Yes" ? "selected" : ""}>Yes</option>
             </select>
           </label>
           <label>
-            Төлөв
+            Status
             <select name="status">
-              <option value="pending" ${reservationData.status === "pending" ? "selected" : ""}>Хүлээгдэж буй</option>
-              <option value="confirmed" ${reservationData.status === "confirmed" ? "selected" : ""}>Баталгаажсан</option>
-              <option value="cancelled" ${reservationData.status === "cancelled" ? "selected" : ""}>Цуцлагдсан</option>
-              <option value="rejected" ${reservationData.status === "rejected" ? "selected" : ""}>Татгалзсан</option>
+              <option value="pending" ${reservationData.status === "pending" ? "selected" : ""}>Pending</option>
+              <option value="confirmed" ${reservationData.status === "confirmed" ? "selected" : ""}>Confirmed</option>
+              <option value="cancelled" ${reservationData.status === "cancelled" ? "selected" : ""}>Cancelled</option>
+              <option value="rejected" ${reservationData.status === "rejected" ? "selected" : ""}>Rejected</option>
             </select>
           </label>
           <label class="full-span">
-            Нэмэлт тэмдэглэл
+            Notes
             <textarea name="notes" rows="4">${escapeHtml(reservationData.notes || "")}</textarea>
           </label>
         </div>
       </div>
       <div class="actions full-span">
-        <button type="submit">${isCreate ? "Захиалга хадгалах" : "Засварыг хадгалах"}</button>
-        <button type="button" class="secondary-button" data-action="hide-reservation-edit">Болих</button>
+        <button type="submit">${isCreate ? "Save reservation" : "Save changes"}</button>
+        <button type="button" class="secondary-button" data-action="hide-reservation-edit">Cancel</button>
         <p class="status" id="reservation-edit-status"></p>
       </div>
     </form>
@@ -1105,9 +1151,9 @@ function renderPaymentEditPanel(groupKey) {
   paymentEditPanel.classList.remove("is-hidden");
   paymentEditPanel.innerHTML = `
     <div class="section-head">
-      <h2>Кэмпийн төлбөр засварлах</h2>
+      <h2>Edit camp payment</h2>
       <div class="camp-toolbar trip-detail-toolbar">
-        <button type="button" class="secondary-button" data-action="hide-payment-edit">Хаах</button>
+        <button type="button" class="secondary-button" data-action="hide-payment-edit">Hide</button>
       </div>
     </div>
     <form id="payment-edit-form" class="field-grid">
@@ -1115,31 +1161,31 @@ function renderPaymentEditPanel(groupKey) {
       <div class="camp-form-section full-span">
         <div class="camp-form-section-head">
           <h3>${escapeHtml(group.tripName)} · ${escapeHtml(group.campName)}</h3>
-          <p>Захиалгын нэр: ${escapeHtml(group.reservationName)}</p>
+          <p>Reservation Name: ${escapeHtml(group.reservationName)}</p>
         </div>
         <div class="field-grid field-grid-compact">
-          <label>Урьдчилгаа<input name="deposit" inputmode="numeric" value="${String(group.deposit || "")}" /></label>
-          <label>Урьдчилгаа төлсөн өдөр<input name="depositPaidDate" type="date" value="${escapeHtml(group.depositPaidDate)}" /></label>
-          <label>2-р төлбөр<input name="secondPayment" inputmode="numeric" value="${String(group.secondPayment || "")}" /></label>
-          <label>2-р төлбөрийн өдөр<input name="secondPaidDate" type="date" value="${escapeHtml(group.secondPaidDate)}" /></label>
-          <label>Төлсөн дүн<input name="paidAmount" inputmode="numeric" value="${String(group.paidAmount || "")}" /></label>
-          <label>Үлдэгдэл<input name="balancePayment" inputmode="numeric" value="${String(group.balancePayment || "")}" /></label>
-          <label>Нийт төлбөр<input name="totalPayment" inputmode="numeric" value="${String(group.totalPayment || "")}" /></label>
+          <label>Deposit<input name="deposit" inputmode="numeric" value="${String(group.deposit || "")}" /></label>
+          <label>Deposit paid date<input name="depositPaidDate" type="date" value="${escapeHtml(group.depositPaidDate)}" /></label>
+          <label>2nd payment<input name="secondPayment" inputmode="numeric" value="${String(group.secondPayment || "")}" /></label>
+          <label>2nd paid date<input name="secondPaidDate" type="date" value="${escapeHtml(group.secondPaidDate)}" /></label>
+          <label>Paid amount<input name="paidAmount" inputmode="numeric" value="${String(group.paidAmount || "")}" /></label>
+          <label>Balance<input name="balancePayment" inputmode="numeric" value="${String(group.balancePayment || "")}" /></label>
+          <label>Total payment<input name="totalPayment" inputmode="numeric" value="${String(group.totalPayment || "")}" /></label>
           <label>
-            Төлөв
+            Status
             <select name="paymentStatus">
-              <option value="in_progress" ${group.paymentStatus === "in_progress" ? "selected" : ""}>Явцад байна</option>
-              <option value="paid_deposit" ${group.paymentStatus === "paid_deposit" ? "selected" : ""}>Урьдчилгаа төлсөн</option>
-              <option value="paid" ${group.paymentStatus === "paid" ? "selected" : ""}>Төлсөн</option>
-              <option value="paid_100" ${group.paymentStatus === "paid_100" ? "selected" : ""}>100% төлсөн</option>
-              <option value="finished" ${group.paymentStatus === "finished" ? "selected" : ""}>Дууссан</option>
+              <option value="in_progress" ${group.paymentStatus === "in_progress" ? "selected" : ""}>In progress</option>
+              <option value="paid_deposit" ${group.paymentStatus === "paid_deposit" ? "selected" : ""}>Deposit paid</option>
+              <option value="paid" ${group.paymentStatus === "paid" ? "selected" : ""}>Paid</option>
+              <option value="paid_100" ${group.paymentStatus === "paid_100" ? "selected" : ""}>Paid 100%</option>
+              <option value="finished" ${group.paymentStatus === "finished" ? "selected" : ""}>Finished</option>
             </select>
           </label>
         </div>
       </div>
       <div class="actions full-span">
-        <button type="submit">Төлбөр хадгалах</button>
-        <button type="button" class="secondary-button" data-action="hide-payment-edit">Болих</button>
+        <button type="submit">Save payment</button>
+        <button type="button" class="secondary-button" data-action="hide-payment-edit">Cancel</button>
         <p class="status" id="payment-edit-status"></p>
       </div>
     </form>
@@ -1186,6 +1232,7 @@ async function saveSettings() {
       locationNames: campSettings.locationNames,
       staffAssignments: campSettings.staffAssignments,
       roomChoices: campSettings.roomChoices,
+      campLocations: campSettings.campLocations,
     };
     await fetchJson("/api/camp-settings", {
       method: "POST",
@@ -1207,7 +1254,7 @@ async function updateTripStatus(id, status) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    tripStatus.textContent = "Трип шинэчлэгдлээ.";
+    tripStatus.textContent = "Trip updated.";
     await loadTrips();
   } catch (error) {
     tripStatus.textContent = error.message;
@@ -1230,6 +1277,9 @@ function startTripEdit(id) {
   tripForm.elements.language.value = trip.language || "";
   tripForm.elements.status.value = trip.status || "planning";
   tripStatus.textContent = `Editing trip: ${trip.tripName}`;
+  tripForm.elements.guideName.value = trip.guideName || "";
+  tripForm.elements.driverName.value = trip.driverName || "";
+  tripForm.elements.cookName.value = trip.cookName || "";
 }
 
 function resetTripFormState() {
@@ -1249,7 +1299,7 @@ function openReservationModal(tripId = "", reservation = null) {
   reservationTripSelect.value = defaultTripId;
   campCreatedDate.value = reservation?.createdDate || new Date().toISOString().slice(0, 10);
   campNameSelect.innerHTML = renderCampSelectOptions(reservation?.campName || "");
-  locationNameSelect.innerHTML = renderGenericSelectOptions(campSettings.locationNames, "Байршил сонгох", reservation?.locationName || "");
+  locationNameSelect.innerHTML = renderGenericSelectOptions(campSettings.locationNames, "Choose location", reservation?.locationName || "");
   campNameSelect.value = reservation?.campName || "";
   locationNameSelect.value = reservation?.locationName || "";
   newCampNameInput.value = "";
@@ -1282,8 +1332,8 @@ function openReservationModal(tripId = "", reservation = null) {
   campStatus.textContent = reservation
     ? `Editing reservation: ${reservation.reservationName || reservation.tripName}`
     : defaultTripId
-      ? `Захиалга нэмж байна: ${getTripById(defaultTripId)?.tripName || ""}`
-      : "Эхлээд трипээ сонгоод дараа нь захиалга нэмнэ үү.";
+      ? `Adding reservation for: ${getTripById(defaultTripId)?.tripName || ""}`
+      : "Choose a trip first, then add a reservation.";
   openPanel(campFormPanel);
 }
 
@@ -1360,7 +1410,7 @@ async function updateReservation(id) {
     }
   });
 
-  campStatus.textContent = "Захиалга шинэчилж байна...";
+  campStatus.textContent = "Updating reservation...";
 
   try {
     await fetchJson(`/api/camp-reservations/${id}`, {
@@ -1369,7 +1419,7 @@ async function updateReservation(id) {
       body: JSON.stringify(payload),
     });
     editingReservationId = "";
-    campStatus.textContent = "Захиалга шинэчлэгдлээ.";
+    campStatus.textContent = "Reservation updated.";
     await loadReservations();
   } catch (error) {
     campStatus.textContent = error.message;
@@ -1456,10 +1506,10 @@ async function exportCurrentReservations() {
   const selectedEntries = getFilteredEntries().filter((entry) => selectedReservationIds.has(entry.id));
   const entries = selectedEntries.length ? selectedEntries : getFilteredEntries();
   if (!entries.length) {
-    campStatus.textContent = "Экспортлох захиалга алга.";
+    campStatus.textContent = "No reservations to export.";
     return;
   }
-  campStatus.textContent = "PDF бэлдэж байна...";
+  campStatus.textContent = "Preparing PDF...";
   try {
     const ids = entries.map((entry) => entry.id).join(",");
     const result = await fetchJson(`/api/camp-reservations/export?ids=${encodeURIComponent(ids)}`);
@@ -1469,7 +1519,7 @@ async function exportCurrentReservations() {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    campStatus.textContent = "PDF бэлэн боллоо.";
+    campStatus.textContent = "PDF ready.";
   } catch (error) {
     campStatus.textContent = error.message;
   }
@@ -1477,7 +1527,7 @@ async function exportCurrentReservations() {
 
 tripForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  tripStatus.textContent = editingTripId ? "Трип шинэчилж байна..." : "Трип хадгалж байна...";
+  tripStatus.textContent = editingTripId ? "Saving trip changes..." : "Saving trip...";
 
   try {
     const result = await fetchJson(editingTripId ? `/api/camp-trips/${editingTripId}` : "/api/camp-trips", {
@@ -1485,7 +1535,7 @@ tripForm.addEventListener("submit", async (event) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(buildPayload(tripForm)),
     });
-    tripStatus.textContent = editingTripId ? `Трип шинэчлэгдлээ: ${result.entry.tripName}` : `Трип үүслээ: ${result.entry.tripName}`;
+    tripStatus.textContent = editingTripId ? `Trip updated: ${result.entry.tripName}` : `Trip created: ${result.entry.tripName}`;
     resetTripFormState();
     closePanel(tripFormPanel);
     await loadTrips();
@@ -1503,11 +1553,11 @@ document.addEventListener("submit", async (event) => {
   if (target.id === "reservation-edit-form") {
     event.preventDefault();
     const statusNode = target.querySelector("#reservation-edit-status");
-    if (statusNode) statusNode.textContent = "Захиалга хадгалж байна...";
+    if (statusNode) statusNode.textContent = "Saving reservation...";
     const payload = buildPayload(target);
     const selectedTrip = getTripById(payload.tripId);
     if (!selectedTrip) {
-      if (statusNode) statusNode.textContent = "Эхлээд трипээ сонгоно уу.";
+      if (statusNode) statusNode.textContent = "Please select a trip first.";
       return;
     }
     payload.tripName = selectedTrip.tripName;
@@ -1519,9 +1569,13 @@ document.addEventListener("submit", async (event) => {
         body: JSON.stringify(payload),
       });
       closeInlineEditPanels();
-      hideSelectionPanels();
-      campStatus.textContent = "Захиалга шинэчлэгдлээ.";
+      closeReservationEditPanel();
+      activeTripId = payload.tripId;
+      activeTripPanelHidden = false;
+      activeCampPanelHidden = true;
+      campStatus.textContent = "Reservation updated.";
       await loadSettings();
+      await loadTrips();
       await loadReservations();
     } catch (error) {
       if (statusNode) statusNode.textContent = error.message;
@@ -1531,11 +1585,11 @@ document.addEventListener("submit", async (event) => {
   if (target.id === "reservation-create-form") {
     event.preventDefault();
     const statusNode = target.querySelector("#reservation-edit-status");
-    if (statusNode) statusNode.textContent = "Захиалга хадгалж байна...";
+    if (statusNode) statusNode.textContent = "Saving reservation...";
     const payload = buildPayload(target);
     const selectedTrip = getTripById(payload.tripId);
     if (!selectedTrip) {
-      if (statusNode) statusNode.textContent = "Эхлээд трипээ сонгоно уу.";
+      if (statusNode) statusNode.textContent = "Please select a trip first.";
       return;
     }
     payload.tripId = selectedTrip.id;
@@ -1548,9 +1602,13 @@ document.addEventListener("submit", async (event) => {
         body: JSON.stringify(payload),
       });
       closeInlineEditPanels();
-      hideSelectionPanels();
-      campStatus.textContent = "Захиалга амжилттай хадгалагдлаа.";
+      closeReservationEditPanel();
+      activeTripId = payload.tripId;
+      activeTripPanelHidden = false;
+      activeCampPanelHidden = true;
+      campStatus.textContent = "Reservation saved.";
       await loadSettings();
+      await loadTrips();
       await loadReservations();
     } catch (error) {
       if (statusNode) statusNode.textContent = error.message;
@@ -1560,7 +1618,7 @@ document.addEventListener("submit", async (event) => {
   if (target.id === "payment-edit-form") {
     event.preventDefault();
     const statusNode = target.querySelector("#payment-edit-status");
-    if (statusNode) statusNode.textContent = "Төлбөр хадгалж байна...";
+    if (statusNode) statusNode.textContent = "Saving payment...";
     const payload = buildPayload(target);
     const entries = getEntriesByGroupKey(payload.groupKey);
     try {
@@ -1582,8 +1640,8 @@ document.addEventListener("submit", async (event) => {
           })
         )
       );
-      closeInlineEditPanels();
-      campStatus.textContent = "Төлбөр шинэчлэгдлээ.";
+      closePaymentEditPanel();
+      campStatus.textContent = "Camp payment updated.";
       await loadReservations();
     } catch (error) {
       if (statusNode) statusNode.textContent = error.message;
@@ -1615,11 +1673,11 @@ document.addEventListener("change", (event) => {
 
 campForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  campStatus.textContent = editingReservationId ? "Захиалга шинэчилж байна..." : "Захиалга хадгалж байна...";
+  campStatus.textContent = editingReservationId ? "Updating reservation..." : "Saving reservation...";
 
   const selectedTrip = getTripById(reservationTripSelect.value || activeTripId);
   if (!selectedTrip) {
-    campStatus.textContent = "Эхлээд трипээ сонгоно уу.";
+    campStatus.textContent = "Please select a trip first.";
     return;
   }
 
@@ -1634,7 +1692,7 @@ campForm.addEventListener("submit", async (event) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    campStatus.textContent = editingReservationId ? "Захиалга шинэчлэгдлээ." : "Захиалга хадгалагдлаа.";
+    campStatus.textContent = editingReservationId ? "Reservation updated." : "Reservation saved.";
     campForm.reset();
     campCreatedDate.value = new Date().toISOString().slice(0, 10);
     campForm.querySelector('[name="clientCount"]').value = "2";
@@ -1647,6 +1705,7 @@ campForm.addEventListener("submit", async (event) => {
     syncCheckoutFromStay();
     closePanel(campFormPanel);
     await loadSettings();
+    await loadTrips();
     await loadReservations();
   } catch (error) {
     campStatus.textContent = error.message;
@@ -1673,7 +1732,7 @@ tripList.addEventListener("click", (event) => {
     activeCampPanelHidden = true;
     closeInlineEditPanels();
     renderActiveCampReservations();
-    tripStatus.textContent = `Сонгосон трип: ${getTripById(actionTarget.dataset.tripId)?.tripName || ""}`;
+    tripStatus.textContent = `Selected trip: ${getTripById(actionTarget.dataset.tripId)?.tripName || ""}`;
     return;
   }
 
@@ -1705,7 +1764,7 @@ tripList.addEventListener("click", (event) => {
   }
 
   if (actionTarget.dataset.action === "delete-trip") {
-    if (window.confirm("Энэ трип болон холбоотой бүх захиалгыг устгах уу?")) {
+    if (window.confirm("Delete this trip and all linked reservations?")) {
       deleteTrip(actionTarget.dataset.tripId);
     }
   }
@@ -1730,6 +1789,10 @@ function handleCampTableClick(event) {
     startReservationEdit(target.dataset.id);
     return;
   }
+  if (action === "save") {
+    updateReservation(target.dataset.id);
+    return;
+  }
   if (action === "view-pdf") {
     window.open(`/api/camp-reservations/${target.dataset.id}/document?mode=view`, "_blank", "noopener,noreferrer");
     return;
@@ -1746,6 +1809,8 @@ function handleCampTableClick(event) {
   if (action === "cancel-edit") {
     editingReservationId = "";
     renderEntries();
+    renderActiveTripReservations();
+    renderActiveCampReservations();
     return;
   }
   if (action === "page-prev") {
@@ -1760,7 +1825,7 @@ function handleCampTableClick(event) {
     return;
   }
   if (action === "delete-reservation") {
-    if (window.confirm("Энэ захиалгыг устгах уу?")) {
+    if (window.confirm("Delete this reservation?")) {
       deleteReservation(target.dataset.id);
     }
     return;
@@ -1861,12 +1926,12 @@ function handleCampTableChange(event) {
   if (!(node instanceof HTMLElement)) {
     return;
   }
+  if (node.matches('input.row-selector-checkbox[data-action="toggle-select-all"], input.row-selector-checkbox[data-action="toggle-select-all-detail"], input.row-selector-checkbox[data-action="toggle-select"]')) {
+    return;
+  }
   if (node.dataset.action === "trip-day-filter") {
     activeTripDayFilter = node.value;
     renderActiveTripReservations();
-    return;
-  }
-  if (node.dataset.action === "toggle-select") {
     return;
   }
   const id = node.dataset.id;
@@ -1874,6 +1939,13 @@ function handleCampTableChange(event) {
     return;
   }
   const role = node.dataset.role;
+  if (role === "campName") {
+    const locationNode = document.querySelector(`[data-role="locationName"][data-id="${id}"]`);
+    if (locationNode && node instanceof HTMLSelectElement) {
+      locationNode.value = getCampLocation(node.value) || "";
+    }
+    return;
+  }
   if (role === "checkOut") {
     const checkInNode = document.querySelector(`[data-role="checkIn"][data-id="${id}"]`);
     const nightsNode = document.querySelector(`[data-role="nights"][data-id="${id}"]`);
@@ -1891,6 +1963,11 @@ activeTripReservations.addEventListener("click", handleCampTableClick);
 activeTripReservations.addEventListener("input", handleCampTableInput);
 activeTripReservations.addEventListener("change", handleCampTableChange);
 activeCampReservations.addEventListener("click", handleCampTableClick);
+reservationEditPanel.addEventListener("click", handleCampTableClick);
+reservationEditPanel.addEventListener("input", handleCampTableInput);
+reservationEditPanel.addEventListener("change", handleCampTableChange);
+paymentEditPanel.addEventListener("click", handleCampTableClick);
+paymentEditPanel.addEventListener("change", handleCampTableChange);
 campPaymentList.addEventListener("click", handleCampTableClick);
 
 [filterTripName, filterCampName, filterTripStartDate, filterReservedDate, filterStatus].forEach((node) => {
@@ -1935,12 +2012,41 @@ reservationTripSelect.addEventListener("change", () => {
     campForm.elements.reservationName.value = trip.reservationName || trip.tripName;
   }
 });
+campNameSelect.addEventListener("change", () => applyCampLocationToForm(campForm));
+newCampNameInput.addEventListener("input", () => {
+  if (!newCampNameInput.value.trim()) {
+    applyCampLocationToForm(campForm);
+  }
+});
 campExportPdf?.addEventListener("click", exportCurrentReservations);
 
 document.querySelectorAll("[data-settings-group]").forEach((formNode) => {
   formNode.addEventListener("submit", async (event) => {
     event.preventDefault();
     const group = formNode.dataset.settingsGroup;
+    if (group === "campNames") {
+      const campName = formNode.elements.campName.value.trim();
+      const campLocation = formNode.elements.campLocation.value.trim();
+      if (!campName) {
+        return;
+      }
+      if (!campSettings.campNames.includes(campName)) {
+        campSettings.campNames.push(campName);
+      }
+      if (campLocation) {
+        campSettings.campLocations[campName] = campLocation;
+        if (!campSettings.locationNames.includes(campLocation)) {
+          campSettings.locationNames.push(campLocation);
+        }
+      } else {
+        campSettings.campLocations[campName] = campSettings.campLocations[campName] || "";
+      }
+      campSettings.campNames.sort((left, right) => left.localeCompare(right));
+      campSettings.locationNames.sort((left, right) => left.localeCompare(right));
+      await saveSettings();
+      formNode.reset();
+      return;
+    }
     const value = formNode.elements.value.value.trim();
     if (!value) {
       return;
@@ -1986,6 +2092,9 @@ document.addEventListener("click", async (event) => {
   const group = target.dataset.group;
   const value = target.dataset.value;
   campSettings[group] = campSettings[group].filter((item) => item !== value);
+  if (group === "campNames") {
+    delete campSettings.campLocations[value];
+  }
   await saveSettings();
 });
 
