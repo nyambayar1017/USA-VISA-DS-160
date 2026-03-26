@@ -1609,8 +1609,8 @@ body.modal-open {
 
 .camp-table th:nth-child(1),
 .camp-table td:nth-child(1) {
-  width: 56px;
-  min-width: 56px;
+  width: 64px;
+  min-width: 64px;
   text-align: center !important;
   padding-left: 0;
   padding-right: 0;
@@ -1621,12 +1621,12 @@ body.modal-open {
 .camp-table td:nth-child(2) {
   padding-left: 12px;
   white-space: nowrap;
-  width: 180px;
+  width: 210px;
 }
 
 .camp-table th:nth-child(3),
 .camp-table td:nth-child(3) {
-  width: 170px;
+  width: 190px;
 }
 
 .camp-table th:nth-child(4),
@@ -1636,13 +1636,23 @@ body.modal-open {
 
 .camp-table th:nth-child(5),
 .camp-table td:nth-child(5) {
-  width: 150px;
+  width: 180px;
 }
 
 .camp-table th:nth-child(6),
-.camp-table td:nth-child(6),
+.camp-table td:nth-child(6) {
+  width: 120px;
+}
+
 .camp-table th:nth-child(7),
-.camp-table td:nth-child(7),
+.camp-table td:nth-child(7) {
+  width: 78px;
+}
+
+.camp-table th:nth-child(8),
+.camp-table td:nth-child(8),
+.camp-table th:nth-child(9),
+.camp-table td:nth-child(9),
 .camp-table th:nth-child(11),
 .camp-table td:nth-child(11),
 .camp-table th:nth-child(13),
@@ -1650,29 +1660,14 @@ body.modal-open {
   width: 62px;
 }
 
-.camp-table th:nth-child(8),
-.camp-table td:nth-child(8) {
-  width: 82px;
-}
-
-.camp-table th:nth-child(9),
-.camp-table td:nth-child(9) {
-  width: 106px;
-}
-
 .camp-table th:nth-child(10),
 .camp-table td:nth-child(10) {
-  width: 116px;
+  width: 108px;
 }
 
 .camp-table th:nth-child(12),
 .camp-table td:nth-child(12) {
-  width: 132px;
-}
-
-.camp-table th:nth-child(13),
-.camp-table td:nth-child(13) {
-  width: 72px;
+  width: 118px;
 }
 
 .camp-table th:nth-child(14),
@@ -1718,59 +1713,22 @@ body.modal-open {
 
 .camp-table th.checkbox-col,
 .camp-table td.checkbox-col {
-  width: 56px;
-  min-width: 56px;
-  padding-inline: 4px;
+  width: 64px;
+  min-width: 64px;
+  padding-inline: 0;
   text-align: center !important;
   vertical-align: middle;
   overflow: visible;
 }
 
-.row-selector {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  border: 1.5px solid rgba(23, 54, 95, 0.3);
-  background: #fff;
-  color: transparent;
-  padding: 0;
+.table-checkbox {
+  width: 16px;
+  height: 16px;
   margin: 0 auto;
+  accent-color: #17365f;
   cursor: pointer;
-}
-
-.row-selector-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  border: 1.5px solid rgba(23, 54, 95, 0.3);
-  background: #fff;
-  color: transparent;
-  padding: 0;
-  margin: 0 auto;
-  cursor: pointer;
-}
-
-.row-selector-toggle::after {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: transparent;
-}
-
-.row-selector-toggle.is-selected {
-  border-color: #17365f;
-  background: rgba(23, 54, 95, 0.08);
-}
-
-.row-selector-toggle.is-selected::after {
-  background: #17365f;
+  display: block;
+  box-sizing: border-box;
 }
 
 .camp-edit-panel-form {

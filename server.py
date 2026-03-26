@@ -2332,6 +2332,7 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
     records = read_camp_reservations()
+    settings = read_camp_settings()
     for index, record in enumerate(records):
         if record["id"] != reservation_id:
             continue
@@ -2361,10 +2362,17 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
 
         if normalize_text(payload.get("newCampName")):
             merged["campName"] = normalize_text(payload.get("newCampName"))
-            settings = read_camp_settings()
             if merged["campName"] not in settings["campNames"]:
                 settings["campNames"] = normalize_option_list(settings["campNames"] + [merged["campName"]])
-                write_camp_settings(settings)
+        if not normalize_text(merged.get("reservationName")):
+            trip = find_camp_trip(merged.get("tripId"))
+            merged["reservationName"] = (trip or {}).get("reservationName") or merged.get("tripName") or ""
+        if merged.get("campName") and not normalize_text(merged.get("locationName")):
+            merged["locationName"] = settings.get("campLocations", {}).get(merged["campName"], "")
+        if merged.get("campName") and normalize_text(merged.get("locationName")):
+            settings["campLocations"][merged["campName"]] = normalize_text(merged["locationName"])
+            settings["locationNames"] = normalize_option_list(settings["locationNames"] + [normalize_text(merged["locationName"])])
+        write_camp_settings(settings)
 
         for key in ["clientCount", "staffCount", "gerCount", "nights", "deposit", "secondPayment", "totalPayment", "balancePayment", "paidAmount"]:
             if key in payload:

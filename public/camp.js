@@ -47,6 +47,12 @@ let campSettings = {
   roomChoices: [],
   campLocations: {},
 };
+
+function getLocationOptions() {
+  return [...new Set(Object.values(campSettings.campLocations || {}).filter(Boolean).concat(campSettings.locationNames || []))].sort((left, right) =>
+    String(left).localeCompare(String(right))
+  );
+}
 let activeTripId = "";
 let activeCampName = "";
 let editingReservationId = "";
@@ -371,7 +377,7 @@ function renderSettingsOptions() {
     .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
     .join("")}`;
   campNameSelect.innerHTML = renderCampSelectOptions();
-  locationNameSelect.innerHTML = renderGenericSelectOptions(campSettings.locationNames, "Choose location");
+  locationNameSelect.innerHTML = renderGenericSelectOptions(getLocationOptions(), "Choose location");
   filterCampName.innerHTML = renderOptionMarkup(campSettings.campNames, "All camps");
   staffAssignmentSelect.innerHTML = renderOptionMarkup(campSettings.staffAssignments, "Choose staff");
   roomTypeSelect.innerHTML = renderOptionMarkup(campSettings.roomChoices, "Choose room type");
@@ -478,7 +484,6 @@ function renderSettingGroup(groupName, values) {
 
 function renderAllSettings() {
   renderSettingGroup("campNames", campSettings.campNames);
-  renderSettingGroup("locationNames", campSettings.locationNames);
   renderSettingGroup("staffAssignments", campSettings.staffAssignments);
   renderSettingGroup("roomChoices", campSettings.roomChoices);
   renderSettingsOptions();
@@ -877,7 +882,7 @@ function renderEditableRow(entry, index) {
       <td>
         <select data-role="locationName" data-id="${entry.id}">
           <option value="">Choose location</option>
-          ${campSettings.locationNames.map((option) => `<option value="${escapeHtml(option)}" ${entry.locationName === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+          ${getLocationOptions().map((option) => `<option value="${escapeHtml(option)}" ${entry.locationName === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
         </select>
       </td>
       <td>
@@ -1079,7 +1084,7 @@ function renderReservationEditPanel(reservation, options = {}) {
           <label>
             Location
             <select name="locationName">
-              ${renderGenericSelectOptions(campSettings.locationNames, "Choose location", reservationData.locationName || "")}
+              ${renderGenericSelectOptions(getLocationOptions(), "Choose location", reservationData.locationName || "")}
             </select>
           </label>
           <label>
@@ -1432,7 +1437,7 @@ async function saveSettings() {
   try {
     const payload = {
       campNames: campSettings.campNames,
-      locationNames: campSettings.locationNames,
+      locationNames: getLocationOptions(),
       staffAssignments: campSettings.staffAssignments,
       roomChoices: campSettings.roomChoices,
       campLocations: campSettings.campLocations,
