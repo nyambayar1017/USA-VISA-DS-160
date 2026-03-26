@@ -1966,9 +1966,7 @@ def ensure_checkout_from_nights(check_in, nights, check_out):
     except Exception:
         return check_out
     expected = (base + timedelta(days=max(stay_count, 1))).strftime("%Y-%m-%d")
-    if not check_out or check_out == check_in:
-        return expected
-    return check_out
+    return expected
 
 
 def build_camp_reservation(payload, actor=None):

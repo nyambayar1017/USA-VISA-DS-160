@@ -1401,6 +1401,7 @@ function syncInlineEditNights(formNode) {
 }
 
 async function updateReservation(id) {
+  const existingEntry = currentEntries.find((entry) => entry.id === id);
   const roles = [
     "campName",
     "locationName",
@@ -1437,6 +1438,10 @@ async function updateReservation(id) {
     }
   });
 
+  if (payload.checkIn && payload.nights) {
+    payload.checkOut = addDays(payload.checkIn, payload.nights);
+  }
+
   campStatus.textContent = "Updating reservation...";
 
   try {
@@ -1448,6 +1453,13 @@ async function updateReservation(id) {
     editingReservationId = "";
     campStatus.textContent = "Reservation updated.";
     await loadReservations();
+    if (existingEntry?.tripId) {
+      setActiveTrip(existingEntry.tripId);
+    } else {
+      renderEntries();
+      renderActiveTripReservations();
+      renderActiveCampReservations();
+    }
   } catch (error) {
     campStatus.textContent = error.message;
   }
@@ -1727,6 +1739,8 @@ campForm.addEventListener("submit", async (event) => {
   }
 
   const payload = buildPayload(campForm);
+  syncCheckoutFromStay();
+  payload.checkOut = campCheckout.value;
   payload.tripId = selectedTrip.id;
   payload.tripName = selectedTrip.tripName;
   payload.reservationName = payload.reservationName || selectedTrip.reservationName || selectedTrip.tripName;
@@ -1752,6 +1766,7 @@ campForm.addEventListener("submit", async (event) => {
     await loadSettings();
     await loadTrips();
     await loadReservations();
+    setActiveTrip(selectedTrip.id);
   } catch (error) {
     campStatus.textContent = error.message;
   }
