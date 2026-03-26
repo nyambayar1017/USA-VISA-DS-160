@@ -1174,6 +1174,39 @@ function renderReservationEditPanel(reservation, options = {}) {
     </form>
   `;
   const formNode = reservationEditPanel.querySelector("form");
+  if (formNode && !formNode.dataset.boundSubmit) {
+    formNode.dataset.boundSubmit = "true";
+    formNode.addEventListener("submit", handleInlineReservationSubmit);
+    formNode.addEventListener("input", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.getAttribute("name") === "checkIn" || target.getAttribute("name") === "nights") {
+        syncInlineEditCheckout(formNode);
+      }
+      if (target.getAttribute("name") === "newCampName" && !target.value.trim()) {
+        syncReservationDraftFromCamp(formNode);
+      }
+    });
+    formNode.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.getAttribute("name") === "tripId") {
+        syncReservationDraftFromTrip(formNode);
+        return;
+      }
+      if (target.getAttribute("name") === "campName") {
+        syncReservationDraftFromCamp(formNode);
+        return;
+      }
+      if (target.getAttribute("name") === "checkIn" || target.getAttribute("name") === "nights") {
+        syncInlineEditCheckout(formNode);
+        return;
+      }
+      if (target.getAttribute("name") === "checkOut") {
+        syncInlineEditNights(formNode);
+      }
+    });
+  }
   syncReservationDraftFromTrip(formNode);
   syncReservationDraftFromCamp(formNode);
   syncInlineEditCheckout(formNode);
@@ -1246,6 +1279,11 @@ function renderPaymentEditPanel(groupKey) {
       </div>
     </form>
   `;
+  const paymentFormNode = paymentEditPanel.querySelector("form");
+  if (paymentFormNode && !paymentFormNode.dataset.boundSubmit) {
+    paymentFormNode.dataset.boundSubmit = "true";
+    paymentFormNode.addEventListener("submit", handleInlinePaymentSubmit);
+  }
   paymentEditPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   requestAnimationFrame(() => {
     window.scrollTo({ top: Math.max(paymentEditPanel.getBoundingClientRect().top + window.scrollY - 24, 0), behavior: "smooth" });
@@ -1297,7 +1335,7 @@ async function handleInlineReservationSubmit(event) {
     }
     closeInlineEditPanels();
     closeReservationEditPanel();
-    campStatus.textContent = target.id === "reservation-edit-form" ? "Reservation updated." : "Reservation saved.";
+    campStatus.textContent = target.id === "reservation-edit-form" ? "Reservation updated successfully." : "Reservation saved successfully.";
     await loadSettings();
     await loadTrips();
     await loadReservations();
@@ -1350,7 +1388,7 @@ async function handleInlinePaymentSubmit(event) {
       currentEntries = currentEntries.map((entry) => byId.get(entry.id) || entry);
     }
     closePaymentEditPanel();
-    campStatus.textContent = "Camp payment updated.";
+    campStatus.textContent = "Camp payment saved successfully.";
     await loadReservations();
     const anchorTrip = entries[0] ? getTripById(entries[0].tripId) : null;
     if (anchorTrip) {
