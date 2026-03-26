@@ -97,7 +97,6 @@ function closeInlineEditPanels() {
   reservationEditPanel.innerHTML = "";
   paymentEditPanel.classList.add("is-hidden");
   paymentEditPanel.innerHTML = "";
-  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function hideSelectionPanels() {
@@ -107,6 +106,10 @@ function hideSelectionPanels() {
   activeTripPanelHidden = true;
   activeCampPanelHidden = true;
   closeInlineEditPanels();
+  activeTripReservations.classList.add("is-hidden");
+  activeTripReservations.innerHTML = "";
+  activeCampReservations.classList.add("is-hidden");
+  activeCampReservations.innerHTML = "";
   renderEntries();
   renderActiveTrip();
   renderActiveTripReservations();
@@ -416,6 +419,32 @@ function syncReservationDraftFromCamp(formNode) {
   applyCampLocationToForm(formNode);
 }
 
+function focusReservationResults(trip) {
+  if (!trip) {
+    return;
+  }
+  activeTripId = trip.id;
+  activeTripPanelHidden = false;
+  activeCampPanelHidden = true;
+  currentPage = 1;
+  currentTripPage = 1;
+  activeTripDayFilter = "";
+  filterTripName.value = trip.id;
+  filterCampName.value = "";
+  filterTripStartDate.value = trip.startDate || "";
+  filterReservedDate.value = "";
+  filterStatus.value = "";
+  renderEntries();
+  renderActiveTrip();
+  renderActiveTripReservations();
+  renderActiveCampReservations();
+  renderCampPayments();
+  requestAnimationFrame(() => {
+    const anchor = activeTripReservations.classList.contains("is-hidden") ? campList : activeTripReservations;
+    anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 function renderSettingGroup(groupName, values) {
   const container = document.querySelector(`#settings-${groupName}`);
   if (!container) {
@@ -703,7 +732,7 @@ function renderActiveTripReservations() {
       <table class="camp-table camp-table-detail">
         <thead>
           <tr>
-            <th class="checkbox-col"><button type="button" class="row-selector-toggle ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "is-selected" : ""}" data-action="toggle-select-all-detail" aria-label="Select all"></button></th>
+            <th class="checkbox-col table-center"><input type="checkbox" class="table-checkbox" data-action="toggle-select-all-detail-checkbox" ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} aria-label="Select all" /></th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
@@ -800,7 +829,7 @@ function renderReadOnlyRow(entry, index, options = {}) {
     .join(" / ");
   return `
     <tr class="${statusClass(entry)}">
-      ${includeCheckbox ? `<td class="checkbox-col"><button type="button" class="row-selector-toggle ${isSelected ? "is-selected" : ""}" data-action="toggle-select" data-id="${entry.id}" aria-label="Select reservation"></button></td>` : ""}
+      ${includeCheckbox ? `<td class="checkbox-col table-center"><input type="checkbox" class="table-checkbox" data-action="toggle-select-checkbox" data-id="${entry.id}" ${isSelected ? "checked" : ""} aria-label="Select reservation" /></td>` : ""}
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
@@ -931,7 +960,7 @@ function renderEntries() {
       <table class="camp-table">
         <thead>
           <tr>
-            <th class="checkbox-col"><button type="button" class="row-selector-toggle ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "is-selected" : ""}" data-action="toggle-select-all" aria-label="Select all"></button></th>
+            <th class="checkbox-col table-center"><input type="checkbox" class="table-checkbox" data-action="toggle-select-all-checkbox" ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} aria-label="Select all" /></th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
@@ -1223,6 +1252,115 @@ function renderPaymentEditPanel(groupKey) {
   });
 }
 
+async function handleInlineReservationSubmit(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLFormElement)) {
+    return;
+  }
+  const statusNode = target.querySelector("#reservation-edit-status");
+  if (statusNode) statusNode.textContent = "Saving reservation...";
+  const payload = buildPayload(target);
+  const selectedTrip = getTripById(payload.tripId);
+  if (!selectedTrip) {
+    if (statusNode) statusNode.textContent = "Please select a trip first.";
+    return;
+  }
+  if (payload.checkIn && payload.nights) {
+    payload.checkOut = addDays(payload.checkIn, payload.nights);
+    const checkOutNode = target.querySelector('[name="checkOut"]');
+    if (checkOutNode) {
+      checkOutNode.value = payload.checkOut;
+    }
+  }
+  if (!payload.locationName && payload.campName && !payload.newCampName) {
+    payload.locationName = getCampLocation(payload.campName);
+  }
+  payload.tripId = selectedTrip.id;
+  payload.tripName = selectedTrip.tripName;
+  payload.reservationName = payload.reservationName || selectedTrip.reservationName || selectedTrip.tripName;
+  try {
+    const result = await fetchJson(target.id === "reservation-edit-form" ? `/api/camp-reservations/${payload.id}` : "/api/camp-reservations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const savedEntry = result?.entry || null;
+    if (savedEntry?.id) {
+      if (target.id === "reservation-edit-form") {
+        currentEntries = currentEntries.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry));
+      } else {
+        currentEntries = [savedEntry, ...currentEntries.filter((entry) => entry.id !== savedEntry.id)];
+      }
+      selectedReservationIds = new Set([savedEntry.id]);
+    }
+    closeInlineEditPanels();
+    closeReservationEditPanel();
+    campStatus.textContent = target.id === "reservation-edit-form" ? "Reservation updated." : "Reservation saved.";
+    await loadSettings();
+    await loadTrips();
+    await loadReservations();
+    const nextTrip = getTripById(payload.tripId) || selectedTrip;
+    focusReservationResults(nextTrip);
+    if (savedEntry?.id) {
+      selectedReservationIds = new Set([savedEntry.id]);
+      renderEntries();
+      renderActiveTripReservations();
+      renderActiveCampReservations();
+    }
+  } catch (error) {
+    if (statusNode) statusNode.textContent = error.message;
+  }
+}
+
+async function handleInlinePaymentSubmit(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLFormElement)) {
+    return;
+  }
+  const statusNode = target.querySelector("#payment-edit-status");
+  if (statusNode) statusNode.textContent = "Saving payment...";
+  const payload = buildPayload(target);
+  const entries = getEntriesByGroupKey(payload.groupKey);
+  try {
+    const updates = await Promise.all(
+      entries.map((entry) =>
+        fetchJson(`/api/camp-reservations/${entry.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            deposit: payload.deposit,
+            depositPaidDate: payload.depositPaidDate,
+            secondPayment: payload.secondPayment,
+            secondPaidDate: payload.secondPaidDate,
+            paidAmount: payload.paidAmount,
+            balancePayment: payload.balancePayment,
+            totalPayment: payload.totalPayment,
+            paymentStatus: payload.paymentStatus,
+          }),
+        })
+      )
+    );
+    const updatedEntries = updates.map((item) => item?.entry).filter(Boolean);
+    if (updatedEntries.length) {
+      const byId = new Map(updatedEntries.map((entry) => [entry.id, entry]));
+      currentEntries = currentEntries.map((entry) => byId.get(entry.id) || entry);
+    }
+    closePaymentEditPanel();
+    campStatus.textContent = "Camp payment updated.";
+    await loadReservations();
+    const anchorTrip = entries[0] ? getTripById(entries[0].tripId) : null;
+    if (anchorTrip) {
+      focusReservationResults(anchorTrip);
+    }
+  } catch (error) {
+    if (statusNode) statusNode.textContent = error.message;
+  }
+}
+
 async function loadTrips() {
   const payload = await fetchJson("/api/camp-trips");
   currentTrips = payload.entries || [];
@@ -1319,48 +1457,14 @@ function resetTripFormState() {
 }
 
 function openReservationModal(tripId = "", reservation = null) {
-  campForm.reset();
-  editingReservationId = reservation?.id || "";
-  const defaultTripId = reservation?.tripId || tripId || activeTripId || reservationTripSelect.value || "";
-  reservationTripSelect.value = defaultTripId;
-  campCreatedDate.value = reservation?.createdDate || new Date().toISOString().slice(0, 10);
-  campNameSelect.innerHTML = renderCampSelectOptions(reservation?.campName || "");
-  locationNameSelect.innerHTML = renderGenericSelectOptions(campSettings.locationNames, "Choose location", reservation?.locationName || "");
-  campNameSelect.value = reservation?.campName || "";
-  locationNameSelect.value = reservation?.locationName || "";
-  newCampNameInput.value = "";
-  campForm.elements.reservationName.value = reservation?.reservationName || getTripById(defaultTripId)?.reservationName || getTripById(defaultTripId)?.tripName || "";
-  campForm.elements.reservationType.value = reservation?.reservationType || "camp";
-  campForm.elements.checkIn.value = reservation?.checkIn || "";
-  campForm.elements.nights.value = String(reservation?.nights || 1);
-  campForm.elements.checkOut.value = reservation?.checkOut || "";
-  campForm.elements.clientCount.value = String(reservation?.clientCount || 2);
-  campForm.elements.staffCount.value = String(reservation?.staffCount || 0);
-  campForm.elements.staffAssignment.value = reservation?.staffAssignment || "";
-  campForm.elements.gerCount.value = String(reservation?.gerCount || 1);
-  campForm.elements.roomType.value = reservation?.roomType || "";
-  campForm.elements.breakfast.value = reservation?.breakfast || "No";
-  campForm.elements.lunch.value = reservation?.lunch || "No";
-  campForm.elements.dinner.value = reservation?.dinner || "No";
-  campForm.elements.deposit.value = String(reservation?.deposit || "");
-  campForm.elements.totalPayment.value = String(reservation?.totalPayment || "");
-  campForm.elements.balancePayment.value = String(reservation?.balancePayment || "");
-  campForm.elements.paidAmount.value = String(reservation?.paidAmount || "");
-  campForm.elements.depositPaidDate.value = reservation?.depositPaidDate || "";
-  campForm.elements.secondPayment.value = String(reservation?.secondPayment || "");
-  campForm.elements.secondPaidDate.value = reservation?.secondPaidDate || "";
-  campForm.elements.paymentStatus.value = reservation?.paymentStatus || "in_progress";
-  campForm.elements.status.value = reservation?.status || "pending";
-  campForm.elements.notes.value = reservation?.notes || "";
-  if (!campForm.elements.checkOut.value) {
-    syncCheckoutFromStay();
+  closePanel(campFormPanel);
+  campFormPanel.classList.add("is-hidden");
+  document.body.classList.remove("modal-open");
+  if (reservation) {
+    renderReservationEditPanel(reservation);
+  } else {
+    renderReservationEditPanel(null, { isCreate: true, tripId });
   }
-  campStatus.textContent = reservation
-    ? `Editing reservation: ${reservation.reservationName || reservation.tripName}`
-    : defaultTripId
-      ? `Adding reservation for: ${getTripById(defaultTripId)?.tripName || ""}`
-      : "Choose a trip first, then add a reservation.";
-  openPanel(campFormPanel);
 }
 
 function startReservationEdit(id) {
@@ -1377,6 +1481,8 @@ function startReservationCreate(tripId = "") {
   closePanel(campFormPanel);
   campFormPanel.classList.add("is-hidden");
   document.body.classList.remove("modal-open");
+  campStatus.textContent = "";
+  closePaymentEditPanel();
   renderReservationEditPanel(null, { isCreate: true, tripId });
 }
 
@@ -1506,6 +1612,7 @@ function editPaymentGroup(groupKey) {
     return;
   }
   editingPaymentGroupKey = groupKey;
+  closeReservationEditPanel();
   renderPaymentEditPanel(groupKey);
 }
 
@@ -1589,104 +1696,13 @@ document.addEventListener("submit", async (event) => {
   if (!(target instanceof HTMLFormElement)) {
     return;
   }
-  if (target.id === "reservation-edit-form") {
-    event.preventDefault();
-    const statusNode = target.querySelector("#reservation-edit-status");
-    if (statusNode) statusNode.textContent = "Saving reservation...";
-    const payload = buildPayload(target);
-    const selectedTrip = getTripById(payload.tripId);
-    if (!selectedTrip) {
-      if (statusNode) statusNode.textContent = "Please select a trip first.";
-      return;
-    }
-    payload.tripName = selectedTrip.tripName;
-    payload.reservationName = payload.reservationName || selectedTrip.reservationName || selectedTrip.tripName;
-    try {
-      await fetchJson(`/api/camp-reservations/${payload.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      closeInlineEditPanels();
-      closeReservationEditPanel();
-      activeTripId = payload.tripId;
-      activeTripPanelHidden = false;
-      activeCampPanelHidden = true;
-      campStatus.textContent = "Reservation updated.";
-      await loadSettings();
-      await loadTrips();
-      await loadReservations();
-      setActiveTrip(payload.tripId);
-    } catch (error) {
-      if (statusNode) statusNode.textContent = error.message;
-    }
-    return;
-  }
-  if (target.id === "reservation-create-form") {
-    event.preventDefault();
-    const statusNode = target.querySelector("#reservation-edit-status");
-    if (statusNode) statusNode.textContent = "Saving reservation...";
-    const payload = buildPayload(target);
-    const selectedTrip = getTripById(payload.tripId);
-    if (!selectedTrip) {
-      if (statusNode) statusNode.textContent = "Please select a trip first.";
-      return;
-    }
-    payload.tripId = selectedTrip.id;
-    payload.tripName = selectedTrip.tripName;
-    payload.reservationName = payload.reservationName || selectedTrip.reservationName || selectedTrip.tripName;
-    try {
-      await fetchJson("/api/camp-reservations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      closeInlineEditPanels();
-      closeReservationEditPanel();
-      activeTripId = payload.tripId;
-      activeTripPanelHidden = false;
-      activeCampPanelHidden = true;
-      campStatus.textContent = "Reservation saved.";
-      await loadSettings();
-      await loadTrips();
-      await loadReservations();
-      setActiveTrip(payload.tripId);
-    } catch (error) {
-      if (statusNode) statusNode.textContent = error.message;
-    }
+  if (target.id === "reservation-edit-form" || target.id === "reservation-create-form") {
+    await handleInlineReservationSubmit(event);
     return;
   }
   if (target.id === "payment-edit-form") {
-    event.preventDefault();
-    const statusNode = target.querySelector("#payment-edit-status");
-    if (statusNode) statusNode.textContent = "Saving payment...";
-    const payload = buildPayload(target);
-    const entries = getEntriesByGroupKey(payload.groupKey);
-    try {
-      await Promise.all(
-        entries.map((entry) =>
-          fetchJson(`/api/camp-reservations/${entry.id}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              deposit: payload.deposit,
-              depositPaidDate: payload.depositPaidDate,
-              secondPayment: payload.secondPayment,
-              secondPaidDate: payload.secondPaidDate,
-              paidAmount: payload.paidAmount,
-              balancePayment: payload.balancePayment,
-              totalPayment: payload.totalPayment,
-              paymentStatus: payload.paymentStatus,
-            }),
-          })
-        )
-      );
-      closePaymentEditPanel();
-      campStatus.textContent = "Camp payment updated.";
-      await loadReservations();
-    } catch (error) {
-      if (statusNode) statusNode.textContent = error.message;
-    }
+    await handleInlinePaymentSubmit(event);
+    return;
   }
 });
 
@@ -1730,6 +1746,9 @@ document.addEventListener("change", (event) => {
 
 campForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (campFormPanel.classList.contains("is-hidden")) {
+    return;
+  }
   campStatus.textContent = editingReservationId ? "Updating reservation..." : "Saving reservation...";
 
   const selectedTrip = getTripById(reservationTripSelect.value || activeTripId);
@@ -2069,6 +2088,52 @@ reservationTripSelect.addEventListener("change", () => {
   }
   if (!campForm.elements.reservationName.value) {
     campForm.elements.reservationName.value = trip.reservationName || trip.tripName;
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const action = target.dataset.action;
+  if (action === "toggle-select-checkbox") {
+    const reservationId = target.dataset.id;
+    if (!reservationId) {
+      return;
+    }
+    if (target.checked) {
+      selectedReservationIds.add(reservationId);
+    } else {
+      selectedReservationIds.delete(reservationId);
+    }
+    renderEntries();
+    renderActiveTripReservations();
+    renderActiveCampReservations();
+    return;
+  }
+  if (action === "toggle-select-all-checkbox") {
+    const visibleIds = getFilteredEntries()
+      .slice((currentPage - 1) * PAGE_SIZE, (currentPage - 1) * PAGE_SIZE + PAGE_SIZE)
+      .map((entry) => entry.id);
+    if (target.checked) {
+      visibleIds.forEach((id) => selectedReservationIds.add(id));
+    } else {
+      visibleIds.forEach((id) => selectedReservationIds.delete(id));
+    }
+    renderEntries();
+    renderActiveTripReservations();
+    return;
+  }
+  if (action === "toggle-select-all-detail-checkbox") {
+    const visibleIds = sortByDateAsc(currentEntries.filter((entry) => entry.tripId === activeTripId), "checkIn").map((entry) => entry.id);
+    if (target.checked) {
+      visibleIds.forEach((id) => selectedReservationIds.add(id));
+    } else {
+      visibleIds.forEach((id) => selectedReservationIds.delete(id));
+    }
+    renderEntries();
+    renderActiveTripReservations();
   }
 });
 campNameSelect.addEventListener("change", () => applyCampLocationToForm(campForm));
