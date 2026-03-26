@@ -208,16 +208,38 @@ def default_camp_settings():
         "locationNames": ["Khustai"],
         "staffAssignments": [STEPPE_MANAGER],
         "roomChoices": DEFAULT_ROOM_CHOICES,
+        "campLocations": {"Khustai camp": "Khustai"},
     }
+
+
+def normalize_camp_location_map(payload, camp_names=None):
+    normalized = {}
+    if isinstance(payload, dict):
+        items = payload.items()
+    else:
+        items = []
+    for camp_name, location_name in items:
+        camp_text = normalize_text(camp_name)
+        location_text = normalize_text(location_name)
+        if camp_text:
+            normalized[camp_text] = location_text
+    for camp_name in camp_names or []:
+        normalized.setdefault(camp_name, "")
+    return normalized
 
 
 def read_camp_settings():
     payload = read_json_object(CAMP_SETTINGS_FILE, default_camp_settings())
+    camp_names = normalize_option_list(payload.get("campNames")) or ["Khustai camp"]
+    camp_locations = normalize_camp_location_map(payload.get("campLocations"), camp_names)
+    location_names = normalize_option_list(payload.get("locationNames")) or ["Khustai"]
+    location_names = normalize_option_list(location_names + [value for value in camp_locations.values() if value])
     return {
-        "campNames": normalize_option_list(payload.get("campNames")) or ["Khustai camp"],
-        "locationNames": normalize_option_list(payload.get("locationNames")) or ["Khustai"],
+        "campNames": camp_names,
+        "locationNames": location_names,
         "staffAssignments": normalize_option_list(payload.get("staffAssignments")) or [STEPPE_MANAGER],
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
+        "campLocations": camp_locations,
     }
 
 
@@ -1904,6 +1926,9 @@ def build_camp_trip(payload, actor=None):
         "totalDays": parse_int(payload.get("totalDays")) or 1,
         "participantCount": parse_int(payload.get("participantCount")),
         "staffCount": parse_int(payload.get("staffCount")),
+        "guideName": normalize_text(payload.get("guideName")),
+        "driverName": normalize_text(payload.get("driverName")),
+        "cookName": normalize_text(payload.get("cookName")),
         "language": normalize_text(payload.get("language")) or "Other",
         "status": normalize_text(payload.get("status")).lower() or "planning",
         "inboundCompany": "Unlock Steppe Mongolia",
@@ -2182,11 +2207,13 @@ def handle_update_camp_settings(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    camp_names = normalize_option_list(payload.get("campNames"))
     settings = {
-        "campNames": normalize_option_list(payload.get("campNames")),
+        "campNames": camp_names,
         "locationNames": normalize_option_list(payload.get("locationNames")),
         "staffAssignments": normalize_option_list(payload.get("staffAssignments")),
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
+        "campLocations": normalize_camp_location_map(payload.get("campLocations"), camp_names),
     }
     if not settings["campNames"]:
         settings["campNames"] = ["Khustai camp"]
@@ -2194,6 +2221,7 @@ def handle_update_camp_settings(environ, start_response):
         settings["locationNames"] = ["Khustai"]
     if not settings["staffAssignments"]:
         settings["staffAssignments"] = [STEPPE_MANAGER]
+    settings["locationNames"] = normalize_option_list(settings["locationNames"] + [value for value in settings["campLocations"].values() if value])
     write_camp_settings(settings)
     return json_response(start_response, "200 OK", {"ok": True, "entry": settings})
 
@@ -2229,7 +2257,7 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         if trip["id"] != trip_id:
             continue
         merged = {**trip}
-        for key in ["tripName", "reservationName", "startDate", "language", "status"]:
+        for key in ["tripName", "reservationName", "startDate", "language", "status", "guideName", "driverName", "cookName"]:
             if key in payload:
                 merged[key] = normalize_text(payload.get(key))
         for key in ["participantCount", "staffCount", "totalDays"]:
@@ -2275,12 +2303,17 @@ def handle_create_camp_reservation(environ, start_response):
     record["tripName"] = trip["tripName"]
     record["reservationName"] = record.get("reservationName") or trip.get("reservationName") or trip["tripName"]
     record["language"] = trip.get("language") or "Other"
+    settings = read_camp_settings()
     if record.get("newCampName"):
         record["campName"] = record["newCampName"]
-        settings = read_camp_settings()
         if record["campName"] not in settings["campNames"]:
             settings["campNames"] = normalize_option_list(settings["campNames"] + [record["campName"]])
-            write_camp_settings(settings)
+    if record.get("campName") and not record.get("locationName"):
+        record["locationName"] = settings.get("campLocations", {}).get(record["campName"], "")
+    if record.get("campName") and record.get("locationName"):
+        settings["campLocations"][record["campName"]] = record["locationName"]
+        settings["locationNames"] = normalize_option_list(settings["locationNames"] + [record["locationName"]])
+    write_camp_settings(settings)
     error = validate_camp_reservation(record)
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})

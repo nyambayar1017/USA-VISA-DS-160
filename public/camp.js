@@ -125,6 +125,14 @@ function closePaymentEditPanel() {
   paymentEditPanel.innerHTML = "";
 }
 
+function refreshCampSettingsViews() {
+  renderAllSettings();
+  renderSettingsOptions();
+  renderEntries();
+  renderActiveTripReservations();
+  renderActiveCampReservations();
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -393,6 +401,21 @@ function applyCampLocationToForm(formNode) {
   }
 }
 
+function syncReservationDraftFromTrip(formNode) {
+  if (!formNode) return;
+  const tripNode = formNode.querySelector('[name="tripId"]');
+  const reservationNameNode = formNode.querySelector('[name="reservationName"]');
+  if (!tripNode || !reservationNameNode) return;
+  const selectedTrip = getTripById(tripNode.value);
+  if (!selectedTrip) return;
+  reservationNameNode.value = selectedTrip.reservationName || selectedTrip.tripName || "";
+}
+
+function syncReservationDraftFromCamp(formNode) {
+  if (!formNode) return;
+  applyCampLocationToForm(formNode);
+}
+
 function renderSettingGroup(groupName, values) {
   const container = document.querySelector(`#settings-${groupName}`);
   if (!container) {
@@ -455,6 +478,9 @@ function renderTrips() {
             <th>Start</th>
             <th>Pax</th>
             <th>Staff</th>
+            <th>Guide</th>
+            <th>Driver</th>
+            <th>Cook</th>
             <th>Language</th>
             <th>Status</th>
             <th>Created</th>
@@ -475,6 +501,9 @@ function renderTrips() {
                   <td>${formatDate(trip.startDate)}</td>
                   <td class="trip-pax-cell">${trip.participantCount}</td>
                   <td class="trip-pax-cell">${trip.staffCount}</td>
+                  <td>${escapeHtml(trip.guideName || "-")}</td>
+                  <td>${escapeHtml(trip.driverName || "-")}</td>
+                  <td>${escapeHtml(trip.cookName || "-")}</td>
                   <td>${escapeHtml(trip.language)}</td>
                   <td><span class="status-pill is-${normalizeStatus(trip.status)}">${formatStatusLabel(trip.status)}</span></td>
                   <td>${formatDate(trip.createdAt, true)}</td>
@@ -975,6 +1004,13 @@ function renderReservationEditPanel(reservation, options = {}) {
     status: "pending",
     notes: "",
   };
+  if (!reservationData.reservationName) {
+    const selectedTrip = getTripById(reservationData.tripId);
+    reservationData.reservationName = selectedTrip?.reservationName || selectedTrip?.tripName || "";
+  }
+  if (!reservationData.locationName && reservationData.campName) {
+    reservationData.locationName = getCampLocation(reservationData.campName);
+  }
   reservationEditPanel.classList.remove("is-hidden");
   reservationEditPanel.innerHTML = `
     <div class="section-head">
@@ -1108,6 +1144,10 @@ function renderReservationEditPanel(reservation, options = {}) {
       </div>
     </form>
   `;
+  const formNode = reservationEditPanel.querySelector("form");
+  syncReservationDraftFromTrip(formNode);
+  syncReservationDraftFromCamp(formNode);
+  syncInlineEditCheckout(formNode);
   reservationEditPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   requestAnimationFrame(() => {
     window.scrollTo({ top: Math.max(reservationEditPanel.getBoundingClientRect().top + window.scrollY - 24, 0), behavior: "smooth" });
@@ -1227,7 +1267,6 @@ async function saveSettings() {
       body: JSON.stringify(payload),
     });
     settingsStatus.textContent = "Settings updated.";
-    renderAllSettings();
   } catch (error) {
     settingsStatus.textContent = error.message;
   }
@@ -1565,6 +1604,7 @@ document.addEventListener("submit", async (event) => {
       await loadSettings();
       await loadTrips();
       await loadReservations();
+      setActiveTrip(payload.tripId);
     } catch (error) {
       if (statusNode) statusNode.textContent = error.message;
     }
@@ -1598,6 +1638,7 @@ document.addEventListener("submit", async (event) => {
       await loadSettings();
       await loadTrips();
       await loadReservations();
+      setActiveTrip(payload.tripId);
     } catch (error) {
       if (statusNode) statusNode.textContent = error.message;
     }
@@ -1645,6 +1686,10 @@ document.addEventListener("input", (event) => {
   const form = target.closest("#reservation-edit-form, #reservation-create-form");
   if (form && (target.getAttribute("name") === "checkIn" || target.getAttribute("name") === "nights")) {
     syncInlineEditCheckout(form);
+    return;
+  }
+  if (form && target.getAttribute("name") === "newCampName" && !target.value.trim()) {
+    syncReservationDraftFromCamp(form);
   }
 });
 
@@ -1654,6 +1699,18 @@ document.addEventListener("change", (event) => {
     return;
   }
   const form = target.closest("#reservation-edit-form, #reservation-create-form");
+  if (form && target.getAttribute("name") === "tripId") {
+    syncReservationDraftFromTrip(form);
+    return;
+  }
+  if (form && target.getAttribute("name") === "campName") {
+    syncReservationDraftFromCamp(form);
+    return;
+  }
+  if (form && (target.getAttribute("name") === "checkIn" || target.getAttribute("name") === "nights")) {
+    syncInlineEditCheckout(form);
+    return;
+  }
   if (form && target.getAttribute("name") === "checkOut") {
     syncInlineEditNights(form);
   }
@@ -2030,8 +2087,9 @@ document.querySelectorAll("[data-settings-group]").forEach((formNode) => {
       }
       campSettings.campNames.sort((left, right) => left.localeCompare(right));
       campSettings.locationNames.sort((left, right) => left.localeCompare(right));
-      await saveSettings();
+      refreshCampSettingsViews();
       formNode.reset();
+      await saveSettings();
       return;
     }
     const value = formNode.elements.value.value.trim();
@@ -2041,6 +2099,7 @@ document.querySelectorAll("[data-settings-group]").forEach((formNode) => {
     if (!campSettings[group].includes(value)) {
       campSettings[group].push(value);
       campSettings[group].sort((left, right) => left.localeCompare(right));
+      refreshCampSettingsViews();
       await saveSettings();
     }
     formNode.reset();
@@ -2082,6 +2141,7 @@ document.addEventListener("click", async (event) => {
   if (group === "campNames") {
     delete campSettings.campLocations[value];
   }
+  refreshCampSettingsViews();
   await saveSettings();
 });
 
