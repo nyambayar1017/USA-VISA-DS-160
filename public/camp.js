@@ -1255,7 +1255,7 @@ function renderPaymentEditPanel(groupKey) {
 async function handleInlineReservationSubmit(event) {
   event.preventDefault();
   event.stopPropagation();
-  const target = event.currentTarget;
+  const target = event.target;
   if (!(target instanceof HTMLFormElement)) {
     return;
   }
@@ -1317,7 +1317,7 @@ async function handleInlineReservationSubmit(event) {
 async function handleInlinePaymentSubmit(event) {
   event.preventDefault();
   event.stopPropagation();
-  const target = event.currentTarget;
+  const target = event.target;
   if (!(target instanceof HTMLFormElement)) {
     return;
   }
