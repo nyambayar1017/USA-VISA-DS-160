@@ -1353,14 +1353,21 @@ body.modal-open {
 
 .trip-row-actions-grid {
   display: grid;
-  grid-template-columns: minmax(124px, 1fr) minmax(72px, auto);
+  grid-template-columns: 1fr;
   gap: 6px;
-  align-items: center;
-  min-width: 286px;
+  align-items: stretch;
+  min-width: 270px;
 }
 
-.trip-row-actions-grid .inline-status-select,
-.trip-row-actions-grid .table-action.compact {
+.trip-action-row {
+  display: grid;
+  grid-template-columns: minmax(118px, 1fr) minmax(68px, auto);
+  gap: 6px;
+  align-items: center;
+}
+
+.trip-action-row .inline-status-select,
+.trip-action-row .table-action.compact {
   width: 100%;
 }
 
@@ -1536,13 +1543,13 @@ body.modal-open {
 .trip-table td:nth-child(5),
 .trip-table th:nth-child(6),
 .trip-table td:nth-child(6) {
-  width: 32px;
+  width: 52px;
   text-align: center;
 }
 
 .trip-table th:nth-child(7),
 .trip-table td:nth-child(7) {
-  width: 56px;
+  width: 74px;
   text-align: center;
 }
 
@@ -1584,7 +1591,8 @@ body.modal-open {
 
 .camp-table th:nth-child(1),
 .camp-table td:nth-child(1) {
-  width: 54px;
+  width: 56px;
+  min-width: 56px;
   text-align: center !important;
   padding-left: 0;
   padding-right: 0;
@@ -1692,21 +1700,59 @@ body.modal-open {
 
 .camp-table th.checkbox-col,
 .camp-table td.checkbox-col {
-  width: 64px;
-  min-width: 64px;
-  padding-inline: 8px;
+  width: 56px;
+  min-width: 56px;
+  padding-inline: 4px;
   text-align: center !important;
   vertical-align: middle;
   overflow: visible;
 }
 
-.row-selector-checkbox,
 .row-selector {
-  width: 16px;
-  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(23, 54, 95, 0.3);
+  background: #fff;
+  color: transparent;
+  padding: 0;
   margin: 0 auto;
-  display: block;
-  accent-color: #17365f;
+  cursor: pointer;
+}
+
+.row-selector-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(23, 54, 95, 0.3);
+  background: #fff;
+  color: transparent;
+  padding: 0;
+  margin: 0 auto;
+  cursor: pointer;
+}
+
+.row-selector-toggle::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.row-selector-toggle.is-selected {
+  border-color: #17365f;
+  background: rgba(23, 54, 95, 0.08);
+}
+
+.row-selector-toggle.is-selected::after {
+  background: #17365f;
 }
 
 .camp-edit-panel-form {

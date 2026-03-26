@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-40" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-43" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -33,7 +33,7 @@
           <div>
             <p class="workspace-kicker">USM Camp</p>
             <h1>Unlock Steppe Mongolia Reservation</h1>
-            <p class="workspace-subtitle">Create trips, manage camp reservations inside each trip, and export clean reservation PDFs.</p>
+            <p class="workspace-subtitle">Create trips, manage related camp reservations, and export clean PDF files.</p>
           </div>
           <div class="workspace-profile" id="workspace-profile">
             <span class="workspace-profile-label">Signed in</span>
@@ -88,9 +88,9 @@
               <div class="camp-modal-header">
                 <div>
                   <h2>New trip</h2>
-                  <p class="camp-modal-copy">Fill in the core trip details and save.</p>
+                  <p class="camp-modal-copy">Fill in the basic trip information and save it.</p>
                 </div>
-                <button type="button" class="camp-modal-close" data-action="close-trip-modal" aria-label="Close trip form">×</button>
+                <button type="button" class="camp-modal-close" data-action="close-trip-modal" aria-label="Close trip window">×</button>
               </div>
               <form id="trip-form" class="field-grid">
                 <label>
@@ -102,19 +102,19 @@
                   <input name="reservationName" placeholder="STEPPE MONGOLIA 0802" required />
                 </label>
                 <label>
-                  Start Date
+                  Start date
                   <input name="startDate" type="date" required />
                 </label>
                 <label>
-                  Tourist Number
+                  Number of tourists
                   <input name="participantCount" type="number" min="1" value="2" required />
                 </label>
                 <label>
-                  Staff Number
+                  Number of staff
                   <input name="staffCount" type="number" min="0" value="0" required />
                 </label>
                 <label>
-                  Total Tour Days
+                  Total days of tour
                   <input name="totalDays" type="number" min="1" value="1" required />
                 </label>
                 <label>
@@ -144,7 +144,7 @@
                   </select>
                 </label>
                 <div class="actions full-span">
-                  <button type="submit">Save Trip</button>
+                  <button type="submit">Save trip</button>
                   <p id="trip-status" class="status"></p>
                 </div>
               </form>
@@ -159,7 +159,7 @@
             <h2>Camp Reservations</h2>
             <div class="camp-toolbar">
               <button type="button" id="camp-export-pdf" class="secondary-button">Download selected / filtered PDF</button>
-              <button type="button" id="camp-toggle-form">Add Reservation</button>
+              <button type="button" id="camp-toggle-form">Add reservation</button>
             </div>
           </div>
 
@@ -202,9 +202,9 @@
               <div class="camp-modal-header">
                 <div>
                   <h2>New reservation</h2>
-                  <p class="camp-modal-copy">Select a trip and save reservation details and camp payment information separately.</p>
+                  <p class="camp-modal-copy">Choose a trip, complete the reservation details, and save the related camp payment separately.</p>
                 </div>
-                <button type="button" class="camp-modal-close" data-action="close-camp-modal" aria-label="Close reservation form">×</button>
+                <button type="button" class="camp-modal-close" data-action="close-camp-modal" aria-label="Close reservation window">×</button>
               </div>
               <form id="camp-form" class="field-grid">
                 <div class="camp-form-section full-span">
@@ -317,8 +317,8 @@
                 </div>
                 <div class="camp-form-section full-span">
                   <div class="camp-form-section-head">
-                    <h3>Camp Payment</h3>
-                    <p>Internal finance only. Not shown in PDF or View.</p>
+                    <h3>Camp payment</h3>
+                    <p>Internal finance section. Not shown in PDF or View.</p>
                   </div>
                   <div class="field-grid field-grid-compact">
                     <label>
@@ -326,11 +326,11 @@
                       <input name="deposit" inputmode="numeric" />
                     </label>
                     <label>
-                      Total Payment
+                      Total payment
                       <input name="totalPayment" inputmode="numeric" />
                     </label>
                     <label>
-                      Balance Payment
+                      Balance payment
                       <input name="balancePayment" inputmode="numeric" />
                     </label>
                     <label>
@@ -371,7 +371,7 @@
 
           <div id="reservation-edit-panel" class="card camp-trip-detail-panel is-hidden"></div>
           <div id="camp-list" class="submission-list"></div>
-          <div id="active-trip" class="card camp-active-trip is-hidden"></div>
+          <div id="active-trip" class="is-hidden"></div>
           <div id="active-trip-reservations" class="card camp-trip-detail-panel mini-pagination is-hidden"></div>
           <div id="active-camp-reservations" class="card camp-trip-detail-panel mini-pagination is-hidden"></div>
         </section>
@@ -388,7 +388,7 @@
         <section class="card" id="settings-section">
           <div class="section-head">
             <h2>Camp Settings</h2>
-            <p>Manage camp names, locations, staff, and room choices here.</p>
+            <p>Manage camp names, locations, staff, and room types here.</p>
           </div>
           <div class="camp-settings-grid">
             <form class="camp-setting-card" data-settings-group="campNames">
@@ -408,7 +408,7 @@
                 <h3>Locations</h3>
               </div>
               <div class="camp-setting-inline">
-                <input name="value" placeholder="Add location" />
+                <input name="value" placeholder="Add location name" />
                 <button type="submit">Add</button>
               </div>
               <div class="camp-setting-list" id="settings-locationNames"></div>
@@ -427,7 +427,7 @@
 
             <form class="camp-setting-card" data-settings-group="roomChoices">
               <div class="camp-setting-head">
-                <h3>Ger / room choices</h3>
+                <h3>Ger / Room choices</h3>
               </div>
               <div class="camp-setting-inline">
                 <input name="value" placeholder="Add room choice" />
@@ -441,7 +441,7 @@
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-40"></script>
-    <script src="/camp.js?v=workspace-40"></script>
+    <script src="/app-shell.js?v=workspace-43"></script>
+    <script src="/camp.js?v=workspace-43"></script>
   </body>
 </html>

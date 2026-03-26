@@ -97,6 +97,7 @@ function closeInlineEditPanels() {
   reservationEditPanel.innerHTML = "";
   paymentEditPanel.classList.add("is-hidden");
   paymentEditPanel.innerHTML = "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function hideSelectionPanels() {
@@ -106,6 +107,7 @@ function hideSelectionPanels() {
   activeTripPanelHidden = true;
   activeCampPanelHidden = true;
   closeInlineEditPanels();
+  renderEntries();
   renderActiveTrip();
   renderActiveTripReservations();
   renderActiveCampReservations();
@@ -479,14 +481,18 @@ function renderTrips() {
                   <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
                   <td>
                     <div class="trip-row-actions trip-row-actions-grid">
-                      <select class="inline-status-select" data-action="trip-status" data-trip-id="${trip.id}">
-                        ${TRIP_STATUS_OPTIONS
-                          .map(([value, label]) => `<option value="${value}" ${trip.status === value ? "selected" : ""}>${label}</option>`)
-                          .join("")}
-                      </select>
-                      <button type="button" class="table-action compact secondary" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
-                      <button type="button" class="table-action compact" data-action="add-reservation" data-trip-id="${trip.id}">Add Reservation</button>
-                      <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
+                      <div class="trip-action-row">
+                        <select class="inline-status-select" data-action="trip-status" data-trip-id="${trip.id}">
+                          ${TRIP_STATUS_OPTIONS
+                            .map(([value, label]) => `<option value="${value}" ${trip.status === value ? "selected" : ""}>${label}</option>`)
+                            .join("")}
+                        </select>
+                        <button type="button" class="table-action compact secondary" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
+                      </div>
+                      <div class="trip-action-row">
+                        <button type="button" class="table-action compact" data-action="add-reservation" data-trip-id="${trip.id}">Add Reservation</button>
+                        <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -507,27 +513,8 @@ function renderTrips() {
 }
 
 function renderActiveTrip() {
-  const trip = getTripById(activeTripId);
-  if (!trip || activeTripPanelHidden) {
-    activeTripBox.className = "camp-active-trip is-hidden";
-    activeTripBox.innerHTML = "";
-    return;
-  }
-
-  const tripReservations = currentEntries.filter((entry) => entry.tripId === trip.id);
-  const totalInternalCost = tripReservations.reduce((sum, entry) => sum + Number(entry.totalPayment || 0), 0);
-  activeTripBox.className = "camp-active-trip";
-  activeTripBox.innerHTML = `
-    <div>
-      <strong>${escapeHtml(trip.tripName)}</strong>
-      <span>${formatDate(trip.startDate)} · ${escapeHtml(trip.language || "-")} · ${trip.participantCount || 0} pax / ${trip.staffCount || 0} staff · ${trip.totalDays || 1} days</span>
-      <span>Reservation Name: ${escapeHtml(trip.reservationName || trip.tripName)}</span>
-    </div>
-    <div>
-      <strong>${tripReservations.length} reservations</strong>
-      <span>Internal camp cost: ${formatMoney(totalInternalCost)}</span>
-    </div>
-  `;
+  activeTripBox.className = "is-hidden";
+  activeTripBox.innerHTML = "";
 }
 
 function renderCampPayments() {
@@ -687,7 +674,7 @@ function renderActiveTripReservations() {
       <table class="camp-table camp-table-detail">
         <thead>
           <tr>
-            <th class="checkbox-col"><input type="checkbox" class="row-selector-checkbox" data-action="toggle-select-all-detail" ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} aria-label="Select all" /></th>
+            <th class="checkbox-col"><button type="button" class="row-selector-toggle ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "is-selected" : ""}" data-action="toggle-select-all-detail" aria-label="Select all"></button></th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
@@ -784,7 +771,7 @@ function renderReadOnlyRow(entry, index, options = {}) {
     .join(" / ");
   return `
     <tr class="${statusClass(entry)}">
-      ${includeCheckbox ? `<td class="checkbox-col"><input type="checkbox" class="row-selector-checkbox" data-action="toggle-select" data-id="${entry.id}" ${isSelected ? "checked" : ""} aria-label="Select reservation" /></td>` : ""}
+      ${includeCheckbox ? `<td class="checkbox-col"><button type="button" class="row-selector-toggle ${isSelected ? "is-selected" : ""}" data-action="toggle-select" data-id="${entry.id}" aria-label="Select reservation"></button></td>` : ""}
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
@@ -915,7 +902,7 @@ function renderEntries() {
       <table class="camp-table">
         <thead>
           <tr>
-            <th class="checkbox-col"><input type="checkbox" class="row-selector-checkbox" data-action="toggle-select-all" ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} aria-label="Select all" /></th>
+            <th class="checkbox-col"><button type="button" class="row-selector-toggle ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "is-selected" : ""}" data-action="toggle-select-all" aria-label="Select all"></button></th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
@@ -1350,6 +1337,7 @@ function startReservationCreate(tripId = "") {
   editingReservationId = "";
   closePanel(campFormPanel);
   campFormPanel.classList.add("is-hidden");
+  document.body.classList.remove("modal-open");
   renderReservationEditPanel(null, { isCreate: true, tripId });
 }
 
@@ -1889,10 +1877,12 @@ function handleCampTableClick(event) {
   }
   if (action === "hide-reservation-edit") {
     closeInlineEditPanels();
+    campStatus.textContent = "";
     return;
   }
   if (action === "hide-payment-edit") {
     closeInlineEditPanels();
+    campStatus.textContent = "";
     return;
   }
 }
@@ -1924,9 +1914,6 @@ function handleCampTableInput(event) {
 function handleCampTableChange(event) {
   const node = event.target;
   if (!(node instanceof HTMLElement)) {
-    return;
-  }
-  if (node.matches('input.row-selector-checkbox[data-action="toggle-select-all"], input.row-selector-checkbox[data-action="toggle-select-all-detail"], input.row-selector-checkbox[data-action="toggle-select"]')) {
     return;
   }
   if (node.dataset.action === "trip-day-filter") {
