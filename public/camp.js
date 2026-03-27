@@ -1315,9 +1315,11 @@ function renderPaymentEditPanel(groupKey) {
   }
   const first = entries[0];
   const group = {
+    tripId: first.tripId,
     tripName: first.tripName,
     reservationName: first.reservationName || first.tripName,
     campName: first.campName,
+    locationName: first.locationName || "",
     deposit: Number(getGroupPaymentValue(entries, "deposit") || 0),
     depositPaidDate: getGroupPaymentValue(entries, "depositPaidDate") || "",
     secondPayment: Number(getGroupPaymentValue(entries, "secondPayment") || 0),
@@ -1919,17 +1921,36 @@ campForm.addEventListener("submit", async (event) => {
   payload.checkOut = stay.checkOut;
   campStays.value = stay.nights;
   campCheckout.value = stay.checkOut;
+  if (!payload.createdDate) {
+    payload.createdDate = getMongoliaToday();
+    campCreatedDate.value = payload.createdDate;
+  }
+  if (!payload.locationName && payload.campName && !payload.newCampName) {
+    payload.locationName = getCampLocation(payload.campName);
+    if (payload.locationName) {
+      campLocationSelect.value = payload.locationName;
+    }
+  }
   payload.tripId = selectedTrip.id;
   payload.tripName = selectedTrip.tripName;
   payload.reservationName = payload.reservationName || selectedTrip.reservationName || selectedTrip.tripName;
 
   try {
-    await fetchJson(editingReservationId ? `/api/camp-reservations/${editingReservationId}` : "/api/camp-reservations", {
+    const result = await fetchJson(editingReservationId ? `/api/camp-reservations/${editingReservationId}` : "/api/camp-reservations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    campStatus.textContent = editingReservationId ? "Reservation updated." : "Reservation saved.";
+    const savedEntry = result?.entry || null;
+    if (savedEntry?.id) {
+      if (editingReservationId) {
+        currentEntries = currentEntries.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry));
+      } else {
+        currentEntries = [savedEntry, ...currentEntries.filter((entry) => entry.id !== savedEntry.id)];
+      }
+      selectedReservationIds = new Set([savedEntry.id]);
+    }
+    campStatus.textContent = editingReservationId ? "Reservation updated successfully." : "Reservation saved successfully.";
     campForm.reset();
     campCreatedDate.value = getMongoliaToday();
     campForm.querySelector('[name="clientCount"]').value = "2";
@@ -1944,7 +1965,11 @@ campForm.addEventListener("submit", async (event) => {
     await loadSettings();
     await loadTrips();
     await loadReservations();
-    setActiveTrip(selectedTrip.id);
+    const nextTrip = getTripById(selectedTrip.id) || selectedTrip;
+    focusReservationResults(nextTrip);
+    renderEntries();
+    renderActiveTripReservations();
+    renderActiveCampReservations();
   } catch (error) {
     campStatus.textContent = error.message;
   }
