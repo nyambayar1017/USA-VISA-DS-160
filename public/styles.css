@@ -1609,8 +1609,8 @@ body.modal-open {
 
 .camp-table th:nth-child(1),
 .camp-table td:nth-child(1) {
-  width: 64px;
-  min-width: 64px;
+  width: 48px;
+  min-width: 48px;
   text-align: center !important;
   padding-left: 0;
   padding-right: 0;
@@ -1621,12 +1621,12 @@ body.modal-open {
 .camp-table td:nth-child(2) {
   padding-left: 12px;
   white-space: nowrap;
-  width: 210px;
+  width: 270px;
 }
 
 .camp-table th:nth-child(3),
 .camp-table td:nth-child(3) {
-  width: 190px;
+  width: 240px;
 }
 
 .camp-table th:nth-child(4),
@@ -1636,12 +1636,14 @@ body.modal-open {
 
 .camp-table th:nth-child(5),
 .camp-table td:nth-child(5) {
-  width: 180px;
+  width: 230px;
 }
 
 .camp-table th:nth-child(6),
 .camp-table td:nth-child(6) {
-  width: 120px;
+  width: 180px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .camp-table th:nth-child(7),
@@ -1657,7 +1659,7 @@ body.modal-open {
 .camp-table td:nth-child(11),
 .camp-table th:nth-child(13),
 .camp-table td:nth-child(13) {
-  width: 62px;
+  width: 46px;
 }
 
 .camp-table th:nth-child(10),
@@ -1667,7 +1669,7 @@ body.modal-open {
 
 .camp-table th:nth-child(12),
 .camp-table td:nth-child(12) {
-  width: 118px;
+  width: 128px;
 }
 
 .camp-table th:nth-child(14),
@@ -1713,8 +1715,8 @@ body.modal-open {
 
 .camp-table th.checkbox-col,
 .camp-table td.checkbox-col {
-  width: 64px;
-  min-width: 64px;
+  width: 48px;
+  min-width: 48px;
   padding-inline: 0;
   text-align: center !important;
   vertical-align: middle;
@@ -1724,11 +1726,13 @@ body.modal-open {
 .table-checkbox {
   width: 16px;
   height: 16px;
-  margin: 0 auto;
+  margin: 0 auto !important;
   accent-color: #17365f;
   cursor: pointer;
   display: block;
   box-sizing: border-box;
+  position: relative;
+  left: 0;
 }
 
 .camp-edit-panel-form {

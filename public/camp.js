@@ -37,6 +37,7 @@ const campCheckout = document.querySelector("#camp-checkout");
 const campStays = document.querySelector("#camp-stays");
 const settingsStatus = document.querySelector("#settings-status");
 const campCreatedDate = campForm.querySelector('[name="createdDate"]');
+const MONGOLIA_TIME_ZONE = "Asia/Ulaanbaatar";
 
 let currentTrips = [];
 let currentEntries = [];
@@ -154,19 +155,68 @@ function formatMoney(value) {
   return new Intl.NumberFormat("en-US").format(Number(value || 0));
 }
 
+function formatDateParts(date, timeZone = MONGOLIA_TIME_ZONE) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  return Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+}
+
+function getMongoliaToday() {
+  const parts = formatDateParts(new Date(), MONGOLIA_TIME_ZONE);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function formatMongoliaDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: MONGOLIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const map = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}`;
+}
+
+function toUtcDate(value) {
+  const match = /^(\d{4})[-.](\d{2})[-.](\d{2})$/.exec(String(value || ""));
+  if (!match) {
+    return null;
+  }
+  const [, year, month, day] = match;
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+}
+
+function formatUtcDate(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
 function formatDate(value, withTime = false) {
   if (!value) {
     return "-";
   }
-  const iso = value.includes("T") ? value : `${value}T00:00:00`;
-  const date = new Date(iso);
+  if (withTime) {
+    return formatMongoliaDateTime(value);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    return String(value);
+  }
+  const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  if (withTime) {
-    return iso.slice(0, 16).replace("T", " ");
-  }
-  return iso.slice(0, 10);
+  const parts = formatDateParts(date, MONGOLIA_TIME_ZONE);
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function normalizeStatus(status) {
@@ -227,19 +277,68 @@ function addDays(dateValue, days) {
   if (!dateValue || !days) {
     return "";
   }
-  const base = new Date(`${dateValue}T00:00:00`);
-  base.setDate(base.getDate() + Math.max(Number(days), 0));
-  return base.toISOString().slice(0, 10);
+  const base = toUtcDate(dateValue);
+  if (!base) {
+    return "";
+  }
+  base.setUTCDate(base.getUTCDate() + Math.max(Number(days), 0));
+  return formatUtcDate(base);
 }
 
 function diffDays(startValue, endValue) {
   if (!startValue || !endValue) {
     return "";
   }
-  const start = new Date(`${startValue}T00:00:00`);
-  const end = new Date(`${endValue}T00:00:00`);
+  const start = toUtcDate(startValue);
+  const end = toUtcDate(endValue);
+  if (!start || !end) {
+    return "";
+  }
   const delta = Math.round((end - start) / (1000 * 60 * 60 * 24));
   return String(Math.max(delta, 1));
+}
+
+function normalizeStayFields(checkIn, nights, checkOut) {
+  if (!checkIn) {
+    return {
+      checkIn: "",
+      nights: String(Math.max(Number(nights || 1), 1)),
+      checkOut: checkOut || "",
+    };
+  }
+  const explicitNights = Math.max(Number(nights || 0), 0);
+  if (explicitNights > 0) {
+    return {
+      checkIn,
+      nights: String(explicitNights),
+      checkOut: addDays(checkIn, explicitNights),
+    };
+  }
+  if (checkOut) {
+    const normalizedNights = diffDays(checkIn, checkOut);
+    return {
+      checkIn,
+      nights: normalizedNights || "1",
+      checkOut: addDays(checkIn, normalizedNights || 1),
+    };
+  }
+  return {
+    checkIn,
+    nights: "1",
+    checkOut: addDays(checkIn, 1),
+  };
+}
+
+function getCreatedAtFilterValue(value) {
+  if (!value) {
+    return "";
+  }
+  return formatMongoliaDateTime(value).replace(" ", "T");
+}
+
+function getGroupPaymentValue(entries, field) {
+  const match = entries.find((entry) => entry[field] !== "" && entry[field] !== null && entry[field] !== undefined);
+  return match ? match[field] : "";
 }
 
 async function fetchJson(url, options) {
@@ -288,16 +387,15 @@ function getTripDayLabel(entry) {
 }
 
 function syncCheckoutFromStay() {
-  if (!campCheckin.value) {
-    campCheckout.value = "";
-    return;
-  }
-  const stays = Math.max(Number(campStays.value || 0), 1);
-  campCheckout.value = addDays(campCheckin.value, stays);
+  const stay = normalizeStayFields(campCheckin.value, campStays.value, "");
+  campStays.value = stay.nights;
+  campCheckout.value = stay.checkOut;
 }
 
 function syncStayFromCheckout() {
-  campStays.value = diffDays(campCheckin.value, campCheckout.value);
+  const stay = normalizeStayFields(campCheckin.value, campStays.value, campCheckout.value);
+  campStays.value = stay.nights;
+  campCheckout.value = stay.checkOut;
 }
 
 function setActiveTrip(tripId) {
@@ -335,7 +433,7 @@ function getFilteredTrips() {
     const matchesStartDate = !tripFilterStartDate.value || String(trip.startDate || "") >= tripFilterStartDate.value;
     const matchesStatus = !tripFilterStatus.value || trip.status === tripFilterStatus.value;
     const matchesLanguage = !tripFilterLanguage.value || trip.language === tripFilterLanguage.value;
-    const matchesCreated = !tripFilterCreatedDate.value || String(trip.createdAt || "").slice(0, 16) === tripFilterCreatedDate.value;
+    const matchesCreated = !tripFilterCreatedDate.value || getCreatedAtFilterValue(trip.createdAt) === tripFilterCreatedDate.value;
     return matchesTripName && matchesStartDate && matchesStatus && matchesLanguage && matchesCreated;
   });
 }
@@ -387,7 +485,6 @@ function renderSettingsOptions() {
 
   if (activeTripId) {
     reservationTripSelect.value = activeTripId;
-    filterTripName.value = activeTripId;
   } else if (currentReservationTrip) {
     reservationTripSelect.value = currentReservationTrip;
   }
@@ -430,16 +527,12 @@ function focusReservationResults(trip) {
     return;
   }
   activeTripId = trip.id;
+  reservationTripSelect.value = trip.id;
   activeTripPanelHidden = false;
   activeCampPanelHidden = true;
   currentPage = 1;
   currentTripPage = 1;
   activeTripDayFilter = "";
-  filterTripName.value = trip.id;
-  filterCampName.value = "";
-  filterTripStartDate.value = trip.startDate || "";
-  filterReservedDate.value = "";
-  filterStatus.value = "";
   renderEntries();
   renderActiveTrip();
   renderActiveTripReservations();
@@ -591,25 +684,17 @@ function renderCampPayments() {
       reservationName: entry.reservationName || entry.tripName,
       campName: entry.campName,
       reservations: 0,
-      deposit: 0,
-      depositPaidDate: "",
-      secondPayment: 0,
-      secondPaidDate: "",
-      totalPayment: 0,
-      balancePayment: 0,
-      paidAmount: 0,
-      paymentStatus: "",
+      deposit: Number(entry.deposit || 0),
+      depositPaidDate: entry.depositPaidDate || "",
+      secondPayment: Number(entry.secondPayment || 0),
+      secondPaidDate: entry.secondPaidDate || "",
+      totalPayment: Number(entry.totalPayment || 0),
+      balancePayment: Number(entry.balancePayment || 0),
+      paidAmount: Number(entry.paidAmount || 0),
+      paymentStatus: entry.paymentStatus || "",
       entries: [],
     };
     group.reservations += 1;
-    group.deposit += Number(entry.deposit || 0);
-    group.secondPayment += Number(entry.secondPayment || 0);
-    group.totalPayment += Number(entry.totalPayment || 0);
-    group.balancePayment += Number(entry.balancePayment || 0);
-    group.paidAmount += Number(entry.paidAmount || 0);
-    group.depositPaidDate = entry.depositPaidDate || group.depositPaidDate;
-    group.secondPaidDate = entry.secondPaidDate || group.secondPaidDate;
-    group.paymentStatus = entry.paymentStatus || group.paymentStatus;
     group.entries.push(entry);
     grouped.set(key, group);
   });
@@ -1020,7 +1105,7 @@ function renderReservationEditPanel(reservation, options = {}) {
     tripId: options.tripId || activeTripId || filterTripName.value || "",
     tripName: getTripById(options.tripId || activeTripId || filterTripName.value || "")?.tripName || "",
     reservationName: "",
-    createdDate: new Date().toISOString().slice(0, 10),
+    createdDate: getMongoliaToday(),
     campName: "",
     locationName: "",
     reservationType: "camp",
@@ -1214,7 +1299,7 @@ function renderReservationEditPanel(reservation, options = {}) {
   }
   syncReservationDraftFromTrip(formNode);
   syncReservationDraftFromCamp(formNode);
-  syncInlineEditCheckout(formNode);
+  syncInlineEditNights(formNode);
   reservationEditPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   requestAnimationFrame(() => {
     window.scrollTo({ top: Math.max(reservationEditPanel.getBoundingClientRect().top + window.scrollY - 24, 0), behavior: "smooth" });
@@ -1233,14 +1318,14 @@ function renderPaymentEditPanel(groupKey) {
     tripName: first.tripName,
     reservationName: first.reservationName || first.tripName,
     campName: first.campName,
-    deposit: entries.reduce((sum, entry) => sum + Number(entry.deposit || 0), 0),
-    depositPaidDate: first.depositPaidDate || "",
-    secondPayment: entries.reduce((sum, entry) => sum + Number(entry.secondPayment || 0), 0),
-    secondPaidDate: first.secondPaidDate || "",
-    paidAmount: entries.reduce((sum, entry) => sum + Number(entry.paidAmount || 0), 0),
-    balancePayment: entries.reduce((sum, entry) => sum + Number(entry.balancePayment || 0), 0),
-    totalPayment: entries.reduce((sum, entry) => sum + Number(entry.totalPayment || 0), 0),
-    paymentStatus: first.paymentStatus || "in_progress",
+    deposit: Number(getGroupPaymentValue(entries, "deposit") || 0),
+    depositPaidDate: getGroupPaymentValue(entries, "depositPaidDate") || "",
+    secondPayment: Number(getGroupPaymentValue(entries, "secondPayment") || 0),
+    secondPaidDate: getGroupPaymentValue(entries, "secondPaidDate") || "",
+    paidAmount: Number(getGroupPaymentValue(entries, "paidAmount") || 0),
+    balancePayment: Number(getGroupPaymentValue(entries, "balancePayment") || 0),
+    totalPayment: Number(getGroupPaymentValue(entries, "totalPayment") || 0),
+    paymentStatus: getGroupPaymentValue(entries, "paymentStatus") || "in_progress",
   };
   paymentEditPanel.classList.remove("is-hidden");
   paymentEditPanel.innerHTML = `
@@ -1252,6 +1337,11 @@ function renderPaymentEditPanel(groupKey) {
     </div>
     <form id="payment-edit-form" class="field-grid">
       <input type="hidden" name="groupKey" value="${escapeHtml(groupKey)}" />
+      <input type="hidden" name="tripId" value="${escapeHtml(group.tripId || "")}" />
+      <input type="hidden" name="tripName" value="${escapeHtml(group.tripName || "")}" />
+      <input type="hidden" name="reservationName" value="${escapeHtml(group.reservationName || "")}" />
+      <input type="hidden" name="campName" value="${escapeHtml(group.campName || "")}" />
+      <input type="hidden" name="locationName" value="${escapeHtml(group.locationName || "")}" />
       <div class="camp-form-section full-span">
         <div class="camp-form-section-head">
           <h3>${escapeHtml(group.tripName)} · ${escapeHtml(group.campName)}</h3>
@@ -1310,12 +1400,20 @@ async function handleInlineReservationSubmit(event) {
     if (statusNode) statusNode.textContent = "Please select a trip first.";
     return;
   }
-  if (payload.checkIn && payload.nights) {
-    payload.checkOut = addDays(payload.checkIn, payload.nights);
-    const checkOutNode = target.querySelector('[name="checkOut"]');
-    if (checkOutNode) {
-      checkOutNode.value = payload.checkOut;
-    }
+  const stay = normalizeStayFields(payload.checkIn, payload.nights, payload.checkOut);
+  payload.checkIn = stay.checkIn;
+  payload.nights = stay.nights;
+  payload.checkOut = stay.checkOut;
+  const nightsNode = target.querySelector('[name="nights"]');
+  const checkOutNode = target.querySelector('[name="checkOut"]');
+  if (nightsNode) {
+    nightsNode.value = payload.nights;
+  }
+  if (checkOutNode) {
+    checkOutNode.value = payload.checkOut;
+  }
+  if (!payload.createdDate) {
+    payload.createdDate = formatDate(new Date().toISOString());
   }
   if (!payload.locationName && payload.campName && !payload.newCampName) {
     payload.locationName = getCampLocation(payload.campName);
@@ -1368,6 +1466,10 @@ async function handleInlinePaymentSubmit(event) {
   if (statusNode) statusNode.textContent = "Saving payment...";
   const payload = buildPayload(target);
   const entries = getEntriesByGroupKey(payload.groupKey);
+  if (!entries.length) {
+    if (statusNode) statusNode.textContent = "No reservations found for this camp payment.";
+    return;
+  }
   try {
     const updates = await Promise.all(
       entries.map((entry) =>
@@ -1375,6 +1477,26 @@ async function handleInlinePaymentSubmit(event) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            tripId: payload.tripId || entry.tripId,
+            tripName: payload.tripName || entry.tripName,
+            reservationName: payload.reservationName || entry.reservationName,
+            campName: payload.campName || entry.campName,
+            locationName: payload.locationName || entry.locationName,
+            reservationType: entry.reservationType,
+            createdDate: entry.createdDate,
+            checkIn: entry.checkIn,
+            checkOut: entry.checkOut,
+            nights: entry.nights,
+            roomType: entry.roomType,
+            status: entry.status,
+            staffAssignment: entry.staffAssignment,
+            notes: entry.notes,
+            breakfast: entry.breakfast,
+            lunch: entry.lunch,
+            dinner: entry.dinner,
+            clientCount: entry.clientCount,
+            staffCount: entry.staffCount,
+            gerCount: entry.gerCount,
             deposit: payload.deposit,
             depositPaidDate: payload.depositPaidDate,
             secondPayment: payload.secondPayment,
@@ -1533,20 +1655,24 @@ function syncInlineEditCheckout(formNode) {
   const checkInNode = formNode.querySelector('[name="checkIn"]');
   const nightsNode = formNode.querySelector('[name="nights"]');
   const checkOutNode = formNode.querySelector('[name="checkOut"]');
-  if (!checkInNode || !nightsNode || !checkOutNode || !checkInNode.value) {
+  if (!checkInNode || !nightsNode || !checkOutNode) {
     return;
   }
-  checkOutNode.value = addDays(checkInNode.value, nightsNode.value);
+  const stay = normalizeStayFields(checkInNode.value, nightsNode.value, "");
+  nightsNode.value = stay.nights;
+  checkOutNode.value = stay.checkOut;
 }
 
 function syncInlineEditNights(formNode) {
   const checkInNode = formNode.querySelector('[name="checkIn"]');
   const nightsNode = formNode.querySelector('[name="nights"]');
   const checkOutNode = formNode.querySelector('[name="checkOut"]');
-  if (!checkInNode || !nightsNode || !checkOutNode || !checkInNode.value || !checkOutNode.value) {
+  if (!checkInNode || !nightsNode || !checkOutNode) {
     return;
   }
-  nightsNode.value = diffDays(checkInNode.value, checkOutNode.value);
+  const stay = normalizeStayFields(checkInNode.value, nightsNode.value, checkOutNode.value);
+  nightsNode.value = stay.nights;
+  checkOutNode.value = stay.checkOut;
 }
 
 async function updateReservation(id) {
@@ -1587,9 +1713,10 @@ async function updateReservation(id) {
     }
   });
 
-  if (payload.checkIn && payload.nights) {
-    payload.checkOut = addDays(payload.checkIn, payload.nights);
-  }
+  const stay = normalizeStayFields(payload.checkIn, payload.nights, payload.checkOut);
+  payload.checkIn = stay.checkIn;
+  payload.nights = stay.nights;
+  payload.checkOut = stay.checkOut;
 
   campStatus.textContent = "Updating reservation...";
 
@@ -1734,21 +1861,6 @@ tripForm.addEventListener("submit", async (event) => {
   }
 });
 
-document.addEventListener("submit", async (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLFormElement)) {
-    return;
-  }
-  if (target.id === "reservation-edit-form" || target.id === "reservation-create-form") {
-    await handleInlineReservationSubmit(event);
-    return;
-  }
-  if (target.id === "payment-edit-form") {
-    await handleInlinePaymentSubmit(event);
-    return;
-  }
-});
-
 document.addEventListener("input", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
@@ -1801,8 +1913,12 @@ campForm.addEventListener("submit", async (event) => {
   }
 
   const payload = buildPayload(campForm);
-  syncCheckoutFromStay();
-  payload.checkOut = campCheckout.value;
+  const stay = normalizeStayFields(payload.checkIn, payload.nights, payload.checkOut);
+  payload.checkIn = stay.checkIn;
+  payload.nights = stay.nights;
+  payload.checkOut = stay.checkOut;
+  campStays.value = stay.nights;
+  campCheckout.value = stay.checkOut;
   payload.tripId = selectedTrip.id;
   payload.tripName = selectedTrip.tripName;
   payload.reservationName = payload.reservationName || selectedTrip.reservationName || selectedTrip.tripName;
@@ -1815,7 +1931,7 @@ campForm.addEventListener("submit", async (event) => {
     });
     campStatus.textContent = editingReservationId ? "Reservation updated." : "Reservation saved.";
     campForm.reset();
-    campCreatedDate.value = new Date().toISOString().slice(0, 10);
+    campCreatedDate.value = getMongoliaToday();
     campForm.querySelector('[name="clientCount"]').value = "2";
     campForm.querySelector('[name="staffCount"]').value = "0";
     campForm.querySelector('[name="gerCount"]').value = "1";
@@ -2040,7 +2156,9 @@ function handleCampTableInput(event) {
     const nightsNode = document.querySelector(`[data-role="nights"][data-id="${id}"]`);
     const checkOutNode = document.querySelector(`[data-role="checkOut"][data-id="${id}"]`);
     if (checkInNode && nightsNode && checkOutNode) {
-      checkOutNode.value = addDays(checkInNode.value, nightsNode.value);
+      const stay = normalizeStayFields(checkInNode.value, nightsNode.value, "");
+      nightsNode.value = stay.nights;
+      checkOutNode.value = stay.checkOut;
     }
   }
 }
@@ -2072,7 +2190,9 @@ function handleCampTableChange(event) {
     const nightsNode = document.querySelector(`[data-role="nights"][data-id="${id}"]`);
     const checkOutNode = document.querySelector(`[data-role="checkOut"][data-id="${id}"]`);
     if (checkInNode && nightsNode && checkOutNode) {
-      nightsNode.value = diffDays(checkInNode.value, checkOutNode.value);
+      const stay = normalizeStayFields(checkInNode.value, nightsNode.value, checkOutNode.value);
+      nightsNode.value = stay.nights;
+      checkOutNode.value = stay.checkOut;
     }
   }
 }
@@ -2269,7 +2389,7 @@ document.addEventListener("click", async (event) => {
 });
 
 async function init() {
-  campCreatedDate.value = new Date().toISOString().slice(0, 10);
+  campCreatedDate.value = getMongoliaToday();
   await loadSettings();
   await loadTrips();
   await loadReservations();

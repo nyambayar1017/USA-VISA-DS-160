@@ -72,6 +72,7 @@ RESERVATION_TYPE_LABELS = {
     "hotel": "Буудлын захиалга",
     "herder": "Малчин айлын захиалга",
 }
+MONGOLIA_TZ = timezone(timedelta(hours=8))
 
 ET.register_namespace("w", WORD_NS)
 
@@ -567,6 +568,47 @@ def slugify(value):
 def parse_int(value):
     digits = re.sub(r"[^\d]", "", str(value or "0"))
     return int(digits or "0")
+
+
+def now_mongolia():
+    return datetime.now(MONGOLIA_TZ)
+
+
+def today_mongolia():
+    return now_mongolia().strftime("%Y-%m-%d")
+
+
+def parse_date_input(value):
+    text = normalize_text(value)
+    if not text:
+        return None
+    for pattern in ("%Y-%m-%d", "%Y.%m.%d"):
+        try:
+            return datetime.strptime(text, pattern).date()
+        except ValueError:
+            continue
+    return None
+
+
+def normalize_stay_fields(check_in, nights, check_out):
+    check_in_text = normalize_text(check_in)
+    check_out_text = normalize_text(check_out)
+    check_in_date = parse_date_input(check_in_text)
+    check_out_date = parse_date_input(check_out_text)
+    stay_count = parse_int(nights) or 0
+
+    if not check_in_date:
+        return check_in_text, max(stay_count, 1), check_out_text
+
+    if stay_count > 0:
+        check_out_date = check_in_date + timedelta(days=stay_count)
+    elif check_out_date and check_out_date > check_in_date:
+        stay_count = (check_out_date - check_in_date).days
+    else:
+        stay_count = 1
+        check_out_date = check_in_date + timedelta(days=stay_count)
+
+    return check_in_text, stay_count, check_out_date.strftime("%Y-%m-%d")
 
 
 def read_users():
@@ -1919,7 +1961,7 @@ def validate_reservation(data):
 def build_camp_trip(payload, actor=None):
     return {
         "id": str(uuid4()),
-        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "createdAt": now_mongolia().isoformat(),
         "tripName": normalize_text(payload.get("tripName")),
         "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
         "startDate": normalize_text(payload.get("startDate")),
@@ -1958,24 +2000,15 @@ def find_camp_trip(trip_id):
 
 
 def ensure_checkout_from_nights(check_in, nights, check_out):
-    check_in = normalize_text(check_in)
-    check_out = normalize_text(check_out)
-    stay_count = parse_int(nights) or 1
-    try:
-        base = datetime.strptime(check_in, "%Y-%m-%d")
-    except Exception:
-        return check_out
-    expected = (base + timedelta(days=max(stay_count, 1))).strftime("%Y-%m-%d")
-    return expected
+    return normalize_stay_fields(check_in, nights, check_out)[2]
 
 
 def build_camp_reservation(payload, actor=None):
-    created_date = normalize_text(payload.get("createdDate")) or datetime.now().strftime("%Y-%m-%d")
-    nights = parse_int(payload.get("nights"))
-    check_in = normalize_text(payload.get("checkIn"))
+    check_in, nights, check_out = normalize_stay_fields(payload.get("checkIn"), payload.get("nights"), payload.get("checkOut"))
+    created_date = normalize_text(payload.get("createdDate")) or today_mongolia()
     return {
         "id": str(uuid4()),
-        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "createdAt": now_mongolia().isoformat(),
         "createdDate": created_date,
         "tripId": normalize_text(payload.get("tripId")),
         "tripName": normalize_text(payload.get("tripName")),
@@ -1986,7 +2019,7 @@ def build_camp_reservation(payload, actor=None):
         "newCampName": normalize_text(payload.get("newCampName")),
         "reservationType": normalize_text(payload.get("reservationType")).lower() or "camp",
         "checkIn": check_in,
-        "checkOut": ensure_checkout_from_nights(check_in, nights, payload.get("checkOut")),
+        "checkOut": check_out,
         "clientCount": parse_int(payload.get("clientCount")),
         "staffCount": parse_int(payload.get("staffCount")),
         "staffAssignment": normalize_text(payload.get("staffAssignment")),
@@ -2021,6 +2054,12 @@ def validate_camp_reservation(data):
         return "Number of clients must be greater than 0"
     if data.get("gerCount", 0) <= 0:
         return "Number of gers must be greater than 0"
+    if data.get("nights", 0) <= 0:
+        return "Number of nights must be greater than 0"
+    check_in_date = parse_date_input(data.get("checkIn"))
+    check_out_date = parse_date_input(data.get("checkOut"))
+    if check_in_date and check_out_date and check_out_date <= check_in_date:
+        return "Check-out must be after check-in"
     return None
 
 
@@ -2264,7 +2303,7 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         error = validate_camp_trip(merged)
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})
-        merged["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        merged["updatedAt"] = now_mongolia().isoformat()
         merged["updatedBy"] = actor_snapshot(actor)
         trips[index] = merged
         write_camp_trips(trips)
@@ -2339,6 +2378,8 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
 
         merged = {**record}
         for key in [
+            "tripId",
+            "tripName",
             "campName",
             "locationName",
             "reservationName",
@@ -2374,17 +2415,21 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
             settings["locationNames"] = normalize_option_list(settings["locationNames"] + [normalize_text(merged["locationName"])])
         write_camp_settings(settings)
 
-        for key in ["clientCount", "staffCount", "gerCount", "nights", "deposit", "secondPayment", "totalPayment", "balancePayment", "paidAmount"]:
+        for key in ["clientCount", "staffCount", "gerCount", "deposit", "secondPayment", "totalPayment", "balancePayment", "paidAmount"]:
             if key in payload:
                 merged[key] = parse_int(payload.get(key))
 
-        merged["checkOut"] = ensure_checkout_from_nights(merged.get("checkIn"), merged.get("nights"), merged.get("checkOut"))
+        merged["checkIn"], merged["nights"], merged["checkOut"] = normalize_stay_fields(
+            merged.get("checkIn"),
+            payload.get("nights", merged.get("nights")),
+            merged.get("checkOut"),
+        )
 
         error = validate_camp_reservation(merged)
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})
 
-        merged["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        merged["updatedAt"] = now_mongolia().isoformat()
         merged["updatedBy"] = actor_snapshot(actor)
         merged.update(save_camp_reservation_document(merged))
         records[index] = merged
