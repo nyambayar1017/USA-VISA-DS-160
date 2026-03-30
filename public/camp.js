@@ -822,7 +822,6 @@ function renderActiveTripReservations() {
       <table class="camp-table camp-table-detail">
         <thead>
           <tr>
-            <th class="checkbox-col table-center"><input type="checkbox" class="table-checkbox" data-action="toggle-select-all-detail-checkbox" ${entries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} aria-label="Select all" /></th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
@@ -912,14 +911,11 @@ function renderActiveCampReservations() {
 }
 
 function renderReadOnlyRow(entry, index, options = {}) {
-  const { includeCheckbox = true } = options;
-  const isSelected = selectedReservationIds.has(entry.id);
   const meals = [entry.breakfast === "Yes" && "Breakfast", entry.lunch === "Yes" && "Lunch", entry.dinner === "Yes" && "Dinner"]
     .filter(Boolean)
     .join(" / ");
   return `
     <tr class="${statusClass(entry)}">
-      ${includeCheckbox ? `<td class="checkbox-col table-center"><input type="checkbox" class="table-checkbox" data-action="toggle-select-checkbox" data-id="${entry.id}" ${isSelected ? "checked" : ""} aria-label="Select reservation" /></td>` : ""}
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
@@ -955,7 +951,6 @@ function renderReadOnlyRow(entry, index, options = {}) {
 function renderEditableRow(entry, index) {
   return `
     <tr class="is-editing ${statusClass(entry)}">
-      <td class="checkbox-col"></td>
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
@@ -1050,7 +1045,6 @@ function renderEntries() {
       <table class="camp-table">
         <thead>
           <tr>
-            <th class="checkbox-col table-center"><input type="checkbox" class="table-checkbox" data-action="toggle-select-all-checkbox" ${visibleEntries.length && visibleEntries.every((entry) => selectedReservationIds.has(entry.id)) ? "checked" : ""} aria-label="Select all" /></th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
