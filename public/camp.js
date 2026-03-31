@@ -398,12 +398,15 @@ function syncStayFromCheckout() {
   campCheckout.value = stay.checkOut;
 }
 
-function setActiveTrip(tripId) {
+function setActiveTrip(tripId, options = {}) {
   activeTripId = tripId || "";
   activeTripDayFilter = "";
   activeTripPanelHidden = false;
   activeCampPanelHidden = true;
-  reservationTripSelect.value = activeTripId;
+  const shouldSyncFilter = options.syncFilters !== false;
+  if (shouldSyncFilter) {
+    reservationTripSelect.value = activeTripId;
+  }
   currentPage = 1;
   renderTrips();
   renderActiveTrip();
@@ -522,12 +525,14 @@ function syncReservationDraftFromCamp(formNode) {
   applyCampLocationToForm(formNode);
 }
 
-function focusReservationResults(trip) {
+function focusReservationResults(trip, options = {}) {
   if (!trip) {
     return;
   }
   activeTripId = trip.id;
-  reservationTripSelect.value = trip.id;
+  if (options.syncFilters !== false) {
+    reservationTripSelect.value = trip.id;
+  }
   activeTripPanelHidden = false;
   activeCampPanelHidden = true;
   currentPage = 1;
@@ -1391,6 +1396,13 @@ async function handleInlineReservationSubmit(event) {
   const statusNode = target.querySelector("#reservation-edit-status");
   if (statusNode) statusNode.textContent = "Saving reservation...";
   const payload = buildPayload(target);
+  if (target.id === "reservation-edit-form" && !payload.id && editingReservationId) {
+    payload.id = editingReservationId;
+  }
+  if (target.id === "reservation-edit-form" && !payload.id) {
+    if (statusNode) statusNode.textContent = "Missing reservation id.";
+    return;
+  }
   const selectedTrip = getTripById(payload.tripId);
   if (!selectedTrip) {
     if (statusNode) statusNode.textContent = "Please select a trip first.";
@@ -1439,7 +1451,7 @@ async function handleInlineReservationSubmit(event) {
     await loadTrips();
     await loadReservations();
     const nextTrip = getTripById(payload.tripId) || selectedTrip;
-    focusReservationResults(nextTrip);
+    focusReservationResults(nextTrip, { syncFilters: false });
     if (savedEntry?.id) {
       selectedReservationIds = new Set([savedEntry.id]);
       renderEntries();
@@ -1464,6 +1476,13 @@ async function handleInlinePaymentSubmit(event) {
   const entries = getEntriesByGroupKey(payload.groupKey);
   if (!entries.length) {
     if (statusNode) statusNode.textContent = "No reservations found for this camp payment.";
+    return;
+  }
+  if (!payload.reservationName) {
+    payload.reservationName = entries[0]?.reservationName || entries[0]?.tripName || "";
+  }
+  if (!payload.reservationName) {
+    if (statusNode) statusNode.textContent = "Missing reservation name.";
     return;
   }
   try {
@@ -1726,7 +1745,7 @@ async function updateReservation(id) {
     campStatus.textContent = "Reservation updated.";
     await loadReservations();
     if (existingEntry?.tripId) {
-      setActiveTrip(existingEntry.tripId);
+      setActiveTrip(existingEntry.tripId, { syncFilters: false });
     } else {
       renderEntries();
       renderActiveTripReservations();
