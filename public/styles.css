@@ -1519,7 +1519,7 @@ body.modal-open {
 
 .trip-table th:nth-child(1),
 .trip-table td:nth-child(1) {
-  width: 42px;
+  width: 36px;
 }
 
 .trip-table th:nth-child(2),
@@ -1543,25 +1543,25 @@ body.modal-open {
 .trip-table td:nth-child(5),
 .trip-table th:nth-child(6),
 .trip-table td:nth-child(6) {
-  width: 52px;
+  width: 44px;
   text-align: center;
 }
 
 .trip-table th:nth-child(7),
 .trip-table td:nth-child(7) {
-  width: 104px;
+  width: 118px;
   text-align: left;
 }
 
 .trip-table th:nth-child(8),
 .trip-table td:nth-child(8) {
-  width: 104px;
+  width: 118px;
   text-align: left;
 }
 
 .trip-table th:nth-child(9),
 .trip-table td:nth-child(9) {
-  width: 104px;
+  width: 118px;
   text-align: left;
 }
 
@@ -1578,18 +1578,18 @@ body.modal-open {
 
 .trip-table th:nth-child(12),
 .trip-table td:nth-child(12) {
-  width: 134px;
+  width: 150px;
 }
 
 .trip-table th:nth-child(13),
 .trip-table td:nth-child(13) {
-  width: 136px;
+  width: 150px;
   text-align: left;
 }
 
 .trip-table th:nth-child(14),
 .trip-table td:nth-child(14) {
-  width: 320px;
+  width: 360px;
 }
 
 .trip-table .status-pill.is-planning {
