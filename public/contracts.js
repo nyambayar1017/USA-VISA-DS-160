@@ -171,7 +171,7 @@ const initContractForm = () => {
   });
 
   panel.addEventListener("click", (event) => {
-    if (event.target.dataset.action === "close-contract-modal") closeModal();
+    if (event.target.dataset.action === "close-contract-panel") closeModal();
   });
 
   qsa(".camp-modal-close", panel).forEach((button) => {
