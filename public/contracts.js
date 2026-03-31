@@ -155,6 +155,9 @@ const initContractForm = () => {
   const toggle = qs("#contract-toggle-form");
   const form = qs("#contract-form");
   const statusEl = qs("#contract-status");
+  const managerSelect = qs("#manager-select");
+  const managerLastInput = form.querySelector("input[name='managerLastName']");
+  const managerFirstInput = form.querySelector("input[name='managerFirstName']");
 
   if (!panel || !toggle || !form) return;
 
@@ -199,6 +202,38 @@ const initContractForm = () => {
 
   // Ensure the panel is hidden on first load even if browser caches styles.
   closeModal();
+
+  const loadManagers = async () => {
+    if (!managerSelect) return;
+    try {
+      const data = await apiRequest("/api/camp-settings");
+      const names = data?.entry?.staffAssignments || [];
+      managerSelect.innerHTML =
+        `<option value="">Менежер сонгох</option>` +
+        names.map((name) => `<option value="${name}">${name}</option>`).join("");
+      if (names.length === 1) {
+        managerSelect.value = names[0];
+        managerSelect.dispatchEvent(new Event("change"));
+      }
+    } catch {}
+  };
+
+  managerSelect?.addEventListener("change", () => {
+    const value = managerSelect.value || "";
+    if (!value) {
+      if (managerLastInput) managerLastInput.value = "";
+      if (managerFirstInput) managerFirstInput.value = "";
+      return;
+    }
+    const parts = value.trim().split(/\s+/);
+    if (parts.length === 1) {
+      if (managerLastInput) managerLastInput.value = parts[0];
+      if (managerFirstInput) managerFirstInput.value = parts[0];
+    } else {
+      if (managerLastInput) managerLastInput.value = parts[0];
+      if (managerFirstInput) managerFirstInput.value = parts.slice(1).join(" ");
+    }
+  });
 
   const tripStartInput = form.querySelector("input[name='tripStartDate']");
   const tripEndInput = form.querySelector("input[name='tripEndDate']");
@@ -290,6 +325,7 @@ const initContractForm = () => {
   updateTravelerCount();
   updatePriceVisibility();
   updateTotalPrice();
+  loadManagers();
 };
 
 const initSignatureCanvas = (canvas) => {

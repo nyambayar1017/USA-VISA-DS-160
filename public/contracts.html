@@ -64,10 +64,16 @@
                   <input name="contractDate" type="date" required />
                 </label>
                 <label>
+                  Менежерийн нэр (сонгох)
+                  <select id="manager-select" name="managerSelect" required>
+                    <option value="">Менежер сонгох</option>
+                  </select>
+                </label>
+                <label class="is-hidden">
                   Менежерийн овог
                   <input name="managerLastName" required />
                 </label>
-                <label>
+                <label class="is-hidden">
                   Менежерийн нэр
                   <input name="managerFirstName" required />
                 </label>
@@ -133,19 +139,19 @@
                 </label>
                 <label>
                   Том хүний үнэ
-                  <input name="adultPrice" placeholder="3,990,000" required />
+                  <input name="adultPrice" value="0" required />
                 </label>
                 <label class="price-field" data-price-field="child">
                   Хүүхдийн үнэ
-                  <input name="childPrice" placeholder="3,390,000" />
+                  <input name="childPrice" value="0" />
                 </label>
                 <label class="price-field" data-price-field="infant">
                   Нярай хүүхдийн үнэ
-                  <input name="infantPrice" placeholder="0" />
+                  <input name="infantPrice" value="0" />
                 </label>
                 <label class="price-field" data-price-field="landOnly">
                   Газрын үйлчилгээтэй хүний үнэ
-                  <input name="landOnlyPrice" placeholder="2,590,000" />
+                  <input name="landOnlyPrice" value="0" />
                 </label>
                 <label>
                   Нийт хүн (тооцоолно)
@@ -180,6 +186,6 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-55"></script>
-    <script src="/contracts.js?v=workspace-61"></script>
+    <script src="/contracts.js?v=workspace-62"></script>
   </body>
 </html>
