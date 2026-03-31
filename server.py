@@ -870,33 +870,85 @@ def format_balance_due_date(value):
 
 
 def build_contract_data(payload):
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).astimezone(LOCAL_TZ).date().isoformat()
     contract_date = payload.get("contractDate") or today
+
     tourist_last_name = normalize_text(payload.get("touristLastName"))
     tourist_first_name = normalize_text(payload.get("touristFirstName"))
+
     adult_count = parse_int(payload.get("adultCount"))
     child_count = parse_int(payload.get("childCount"))
-    traveler_count = parse_int(payload.get("travelerCount")) or adult_count + child_count
+    infant_count = parse_int(payload.get("infantCount"))
+    land_only_count = parse_int(payload.get("landOnlyCount"))
+
+    traveler_count = parse_int(payload.get("travelerCount")) or adult_count + child_count + infant_count + land_only_count
     total_price_raw = parse_int(payload.get("totalPrice"))
     deposit_raw = parse_int(payload.get("depositAmount"))
     balance_raw = max(total_price_raw - deposit_raw, 0)
 
+    contract_serial = normalize_text(payload.get("contractSerial"))
+    if not contract_serial:
+        now = datetime.now(timezone.utc).astimezone(LOCAL_TZ)
+        month = f"{now.month:02d}"
+        year = str(now.year)[-2:]
+        prefix = f"DTX-{month}-{year}-"
+        serials = [
+            c.get("data", {}).get("contractSerial", "")
+            for c in read_contracts()
+            if str(c.get("data", {}).get("contractSerial", "")).startswith(prefix)
+        ]
+        numbers = []
+        for item in serials:
+            try:
+                numbers.append(int(str(item).replace(prefix, "")))
+            except ValueError:
+                continue
+        next_num = max(numbers or [0]) + 1
+        contract_serial = f"{prefix}{next_num:03d}"
+
+    manager_last = normalize_text(payload.get("managerLastName"))
+    manager_first = normalize_text(payload.get("managerFirstName"))
+    manager_full = " ".join(part for part in [manager_last, manager_first] if part).strip()
+
+    trip_start = normalize_text(payload.get("tripStartDate"))
+    trip_end = normalize_text(payload.get("tripEndDate"))
+    trip_duration = normalize_text(payload.get("tripDuration"))
+    if not trip_duration and trip_start and trip_end:
+        try:
+            start_date = datetime.fromisoformat(trip_start).date()
+            end_date = datetime.fromisoformat(trip_end).date()
+            diff_days = (end_date - start_date).days + 1
+            if diff_days > 0:
+                trip_duration = f"{diff_days} өдөр {max(diff_days - 1, 0)} шөнө"
+        except ValueError:
+            trip_duration = trip_duration
+
     data = {
-        "contractSerial": normalize_text(payload.get("contractSerial")),
+        "contractSerial": contract_serial,
         "contractDate": contract_date,
+        "managerLastName": manager_last,
+        "managerFirstName": manager_first,
+        "managerFullName": manager_full,
         "touristLastName": tourist_last_name,
         "touristFirstName": tourist_first_name,
         "touristRegister": normalize_text(payload.get("touristRegister")),
+        "clientPhone": normalize_text(payload.get("clientPhone")),
+        "emergencyContactName": normalize_text(payload.get("emergencyContactName")),
+        "emergencyContactRelation": normalize_text(payload.get("emergencyContactRelation")),
+        "emergencyContactPhone": normalize_text(payload.get("emergencyContactPhone")),
         "destination": normalize_text(payload.get("destination")),
-        "tripStartDate": normalize_text(payload.get("tripStartDate")),
-        "tripEndDate": normalize_text(payload.get("tripEndDate")),
-        "tripDuration": normalize_text(payload.get("tripDuration")),
+        "tripStartDate": trip_start,
+        "tripEndDate": trip_end,
+        "tripDuration": trip_duration,
         "adultCount": adult_count,
         "childCount": child_count,
+        "infantCount": infant_count,
+        "landOnlyCount": land_only_count,
         "travelerCount": traveler_count,
         "adultPrice": format_money(payload.get("adultPrice")),
         "childPrice": format_money(payload.get("childPrice")),
-        "noFlightPrice": format_money(payload.get("noFlightPrice")),
+        "infantPrice": format_money(payload.get("infantPrice")),
+        "landOnlyPrice": format_money(payload.get("landOnlyPrice")),
         "totalPrice": format_money(payload.get("totalPrice")),
         "depositAmount": format_money(payload.get("depositAmount")),
         "balanceAmount": format_money(balance_raw),
@@ -906,6 +958,29 @@ def build_contract_data(payload):
     data["touristSignature"] = (
         f"{data['touristLastName'][:1]}.{data['touristFirstName']}" if data["touristLastName"] else data["touristFirstName"]
     )
+
+    parts = []
+    if adult_count:
+        parts.append(f"{adult_count} том хүний {data['adultPrice']} төгрөг")
+    if child_count:
+        parts.append(f"{child_count} хүүхдийн {data['childPrice']} төгрөг")
+    if infant_count:
+        parts.append(f"{infant_count} нярай хүүхдийн {data['infantPrice']} төгрөг")
+    if land_only_count:
+        parts.append(f"{land_only_count} зочин газрын үйлчилгээтэй {data['landOnlyPrice']} төгрөг")
+    price_breakdown = ", ".join(part for part in parts if part)
+    data["priceBreakdown"] = price_breakdown or ""
+    data["paymentParagraph"] = (
+        f"Энэхүү гэрээгээр аялагчийн төлбөр нь {price_breakdown}, нийт {data['travelerCount']} хүний {data['totalPrice']} төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно."
+        if price_breakdown
+        else f"Энэхүү гэрээгээр аялагчийн төлбөр нь нийт {data['travelerCount']} хүний {data['totalPrice']} төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно."
+    )
+    data["depositParagraph"] = (
+        f"Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1.Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_balance_due_date(data['depositDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN03 0034 3432 7777 9999 дансанд хийснээр аялал баталгаажна."
+    )
+    data["balanceParagraph"] = (
+        f"5.3.2 Аяллын үлдэгдэл төлбөр болох {data['balanceAmount']} төгрөгийг {format_balance_due_date(data['balanceDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN03 0034 3432 7777 9999 дансанд хийнэ."
+    )
     return data
 
 
@@ -913,9 +988,15 @@ def validate_contract_data(data):
     required = [
         "contractSerial",
         "contractDate",
+        "managerLastName",
+        "managerFirstName",
         "touristLastName",
         "touristFirstName",
         "touristRegister",
+        "clientPhone",
+        "emergencyContactName",
+        "emergencyContactPhone",
+        "emergencyContactRelation",
         "destination",
         "tripStartDate",
         "tripEndDate",
@@ -973,7 +1054,44 @@ def set_paragraph_text(paragraph, text):
 
 def replace_template_paragraphs(root, data):
     replacements = {
-        "Дугаар: DTX-09А-26-_____": f"Дугаар: DTX-09А-26-{data['contractSerial']}",
+        "Дугаар: DTX-09А-26-_____": f"Дугаар: {data['contractSerial']}",
+        "2026 оны 01 сарын 26 өдөр                                                 Улаанбаатар хот":
+            f"{format_contract_header_date(data['contractDate'])}                                                 Улаанбаатар хот",
+        "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас 2 жуулчин төлөөлөн Батмөнх овогтой Уранчимэг (РД:ШД84011762) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.":
+            "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай "
+            f"{data['managerFullName']}, нөгөө талаас {data['travelerCount']} жуулчин төлөөлөн {data['touristLastName']} овогтой {data['touristFirstName']} (РД:{data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
+        "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/02/17-2026/02/25 хооронд Египет аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
+            f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']} аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
+        "Энэхүү гэрээгээр аялагчийн төлбөр нь том хүний 7,340,000 төгрөг буюу нийт 2 хүний 14,680,000 төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.":
+            data["paymentParagraph"],
+        "Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1.Аяллын урьдчилгаа төлбөр болох 4,404,000 төгрөгийг 2026 оны 01-р сарын 26 өдөр “Дэлхий Трэвел Икс”  ХХК-ний  Төрийн Банкны MN03 0034 3432":
+            data["depositParagraph"],
+        "7777 9999 дугаартай дансанд хийснээр аялал баталгаажна.":
+            "",
+        "5.3.2 Аяллын үлдэгдэл төлбөр болох 10,276,000 төгрөгийг 2026 оны 02 сарын 06 өдөр “Дэлхий Трэвел Икс”  ХХК-ний  Төрийн Банкны MN03 0034 3432":
+            data["balanceParagraph"],
+        "7777 9999 дугаартай дансанд хийнэ.":
+            "",
+        "Б. Уранчимэг":
+            f"{data['touristLastName']} {data['touristFirstName']}",
+        "Утас:":
+            f"Утас: {data.get('clientPhone') or ''}".strip(),
+        "VIBER:":
+            f"Яаралтай үед холбоо барих: {data.get('emergencyContactName') or ''}".strip(),
+        "FACEBOOK:":
+            f"Холбоо барих утас: {data.get('emergencyContactPhone') or ''}".strip(),
+        "Хаяг: _____________ хот, ___________":
+            "",
+        "дүүрэг, ______________________ гудамж,":
+            "",
+        "______ хороо, _________________хотхон":
+            "",
+        "______ байр ___тоот":
+            "",
+        "Яаралтай үед холбоо барих утасны дугаар:":
+            f"Яаралтай үед холбоо барих утас: {data.get('emergencyContactPhone') or ''}".strip(),
+        "Таны хэн болох:":
+            f"Таны хэн болох: {data.get('emergencyContactRelation') or ''}".strip(),
         "2026 оны 03 сарын 13 өдөр                                                                                Улаанбаатар хот":
             f"{format_contract_header_date(data['contractDate'])}                                                                                Улаанбаатар хот",
         "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн Цэдэн-Иш овогтой Чинзориг (РД: ШЕ77111832) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.":
@@ -982,7 +1100,7 @@ def replace_template_paragraphs(root, data):
         "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/03/28-2026/04/03 хооронд Турк аялал, 7 өдөр 6 шөнө, хөтөлбөртэй аяллын дагуу 5 аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
             f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']}, {data['tripDuration']}, хөтөлбөртэй аяллын дагуу {data['travelerCount']} аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
         "Энэхүү гэрээгээр аялагчийн төлбөр нь 3 том хүний 3,990,000 төгрөг, 1 хүүхдийн 3,390,000  төгрөг, 1 хүний онгоц ороогүй дүн 2,590,000 төгрөг,  нийт 5 аялагчийн аяллын төлбөр 17,450,000 төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.":
-            f"Энэхүү гэрээгээр аялагчийн төлбөр нь {data['adultCount']} том хүний {data['adultPrice']} төгрөг, {data['childCount']} хүүхдийн {data['childPrice']} төгрөг, 1 хүний онгоц ороогүй дүн {data['noFlightPrice']} төгрөг, нийт {data['travelerCount']} аялагчийн аяллын төлбөр {data['totalPrice']} төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.",
+            data["paymentParagraph"],
         "Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1.Аяллын урьдчилгаа төлбөр болох 8,725,000 төгрөгийг 2026 оны 03-р сарын":
             f" Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1. Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_due_date_ordinal(data['depositDueDate'])} дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай дансанд хийснээр аялал баталгаажна.",
         "13 -ий дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны":
@@ -1002,7 +1120,7 @@ def replace_template_paragraphs(root, data):
         "Энэхүү гэрээгээр Аялал зохион байгуулагч нь захиалагчийн хүсэлтээр Тайланд улсын Пукет арлаар аялах хөтөлбөртэй аяллыг 2025/02/16 – 2025/02/23-ны хооронд 8 өдөр 7 шөнөөр тооцож энэ гэрээнд заагдсан аяллыг зохион байгуулах,":
             f"Энэхүү гэрээгээр Аялал зохион байгуулагч нь захиалагчийн хүсэлтээр {data['destination']} чиглэлд аялах хөтөлбөртэй аяллыг {data['tripStartDate']} – {data['tripEndDate']}-ны хооронд {data['tripDuration']} тооцож энэ гэрээнд заагдсан аяллыг зохион байгуулах,",
         "1 том хүний 4’590’000 төгрөг, нийт 21 хүний 96,390,000 төгрөг байхаар харилцан тохиров.":
-            f"{data['adultCount']} том хүний {data['adultPrice']} төгрөг, нийт {data['travelerCount']} хүний {data['totalPrice']} төгрөг байхаар харилцан тохиров.",
+            data["paymentParagraph"],
         "Аяллын урьдчилгаа төлбөр болох 10,980,000 төгрөгийг  2026 оны 01 сарын 24 –ны өдрийн дотор Төрийн банкны MN030034 3432 7777 9999 тоот төгрөгийн дансанд шилжүүлнэ.":
             f"Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг  {format_balance_due_date(data['depositDueDate'])} өдрийн дотор Төрийн банкны MN030034 3432 7777 9999 тоот төгрөгийн дансанд шилжүүлнэ.",
         "Аяллын үлдэгдэл болох 10,980,000 төгрөгийг  2026 оны 01 сарын 24 –ны өдрийн дотор Төрийн банкны MN030034 3432 7777 9999 тоот төгрөгийн дансанд шилжүүлнэ.":
@@ -1137,14 +1255,13 @@ def build_contract_html(data):
         background: var(--paper);
         box-shadow: 0 20px 60px rgba(71, 53, 43, 0.12);
       }}
-      .doc-header {{
+      .doc-logo {{
         display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 24px;
+        justify-content: center;
+        margin-bottom: 12px;
       }}
-      .doc-header img {{
-        width: 120px;
+      .doc-logo img {{
+        width: 140px;
         height: auto;
         object-fit: contain;
       }}
@@ -1189,12 +1306,8 @@ def build_contract_html(data):
       <a class="secondary" href="/">Back to form</a>
     </div>
     <main class="page">
-      <div class="doc-header">
-        <img src="/assets/dtx-stamp.png" alt="DTX" />
-        <div>
-          <strong>Дэлхий Трэвел Икс ХХК</strong>
-          <div>Аялал жуулчлалын гэрээний загвар</div>
-        </div>
+      <div class="doc-logo">
+        <img src="/assets/dtx-stamp.png" alt="DTX logo" />
       </div>
       {content}
     </main>

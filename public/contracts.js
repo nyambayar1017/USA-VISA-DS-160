@@ -8,6 +8,30 @@ const formatDate = (value) => {
   return value.split("T")[0];
 };
 
+const parseDate = (value) => {
+  if (!value) return null;
+  const parts = value.split("-");
+  if (parts.length !== 3) return null;
+  const [year, month, day] = parts.map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(Date.UTC(year, month - 1, day));
+};
+
+const formatDuration = (startValue, endValue) => {
+  const start = parseDate(startValue);
+  const end = parseDate(endValue);
+  if (!start || !end) return "";
+  const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  if (diffDays <= 0) return "";
+  const nights = Math.max(diffDays - 1, 0);
+  return `${diffDays} өдөр ${nights} шөнө`;
+};
+
+const normalizeNumber = (value) => {
+  const raw = String(value || "").replace(/[^0-9.-]/g, "");
+  return Number(raw || 0);
+};
+
 const apiRequest = async (url, options = {}) => {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -127,6 +151,10 @@ const initContractForm = () => {
 
   toggle.addEventListener("click", () => {
     panel.classList.remove("is-hidden");
+    const dateInput = form.querySelector("input[name='contractDate']");
+    if (dateInput && !dateInput.value) {
+      dateInput.value = new Date().toISOString().split("T")[0];
+    }
   });
 
   panel.addEventListener("click", (event) => {
@@ -153,6 +181,33 @@ const initContractForm = () => {
       statusEl.textContent = error.message;
     }
   });
+
+  const tripStartInput = form.querySelector("input[name='tripStartDate']");
+  const tripEndInput = form.querySelector("input[name='tripEndDate']");
+  const durationInput = form.querySelector("input[name='tripDuration']");
+  const travelerInput = form.querySelector("input[name='travelerCount']");
+  const countInputs = [
+    form.querySelector("input[name='adultCount']"),
+    form.querySelector("input[name='childCount']"),
+    form.querySelector("input[name='infantCount']"),
+    form.querySelector("input[name='landOnlyCount']"),
+  ].filter(Boolean);
+
+  const updateDuration = () => {
+    if (!durationInput) return;
+    const value = formatDuration(tripStartInput?.value, tripEndInput?.value);
+    if (value) durationInput.value = value;
+  };
+
+  const updateTravelerCount = () => {
+    if (!travelerInput) return;
+    const total = countInputs.reduce((sum, input) => sum + normalizeNumber(input.value), 0);
+    travelerInput.value = total ? String(total) : "";
+  };
+
+  tripStartInput?.addEventListener("change", updateDuration);
+  tripEndInput?.addEventListener("change", updateDuration);
+  countInputs.forEach((input) => input.addEventListener("input", updateTravelerCount));
 };
 
 const initSignatureCanvas = (canvas) => {

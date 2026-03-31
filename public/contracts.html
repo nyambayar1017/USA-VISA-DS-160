@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-58" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-59" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -57,75 +57,115 @@
               </div>
               <form id="contract-form" class="field-grid contract-grid">
                 <label>
-                  Contract Serial
-                  <input name="contractSerial" placeholder="09A-26-001" required />
+                  Гэрээний дугаар (автоматаар үүснэ)
+                  <input name="contractSerial" placeholder="DTX-09-26-001" />
                 </label>
                 <label>
-                  Contract Date
+                  Гэрээ байгуулсан өдөр
                   <input name="contractDate" type="date" required />
                 </label>
                 <label>
-                  Tourist Last Name
+                  Менежерийн овог
+                  <input name="managerLastName" required />
+                </label>
+                <label>
+                  Менежерийн нэр
+                  <input name="managerFirstName" required />
+                </label>
+                <label>
+                  Жуулчны овог
                   <input name="touristLastName" required />
                 </label>
                 <label>
-                  Tourist First Name
+                  Жуулчны нэр
                   <input name="touristFirstName" required />
                 </label>
                 <label>
-                  Tourist Register
+                  Жуулчны регистр
                   <input name="touristRegister" required />
                 </label>
                 <label>
-                  Destination
+                  Жуулчны утас
+                  <input name="clientPhone" required />
+                </label>
+                <label>
+                  Яаралтай үед холбогдох нэр
+                  <input name="emergencyContactName" required />
+                </label>
+                <label>
+                  Яаралтай үед холбогдох утас
+                  <input name="emergencyContactPhone" required />
+                </label>
+                <label>
+                  Таны хэн болох
+                  <input name="emergencyContactRelation" required />
+                </label>
+                <label>
+                  Аяллын чиглэл
                   <input name="destination" required />
                 </label>
                 <label>
-                  Trip Start Date
+                  Аялал эхлэх өдөр
                   <input name="tripStartDate" type="date" required />
                 </label>
                 <label>
-                  Trip End Date
+                  Аялал дуусах өдөр
                   <input name="tripEndDate" type="date" required />
                 </label>
                 <label>
-                  Trip Duration
+                  Аяллын хугацаа (өдөр/шөнө)
                   <input name="tripDuration" placeholder="8 өдөр 7 шөнө" required />
                 </label>
                 <label>
-                  Adult Count
+                  Том хүний тоо
                   <input name="adultCount" type="number" min="0" value="1" />
                 </label>
                 <label>
-                  Child Count
+                  Хүүхдийн тоо
                   <input name="childCount" type="number" min="0" value="0" />
                 </label>
                 <label>
-                  Adult Price
+                  Нярай хүүхдийн тоо
+                  <input name="infantCount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Газрын үйлчилгээтэй хүний тоо
+                  <input name="landOnlyCount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Том хүний үнэ
                   <input name="adultPrice" placeholder="3,990,000" required />
                 </label>
                 <label>
-                  Child Price
+                  Хүүхдийн үнэ
                   <input name="childPrice" placeholder="3,390,000" />
                 </label>
                 <label>
-                  No Flight Price
-                  <input name="noFlightPrice" placeholder="2,590,000" />
+                  Нярай хүүхдийн үнэ
+                  <input name="infantPrice" placeholder="0" />
                 </label>
                 <label>
-                  Total Price
+                  Газрын үйлчилгээтэй хүний үнэ
+                  <input name="landOnlyPrice" placeholder="2,590,000" />
+                </label>
+                <label>
+                  Нийт хүн (тооцоолно)
+                  <input name="travelerCount" type="number" min="0" />
+                </label>
+                <label>
+                  Нийт төлбөр
                   <input name="totalPrice" placeholder="17,450,000" required />
                 </label>
                 <label>
-                  Deposit Amount
+                  Урьдчилгаа төлбөр
                   <input name="depositAmount" placeholder="8,725,000" required />
                 </label>
                 <label>
-                  Deposit Due Date
+                  Урьдчилгаа төлбөр төлөх огноо
                   <input name="depositDueDate" type="date" required />
                 </label>
                 <label>
-                  Balance Due Date
+                  Үлдэгдэл төлбөр төлөх огноо
                   <input name="balanceDueDate" type="date" required />
                 </label>
                 <div class="actions full-span">
@@ -141,6 +181,6 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-55"></script>
-    <script src="/contracts.js?v=workspace-58"></script>
+    <script src="/contracts.js?v=workspace-59"></script>
   </body>
 </html>
