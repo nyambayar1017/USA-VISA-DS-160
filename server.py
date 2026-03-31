@@ -3,6 +3,7 @@ import html
 import hashlib
 import hmac
 import json
+import base64
 import mimetypes
 import os
 import re
@@ -26,6 +27,7 @@ PORT = int(os.environ.get("PORT", "3000"))
 HOST = os.environ.get("HOST", "0.0.0.0")
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "change-me")
 TEMPLATE_FILE = Path(os.environ.get("CONTRACT_TEMPLATE", DATA_DIR / "GEREE-template.docx"))
+TEMPLATE_FALLBACK = Path(__file__).resolve().parent / "data" / "GEREE-template.docx"
 CONTRACTS_FILE = DATA_DIR / "contracts.json"
 DS160_FILE = DATA_DIR / "ds160_applications.json"
 FINANCE_FILE = DATA_DIR / "finance_entries.json"
@@ -874,6 +876,9 @@ def build_contract_data(payload):
     adult_count = parse_int(payload.get("adultCount"))
     child_count = parse_int(payload.get("childCount"))
     traveler_count = parse_int(payload.get("travelerCount")) or adult_count + child_count
+    total_price_raw = parse_int(payload.get("totalPrice"))
+    deposit_raw = parse_int(payload.get("depositAmount"))
+    balance_raw = max(total_price_raw - deposit_raw, 0)
 
     data = {
         "contractSerial": normalize_text(payload.get("contractSerial")),
@@ -893,6 +898,7 @@ def build_contract_data(payload):
         "noFlightPrice": format_money(payload.get("noFlightPrice")),
         "totalPrice": format_money(payload.get("totalPrice")),
         "depositAmount": format_money(payload.get("depositAmount")),
+        "balanceAmount": format_money(balance_raw),
         "depositDueDate": normalize_text(payload.get("depositDueDate")),
         "balanceDueDate": normalize_text(payload.get("balanceDueDate")),
     }
@@ -986,6 +992,22 @@ def replace_template_paragraphs(root, data):
             f"5.3.2. Аяллын үлдэгдэлийг {format_balance_due_date(data['balanceDueDate'])} дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай дансанд хийхээр тохиролцов.",
         "Ц.Чинзориг":
             data["touristSignature"],
+        "2025 оны 01 сарын  21 өдөр                     № 25 / ПУКЕТ                      Улаанбаатар хот":
+            f"{format_contract_header_date(data['contractDate'])}                     № {data['contractSerial']} / {data['destination']}                      Улаанбаатар хот",
+        "Нэг талаас Дэлхий Трэвел Икс ХХК (6925073 )/цаашид “Аялал зохион байгуулагч” гэх/ түүнийг төлөөлөн менежер Ч.Нямбаяр,":
+            "Нэг талаас Дэлхий Трэвел Икс ХХК (6925073 )/цаашид “Аялал зохион байгуулагч” гэх/ түүнийг төлөөлөн менежер Ч.Нямбаяр,",
+        "Нөгөө талаас 21 аялагчийг төлөөлөн, ХХХХХХХХ овогтой XXXXXXXX (РД: ДЙ91101311) /цаашид “Захиалагч” гэх/ нар дор дурдсан нөхцөлөөр харилцан тохиролцож  байгуулав.":
+            f"Нөгөө талаас {data['travelerCount']} аялагчийг төлөөлөн, {data['touristLastName']} овогтой {data['touristFirstName']} (РД: {data['touristRegister']}) /цаашид “Захиалагч” гэх/ нар дор дурдсан нөхцөлөөр харилцан тохиролцож  байгуулав.",
+        "Энэхүү гэрээгээр Аялал зохион байгуулагч нь захиалагчийн хүсэлтээр Тайланд улсын Пукет арлаар аялах хөтөлбөртэй аяллыг 2025/02/16 – 2025/02/23-ны хооронд 8 өдөр 7 шөнөөр тооцож энэ гэрээнд заагдсан аяллыг зохион байгуулах,":
+            f"Энэхүү гэрээгээр Аялал зохион байгуулагч нь захиалагчийн хүсэлтээр {data['destination']} чиглэлд аялах хөтөлбөртэй аяллыг {data['tripStartDate']} – {data['tripEndDate']}-ны хооронд {data['tripDuration']} тооцож энэ гэрээнд заагдсан аяллыг зохион байгуулах,",
+        "1 том хүний 4’590’000 төгрөг, нийт 21 хүний 96,390,000 төгрөг байхаар харилцан тохиров.":
+            f"{data['adultCount']} том хүний {data['adultPrice']} төгрөг, нийт {data['travelerCount']} хүний {data['totalPrice']} төгрөг байхаар харилцан тохиров.",
+        "Аяллын урьдчилгаа төлбөр болох 10,980,000 төгрөгийг  2026 оны 01 сарын 24 –ны өдрийн дотор Төрийн банкны MN030034 3432 7777 9999 тоот төгрөгийн дансанд шилжүүлнэ.":
+            f"Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг  {format_balance_due_date(data['depositDueDate'])} өдрийн дотор Төрийн банкны MN030034 3432 7777 9999 тоот төгрөгийн дансанд шилжүүлнэ.",
+        "Аяллын үлдэгдэл болох 10,980,000 төгрөгийг  2026 оны 01 сарын 24 –ны өдрийн дотор Төрийн банкны MN030034 3432 7777 9999 тоот төгрөгийн дансанд шилжүүлнэ.":
+            f"Аяллын үлдэгдэл болох {data['balanceAmount']} төгрөгийг  {format_balance_due_date(data['balanceDueDate'])} өдрийн дотор Төрийн банкны MN030034 3432 7777 9999 тоот төгрөгийн дансанд шилжүүлнэ.",
+        "XXXXX Овогтой XXXXXXXX":
+            f"{data['touristLastName']} Овогтой {data['touristFirstName']}",
     }
 
     for paragraph in root.findall(f".//{qname('p')}"):
@@ -996,10 +1018,13 @@ def replace_template_paragraphs(root, data):
 
 def generate_docx(data, output_path):
     ensure_data_store()
-    if not TEMPLATE_FILE.exists():
-        raise FileNotFoundError(f"Template not found at {TEMPLATE_FILE}")
+    template_path = TEMPLATE_FILE
+    if not template_path.exists() and TEMPLATE_FALLBACK.exists():
+        template_path = TEMPLATE_FALLBACK
+    if not template_path.exists():
+        raise FileNotFoundError(f"Template not found at {template_path}")
 
-    with zipfile.ZipFile(TEMPLATE_FILE, "r") as source_zip:
+    with zipfile.ZipFile(template_path, "r") as source_zip:
         document_xml = source_zip.read("word/document.xml")
         root = ET.fromstring(document_xml)
         replace_template_paragraphs(root, data)
@@ -1132,6 +1157,118 @@ def build_contract_html(data):
 """
 
 
+def register_contract_font():
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    font_name = "Times-Roman"
+    bold_font_name = "Times-Bold"
+
+    for candidate in [
+        "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
+        "/Library/Fonts/Times New Roman.ttf",
+        "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    ]:
+        if Path(candidate).exists():
+            pdfmetrics.registerFont(TTFont("TravelXContract", candidate))
+            font_name = "TravelXContract"
+            bold_font_name = "TravelXContract"
+            break
+
+    return font_name, bold_font_name
+
+
+def draw_wrapped_text(pdf, text, x, y, max_width, font_name, font_size, leading=16):
+    from reportlab.lib.utils import simpleSplit
+
+    lines = simpleSplit(text, font_name, font_size, max_width)
+    pdf.setFont(font_name, font_size)
+    for line in lines:
+        pdf.drawString(x, y, line)
+        y -= leading
+    return y
+
+
+def save_contract_pdf(record):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+
+    ensure_data_store()
+    data = record["data"]
+    pdf_filename = f"contract-{record['id']}.pdf"
+    pdf_path = GENERATED_DIR / pdf_filename
+    width, height = A4
+    pdf = canvas.Canvas(str(pdf_path), pagesize=A4)
+
+    font_name, bold_font_name = register_contract_font()
+    margin_x = 50
+    current_y = height - 60
+
+    pdf.setFont(bold_font_name, 18)
+    pdf.drawCentredString(width / 2, current_y, "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ")
+    current_y -= 30
+
+    contract_date = format_contract_header_date(data["contractDate"])
+    pdf.setFont(font_name, 11)
+    pdf.drawString(margin_x, current_y, f"Дугаар: DTX-09А-26-{data['contractSerial']}")
+    pdf.drawRightString(width - margin_x, current_y, f"{contract_date} · Улаанбаатар хот")
+    current_y -= 24
+
+    paragraphs = [
+        "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн "
+        f"{data['touristLastName']} овогтой {data['touristFirstName']} (РД: {data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
+        "ЕРӨНХИЙ ЗҮЙЛ",
+        f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']}, {data['tripDuration']}, хөтөлбөртэй аяллын дагуу {data['travelerCount']} аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
+        "Хөтөлбөртэй аяллаар захиалсан бол Хавсралт 1 – Аяллын хөтөлбөр нь гэрээний салшгүй хэсэг байна.",
+        "Зорчих чиглэл нь визтэй бол энэхүү гэрээний Хавсралт 2 – Харилцан ойлголцлын санамж бичиг нь гэрээний салшгүй хэсэг байна.",
+        "АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО",
+        f"Энэхүү гэрээгээр аялагчийн төлбөр нь {data['adultCount']} том хүний {data['adultPrice']} төгрөг, {data['childCount']} хүүхдийн {data['childPrice']} төгрөг, 1 хүний онгоц ороогүй дүн {data['noFlightPrice']} төгрөг, нийт {data['travelerCount']} аялагчийн аяллын төлбөр {data['totalPrice']} төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.",
+        f"Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1. Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_due_date_ordinal(data['depositDueDate'])} дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай дансанд хийснээр аялал баталгаажна.",
+        f"5.3.2. Аяллын үлдэгдэлийг {format_balance_due_date(data['balanceDueDate'])} дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай дансанд хийхээр тохиролцов.",
+    ]
+
+    for text in paragraphs:
+        if text in {"ЕРӨНХИЙ ЗҮЙЛ", "АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО"}:
+            current_y -= 8
+            pdf.setFont(bold_font_name, 12)
+            pdf.drawString(margin_x, current_y, text)
+            current_y -= 18
+            continue
+        current_y = draw_wrapped_text(pdf, text, margin_x, current_y, width - margin_x * 2, font_name, 11, 15)
+        current_y -= 8
+
+    signature_y = 140
+    pdf.setFont(font_name, 11)
+    pdf.drawString(margin_x, signature_y + 48, "Аялал зохион байгуулагч:")
+    pdf.drawString(width / 2 + 20, signature_y + 48, "Захиалагч:")
+
+    company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature.png"
+    company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp.png"
+    if company_signature.exists():
+        pdf.drawImage(str(company_signature), margin_x, signature_y, width=140, height=60, mask="auto")
+    if company_stamp.exists():
+        pdf.drawImage(str(company_stamp), margin_x + 150, signature_y - 10, width=70, height=70, mask="auto")
+
+    signature_path = record.get("signaturePath")
+    if signature_path:
+        sig_file = (GENERATED_DIR / signature_path.replace("/generated/", "", 1)).resolve()
+        if sig_file.exists():
+            pdf.drawImage(str(sig_file), width / 2 + 20, signature_y, width=180, height=60, mask="auto")
+
+    pdf.setFont(font_name, 10)
+    pdf.drawString(margin_x, signature_y - 20, "Ч.Нямбаяр")
+    pdf.drawString(width / 2 + 20, signature_y - 20, record.get("signerName") or data.get("touristFirstName") or "")
+
+    pdf.showPage()
+    pdf.save()
+    return f"/generated/{pdf_filename}"
+
+
 def save_contract_files(data):
     contract_id = str(uuid4())
     filename_stem = slugify(
@@ -1149,11 +1286,32 @@ def save_contract_files(data):
     record = {
         "id": contract_id,
         "createdAt": datetime.now(timezone.utc).isoformat(),
+        "status": "pending",
+        "signedAt": None,
+        "signaturePath": None,
+        "signerName": None,
         "data": data,
         "docxPath": f"/generated/{docx_filename}",
         "pdfViewPath": f"/generated/{html_filename}",
+        "pdfPath": None,
     }
     return record
+
+
+def save_signature_image(data_url, contract_id):
+    if not data_url or "base64," not in data_url:
+        return None
+    header, encoded = data_url.split("base64,", 1)
+    if "image/png" not in header:
+        return None
+    try:
+        raw = base64.b64decode(encoded)
+    except Exception:
+        return None
+    filename = f"contract-signature-{contract_id}.png"
+    path = GENERATED_DIR / filename
+    path.write_bytes(raw)
+    return f"/generated/{filename}"
 
 
 def build_document_html(title, subtitle, sections):
@@ -2648,6 +2806,97 @@ def handle_list_contracts(start_response):
     return json_response(start_response, "200 OK", read_contracts())
 
 
+def find_contract(contract_id):
+    for contract in read_contracts():
+        if contract.get("id") == contract_id:
+            return contract
+    return None
+
+
+def handle_get_contract(start_response, contract_id):
+    contract = find_contract(contract_id)
+    if not contract:
+        return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+    return json_response(start_response, "200 OK", {"contract": contract})
+
+
+def handle_update_contract(environ, start_response, contract_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    contracts = read_contracts()
+    for idx, contract in enumerate(contracts):
+        if contract.get("id") == contract_id:
+            data = build_contract_data(payload)
+            error = validate_contract_data(data)
+            if error:
+                return json_response(start_response, "400 Bad Request", {"error": error})
+            contract["data"] = data
+            contract["updatedBy"] = actor_snapshot(actor)
+            contract["updatedAt"] = datetime.now(timezone.utc).isoformat()
+            contracts[idx] = contract
+            write_contracts(contracts)
+            return json_response(start_response, "200 OK", {"ok": True, "contract": contract})
+    return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+
+
+def handle_delete_contract(environ, start_response, contract_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    contracts = read_contracts()
+    remaining = [item for item in contracts if item.get("id") != contract_id]
+    if len(remaining) == len(contracts):
+        return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+    write_contracts(remaining)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": contract_id})
+
+
+def handle_sign_contract(environ, start_response, contract_id):
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    signature_data = payload.get("signatureData")
+    signer_name = normalize_text(payload.get("signerName"))
+
+    contracts = read_contracts()
+    for idx, contract in enumerate(contracts):
+        if contract.get("id") == contract_id:
+            signature_path = save_signature_image(signature_data, contract_id)
+            if not signature_path:
+                return json_response(start_response, "400 Bad Request", {"error": "Invalid signature"})
+            contract["signaturePath"] = signature_path
+            contract["signerName"] = signer_name or contract.get("signerName")
+            contract["status"] = "signed"
+            contract["signedAt"] = datetime.now(timezone.utc).isoformat()
+            contract["pdfPath"] = save_contract_pdf(contract)
+            contracts[idx] = contract
+            write_contracts(contracts)
+            return json_response(start_response, "200 OK", {"ok": True, "contract": contract})
+    return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+
+
+def handle_contract_document(environ, start_response, contract_id):
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    mode = (params.get("mode", ["view"])[0] or "view").strip().lower()
+    contract = find_contract(contract_id)
+    if not contract:
+        return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+    if mode == "download" and not str(contract.get("pdfPath", "")).endswith(".pdf"):
+        return json_response(start_response, "400 Bad Request", {"error": "PDF not ready"})
+    relative_path = contract["pdfViewPath"] if mode == "view" else contract["pdfPath"]
+    if not relative_path:
+        return json_response(start_response, "400 Bad Request", {"error": "Document not ready"})
+    safe_path = (GENERATED_DIR / unquote(relative_path.replace("/generated/", "", 1))).resolve()
+    if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
+        return json_response(start_response, "404 Not Found", {"error": "Document not found"})
+    extra_headers = generated_download_headers(safe_path) if mode == "download" else None
+    return file_response(start_response, safe_path, extra_headers=extra_headers)
+
+
 def app(environ, start_response):
     ensure_data_store()
 
@@ -2721,6 +2970,33 @@ def app(environ, start_response):
             if not require_login(environ, start_response):
                 return []
             return handle_generate_contract(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/contracts/"):
+        tail = path.replace("/api/contracts/", "", 1).strip("/")
+        if not tail:
+            return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+        if tail.endswith("/sign"):
+            contract_id = tail.replace("/sign", "", 1).strip("/")
+            if method == "POST":
+                return handle_sign_contract(environ, start_response, contract_id)
+            return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+        if tail.endswith("/document"):
+            contract_id = tail.replace("/document", "", 1).strip("/")
+            if method == "GET":
+                return handle_contract_document(environ, start_response, contract_id)
+            return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+        contract_id = tail
+        if method == "GET":
+            return handle_get_contract(start_response, contract_id)
+        if method == "POST":
+            if not require_login(environ, start_response):
+                return []
+            return handle_update_contract(environ, start_response, contract_id)
+        if method == "DELETE":
+            if not require_login(environ, start_response):
+                return []
+            return handle_delete_contract(environ, start_response, contract_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/ds160":
@@ -2845,6 +3121,16 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "backoffice.html")
+
+    if path == "/contracts":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "contracts.html")
+
+    if path.startswith("/contract/"):
+        contract_id = path.replace("/contract/", "", 1).strip("/")
+        if contract_id:
+            return file_response(start_response, PUBLIC_DIR / "contract-sign.html")
 
     if path == "/ds160":
         if not current_user(environ):

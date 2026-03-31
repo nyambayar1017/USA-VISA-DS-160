@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contract Maker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-55" />
+  </head>
+  <body class="app-body">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar">
+        <a class="sidebar-brand" href="/backoffice">TravelX</a>
+        <div class="sidebar-group">
+          <p class="sidebar-label">Backoffice</p>
+          <a class="sidebar-link" href="/backoffice">Dashboard</a>
+          <a class="sidebar-link" href="/camp">Camp Reservations</a>
+          <a class="sidebar-link" href="/contracts">Contracts</a>
+          <a class="sidebar-link" href="/ds160">DS-160</a>
+          <a class="sidebar-link" href="/admin">Team / Admin</a>
+        </div>
+      </aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">Contracts</p>
+            <h1>Contract Maker</h1>
+            <p class="workspace-subtitle">Fill the form, generate the contract, and send a signing link.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <h2>New contract</h2>
+            <div class="camp-toolbar">
+              <button type="button" id="contract-toggle-form">Create Contract</button>
+            </div>
+          </div>
+
+          <div id="contract-form-panel" class="camp-modal is-hidden">
+            <div class="camp-modal-backdrop" data-action="close-contract-modal"></div>
+            <div class="camp-modal-dialog contract-modal">
+              <div class="camp-modal-header">
+                <div>
+                  <h2>Contract details</h2>
+                  <p class="camp-modal-copy">Fill all required fields. Red words from Word are replaced automatically.</p>
+                </div>
+                <button type="button" class="camp-modal-close" data-action="close-contract-modal" aria-label="Close contract window">×</button>
+              </div>
+              <form id="contract-form" class="field-grid contract-grid">
+                <label>
+                  Contract Serial
+                  <input name="contractSerial" placeholder="09A-26-001" required />
+                </label>
+                <label>
+                  Contract Date
+                  <input name="contractDate" type="date" required />
+                </label>
+                <label>
+                  Tourist Last Name
+                  <input name="touristLastName" required />
+                </label>
+                <label>
+                  Tourist First Name
+                  <input name="touristFirstName" required />
+                </label>
+                <label>
+                  Tourist Register
+                  <input name="touristRegister" required />
+                </label>
+                <label>
+                  Destination
+                  <input name="destination" required />
+                </label>
+                <label>
+                  Trip Start Date
+                  <input name="tripStartDate" type="date" required />
+                </label>
+                <label>
+                  Trip End Date
+                  <input name="tripEndDate" type="date" required />
+                </label>
+                <label>
+                  Trip Duration
+                  <input name="tripDuration" placeholder="8 өдөр 7 шөнө" required />
+                </label>
+                <label>
+                  Adult Count
+                  <input name="adultCount" type="number" min="0" value="1" />
+                </label>
+                <label>
+                  Child Count
+                  <input name="childCount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Adult Price
+                  <input name="adultPrice" placeholder="3,990,000" required />
+                </label>
+                <label>
+                  Child Price
+                  <input name="childPrice" placeholder="3,390,000" />
+                </label>
+                <label>
+                  No Flight Price
+                  <input name="noFlightPrice" placeholder="2,590,000" />
+                </label>
+                <label>
+                  Total Price
+                  <input name="totalPrice" placeholder="17,450,000" required />
+                </label>
+                <label>
+                  Deposit Amount
+                  <input name="depositAmount" placeholder="8,725,000" required />
+                </label>
+                <label>
+                  Deposit Due Date
+                  <input name="depositDueDate" type="date" required />
+                </label>
+                <label>
+                  Balance Due Date
+                  <input name="balanceDueDate" type="date" required />
+                </label>
+                <div class="actions full-span">
+                  <button type="submit">Save contract</button>
+                  <p id="contract-status" class="status"></p>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div id="contract-list" class="submission-list"></div>
+        </section>
+      </main>
+    </div>
+    <script src="/app-shell.js?v=workspace-55"></script>
+    <script src="/contracts.js?v=workspace-55"></script>
+  </body>
+</html>

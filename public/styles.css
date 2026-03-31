@@ -1023,6 +1023,81 @@ time {
   width: min(1180px, calc(100vw - 40px));
 }
 
+.contract-modal {
+  width: min(980px, calc(100vw - 40px));
+}
+
+.contract-grid label {
+  font-size: 13px;
+}
+
+.contract-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.contract-table th,
+.contract-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf0f6;
+  text-align: left;
+}
+
+.contract-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.contract-summary {
+  margin-bottom: 20px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f6f7fb;
+}
+
+.contract-sign-card {
+  max-width: 980px;
+  margin: 32px auto;
+}
+
+.contract-signature-panel {
+  margin-top: 24px;
+}
+
+.signature-box {
+  border: 1px solid #d4d9e5;
+  border-radius: 16px;
+  padding: 12px;
+  background: #fff;
+  margin: 12px 0;
+}
+
+.signature-box canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.signature-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.signature-download {
+  margin-top: 16px;
+}
+
 .camp-modal-dialog form {
   flex: 1 1 auto;
   max-height: none;

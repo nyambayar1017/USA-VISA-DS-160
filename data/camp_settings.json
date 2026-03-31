@@ -1,0 +1,21 @@
+{
+  "campNames": [
+    "Khustai camp"
+  ],
+  "locationNames": [
+    "Khustai"
+  ],
+  "staffAssignments": [
+    "G.B"
+  ],
+  "roomChoices": [
+    "Double Standard Ger",
+    "Twin Standard Ger",
+    "Standard Ger 3/4 pax",
+    "Luxury Ger with bathroom",
+    "Luxury Ger without bathroom"
+  ],
+  "campLocations": {
+    "Khustai camp": "Khustai"
+  }
+}

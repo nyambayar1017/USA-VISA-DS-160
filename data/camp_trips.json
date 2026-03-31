@@ -1,0 +1,21 @@
+[
+  {
+    "id": "trip1",
+    "createdAt": "now",
+    "tripName": "Trip A",
+    "reservationName": "Res A",
+    "startDate": "2026-07-01",
+    "totalDays": 3,
+    "participantCount": 2,
+    "staffCount": 0,
+    "guideName": "",
+    "driverName": "",
+    "cookName": "",
+    "language": "English",
+    "status": "confirmed",
+    "inboundCompany": "Unlock Steppe Mongolia",
+    "createdBy": {},
+    "updatedAt": "",
+    "updatedBy": {}
+  }
+]

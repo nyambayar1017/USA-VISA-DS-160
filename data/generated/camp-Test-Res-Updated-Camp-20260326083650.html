@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camp reservation</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f1f0ec;
+        color: #161616;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      .toolbar {
+        position: sticky;
+        top: 0;
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(255,255,255,0.94);
+        border-bottom: 1px solid rgba(0,0,0,0.08);
+      }
+      .toolbar button, .toolbar a {
+        padding: 12px 18px;
+        border: none;
+        border-radius: 999px;
+        background: #17365f;
+        color: #fff;
+        text-decoration: none;
+        font: 600 14px/1 sans-serif;
+        cursor: pointer;
+      }
+      .page {
+        width: 920px;
+        margin: 22px auto 40px;
+        padding: 56px 52px 72px;
+        background: white;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+      }
+      .logo {
+        color: #1d2f86;
+        font: 800 30px/1 "Poppins", Arial, sans-serif;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .top {
+        display: grid;
+        grid-template-columns: 1.1fr 1.2fr;
+        gap: 24px;
+        align-items: start;
+      }
+      .brand-sub {
+        margin-top: 14px;
+        color: #4e4e4e;
+        line-height: 1.55;
+        font-size: 15px;
+      }
+      .doc-title {
+        text-align: right;
+      }
+      .doc-title h1 {
+        margin: 0;
+        font-size: 24px;
+        color: #1d2f86;
+        white-space: nowrap;
+      }
+      .doc-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 15px;
+      }
+      .center-title {
+        margin: 42px 0 28px;
+        text-align: center;
+      }
+      .center-title h2 {
+        margin: 0 0 22px;
+        font-size: 22px;
+      }
+      .center-title p {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th, td {
+        border: 1px solid #2a2a2a;
+        padding: 12px 10px;
+        text-align: center;
+        vertical-align: top;
+        font-size: 16px;
+      }
+      th {
+        background: #d8e4f2;
+      }
+      .footer {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 54px;
+      }
+      .status-box {
+        padding: 18px;
+        border-radius: 18px;
+        background: #f7f8fb;
+      }
+      .status-box p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button onclick="window.print()">Print / Save PDF</button>
+      <a href="/generated/camp-Test-Res-Updated-Camp-20260326083650.pdf" download>Download PDF</a>
+    </div>
+    <div class="page">
+      <div class="top">
+        <div>
+          <div class="logo">Unlock Steppe Mongolia</div>
+          <div class="brand-sub">
+            Хан-Уул дүүрэг, 17-р хороо,<br/>Их Монгол Улсын гудамж, Кинг Товер, 121-102 тоот<br/>Улаанбаатар хот, Монгол улс.<br/>
+            Утас: 72007722, 85178822<br/>
+            И-мэйл: booking@steppe-mongolia.com
+          </div>
+        </div>
+        <div class="doc-title">
+          <h1 style="font-size:24px; white-space:nowrap;">“АНЛОК СТЕП МОНГОЛИА” ХХК</h1>
+          <div class="doc-meta">
+            <span></span>
+            <span>Улаанбаатар хот</span>
+          </div>
+          <div class="doc-meta" style="justify-content:flex-end; margin-top: 2px;">
+            <span>2026.03.26</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="center-title">
+        <h2>Аяллын нэр: Test Res</h2>
+        <p>Баазын захиалга - “Updated Camp”</p>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Жуулчны тоо</th>
+            <th>Ажилчдын тоо</th>
+            <th>Ирэх өдөр</th>
+            <th>Явах өдөр</th>
+            <th>Хоногийн тоо</th>
+            <th>Гэрийн тоо</th>
+            <th>Өрөөний төрөл</th>
+            <th>Хоол</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>3</td>
+            <td>1</td>
+            <td>2026.07.02</td>
+            <td>2026.07.03</td>
+            <td>1</td>
+            <td>2</td>
+            <td>Twin Standard Ger</td>
+            <td>No meal</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top: 18px; font-size: 18px; line-height: 1.7;">
+        <strong>Нэмэлт тэмдэглэл:</strong> -
+      </div>
+
+      <div class="footer">
+        <div></div>
+        <div class="status-box">
+          <p><strong>Захиалгын менежер:</strong> Г. Бужинлхам</p>
+          <p><strong>Харилцах утас:</strong> 72007722, 85178822</p>
+          <p><strong>Цахим шуудан:</strong> booking@steppe-mongolia.com</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
