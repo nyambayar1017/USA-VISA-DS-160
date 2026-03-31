@@ -160,10 +160,12 @@ const initContractForm = () => {
 
   const closeModal = () => {
     panel.classList.add("is-hidden");
+    panel.setAttribute("hidden", "");
   };
 
   toggle.addEventListener("click", () => {
     panel.classList.remove("is-hidden");
+    panel.removeAttribute("hidden");
     const dateInput = form.querySelector("input[name='contractDate']");
     if (dateInput && !dateInput.value) {
       dateInput.value = new Date().toISOString().split("T")[0];
@@ -194,6 +196,9 @@ const initContractForm = () => {
       statusEl.textContent = error.message;
     }
   });
+
+  // Ensure the panel is hidden on first load even if browser caches styles.
+  closeModal();
 
   const tripStartInput = form.querySelector("input[name='tripStartDate']");
   const tripEndInput = form.querySelector("input[name='tripEndDate']");
