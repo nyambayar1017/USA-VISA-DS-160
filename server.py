@@ -870,7 +870,7 @@ def format_balance_due_date(value):
 
 
 def build_contract_data(payload):
-    today = datetime.now(timezone.utc).astimezone(LOCAL_TZ).date().isoformat()
+    today = datetime.now(timezone.utc).astimezone(MONGOLIA_TZ).date().isoformat()
     contract_date = payload.get("contractDate") or today
 
     tourist_last_name = normalize_text(payload.get("touristLastName"))
@@ -888,7 +888,7 @@ def build_contract_data(payload):
 
     contract_serial = normalize_text(payload.get("contractSerial"))
     if not contract_serial:
-        now = datetime.now(timezone.utc).astimezone(LOCAL_TZ)
+        now = datetime.now(timezone.utc).astimezone(MONGOLIA_TZ)
         month = f"{now.month:02d}"
         year = str(now.year)[-2:]
         prefix = f"DTX-{month}-{year}-"
