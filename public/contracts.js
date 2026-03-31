@@ -206,6 +206,7 @@ const initContractSignPage = async () => {
   const statusEl = qs("#signature-status");
   const downloadEl = qs("#signature-download");
   const canvas = qs("#signature-canvas");
+  const previewFrame = qs("#contract-preview-frame");
 
   if (!contractId || !summaryEl || !canvas) return;
 
@@ -225,6 +226,9 @@ const initContractSignPage = async () => {
         <a class="secondary-button" href="/api/contracts/${contractId}/document?mode=view" target="_blank">View contract</a>
       </div>
     `;
+    if (previewFrame) {
+      previewFrame.src = `/api/contracts/${contractId}/document?mode=view`;
+    }
   } catch (error) {
     summaryEl.innerHTML = `<div class="empty-state">Unable to load contract.</div>`;
   }
@@ -236,12 +240,26 @@ const initContractSignPage = async () => {
 
   qs("#signature-submit")?.addEventListener("click", async () => {
     statusEl.textContent = "Saving signature...";
-    const signerName = qs("#signer-name")?.value || "";
+    const lastName = qs("#signer-last-name")?.value || "";
+    const firstName = qs("#signer-first-name")?.value || "";
+    const signerRegister = qs("#signer-register")?.value || "";
+    const accepted = qs("#signer-accept")?.checked || false;
+    if (!accepted) {
+      statusEl.textContent = "Та гэрээг зөвшөөрөх ёстой.";
+      return;
+    }
     const signatureData = canvas.toDataURL("image/png");
     try {
       const result = await apiRequest(`${CONTRACTS_ENDPOINT}/${contractId}/sign`, {
         method: "POST",
-        body: JSON.stringify({ signatureData, signerName }),
+        body: JSON.stringify({
+          signatureData,
+          signerName: `${lastName} ${firstName}`.trim(),
+          signerLastName: lastName,
+          signerFirstName: firstName,
+          signerRegister,
+          accepted,
+        }),
       });
       statusEl.textContent = "Signed successfully.";
       if (result.contract?.pdfPath) {

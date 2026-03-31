@@ -1087,6 +1087,20 @@ time {
   margin-top: 24px;
 }
 
+.contract-preview {
+  margin: 20px 0 24px;
+  border: 1px solid #d4d9e5;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.contract-preview iframe {
+  width: 100%;
+  height: 720px;
+  border: 0;
+}
+
 .signature-box {
   border: 1px solid #d4d9e5;
   border-radius: 16px;
@@ -1105,6 +1119,19 @@ time {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.contract-accept {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.contract-accept input {
+  width: 18px;
+  height: 18px;
 }
 
 .signature-download {

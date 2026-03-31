@@ -28,6 +28,7 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "change-me")
 TEMPLATE_FILE = Path(os.environ.get("CONTRACT_TEMPLATE", DATA_DIR / "GEREE-template.docx"))
 TEMPLATE_FALLBACK = Path(__file__).resolve().parent / "data" / "GEREE-template.docx"
+ALT_TEMPLATE = Path(__file__).resolve().parent / "data" / "Гэрээ.docx"
 CONTRACTS_FILE = DATA_DIR / "contracts.json"
 DS160_FILE = DATA_DIR / "ds160_applications.json"
 FINANCE_FILE = DATA_DIR / "finance_entries.json"
@@ -1019,6 +1020,8 @@ def replace_template_paragraphs(root, data):
 def generate_docx(data, output_path):
     ensure_data_store()
     template_path = TEMPLATE_FILE
+    if not template_path.exists() and ALT_TEMPLATE.exists():
+        template_path = ALT_TEMPLATE
     if not template_path.exists() and TEMPLATE_FALLBACK.exists():
         template_path = TEMPLATE_FALLBACK
     if not template_path.exists():
@@ -1038,8 +1041,50 @@ def generate_docx(data, output_path):
                 target_zip.writestr(item, content)
 
 
+def render_docx_to_html(data):
+    template_path = TEMPLATE_FILE
+    if not template_path.exists() and ALT_TEMPLATE.exists():
+        template_path = ALT_TEMPLATE
+    if not template_path.exists() and TEMPLATE_FALLBACK.exists():
+        template_path = TEMPLATE_FALLBACK
+    if not template_path.exists():
+        return "<p>Template not found.</p>"
+
+    with zipfile.ZipFile(template_path, "r") as source_zip:
+        document_xml = source_zip.read("word/document.xml")
+        root = ET.fromstring(document_xml)
+        replace_template_paragraphs(root, data)
+
+        body = root.find(qname("body"))
+        if body is None:
+            return "<p>Template is empty.</p>"
+
+        parts = []
+        for element in body:
+            tag = element.tag.split("}")[-1]
+            if tag == "p":
+                text = paragraph_text(element).strip()
+                if text:
+                    parts.append(f"<p>{html.escape(text)}</p>")
+            elif tag == "tbl":
+                rows = []
+                for row in element.findall(f".//{qname('tr')}"):
+                    cells = []
+                    for cell in row.findall(f".//{qname('tc')}"):
+                        cell_text = " ".join(
+                            paragraph_text(p).strip()
+                            for p in cell.findall(f".//{qname('p')}")
+                        ).strip()
+                        cells.append(f"<td>{html.escape(cell_text)}</td>")
+                    if cells:
+                        rows.append(f"<tr>{''.join(cells)}</tr>")
+                if rows:
+                    parts.append(f"<table>{''.join(rows)}</table>")
+        return "\n".join(parts)
+
+
 def build_contract_html(data):
-    contract_date = format_contract_header_date(data["contractDate"])
+    content = render_docx_to_html(data)
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -1050,16 +1095,14 @@ def build_contract_html(data):
       :root {{
         color-scheme: light;
         --ink: #1d1d1b;
-        --paper: #fffdf8;
-        --accent: #b33a3a;
+        --paper: #ffffff;
+        --accent: #1d2b4f;
         --muted: #6e645f;
       }}
       * {{ box-sizing: border-box; }}
       body {{
         margin: 0;
-        background:
-          radial-gradient(circle at top, rgba(179, 58, 58, 0.10), transparent 35%),
-          linear-gradient(180deg, #f4eadf 0%, #efe4d6 100%);
+        background: #f4f2ee;
         color: var(--ink);
         font-family: "Times New Roman", serif;
       }}
@@ -1070,7 +1113,7 @@ def build_contract_html(data):
         gap: 12px;
         justify-content: center;
         padding: 16px;
-        background: rgba(255, 253, 248, 0.92);
+        background: rgba(255, 255, 255, 0.96);
         border-bottom: 1px solid rgba(0, 0, 0, 0.08);
         backdrop-filter: blur(10px);
       }}
@@ -1088,11 +1131,22 @@ def build_contract_html(data):
         background: #2f4858;
       }}
       .page {{
-        width: min(920px, calc(100vw - 32px));
+        width: min(940px, calc(100vw - 32px));
         margin: 24px auto 56px;
         padding: 56px 64px;
         background: var(--paper);
-        box-shadow: 0 20px 60px rgba(71, 53, 43, 0.18);
+        box-shadow: 0 20px 60px rgba(71, 53, 43, 0.12);
+      }}
+      .doc-header {{
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+      }}
+      .doc-header img {{
+        width: 120px;
+        height: auto;
+        object-fit: contain;
       }}
       h1 {{
         margin: 0 0 8px;
@@ -1100,21 +1154,22 @@ def build_contract_html(data):
         font-size: 28px;
         letter-spacing: 0.06em;
       }}
-      .meta {{
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 32px;
-        color: var(--muted);
-      }}
-      h2 {{
-        margin: 28px 0 12px;
-        font-size: 18px;
-      }}
       p {{
         margin: 0 0 12px;
         font-size: 16px;
         line-height: 1.6;
         text-align: justify;
+      }}
+      table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin: 16px 0 24px;
+      }}
+      td, th {{
+        border: 1px solid #1d1d1b;
+        padding: 8px 10px;
+        font-size: 15px;
+        text-align: center;
       }}
       @media print {{
         body {{ background: white; }}
@@ -1134,23 +1189,14 @@ def build_contract_html(data):
       <a class="secondary" href="/">Back to form</a>
     </div>
     <main class="page">
-      <h1>АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ</h1>
-      <div class="meta">
-        <span>Дугаар: DTX-09А-26-{data['contractSerial']}</span>
-        <span>{contract_date} · Улаанбаатар хот</span>
+      <div class="doc-header">
+        <img src="/assets/dtx-stamp.png" alt="DTX" />
+        <div>
+          <strong>Дэлхий Трэвел Икс ХХК</strong>
+          <div>Аялал жуулчлалын гэрээний загвар</div>
+        </div>
       </div>
-
-      <p>Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн {data['touristLastName']} овогтой {data['touristFirstName']} (РД: {data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.</p>
-
-      <h2>ЕРӨНХИЙ ЗҮЙЛ</h2>
-      <p>Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']}, {data['tripDuration']}, хөтөлбөртэй аяллын дагуу {data['travelerCount']} аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.</p>
-      <p>Хөтөлбөртэй аяллаар захиалсан бол Хавсралт 1 – Аяллын хөтөлбөр нь гэрээний салшгүй хэсэг байна.</p>
-      <p>Зорчих чиглэл нь визтэй бол энэхүү гэрээний Хавсралт 2 – Харилцан ойлголцлын санамж бичиг нь гэрээний салшгүй хэсэг байна.</p>
-
-      <h2>АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО</h2>
-      <p>Энэхүү гэрээгээр аялагчийн төлбөр нь {data['adultCount']} том хүний {data['adultPrice']} төгрөг, {data['childCount']} хүүхдийн {data['childPrice']} төгрөг, 1 хүний онгоц ороогүй дүн {data['noFlightPrice']} төгрөг, нийт {data['travelerCount']} аялагчийн аяллын төлбөр {data['totalPrice']} төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.</p>
-      <p>Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1. Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_due_date_ordinal(data['depositDueDate'])} дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай дансанд хийснээр аялал баталгаажна.</p>
-      <p>5.3.2. Аяллын үлдэгдэлийг {format_balance_due_date(data['balanceDueDate'])} дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай дансанд хийхээр тохиролцов.</p>
+      {content}
     </main>
   </body>
 </html>
@@ -2861,6 +2907,14 @@ def handle_sign_contract(environ, start_response, contract_id):
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     signature_data = payload.get("signatureData")
     signer_name = normalize_text(payload.get("signerName"))
+    signer_last_name = normalize_text(payload.get("signerLastName"))
+    signer_first_name = normalize_text(payload.get("signerFirstName"))
+    signer_register = normalize_text(payload.get("signerRegister"))
+    accepted = bool(payload.get("accepted"))
+    if not accepted:
+        return json_response(start_response, "400 Bad Request", {"error": "Agreement not accepted"})
+    if not signer_last_name or not signer_first_name or not signer_register:
+        return json_response(start_response, "400 Bad Request", {"error": "Missing signer details"})
 
     contracts = read_contracts()
     for idx, contract in enumerate(contracts):
@@ -2870,6 +2924,10 @@ def handle_sign_contract(environ, start_response, contract_id):
                 return json_response(start_response, "400 Bad Request", {"error": "Invalid signature"})
             contract["signaturePath"] = signature_path
             contract["signerName"] = signer_name or contract.get("signerName")
+            contract["signerLastName"] = signer_last_name or contract.get("signerLastName")
+            contract["signerFirstName"] = signer_first_name or contract.get("signerFirstName")
+            contract["signerRegister"] = signer_register or contract.get("signerRegister")
+            contract["accepted"] = accepted
             contract["status"] = "signed"
             contract["signedAt"] = datetime.now(timezone.utc).isoformat()
             contract["pdfPath"] = save_contract_pdf(contract)
