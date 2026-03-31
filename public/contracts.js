@@ -38,9 +38,22 @@ const apiRequest = async (url, options = {}) => {
     credentials: "include",
     ...options,
   });
-  const data = await response.json().catch(() => ({}));
+  const responseClone = response.clone();
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
   if (!response.ok) {
-    const message = data?.error || "Request failed";
+    let message = data?.error;
+    if (!message) {
+      try {
+        const text = await responseClone.text();
+        if (text) message = text;
+      } catch {}
+    }
+    if (!message) message = "Request failed";
     throw new Error(message);
   }
   return data;
