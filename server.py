@@ -11,6 +11,7 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, unquote
+from urllib import request as urlrequest
 from uuid import uuid4
 import xml.etree.ElementTree as ET
 from wsgiref.simple_server import make_server
@@ -20,6 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = BASE_DIR / "public"
 DATA_DIR = Path(os.environ.get("DATA_DIR", str(BASE_DIR / "data"))).expanduser()
 GENERATED_DIR = DATA_DIR / "generated"
+BACKUP_DIR = DATA_DIR / "backups"
 PORT = int(os.environ.get("PORT", "3000"))
 HOST = os.environ.get("HOST", "0.0.0.0")
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "change-me")
@@ -40,6 +42,7 @@ SESSION_COOKIE = "travelx_session"
 SESSION_SECRET = os.environ.get("SESSION_SECRET", ADMIN_TOKEN)
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
+BACKUP_WEBHOOK_URL = os.environ.get("BACKUP_WEBHOOK_URL", "").strip()
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
 STEPPE_ADDRESS_LINES = [
@@ -80,6 +83,7 @@ ET.register_namespace("w", WORD_NS)
 def ensure_data_store():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     for file_path in [
         CONTRACTS_FILE,
         DS160_FILE,
@@ -117,6 +121,79 @@ def read_json_list(file_path):
 def write_json_list(file_path, records):
     ensure_data_store()
     file_path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def list_backup_sources():
+    return [
+        CONTRACTS_FILE,
+        DS160_FILE,
+        FINANCE_FILE,
+        BOOKINGS_FILE,
+        RESERVATIONS_FILE,
+        CAMP_RESERVATIONS_FILE,
+        CAMP_TRIPS_FILE,
+        CAMP_SETTINGS_FILE,
+        USERS_FILE,
+        SESSIONS_FILE,
+    ]
+
+
+def notify_backup_webhook(payload):
+    if not BACKUP_WEBHOOK_URL:
+        return
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urlrequest.Request(
+            BACKUP_WEBHOOK_URL,
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        urlrequest.urlopen(req, timeout=8)
+    except Exception:
+        return
+
+
+def create_backup_archive():
+    ensure_data_store()
+    timestamp = now_mongolia().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"travelx-backup-{timestamp}.zip"
+    archive_path = BACKUP_DIR / filename
+    manifest = {
+        "createdAt": now_mongolia().isoformat(),
+        "files": [],
+    }
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for file_path in list_backup_sources():
+            if not file_path.exists():
+                continue
+            arcname = file_path.name
+            archive.write(file_path, arcname)
+            manifest["files"].append(arcname)
+        archive.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+    notify_backup_webhook(
+        {
+            "filename": filename,
+            "createdAt": manifest["createdAt"],
+            "fileCount": len(manifest["files"]),
+        }
+    )
+    return archive_path
+
+
+def list_backup_archives():
+    ensure_data_store()
+    backups = []
+    for path in BACKUP_DIR.glob("travelx-backup-*.zip"):
+        stat = path.stat()
+        backups.append(
+            {
+                "filename": path.name,
+                "size": stat.st_size,
+                "createdAt": datetime.fromtimestamp(stat.st_mtime, MONGOLIA_TZ).isoformat(),
+            }
+        )
+    backups.sort(key=lambda item: item["createdAt"], reverse=True)
+    return backups
 
 
 def read_json_object(file_path, default):
@@ -2469,6 +2546,37 @@ def handle_export_camp_reservations(environ, start_response):
     return json_response(start_response, "200 OK", {"ok": True, "entry": document})
 
 
+def handle_create_backup(environ, start_response):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    archive_path = create_backup_archive()
+    return json_response(
+        start_response,
+        "201 Created",
+        {"ok": True, "filename": archive_path.name, "createdAt": now_mongolia().isoformat()},
+    )
+
+
+def handle_list_backups(environ, start_response):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    return json_response(start_response, "200 OK", {"ok": True, "backups": list_backup_archives()})
+
+
+def handle_download_backup(environ, start_response, filename):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    safe_path = (BACKUP_DIR / unquote(filename)).resolve()
+    if not str(safe_path).startswith(str(BACKUP_DIR.resolve())) or not safe_path.exists():
+        return json_response(start_response, "404 Not Found", {"error": "Backup not found"})
+    if safe_path.suffix != ".zip":
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid backup file"})
+    return file_response(start_response, safe_path, "application/zip")
+
+
 def handle_camp_reservation_document(environ, start_response, reservation_id):
     if not require_login(environ, start_response):
         return []
@@ -2571,6 +2679,19 @@ def app(environ, start_response):
                 return []
             return handle_dashboard_summary(start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/backups":
+        if method == "GET":
+            return handle_list_backups(environ, start_response)
+        if method == "POST":
+            return handle_create_backup(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/backups/") and method == "GET":
+        filename = path.replace("/api/backups/", "", 1).strip("/")
+        if filename:
+            return handle_download_backup(environ, start_response, filename)
+        return json_response(start_response, "404 Not Found", {"error": "Backup not found"})
 
     if path == "/api/contracts":
         if method == "GET":
