@@ -199,12 +199,19 @@ const initContractForm = () => {
   const tripEndInput = form.querySelector("input[name='tripEndDate']");
   const durationInput = form.querySelector("input[name='tripDuration']");
   const travelerInput = form.querySelector("input[name='travelerCount']");
+  const totalPriceInput = form.querySelector("input[name='totalPrice']");
   const countInputs = [
     form.querySelector("input[name='adultCount']"),
     form.querySelector("input[name='childCount']"),
     form.querySelector("input[name='infantCount']"),
     form.querySelector("input[name='landOnlyCount']"),
   ].filter(Boolean);
+  const priceInputs = {
+    adult: form.querySelector("input[name='adultPrice']"),
+    child: form.querySelector("input[name='childPrice']"),
+    infant: form.querySelector("input[name='infantPrice']"),
+    landOnly: form.querySelector("input[name='landOnlyPrice']"),
+  };
 
   const updateDuration = () => {
     if (!durationInput) return;
@@ -218,9 +225,66 @@ const initContractForm = () => {
     travelerInput.value = total ? String(total) : "";
   };
 
+  const setHidden = (input, hidden) => {
+    if (!input) return;
+    const label = input.closest("label");
+    if (label) label.classList.toggle("is-hidden", hidden);
+    if (hidden) input.value = "";
+  };
+
+  const updatePriceVisibility = () => {
+    const childCount = normalizeNumber(countInputs[1]?.value);
+    const infantCount = normalizeNumber(countInputs[2]?.value);
+    const landOnlyCount = normalizeNumber(countInputs[3]?.value);
+
+    setHidden(priceInputs.child, childCount <= 0);
+    setHidden(priceInputs.infant, infantCount <= 0);
+    setHidden(priceInputs.landOnly, landOnlyCount <= 0);
+  };
+
+  const formatMoney = (value) => {
+    if (!value) return "";
+    return Number(value).toLocaleString("en-US");
+  };
+
+  const updateTotalPrice = () => {
+    if (!totalPriceInput) return;
+    const adultCount = normalizeNumber(countInputs[0]?.value);
+    const childCount = normalizeNumber(countInputs[1]?.value);
+    const infantCount = normalizeNumber(countInputs[2]?.value);
+    const landOnlyCount = normalizeNumber(countInputs[3]?.value);
+
+    const adultPrice = normalizeNumber(priceInputs.adult?.value);
+    const childPrice = normalizeNumber(priceInputs.child?.value);
+    const infantPrice = normalizeNumber(priceInputs.infant?.value);
+    const landOnlyPrice = normalizeNumber(priceInputs.landOnly?.value);
+
+    const total =
+      adultCount * adultPrice +
+      childCount * childPrice +
+      infantCount * infantPrice +
+      landOnlyCount * landOnlyPrice;
+
+    totalPriceInput.value = total ? formatMoney(total) : "";
+  };
+
   tripStartInput?.addEventListener("change", updateDuration);
   tripEndInput?.addEventListener("change", updateDuration);
-  countInputs.forEach((input) => input.addEventListener("input", updateTravelerCount));
+  countInputs.forEach((input) =>
+    input.addEventListener("input", () => {
+      updateTravelerCount();
+      updatePriceVisibility();
+      updateTotalPrice();
+    })
+  );
+  Object.values(priceInputs).forEach((input) => {
+    if (!input) return;
+    input.addEventListener("input", updateTotalPrice);
+  });
+
+  updateTravelerCount();
+  updatePriceVisibility();
+  updateTotalPrice();
 };
 
 const initSignatureCanvas = (canvas) => {

@@ -1254,6 +1254,10 @@ body.modal-open {
   display: none;
 }
 
+.is-hidden {
+  display: none;
+}
+
 .camp-trip-card strong {
   color: var(--brand);
 }

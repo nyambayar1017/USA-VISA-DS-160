@@ -136,15 +136,15 @@
                   Том хүний үнэ
                   <input name="adultPrice" placeholder="3,990,000" required />
                 </label>
-                <label>
+                <label class="price-field" data-price-field="child">
                   Хүүхдийн үнэ
                   <input name="childPrice" placeholder="3,390,000" />
                 </label>
-                <label>
+                <label class="price-field" data-price-field="infant">
                   Нярай хүүхдийн үнэ
                   <input name="infantPrice" placeholder="0" />
                 </label>
-                <label>
+                <label class="price-field" data-price-field="landOnly">
                   Газрын үйлчилгээтэй хүний үнэ
                   <input name="landOnlyPrice" placeholder="2,590,000" />
                 </label>
@@ -153,8 +153,8 @@
                   <input name="travelerCount" type="number" min="0" />
                 </label>
                 <label>
-                  Нийт төлбөр
-                  <input name="totalPrice" placeholder="17,450,000" required />
+                  Нийт төлбөр (автоматаар тооцно)
+                  <input name="totalPrice" placeholder="17,450,000" readonly />
                 </label>
                 <label>
                   Урьдчилгаа төлбөр

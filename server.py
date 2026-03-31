@@ -882,7 +882,18 @@ def build_contract_data(payload):
     land_only_count = parse_int(payload.get("landOnlyCount"))
 
     traveler_count = parse_int(payload.get("travelerCount")) or adult_count + child_count + infant_count + land_only_count
+    adult_price_raw = parse_int(payload.get("adultPrice"))
+    child_price_raw = parse_int(payload.get("childPrice"))
+    infant_price_raw = parse_int(payload.get("infantPrice"))
+    land_only_price_raw = parse_int(payload.get("landOnlyPrice"))
     total_price_raw = parse_int(payload.get("totalPrice"))
+    if not total_price_raw:
+        total_price_raw = (
+            adult_count * adult_price_raw
+            + child_count * child_price_raw
+            + infant_count * infant_price_raw
+            + land_only_count * land_only_price_raw
+        )
     deposit_raw = parse_int(payload.get("depositAmount"))
     balance_raw = max(total_price_raw - deposit_raw, 0)
 
@@ -945,11 +956,11 @@ def build_contract_data(payload):
         "infantCount": infant_count,
         "landOnlyCount": land_only_count,
         "travelerCount": traveler_count,
-        "adultPrice": format_money(payload.get("adultPrice")),
-        "childPrice": format_money(payload.get("childPrice")),
-        "infantPrice": format_money(payload.get("infantPrice")),
-        "landOnlyPrice": format_money(payload.get("landOnlyPrice")),
-        "totalPrice": format_money(payload.get("totalPrice")),
+        "adultPrice": format_money(adult_price_raw),
+        "childPrice": format_money(child_price_raw),
+        "infantPrice": format_money(infant_price_raw),
+        "landOnlyPrice": format_money(land_only_price_raw),
+        "totalPrice": format_money(total_price_raw),
         "depositAmount": format_money(payload.get("depositAmount")),
         "balanceAmount": format_money(balance_raw),
         "depositDueDate": normalize_text(payload.get("depositDueDate")),
