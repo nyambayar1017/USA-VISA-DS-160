@@ -7,40 +7,38 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-55" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-56" />
   </head>
-  <body class="app-body">
-    <div class="workspace-shell">
-      <main class="workspace-main full-width">
-        <section class="card contract-sign-card">
-          <div class="section-head">
-            <div>
-              <h2>Contract signature</h2>
-              <p class="workspace-subtitle">Please review the contract and sign below.</p>
-            </div>
-            <a class="secondary-button" href="/login">Back to login</a>
+  <body class="contract-public-body">
+    <main class="contract-public-shell">
+      <section class="card contract-sign-card">
+        <div class="section-head">
+          <div>
+            <h2>Contract signature</h2>
+            <p class="workspace-subtitle">Please review the contract and sign below.</p>
           </div>
+          <a class="secondary-button" href="/login">Back to login</a>
+        </div>
 
-          <div id="contract-summary" class="contract-summary"></div>
+        <div id="contract-summary" class="contract-summary"></div>
 
-          <div class="contract-signature-panel">
-            <label>
-              Your full name
-              <input id="signer-name" placeholder="Full name" />
-            </label>
-            <div class="signature-box">
-              <canvas id="signature-canvas" width="700" height="220"></canvas>
-            </div>
-            <div class="signature-actions">
-              <button type="button" id="signature-clear" class="secondary-button">Clear</button>
-              <button type="button" id="signature-submit">Confirm & Generate PDF</button>
-            </div>
-            <p id="signature-status" class="status"></p>
-            <div id="signature-download" class="signature-download"></div>
+        <div class="contract-signature-panel">
+          <label>
+            Your full name
+            <input id="signer-name" placeholder="Full name" />
+          </label>
+          <div class="signature-box">
+            <canvas id="signature-canvas" width="700" height="220"></canvas>
           </div>
-        </section>
-      </main>
-    </div>
-    <script src="/contracts.js?v=workspace-55"></script>
+          <div class="signature-actions">
+            <button type="button" id="signature-clear" class="secondary-button">Clear</button>
+            <button type="button" id="signature-submit">Confirm & Generate PDF</button>
+          </div>
+          <p id="signature-status" class="status"></p>
+          <div id="signature-download" class="signature-download"></div>
+        </div>
+      </section>
+    </main>
+    <script src="/contracts.js?v=workspace-56"></script>
   </body>
 </html>

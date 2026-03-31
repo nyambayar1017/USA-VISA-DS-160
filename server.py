@@ -2882,19 +2882,45 @@ def handle_sign_contract(environ, start_response, contract_id):
 def handle_contract_document(environ, start_response, contract_id):
     params = parse_qs(environ.get("QUERY_STRING", ""))
     mode = (params.get("mode", ["view"])[0] or "view").strip().lower()
-    contract = find_contract(contract_id)
+    contracts = read_contracts()
+    contract = None
+    contract_index = None
+    for idx, entry in enumerate(contracts):
+        if entry.get("id") == contract_id:
+            contract = entry
+            contract_index = idx
+            break
     if not contract:
         return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
-    if mode == "download" and not str(contract.get("pdfPath", "")).endswith(".pdf"):
-        return json_response(start_response, "400 Bad Request", {"error": "PDF not ready"})
-    relative_path = contract["pdfViewPath"] if mode == "view" else contract["pdfPath"]
-    if not relative_path:
-        return json_response(start_response, "400 Bad Request", {"error": "Document not ready"})
-    safe_path = (GENERATED_DIR / unquote(relative_path.replace("/generated/", "", 1))).resolve()
-    if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
+    if mode == "download":
+        pdf_path = contract.get("pdfPath")
+        if not str(pdf_path or "").endswith(".pdf"):
+            return json_response(start_response, "409 Conflict", {"error": "PDF not ready"})
+        safe_path = (GENERATED_DIR / unquote(pdf_path.replace("/generated/", "", 1))).resolve()
+        if not safe_path.exists() and contract.get("status") == "signed":
+            pdf_path = save_contract_pdf(contract)
+            contract["pdfPath"] = pdf_path
+            if contract_index is not None:
+                contracts[contract_index] = contract
+                write_contracts(contracts)
+            safe_path = (GENERATED_DIR / unquote(pdf_path.replace("/generated/", "", 1))).resolve()
+        if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
+            return json_response(start_response, "404 Not Found", {"error": "Document not found"})
+        return file_response(start_response, safe_path, extra_headers=generated_download_headers(safe_path))
+
+    view_path = contract.get("pdfViewPath")
+    if not view_path:
+        view_path = f"/generated/contract-{contract_id}.html"
+        contract["pdfViewPath"] = view_path
+    safe_path = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
+    if not str(safe_path).startswith(str(GENERATED_DIR.resolve())):
         return json_response(start_response, "404 Not Found", {"error": "Document not found"})
-    extra_headers = generated_download_headers(safe_path) if mode == "download" else None
-    return file_response(start_response, safe_path, extra_headers=extra_headers)
+    if not safe_path.exists():
+        safe_path.write_text(build_contract_html(contract.get("data") or {}), encoding="utf-8")
+        if contract_index is not None:
+            contracts[contract_index] = contract
+            write_contracts(contracts)
+    return file_response(start_response, safe_path)
 
 
 def app(environ, start_response):

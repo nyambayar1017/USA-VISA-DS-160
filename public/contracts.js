@@ -67,9 +67,9 @@ const renderContractsTable = (contracts) => {
                   <td>${formatDate(entry.createdAt)}</td>
                   <td>
                     <div class="contract-actions">
-                      <a class="secondary-button" href="${entry.pdfViewPath}" target="_blank">View</a>
+                      <a class="secondary-button" href="/api/contracts/${entry.id}/document?mode=view" target="_blank">View</a>
                       <a class="secondary-button" href="${entry.docxPath}" download>Word</a>
-                      ${pdfReady ? `<a class="secondary-button" href="${entry.pdfPath}" download>PDF</a>` : `<span class="muted">PDF pending</span>`}
+                      ${pdfReady ? `<a class="secondary-button" href="/api/contracts/${entry.id}/document?mode=download" download>PDF</a>` : `<span class="muted">PDF pending</span>`}
                       <button class="secondary-button" data-copy-link="${shareLink}">Copy link</button>
                       <button class="table-action danger compact" data-delete-id="${entry.id}">Delete</button>
                     </div>
@@ -222,7 +222,7 @@ const initContractSignPage = async () => {
           <p>${info.destination || ""}</p>
           <p>Contract No: ${info.contractSerial || "-"}</p>
         </div>
-        <a class="secondary-button" href="${contract.pdfViewPath}" target="_blank">View contract</a>
+        <a class="secondary-button" href="/api/contracts/${contractId}/document?mode=view" target="_blank">View contract</a>
       </div>
     `;
   } catch (error) {
