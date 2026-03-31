@@ -43,6 +43,7 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", ADMIN_TOKEN)
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
 BACKUP_WEBHOOK_URL = os.environ.get("BACKUP_WEBHOOK_URL", "").strip()
+BACKUP_TOKEN = os.environ.get("BACKUP_TOKEN", "").strip()
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
 STEPPE_ADDRESS_LINES = [
@@ -818,6 +819,24 @@ def require_admin(environ, start_response):
         json_response(start_response, "403 Forbidden", {"error": "Admin access required"})
         return None
     return user
+
+
+def backup_token_from_request(environ):
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    query_token = (params.get("token", [""])[0] or "").strip()
+    header_token = (environ.get("HTTP_X_BACKUP_TOKEN", "") or "").strip()
+    return query_token or header_token
+
+
+def require_backup_admin(environ, start_response):
+    user = current_user(environ)
+    if user and user.get("role") == "admin":
+        return user
+    token = backup_token_from_request(environ)
+    if BACKUP_TOKEN and token == BACKUP_TOKEN:
+        return {"role": "admin", "email": "backup-token", "fullName": "Backup Token"}
+    json_response(start_response, "401 Unauthorized", {"error": "Admin access required"})
+    return None
 
 
 def split_date_parts(value):
@@ -2547,7 +2566,7 @@ def handle_export_camp_reservations(environ, start_response):
 
 
 def handle_create_backup(environ, start_response):
-    admin = require_admin(environ, start_response)
+    admin = require_backup_admin(environ, start_response)
     if not admin:
         return []
     archive_path = create_backup_archive()
@@ -2559,14 +2578,14 @@ def handle_create_backup(environ, start_response):
 
 
 def handle_list_backups(environ, start_response):
-    admin = require_admin(environ, start_response)
+    admin = require_backup_admin(environ, start_response)
     if not admin:
         return []
     return json_response(start_response, "200 OK", {"ok": True, "backups": list_backup_archives()})
 
 
 def handle_download_backup(environ, start_response, filename):
-    admin = require_admin(environ, start_response)
+    admin = require_backup_admin(environ, start_response)
     if not admin:
         return []
     safe_path = (BACKUP_DIR / unquote(filename)).resolve()
