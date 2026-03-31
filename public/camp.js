@@ -1396,10 +1396,11 @@ async function handleInlineReservationSubmit(event) {
   const statusNode = target.querySelector("#reservation-edit-status");
   if (statusNode) statusNode.textContent = "Saving reservation...";
   const payload = buildPayload(target);
-  if (target.id === "reservation-edit-form" && !payload.id && editingReservationId) {
+  const isEdit = target.id === "reservation-edit-form" || Boolean(editingReservationId);
+  if (isEdit && !payload.id && editingReservationId) {
     payload.id = editingReservationId;
   }
-  if (target.id === "reservation-edit-form" && !payload.id) {
+  if (isEdit && !payload.id) {
     if (statusNode) statusNode.textContent = "Missing reservation id.";
     return;
   }
@@ -1430,14 +1431,14 @@ async function handleInlineReservationSubmit(event) {
   payload.tripName = selectedTrip.tripName;
   payload.reservationName = payload.reservationName || selectedTrip.reservationName || selectedTrip.tripName;
   try {
-    const result = await fetchJson(target.id === "reservation-edit-form" ? `/api/camp-reservations/${payload.id}` : "/api/camp-reservations", {
+    const result = await fetchJson(isEdit ? `/api/camp-reservations/${payload.id}` : "/api/camp-reservations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     const savedEntry = result?.entry || null;
     if (savedEntry?.id) {
-      if (target.id === "reservation-edit-form") {
+      if (isEdit) {
         currentEntries = currentEntries.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry));
       } else {
         currentEntries = [savedEntry, ...currentEntries.filter((entry) => entry.id !== savedEntry.id)];
@@ -1446,7 +1447,7 @@ async function handleInlineReservationSubmit(event) {
     }
     closeInlineEditPanels();
     closeReservationEditPanel();
-    campStatus.textContent = target.id === "reservation-edit-form" ? "Reservation updated successfully." : "Reservation saved successfully.";
+    campStatus.textContent = isEdit ? "Reservation updated successfully." : "Reservation saved successfully.";
     await loadSettings();
     await loadTrips();
     await loadReservations();
