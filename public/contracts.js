@@ -32,6 +32,8 @@ const normalizeNumber = (value) => {
   return Number(raw || 0);
 };
 
+const normalizeTextValue = (value) => String(value ?? "").trim();
+
 const apiRequest = async (url, options = {}) => {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -385,12 +387,12 @@ const initContractForm = () => {
   const ensureZeroDefaults = () => {
     Object.values(priceInputs).forEach((input) => {
       if (!input) return;
-      const value = normalizeText(input.value);
+      const value = normalizeTextValue(input.value);
       if (!value || value === "-") input.value = "0";
     });
-    if (totalPriceInput && !normalizeText(totalPriceInput.value)) totalPriceInput.value = "0";
+    if (totalPriceInput && !normalizeTextValue(totalPriceInput.value)) totalPriceInput.value = "0";
     const depositInput = form.querySelector("input[name='depositAmount']");
-    if (depositInput && !normalizeText(depositInput.value)) depositInput.value = "0";
+    if (depositInput && !normalizeTextValue(depositInput.value)) depositInput.value = "0";
   };
 
   continueButton.addEventListener("click", () => {
