@@ -251,7 +251,9 @@ const initContractForm = () => {
     child: form.querySelector("input[name='childPrice']"),
     infant: form.querySelector("input[name='infantPrice']"),
     landOnly: form.querySelector("input[name='landOnlyPrice']"),
+    custom: form.querySelector("input[name='customPrice']"),
   };
+  const customCountInput = form.querySelector("input[name='customCount']");
 
   const updateDuration = () => {
     if (!durationInput) return;
@@ -293,17 +295,20 @@ const initContractForm = () => {
     const childCount = normalizeNumber(countInputs[1]?.value);
     const infantCount = normalizeNumber(countInputs[2]?.value);
     const landOnlyCount = normalizeNumber(countInputs[3]?.value);
+    const customCount = normalizeNumber(customCountInput?.value);
 
     const adultPrice = normalizeNumber(priceInputs.adult?.value);
     const childPrice = normalizeNumber(priceInputs.child?.value);
     const infantPrice = normalizeNumber(priceInputs.infant?.value);
     const landOnlyPrice = normalizeNumber(priceInputs.landOnly?.value);
+    const customPrice = normalizeNumber(priceInputs.custom?.value);
 
     const total =
       adultCount * adultPrice +
       childCount * childPrice +
       infantCount * infantPrice +
-      landOnlyCount * landOnlyPrice;
+      landOnlyCount * landOnlyPrice +
+      customCount * customPrice;
 
     totalPriceInput.value = total ? formatMoney(total) : "";
   };
@@ -317,6 +322,7 @@ const initContractForm = () => {
       updateTotalPrice();
     })
   );
+  customCountInput?.addEventListener("input", updateTotalPrice);
   Object.values(priceInputs).forEach((input) => {
     if (!input) return;
     input.addEventListener("input", updateTotalPrice);

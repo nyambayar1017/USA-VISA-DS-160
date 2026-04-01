@@ -122,36 +122,48 @@
                   <input name="tripDuration" placeholder="8 өдөр 7 шөнө" required />
                 </label>
                 <label>
+                  Том хүний үнэ
+                  <input name="adultPrice" value="0" required />
+                </label>
+                <label>
                   Том хүний тоо
                   <input name="adultCount" type="number" min="0" value="1" />
+                </label>
+                <label class="price-field" data-price-field="child">
+                  Хүүхдийн үнэ
+                  <input name="childPrice" value="0" />
                 </label>
                 <label>
                   Хүүхдийн тоо
                   <input name="childCount" type="number" min="0" value="0" />
                 </label>
+                <label class="price-field" data-price-field="infant">
+                  Нярай хүүхдийн үнэ
+                  <input name="infantPrice" value="0" />
+                </label>
                 <label>
                   Нярай хүүхдийн тоо
                   <input name="infantCount" type="number" min="0" value="0" />
+                </label>
+                <label class="price-field" data-price-field="landOnly">
+                  Газрын үйлчилгээтэй хүний үнэ
+                  <input name="landOnlyPrice" value="0" />
                 </label>
                 <label>
                   Газрын үйлчилгээтэй хүний тоо
                   <input name="landOnlyCount" type="number" min="0" value="0" />
                 </label>
                 <label>
-                  Том хүний үнэ
-                  <input name="adultPrice" value="0" required />
+                  Нэмэлт зардлын нэр
+                  <input name="customPriceLabel" placeholder="Нэмэлт үйлчилгээ" />
                 </label>
-                <label class="price-field" data-price-field="child">
-                  Хүүхдийн үнэ
-                  <input name="childPrice" value="0" />
+                <label>
+                  Нэмэлт зардлын үнэ
+                  <input name="customPrice" value="0" />
                 </label>
-                <label class="price-field" data-price-field="infant">
-                  Нярай хүүхдийн үнэ
-                  <input name="infantPrice" value="0" />
-                </label>
-                <label class="price-field" data-price-field="landOnly">
-                  Газрын үйлчилгээтэй хүний үнэ
-                  <input name="landOnlyPrice" value="0" />
+                <label>
+                  Нэмэлт зардлын тоо
+                  <input name="customCount" type="number" min="0" value="0" />
                 </label>
                 <label>
                   Нийт хүн (тооцоолно)
