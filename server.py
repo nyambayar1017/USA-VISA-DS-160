@@ -1146,13 +1146,110 @@ def replace_template_paragraphs(root, data):
             set_paragraph_text(paragraph, replacements[current_text])
 
 
-def generate_docx(data, output_path):
-    ensure_data_store()
+def get_contract_template_path():
     template_path = TEMPLATE_FILE
     if not template_path.exists() and ALT_TEMPLATE.exists():
         template_path = ALT_TEMPLATE
     if not template_path.exists() and TEMPLATE_FALLBACK.exists():
         template_path = TEMPLATE_FALLBACK
+    return template_path
+
+
+def load_contract_template_root(data):
+    template_path = get_contract_template_path()
+    if not template_path.exists():
+        return None
+
+    with zipfile.ZipFile(template_path, "r") as source_zip:
+        document_xml = source_zip.read("word/document.xml")
+
+    root = ET.fromstring(document_xml)
+    replace_template_paragraphs(root, data)
+    return root
+
+
+def normalize_contract_heading(text):
+    normalized = " ".join((text or "").strip().upper().split())
+    normalized = normalized.replace("YY", "ҮҮ")
+    normalized = normalized.replace(" YY", " ҮҮ")
+    normalized = normalized.replace("ЖУУЛЧИН Ы", "ЖУУЛЧИНЫ")
+    normalized = normalized.replace("ЖУУЛЧНЫ", "ЖУУЛЧИНЫ")
+    normalized = normalized.replace(", Ү Ү Р Э Г", ", ҮҮРЭГ")
+    normalized = normalized.replace(", Ү ҮРЭГ", ", ҮҮРЭГ")
+    normalized = normalized.replace(", YYРЭГ", ", ҮҮРЭГ")
+    normalized = normalized.replace("  ", " ")
+    return normalized.strip()
+
+
+def extract_contract_blocks(data):
+    root = load_contract_template_root(data)
+    if root is None:
+        return []
+
+    body = root.find(qname("body"))
+    if body is None:
+        return []
+
+    section_heading_map = {
+        "ЕРӨНХИЙ ЗҮЙЛ": "1. ЕРӨНХИЙ ЗҮЙЛ",
+        "ГЭРЭЭНИЙ ХУГАЦАА": "2. ГЭРЭЭНИЙ ХУГАЦАА",
+        "АЯЛАЛ ЗОХИОН БАЙГУУЛАГЧИЙН ЭРХ, ҮҮРЭГ": "3. АЯЛАЛ ЗОХИОН БАЙГУУЛАГЧИЙН ЭРХ, ҮҮРЭГ",
+        "ЖУУЛЧИНЫ ЭРХ, ҮҮРЭГ": "4. ЖУУЛЧИНЫ ЭРХ, ҮҮРЭГ",
+        "АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО": "5. АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО",
+        "ТАЛУУДЫН ХАРИУЦЛАГА": "6. ТАЛУУДЫН ХАРИУЦЛАГА",
+        "ХИЛИЙН ШАЛГАН НЭВТРҮҮЛЭХ ХЭСЭГ": "7. ХИЛИЙН ШАЛГАН НЭВТРҮҮЛЭХ ХЭСЭГ",
+        "БУСАД ЗҮЙЛ": "8. БУСАД ЗҮЙЛ",
+        "ГЭРЭЭГ БАЙГУУЛСАН:": "9. ГЭРЭЭГ БАЙГУУЛСАН",
+        "ГЭРЭЭГ БАЙГУУЛСАН": "9. ГЭРЭЭГ БАЙГУУЛСАН",
+    }
+
+    blocks = []
+    current_section = None
+    subsection_index = 0
+
+    for element in body:
+        tag = element.tag.split("}")[-1]
+        if tag == "p":
+            text = paragraph_text(element).strip()
+            if not text:
+                continue
+            normalized = normalize_contract_heading(text)
+            if normalized in section_heading_map:
+                numbered_heading = section_heading_map[normalized]
+                current_section = numbered_heading.split(".", 1)[0]
+                subsection_index = 0
+                blocks.append({"type": "heading", "text": numbered_heading})
+            elif current_section is not None:
+                subsection_index += 1
+                blocks.append(
+                    {
+                        "type": "numbered-paragraph",
+                        "number": f"{current_section}.{subsection_index}.",
+                        "text": text,
+                    }
+                )
+            else:
+                blocks.append({"type": "paragraph", "text": text})
+        elif tag == "tbl":
+            rows = []
+            for row in element.findall(f".//{qname('tr')}"):
+                cells = []
+                for cell in row.findall(f".//{qname('tc')}"):
+                    cell_text = " ".join(
+                        paragraph_text(p).strip()
+                        for p in cell.findall(f".//{qname('p')}")
+                    ).strip()
+                    cells.append(cell_text)
+                if cells:
+                    rows.append(cells)
+            if rows:
+                blocks.append({"type": "table", "rows": rows})
+    return blocks
+
+
+def generate_docx(data, output_path):
+    ensure_data_store()
+    template_path = get_contract_template_path()
     if not template_path.exists():
         raise FileNotFoundError(f"Template not found at {template_path}")
 
@@ -1171,70 +1268,32 @@ def generate_docx(data, output_path):
 
 
 def render_docx_to_html(data):
-    template_path = TEMPLATE_FILE
-    if not template_path.exists() and ALT_TEMPLATE.exists():
-        template_path = ALT_TEMPLATE
-    if not template_path.exists() and TEMPLATE_FALLBACK.exists():
-        template_path = TEMPLATE_FALLBACK
-    if not template_path.exists():
+    if not get_contract_template_path().exists():
         return "<p>Template not found.</p>"
+    blocks = extract_contract_blocks(data)
+    if not blocks:
+        return "<p>Template is empty.</p>"
 
-    with zipfile.ZipFile(template_path, "r") as source_zip:
-        document_xml = source_zip.read("word/document.xml")
-        root = ET.fromstring(document_xml)
-        replace_template_paragraphs(root, data)
-
-        body = root.find(qname("body"))
-        if body is None:
-            return "<p>Template is empty.</p>"
-
-        section_heading_map = {
-            "ЕРӨНХИЙ ЗҮЙЛ": "1. ЕРӨНХИЙ ЗҮЙЛ",
-            "ГЭРЭЭНИЙ ХУГАЦАА": "2. ГЭРЭЭНИЙ ХУГАЦАА",
-            "АЯЛАЛ ЗОХИОН БАЙГУУЛАГЧИЙН ЭРХ, ҮҮРЭГ": "3. АЯЛАЛ ЗОХИОН БАЙГУУЛАГЧИЙН ЭРХ, ҮҮРЭГ",
-            "ЖУУЛЧНЫ ЭРХ, ҮҮРЭГ": "4. ЖУУЛЧНЫ ЭРХ, ҮҮРЭГ",
-            "АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО": "5. АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО",
-        }
-
-        current_section = None
-        subsection_index = 0
-        parts = []
-        for element in body:
-            tag = element.tag.split("}")[-1]
-            if tag == "p":
-                text = paragraph_text(element).strip()
-                if text:
-                    normalized = " ".join(text.split())
-                    if normalized in section_heading_map:
-                        numbered_heading = section_heading_map[normalized]
-                        current_section = numbered_heading.split(".", 1)[0]
-                        subsection_index = 0
-                        parts.append(f"<h2>{html.escape(numbered_heading)}</h2>")
-                    elif current_section is not None:
-                        subsection_index += 1
-                        parts.append(
-                            "<p class=\"contract-numbered\">"
-                            f"<span class=\"contract-number\">{current_section}.{subsection_index}.</span>"
-                            f"<span class=\"contract-text\">{html.escape(text)}</span>"
-                            "</p>"
-                        )
-                    else:
-                        parts.append(f"<p>{html.escape(text)}</p>")
-            elif tag == "tbl":
-                rows = []
-                for row in element.findall(f".//{qname('tr')}"):
-                    cells = []
-                    for cell in row.findall(f".//{qname('tc')}"):
-                        cell_text = " ".join(
-                            paragraph_text(p).strip()
-                            for p in cell.findall(f".//{qname('p')}")
-                        ).strip()
-                        cells.append(f"<td>{html.escape(cell_text)}</td>")
-                    if cells:
-                        rows.append(f"<tr>{''.join(cells)}</tr>")
-                if rows:
-                    parts.append(f"<table>{''.join(rows)}</table>")
-        return "\n".join(parts)
+    parts = []
+    for block in blocks:
+        if block["type"] == "heading":
+            parts.append(f"<h2>{html.escape(block['text'])}</h2>")
+        elif block["type"] == "numbered-paragraph":
+            parts.append(
+                "<p class=\"contract-numbered\">"
+                f"<span class=\"contract-number\">{html.escape(block['number'])}</span>"
+                f"<span class=\"contract-text\">{html.escape(block['text'])}</span>"
+                "</p>"
+            )
+        elif block["type"] == "paragraph":
+            parts.append(f"<p>{html.escape(block['text'])}</p>")
+        elif block["type"] == "table":
+            rows = []
+            for row in block["rows"]:
+                cells = "".join(f"<td>{html.escape(cell)}</td>" for cell in row)
+                rows.append(f"<tr>{cells}</tr>")
+            parts.append(f"<table>{''.join(rows)}</table>")
+    return "\n".join(parts)
 
 
 def build_contract_html(data):
@@ -1432,96 +1491,72 @@ def save_contract_pdf(record):
     pdf.drawRightString(width - margin_x, current_y, f"{contract_date} · Улаанбаатар хот")
     current_y -= 24
 
-    intro_paragraph = (
-        "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 "
-        "дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий "
-        "Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, "
-        "нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн "
-        f"{data['touristLastName']} овогтой {data['touristFirstName']} "
-        f"(РД: {data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав."
-    )
+    blocks = extract_contract_blocks(data)
+    if not blocks:
+        blocks = [{"type": "paragraph", "text": "Гэрээний загвар олдсонгүй."}]
 
-    contract_sections = [
-        (
-            "1. ЕРӨНХИЙ ЗҮЙЛ",
-            [
-                (
-                    "1.1.",
-                    f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} "
-                    f"хооронд {data['destination']}, {data['tripDuration']}, хөтөлбөртэй аяллын дагуу "
-                    f"{data['travelerCount']} аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, "
-                    "Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай "
-                    "холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн "
-                    "харилцааг зохицуулна.",
-                ),
-                (
-                    "1.2.",
-                    "Хөтөлбөртэй аяллаар захиалсан бол Хавсралт 1 – Аяллын хөтөлбөр нь гэрээний "
-                    "салшгүй хэсэг байна.",
-                ),
-                (
-                    "1.3.",
-                    "Зорчих чиглэл нь визтэй бол энэхүү гэрээний Хавсралт 2 – Харилцан ойлголцлын "
-                    "санамж бичиг нь гэрээний салшгүй хэсэг байна.",
-                ),
-            ],
-        ),
-        (
-            "2. АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО",
-            [
-                (
-                    "2.1.",
-                    f"Энэхүү гэрээгээр аялагчийн төлбөр нь {data['adultCount']} том хүний {data['adultPrice']} "
-                    f"төгрөг, {data['childCount']} хүүхдийн {data['childPrice']} төгрөг, 1 хүний онгоц "
-                    f"ороогүй дүн {data['noFlightPrice']} төгрөг, нийт {data['travelerCount']} аялагчийн "
-                    f"аяллын төлбөр {data['totalPrice']} төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. "
-                    "Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.",
-                ),
-                (
-                    "2.2.",
-                    f"Аяллын төлбөр дараах байдлаар хийгдэнэ. Аяллын урьдчилгаа төлбөр болох "
-                    f"{data['depositAmount']} төгрөгийг {format_due_date_ordinal(data['depositDueDate'])} дотор "
-                    "“Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай "
-                    "дансанд хийснээр аялал баталгаажна.",
-                ),
-                (
-                    "2.3.",
-                    f"Аяллын үлдэгдэлийг {format_balance_due_date(data['balanceDueDate'])} дотор "
-                    "“Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай "
-                    "дансанд хийхээр тохиролцов.",
-                ),
-            ],
-        ),
-    ]
-
-    current_y = draw_wrapped_text(pdf, intro_paragraph, margin_x, current_y, width - margin_x * 2, font_name, 11, 15)
-    current_y -= 12
-
-    numbered_indent = 26
-    numbered_width = width - (margin_x * 2) - numbered_indent
-
-    for heading, items in contract_sections:
-        current_y -= 8
-        pdf.setFont(bold_font_name, 12)
-        pdf.drawCentredString(width / 2, current_y, heading)
-        current_y -= 22
-
-        for prefix, text in items:
+    current_y = current_y
+    for block in blocks:
+        if current_y < 120:
+            pdf.showPage()
+            current_y = height - 60
             pdf.setFont(font_name, 11)
-            pdf.drawString(margin_x, current_y, prefix)
+
+        if block["type"] == "heading":
+            current_y -= 8
+            pdf.setFont(bold_font_name, 12)
+            pdf.drawCentredString(width / 2, current_y, block["text"])
+            current_y -= 22
+        elif block["type"] == "numbered-paragraph":
+            pdf.setFont(font_name, 11)
+            pdf.drawString(margin_x, current_y, block["number"])
             current_y = draw_wrapped_text(
                 pdf,
-                text,
-                margin_x + numbered_indent,
+                block["text"],
+                margin_x + 26,
                 current_y,
-                numbered_width,
+                width - (margin_x * 2) - 26,
                 font_name,
                 11,
                 15,
             )
             current_y -= 8
+        elif block["type"] == "paragraph":
+            current_y = draw_wrapped_text(
+                pdf,
+                block["text"],
+                margin_x,
+                current_y,
+                width - margin_x * 2,
+                font_name,
+                11,
+                15,
+            )
+            current_y -= 10
+        elif block["type"] == "table":
+            table = Table(block["rows"], repeatRows=1)
+            table.setStyle(
+                TableStyle(
+                    [
+                        ("GRID", (0, 0), (-1, -1), 0.8, colors.black),
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e6eef9")),
+                        ("FONTNAME", (0, 0), (-1, -1), font_name),
+                        ("FONTSIZE", (0, 0), (-1, -1), 9),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("PADDING", (0, 0), (-1, -1), 6),
+                    ]
+                )
+            )
+            table_width, table_height = table.wrap(width - margin_x * 2, current_y)
+            if current_y - table_height < 120:
+                pdf.showPage()
+                current_y = height - 60
+            table.drawOn(pdf, margin_x, current_y - table_height)
+            current_y -= table_height + 16
 
-    signature_y = 140
+    current_y -= 12
+    signature_y = max(140, current_y - 40)
     pdf.setFont(font_name, 11)
     pdf.drawString(margin_x, signature_y + 48, "Аялал зохион байгуулагч:")
     pdf.drawString(width / 2 + 20, signature_y + 48, "Захиалагч:")
@@ -3116,6 +3151,23 @@ def handle_update_contract(environ, start_response, contract_id):
             contract["data"] = data
             contract["updatedBy"] = actor_snapshot(actor)
             contract["updatedAt"] = datetime.now(timezone.utc).isoformat()
+            docx_path = contract.get("docxPath")
+            if docx_path:
+                safe_docx = (GENERATED_DIR / unquote(docx_path.replace("/generated/", "", 1))).resolve()
+                if str(safe_docx).startswith(str(GENERATED_DIR.resolve())):
+                    try:
+                        generate_docx(data, safe_docx)
+                    except Exception:
+                        pass
+            view_path = contract.get("pdfViewPath")
+            if view_path:
+                safe_view = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
+                if str(safe_view).startswith(str(GENERATED_DIR.resolve())):
+                    try:
+                        safe_view.write_text(build_contract_html(data), encoding="utf-8")
+                    except Exception:
+                        pass
+            contract["pdfPath"] = None
             contracts[idx] = contract
             write_contracts(contracts)
             return json_response(start_response, "200 OK", {"ok": True, "contract": contract})
@@ -3185,16 +3237,15 @@ def handle_contract_document(environ, start_response, contract_id):
         return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
     if mode == "download":
         pdf_path = contract.get("pdfPath")
-        if not str(pdf_path or "").endswith(".pdf"):
-            return json_response(start_response, "409 Conflict", {"error": "PDF not ready"})
-        safe_path = (GENERATED_DIR / unquote(pdf_path.replace("/generated/", "", 1))).resolve()
-        if not safe_path.exists() and contract.get("status") == "signed":
+        if contract.get("status") == "signed":
             pdf_path = save_contract_pdf(contract)
             contract["pdfPath"] = pdf_path
             if contract_index is not None:
                 contracts[contract_index] = contract
                 write_contracts(contracts)
-            safe_path = (GENERATED_DIR / unquote(pdf_path.replace("/generated/", "", 1))).resolve()
+        if not str(pdf_path or "").endswith(".pdf"):
+            return json_response(start_response, "409 Conflict", {"error": "PDF not ready"})
+        safe_path = (GENERATED_DIR / unquote(pdf_path.replace("/generated/", "", 1))).resolve()
         if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
             return json_response(start_response, "404 Not Found", {"error": "Document not found"})
         return file_response(start_response, safe_path, extra_headers=generated_download_headers(safe_path))
@@ -3206,11 +3257,10 @@ def handle_contract_document(environ, start_response, contract_id):
     safe_path = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
     if not str(safe_path).startswith(str(GENERATED_DIR.resolve())):
         return json_response(start_response, "404 Not Found", {"error": "Document not found"})
-    if not safe_path.exists():
-        safe_path.write_text(build_contract_html(contract.get("data") or {}), encoding="utf-8")
-        if contract_index is not None:
-            contracts[contract_index] = contract
-            write_contracts(contracts)
+    safe_path.write_text(build_contract_html(contract.get("data") or {}), encoding="utf-8")
+    if contract_index is not None:
+        contracts[contract_index] = contract
+        write_contracts(contracts)
     return file_response(start_response, safe_path)
 
 
