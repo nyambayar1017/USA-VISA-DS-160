@@ -193,6 +193,11 @@ const initContractForm = () => {
 
   panel.addEventListener("click", (event) => {
     if (event.target.dataset.action === "close-contract-panel") closePanel();
+    if (event.target.dataset.action === "contract-continue") {
+      syncCountStepToForm();
+      openStepTwo();
+      form.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   });
 
   qsa(".camp-modal-close", panel).forEach((button) => {
@@ -398,6 +403,7 @@ const initContractForm = () => {
   continueButton.addEventListener("click", () => {
     syncCountStepToForm();
     openStepTwo();
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   tripStartInput?.addEventListener("change", updateDuration);
