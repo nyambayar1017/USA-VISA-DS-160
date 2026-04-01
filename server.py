@@ -1298,6 +1298,14 @@ def render_docx_to_html(data):
 
 def build_contract_html(data):
     content = render_docx_to_html(data)
+    organizer_name = html.escape(data.get("managerFullName") or "Ч.Нямбаяр")
+    customer_name = html.escape(
+        " ".join(
+            part
+            for part in [data.get("touristLastName") or "", data.get("touristFirstName") or ""]
+            if part
+        ).strip()
+    )
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -1401,6 +1409,39 @@ def build_contract_html(data):
         font-size: 15px;
         text-align: center;
       }}
+      .signature-section {{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        margin-top: 40px;
+        padding-top: 24px;
+      }}
+      .signature-card {{
+        min-height: 150px;
+      }}
+      .signature-title {{
+        margin-bottom: 18px;
+        font-size: 16px;
+        font-weight: 700;
+      }}
+      .signature-line {{
+        min-height: 80px;
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+      }}
+      .signature-line img {{
+        max-height: 78px;
+        width: auto;
+        object-fit: contain;
+      }}
+      .stamp-image {{
+        max-height: 86px;
+      }}
+      .signature-name {{
+        margin-top: 12px;
+        font-size: 15px;
+      }}
       @media print {{
         body {{ background: white; }}
         .toolbar {{ display: none; }}
@@ -1423,6 +1464,21 @@ def build_contract_html(data):
         <img src="/assets/dtx-stamp.png" alt="DTX logo" />
       </div>
       {content}
+      <section class="signature-section">
+        <div class="signature-card">
+          <div class="signature-title">Аялал зохион байгуулагч:</div>
+          <div class="signature-line">
+            <img src="/assets/nyambayar-signature.png" alt="Nyambayar signature" />
+            <img class="stamp-image" src="/assets/dtx-stamp.png" alt="DTX stamp" />
+          </div>
+          <div class="signature-name">{organizer_name}</div>
+        </div>
+        <div class="signature-card">
+          <div class="signature-title">Захиалагч:</div>
+          <div class="signature-line"></div>
+          <div class="signature-name">{customer_name}</div>
+        </div>
+      </section>
     </main>
   </body>
 </html>
