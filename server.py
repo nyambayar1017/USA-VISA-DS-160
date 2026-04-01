@@ -1188,13 +1188,38 @@ def render_docx_to_html(data):
         if body is None:
             return "<p>Template is empty.</p>"
 
+        section_heading_map = {
+            "ЕРӨНХИЙ ЗҮЙЛ": "1. ЕРӨНХИЙ ЗҮЙЛ",
+            "ГЭРЭЭНИЙ ХУГАЦАА": "2. ГЭРЭЭНИЙ ХУГАЦАА",
+            "АЯЛАЛ ЗОХИОН БАЙГУУЛАГЧИЙН ЭРХ, ҮҮРЭГ": "3. АЯЛАЛ ЗОХИОН БАЙГУУЛАГЧИЙН ЭРХ, ҮҮРЭГ",
+            "ЖУУЛЧНЫ ЭРХ, ҮҮРЭГ": "4. ЖУУЛЧНЫ ЭРХ, ҮҮРЭГ",
+            "АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО": "5. АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО",
+        }
+
+        current_section = None
+        subsection_index = 0
         parts = []
         for element in body:
             tag = element.tag.split("}")[-1]
             if tag == "p":
                 text = paragraph_text(element).strip()
                 if text:
-                    parts.append(f"<p>{html.escape(text)}</p>")
+                    normalized = " ".join(text.split())
+                    if normalized in section_heading_map:
+                        numbered_heading = section_heading_map[normalized]
+                        current_section = numbered_heading.split(".", 1)[0]
+                        subsection_index = 0
+                        parts.append(f"<h2>{html.escape(numbered_heading)}</h2>")
+                    elif current_section is not None:
+                        subsection_index += 1
+                        parts.append(
+                            "<p class=\"contract-numbered\">"
+                            f"<span class=\"contract-number\">{current_section}.{subsection_index}.</span>"
+                            f"<span class=\"contract-text\">{html.escape(text)}</span>"
+                            "</p>"
+                        )
+                    else:
+                        parts.append(f"<p>{html.escape(text)}</p>")
             elif tag == "tbl":
                 rows = []
                 for row in element.findall(f".//{qname('tr')}"):
@@ -1282,11 +1307,29 @@ def build_contract_html(data):
         font-size: 28px;
         letter-spacing: 0.06em;
       }}
+      h2 {{
+        margin: 22px 0 12px;
+        font-size: 20px;
+        text-align: center;
+        text-transform: uppercase;
+      }}
       p {{
         margin: 0 0 12px;
         font-size: 16px;
         line-height: 1.6;
         text-align: justify;
+      }}
+      .contract-numbered {{
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }}
+      .contract-number {{
+        flex: 0 0 auto;
+        font-weight: 700;
+      }}
+      .contract-text {{
+        flex: 1 1 auto;
       }}
       table {{
         width: 100%;
