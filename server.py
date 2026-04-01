@@ -1199,8 +1199,6 @@ def extract_contract_blocks(data):
         "ТАЛУУДЫН ХАРИУЦЛАГА": "6. ТАЛУУДЫН ХАРИУЦЛАГА",
         "ХИЛИЙН ШАЛГАН НЭВТРҮҮЛЭХ ХЭСЭГ": "7. ХИЛИЙН ШАЛГАН НЭВТРҮҮЛЭХ ХЭСЭГ",
         "БУСАД ЗҮЙЛ": "8. БУСАД ЗҮЙЛ",
-        "ГЭРЭЭГ БАЙГУУЛСАН:": "9. ГЭРЭЭГ БАЙГУУЛСАН",
-        "ГЭРЭЭГ БАЙГУУЛСАН": "9. ГЭРЭЭГ БАЙГУУЛСАН",
     }
 
     blocks = []
@@ -1214,6 +1212,8 @@ def extract_contract_blocks(data):
             if not text:
                 continue
             normalized = normalize_contract_heading(text)
+            if normalized in {"ГЭРЭЭГ БАЙГУУЛСАН:", "ГЭРЭЭГ БАЙГУУЛСАН"}:
+                break
             if normalized in section_heading_map:
                 numbered_heading = section_heading_map[normalized]
                 current_section = numbered_heading.split(".", 1)[0]
@@ -1296,8 +1296,51 @@ def render_docx_to_html(data):
     return "\n".join(parts)
 
 
+def get_contract_display_blocks(data):
+    blocks = []
+    for block in extract_contract_blocks(data):
+        if block["type"] == "paragraph":
+            text = block["text"].strip()
+            if text == "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ":
+                continue
+            if text.startswith("Дугаар:"):
+                continue
+            if "Улаанбаатар хот" in text and any(ch.isdigit() for ch in text):
+                continue
+        blocks.append(block)
+    return blocks
+
+
+def build_contract_body_html(data):
+    blocks = get_contract_display_blocks(data)
+
+    if not blocks:
+        return "<p>Template is empty.</p>"
+
+    parts = []
+    for block in blocks:
+        if block["type"] == "heading":
+            parts.append(f"<h2>{html.escape(block['text'])}</h2>")
+        elif block["type"] == "numbered-paragraph":
+            parts.append(
+                "<p class=\"contract-numbered\">"
+                f"<span class=\"contract-number\">{html.escape(block['number'])}</span>"
+                f"<span class=\"contract-text\">{html.escape(block['text'])}</span>"
+                "</p>"
+            )
+        elif block["type"] == "paragraph":
+            parts.append(f"<p>{html.escape(block['text'])}</p>")
+        elif block["type"] == "table":
+            rows = []
+            for row in block["rows"]:
+                cells = "".join(f"<td>{html.escape(cell)}</td>" for cell in row)
+                rows.append(f"<tr>{cells}</tr>")
+            parts.append(f"<table>{''.join(rows)}</table>")
+    return "\n".join(parts)
+
+
 def build_contract_html(data):
-    content = render_docx_to_html(data)
+    content = build_contract_body_html(data)
     organizer_name = html.escape(data.get("managerFullName") or "Ч.Нямбаяр")
     customer_name = html.escape(
         " ".join(
@@ -1306,6 +1349,12 @@ def build_contract_html(data):
             if part
         ).strip()
     )
+    manager_last_name = html.escape(data.get("managerLastName") or "")
+    customer_register = html.escape(data.get("touristRegister") or "")
+    customer_phone = html.escape(data.get("touristPhone") or "")
+    emergency_phone = html.escape(data.get("emergencyPhone") or "")
+    contract_date = html.escape(format_contract_header_date(data["contractDate"]))
+    contract_serial = html.escape(data["contractSerial"])
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -1361,22 +1410,52 @@ def build_contract_html(data):
       .doc-logo {{
         display: flex;
         justify-content: center;
-        margin-bottom: 12px;
+        margin-bottom: 6px;
       }}
-      .doc-logo img {{
-        width: 140px;
-        height: auto;
-        object-fit: contain;
+      .doc-logo-mark {{
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        color: #253e86;
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        line-height: 0.95;
+      }}
+      .doc-logo-row {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }}
+      .doc-logo-word {{
+        font-size: 18px;
+      }}
+      .doc-logo-x {{
+        color: #d9ab1b;
+        font-size: 24px;
+        transform: scaleX(1.15);
       }}
       h1 {{
-        margin: 0 0 8px;
+        margin: 0 0 10px;
         text-align: center;
-        font-size: 28px;
-        letter-spacing: 0.06em;
+        font-size: 22px;
+      }}
+      .contract-number-line {{
+        margin: 0 0 18px;
+        text-align: center;
+        font-size: 16px;
+      }}
+      .contract-date-row {{
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 24px;
+        font-size: 16px;
       }}
       h2 {{
         margin: 22px 0 12px;
-        font-size: 20px;
+        font-size: 18px;
         text-align: center;
         text-transform: uppercase;
       }}
@@ -1410,36 +1489,63 @@ def build_contract_html(data):
         text-align: center;
       }}
       .signature-section {{
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 32px;
         margin-top: 40px;
-        padding-top: 24px;
+        padding-top: 12px;
       }}
-      .signature-card {{
-        min-height: 150px;
-      }}
-      .signature-title {{
-        margin-bottom: 18px;
-        font-size: 16px;
+      .signature-heading {{
+        margin: 0 0 18px;
+        text-align: center;
+        font-size: 20px;
         font-weight: 700;
       }}
-      .signature-line {{
-        min-height: 80px;
+      .signature-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        align-items: start;
+      }}
+      .signature-title {{
+        margin-bottom: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        text-decoration: underline;
+      }}
+      .signature-org-name {{
+        margin-bottom: 10px;
+        font-size: 15px;
+        font-weight: 700;
+      }}
+      .signature-images {{
+        min-height: 120px;
         display: flex;
         align-items: flex-end;
-        gap: 14px;
+        gap: 18px;
+        margin: 10px 0 8px;
       }}
-      .signature-line img {{
+      .signature-images img {{
         max-height: 78px;
         width: auto;
         object-fit: contain;
       }}
       .stamp-image {{
-        max-height: 86px;
+        max-height: 128px;
+      }}
+      .signature-contact p,
+      .signer-contact p {{
+        margin-bottom: 8px;
+      }}
+      .signature-label {{
+        display: inline-block;
+        min-width: 68px;
+        font-weight: 700;
+        text-decoration: underline;
+      }}
+      .signer-name {{
+        color: #c3482e;
+        font-weight: 700;
+        margin: 18px 0 12px;
       }}
       .signature-name {{
-        margin-top: 12px;
         font-size: 15px;
       }}
       @media print {{
@@ -1461,22 +1567,56 @@ def build_contract_html(data):
     </div>
     <main class="page">
       <div class="doc-logo">
-        <img src="/assets/dtx-stamp.png" alt="DTX logo" />
+        <div class="doc-logo-mark" aria-label="Дэлхий Трэвел Икс">
+          <div class="doc-logo-row">
+            <span class="doc-logo-word">ДЭЛХИЙ</span>
+            <span class="doc-logo-x">X</span>
+          </div>
+          <div class="doc-logo-row">
+            <span class="doc-logo-word">ТРЭВЕЛ</span>
+          </div>
+        </div>
+      </div>
+      <h1>АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ</h1>
+      <p class="contract-number-line">Дугаар: DTX-09А-26-{contract_serial}_____</p>
+      <div class="contract-date-row">
+        <span>{contract_date}</span>
+        <span>Улаанбаатар хот</span>
       </div>
       {content}
       <section class="signature-section">
-        <div class="signature-card">
-          <div class="signature-title">Аялал зохион байгуулагч:</div>
-          <div class="signature-line">
-            <img src="/assets/nyambayar-signature.png" alt="Nyambayar signature" />
-            <img class="stamp-image" src="/assets/dtx-stamp.png" alt="DTX stamp" />
+        <h2 class="signature-heading">ГЭРЭЭГ БАЙГУУЛСАН:</h2>
+        <div class="signature-grid">
+          <div>
+            <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
+            <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
+            <div class="signature-images">
+              <img class="stamp-image" src="/assets/dtx-stamp.png" alt="DTX stamp" />
+              <img src="/assets/nyambayar-signature.png" alt="Nyambayar signature" />
+            </div>
+            <div class="signature-contact">
+              <p class="signature-name">{manager_last_name} {organizer_name}</p>
+              <p>Аяллын менежер</p>
+              <p><span class="signature-label">Гар утас:</span> 85178877</p>
+              <p><span class="signature-label">Утас:</span> 72007722</p>
+              <p><span class="signature-label">И-мэйл:</span> nyambayar@travelx.mn</p>
+              <p><span class="signature-label"></span> info@travelx.mn</p>
+              <p><span class="signature-label">Вэбсайт:</span> www.travelx.mn</p>
+              <p><span class="signature-label">Хаяг:</span> Улаанбаатар хот, Хан-Уул дүүрэг,</p>
+              <p><span class="signature-label"></span> Их Монгол Улс гудамж, 17 хороо,</p>
+              <p><span class="signature-label"></span> Кинг Тауэр 121-102 тоот</p>
+            </div>
           </div>
-          <div class="signature-name">{organizer_name}</div>
-        </div>
-        <div class="signature-card">
-          <div class="signature-title">Захиалагч:</div>
-          <div class="signature-line"></div>
-          <div class="signature-name">{customer_name}</div>
+          <div>
+            <div class="signature-title">Жуулчдыг төлөөлж:</div>
+            <p class="signer-name">{customer_name}</p>
+            <div class="signer-contact">
+              <p><span class="signature-label">Утас:</span> {customer_phone}</p>
+              <p><span class="signature-label">Яаралтай үед холбоо барих утасны дугаар:</span></p>
+              <p>{emergency_phone}</p>
+              <p><span class="signature-label">Регистр:</span> {customer_register}</p>
+            </div>
+          </div>
         </div>
       </section>
     </main>
@@ -1537,17 +1677,39 @@ def save_contract_pdf(record):
     margin_x = 50
     current_y = height - 60
 
-    pdf.setFont(bold_font_name, 18)
-    pdf.drawCentredString(width / 2, current_y, "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ")
+    contract_date = format_contract_header_date(data["contractDate"])
+    contract_serial = data["contractSerial"]
+    organizer_name = data.get("managerFullName") or "Ч.Нямбаяр"
+    manager_last_name = data.get("managerLastName") or ""
+    customer_name = " ".join(
+        part
+        for part in [data.get("touristLastName") or "", data.get("touristFirstName") or ""]
+        if part
+    ).strip()
+    customer_register = data.get("touristRegister") or ""
+    customer_phone = data.get("touristPhone") or ""
+    emergency_phone = data.get("emergencyPhone") or ""
+
+    pdf.setFont(bold_font_name, 20)
+    pdf.setFillColor(colors.HexColor("#243b7a"))
+    pdf.drawCentredString(width / 2, current_y, "ДЭЛХИЙ ТРЭВЕЛ")
+    pdf.setFillColor(colors.HexColor("#d9a31a"))
+    pdf.drawString((width / 2) + 70, current_y - 2, "X")
+    pdf.setFillColor(colors.black)
     current_y -= 30
 
-    contract_date = format_contract_header_date(data["contractDate"])
-    pdf.setFont(font_name, 11)
-    pdf.drawString(margin_x, current_y, f"Дугаар: DTX-09А-26-{data['contractSerial']}")
-    pdf.drawRightString(width - margin_x, current_y, f"{contract_date} · Улаанбаатар хот")
+    pdf.setFont(bold_font_name, 18)
+    pdf.drawCentredString(width / 2, current_y, "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ")
     current_y -= 24
 
-    blocks = extract_contract_blocks(data)
+    pdf.setFont(font_name, 11)
+    pdf.drawCentredString(width / 2, current_y, f"Дугаар: DTX-09А-26-{contract_serial}_____")
+    current_y -= 26
+    pdf.drawString(margin_x, current_y, contract_date)
+    pdf.drawRightString(width - margin_x, current_y, "Улаанбаатар хот")
+    current_y -= 24
+
+    blocks = get_contract_display_blocks(data)
     if not blocks:
         blocks = [{"type": "paragraph", "text": "Гэрээний загвар олдсонгүй."}]
 
@@ -1612,27 +1774,51 @@ def save_contract_pdf(record):
             current_y -= table_height + 16
 
     current_y -= 12
-    signature_y = max(140, current_y - 40)
-    pdf.setFont(font_name, 11)
-    pdf.drawString(margin_x, signature_y + 48, "Аялал зохион байгуулагч:")
-    pdf.drawString(width / 2 + 20, signature_y + 48, "Захиалагч:")
+    signature_y = max(150, current_y - 65)
+    pdf.setFont(bold_font_name, 13)
+    pdf.drawCentredString(width / 2, signature_y + 92, "ГЭРЭЭГ БАЙГУУЛСАН:")
+
+    left_x = margin_x
+    right_x = width / 2 + 10
+
+    pdf.setFont(bold_font_name, 11)
+    pdf.drawString(left_x, signature_y + 62, "Аялал зохион байгуулагчийг төлөөлж:")
+    pdf.drawString(right_x, signature_y + 62, "Жуулчдыг төлөөлж:")
+
+    pdf.drawString(left_x, signature_y + 40, "“Дэлхий Трэвел Икс” ХХК -ийн")
 
     company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature.png"
     company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp.png"
     if company_signature.exists():
-        pdf.drawImage(str(company_signature), margin_x, signature_y, width=140, height=60, mask="auto")
+        pdf.drawImage(str(company_signature), left_x + 4, signature_y - 5, width=125, height=56, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), margin_x + 150, signature_y - 10, width=70, height=70, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x + 10, signature_y - 72, width=115, height=115, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
         sig_file = (GENERATED_DIR / signature_path.replace("/generated/", "", 1)).resolve()
         if sig_file.exists():
-            pdf.drawImage(str(sig_file), width / 2 + 20, signature_y, width=180, height=60, mask="auto")
+            pdf.drawImage(str(sig_file), right_x + 18, signature_y + 2, width=150, height=52, mask="auto")
 
     pdf.setFont(font_name, 10)
-    pdf.drawString(margin_x, signature_y - 20, "Ч.Нямбаяр")
-    pdf.drawString(width / 2 + 20, signature_y - 20, record.get("signerName") or data.get("touristFirstName") or "")
+    pdf.drawString(left_x, signature_y - 24, f"{manager_last_name} {organizer_name}".strip())
+    pdf.drawString(left_x, signature_y - 40, "Аяллын менежер")
+    pdf.drawString(left_x, signature_y - 64, "Гар утас: 85178877")
+    pdf.drawString(left_x, signature_y - 80, "Утас: 72007722")
+    pdf.drawString(left_x, signature_y - 96, "И-мэйл: nyambayar@travelx.mn")
+    pdf.drawString(left_x, signature_y - 112, "          info@travelx.mn")
+    pdf.drawString(left_x, signature_y - 128, "Вэбсайт: www.travelx.mn")
+    pdf.drawString(left_x, signature_y - 144, "Хаяг: Улаанбаатар хот, Хан-Уул дүүрэг,")
+    pdf.drawString(left_x + 34, signature_y - 160, "Их Монгол Улс гудамж, 17 хороо,")
+    pdf.drawString(left_x + 34, signature_y - 176, "Кинг Тауэр 121-102 тоот")
+
+    pdf.setFont(bold_font_name, 11)
+    pdf.drawString(right_x, signature_y + 24, customer_name or " ")
+    pdf.setFont(font_name, 10)
+    pdf.drawString(right_x, signature_y - 18, f"Утас: {customer_phone}")
+    pdf.drawString(right_x, signature_y - 54, "Яаралтай үед холбоо барих утасны дугаар:")
+    pdf.drawString(right_x, signature_y - 70, emergency_phone)
+    pdf.drawString(right_x, signature_y - 106, f"Регистр: {customer_register}")
 
     pdf.showPage()
     pdf.save()
