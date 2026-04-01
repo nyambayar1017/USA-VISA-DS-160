@@ -1127,14 +1127,18 @@ time {
 
 .signature-box canvas {
   width: 100%;
-  height: auto;
+  height: 180px;
   display: block;
+  border-radius: 12px;
+  background: #ffffff;
+  cursor: crosshair;
 }
 
 .signature-actions {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .contract-accept {

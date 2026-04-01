@@ -1663,7 +1663,9 @@ def draw_wrapped_text(pdf, text, x, y, max_width, font_name, font_size, leading=
 
 
 def save_contract_pdf(record):
+    from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import Table, TableStyle
     from reportlab.pdfgen import canvas
 
     ensure_data_store()
@@ -3457,7 +3459,14 @@ def handle_sign_contract(environ, start_response, contract_id):
             contract["accepted"] = accepted
             contract["status"] = "signed"
             contract["signedAt"] = datetime.now(timezone.utc).isoformat()
-            contract["pdfPath"] = save_contract_pdf(contract)
+            try:
+                contract["pdfPath"] = save_contract_pdf(contract)
+            except Exception as exc:
+                return json_response(
+                    start_response,
+                    "500 Internal Server Error",
+                    {"error": f"Could not generate signed PDF: {exc}"},
+                )
             contracts[idx] = contract
             write_contracts(contracts)
             return json_response(start_response, "200 OK", {"ok": True, "contract": contract})

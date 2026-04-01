@@ -539,7 +539,7 @@ const initContractSignPage = async () => {
         downloadEl.innerHTML = `<a class="secondary-button" href="${result.contract.pdfPath}" download>Download PDF</a>`;
       }
     } catch (error) {
-      statusEl.textContent = error.message;
+      statusEl.textContent = error.message || "Could not confirm signature and generate PDF.";
     }
   });
 };
