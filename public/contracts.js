@@ -153,17 +153,30 @@ const loadContracts = async () => {
 const initContractForm = () => {
   const panel = qs("#contract-form-panel");
   const toggle = qs("#contract-toggle-form");
+  const countSetup = qs("#contract-count-setup");
+  const continueButton = qs("#contract-continue-button");
   const form = qs("#contract-form");
   const statusEl = qs("#contract-status");
   const managerSelect = qs("#manager-select");
   const managerLastInput = form.querySelector("input[name='managerLastName']");
   const managerFirstInput = form.querySelector("input[name='managerFirstName']");
 
-  if (!panel || !toggle || !form) return;
+  if (!panel || !toggle || !countSetup || !continueButton || !form) return;
 
-  const closeModal = () => {
+  const openStepOne = () => {
+    countSetup.classList.remove("is-hidden");
+    form.classList.add("is-hidden");
+  };
+
+  const openStepTwo = () => {
+    countSetup.classList.add("is-hidden");
+    form.classList.remove("is-hidden");
+  };
+
+  const closePanel = () => {
     panel.classList.add("is-hidden");
     panel.setAttribute("hidden", "");
+    openStepOne();
   };
 
   toggle.addEventListener("click", () => {
@@ -173,14 +186,15 @@ const initContractForm = () => {
     if (dateInput && !dateInput.value) {
       dateInput.value = new Date().toISOString().split("T")[0];
     }
+    openStepOne();
   });
 
   panel.addEventListener("click", (event) => {
-    if (event.target.dataset.action === "close-contract-panel") closeModal();
+    if (event.target.dataset.action === "close-contract-panel") closePanel();
   });
 
   qsa(".camp-modal-close", panel).forEach((button) => {
-    button.addEventListener("click", closeModal);
+    button.addEventListener("click", closePanel);
   });
 
   form.addEventListener("submit", async (event) => {
@@ -192,7 +206,7 @@ const initContractForm = () => {
       await apiRequest(CONTRACTS_ENDPOINT, { method: "POST", body: JSON.stringify(payload) });
       statusEl.textContent = "Saved successfully";
       form.reset();
-      closeModal();
+      closePanel();
       loadContracts();
       setTimeout(() => (statusEl.textContent = ""), 2000);
     } catch (error) {
@@ -201,7 +215,7 @@ const initContractForm = () => {
   });
 
   // Ensure the panel is hidden on first load even if browser caches styles.
-  closeModal();
+  closePanel();
 
   const loadManagers = async () => {
     if (!managerSelect) return;
@@ -240,12 +254,38 @@ const initContractForm = () => {
   const durationInput = form.querySelector("input[name='tripDuration']");
   const travelerInput = form.querySelector("input[name='travelerCount']");
   const totalPriceInput = form.querySelector("input[name='totalPrice']");
-  const countInputs = [
+  const countInputs = {
+    adult: form.querySelector("input[name='adultCount']"),
+    child: form.querySelector("input[name='childCount']"),
+    infant: form.querySelector("input[name='infantCount']"),
+    ticketOnly: form.querySelector("input[name='ticketOnlyCount']"),
+    landOnly: form.querySelector("input[name='landOnlyCount']"),
+    custom: form.querySelector("input[name='customCount']"),
+  };
+  const countDisplays = {
+    adult: form.querySelector("input[name='adultCountDisplay']"),
+    child: form.querySelector("input[name='childCountDisplay']"),
+    infant: form.querySelector("input[name='infantCountDisplay']"),
+    ticketOnly: form.querySelector("input[name='ticketOnlyCountDisplay']"),
+    landOnly: form.querySelector("input[name='landOnlyCountDisplay']"),
+    custom: form.querySelector("input[name='customCountDisplay']"),
+  };
+  const setupCounts = {
+    adult: countSetup.querySelector("input[name='setupAdultCount']"),
+    child: countSetup.querySelector("input[name='setupChildCount']"),
+    infant: countSetup.querySelector("input[name='setupInfantCount']"),
+    ticketOnly: countSetup.querySelector("input[name='setupTicketOnlyCount']"),
+    landOnly: countSetup.querySelector("input[name='setupLandOnlyCount']"),
+    custom: countSetup.querySelector("input[name='setupCustomCount']"),
+  };
+  const visibleCountInputs = [
+    countInputs.adult,
     form.querySelector("input[name='adultCount']"),
-    form.querySelector("input[name='childCount']"),
-    form.querySelector("input[name='infantCount']"),
-    form.querySelector("input[name='ticketOnlyCount']"),
-    form.querySelector("input[name='landOnlyCount']"),
+    countInputs.child,
+    countInputs.infant,
+    countInputs.ticketOnly,
+    countInputs.landOnly,
+    countInputs.custom,
   ].filter(Boolean);
   const priceInputs = {
     adult: form.querySelector("input[name='adultPrice']"),
@@ -255,7 +295,6 @@ const initContractForm = () => {
     landOnly: form.querySelector("input[name='landOnlyPrice']"),
     custom: form.querySelector("input[name='customPrice']"),
   };
-  const customCountInput = form.querySelector("input[name='customCount']");
   const customLabelInput = form.querySelector("input[name='customPriceLabel']");
 
   const updateDuration = () => {
@@ -266,49 +305,53 @@ const initContractForm = () => {
 
   const updateTravelerCount = () => {
     if (!travelerInput) return;
-    const total = countInputs.reduce((sum, input) => sum + normalizeNumber(input.value), 0);
-    travelerInput.value = total ? String(total) : "";
+    const total = Object.values(countInputs).reduce((sum, input) => sum + normalizeNumber(input?.value), 0);
+    travelerInput.value = String(total || 0);
   };
 
-  const setHidden = (input, hidden) => {
-    if (!input) return;
-    const label = input.closest("label");
+  const setHidden = (element, hidden) => {
+    if (!element) return;
+    const label = element.closest("label");
     if (label) label.classList.toggle("is-hidden", hidden);
-    if (hidden) input.value = "";
   };
 
   const updatePriceVisibility = () => {
-    const childCount = normalizeNumber(countInputs[1]?.value);
-    const infantCount = normalizeNumber(countInputs[2]?.value);
-    const ticketOnlyCount = normalizeNumber(countInputs[3]?.value);
-    const landOnlyCount = normalizeNumber(countInputs[4]?.value);
-    const customCount = normalizeNumber(customCountInput?.value);
+    const childCount = normalizeNumber(countInputs.child?.value);
+    const infantCount = normalizeNumber(countInputs.infant?.value);
+    const ticketOnlyCount = normalizeNumber(countInputs.ticketOnly?.value);
+    const landOnlyCount = normalizeNumber(countInputs.landOnly?.value);
+    const customCount = normalizeNumber(countInputs.custom?.value);
 
+    setHidden(countDisplays.child, childCount <= 0);
     setHidden(priceInputs.child, childCount <= 0);
+
+    setHidden(countDisplays.infant, infantCount <= 0);
     setHidden(priceInputs.infant, infantCount <= 0);
+
+    setHidden(countDisplays.ticketOnly, ticketOnlyCount <= 0);
     setHidden(priceInputs.ticketOnly, ticketOnlyCount <= 0);
+
+    setHidden(countDisplays.landOnly, landOnlyCount <= 0);
     setHidden(priceInputs.landOnly, landOnlyCount <= 0);
-    if (customLabelInput) {
-      const label = customLabelInput.closest("label");
-      if (label) label.classList.toggle("is-hidden", customCount <= 0);
-      if (customCount <= 0) customLabelInput.value = "";
-    }
+
+    setHidden(countDisplays.custom, customCount <= 0);
+    setHidden(customLabelInput, customCount <= 0);
     setHidden(priceInputs.custom, customCount <= 0);
   };
 
   const formatMoney = (value) => {
-    if (!value) return "";
+    if (!value) return "0";
     return Number(value).toLocaleString("en-US");
   };
 
   const updateTotalPrice = () => {
     if (!totalPriceInput) return;
-    const adultCount = normalizeNumber(countInputs[0]?.value);
-    const childCount = normalizeNumber(countInputs[1]?.value);
-    const infantCount = normalizeNumber(countInputs[2]?.value);
-    const ticketOnlyCount = normalizeNumber(countInputs[3]?.value);
-    const landOnlyCount = normalizeNumber(countInputs[4]?.value);
-    const customCount = normalizeNumber(customCountInput?.value);
+    const adultCount = normalizeNumber(countInputs.adult?.value);
+    const childCount = normalizeNumber(countInputs.child?.value);
+    const infantCount = normalizeNumber(countInputs.infant?.value);
+    const ticketOnlyCount = normalizeNumber(countInputs.ticketOnly?.value);
+    const landOnlyCount = normalizeNumber(countInputs.landOnly?.value);
+    const customCount = normalizeNumber(countInputs.custom?.value);
 
     const adultPrice = normalizeNumber(priceInputs.adult?.value);
     const childPrice = normalizeNumber(priceInputs.child?.value);
@@ -325,24 +368,52 @@ const initContractForm = () => {
       landOnlyCount * landOnlyPrice +
       customCount * customPrice;
 
-    totalPriceInput.value = total ? formatMoney(total) : "";
+    totalPriceInput.value = formatMoney(total);
   };
+
+  const syncCountStepToForm = () => {
+    Object.entries(setupCounts).forEach(([key, setupInput]) => {
+      const value = String(normalizeNumber(setupInput?.value));
+      if (countInputs[key]) countInputs[key].value = value;
+      if (countDisplays[key]) countDisplays[key].value = value;
+    });
+    updateTravelerCount();
+    updatePriceVisibility();
+    updateTotalPrice();
+  };
+
+  const ensureZeroDefaults = () => {
+    Object.values(priceInputs).forEach((input) => {
+      if (!input) return;
+      const value = normalizeText(input.value);
+      if (!value || value === "-") input.value = "0";
+    });
+    if (totalPriceInput && !normalizeText(totalPriceInput.value)) totalPriceInput.value = "0";
+    const depositInput = form.querySelector("input[name='depositAmount']");
+    if (depositInput && !normalizeText(depositInput.value)) depositInput.value = "0";
+  };
+
+  continueButton.addEventListener("click", () => {
+    syncCountStepToForm();
+    openStepTwo();
+  });
 
   tripStartInput?.addEventListener("change", updateDuration);
   tripEndInput?.addEventListener("change", updateDuration);
-  countInputs.forEach((input) =>
+  visibleCountInputs.forEach((input) =>
     input.addEventListener("input", () => {
       updateTravelerCount();
       updatePriceVisibility();
       updateTotalPrice();
     })
   );
-  customCountInput?.addEventListener("input", updateTotalPrice);
   Object.values(priceInputs).forEach((input) => {
     if (!input) return;
     input.addEventListener("input", updateTotalPrice);
   });
 
+  ensureZeroDefaults();
+  syncCountStepToForm();
   updateTravelerCount();
   updatePriceVisibility();
   updateTotalPrice();

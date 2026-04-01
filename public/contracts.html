@@ -54,7 +54,37 @@
                 </div>
                 <button type="button" class="camp-modal-close" data-action="close-contract-panel" aria-label="Close contract window">×</button>
               </div>
-              <form id="contract-form" class="field-grid contract-grid">
+              <div id="contract-count-setup" class="field-grid contract-grid">
+                <label>
+                  Том хүний тоо
+                  <input name="setupAdultCount" type="number" min="0" value="1" />
+                </label>
+                <label>
+                  Хүүхдийн тоо
+                  <input name="setupChildCount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Нярайн тоо
+                  <input name="setupInfantCount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Зөвхөн билет
+                  <input name="setupTicketOnlyCount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Зөвхөн газрын үйлчилгээ
+                  <input name="setupLandOnlyCount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Бусад
+                  <input name="setupCustomCount" type="number" min="0" value="0" />
+                </label>
+                <div class="actions full-span">
+                  <button type="button" id="contract-continue-button">Continue</button>
+                </div>
+              </div>
+
+              <form id="contract-form" class="field-grid contract-grid is-hidden">
                 <label>
                   Гэрээний дугаар (автоматаар үүснэ)
                   <input name="contractSerial" placeholder="DTX-09-26-001" />
@@ -121,56 +151,62 @@
                   Аяллын хугацаа (өдөр/шөнө)
                   <input name="tripDuration" placeholder="8 өдөр 7 шөнө" required />
                 </label>
+                <input name="adultCount" type="hidden" value="1" />
+                <input name="childCount" type="hidden" value="0" />
+                <input name="infantCount" type="hidden" value="0" />
+                <input name="ticketOnlyCount" type="hidden" value="0" />
+                <input name="landOnlyCount" type="hidden" value="0" />
+                <input name="customCount" type="hidden" value="0" />
                 <label>
                   Том хүний тоо
-                  <input name="adultCount" type="number" min="0" value="1" />
-                </label>
-                <label>
-                  Хүүхдийн тоо
-                  <input name="childCount" type="number" min="0" value="0" />
-                </label>
-                <label>
-                  Нярайн тоо
-                  <input name="infantCount" type="number" min="0" value="0" />
-                </label>
-                <label>
-                  Зөвхөн билет
-                  <input name="ticketOnlyCount" type="number" min="0" value="0" />
-                </label>
-                <label>
-                  Зөвхөн газрын үйлчилгээ
-                  <input name="landOnlyCount" type="number" min="0" value="0" />
-                </label>
-                <label>
-                  Бусад
-                  <input name="customCount" type="number" min="0" value="0" />
+                  <input name="adultCountDisplay" type="number" value="1" readonly />
                 </label>
                 <label>
                   Том хүний үнэ
                   <input name="adultPrice" value="0" required />
                 </label>
+                <label class="price-field" data-price-field="child-count">
+                  Хүүхдийн тоо
+                  <input name="childCountDisplay" type="number" value="0" readonly />
+                </label>
                 <label class="price-field" data-price-field="child">
                   Хүүхдийн үнэ
                   <input name="childPrice" value="0" />
+                </label>
+                <label class="price-field" data-price-field="infant-count">
+                  Нярайн тоо
+                  <input name="infantCountDisplay" type="number" value="0" readonly />
                 </label>
                 <label class="price-field" data-price-field="infant">
                   Нярайн үнэ
                   <input name="infantPrice" value="0" />
                 </label>
+                <label class="price-field" data-price-field="landOnly-count">
+                  Газрын үйлчилгээтэй хүний тоо
+                  <input name="landOnlyCountDisplay" type="number" value="0" readonly />
+                </label>
+                <label class="price-field" data-price-field="landOnly">
+                  Газрын үйлчилгээтэй хүний үнэ
+                  <input name="landOnlyPrice" value="0" />
+                </label>
+                <label class="price-field" data-price-field="ticketOnly-count">
+                  Зөвхөн билет
+                  <input name="ticketOnlyCountDisplay" type="number" value="0" readonly />
+                </label>
                 <label class="price-field" data-price-field="ticketOnly">
                   Зөвхөн билетийн үнэ
                   <input name="ticketOnlyPrice" value="0" />
                 </label>
-                <label class="price-field" data-price-field="landOnly">
-                  Зөвхөн газрын үйлчилгээний үнэ
-                  <input name="landOnlyPrice" value="0" />
+                <label class="price-field" data-price-field="custom-count">
+                  Бусад тоо
+                  <input name="customCountDisplay" type="number" value="0" readonly />
                 </label>
                 <label class="price-field" data-price-field="custom">
                   Бусад нэр
                   <input name="customPriceLabel" placeholder="Нэмэлт үйлчилгээ" />
                 </label>
                 <label class="price-field" data-price-field="custom">
-                  Нэмэлт зардлын үнэ
+                  Бусад үнэ
                   <input name="customPrice" value="0" />
                 </label>
                 <label>
