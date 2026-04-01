@@ -244,16 +244,19 @@ const initContractForm = () => {
     form.querySelector("input[name='adultCount']"),
     form.querySelector("input[name='childCount']"),
     form.querySelector("input[name='infantCount']"),
+    form.querySelector("input[name='ticketOnlyCount']"),
     form.querySelector("input[name='landOnlyCount']"),
   ].filter(Boolean);
   const priceInputs = {
     adult: form.querySelector("input[name='adultPrice']"),
     child: form.querySelector("input[name='childPrice']"),
     infant: form.querySelector("input[name='infantPrice']"),
+    ticketOnly: form.querySelector("input[name='ticketOnlyPrice']"),
     landOnly: form.querySelector("input[name='landOnlyPrice']"),
     custom: form.querySelector("input[name='customPrice']"),
   };
   const customCountInput = form.querySelector("input[name='customCount']");
+  const customLabelInput = form.querySelector("input[name='customPriceLabel']");
 
   const updateDuration = () => {
     if (!durationInput) return;
@@ -277,11 +280,20 @@ const initContractForm = () => {
   const updatePriceVisibility = () => {
     const childCount = normalizeNumber(countInputs[1]?.value);
     const infantCount = normalizeNumber(countInputs[2]?.value);
-    const landOnlyCount = normalizeNumber(countInputs[3]?.value);
+    const ticketOnlyCount = normalizeNumber(countInputs[3]?.value);
+    const landOnlyCount = normalizeNumber(countInputs[4]?.value);
+    const customCount = normalizeNumber(customCountInput?.value);
 
     setHidden(priceInputs.child, childCount <= 0);
     setHidden(priceInputs.infant, infantCount <= 0);
+    setHidden(priceInputs.ticketOnly, ticketOnlyCount <= 0);
     setHidden(priceInputs.landOnly, landOnlyCount <= 0);
+    if (customLabelInput) {
+      const label = customLabelInput.closest("label");
+      if (label) label.classList.toggle("is-hidden", customCount <= 0);
+      if (customCount <= 0) customLabelInput.value = "";
+    }
+    setHidden(priceInputs.custom, customCount <= 0);
   };
 
   const formatMoney = (value) => {
@@ -294,12 +306,14 @@ const initContractForm = () => {
     const adultCount = normalizeNumber(countInputs[0]?.value);
     const childCount = normalizeNumber(countInputs[1]?.value);
     const infantCount = normalizeNumber(countInputs[2]?.value);
-    const landOnlyCount = normalizeNumber(countInputs[3]?.value);
+    const ticketOnlyCount = normalizeNumber(countInputs[3]?.value);
+    const landOnlyCount = normalizeNumber(countInputs[4]?.value);
     const customCount = normalizeNumber(customCountInput?.value);
 
     const adultPrice = normalizeNumber(priceInputs.adult?.value);
     const childPrice = normalizeNumber(priceInputs.child?.value);
     const infantPrice = normalizeNumber(priceInputs.infant?.value);
+    const ticketOnlyPrice = normalizeNumber(priceInputs.ticketOnly?.value);
     const landOnlyPrice = normalizeNumber(priceInputs.landOnly?.value);
     const customPrice = normalizeNumber(priceInputs.custom?.value);
 
@@ -307,6 +321,7 @@ const initContractForm = () => {
       adultCount * adultPrice +
       childCount * childPrice +
       infantCount * infantPrice +
+      ticketOnlyCount * ticketOnlyPrice +
       landOnlyCount * landOnlyPrice +
       customCount * customPrice;
 
