@@ -897,7 +897,10 @@ def build_contract_data(payload):
     deposit_raw = parse_int(payload.get("depositAmount"))
     balance_raw = max(total_price_raw - deposit_raw, 0)
 
-    contract_serial = normalize_text(payload.get("contractSerial"))
+    contract_serial = normalize_text(payload.get("contractSerial")).strip().strip("_")
+    serial_matches = re.findall(r"DTX-\d{2}-\d{2}-\d{3}", contract_serial)
+    if serial_matches:
+        contract_serial = serial_matches[-1]
     if not contract_serial:
         now = datetime.now(timezone.utc).astimezone(MONGOLIA_TZ)
         month = f"{now.month:02d}"
@@ -1350,9 +1353,6 @@ def build_contract_html(data):
         ).strip()
     )
     manager_last_name = html.escape(data.get("managerLastName") or "")
-    customer_register = html.escape(data.get("touristRegister") or "")
-    customer_phone = html.escape(data.get("touristPhone") or "")
-    emergency_phone = html.escape(data.get("emergencyPhone") or "")
     contract_date = html.escape(format_contract_header_date(data["contractDate"]))
     contract_serial = html.escape(data["contractSerial"])
     return f"""<!DOCTYPE html>
@@ -1410,31 +1410,37 @@ def build_contract_html(data):
       .doc-logo {{
         display: flex;
         justify-content: center;
-        margin-bottom: 6px;
+        margin-bottom: 14px;
       }}
       .doc-logo-mark {{
         display: inline-flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
+        align-items: stretch;
+        gap: 14px;
         color: #253e86;
         font-family: Arial, Helvetica, sans-serif;
         font-weight: 800;
-        letter-spacing: 0.06em;
-        line-height: 0.95;
+        letter-spacing: 0.03em;
       }}
-      .doc-logo-row {{
+      .doc-logo-text {{
         display: flex;
-        align-items: center;
-        gap: 10px;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 0;
+        font-size: 28px;
+        line-height: 0.88;
       }}
-      .doc-logo-word {{
-        font-size: 18px;
+      .doc-logo-text span {{
+        display: block;
       }}
       .doc-logo-x {{
         color: #d9ab1b;
-        font-size: 24px;
-        transform: scaleX(1.15);
+        display: inline-flex;
+        align-items: center;
+        font-size: 96px;
+        line-height: 0.9;
+        font-weight: 800;
+        transform: scaleX(1.08);
       }}
       h1 {{
         margin: 0 0 10px;
@@ -1445,6 +1451,9 @@ def build_contract_html(data):
         margin: 0 0 18px;
         text-align: center;
         font-size: 16px;
+      }}
+      .contract-number-label {{
+        text-decoration: underline;
       }}
       .contract-date-row {{
         display: flex;
@@ -1489,19 +1498,20 @@ def build_contract_html(data):
         text-align: center;
       }}
       .signature-section {{
-        margin-top: 40px;
-        padding-top: 12px;
+        margin-top: 42px;
+        padding-top: 10px;
+        page-break-inside: avoid;
       }}
       .signature-heading {{
-        margin: 0 0 18px;
+        margin: 0 0 22px;
         text-align: center;
-        font-size: 20px;
+        font-size: 26px;
         font-weight: 700;
       }}
       .signature-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 40px;
+        gap: 52px;
         align-items: start;
       }}
       .signature-title {{
@@ -1511,24 +1521,31 @@ def build_contract_html(data):
         text-decoration: underline;
       }}
       .signature-org-name {{
-        margin-bottom: 10px;
-        font-size: 15px;
+        margin-bottom: 12px;
+        font-size: 18px;
         font-weight: 700;
       }}
-      .signature-images {{
-        min-height: 120px;
-        display: flex;
-        align-items: flex-end;
-        gap: 18px;
-        margin: 10px 0 8px;
+      .signature-stack {{
+        position: relative;
+        width: 430px;
+        height: 360px;
+        margin: 6px 0 10px;
       }}
-      .signature-images img {{
-        max-height: 78px;
-        width: auto;
+      .signature-stack img {{
+        position: absolute;
         object-fit: contain;
       }}
       .stamp-image {{
-        max-height: 128px;
+        left: 6px;
+        top: 74px;
+        width: 300px;
+        height: 300px;
+      }}
+      .company-signature-image {{
+        left: 36px;
+        top: 20px;
+        width: 320px;
+        height: 150px;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1540,13 +1557,27 @@ def build_contract_html(data):
         font-weight: 700;
         text-decoration: underline;
       }}
-      .signer-name {{
-        color: #c3482e;
-        font-weight: 700;
-        margin: 18px 0 12px;
-      }}
       .signature-name {{
+        font-size: 18px;
+        font-weight: 700;
+      }}
+      .signer-signature-space {{
+        min-height: 280px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        margin: 18px 0 10px;
+      }}
+      .signer-line {{
+        min-height: 1px;
+        margin: 54px 0 18px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+      }}
+      .signature-role {{
+        margin-top: 6px;
         font-size: 15px;
+        font-weight: 700;
+        text-decoration: underline;
       }}
       @media print {{
         body {{ background: white; }}
@@ -1568,17 +1599,15 @@ def build_contract_html(data):
     <main class="page">
       <div class="doc-logo">
         <div class="doc-logo-mark" aria-label="Дэлхий Трэвел Икс">
-          <div class="doc-logo-row">
-            <span class="doc-logo-word">ДЭЛХИЙ</span>
-            <span class="doc-logo-x">X</span>
+          <div class="doc-logo-text">
+            <span>ДЭЛХИЙ</span>
+            <span>ТРЭВЕЛ</span>
           </div>
-          <div class="doc-logo-row">
-            <span class="doc-logo-word">ТРЭВЕЛ</span>
-          </div>
+          <span class="doc-logo-x">X</span>
         </div>
       </div>
       <h1>АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ</h1>
-      <p class="contract-number-line">Дугаар: DTX-09А-26-{contract_serial}_____</p>
+      <p class="contract-number-line"><span class="contract-number-label">Дугаар:</span> {contract_serial}</p>
       <div class="contract-date-row">
         <span>{contract_date}</span>
         <span>Улаанбаатар хот</span>
@@ -1590,13 +1619,13 @@ def build_contract_html(data):
           <div>
             <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
             <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
-            <div class="signature-images">
+            <div class="signature-stack">
               <img class="stamp-image" src="/assets/dtx-stamp.png" alt="DTX stamp" />
-              <img src="/assets/nyambayar-signature.png" alt="Nyambayar signature" />
+              <img class="company-signature-image" src="/assets/nyambayar-signature.png" alt="Nyambayar signature" />
             </div>
             <div class="signature-contact">
               <p class="signature-name">{manager_last_name} {organizer_name}</p>
-              <p>Аяллын менежер</p>
+              <p class="signature-role">Аяллын менежер</p>
               <p><span class="signature-label">Гар утас:</span> 85178877</p>
               <p><span class="signature-label">Утас:</span> 72007722</p>
               <p><span class="signature-label">И-мэйл:</span> nyambayar@travelx.mn</p>
@@ -1608,13 +1637,10 @@ def build_contract_html(data):
             </div>
           </div>
           <div>
-            <div class="signature-title">Жуулчдыг төлөөлж:</div>
-            <p class="signer-name">{customer_name}</p>
+            <div class="signature-title">Жуулчныг төлөөлж:</div>
+            <div class="signer-signature-space"></div>
             <div class="signer-contact">
-              <p><span class="signature-label">Утас:</span> {customer_phone}</p>
-              <p><span class="signature-label">Яаралтай үед холбоо барих утасны дугаар:</span></p>
-              <p>{emergency_phone}</p>
-              <p><span class="signature-label">Регистр:</span> {customer_register}</p>
+              <p class="signature-role">Жуулчин</p>
             </div>
           </div>
         </div>
@@ -1688,24 +1714,22 @@ def save_contract_pdf(record):
         for part in [data.get("touristLastName") or "", data.get("touristFirstName") or ""]
         if part
     ).strip()
-    customer_register = data.get("touristRegister") or ""
-    customer_phone = data.get("touristPhone") or ""
-    emergency_phone = data.get("emergencyPhone") or ""
-
-    pdf.setFont(bold_font_name, 20)
+    pdf.setFont(bold_font_name, 22)
     pdf.setFillColor(colors.HexColor("#243b7a"))
-    pdf.drawCentredString(width / 2, current_y, "ДЭЛХИЙ ТРЭВЕЛ")
+    pdf.drawCentredString((width / 2) - 24, current_y + 14, "ДЭЛХИЙ")
+    pdf.drawCentredString((width / 2) - 24, current_y - 10, "ТРЭВЕЛ")
     pdf.setFillColor(colors.HexColor("#d9a31a"))
-    pdf.drawString((width / 2) + 70, current_y - 2, "X")
+    pdf.setFont(bold_font_name, 70)
+    pdf.drawString((width / 2) + 38, current_y - 34, "X")
     pdf.setFillColor(colors.black)
-    current_y -= 30
+    current_y -= 44
 
     pdf.setFont(bold_font_name, 18)
     pdf.drawCentredString(width / 2, current_y, "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ")
     current_y -= 24
 
     pdf.setFont(font_name, 11)
-    pdf.drawCentredString(width / 2, current_y, f"Дугаар: DTX-09А-26-{contract_serial}_____")
+    pdf.drawCentredString(width / 2, current_y, f"Дугаар: {contract_serial}")
     current_y -= 26
     pdf.drawString(margin_x, current_y, contract_date)
     pdf.drawRightString(width - margin_x, current_y, "Улаанбаатар хот")
@@ -1776,7 +1800,7 @@ def save_contract_pdf(record):
             current_y -= table_height + 16
 
     current_y -= 12
-    signature_y = max(150, current_y - 65)
+    signature_y = max(170, current_y - 80)
     pdf.setFont(bold_font_name, 13)
     pdf.drawCentredString(width / 2, signature_y + 92, "ГЭРЭЭГ БАЙГУУЛСАН:")
 
@@ -1792,35 +1816,30 @@ def save_contract_pdf(record):
     company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature.png"
     company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp.png"
     if company_signature.exists():
-        pdf.drawImage(str(company_signature), left_x + 4, signature_y - 5, width=125, height=56, mask="auto")
+        pdf.drawImage(str(company_signature), left_x + 44, signature_y + 42, width=260, height=122, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x + 10, signature_y - 72, width=115, height=115, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x + 6, signature_y - 92, width=278, height=278, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
         sig_file = (GENERATED_DIR / signature_path.replace("/generated/", "", 1)).resolve()
         if sig_file.exists():
-            pdf.drawImage(str(sig_file), right_x + 18, signature_y + 2, width=150, height=52, mask="auto")
+            pdf.drawImage(str(sig_file), right_x + 8, signature_y + 26, width=230, height=92, mask="auto")
 
     pdf.setFont(font_name, 10)
-    pdf.drawString(left_x, signature_y - 24, f"{manager_last_name} {organizer_name}".strip())
-    pdf.drawString(left_x, signature_y - 40, "Аяллын менежер")
-    pdf.drawString(left_x, signature_y - 64, "Гар утас: 85178877")
-    pdf.drawString(left_x, signature_y - 80, "Утас: 72007722")
-    pdf.drawString(left_x, signature_y - 96, "И-мэйл: nyambayar@travelx.mn")
-    pdf.drawString(left_x, signature_y - 112, "          info@travelx.mn")
-    pdf.drawString(left_x, signature_y - 128, "Вэбсайт: www.travelx.mn")
-    pdf.drawString(left_x, signature_y - 144, "Хаяг: Улаанбаатар хот, Хан-Уул дүүрэг,")
-    pdf.drawString(left_x + 34, signature_y - 160, "Их Монгол Улс гудамж, 17 хороо,")
-    pdf.drawString(left_x + 34, signature_y - 176, "Кинг Тауэр 121-102 тоот")
+    pdf.drawString(left_x, signature_y - 30, f"{manager_last_name} {organizer_name}".strip())
+    pdf.drawString(left_x, signature_y - 46, "Аяллын менежер")
+    pdf.drawString(left_x, signature_y - 74, "Гар утас: 85178877")
+    pdf.drawString(left_x, signature_y - 90, "Утас: 72007722")
+    pdf.drawString(left_x, signature_y - 106, "И-мэйл: nyambayar@travelx.mn")
+    pdf.drawString(left_x, signature_y - 122, "          info@travelx.mn")
+    pdf.drawString(left_x, signature_y - 138, "Вэбсайт: www.travelx.mn")
+    pdf.drawString(left_x, signature_y - 154, "Хаяг: Улаанбаатар хот, Хан-Уул дүүрэг,")
+    pdf.drawString(left_x + 34, signature_y - 170, "Их Монгол Улс гудамж, 17 хороо,")
+    pdf.drawString(left_x + 34, signature_y - 186, "Кинг Тауэр 121-102 тоот")
 
-    pdf.setFont(bold_font_name, 11)
-    pdf.drawString(right_x, signature_y + 24, customer_name or " ")
     pdf.setFont(font_name, 10)
-    pdf.drawString(right_x, signature_y - 18, f"Утас: {customer_phone}")
-    pdf.drawString(right_x, signature_y - 54, "Яаралтай үед холбоо барих утасны дугаар:")
-    pdf.drawString(right_x, signature_y - 70, emergency_phone)
-    pdf.drawString(right_x, signature_y - 106, f"Регистр: {customer_register}")
+    pdf.drawString(right_x, signature_y - 36, "Жуулчин")
 
     pdf.showPage()
     pdf.save()
@@ -3436,14 +3455,9 @@ def handle_sign_contract(environ, start_response, contract_id):
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     signature_data = payload.get("signatureData")
     signer_name = normalize_text(payload.get("signerName"))
-    signer_last_name = normalize_text(payload.get("signerLastName"))
-    signer_first_name = normalize_text(payload.get("signerFirstName"))
-    signer_register = normalize_text(payload.get("signerRegister"))
     accepted = bool(payload.get("accepted"))
     if not accepted:
         return json_response(start_response, "400 Bad Request", {"error": "Agreement not accepted"})
-    if not signer_last_name or not signer_first_name or not signer_register:
-        return json_response(start_response, "400 Bad Request", {"error": "Missing signer details"})
 
     contracts = read_contracts()
     for idx, contract in enumerate(contracts):
@@ -3453,9 +3467,6 @@ def handle_sign_contract(environ, start_response, contract_id):
                 return json_response(start_response, "400 Bad Request", {"error": "Invalid signature"})
             contract["signaturePath"] = signature_path
             contract["signerName"] = signer_name or contract.get("signerName")
-            contract["signerLastName"] = signer_last_name or contract.get("signerLastName")
-            contract["signerFirstName"] = signer_first_name or contract.get("signerFirstName")
-            contract["signerRegister"] = signer_register or contract.get("signerRegister")
             contract["accepted"] = accepted
             contract["status"] = "signed"
             contract["signedAt"] = datetime.now(timezone.utc).isoformat()
