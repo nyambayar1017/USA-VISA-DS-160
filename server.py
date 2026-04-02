@@ -1352,7 +1352,7 @@ def build_contract_html(data):
             if part
         ).strip()
     )
-    manager_last_name = html.escape(data.get("managerLastName") or "")
+    manager_display_name = organizer_name
     contract_date = html.escape(format_contract_header_date(data["contractDate"]))
     contract_serial = html.escape(data["contractSerial"])
     return f"""<!DOCTYPE html>
@@ -1512,16 +1512,16 @@ def build_contract_html(data):
         object-fit: contain;
       }}
       .stamp-image {{
-        left: 6px;
-        top: 74px;
-        width: 300px;
-        height: 300px;
+        left: -12px;
+        top: 82px;
+        width: 430px;
+        height: 430px;
       }}
       .company-signature-image {{
-        left: 36px;
-        top: 20px;
-        width: 320px;
-        height: 150px;
+        left: 12px;
+        top: -8px;
+        width: 470px;
+        height: 220px;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1594,7 +1594,7 @@ def build_contract_html(data):
               <img class="company-signature-image" src="/assets/nyambayar-signature.png" alt="Nyambayar signature" />
             </div>
             <div class="signature-contact">
-              <p class="signature-name">{manager_last_name} {organizer_name}</p>
+              <p class="signature-name">{manager_display_name}</p>
               <p class="signature-role">Аяллын менежер</p>
               <p><span class="signature-label">Гар утас:</span> 85178877</p>
               <p><span class="signature-label">Утас:</span> 72007722</p>
@@ -1678,7 +1678,7 @@ def save_contract_pdf(record):
     contract_date = format_contract_header_date(data["contractDate"])
     contract_serial = data["contractSerial"]
     organizer_name = data.get("managerFullName") or "Ч.Нямбаяр"
-    manager_last_name = data.get("managerLastName") or ""
+    manager_display_name = organizer_name
     customer_name = " ".join(
         part
         for part in [data.get("touristLastName") or "", data.get("touristFirstName") or ""]
@@ -1800,9 +1800,9 @@ def save_contract_pdf(record):
     company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature.png"
     company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp.png"
     if company_signature.exists():
-        pdf.drawImage(str(company_signature), left_x + 44, signature_y + 42, width=260, height=122, mask="auto")
+        pdf.drawImage(str(company_signature), left_x + 22, signature_y + 28, width=330, height=155, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x + 6, signature_y - 92, width=278, height=278, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x - 8, signature_y - 116, width=360, height=360, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
@@ -1811,7 +1811,7 @@ def save_contract_pdf(record):
             pdf.drawImage(str(sig_file), right_x + 8, signature_y + 26, width=230, height=92, mask="auto")
 
     pdf.setFont(font_name, 10)
-    pdf.drawString(left_x, signature_y - 30, f"{manager_last_name} {organizer_name}".strip())
+    pdf.drawString(left_x, signature_y - 30, manager_display_name)
     pdf.drawString(left_x, signature_y - 46, "Аяллын менежер")
     pdf.drawString(left_x, signature_y - 74, "Гар утас: 85178877")
     pdf.drawString(left_x, signature_y - 90, "Утас: 72007722")
