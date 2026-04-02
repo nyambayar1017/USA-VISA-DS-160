@@ -1412,35 +1412,11 @@ def build_contract_html(data):
         justify-content: center;
         margin-bottom: 14px;
       }}
-      .doc-logo-mark {{
-        display: inline-flex;
-        align-items: stretch;
-        gap: 14px;
-        color: #253e86;
-        font-family: Arial, Helvetica, sans-serif;
-        font-weight: 800;
-        letter-spacing: 0.03em;
-      }}
-      .doc-logo-text {{
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        justify-content: center;
-        gap: 0;
-        font-size: 28px;
-        line-height: 0.88;
-      }}
-      .doc-logo-text span {{
+      .doc-logo-image {{
+        width: 360px;
+        max-width: 100%;
+        height: auto;
         display: block;
-      }}
-      .doc-logo-x {{
-        color: #d9ab1b;
-        display: inline-flex;
-        align-items: center;
-        font-size: 96px;
-        line-height: 0.9;
-        font-weight: 800;
-        transform: scaleX(1.08);
       }}
       h1 {{
         margin: 0 0 10px;
@@ -1598,13 +1574,7 @@ def build_contract_html(data):
     </div>
     <main class="page">
       <div class="doc-logo">
-        <div class="doc-logo-mark" aria-label="Дэлхий Трэвел Икс">
-          <div class="doc-logo-text">
-            <span>ДЭЛХИЙ</span>
-            <span>ТРЭВЕЛ</span>
-          </div>
-          <span class="doc-logo-x">X</span>
-        </div>
+        <img src="/assets/logo.png" alt="Дэлхий Трэвел Икс" class="doc-logo-image" />
       </div>
       <h1>АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ</h1>
       <p class="contract-number-line"><span class="contract-number-label">Дугаар:</span> {contract_serial}</p>
@@ -1714,15 +1684,29 @@ def save_contract_pdf(record):
         for part in [data.get("touristLastName") or "", data.get("touristFirstName") or ""]
         if part
     ).strip()
-    pdf.setFont(bold_font_name, 22)
-    pdf.setFillColor(colors.HexColor("#243b7a"))
-    pdf.drawCentredString((width / 2) - 24, current_y + 14, "ДЭЛХИЙ")
-    pdf.drawCentredString((width / 2) - 24, current_y - 10, "ТРЭВЕЛ")
-    pdf.setFillColor(colors.HexColor("#d9a31a"))
-    pdf.setFont(bold_font_name, 70)
-    pdf.drawString((width / 2) + 38, current_y - 34, "X")
-    pdf.setFillColor(colors.black)
-    current_y -= 44
+    logo_header_path = PUBLIC_DIR / "assets" / "logo.png"
+    if logo_header_path.exists():
+        logo_width = 210
+        logo_height = 72
+        pdf.drawImage(
+            str(logo_header_path),
+            (width - logo_width) / 2,
+            current_y - 46,
+            width=logo_width,
+            height=logo_height,
+            mask="auto",
+        )
+        current_y -= 52
+    else:
+        pdf.setFont(bold_font_name, 22)
+        pdf.setFillColor(colors.HexColor("#243b7a"))
+        pdf.drawCentredString((width / 2) - 24, current_y + 14, "ДЭЛХИЙ")
+        pdf.drawCentredString((width / 2) - 24, current_y - 10, "ТРЭВЕЛ")
+        pdf.setFillColor(colors.HexColor("#d9a31a"))
+        pdf.setFont(bold_font_name, 70)
+        pdf.drawString((width / 2) + 38, current_y - 34, "X")
+        pdf.setFillColor(colors.black)
+        current_y -= 44
 
     pdf.setFont(bold_font_name, 18)
     pdf.drawCentredString(width / 2, current_y, "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ")
