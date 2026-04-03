@@ -684,6 +684,26 @@ def dedupe_full_name(last_name, first_name):
     return normalize_person_name(combined)
 
 
+def get_manager_display_name(data):
+    full_name = normalize_person_name(data.get("managerFullName"))
+    combined_name = dedupe_full_name(data.get("managerLastName"), data.get("managerFirstName"))
+
+    if combined_name and full_name:
+        if full_name == combined_name:
+            return combined_name
+
+        full_parts = full_name.split()
+        combined_parts = combined_name.split()
+        if combined_parts:
+            if len(full_parts) >= len(combined_parts) and (
+                full_parts[: len(combined_parts)] == combined_parts
+                or full_parts[-len(combined_parts) :] == combined_parts
+            ):
+                return combined_name
+
+    return combined_name or full_name or "Ч.Нямбаяр"
+
+
 def slugify(value):
     cleaned = re.sub(r"[^a-zA-Z0-9а-яА-ЯөүӨҮёЁ]+", "-", normalize_text(value))
     cleaned = re.sub(r"-{2,}", "-", cleaned).strip("-")
@@ -1390,7 +1410,7 @@ def build_contract_body_html(data):
 
 def build_contract_html(data):
     content = build_contract_body_html(data)
-    organizer_name = html.escape(normalize_person_name(data.get("managerFullName")) or "Ч.Нямбаяр")
+    organizer_name = html.escape(get_manager_display_name(data))
     customer_name = html.escape(
         " ".join(
             part
@@ -1559,16 +1579,16 @@ def build_contract_html(data):
         object-fit: contain;
       }}
       .stamp-image {{
-        left: 10px;
-        top: 154px;
-        width: 300px;
-        height: 300px;
+        left: 18px;
+        top: 138px;
+        width: 352px;
+        height: 352px;
       }}
       .company-signature-image {{
-        left: 154px;
-        top: 18px;
-        width: 380px;
-        height: 170px;
+        left: 168px;
+        top: 8px;
+        width: 460px;
+        height: 212px;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1724,7 +1744,7 @@ def save_contract_pdf(record):
 
     contract_date = format_contract_header_date(data["contractDate"])
     contract_serial = data["contractSerial"]
-    organizer_name = normalize_person_name(data.get("managerFullName")) or "Ч.Нямбаяр"
+    organizer_name = get_manager_display_name(data)
     manager_display_name = organizer_name
     customer_name = " ".join(
         part
@@ -1847,9 +1867,9 @@ def save_contract_pdf(record):
     company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature.png"
     company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp.png"
     if company_signature.exists():
-        pdf.drawImage(str(company_signature), left_x + 108, signature_y + 106, width=360, height=170, mask="auto")
+        pdf.drawImage(str(company_signature), left_x + 126, signature_y + 118, width=440, height=208, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x + 28, signature_y - 30, width=220, height=220, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x + 34, signature_y - 18, width=272, height=272, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
