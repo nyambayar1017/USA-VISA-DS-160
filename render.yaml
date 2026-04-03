@@ -1,19 +1,16 @@
 services:
   - type: web
     name: ds160-intake-form
-    runtime: python
-    plan: starter
-    buildCommand: apt-get update && apt-get install -y libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info && pip install -r requirements.txt
+    env: python
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn server:app
-    healthCheckPath: /health
-    disk:
-      name: submissions
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.4
-      - key: DATA_DIR
-        value: /var/data
-      - key: ADMIN_TOKEN
-        sync: false
+    aptPackages:
+      - libcairo2
+      - libpango-1.0-0
+      - libpangocairo-1.0-0
+      - libgdk-pixbuf-2.0-0
+      - libffi-dev
+      - shared-mime-info
