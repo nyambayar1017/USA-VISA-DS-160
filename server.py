@@ -1638,10 +1638,10 @@ def build_contract_html(data):
         object-fit: contain;
       }}
       .stamp-image {{
-        left: 8px;
-        top: 30px;
-        width: 4cm;
-        height: 4cm;
+        left: 4px;
+        top: 18px;
+        width: 5.2cm;
+        height: 5.2cm;
       }}
       .company-signature-image {{
         left: 18px;
@@ -1966,7 +1966,7 @@ def save_contract_pdf(record):
     if company_signature.exists():
         pdf.drawImage(str(company_signature), left_x + 8, signature_y + 18, width=190, height=76, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x + 4, signature_y - 36, width=4 * cm, height=4 * cm, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x + 2, signature_y - 56, width=5.2 * cm, height=5.2 * cm, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
