@@ -1451,7 +1451,9 @@ def build_contract_body_html(data):
                 "</p>"
             )
         elif block["type"] == "paragraph":
-            parts.append(f"<p>{html.escape(block['text'])}</p>")
+            paragraph_class = "contract-opening-paragraph" if block["text"].startswith("Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл") else ""
+            class_attr = f' class="{paragraph_class}"' if paragraph_class else ""
+            parts.append(f"<p{class_attr}>{html.escape(block['text'])}</p>")
         elif block["type"] == "table":
             rows = []
             for row in block["rows"]:
@@ -1522,7 +1524,7 @@ def build_contract_html(data):
       .page {{
         width: min(940px, calc(100vw - 32px));
         margin: 24px auto 56px;
-        padding: 56px 64px;
+        padding: 2cm 1.5cm 2cm 3cm;
         background: var(--paper);
         box-shadow: 0 20px 60px rgba(71, 53, 43, 0.12);
       }}
@@ -1532,7 +1534,7 @@ def build_contract_html(data):
         margin-bottom: 14px;
       }}
       .doc-logo-image {{
-        width: 360px;
+        width: 280px;
         max-width: 100%;
         height: auto;
         display: block;
@@ -1540,12 +1542,12 @@ def build_contract_html(data):
       h1 {{
         margin: 0 0 10px;
         text-align: center;
-        font-size: 22px;
+        font-size: 12pt;
       }}
       .contract-number-line {{
         margin: 0 0 18px;
         text-align: center;
-        font-size: 16px;
+        font-size: 12pt;
       }}
       .contract-number-label {{
         text-decoration: underline;
@@ -1555,19 +1557,23 @@ def build_contract_html(data):
         justify-content: space-between;
         gap: 24px;
         margin-bottom: 24px;
-        font-size: 16px;
+        font-size: 12pt;
       }}
       h2 {{
         margin: 22px 0 12px;
-        font-size: 18px;
+        font-size: 12pt;
         text-align: center;
         text-transform: uppercase;
       }}
       p {{
         margin: 0 0 12px;
-        font-size: 16px;
-        line-height: 1.6;
+        font-size: 12pt;
+        line-height: 1.5;
         text-align: justify;
+      }}
+      .contract-opening-paragraph {{
+        text-indent: 1.25cm;
+        margin-top: 8px;
       }}
       .contract-numbered {{
         display: flex;
@@ -1589,7 +1595,7 @@ def build_contract_html(data):
       td, th {{
         border: 1px solid #1d1d1b;
         padding: 8px 10px;
-        font-size: 15px;
+        font-size: 12pt;
         text-align: center;
       }}
       .signature-section {{
@@ -1600,7 +1606,7 @@ def build_contract_html(data):
       .signature-heading {{
         margin: 0 0 22px;
         text-align: center;
-        font-size: 26px;
+        font-size: 12pt;
         font-weight: 700;
       }}
       .signature-grid {{
@@ -1611,13 +1617,13 @@ def build_contract_html(data):
       }}
       .signature-title {{
         margin-bottom: 12px;
-        font-size: 16px;
+        font-size: 12pt;
         font-weight: 700;
         text-decoration: underline;
       }}
       .signature-org-name {{
         margin-bottom: 12px;
-        font-size: 18px;
+        font-size: 12pt;
         font-weight: 700;
       }}
       .signature-stack {{
@@ -1634,8 +1640,8 @@ def build_contract_html(data):
       .stamp-image {{
         left: 8px;
         top: 30px;
-        width: 194px;
-        height: 194px;
+        width: 4cm;
+        height: 4cm;
       }}
       .company-signature-image {{
         left: 18px;
@@ -1657,7 +1663,7 @@ def build_contract_html(data):
         text-decoration: underline;
       }}
       .signature-name {{
-        font-size: 22px;
+        font-size: 12pt;
         font-weight: 700;
       }}
       .signer-signature-space {{
@@ -1674,7 +1680,7 @@ def build_contract_html(data):
       }}
       .signature-role {{
         margin-top: 6px;
-        font-size: 15px;
+        font-size: 12pt;
         font-weight: 700;
         text-decoration: underline;
       }}
@@ -1684,7 +1690,7 @@ def build_contract_html(data):
         .page {{
           width: auto;
           margin: 0;
-          padding: 24px;
+          padding: 2cm 1.5cm 2cm 3cm;
           box-shadow: none;
         }}
       }}
@@ -1781,9 +1787,26 @@ def draw_wrapped_text(pdf, text, x, y, max_width, font_name, font_size, leading=
     return y
 
 
+def draw_wrapped_text_with_indent(pdf, text, x, y, max_width, font_name, font_size, leading=16, first_line_indent=0):
+    from reportlab.lib.utils import simpleSplit
+
+    if first_line_indent <= 0:
+        return draw_wrapped_text(pdf, text, x, y, max_width, font_name, font_size, leading)
+
+    first_width = max_width - first_line_indent
+    lines = simpleSplit(text, font_name, font_size, first_width)
+    pdf.setFont(font_name, font_size)
+    for index, line in enumerate(lines):
+        line_x = x + first_line_indent if index == 0 else x
+        pdf.drawString(line_x, y, line)
+        y -= leading
+    return y
+
+
 def save_contract_pdf(record):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
     from reportlab.platypus import Table, TableStyle
     from reportlab.pdfgen import canvas
 
@@ -1795,8 +1818,12 @@ def save_contract_pdf(record):
     pdf = canvas.Canvas(str(pdf_path), pagesize=A4)
 
     font_name, bold_font_name = register_contract_font()
-    margin_x = 50
-    current_y = height - 60
+    left_margin = 3 * cm
+    right_margin = 1.5 * cm
+    top_margin = 2 * cm
+    bottom_margin = 2 * cm
+    content_width = width - left_margin - right_margin
+    current_y = height - top_margin
 
     contract_date = format_contract_header_date(data["contractDate"])
     contract_serial = data["contractSerial"]
@@ -1809,17 +1836,17 @@ def save_contract_pdf(record):
     ).strip()
     logo_header_path = PUBLIC_DIR / "assets" / "logo.png"
     if logo_header_path.exists():
-        logo_width = 210
-        logo_height = 72
+        logo_width = 165
+        logo_height = 56
         pdf.drawImage(
             str(logo_header_path),
             (width - logo_width) / 2,
-            current_y - 46,
+            current_y - 40,
             width=logo_width,
             height=logo_height,
             mask="auto",
         )
-        current_y -= 52
+        current_y -= 48
     else:
         pdf.setFont(bold_font_name, 22)
         pdf.setFillColor(colors.HexColor("#243b7a"))
@@ -1831,15 +1858,15 @@ def save_contract_pdf(record):
         pdf.setFillColor(colors.black)
         current_y -= 44
 
-    pdf.setFont(bold_font_name, 18)
+    pdf.setFont(bold_font_name, 12)
     pdf.drawCentredString(width / 2, current_y, "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ")
-    current_y -= 24
+    current_y -= 22
 
-    pdf.setFont(font_name, 11)
+    pdf.setFont(font_name, 12)
     pdf.drawCentredString(width / 2, current_y, f"Дугаар: {contract_serial}")
-    current_y -= 26
-    pdf.drawString(margin_x, current_y, contract_date)
-    pdf.drawRightString(width - margin_x, current_y, "Улаанбаатар хот")
+    current_y -= 24
+    pdf.drawString(left_margin, current_y, contract_date)
+    pdf.drawRightString(width - right_margin, current_y, "Улаанбаатар хот")
     current_y -= 24
 
     blocks = get_contract_display_blocks(data)
@@ -1848,41 +1875,55 @@ def save_contract_pdf(record):
 
     current_y = current_y
     for block in blocks:
-        if current_y < 120:
+        if current_y < bottom_margin + 70:
             pdf.showPage()
-            current_y = height - 60
-            pdf.setFont(font_name, 11)
+            current_y = height - top_margin
+            pdf.setFont(font_name, 12)
 
         if block["type"] == "heading":
             current_y -= 8
             pdf.setFont(bold_font_name, 12)
             pdf.drawCentredString(width / 2, current_y, block["text"])
-            current_y -= 22
+            current_y -= 20
         elif block["type"] == "numbered-paragraph":
-            pdf.setFont(font_name, 11)
-            pdf.drawString(margin_x, current_y, block["number"])
+            pdf.setFont(font_name, 12)
+            pdf.drawString(left_margin, current_y, block["number"])
             current_y = draw_wrapped_text(
                 pdf,
                 block["text"],
-                margin_x + 26,
+                left_margin + 26,
                 current_y,
-                width - (margin_x * 2) - 26,
+                content_width - 26,
                 font_name,
-                11,
-                15,
+                12,
+                17,
             )
             current_y -= 8
         elif block["type"] == "paragraph":
-            current_y = draw_wrapped_text(
-                pdf,
-                block["text"],
-                margin_x,
-                current_y,
-                width - margin_x * 2,
-                font_name,
-                11,
-                15,
-            )
+            if block["text"].startswith("Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл"):
+                current_y -= 6
+                current_y = draw_wrapped_text_with_indent(
+                    pdf,
+                    block["text"],
+                    left_margin,
+                    current_y,
+                    content_width,
+                    font_name,
+                    12,
+                    17,
+                    34,
+                )
+            else:
+                current_y = draw_wrapped_text(
+                    pdf,
+                    block["text"],
+                    left_margin,
+                    current_y,
+                    content_width,
+                    font_name,
+                    12,
+                    17,
+                )
             current_y -= 10
         elif block["type"] == "table":
             table = Table(block["rows"], repeatRows=1)
@@ -1892,29 +1933,29 @@ def save_contract_pdf(record):
                         ("GRID", (0, 0), (-1, -1), 0.8, colors.black),
                         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e6eef9")),
                         ("FONTNAME", (0, 0), (-1, -1), font_name),
-                        ("FONTSIZE", (0, 0), (-1, -1), 9),
+                        ("FONTSIZE", (0, 0), (-1, -1), 12),
                         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                         ("PADDING", (0, 0), (-1, -1), 6),
                     ]
                 )
             )
-            table_width, table_height = table.wrap(width - margin_x * 2, current_y)
-            if current_y - table_height < 120:
+            table_width, table_height = table.wrap(content_width, current_y)
+            if current_y - table_height < bottom_margin + 60:
                 pdf.showPage()
-                current_y = height - 60
-            table.drawOn(pdf, margin_x, current_y - table_height)
+                current_y = height - top_margin
+            table.drawOn(pdf, left_margin, current_y - table_height)
             current_y -= table_height + 16
 
     current_y -= 10
-    signature_y = max(245, current_y - 26)
-    pdf.setFont(bold_font_name, 13)
+    signature_y = max(bottom_margin + 5, current_y - 26)
+    pdf.setFont(bold_font_name, 12)
     pdf.drawCentredString(width / 2, signature_y + 92, "ГЭРЭЭГ БАЙГУУЛСАН:")
 
-    left_x = margin_x
+    left_x = left_margin
     right_x = width / 2 + 10
 
-    pdf.setFont(bold_font_name, 11)
+    pdf.setFont(bold_font_name, 12)
     pdf.drawString(left_x, signature_y + 62, "Аялал зохион байгуулагчийг төлөөлж:")
     pdf.drawString(right_x, signature_y + 62, "Жуулчдыг төлөөлж:")
 
@@ -1925,7 +1966,7 @@ def save_contract_pdf(record):
     if company_signature.exists():
         pdf.drawImage(str(company_signature), left_x + 8, signature_y + 18, width=190, height=76, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x + 4, signature_y - 54, width=146, height=146, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x + 4, signature_y - 36, width=4 * cm, height=4 * cm, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
@@ -1933,7 +1974,7 @@ def save_contract_pdf(record):
         if sig_file.exists():
             pdf.drawImage(str(sig_file), right_x + 8, signature_y + 26, width=230, height=92, mask="auto")
 
-    pdf.setFont(font_name, 10)
+    pdf.setFont(font_name, 12)
     pdf.drawString(left_x, signature_y - 72, manager_display_name)
     pdf.drawString(left_x, signature_y - 88, "Аяллын менежер")
     pdf.drawString(left_x, signature_y - 114, "Гар утас: 85178877")
@@ -1945,7 +1986,7 @@ def save_contract_pdf(record):
     pdf.drawString(left_x + 34, signature_y - 210, "Их Монгол Улс гудамж, 17 хороо,")
     pdf.drawString(left_x + 34, signature_y - 226, "Кинг Тауэр 121-102 тоот")
 
-    pdf.setFont(font_name, 10)
+    pdf.setFont(font_name, 12)
     pdf.drawString(right_x, signature_y - 42, "Жуулчин")
 
     pdf.showPage()
@@ -3679,6 +3720,12 @@ def handle_generate_contract(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    actor_name = normalize_text(actor.get("fullName") or actor.get("name") or actor.get("email"))
+    if actor_name:
+        payload["managerSelect"] = actor_name
+        name_parts = actor_name.split()
+        payload["managerLastName"] = name_parts[0] if name_parts else actor_name
+        payload["managerFirstName"] = " ".join(name_parts[1:]) if len(name_parts) > 1 else actor_name
 
     data = build_contract_data(payload)
     error = validate_contract_data(data)

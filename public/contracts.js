@@ -249,15 +249,13 @@ const initContractForm = () => {
   const loadManagers = async () => {
     if (!managerSelect) return;
     try {
-      const data = await apiRequest("/api/camp-settings");
-      const names = data?.entry?.staffAssignments || [];
+      const data = await apiRequest("/api/auth/me");
+      const managerName = normalizeTextValue(data?.user?.fullName || data?.user?.email || "");
       managerSelect.innerHTML =
-        `<option value="">Менежер сонгох</option>` +
-        names.map((name) => `<option value="${name}">${name}</option>`).join("");
-      if (names.length === 1) {
-        managerSelect.value = names[0];
-        managerSelect.dispatchEvent(new Event("change"));
-      }
+        `<option value="${managerName}">${managerName || "Нэвтэрсэн хэрэглэгч"}</option>`;
+      managerSelect.value = managerName;
+      managerSelect.dispatchEvent(new Event("change"));
+      managerSelect.setAttribute("disabled", "disabled");
     } catch {}
   };
 
