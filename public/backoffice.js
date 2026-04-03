@@ -1,5 +1,6 @@
 const taskForm = document.querySelector("#task-form");
 const contactForm = document.querySelector("#contact-form");
+const taskManagerSelect = document.querySelector("#task-manager-select");
 
 const taskList = document.querySelector("#task-list");
 const contactList = document.querySelector("#contact-list");
@@ -25,6 +26,7 @@ const state = {
   tasks: [],
   reminders: [],
   contacts: [],
+  teamMembers: [],
   summary: {
     tasks: { open: 0, done: 0 },
     reminders: { today: 0 },
@@ -117,6 +119,29 @@ function renderEmpty(node, message) {
   node.innerHTML = `<p class="empty">${message}</p>`;
 }
 
+function renderManagerOptions() {
+  if (!taskManagerSelect) {
+    return;
+  }
+  const currentValue = taskManagerSelect.value;
+  const options = state.teamMembers.length
+    ? state.teamMembers
+        .map(
+          (member) =>
+            `<option value="${escapeHtml(member.fullName)}">${escapeHtml(member.fullName)}</option>`
+        )
+        .join("")
+    : '<option value="">No registered managers found</option>';
+
+  taskManagerSelect.innerHTML = `
+    <option value="">Choose registered manager</option>
+    ${options}
+  `;
+  if (state.teamMembers.some((member) => member.fullName === currentValue)) {
+    taskManagerSelect.value = currentValue;
+  }
+}
+
 function filteredTasks() {
   const query = filters.taskSearch.value.trim().toLowerCase();
   const status = filters.taskStatus.value;
@@ -183,7 +208,7 @@ function renderTasks() {
       <thead>
         <tr>
           <th>Task</th>
-          <th>Owner</th>
+          <th>Manager</th>
           <th>Priority</th>
           <th>Status</th>
           <th>Due</th>
@@ -278,15 +303,21 @@ async function loadDashboard() {
   contactList.innerHTML = '<p class="empty">Loading contacts...</p>';
 
   try {
-    const payload = await fetchJson("/api/manager-dashboard");
+    const [payload, teamMembersPayload] = await Promise.all([
+      fetchJson("/api/manager-dashboard"),
+      fetchJson("/api/team-members"),
+    ]);
     state.tasks = payload.tasks || [];
     state.reminders = payload.reminders || [];
     state.contacts = payload.contacts || [];
+    state.teamMembers = teamMembersPayload.entries || [];
     applySummary(payload.summary || {});
+    renderManagerOptions();
     renderAll();
   } catch (error) {
     renderEmpty(taskList, error.message);
     renderEmpty(contactList, error.message);
+    setStatus(taskStatusNode, error.message, true);
   }
 }
 

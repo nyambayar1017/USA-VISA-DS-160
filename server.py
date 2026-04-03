@@ -609,6 +609,29 @@ def handle_list_users(environ, start_response):
     return json_response(start_response, "200 OK", {"entries": users})
 
 
+def handle_list_team_members(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    entries = []
+    for user in read_users():
+        if user.get("status") != "approved":
+            continue
+        display_name = normalize_text(user.get("fullName")) or normalize_text(user.get("name")) or normalize_text(user.get("email"))
+        if not display_name:
+            continue
+        entries.append(
+            {
+                "id": user.get("id"),
+                "fullName": display_name,
+                "email": normalize_text(user.get("email")),
+                "role": normalize_text(user.get("role")) or "staff",
+            }
+        )
+    entries.sort(key=lambda item: item["fullName"].lower())
+    return json_response(start_response, "200 OK", {"entries": entries})
+
+
 def handle_update_user(environ, start_response, user_id):
     admin = require_admin(environ, start_response)
     if not admin:
@@ -3861,6 +3884,11 @@ def app(environ, start_response):
     if path == "/api/users":
         if method == "GET":
             return handle_list_users(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/team-members":
+        if method == "GET":
+            return handle_list_team_members(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/users/"):
