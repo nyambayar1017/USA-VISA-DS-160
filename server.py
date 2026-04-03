@@ -1629,8 +1629,8 @@ def build_contract_html(data):
       .signature-stack {{
         position: relative;
         width: 100%;
-        max-width: 420px;
-        height: 230px;
+        max-width: 460px;
+        height: 300px;
         margin: 8px 0 4px;
       }}
       .signature-stack img {{
@@ -1638,19 +1638,19 @@ def build_contract_html(data):
         object-fit: contain;
       }}
       .stamp-image {{
-        left: 0;
-        top: 14px;
-        width: 7cm;
-        height: 7cm;
+        left: -8px;
+        top: 8px;
+        width: 9cm;
+        height: 9cm;
       }}
       .company-signature-image {{
-        left: 34px;
-        top: 34px;
-        width: 250px;
-        height: 102px;
+        left: 48px;
+        top: 48px;
+        width: 280px;
+        height: 112px;
       }}
       .signature-contact {{
-        margin-top: 24px;
+        margin-top: 72px;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1964,9 +1964,9 @@ def save_contract_pdf(record):
     company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature-cropped.png"
     company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp-cropped.png"
     if company_signature.exists():
-        pdf.drawImage(str(company_signature), left_x + 26, signature_y + 30, width=210, height=84, mask="auto")
+        pdf.drawImage(str(company_signature), left_x + 42, signature_y + 48, width=235, height=94, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x - 2, signature_y - 40, width=7 * cm, height=7 * cm, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x - 10, signature_y - 18, width=9 * cm, height=9 * cm, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
