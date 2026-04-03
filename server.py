@@ -37,6 +37,7 @@ RESERVATIONS_FILE = DATA_DIR / "reservations.json"
 CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
+MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -101,6 +102,11 @@ def ensure_data_store():
     ]:
         if not file_path.exists():
             file_path.write_text("[]", encoding="utf-8")
+    if not MANAGER_DASHBOARD_FILE.exists():
+        MANAGER_DASHBOARD_FILE.write_text(
+            json.dumps(default_manager_dashboard(), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
     if not CAMP_SETTINGS_FILE.exists():
         CAMP_SETTINGS_FILE.write_text(
             json.dumps(
@@ -137,6 +143,7 @@ def list_backup_sources():
         CAMP_RESERVATIONS_FILE,
         CAMP_TRIPS_FILE,
         CAMP_SETTINGS_FILE,
+        MANAGER_DASHBOARD_FILE,
         USERS_FILE,
         SESSIONS_FILE,
     ]
@@ -219,6 +226,14 @@ def write_json_object(file_path, payload):
     file_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def default_manager_dashboard():
+    return {
+        "tasks": [],
+        "reminders": [],
+        "contacts": [],
+    }
+
+
 def read_contracts():
     return read_json_list(CONTRACTS_FILE)
 
@@ -273,6 +288,25 @@ def read_camp_trips():
 
 def write_camp_trips(records):
     write_json_list(CAMP_TRIPS_FILE, records)
+
+
+def normalize_manager_dashboard(payload):
+    if not isinstance(payload, dict):
+        return default_manager_dashboard()
+    return {
+        "tasks": payload.get("tasks") if isinstance(payload.get("tasks"), list) else [],
+        "reminders": payload.get("reminders") if isinstance(payload.get("reminders"), list) else [],
+        "contacts": payload.get("contacts") if isinstance(payload.get("contacts"), list) else [],
+    }
+
+
+def read_manager_dashboard():
+    payload = read_json_object(MANAGER_DASHBOARD_FILE, default_manager_dashboard())
+    return normalize_manager_dashboard(payload)
+
+
+def write_manager_dashboard(payload):
+    write_json_object(MANAGER_DASHBOARD_FILE, normalize_manager_dashboard(payload))
 
 
 def normalize_option_list(values):
@@ -2968,6 +3002,221 @@ def finance_summary(entries):
     }
 
 
+def build_manager_summary(store):
+    today = today_mongolia()
+    tasks = store.get("tasks", [])
+    reminders = store.get("reminders", [])
+    contacts = store.get("contacts", [])
+    return {
+        "tasks": {
+            "total": len(tasks),
+            "open": len([item for item in tasks if item.get("status") != "done"]),
+            "done": len([item for item in tasks if item.get("status") == "done"]),
+            "highPriority": len([item for item in tasks if item.get("priority") == "high"]),
+        },
+        "reminders": {
+            "total": len(reminders),
+            "active": len([item for item in reminders if item.get("status") != "done"]),
+            "today": len([item for item in reminders if str(item.get("reminderDate") or "")[:10] == today and item.get("status") != "done"]),
+            "overdue": len(
+                [
+                    item
+                    for item in reminders
+                    if item.get("status") != "done"
+                    and normalize_text(item.get("reminderDate"))[:10]
+                    and normalize_text(item.get("reminderDate"))[:10] < today
+                ]
+            ),
+        },
+        "contacts": {
+            "total": len(contacts),
+            "priority": len([item for item in contacts if item.get("status") == "priority"]),
+            "clients": len([item for item in contacts if item.get("type") == "client"]),
+            "partners": len([item for item in contacts if item.get("type") == "partner"]),
+        },
+    }
+
+
+def handle_get_manager_dashboard(start_response):
+    store = read_manager_dashboard()
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            **store,
+            "summary": build_manager_summary(store),
+        },
+    )
+
+
+def build_manager_task(payload):
+    return {
+        "id": str(uuid4()),
+        "title": normalize_text(payload.get("title")),
+        "owner": normalize_text(payload.get("owner")),
+        "priority": normalize_text(payload.get("priority")).lower() or "medium",
+        "status": normalize_text(payload.get("status")).lower() or "todo",
+        "dueDate": normalize_text(payload.get("dueDate")),
+        "note": normalize_text(payload.get("note")),
+        "createdAt": now_mongolia().isoformat(),
+        "updatedAt": now_mongolia().isoformat(),
+    }
+
+
+def validate_manager_task(task):
+    if len(task.get("title", "")) < 2:
+        return "Task title must be at least 2 characters"
+    if task.get("priority") not in {"low", "medium", "high"}:
+        return "Task priority is invalid"
+    if task.get("status") not in {"todo", "in-progress", "done"}:
+        return "Task status is invalid"
+    if task.get("dueDate") and not parse_date_input(task.get("dueDate")):
+        return "Task due date must be in YYYY-MM-DD format"
+    return None
+
+
+def build_manager_reminder(payload):
+    return {
+        "id": str(uuid4()),
+        "title": normalize_text(payload.get("title")),
+        "reminderDate": normalize_text(payload.get("reminderDate")),
+        "status": normalize_text(payload.get("status")).lower() or "active",
+        "audience": normalize_text(payload.get("audience")).lower() or "team",
+        "note": normalize_text(payload.get("note")),
+        "createdAt": now_mongolia().isoformat(),
+        "updatedAt": now_mongolia().isoformat(),
+    }
+
+
+def validate_manager_reminder(reminder):
+    if len(reminder.get("title", "")) < 2:
+        return "Reminder title must be at least 2 characters"
+    if reminder.get("status") not in {"active", "done"}:
+        return "Reminder status is invalid"
+    if reminder.get("audience") not in {"team", "client", "internal"}:
+        return "Reminder audience is invalid"
+    reminder_date = normalize_text(reminder.get("reminderDate"))
+    if reminder_date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?", reminder_date):
+        return "Reminder date must be YYYY-MM-DD or YYYY-MM-DDTHH:MM"
+    return None
+
+
+def build_manager_contact(payload):
+    return {
+        "id": str(uuid4()),
+        "name": normalize_text(payload.get("name")),
+        "phone": normalize_text(payload.get("phone")),
+        "company": normalize_text(payload.get("company")),
+        "type": normalize_text(payload.get("type")).lower() or "client",
+        "status": normalize_text(payload.get("status")).lower() or "new",
+        "lastContacted": normalize_text(payload.get("lastContacted")),
+        "note": normalize_text(payload.get("note")),
+        "createdAt": now_mongolia().isoformat(),
+        "updatedAt": now_mongolia().isoformat(),
+    }
+
+
+def validate_manager_contact(contact):
+    if len(contact.get("name", "")) < 2:
+        return "Contact name must be at least 2 characters"
+    if len(contact.get("phone", "")) < 5:
+        return "Phone number must be at least 5 characters"
+    if contact.get("type") not in {"client", "staff", "partner", "vendor"}:
+        return "Contact type is invalid"
+    if contact.get("status") not in {"new", "warm", "priority", "inactive"}:
+        return "Contact status is invalid"
+    if contact.get("lastContacted") and not parse_date_input(contact.get("lastContacted")):
+        return "Last contacted date must be in YYYY-MM-DD format"
+    return None
+
+
+def update_manager_item(records, item_id, payload, builder, validator):
+    for index, item in enumerate(records):
+        if item.get("id") != item_id:
+            continue
+        merged = builder({**item, **payload})
+        merged["id"] = item.get("id") or item_id
+        merged["createdAt"] = item.get("createdAt") or now_mongolia().isoformat()
+        merged["updatedAt"] = now_mongolia().isoformat()
+        error = validator(merged)
+        if error:
+            return None, error
+        records[index] = merged
+        return merged, None
+    return None, "Record not found"
+
+
+def handle_manager_item_create(environ, start_response, key, builder, validator, response_label):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    record = builder(payload)
+    error = validator(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    store = read_manager_dashboard()
+    store[key].insert(0, record)
+    write_manager_dashboard(store)
+    return json_response(
+        start_response,
+        "201 Created",
+        {
+            "ok": True,
+            response_label: record,
+            "summary": build_manager_summary(store),
+        },
+    )
+
+
+def handle_manager_item_update(environ, start_response, key, item_id, builder, validator, response_label):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    store = read_manager_dashboard()
+    record, error = update_manager_item(store[key], item_id, payload, builder, validator)
+    if error == "Record not found":
+        return json_response(start_response, "404 Not Found", {"error": error})
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    write_manager_dashboard(store)
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "ok": True,
+            response_label: record,
+            "summary": build_manager_summary(store),
+        },
+    )
+
+
+def handle_manager_item_delete(environ, start_response, key, item_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    store = read_manager_dashboard()
+    before = len(store[key])
+    store[key] = [item for item in store[key] if item.get("id") != item_id]
+    if len(store[key]) == before:
+        return json_response(start_response, "404 Not Found", {"error": "Record not found"})
+    write_manager_dashboard(store)
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "ok": True,
+            "deletedId": item_id,
+            "summary": build_manager_summary(store),
+        },
+    )
+
+
 def handle_dashboard_summary(start_response):
     finance_entries = read_finance_entries()
     bookings = read_bookings()
@@ -3626,6 +3875,82 @@ def app(environ, start_response):
             if not require_login(environ, start_response):
                 return []
             return handle_dashboard_summary(start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/manager-dashboard":
+        if method == "GET":
+            if not require_login(environ, start_response):
+                return []
+            return handle_get_manager_dashboard(start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/manager-dashboard/tasks":
+        if method == "POST":
+            return handle_manager_item_create(environ, start_response, "tasks", build_manager_task, validate_manager_task, "task")
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/manager-dashboard/tasks/"):
+        item_id = path.replace("/api/manager-dashboard/tasks/", "", 1).strip("/")
+        if method == "POST" and item_id:
+            return handle_manager_item_update(environ, start_response, "tasks", item_id, build_manager_task, validate_manager_task, "task")
+        if method == "DELETE" and item_id:
+            return handle_manager_item_delete(environ, start_response, "tasks", item_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/manager-dashboard/reminders":
+        if method == "POST":
+            return handle_manager_item_create(
+                environ,
+                start_response,
+                "reminders",
+                build_manager_reminder,
+                validate_manager_reminder,
+                "reminder",
+            )
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/manager-dashboard/reminders/"):
+        item_id = path.replace("/api/manager-dashboard/reminders/", "", 1).strip("/")
+        if method == "POST" and item_id:
+            return handle_manager_item_update(
+                environ,
+                start_response,
+                "reminders",
+                item_id,
+                build_manager_reminder,
+                validate_manager_reminder,
+                "reminder",
+            )
+        if method == "DELETE" and item_id:
+            return handle_manager_item_delete(environ, start_response, "reminders", item_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/manager-dashboard/contacts":
+        if method == "POST":
+            return handle_manager_item_create(
+                environ,
+                start_response,
+                "contacts",
+                build_manager_contact,
+                validate_manager_contact,
+                "contact",
+            )
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/manager-dashboard/contacts/"):
+        item_id = path.replace("/api/manager-dashboard/contacts/", "", 1).strip("/")
+        if method == "POST" and item_id:
+            return handle_manager_item_update(
+                environ,
+                start_response,
+                "contacts",
+                item_id,
+                build_manager_contact,
+                validate_manager_contact,
+                "contact",
+            )
+        if method == "DELETE" and item_id:
+            return handle_manager_item_delete(environ, start_response, "contacts", item_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/backups":

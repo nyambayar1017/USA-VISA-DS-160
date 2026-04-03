@@ -31,8 +31,12 @@
       <main class="workspace-main">
         <section class="workspace-topbar">
           <div>
-            <p class="workspace-kicker">Backoffice</p>
-            <h1>Daily Work Modules</h1>
+            <p class="workspace-kicker">Manager Home</p>
+            <h1>Team Dashboard And Daily Follow-Up</h1>
+            <p class="workspace-subtitle">
+              Keep everyone aligned with one page for tasks, reminders,
+              important phone numbers, and quick access to the main modules.
+            </p>
           </div>
           <div class="workspace-profile">
             <span class="workspace-profile-label">Signed in</span>
@@ -41,49 +45,305 @@
           </div>
         </section>
 
-        <section id="modules" class="backoffice-modules">
-        <a class="module-card module-card-contract" href="/contracts">
-          <p class="module-kicker">01 • Contract</p>
-          <h2>Гэрээ хийх</h2>
-          <p>Харилцагчийн гэрээ бэлдэх, үүсгэх, хэвлэх хэсэг.</p>
-          <div class="module-card-footer">
-            <span class="module-status is-live">Live</span>
-            <span class="module-arrow">Open</span>
-          </div>
-        </a>
+        <section class="manager-summary-grid" id="manager-summary">
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Open Tasks</p>
+            <strong id="summary-open-tasks">0</strong>
+            <span>What still needs action from the team.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Today's Reminders</p>
+            <strong id="summary-today-reminders">0</strong>
+            <span>Calls, follow-ups, and internal checks due today.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Priority Contacts</p>
+            <strong id="summary-priority-contacts">0</strong>
+            <span>Important numbers to keep close and revisit fast.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Completed Tasks</p>
+            <strong id="summary-done-tasks">0</strong>
+            <span>Quick view of finished work on the homepage.</span>
+          </article>
+        </section>
 
-        <a class="module-card module-card-budget" href="#">
-          <p class="module-kicker">02 • Finance</p>
-          <h2>Аяллын тооцоо</h2>
-          <p>Аяллын үнэ, үйлчилгээ, зардал, ашгийн тооцооны хэсэг.</p>
-          <div class="module-card-footer">
-            <span class="module-status is-planned">Coming soon</span>
-            <span class="module-arrow">Soon</span>
-          </div>
-        </a>
+        <section class="manager-dashboard-grid">
+          <article class="card manager-panel">
+            <div class="dashboard-head">
+              <div>
+                <h2>To-Do List</h2>
+                <p class="workspace-subtitle manager-panel-copy">
+                  Track work for managers and staff with status and priority
+                  filters.
+                </p>
+              </div>
+            </div>
 
-        <a class="module-card module-card-ds160" href="/ds160">
-          <p class="module-kicker">03 • Visa</p>
-          <h2>DS-160 Form</h2>
-          <p>АНУ-ын визийн мэдээлэл цуглуулах дотоод form.</p>
-          <div class="module-card-footer">
-            <span class="module-status is-live">Live</span>
-            <span class="module-arrow">Open</span>
-          </div>
-        </a>
+            <form id="task-form" class="manager-form-grid">
+              <label>
+                Task title
+                <input name="title" placeholder="Call client about contract" required />
+              </label>
+              <label>
+                Owner
+                <input name="owner" placeholder="Manager or staff name" />
+              </label>
+              <label>
+                Priority
+                <select name="priority">
+                  <option value="high">High</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+              <label>
+                Due date
+                <input name="dueDate" type="date" />
+              </label>
+              <label class="full-span">
+                Note
+                <textarea name="note" rows="2" placeholder="Extra details for the team"></textarea>
+              </label>
+              <div class="actions">
+                <button type="submit">Add task</button>
+                <p id="task-status" class="status"></p>
+              </div>
+            </form>
 
-        <a class="module-card module-card-camp" href="/camp">
-          <p class="module-kicker">04 • Camp</p>
-          <h2>USM Camp Reservation</h2>
-          <p>Camp захиалга, бүртгэл, багц мэдээллийн тусдаа хэсэг.</p>
-          <div class="module-card-footer">
-            <span class="module-status is-live">Live</span>
-            <span class="module-arrow">Open</span>
-          </div>
-        </a>
+            <div class="manager-filter-row">
+              <label>
+                Search
+                <input id="task-search" type="search" placeholder="Search task or owner" />
+              </label>
+              <label>
+                Status
+                <select id="task-status-filter">
+                  <option value="all">All</option>
+                  <option value="todo">To do</option>
+                  <option value="in-progress">In progress</option>
+                  <option value="done">Done</option>
+                </select>
+              </label>
+              <label>
+                Priority
+                <select id="task-priority-filter">
+                  <option value="all">All</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="task-list" class="manager-list"></div>
+          </article>
+
+          <article class="card manager-panel">
+            <div class="dashboard-head">
+              <div>
+                <h2>Reminders</h2>
+                <p class="workspace-subtitle manager-panel-copy">
+                  Save deadlines, callbacks, and internal reminders in one
+                  place.
+                </p>
+              </div>
+            </div>
+
+            <form id="reminder-form" class="manager-form-grid">
+              <label>
+                Reminder title
+                <input name="title" placeholder="Send payment reminder" required />
+              </label>
+              <label>
+                Date and time
+                <input name="reminderDate" type="datetime-local" />
+              </label>
+              <label>
+                Audience
+                <select name="audience">
+                  <option value="team">Team</option>
+                  <option value="client">Client</option>
+                  <option value="internal">Internal</option>
+                </select>
+              </label>
+              <label>
+                Status
+                <select name="status">
+                  <option value="active">Active</option>
+                  <option value="done">Done</option>
+                </select>
+              </label>
+              <label class="full-span">
+                Note
+                <textarea name="note" rows="2" placeholder="What should happen on that date?"></textarea>
+              </label>
+              <div class="actions">
+                <button type="submit">Add reminder</button>
+                <p id="reminder-status" class="status"></p>
+              </div>
+            </form>
+
+            <div class="manager-filter-row">
+              <label>
+                Search
+                <input id="reminder-search" type="search" placeholder="Search reminder text" />
+              </label>
+              <label>
+                Timing
+                <select id="reminder-timing-filter">
+                  <option value="all">All</option>
+                  <option value="today">Today</option>
+                  <option value="upcoming">Upcoming</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </label>
+              <label>
+                Status
+                <select id="reminder-status-filter">
+                  <option value="all">All</option>
+                  <option value="active">Active</option>
+                  <option value="done">Done</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="reminder-list" class="manager-list"></div>
+          </article>
+        </section>
+
+        <section class="manager-dashboard-grid manager-dashboard-grid-bottom">
+          <article class="card manager-panel">
+            <div class="dashboard-head">
+              <div>
+                <h2>Contact Numbers</h2>
+                <p class="workspace-subtitle manager-panel-copy">
+                  Keep important phone numbers for clients, staff, vendors, and
+                  partners with filters.
+                </p>
+              </div>
+            </div>
+
+            <form id="contact-form" class="manager-form-grid">
+              <label>
+                Contact name
+                <input name="name" placeholder="Client or company person" required />
+              </label>
+              <label>
+                Phone number
+                <input name="phone" placeholder="+976 ..." required />
+              </label>
+              <label>
+                Company
+                <input name="company" placeholder="TravelX / Partner name" />
+              </label>
+              <label>
+                Type
+                <select name="type">
+                  <option value="client">Client</option>
+                  <option value="staff">Staff</option>
+                  <option value="partner">Partner</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+              </label>
+              <label>
+                Contact status
+                <select name="status">
+                  <option value="priority">Priority</option>
+                  <option value="warm">Warm</option>
+                  <option value="new">New</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+              <label>
+                Last contacted
+                <input name="lastContacted" type="date" />
+              </label>
+              <label class="full-span">
+                Note
+                <textarea name="note" rows="2" placeholder="Quick context about this person"></textarea>
+              </label>
+              <div class="actions">
+                <button type="submit">Save contact</button>
+                <p id="contact-status" class="status"></p>
+              </div>
+            </form>
+
+            <div class="manager-filter-row">
+              <label>
+                Search
+                <input id="contact-search" type="search" placeholder="Search name, company, phone" />
+              </label>
+              <label>
+                Type
+                <select id="contact-type-filter">
+                  <option value="all">All</option>
+                  <option value="client">Client</option>
+                  <option value="staff">Staff</option>
+                  <option value="partner">Partner</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+              </label>
+              <label>
+                Status
+                <select id="contact-status-filter">
+                  <option value="all">All</option>
+                  <option value="priority">Priority</option>
+                  <option value="warm">Warm</option>
+                  <option value="new">New</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="contact-list" class="manager-list"></div>
+          </article>
+
+          <section id="modules" class="backoffice-modules manager-modules">
+            <a class="module-card module-card-contract" href="/contracts">
+              <p class="module-kicker">01 • Contract</p>
+              <h2>Гэрээ хийх</h2>
+              <p>Харилцагчийн гэрээ бэлдэх, үүсгэх, хэвлэх хэсэг.</p>
+              <div class="module-card-footer">
+                <span class="module-status is-live">Live</span>
+                <span class="module-arrow">Open</span>
+              </div>
+            </a>
+
+            <a class="module-card module-card-budget" href="#">
+              <p class="module-kicker">02 • Finance</p>
+              <h2>Аяллын тооцоо</h2>
+              <p>Аяллын үнэ, үйлчилгээ, зардал, ашгийн тооцооны хэсэг.</p>
+              <div class="module-card-footer">
+                <span class="module-status is-planned">Coming soon</span>
+                <span class="module-arrow">Soon</span>
+              </div>
+            </a>
+
+            <a class="module-card module-card-ds160" href="/ds160">
+              <p class="module-kicker">03 • Visa</p>
+              <h2>DS-160 Form</h2>
+              <p>АНУ-ын визийн мэдээлэл цуглуулах дотоод form.</p>
+              <div class="module-card-footer">
+                <span class="module-status is-live">Live</span>
+                <span class="module-arrow">Open</span>
+              </div>
+            </a>
+
+            <a class="module-card module-card-camp" href="/camp">
+              <p class="module-kicker">04 • Camp</p>
+              <h2>USM Camp Reservation</h2>
+              <p>Camp захиалга, бүртгэл, багц мэдээллийн тусдаа хэсэг.</p>
+              <div class="module-card-footer">
+                <span class="module-status is-live">Live</span>
+                <span class="module-arrow">Open</span>
+              </div>
+            </a>
+          </section>
         </section>
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-55"></script>
+    <script src="/backoffice.js?v=workspace-56"></script>
   </body>
 </html>
