@@ -52,7 +52,17 @@ const apiRequest = async (url, options = {}) => {
     if (!message) {
       try {
         const text = await responseClone.text();
-        if (text) message = text;
+        if (text) {
+          if (/<html/i.test(text) || /<!DOCTYPE html/i.test(text)) {
+            if (response.status >= 500) {
+              message = "Server error while saving the contract. Please try again.";
+            } else {
+              message = "Unexpected server response. Please refresh and try again.";
+            }
+          } else {
+            message = text;
+          }
+        }
       } catch {}
     }
     if (!message) message = "Request failed";
@@ -165,14 +175,24 @@ const initContractForm = () => {
 
   if (!panel || !toggle || !countSetup || !continueButton || !form) return;
 
+  const setSectionHidden = (element, hidden) => {
+    if (!element) return;
+    element.classList.toggle("is-hidden", hidden);
+    if (hidden) {
+      element.setAttribute("hidden", "");
+    } else {
+      element.removeAttribute("hidden");
+    }
+  };
+
   const openStepOne = () => {
-    countSetup.classList.remove("is-hidden");
-    form.classList.add("is-hidden");
+    setSectionHidden(countSetup, false);
+    setSectionHidden(form, true);
   };
 
   const openStepTwo = () => {
-    countSetup.classList.add("is-hidden");
-    form.classList.remove("is-hidden");
+    setSectionHidden(countSetup, true);
+    setSectionHidden(form, false);
   };
 
   const closePanel = () => {
@@ -196,7 +216,9 @@ const initContractForm = () => {
     if (event.target.dataset.action === "contract-continue") {
       syncCountStepToForm();
       openStepTwo();
-      form.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.requestAnimationFrame(() => {
+        form.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     }
   });
 
@@ -403,7 +425,9 @@ const initContractForm = () => {
   continueButton.addEventListener("click", () => {
     syncCountStepToForm();
     openStepTwo();
-    form.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.requestAnimationFrame(() => {
+      form.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   });
 
   tripStartInput?.addEventListener("change", updateDuration);
@@ -513,9 +537,6 @@ const initContractSignPage = async () => {
 
   qs("#signature-submit")?.addEventListener("click", async () => {
     statusEl.textContent = "Saving signature...";
-    const lastName = qs("#signer-last-name")?.value || "";
-    const firstName = qs("#signer-first-name")?.value || "";
-    const signerRegister = qs("#signer-register")?.value || "";
     const accepted = qs("#signer-accept")?.checked || false;
     if (!accepted) {
       statusEl.textContent = "Та гэрээг зөвшөөрөх ёстой.";
@@ -527,10 +548,6 @@ const initContractSignPage = async () => {
         method: "POST",
         body: JSON.stringify({
           signatureData,
-          signerName: `${lastName} ${firstName}`.trim(),
-          signerLastName: lastName,
-          signerFirstName: firstName,
-          signerRegister,
           accepted,
         }),
       });

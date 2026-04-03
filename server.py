@@ -1936,9 +1936,8 @@ def save_contract_pdf(record):
 
 def save_contract_files(data):
     contract_id = str(uuid4())
-    filename_stem = slugify(
-        f"{data['contractDate']}-{data['touristLastName']}-{data['touristFirstName']}-{data['destination']}"
-    )
+    timestamp = datetime.now(timezone.utc).astimezone(MONGOLIA_TZ).strftime("%Y%m%d%H%M%S")
+    filename_stem = slugify(f"contract-{data['contractSerial']}-{timestamp}-{contract_id[:8]}")
     docx_filename = f"{filename_stem}.docx"
     html_filename = f"{filename_stem}.html"
 
@@ -3669,17 +3668,16 @@ def handle_generate_contract(environ, start_response):
 
     try:
         record = save_contract_files(data)
+        contracts = read_contracts()
+        record["createdBy"] = actor_snapshot(actor)
+        record["updatedBy"] = actor_snapshot(actor)
+        contracts.insert(0, record)
+        write_contracts(contracts)
+        return json_response(start_response, "201 Created", {"ok": True, "contract": record})
     except FileNotFoundError as exc:
         return json_response(start_response, "500 Internal Server Error", {"error": str(exc)})
-    except Exception:
-        return json_response(start_response, "500 Internal Server Error", {"error": "Could not generate contract"})
-
-    contracts = read_contracts()
-    record["createdBy"] = actor_snapshot(actor)
-    record["updatedBy"] = actor_snapshot(actor)
-    contracts.insert(0, record)
-    write_contracts(contracts)
-    return json_response(start_response, "201 Created", {"ok": True, "contract": record})
+    except Exception as exc:
+        return json_response(start_response, "500 Internal Server Error", {"error": f"Could not generate contract: {exc}"})
 
 
 def handle_list_contracts(start_response):
