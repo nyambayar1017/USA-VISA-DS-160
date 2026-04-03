@@ -1463,7 +1463,7 @@ def build_contract_body_html(data):
     return "\n".join(parts)
 
 
-def build_contract_html(data, signature_path=None, asset_mode="web"):
+def build_contract_html(data, signature_path=None, asset_mode="web", contract_id=None):
     content = build_contract_body_html(data)
     organizer_name = html.escape(get_manager_display_name(data))
     customer_name = html.escape(
@@ -1489,6 +1489,13 @@ def build_contract_html(data, signature_path=None, asset_mode="web"):
         if asset_mode == "file":
             return (PUBLIC_DIR / "assets" / filename).resolve().as_uri()
         return f"/assets/{filename}"
+
+    download_href = f"/api/contracts/{contract_id}/document?mode=download" if contract_id else ""
+    download_button = (
+        f'<a href="{html.escape(download_href)}">Download PDF</a>'
+        if download_href
+        else '<button onclick="window.print()">Print</button>'
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="mn">
@@ -1717,7 +1724,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web"):
   </head>
   <body>
     <div class="toolbar">
-      <button onclick="window.print()">Save as PDF</button>
+      {download_button}
       <a class="secondary" href="/">Back to form</a>
     </div>
     <main class="page">
@@ -1837,6 +1844,7 @@ def save_contract_pdf(record):
             record["data"],
             signature_path=record.get("signaturePath"),
             asset_mode="file",
+            contract_id=record.get("id"),
         )
         HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
         return f"/generated/{pdf_filename}"
@@ -3837,7 +3845,14 @@ def handle_update_contract(environ, start_response, contract_id):
                 safe_view = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
                 if str(safe_view).startswith(str(GENERATED_DIR.resolve())):
                     try:
-                        safe_view.write_text(build_contract_html(data, signature_path=contract.get("signaturePath")), encoding="utf-8")
+                        safe_view.write_text(
+                            build_contract_html(
+                                data,
+                                signature_path=contract.get("signaturePath"),
+                                contract_id=contract.get("id"),
+                            ),
+                            encoding="utf-8",
+                        )
                     except Exception:
                         pass
             contract["pdfPath"] = None
@@ -3905,7 +3920,14 @@ def handle_sign_contract(environ, start_response, contract_id):
                 safe_view = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
                 if str(safe_view).startswith(str(GENERATED_DIR.resolve())):
                     try:
-                        safe_view.write_text(build_contract_html(data, signature_path=contract.get("signaturePath")), encoding="utf-8")
+                        safe_view.write_text(
+                            build_contract_html(
+                                data,
+                                signature_path=contract.get("signaturePath"),
+                                contract_id=contract.get("id"),
+                            ),
+                            encoding="utf-8",
+                        )
                     except Exception:
                         pass
             contracts[idx] = contract
@@ -3950,7 +3972,11 @@ def handle_contract_document(environ, start_response, contract_id):
     if not str(safe_path).startswith(str(GENERATED_DIR.resolve())):
         return json_response(start_response, "404 Not Found", {"error": "Document not found"})
     safe_path.write_text(
-        build_contract_html(contract.get("data") or {}, signature_path=contract.get("signaturePath")),
+        build_contract_html(
+            contract.get("data") or {},
+            signature_path=contract.get("signaturePath"),
+            contract_id=contract.get("id"),
+        ),
         encoding="utf-8",
     )
     if contract_index is not None:
