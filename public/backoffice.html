@@ -68,7 +68,7 @@
           </article>
         </section>
 
-        <section class="manager-dashboard-grid">
+        <section class="manager-dashboard-grid manager-dashboard-grid-triple">
           <article class="card manager-panel">
             <div class="dashboard-head">
               <div>
@@ -80,7 +80,7 @@
               </div>
             </div>
 
-            <form id="task-form" class="manager-form-grid">
+            <form id="task-form" class="manager-form-grid manager-form-grid-vertical">
               <label>
                 Task title
                 <input name="title" placeholder="Call client about contract" required />
@@ -136,7 +136,7 @@
               </label>
             </div>
 
-            <div id="task-list" class="manager-list"></div>
+            <div id="task-list" class="manager-table-wrap"></div>
           </article>
 
           <article class="card manager-panel">
@@ -150,7 +150,7 @@
               </div>
             </div>
 
-            <form id="reminder-form" class="manager-form-grid">
+            <form id="reminder-form" class="manager-form-grid manager-form-grid-vertical">
               <label>
                 Reminder title
                 <input name="title" placeholder="Send payment reminder" required />
@@ -208,11 +208,9 @@
               </label>
             </div>
 
-            <div id="reminder-list" class="manager-list"></div>
+            <div id="reminder-list" class="manager-table-wrap"></div>
           </article>
-        </section>
 
-        <section class="manager-dashboard-grid manager-dashboard-grid-bottom">
           <article class="card manager-panel">
             <div class="dashboard-head">
               <div>
@@ -224,7 +222,7 @@
               </div>
             </div>
 
-            <form id="contact-form" class="manager-form-grid">
+            <form id="contact-form" class="manager-form-grid manager-form-grid-vertical">
               <label>
                 Contact name
                 <input name="name" placeholder="Client or company person" required />
@@ -296,9 +294,11 @@
               </label>
             </div>
 
-            <div id="contact-list" class="manager-list"></div>
+            <div id="contact-list" class="manager-table-wrap"></div>
           </article>
+        </section>
 
+        <section class="manager-dashboard-grid manager-dashboard-grid-bottom">
           <section id="modules" class="backoffice-modules manager-modules">
             <a class="module-card module-card-contract" href="/contracts">
               <p class="module-kicker">01 • Contract</p>

@@ -931,6 +931,11 @@ time {
   margin-top: 22px;
 }
 
+.manager-dashboard-grid-triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+
 .manager-panel {
   margin-top: 0;
   padding: 28px 30px;
@@ -952,6 +957,10 @@ time {
   margin-top: 20px;
 }
 
+.manager-form-grid-vertical {
+  grid-template-columns: 1fr;
+}
+
 .manager-filter-row {
   margin-top: 18px;
   padding: 18px;
@@ -964,6 +973,50 @@ time {
   display: grid;
   gap: 16px;
   margin-top: 18px;
+}
+
+.manager-table-wrap {
+  margin-top: 18px;
+  overflow-x: auto;
+  border: 1px solid rgba(37, 58, 119, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.manager-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  font-size: 0.93rem;
+}
+
+.manager-table th,
+.manager-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(37, 58, 119, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.manager-table th {
+  position: sticky;
+  top: 0;
+  background: #f4f7fd;
+  color: #4c6282;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.manager-table tbody tr:hover {
+  background: rgba(242, 246, 255, 0.72);
+}
+
+.manager-table td a {
+  color: #16345f;
+  text-decoration: none;
+  font-weight: 700;
 }
 
 .manager-item-card {
@@ -1089,6 +1142,15 @@ time {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
+}
+
+.manager-inline-actions-compact {
+  margin-top: 0;
+}
+
+.manager-inline-actions-compact button {
+  padding: 10px 12px;
+  font-size: 0.8rem;
 }
 
 .button-secondary {
@@ -2341,7 +2403,8 @@ body.modal-open {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .manager-dashboard-grid {
+  .manager-dashboard-grid,
+  .manager-dashboard-grid-triple {
     grid-template-columns: 1fr;
   }
 }

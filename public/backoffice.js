@@ -207,34 +207,44 @@ function renderTasks() {
     return;
   }
 
-  taskList.innerHTML = tasks
-    .map(
-      (task) => `
-        <article class="manager-item-card">
-          <div class="manager-item-head">
-            <div>
-              <h3>${escapeHtml(task.title)}</h3>
-              <p>${escapeHtml(task.owner || "Unassigned")}</p>
-            </div>
-            <div class="manager-badges">
-              <span class="manager-badge priority-${escapeHtml(task.priority)}">${escapeHtml(task.priority)}</span>
-              <span class="manager-badge status-${escapeHtml(task.status)}">${escapeHtml(task.status)}</span>
-            </div>
-          </div>
-          <div class="manager-meta-grid">
-            <div><span>Due</span><strong>${escapeHtml(formatDate(task.dueDate))}</strong></div>
-            <div><span>Updated</span><strong>${escapeHtml(formatDateTime(task.updatedAt))}</strong></div>
-          </div>
-          <p class="manager-note">${escapeHtml(task.note || "No note")}</p>
-          <div class="manager-inline-actions">
-            <button type="button" data-task-progress="${task.id}">In progress</button>
-            <button type="button" data-task-done="${task.id}">Done</button>
-            <button type="button" data-task-delete="${task.id}" class="button-secondary">Delete</button>
-          </div>
-        </article>
-      `
-    )
-    .join("");
+  taskList.innerHTML = `
+    <table class="manager-table">
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Owner</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Due</th>
+          <th>Note</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tasks
+          .map(
+            (task) => `
+              <tr>
+                <td>${escapeHtml(task.title)}</td>
+                <td>${escapeHtml(task.owner || "-")}</td>
+                <td><span class="manager-badge priority-${escapeHtml(task.priority)}">${escapeHtml(task.priority)}</span></td>
+                <td><span class="manager-badge status-${escapeHtml(task.status)}">${escapeHtml(task.status)}</span></td>
+                <td>${escapeHtml(formatDate(task.dueDate))}</td>
+                <td>${escapeHtml(task.note || "-")}</td>
+                <td>
+                  <div class="manager-inline-actions manager-inline-actions-compact">
+                    <button type="button" data-task-progress="${task.id}">Start</button>
+                    <button type="button" data-task-done="${task.id}">Done</button>
+                    <button type="button" data-task-delete="${task.id}" class="button-secondary">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function renderReminders() {
@@ -244,35 +254,45 @@ function renderReminders() {
     return;
   }
 
-  reminderList.innerHTML = reminders
-    .map(
-      (reminder) => `
-        <article class="manager-item-card">
-          <div class="manager-item-head">
-            <div>
-              <h3>${escapeHtml(reminder.title)}</h3>
-              <p>${escapeHtml(reminder.audience || "team")}</p>
-            </div>
-            <div class="manager-badges">
-              <span class="manager-badge status-${escapeHtml(reminder.status)}">${escapeHtml(reminder.status)}</span>
-              <span class="manager-badge timing-${escapeHtml(reminderTiming(reminder))}">${escapeHtml(reminderTiming(reminder))}</span>
-            </div>
-          </div>
-          <div class="manager-meta-grid">
-            <div><span>Reminder</span><strong>${escapeHtml(formatDateTime(reminder.reminderDate))}</strong></div>
-            <div><span>Updated</span><strong>${escapeHtml(formatDateTime(reminder.updatedAt))}</strong></div>
-          </div>
-          <p class="manager-note">${escapeHtml(reminder.note || "No note")}</p>
-          <div class="manager-inline-actions">
-            <button type="button" data-reminder-toggle="${reminder.id}">
-              ${reminder.status === "done" ? "Reopen" : "Mark done"}
-            </button>
-            <button type="button" data-reminder-delete="${reminder.id}" class="button-secondary">Delete</button>
-          </div>
-        </article>
-      `
-    )
-    .join("");
+  reminderList.innerHTML = `
+    <table class="manager-table">
+      <thead>
+        <tr>
+          <th>Reminder</th>
+          <th>Audience</th>
+          <th>Status</th>
+          <th>Timing</th>
+          <th>Date</th>
+          <th>Note</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${reminders
+          .map(
+            (reminder) => `
+              <tr>
+                <td>${escapeHtml(reminder.title)}</td>
+                <td>${escapeHtml(reminder.audience || "-")}</td>
+                <td><span class="manager-badge status-${escapeHtml(reminder.status)}">${escapeHtml(reminder.status)}</span></td>
+                <td><span class="manager-badge timing-${escapeHtml(reminderTiming(reminder))}">${escapeHtml(reminderTiming(reminder))}</span></td>
+                <td>${escapeHtml(formatDateTime(reminder.reminderDate))}</td>
+                <td>${escapeHtml(reminder.note || "-")}</td>
+                <td>
+                  <div class="manager-inline-actions manager-inline-actions-compact">
+                    <button type="button" data-reminder-toggle="${reminder.id}">
+                      ${reminder.status === "done" ? "Reopen" : "Done"}
+                    </button>
+                    <button type="button" data-reminder-delete="${reminder.id}" class="button-secondary">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function renderContacts() {
@@ -282,35 +302,47 @@ function renderContacts() {
     return;
   }
 
-  contactList.innerHTML = contacts
-    .map(
-      (contact) => `
-        <article class="manager-item-card">
-          <div class="manager-item-head">
-            <div>
-              <h3>${escapeHtml(contact.name)}</h3>
-              <p>${escapeHtml(contact.company || contact.type)}</p>
-            </div>
-            <div class="manager-badges">
-              <span class="manager-badge status-${escapeHtml(contact.status)}">${escapeHtml(contact.status)}</span>
-              <span class="manager-badge contact-${escapeHtml(contact.type)}">${escapeHtml(contact.type)}</span>
-            </div>
-          </div>
-          <div class="manager-meta-grid">
-            <div><span>Phone</span><strong><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></strong></div>
-            <div><span>Last contacted</span><strong>${escapeHtml(formatDate(contact.lastContacted))}</strong></div>
-          </div>
-          <p class="manager-note">${escapeHtml(contact.note || "No note")}</p>
-          <div class="manager-inline-actions">
-            <button type="button" data-contact-priority="${contact.id}">
-              ${contact.status === "priority" ? "Set warm" : "Set priority"}
-            </button>
-            <button type="button" data-contact-delete="${contact.id}" class="button-secondary">Delete</button>
-          </div>
-        </article>
-      `
-    )
-    .join("");
+  contactList.innerHTML = `
+    <table class="manager-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Company</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Last Contacted</th>
+          <th>Note</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${contacts
+          .map(
+            (contact) => `
+              <tr>
+                <td>${escapeHtml(contact.name)}</td>
+                <td><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></td>
+                <td>${escapeHtml(contact.company || "-")}</td>
+                <td><span class="manager-badge contact-${escapeHtml(contact.type)}">${escapeHtml(contact.type)}</span></td>
+                <td><span class="manager-badge status-${escapeHtml(contact.status)}">${escapeHtml(contact.status)}</span></td>
+                <td>${escapeHtml(formatDate(contact.lastContacted))}</td>
+                <td>${escapeHtml(contact.note || "-")}</td>
+                <td>
+                  <div class="manager-inline-actions manager-inline-actions-compact">
+                    <button type="button" data-contact-priority="${contact.id}">
+                      ${contact.status === "priority" ? "Warm" : "Priority"}
+                    </button>
+                    <button type="button" data-contact-delete="${contact.id}" class="button-secondary">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function renderAll() {
