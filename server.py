@@ -1739,6 +1739,10 @@ def build_contract_html(data):
             <div class="signature-title">Жуулчныг төлөөлж:</div>
             <div class="signer-signature-space"></div>
             <div class="signer-contact">
+              <p class="signature-name">{customer_name}</p>
+              <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
+              <p><span class="signature-label">Яаралтай хүн:</span> {html.escape(data.get("emergencyContactName") or "")}</p>
+              <p><span class="signature-label">Яаралтай утас:</span> {html.escape(data.get("emergencyContactPhone") or "")}</p>
               <p class="signature-role">Жуулчин</p>
             </div>
           </div>
@@ -1987,7 +1991,11 @@ def save_contract_pdf(record):
     pdf.drawString(left_x + 34, signature_y - 226, "Кинг Тауэр 121-102 тоот")
 
     pdf.setFont(font_name, 12)
-    pdf.drawString(right_x, signature_y - 42, "Жуулчин")
+    pdf.drawString(right_x, signature_y - 42, customer_name or "Жуулчин")
+    pdf.drawString(right_x, signature_y - 68, f"Утас: {data.get('clientPhone') or ''}")
+    pdf.drawString(right_x, signature_y - 94, f"Яаралтай хүн: {data.get('emergencyContactName') or ''}")
+    pdf.drawString(right_x, signature_y - 120, f"Яаралтай утас: {data.get('emergencyContactPhone') or ''}")
+    pdf.drawString(right_x, signature_y - 146, "Жуулчин")
 
     pdf.showPage()
     pdf.save()
