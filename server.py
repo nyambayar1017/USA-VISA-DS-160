@@ -1560,6 +1560,10 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         --accent: #1d2b4f;
         --muted: #6e645f;
       }}
+      @page {{
+        size: A4;
+        margin: 2cm 1.5cm 2cm 3cm;
+      }}
       * {{ box-sizing: border-box; }}
       body {{
         margin: 0;
@@ -1883,214 +1887,24 @@ def draw_wrapped_text_with_indent(pdf, text, x, y, max_width, font_name, font_si
 
 
 def save_contract_pdf(record):
-    try:
-        from weasyprint import HTML
-
-        ensure_data_store()
-        pdf_filename = f"contract-{record['id']}.pdf"
-        pdf_path = GENERATED_DIR / pdf_filename
-        html_string = build_contract_html(
-            record["data"],
-            signature_path=record.get("signaturePath"),
-            asset_mode="file",
-            contract_id=record.get("id"),
-        )
-        HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
-        return f"/generated/{pdf_filename}"
-    except Exception:
-        pass
-
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import cm
-    from reportlab.platypus import Table, TableStyle
-    from reportlab.pdfgen import canvas
-
     ensure_data_store()
-    data = record["data"]
     pdf_filename = f"contract-{record['id']}.pdf"
     pdf_path = GENERATED_DIR / pdf_filename
-    width, height = A4
-    pdf = canvas.Canvas(str(pdf_path), pagesize=A4)
+    try:
+        from weasyprint import HTML
+    except Exception as exc:
+        raise RuntimeError(f"WeasyPrint not available: {exc}") from exc
 
-    font_name, bold_font_name = register_contract_font()
-    left_margin = 3 * cm
-    right_margin = 1.5 * cm
-    top_margin = 2 * cm
-    bottom_margin = 2 * cm
-    content_width = width - left_margin - right_margin
-    current_y = height - top_margin
-
-    contract_date = format_contract_header_date(data["contractDate"])
-    contract_serial = data["contractSerial"]
-    organizer_name = get_manager_display_name(data)
-    manager_display_name = organizer_name
-    customer_name = " ".join(
-        part
-        for part in [data.get("touristLastName") or "", data.get("touristFirstName") or ""]
-        if part
-    ).strip()
-    logo_header_path = PUBLIC_DIR / "assets" / "logo.png"
-    if logo_header_path.exists():
-        logo_width = 165
-        logo_height = 56
-        pdf.drawImage(
-            str(logo_header_path),
-            (width - logo_width) / 2,
-            current_y - 40,
-            width=logo_width,
-            height=logo_height,
-            mask="auto",
-        )
-        current_y -= 48
-    else:
-        pdf.setFont(bold_font_name, 22)
-        pdf.setFillColor(colors.HexColor("#243b7a"))
-        pdf.drawCentredString((width / 2) - 24, current_y + 14, "ДЭЛХИЙ")
-        pdf.drawCentredString((width / 2) - 24, current_y - 10, "ТРЭВЕЛ")
-        pdf.setFillColor(colors.HexColor("#d9a31a"))
-        pdf.setFont(bold_font_name, 70)
-        pdf.drawString((width / 2) + 38, current_y - 34, "X")
-        pdf.setFillColor(colors.black)
-        current_y -= 44
-
-    pdf.setFont(bold_font_name, 12)
-    pdf.drawCentredString(width / 2, current_y, "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ")
-    current_y -= 22
-
-    pdf.setFont(font_name, 12)
-    pdf.drawCentredString(width / 2, current_y, f"Дугаар: {contract_serial}")
-    current_y -= 24
-    pdf.drawString(left_margin, current_y, contract_date)
-    pdf.drawRightString(width - right_margin, current_y, "Улаанбаатар хот")
-    current_y -= 24
-
-    blocks = get_contract_display_blocks(data)
-    if not blocks:
-        blocks = [{"type": "paragraph", "text": "Гэрээний загвар олдсонгүй."}]
-
-    current_y = current_y
-    for block in blocks:
-        if current_y < bottom_margin + 70:
-            pdf.showPage()
-            current_y = height - top_margin
-            pdf.setFont(font_name, 12)
-
-        if block["type"] == "heading":
-            current_y -= 8
-            pdf.setFont(bold_font_name, 12)
-            pdf.drawCentredString(width / 2, current_y, block["text"])
-            current_y -= 20
-        elif block["type"] == "numbered-paragraph":
-            pdf.setFont(font_name, 12)
-            pdf.drawString(left_margin, current_y, block["number"])
-            current_y = draw_wrapped_text(
-                pdf,
-                block["text"],
-                left_margin + 26,
-                current_y,
-                content_width - 26,
-                font_name,
-                12,
-                17,
-            )
-            current_y -= 8
-        elif block["type"] == "paragraph":
-            if block["text"].startswith("Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл"):
-                current_y -= 6
-                current_y = draw_wrapped_text_with_indent(
-                    pdf,
-                    block["text"],
-                    left_margin,
-                    current_y,
-                    content_width,
-                    font_name,
-                    12,
-                    17,
-                    34,
-                )
-            else:
-                current_y = draw_wrapped_text(
-                    pdf,
-                    block["text"],
-                    left_margin,
-                    current_y,
-                    content_width,
-                    font_name,
-                    12,
-                    17,
-                )
-            current_y -= 10
-        elif block["type"] == "table":
-            table = Table(block["rows"], repeatRows=1)
-            table.setStyle(
-                TableStyle(
-                    [
-                        ("GRID", (0, 0), (-1, -1), 0.8, colors.black),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e6eef9")),
-                        ("FONTNAME", (0, 0), (-1, -1), font_name),
-                        ("FONTSIZE", (0, 0), (-1, -1), 12),
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("PADDING", (0, 0), (-1, -1), 6),
-                    ]
-                )
-            )
-            table_width, table_height = table.wrap(content_width, current_y)
-            if current_y - table_height < bottom_margin + 60:
-                pdf.showPage()
-                current_y = height - top_margin
-            table.drawOn(pdf, left_margin, current_y - table_height)
-            current_y -= table_height + 16
-
-    current_y -= 10
-    signature_y = max(bottom_margin + 5, current_y - 26)
-    pdf.setFont(bold_font_name, 12)
-    pdf.drawCentredString(width / 2, signature_y + 92, "ГЭРЭЭГ БАЙГУУЛСАН:")
-
-    left_x = left_margin
-    right_x = width / 2 + 10
-
-    pdf.setFont(bold_font_name, 12)
-    pdf.drawString(left_x, signature_y + 62, "Аялал зохион байгуулагчийг төлөөлж:")
-    pdf.drawString(right_x, signature_y + 62, "Жуулчдыг төлөөлж:")
-
-    pdf.drawString(left_x, signature_y + 40, "“Дэлхий Трэвел Икс” ХХК -ийн")
-
-    company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature-cropped.png"
-    company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp-cropped.png"
-    if company_signature.exists():
-        pdf.drawImage(str(company_signature), left_x + 42, signature_y + 48, width=235, height=94, mask="auto")
-    if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x - 10, signature_y - 18, width=9 * cm, height=9 * cm, mask="auto")
-
-    signature_path = record.get("signaturePath")
-    if signature_path:
-        sig_file = (GENERATED_DIR / signature_path.replace("/generated/", "", 1)).resolve()
-        if sig_file.exists():
-            pdf.drawImage(str(sig_file), right_x + 8, signature_y + 26, width=230, height=92, mask="auto")
-
-    pdf.setFont(font_name, 12)
-    pdf.drawString(left_x, signature_y - 72, manager_display_name)
-    pdf.drawString(left_x, signature_y - 88, "Аяллын менежер")
-    pdf.drawString(left_x, signature_y - 114, "Гар утас: 85178877")
-    pdf.drawString(left_x, signature_y - 130, "Утас: 72007722")
-    pdf.drawString(left_x, signature_y - 146, "И-мэйл: nyambayar@travelx.mn")
-    pdf.drawString(left_x, signature_y - 162, "          info@travelx.mn")
-    pdf.drawString(left_x, signature_y - 178, "Вэбсайт: www.travelx.mn")
-    pdf.drawString(left_x, signature_y - 194, "Хаяг: Улаанбаатар хот, Хан-Уул дүүрэг,")
-    pdf.drawString(left_x + 34, signature_y - 210, "Их Монгол Улс гудамж, 17 хороо,")
-    pdf.drawString(left_x + 34, signature_y - 226, "Кинг Тауэр 121-102 тоот")
-
-    pdf.setFont(font_name, 12)
-    pdf.drawString(right_x, signature_y - 42, customer_name or "Жуулчин")
-    pdf.drawString(right_x, signature_y - 68, f"Утас: {data.get('clientPhone') or ''}")
-    pdf.drawString(right_x, signature_y - 94, f"Яаралтай хүн: {data.get('emergencyContactName') or ''}")
-    pdf.drawString(right_x, signature_y - 120, f"Яаралтай утас: {data.get('emergencyContactPhone') or ''}")
-    pdf.drawString(right_x, signature_y - 146, "Жуулчин")
-
-    pdf.showPage()
-    pdf.save()
+    html_string = build_contract_html(
+        record["data"],
+        signature_path=record.get("signaturePath"),
+        asset_mode="file",
+        contract_id=record.get("id"),
+    )
+    try:
+        HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
+    except Exception as exc:
+        raise RuntimeError(f"HTML PDF generation failed: {exc}") from exc
     return f"/generated/{pdf_filename}"
 
 
