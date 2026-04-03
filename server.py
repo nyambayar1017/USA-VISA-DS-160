@@ -3815,7 +3815,14 @@ def handle_contract_document(environ, start_response, contract_id):
     if mode == "download":
         pdf_path = contract.get("pdfPath")
         if contract.get("status") == "signed":
-            pdf_path = save_contract_pdf(contract)
+            try:
+                pdf_path = save_contract_pdf(contract)
+            except Exception as exc:
+                return json_response(
+                    start_response,
+                    "500 Internal Server Error",
+                    {"error": f"Could not generate contract PDF: {exc}"},
+                )
             contract["pdfPath"] = pdf_path
             if contract_index is not None:
                 contracts[contract_index] = contract

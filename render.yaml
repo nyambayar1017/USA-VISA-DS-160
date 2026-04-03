@@ -1,7 +1,7 @@
 services:
   - type: web
     name: ds160-intake-form
-    env: python
+    runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn server:app
     envVars:
@@ -11,6 +11,9 @@ services:
       - libcairo2
       - libpango-1.0-0
       - libpangocairo-1.0-0
+      - libpangoft2-1.0-0
       - libgdk-pixbuf-2.0-0
       - libffi-dev
       - shared-mime-info
+      - fonts-dejavu-core
+      - fonts-liberation2
