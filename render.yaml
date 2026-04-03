@@ -3,7 +3,7 @@ services:
     name: ds160-intake-form
     runtime: python
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    buildCommand: apt-get update && apt-get install -y libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info && pip install -r requirements.txt
     startCommand: gunicorn server:app
     healthCheckPath: /health
     disk:

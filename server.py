@@ -1183,6 +1183,50 @@ def set_paragraph_text(paragraph, text):
     paragraph.append(run)
 
 
+def ensure_child(parent, tag):
+    child = parent.find(qname(tag))
+    if child is None:
+        child = ET.Element(qname(tag))
+        parent.append(child)
+    return child
+
+
+def set_or_create(parent, tag, attributes):
+    node = parent.find(qname(tag))
+    if node is None:
+        node = ET.Element(qname(tag))
+        parent.append(node)
+    for key, value in attributes.items():
+        node.set(qname(key), value)
+    return node
+
+
+def update_docx_styles(styles_xml):
+    root = ET.fromstring(styles_xml)
+
+    doc_defaults = root.find(qname("docDefaults"))
+    if doc_defaults is None:
+        doc_defaults = ET.Element(qname("docDefaults"))
+        root.insert(0, doc_defaults)
+
+    rpr_default = ensure_child(doc_defaults, "rPrDefault")
+    rpr = ensure_child(rpr_default, "rPr")
+    set_or_create(rpr, "rFonts", {"ascii": "Times New Roman", "hAnsi": "Times New Roman", "cs": "Times New Roman"})
+    set_or_create(rpr, "sz", {"val": "24"})
+    set_or_create(rpr, "szCs", {"val": "24"})
+
+    for style in root.findall(qname("style")):
+        style_type = style.get(qname("type"))
+        style_id = style.get(qname("styleId"))
+        if style_type == "paragraph" and style_id in {"Normal", "BodyText", "DefaultParagraphFont"}:
+            style_rpr = ensure_child(style, "rPr")
+            set_or_create(style_rpr, "rFonts", {"ascii": "Times New Roman", "hAnsi": "Times New Roman", "cs": "Times New Roman"})
+            set_or_create(style_rpr, "sz", {"val": "24"})
+            set_or_create(style_rpr, "szCs", {"val": "24"})
+
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
 def replace_template_paragraphs(root, data):
     manager_full_name = normalize_person_name(data.get("managerFullName")) or "Ч.Нямбаяр"
     replacements = {
@@ -1380,12 +1424,17 @@ def generate_docx(data, output_path):
         root = ET.fromstring(document_xml)
         replace_template_paragraphs(root, data)
         new_document_xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        styles_xml = None
+        if "word/styles.xml" in source_zip.namelist():
+            styles_xml = update_docx_styles(source_zip.read("word/styles.xml"))
 
         with zipfile.ZipFile(output_path, "w") as target_zip:
             for item in source_zip.infolist():
                 content = source_zip.read(item.filename)
                 if item.filename == "word/document.xml":
                     content = new_document_xml
+                elif item.filename == "word/styles.xml" and styles_xml is not None:
+                    content = styles_xml
                 target_zip.writestr(item, content)
 
 
