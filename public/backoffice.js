@@ -1,27 +1,21 @@
 const taskForm = document.querySelector("#task-form");
-const reminderForm = document.querySelector("#reminder-form");
 const contactForm = document.querySelector("#contact-form");
 
 const taskList = document.querySelector("#task-list");
-const reminderList = document.querySelector("#reminder-list");
 const contactList = document.querySelector("#contact-list");
 
 const taskStatusNode = document.querySelector("#task-status");
-const reminderStatusNode = document.querySelector("#reminder-status");
 const contactStatusNode = document.querySelector("#contact-status");
 
 const summaryOpenTasks = document.querySelector("#summary-open-tasks");
-const summaryTodayReminders = document.querySelector("#summary-today-reminders");
 const summaryPriorityContacts = document.querySelector("#summary-priority-contacts");
+const summaryTotalContacts = document.querySelector("#summary-total-contacts");
 const summaryDoneTasks = document.querySelector("#summary-done-tasks");
 
 const filters = {
   taskSearch: document.querySelector("#task-search"),
   taskStatus: document.querySelector("#task-status-filter"),
   taskPriority: document.querySelector("#task-priority-filter"),
-  reminderSearch: document.querySelector("#reminder-search"),
-  reminderTiming: document.querySelector("#reminder-timing-filter"),
-  reminderStatus: document.querySelector("#reminder-status-filter"),
   contactSearch: document.querySelector("#contact-search"),
   contactType: document.querySelector("#contact-type-filter"),
   contactStatus: document.querySelector("#contact-status-filter"),
@@ -114,8 +108,8 @@ function reminderTiming(reminder) {
 function applySummary(summary) {
   state.summary = summary || state.summary;
   summaryOpenTasks.textContent = state.summary.tasks?.open ?? 0;
-  summaryTodayReminders.textContent = state.summary.reminders?.today ?? 0;
   summaryPriorityContacts.textContent = state.summary.contacts?.priority ?? 0;
+  summaryTotalContacts.textContent = state.summary.contacts?.total ?? 0;
   summaryDoneTasks.textContent = state.summary.tasks?.done ?? 0;
 }
 
@@ -152,29 +146,6 @@ function filteredTasks() {
       }
       return String(a.dueDate || "").localeCompare(String(b.dueDate || ""));
     });
-}
-
-function filteredReminders() {
-  const query = filters.reminderSearch.value.trim().toLowerCase();
-  const timing = filters.reminderTiming.value;
-  const status = filters.reminderStatus.value;
-
-  return [...state.reminders]
-    .filter((reminder) => {
-      if (status !== "all" && reminder.status !== status) {
-        return false;
-      }
-      if (timing !== "all" && reminderTiming(reminder) !== timing) {
-        return false;
-      }
-      if (!query) {
-        return true;
-      }
-      return [reminder.title, reminder.audience, reminder.note].some((value) =>
-        String(value || "").toLowerCase().includes(query)
-      );
-    })
-    .sort((a, b) => String(a.reminderDate || "").localeCompare(String(b.reminderDate || "")));
 }
 
 function filteredContacts() {
@@ -247,54 +218,6 @@ function renderTasks() {
   `;
 }
 
-function renderReminders() {
-  const reminders = filteredReminders();
-  if (!reminders.length) {
-    renderEmpty(reminderList, "No reminders match these filters yet.");
-    return;
-  }
-
-  reminderList.innerHTML = `
-    <table class="manager-table">
-      <thead>
-        <tr>
-          <th>Reminder</th>
-          <th>Audience</th>
-          <th>Status</th>
-          <th>Timing</th>
-          <th>Date</th>
-          <th>Note</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${reminders
-          .map(
-            (reminder) => `
-              <tr>
-                <td>${escapeHtml(reminder.title)}</td>
-                <td>${escapeHtml(reminder.audience || "-")}</td>
-                <td><span class="manager-badge status-${escapeHtml(reminder.status)}">${escapeHtml(reminder.status)}</span></td>
-                <td><span class="manager-badge timing-${escapeHtml(reminderTiming(reminder))}">${escapeHtml(reminderTiming(reminder))}</span></td>
-                <td>${escapeHtml(formatDateTime(reminder.reminderDate))}</td>
-                <td>${escapeHtml(reminder.note || "-")}</td>
-                <td>
-                  <div class="manager-inline-actions manager-inline-actions-compact">
-                    <button type="button" data-reminder-toggle="${reminder.id}">
-                      ${reminder.status === "done" ? "Reopen" : "Done"}
-                    </button>
-                    <button type="button" data-reminder-delete="${reminder.id}" class="button-secondary">Delete</button>
-                  </div>
-                </td>
-              </tr>
-            `
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
-}
-
 function renderContacts() {
   const contacts = filteredContacts();
   if (!contacts.length) {
@@ -347,13 +270,11 @@ function renderContacts() {
 
 function renderAll() {
   renderTasks();
-  renderReminders();
   renderContacts();
 }
 
 async function loadDashboard() {
   taskList.innerHTML = '<p class="empty">Loading tasks...</p>';
-  reminderList.innerHTML = '<p class="empty">Loading reminders...</p>';
   contactList.innerHTML = '<p class="empty">Loading contacts...</p>';
 
   try {
@@ -365,7 +286,6 @@ async function loadDashboard() {
     renderAll();
   } catch (error) {
     renderEmpty(taskList, error.message);
-    renderEmpty(reminderList, error.message);
     renderEmpty(contactList, error.message);
   }
 }
@@ -391,11 +311,6 @@ async function submitForm(form, url, statusNode) {
 taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await submitForm(taskForm, "/api/manager-dashboard/tasks", taskStatusNode);
-});
-
-reminderForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await submitForm(reminderForm, "/api/manager-dashboard/reminders", reminderStatusNode);
 });
 
 contactForm.addEventListener("submit", async (event) => {
@@ -435,33 +350,6 @@ taskList.addEventListener("click", async (event) => {
     }
   } catch (error) {
     setStatus(taskStatusNode, error.message, true);
-  }
-});
-
-reminderList.addEventListener("click", async (event) => {
-  const toggleButton = event.target.closest("[data-reminder-toggle]");
-  const deleteButton = event.target.closest("[data-reminder-delete]");
-
-  try {
-    if (toggleButton) {
-      const reminder = state.reminders.find((item) => item.id === toggleButton.dataset.reminderToggle);
-      const nextStatus = reminder?.status === "done" ? "active" : "done";
-      await fetchJson(`/api/manager-dashboard/reminders/${toggleButton.dataset.reminderToggle}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      await loadDashboard();
-      return;
-    }
-    if (deleteButton) {
-      await fetchJson(`/api/manager-dashboard/reminders/${deleteButton.dataset.reminderDelete}`, {
-        method: "DELETE",
-      });
-      await loadDashboard();
-    }
-  } catch (error) {
-    setStatus(reminderStatusNode, error.message, true);
   }
 });
 

@@ -52,14 +52,14 @@
             <span>What still needs action from the team.</span>
           </article>
           <article class="manager-stat-card">
-            <p class="manager-stat-label">Today's Reminders</p>
-            <strong id="summary-today-reminders">0</strong>
-            <span>Calls, follow-ups, and internal checks due today.</span>
-          </article>
-          <article class="manager-stat-card">
             <p class="manager-stat-label">Priority Contacts</p>
             <strong id="summary-priority-contacts">0</strong>
             <span>Important numbers to keep close and revisit fast.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Contact Total</p>
+            <strong id="summary-total-contacts">0</strong>
+            <span>Saved numbers your team can access from one place.</span>
           </article>
           <article class="manager-stat-card">
             <p class="manager-stat-label">Completed Tasks</p>
@@ -68,7 +68,7 @@
           </article>
         </section>
 
-        <section class="manager-dashboard-grid manager-dashboard-grid-triple">
+        <section class="manager-dashboard-grid">
           <article class="card manager-panel">
             <div class="dashboard-head">
               <div>
@@ -137,78 +137,6 @@
             </div>
 
             <div id="task-list" class="manager-table-wrap"></div>
-          </article>
-
-          <article class="card manager-panel">
-            <div class="dashboard-head">
-              <div>
-                <h2>Reminders</h2>
-                <p class="workspace-subtitle manager-panel-copy">
-                  Save deadlines, callbacks, and internal reminders in one
-                  place.
-                </p>
-              </div>
-            </div>
-
-            <form id="reminder-form" class="manager-form-grid manager-form-grid-vertical">
-              <label>
-                Reminder title
-                <input name="title" placeholder="Send payment reminder" required />
-              </label>
-              <label>
-                Date and time
-                <input name="reminderDate" type="datetime-local" />
-              </label>
-              <label>
-                Audience
-                <select name="audience">
-                  <option value="team">Team</option>
-                  <option value="client">Client</option>
-                  <option value="internal">Internal</option>
-                </select>
-              </label>
-              <label>
-                Status
-                <select name="status">
-                  <option value="active">Active</option>
-                  <option value="done">Done</option>
-                </select>
-              </label>
-              <label class="full-span">
-                Note
-                <textarea name="note" rows="2" placeholder="What should happen on that date?"></textarea>
-              </label>
-              <div class="actions">
-                <button type="submit">Add reminder</button>
-                <p id="reminder-status" class="status"></p>
-              </div>
-            </form>
-
-            <div class="manager-filter-row">
-              <label>
-                Search
-                <input id="reminder-search" type="search" placeholder="Search reminder text" />
-              </label>
-              <label>
-                Timing
-                <select id="reminder-timing-filter">
-                  <option value="all">All</option>
-                  <option value="today">Today</option>
-                  <option value="upcoming">Upcoming</option>
-                  <option value="overdue">Overdue</option>
-                </select>
-              </label>
-              <label>
-                Status
-                <select id="reminder-status-filter">
-                  <option value="all">All</option>
-                  <option value="active">Active</option>
-                  <option value="done">Done</option>
-                </select>
-              </label>
-            </div>
-
-            <div id="reminder-list" class="manager-table-wrap"></div>
           </article>
 
           <article class="card manager-panel">
