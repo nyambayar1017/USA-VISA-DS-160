@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-58" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-59" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -81,9 +81,10 @@
             </div>
 
             <form id="task-form" class="manager-form-grid manager-form-grid-vertical">
+              <input type="hidden" name="id" />
               <label>
                 Task title
-                <input name="title" placeholder="Call client about contract" required />
+                <input name="title" required />
               </label>
               <label>
                 Manager
@@ -105,10 +106,11 @@
               </label>
               <label class="full-span">
                 Note
-                <textarea name="note" rows="2" placeholder="Extra details for the team"></textarea>
+                <textarea name="note" rows="2"></textarea>
               </label>
               <div class="actions">
-                <button type="submit">Add task</button>
+                <button id="task-submit-button" type="submit">Add task</button>
+                <button id="task-cancel-button" type="button" class="button-secondary">Cancel</button>
                 <p id="task-status" class="status"></p>
               </div>
             </form>
@@ -153,17 +155,14 @@
             </div>
 
             <form id="contact-form" class="manager-form-grid manager-form-grid-vertical">
+              <input type="hidden" name="id" />
               <label>
                 Contact name
-                <input name="name" placeholder="Client or company person" required />
+                <input name="name" required />
               </label>
               <label>
                 Phone number
-                <input name="phone" placeholder="+976 ..." required />
-              </label>
-              <label>
-                Company
-                <input name="company" placeholder="TravelX / Partner name" />
+                <input name="phone" required />
               </label>
               <label>
                 Type
@@ -189,10 +188,11 @@
               </label>
               <label class="full-span">
                 Note
-                <textarea name="note" rows="2" placeholder="Quick context about this person"></textarea>
+                <textarea name="note" rows="2"></textarea>
               </label>
               <div class="actions">
-                <button type="submit">Save contact</button>
+                <button id="contact-submit-button" type="submit">Save contact</button>
+                <button id="contact-cancel-button" type="button" class="button-secondary">Cancel</button>
                 <p id="contact-status" class="status"></p>
               </div>
             </form>
@@ -200,7 +200,7 @@
             <div class="manager-filter-row">
               <label>
                 Search
-                <input id="contact-search" type="search" placeholder="Search name, company, phone" />
+                <input id="contact-search" type="search" placeholder="Search name or phone" />
               </label>
               <label>
                 Type
@@ -230,7 +230,7 @@
 
       </main>
     </div>
-    <script src="/app-shell.js?v=workspace-58"></script>
-    <script src="/backoffice.js?v=workspace-58"></script>
+    <script src="/app-shell.js?v=workspace-59"></script>
+    <script src="/backoffice.js?v=workspace-59"></script>
   </body>
 </html>

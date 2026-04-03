@@ -1,6 +1,10 @@
 const taskForm = document.querySelector("#task-form");
 const contactForm = document.querySelector("#contact-form");
 const taskManagerSelect = document.querySelector("#task-manager-select");
+const taskSubmitButton = document.querySelector("#task-submit-button");
+const contactSubmitButton = document.querySelector("#contact-submit-button");
+const taskCancelButton = document.querySelector("#task-cancel-button");
+const contactCancelButton = document.querySelector("#contact-cancel-button");
 
 const taskList = document.querySelector("#task-list");
 const contactList = document.querySelector("#contact-list");
@@ -27,6 +31,8 @@ const state = {
   reminders: [],
   contacts: [],
   teamMembers: [],
+  editingTaskId: "",
+  editingContactId: "",
   summary: {
     tasks: { open: 0, done: 0 },
     reminders: { today: 0 },
@@ -142,6 +148,55 @@ function renderManagerOptions() {
   }
 }
 
+function resetTaskForm() {
+  taskForm.reset();
+  taskForm.elements.id.value = "";
+  state.editingTaskId = "";
+  taskSubmitButton.textContent = "Add task";
+  clearStatus(taskStatusNode);
+}
+
+function resetContactForm() {
+  contactForm.reset();
+  contactForm.elements.id.value = "";
+  state.editingContactId = "";
+  contactSubmitButton.textContent = "Save contact";
+  clearStatus(contactStatusNode);
+}
+
+function startTaskEdit(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) {
+    return;
+  }
+  state.editingTaskId = taskId;
+  taskForm.elements.id.value = task.id;
+  taskForm.elements.title.value = task.title || "";
+  taskForm.elements.owner.value = task.owner || "";
+  taskForm.elements.priority.value = task.priority || "medium";
+  taskForm.elements.dueDate.value = task.dueDate || "";
+  taskForm.elements.note.value = task.note || "";
+  taskSubmitButton.textContent = "Update task";
+  setStatus(taskStatusNode, "Editing task.");
+}
+
+function startContactEdit(contactId) {
+  const contact = state.contacts.find((item) => item.id === contactId);
+  if (!contact) {
+    return;
+  }
+  state.editingContactId = contactId;
+  contactForm.elements.id.value = contact.id;
+  contactForm.elements.name.value = contact.name || "";
+  contactForm.elements.phone.value = contact.phone || "";
+  contactForm.elements.type.value = contact.type || "client";
+  contactForm.elements.status.value = contact.status || "priority";
+  contactForm.elements.lastContacted.value = contact.lastContacted || "";
+  contactForm.elements.note.value = contact.note || "";
+  contactSubmitButton.textContent = "Update contact";
+  setStatus(contactStatusNode, "Editing contact.");
+}
+
 function filteredTasks() {
   const query = filters.taskSearch.value.trim().toLowerCase();
   const status = filters.taskStatus.value;
@@ -187,9 +242,9 @@ function filteredContacts() {
         return false;
       }
       if (!query) {
-        return true;
+      return true;
       }
-      return [contact.name, contact.company, contact.phone, contact.note].some((value) =>
+      return [contact.name, contact.phone, contact.note].some((value) =>
         String(value || "").toLowerCase().includes(query)
       );
     })
@@ -229,6 +284,7 @@ function renderTasks() {
                 <td>${escapeHtml(task.note || "-")}</td>
                 <td>
                   <div class="manager-inline-actions manager-inline-actions-compact">
+                    <button type="button" data-task-edit="${task.id}">Edit</button>
                     <button type="button" data-task-progress="${task.id}">Start</button>
                     <button type="button" data-task-done="${task.id}">Done</button>
                     <button type="button" data-task-delete="${task.id}" class="button-secondary">Delete</button>
@@ -256,7 +312,6 @@ function renderContacts() {
         <tr>
           <th>Name</th>
           <th>Phone</th>
-          <th>Company</th>
           <th>Type</th>
           <th>Status</th>
           <th>Last Contacted</th>
@@ -271,13 +326,13 @@ function renderContacts() {
               <tr>
                 <td>${escapeHtml(contact.name)}</td>
                 <td><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></td>
-                <td>${escapeHtml(contact.company || "-")}</td>
                 <td><span class="manager-badge contact-${escapeHtml(contact.type)}">${escapeHtml(contact.type)}</span></td>
                 <td><span class="manager-badge status-${escapeHtml(contact.status)}">${escapeHtml(contact.status)}</span></td>
                 <td>${escapeHtml(formatDate(contact.lastContacted))}</td>
                 <td>${escapeHtml(contact.note || "-")}</td>
                 <td>
                   <div class="manager-inline-actions manager-inline-actions-compact">
+                    <button type="button" data-contact-edit="${contact.id}">Edit</button>
                     <button type="button" data-contact-priority="${contact.id}">
                       ${contact.status === "priority" ? "Warm" : "Priority"}
                     </button>
@@ -321,7 +376,7 @@ async function loadDashboard() {
   }
 }
 
-async function submitForm(form, url, statusNode) {
+async function submitForm(form, url, statusNode, onSuccess) {
   clearStatus(statusNode);
   const formData = new FormData(form);
   const payload = Object.fromEntries(formData.entries());
@@ -331,7 +386,7 @@ async function submitForm(form, url, statusNode) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    form.reset();
+    onSuccess();
     setStatus(statusNode, "Saved.");
     await loadDashboard();
   } catch (error) {
@@ -341,20 +396,29 @@ async function submitForm(form, url, statusNode) {
 
 taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  await submitForm(taskForm, "/api/manager-dashboard/tasks", taskStatusNode);
+  const taskId = taskForm.elements.id.value;
+  const url = taskId ? `/api/manager-dashboard/tasks/${taskId}` : "/api/manager-dashboard/tasks";
+  await submitForm(taskForm, url, taskStatusNode, resetTaskForm);
 });
 
 contactForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  await submitForm(contactForm, "/api/manager-dashboard/contacts", contactStatusNode);
+  const contactId = contactForm.elements.id.value;
+  const url = contactId ? `/api/manager-dashboard/contacts/${contactId}` : "/api/manager-dashboard/contacts";
+  await submitForm(contactForm, url, contactStatusNode, resetContactForm);
 });
 
 taskList.addEventListener("click", async (event) => {
+  const taskEditButton = event.target.closest("[data-task-edit]");
   const taskProgressButton = event.target.closest("[data-task-progress]");
   const taskDoneButton = event.target.closest("[data-task-done]");
   const taskDeleteButton = event.target.closest("[data-task-delete]");
 
   try {
+    if (taskEditButton) {
+      startTaskEdit(taskEditButton.dataset.taskEdit);
+      return;
+    }
     if (taskProgressButton) {
       await fetchJson(`/api/manager-dashboard/tasks/${taskProgressButton.dataset.taskProgress}`, {
         method: "POST",
@@ -385,10 +449,15 @@ taskList.addEventListener("click", async (event) => {
 });
 
 contactList.addEventListener("click", async (event) => {
+  const editButton = event.target.closest("[data-contact-edit]");
   const priorityButton = event.target.closest("[data-contact-priority]");
   const deleteButton = event.target.closest("[data-contact-delete]");
 
   try {
+    if (editButton) {
+      startContactEdit(editButton.dataset.contactEdit);
+      return;
+    }
     if (priorityButton) {
       const contact = state.contacts.find((item) => item.id === priorityButton.dataset.contactPriority);
       const nextStatus = contact?.status === "priority" ? "warm" : "priority";
@@ -410,6 +479,9 @@ contactList.addEventListener("click", async (event) => {
     setStatus(contactStatusNode, error.message, true);
   }
 });
+
+taskCancelButton.addEventListener("click", resetTaskForm);
+contactCancelButton.addEventListener("click", resetContactForm);
 
 Object.values(filters).forEach((node) => {
   node.addEventListener("input", renderAll);
