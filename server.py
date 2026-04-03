@@ -640,6 +640,50 @@ def normalize_text(value):
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+def normalize_person_name(value):
+    text = normalize_text(value)
+    if not text:
+        return ""
+    if " " not in text and len(text) % 2 == 0:
+        mid = len(text) // 2
+        if text[:mid] == text[mid:]:
+            text = text[:mid]
+    parts = text.split()
+
+    deduped = []
+    for part in parts:
+        if not deduped or deduped[-1] != part:
+            deduped.append(part)
+    parts = deduped
+
+    changed = True
+    while changed:
+        changed = False
+        for chunk_size in range(1, (len(parts) // 2) + 1):
+            if len(parts) % chunk_size != 0:
+                continue
+            repeat_count = len(parts) // chunk_size
+            if repeat_count <= 1:
+                continue
+            first = parts[:chunk_size]
+            if all(parts[index * chunk_size:(index + 1) * chunk_size] == first for index in range(1, repeat_count)):
+                parts = first
+                changed = True
+                break
+    if parts and len(set(parts)) == 1:
+        return parts[0]
+    return " ".join(parts)
+
+
+def dedupe_full_name(last_name, first_name):
+    last_clean = normalize_person_name(last_name)
+    first_clean = normalize_person_name(first_name)
+    if last_clean and first_clean and last_clean == first_clean:
+        return last_clean
+    combined = " ".join(part for part in [last_clean, first_clean] if part).strip()
+    return normalize_person_name(combined)
+
+
 def slugify(value):
     cleaned = re.sub(r"[^a-zA-Z0-9а-яА-ЯөүӨҮёЁ]+", "-", normalize_text(value))
     cleaned = re.sub(r"-{2,}", "-", cleaned).strip("-")
@@ -922,7 +966,7 @@ def build_contract_data(payload):
 
     manager_last = normalize_text(payload.get("managerLastName"))
     manager_first = normalize_text(payload.get("managerFirstName"))
-    manager_full = " ".join(part for part in [manager_last, manager_first] if part).strip()
+    manager_full = dedupe_full_name(manager_last, manager_first)
 
     trip_start = normalize_text(payload.get("tripStartDate"))
     trip_end = normalize_text(payload.get("tripEndDate"))
@@ -942,7 +986,7 @@ def build_contract_data(payload):
         "contractDate": contract_date,
         "managerLastName": manager_last,
         "managerFirstName": manager_first,
-        "managerFullName": manager_full,
+        "managerFullName": normalize_person_name(manager_full),
         "touristLastName": tourist_last_name,
         "touristFirstName": tourist_first_name,
         "touristRegister": normalize_text(payload.get("touristRegister")),
@@ -1067,13 +1111,14 @@ def set_paragraph_text(paragraph, text):
 
 
 def replace_template_paragraphs(root, data):
+    manager_full_name = normalize_person_name(data.get("managerFullName")) or "Ч.Нямбаяр"
     replacements = {
         "Дугаар: DTX-09А-26-_____": f"Дугаар: {data['contractSerial']}",
         "2026 оны 01 сарын 26 өдөр                                                 Улаанбаатар хот":
             f"{format_contract_header_date(data['contractDate'])}                                                 Улаанбаатар хот",
         "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас 2 жуулчин төлөөлөн Батмөнх овогтой Уранчимэг (РД:ШД84011762) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.":
             "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай "
-            f"{data['managerFullName']}, нөгөө талаас {data['travelerCount']} жуулчин төлөөлөн {data['touristLastName']} овогтой {data['touristFirstName']} (РД:{data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
+            f"{manager_full_name}, нөгөө талаас {data['travelerCount']} жуулчин төлөөлөн {data['touristLastName']} овогтой {data['touristFirstName']} (РД:{data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
         "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/02/17-2026/02/25 хооронд Египет аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
             f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']} аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
         "Энэхүү гэрээгээр аялагчийн төлбөр нь том хүний 7,340,000 төгрөг буюу нийт 2 хүний 14,680,000 төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.":
@@ -1109,7 +1154,8 @@ def replace_template_paragraphs(root, data):
         "2026 оны 03 сарын 13 өдөр                                                                                Улаанбаатар хот":
             f"{format_contract_header_date(data['contractDate'])}                                                                                Улаанбаатар хот",
         "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн Цэдэн-Иш овогтой Чинзориг (РД: ШЕ77111832) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.":
-            "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн "
+            "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай "
+            f"{manager_full_name}, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн "
             f"{data['touristLastName']} овогтой {data['touristFirstName']} (РД: {data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
         "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/03/28-2026/04/03 хооронд Турк аялал, 7 өдөр 6 шөнө, хөтөлбөртэй аяллын дагуу 5 аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
             f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']}, {data['tripDuration']}, хөтөлбөртэй аяллын дагуу {data['travelerCount']} аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
@@ -1128,7 +1174,7 @@ def replace_template_paragraphs(root, data):
         "2025 оны 01 сарын  21 өдөр                     № 25 / ПУКЕТ                      Улаанбаатар хот":
             f"{format_contract_header_date(data['contractDate'])}                     № {data['contractSerial']} / {data['destination']}                      Улаанбаатар хот",
         "Нэг талаас Дэлхий Трэвел Икс ХХК (6925073 )/цаашид “Аялал зохион байгуулагч” гэх/ түүнийг төлөөлөн менежер Ч.Нямбаяр,":
-            "Нэг талаас Дэлхий Трэвел Икс ХХК (6925073 )/цаашид “Аялал зохион байгуулагч” гэх/ түүнийг төлөөлөн менежер Ч.Нямбаяр,",
+            f"Нэг талаас Дэлхий Трэвел Икс ХХК (6925073 )/цаашид “Аялал зохион байгуулагч” гэх/ түүнийг төлөөлөн менежер {manager_full_name},",
         "Нөгөө талаас 21 аялагчийг төлөөлөн, ХХХХХХХХ овогтой XXXXXXXX (РД: ДЙ91101311) /цаашид “Захиалагч” гэх/ нар дор дурдсан нөхцөлөөр харилцан тохиролцож  байгуулав.":
             f"Нөгөө талаас {data['travelerCount']} аялагчийг төлөөлөн, {data['touristLastName']} овогтой {data['touristFirstName']} (РД: {data['touristRegister']}) /цаашид “Захиалагч” гэх/ нар дор дурдсан нөхцөлөөр харилцан тохиролцож  байгуулав.",
         "Энэхүү гэрээгээр Аялал зохион байгуулагч нь захиалагчийн хүсэлтээр Тайланд улсын Пукет арлаар аялах хөтөлбөртэй аяллыг 2025/02/16 – 2025/02/23-ны хооронд 8 өдөр 7 шөнөөр тооцож энэ гэрээнд заагдсан аяллыг зохион байгуулах,":
@@ -1344,7 +1390,7 @@ def build_contract_body_html(data):
 
 def build_contract_html(data):
     content = build_contract_body_html(data)
-    organizer_name = html.escape(data.get("managerFullName") or "Ч.Нямбаяр")
+    organizer_name = html.escape(normalize_person_name(data.get("managerFullName")) or "Ч.Нямбаяр")
     customer_name = html.escape(
         " ".join(
             part
@@ -1503,25 +1549,26 @@ def build_contract_html(data):
       }}
       .signature-stack {{
         position: relative;
-        width: 430px;
-        height: 360px;
-        margin: 6px 0 10px;
+        width: 100%;
+        max-width: 760px;
+        height: 540px;
+        margin: 12px 0 28px;
       }}
       .signature-stack img {{
         position: absolute;
         object-fit: contain;
       }}
       .stamp-image {{
-        left: -12px;
-        top: 82px;
-        width: 430px;
-        height: 430px;
+        left: 10px;
+        top: 154px;
+        width: 300px;
+        height: 300px;
       }}
       .company-signature-image {{
-        left: 12px;
-        top: -8px;
-        width: 470px;
-        height: 220px;
+        left: 154px;
+        top: 18px;
+        width: 380px;
+        height: 170px;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1534,7 +1581,7 @@ def build_contract_html(data):
         text-decoration: underline;
       }}
       .signature-name {{
-        font-size: 18px;
+        font-size: 22px;
         font-weight: 700;
       }}
       .signer-signature-space {{
@@ -1677,7 +1724,7 @@ def save_contract_pdf(record):
 
     contract_date = format_contract_header_date(data["contractDate"])
     contract_serial = data["contractSerial"]
-    organizer_name = data.get("managerFullName") or "Ч.Нямбаяр"
+    organizer_name = normalize_person_name(data.get("managerFullName")) or "Ч.Нямбаяр"
     manager_display_name = organizer_name
     customer_name = " ".join(
         part
@@ -1800,9 +1847,9 @@ def save_contract_pdf(record):
     company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature.png"
     company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp.png"
     if company_signature.exists():
-        pdf.drawImage(str(company_signature), left_x + 22, signature_y + 28, width=330, height=155, mask="auto")
+        pdf.drawImage(str(company_signature), left_x + 108, signature_y + 106, width=360, height=170, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x - 8, signature_y - 116, width=360, height=360, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x + 28, signature_y - 30, width=220, height=220, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
