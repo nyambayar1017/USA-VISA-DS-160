@@ -1553,7 +1553,7 @@ def build_contract_html(data):
       .signature-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 52px;
+        gap: 48px;
         align-items: start;
       }}
       .signature-title {{
@@ -1570,25 +1570,25 @@ def build_contract_html(data):
       .signature-stack {{
         position: relative;
         width: 100%;
-        max-width: 760px;
-        height: 540px;
-        margin: 12px 0 28px;
+        max-width: 420px;
+        height: 210px;
+        margin: 10px 0 18px;
       }}
       .signature-stack img {{
         position: absolute;
         object-fit: contain;
       }}
       .stamp-image {{
-        left: 18px;
-        top: 138px;
-        width: 352px;
-        height: 352px;
+        left: 32px;
+        top: 72px;
+        width: 160px;
+        height: 160px;
       }}
       .company-signature-image {{
-        left: 168px;
-        top: 8px;
-        width: 460px;
-        height: 212px;
+        left: 126px;
+        top: 4px;
+        width: 210px;
+        height: 88px;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1605,11 +1605,11 @@ def build_contract_html(data):
         font-weight: 700;
       }}
       .signer-signature-space {{
-        min-height: 280px;
+        min-height: 180px;
         display: flex;
         align-items: flex-end;
         justify-content: center;
-        margin: 18px 0 10px;
+        margin: 12px 0 8px;
       }}
       .signer-line {{
         min-height: 1px;
@@ -1850,8 +1850,8 @@ def save_contract_pdf(record):
             table.drawOn(pdf, margin_x, current_y - table_height)
             current_y -= table_height + 16
 
-    current_y -= 12
-    signature_y = max(170, current_y - 80)
+    current_y -= 10
+    signature_y = max(245, current_y - 26)
     pdf.setFont(bold_font_name, 13)
     pdf.drawCentredString(width / 2, signature_y + 92, "ГЭРЭЭГ БАЙГУУЛСАН:")
 
@@ -1867,9 +1867,9 @@ def save_contract_pdf(record):
     company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature.png"
     company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp.png"
     if company_signature.exists():
-        pdf.drawImage(str(company_signature), left_x + 126, signature_y + 118, width=440, height=208, mask="auto")
+        pdf.drawImage(str(company_signature), left_x + 118, signature_y + 18, width=180, height=72, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x + 34, signature_y - 18, width=272, height=272, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x + 34, signature_y - 58, width=135, height=135, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
@@ -1878,19 +1878,19 @@ def save_contract_pdf(record):
             pdf.drawImage(str(sig_file), right_x + 8, signature_y + 26, width=230, height=92, mask="auto")
 
     pdf.setFont(font_name, 10)
-    pdf.drawString(left_x, signature_y - 30, manager_display_name)
-    pdf.drawString(left_x, signature_y - 46, "Аяллын менежер")
-    pdf.drawString(left_x, signature_y - 74, "Гар утас: 85178877")
-    pdf.drawString(left_x, signature_y - 90, "Утас: 72007722")
-    pdf.drawString(left_x, signature_y - 106, "И-мэйл: nyambayar@travelx.mn")
-    pdf.drawString(left_x, signature_y - 122, "          info@travelx.mn")
-    pdf.drawString(left_x, signature_y - 138, "Вэбсайт: www.travelx.mn")
-    pdf.drawString(left_x, signature_y - 154, "Хаяг: Улаанбаатар хот, Хан-Уул дүүрэг,")
-    pdf.drawString(left_x + 34, signature_y - 170, "Их Монгол Улс гудамж, 17 хороо,")
-    pdf.drawString(left_x + 34, signature_y - 186, "Кинг Тауэр 121-102 тоот")
+    pdf.drawString(left_x, signature_y - 72, manager_display_name)
+    pdf.drawString(left_x, signature_y - 88, "Аяллын менежер")
+    pdf.drawString(left_x, signature_y - 114, "Гар утас: 85178877")
+    pdf.drawString(left_x, signature_y - 130, "Утас: 72007722")
+    pdf.drawString(left_x, signature_y - 146, "И-мэйл: nyambayar@travelx.mn")
+    pdf.drawString(left_x, signature_y - 162, "          info@travelx.mn")
+    pdf.drawString(left_x, signature_y - 178, "Вэбсайт: www.travelx.mn")
+    pdf.drawString(left_x, signature_y - 194, "Хаяг: Улаанбаатар хот, Хан-Уул дүүрэг,")
+    pdf.drawString(left_x + 34, signature_y - 210, "Их Монгол Улс гудамж, 17 хороо,")
+    pdf.drawString(left_x + 34, signature_y - 226, "Кинг Тауэр 121-102 тоот")
 
     pdf.setFont(font_name, 10)
-    pdf.drawString(right_x, signature_y - 36, "Жуулчин")
+    pdf.drawString(right_x, signature_y - 42, "Жуулчин")
 
     pdf.showPage()
     pdf.save()
