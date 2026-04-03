@@ -1128,10 +1128,6 @@ def validate_contract_data(data):
         "touristLastName",
         "touristFirstName",
         "touristRegister",
-        "clientPhone",
-        "emergencyContactName",
-        "emergencyContactPhone",
-        "emergencyContactRelation",
         "destination",
         "tripStartDate",
         "tripEndDate",
@@ -3779,9 +3775,15 @@ def handle_sign_contract(environ, start_response, contract_id):
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     signature_data = payload.get("signatureData")
     signer_name = normalize_text(payload.get("signerName"))
+    client_phone = normalize_text(payload.get("clientPhone"))
+    emergency_name = normalize_text(payload.get("emergencyContactName"))
+    emergency_phone = normalize_text(payload.get("emergencyContactPhone"))
+    emergency_relation = normalize_text(payload.get("emergencyContactRelation"))
     accepted = bool(payload.get("accepted"))
     if not accepted:
         return json_response(start_response, "400 Bad Request", {"error": "Agreement not accepted"})
+    if not client_phone or not emergency_name or not emergency_phone or not emergency_relation:
+        return json_response(start_response, "400 Bad Request", {"error": "Missing client contact information"})
 
     contracts = read_contracts()
     for idx, contract in enumerate(contracts):
@@ -3789,6 +3791,12 @@ def handle_sign_contract(environ, start_response, contract_id):
             signature_path = save_signature_image(signature_data, contract_id)
             if not signature_path:
                 return json_response(start_response, "400 Bad Request", {"error": "Invalid signature"})
+            data = contract.get("data") or {}
+            data["clientPhone"] = client_phone
+            data["emergencyContactName"] = emergency_name
+            data["emergencyContactPhone"] = emergency_phone
+            data["emergencyContactRelation"] = emergency_relation
+            contract["data"] = data
             contract["signaturePath"] = signature_path
             contract["signerName"] = signer_name or contract.get("signerName")
             contract["accepted"] = accepted
@@ -3802,6 +3810,14 @@ def handle_sign_contract(environ, start_response, contract_id):
                     "500 Internal Server Error",
                     {"error": f"Could not generate signed PDF: {exc}"},
                 )
+            view_path = contract.get("pdfViewPath")
+            if view_path:
+                safe_view = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
+                if str(safe_view).startswith(str(GENERATED_DIR.resolve())):
+                    try:
+                        safe_view.write_text(build_contract_html(data), encoding="utf-8")
+                    except Exception:
+                        pass
             contracts[idx] = contract
             write_contracts(contracts)
             return json_response(start_response, "200 OK", {"ok": True, "contract": contract})

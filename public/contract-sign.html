@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-60" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-65" />
   </head>
   <body class="contract-public-body">
     <main class="contract-public-shell">
@@ -25,26 +25,35 @@
           <iframe id="contract-preview-frame" title="Contract preview"></iframe>
         </div>
 
-          <div class="contract-signature-panel">
+        <div class="contract-signature-panel">
+          <div class="field-grid contract-client-grid">
             <label>
-              Овог
-              <input id="signer-last-name" placeholder="Овог" />
-            </label>
-            <label>
-              Нэр
-              <input id="signer-first-name" placeholder="Нэр" />
+              Жуулчны утас
+              <input type="text" id="signer-client-phone" placeholder="Жуулчны утас" />
             </label>
             <label>
-              Регистр
-              <input id="signer-register" placeholder="Регистр" />
+              Яаралтай үед холбогдох нэр
+              <input type="text" id="signer-emergency-name" placeholder="Яаралтай үед холбогдох нэр" />
             </label>
-            <label class="contract-accept">
-              <input type="checkbox" id="signer-accept" />
-              Гэрээг уншиж танилцан, гэрээг хүлээн зөвшөөрч байна.
+            <label>
+              Яаралтай үед холбогдох утас
+              <input type="text" id="signer-emergency-phone" placeholder="Яаралтай үед холбогдох утас" />
             </label>
-            <div class="signature-box">
-              <canvas id="signature-canvas" width="700" height="220"></canvas>
-            </div>
+            <label>
+              Таны хэн болох
+              <input type="text" id="signer-emergency-relation" placeholder="Таны хэн болох" />
+            </label>
+          </div>
+
+          <label class="contract-accept">
+            <input type="checkbox" id="signer-accept" />
+            Гэрээг уншиж танилцан, гэрээг хүлээн зөвшөөрч байна.
+          </label>
+
+          <div class="signature-box">
+            <div class="signature-helper">Доорх талбарт гарын үсгээ аль болох төв хэсэгт зурна уу.</div>
+            <canvas id="signature-canvas" width="700" height="220"></canvas>
+          </div>
           <div class="signature-actions">
             <button type="button" id="signature-clear" class="secondary-button">Clear</button>
             <button type="button" id="signature-submit">Confirm & Generate PDF</button>
@@ -54,6 +63,6 @@
         </div>
       </section>
     </main>
-    <script src="/contracts.js?v=workspace-62"></script>
+    <script src="/contracts.js?v=workspace-65"></script>
   </body>
 </html>

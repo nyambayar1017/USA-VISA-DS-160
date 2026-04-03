@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-60" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-65" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -84,7 +84,7 @@
                 </div>
               </div>
 
-              <form id="contract-form" class="field-grid contract-grid is-hidden">
+              <form id="contract-form" class="field-grid contract-grid is-hidden" hidden>
                 <label>
                   Гэрээний дугаар (автоматаар үүснэ)
                   <input name="contractSerial" placeholder="DTX-09-26-001" />
@@ -121,19 +121,19 @@
                 </label>
                 <label>
                   Жуулчны утас
-                  <input name="clientPhone" required />
+                  <input name="clientPhone" placeholder="Клиент линкээр бөглөнө" />
                 </label>
                 <label>
                   Яаралтай үед холбогдох нэр
-                  <input name="emergencyContactName" required />
+                  <input name="emergencyContactName" placeholder="Клиент линкээр бөглөнө" />
                 </label>
                 <label>
                   Яаралтай үед холбогдох утас
-                  <input name="emergencyContactPhone" required />
+                  <input name="emergencyContactPhone" placeholder="Клиент линкээр бөглөнө" />
                 </label>
                 <label>
                   Таны хэн болох
-                  <input name="emergencyContactRelation" required />
+                  <input name="emergencyContactRelation" placeholder="Клиент линкээр бөглөнө" />
                 </label>
                 <label>
                   Аяллын чиглэл
@@ -242,6 +242,6 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-55"></script>
-    <script src="/contracts.js?v=workspace-63"></script>
+    <script src="/contracts.js?v=workspace-65"></script>
   </body>
 </html>

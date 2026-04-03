@@ -454,21 +454,47 @@ const initContractForm = () => {
 
 const initSignatureCanvas = (canvas) => {
   const ctx = canvas.getContext("2d");
-  ctx.strokeStyle = "#1b2a6b";
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
   let drawing = false;
+  let hasInk = false;
+  const baseWidth = 700;
+  const baseHeight = 220;
+  const pixelRatio = Math.max(window.devicePixelRatio || 1, 1);
+
+  const setupCanvas = () => {
+    canvas.width = Math.floor(baseWidth * pixelRatio);
+    canvas.height = Math.floor(baseHeight * pixelRatio);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(pixelRatio, pixelRatio);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, baseWidth, baseHeight);
+    ctx.lineWidth = 2.6;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.imageSmoothingEnabled = true;
+    ctx.setLineDash([8, 8]);
+    ctx.strokeStyle = "rgba(37, 58, 119, 0.24)";
+    ctx.beginPath();
+    ctx.moveTo(28, 178);
+    ctx.lineTo(baseWidth - 28, 178);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = "#1b2a6b";
+    hasInk = false;
+  };
+
+  setupCanvas();
 
   const getPos = (event) => {
     const rect = canvas.getBoundingClientRect();
     const touch = event.touches ? event.touches[0] : null;
     return {
-      x: (touch ? touch.clientX : event.clientX) - rect.left,
-      y: (touch ? touch.clientY : event.clientY) - rect.top,
+      x: ((touch ? touch.clientX : event.clientX) - rect.left) * (baseWidth / rect.width),
+      y: ((touch ? touch.clientY : event.clientY) - rect.top) * (baseHeight / rect.height),
     };
   };
 
   const startDraw = (event) => {
+    event.preventDefault();
     drawing = true;
     const pos = getPos(event);
     ctx.beginPath();
@@ -481,6 +507,7 @@ const initSignatureCanvas = (canvas) => {
     const pos = getPos(event);
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
+    hasInk = true;
   };
 
   const endDraw = () => {
@@ -494,6 +521,11 @@ const initSignatureCanvas = (canvas) => {
   canvas.addEventListener("touchstart", startDraw, { passive: false });
   canvas.addEventListener("touchmove", draw, { passive: false });
   canvas.addEventListener("touchend", endDraw);
+
+  return {
+    clear: setupCanvas,
+    hasInk: () => hasInk,
+  };
 };
 
 const initContractSignPage = async () => {
@@ -507,7 +539,7 @@ const initContractSignPage = async () => {
 
   if (!contractId || !summaryEl || !canvas) return;
 
-  initSignatureCanvas(canvas);
+  const signaturePad = initSignatureCanvas(canvas);
 
   try {
     const data = await apiRequest(`${CONTRACTS_ENDPOINT}/${contractId}`);
@@ -523,6 +555,14 @@ const initContractSignPage = async () => {
         <a class="secondary-button" href="/api/contracts/${contractId}/document?mode=view" target="_blank">View contract</a>
       </div>
     `;
+    const clientPhoneInput = qs("#signer-client-phone");
+    const emergencyNameInput = qs("#signer-emergency-name");
+    const emergencyPhoneInput = qs("#signer-emergency-phone");
+    const emergencyRelationInput = qs("#signer-emergency-relation");
+    if (clientPhoneInput) clientPhoneInput.value = info.clientPhone || "";
+    if (emergencyNameInput) emergencyNameInput.value = info.emergencyContactName || "";
+    if (emergencyPhoneInput) emergencyPhoneInput.value = info.emergencyContactPhone || "";
+    if (emergencyRelationInput) emergencyRelationInput.value = info.emergencyContactRelation || "";
     if (previewFrame) {
       previewFrame.src = `/api/contracts/${contractId}/document?mode=view`;
     }
@@ -531,15 +571,26 @@ const initContractSignPage = async () => {
   }
 
   qs("#signature-clear")?.addEventListener("click", () => {
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    signaturePad?.clear();
   });
 
   qs("#signature-submit")?.addEventListener("click", async () => {
     statusEl.textContent = "Saving signature...";
+    const clientPhone = normalizeTextValue(qs("#signer-client-phone")?.value || "");
+    const emergencyName = normalizeTextValue(qs("#signer-emergency-name")?.value || "");
+    const emergencyPhone = normalizeTextValue(qs("#signer-emergency-phone")?.value || "");
+    const emergencyRelation = normalizeTextValue(qs("#signer-emergency-relation")?.value || "");
     const accepted = qs("#signer-accept")?.checked || false;
+    if (!clientPhone || !emergencyName || !emergencyPhone || !emergencyRelation) {
+      statusEl.textContent = "Бүх холбоо барих мэдээллийг бөглөнө үү.";
+      return;
+    }
     if (!accepted) {
       statusEl.textContent = "Та гэрээг зөвшөөрөх ёстой.";
+      return;
+    }
+    if (!signaturePad?.hasInk()) {
+      statusEl.textContent = "Гарын үсгээ зурна уу.";
       return;
     }
     const signatureData = canvas.toDataURL("image/png");
@@ -547,6 +598,10 @@ const initContractSignPage = async () => {
       const result = await apiRequest(`${CONTRACTS_ENDPOINT}/${contractId}/sign`, {
         method: "POST",
         body: JSON.stringify({
+          clientPhone,
+          emergencyContactName: emergencyName,
+          emergencyContactPhone: emergencyPhone,
+          emergencyContactRelation: emergencyRelation,
           signatureData,
           accepted,
         }),

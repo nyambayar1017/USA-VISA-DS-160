@@ -1396,6 +1396,10 @@ time {
   margin-top: 24px;
 }
 
+.contract-client-grid {
+  margin-bottom: 18px;
+}
+
 .contract-preview {
   margin: 20px 0 24px;
   border: 1px solid #d4d9e5;
@@ -1413,9 +1417,15 @@ time {
 .signature-box {
   border: 1px solid #d4d9e5;
   border-radius: 16px;
-  padding: 12px;
+  padding: 14px 14px 12px;
   background: #fff;
   margin: 12px 0;
+}
+
+.signature-helper {
+  margin-bottom: 10px;
+  color: #6f7fa3;
+  font-size: 0.92rem;
 }
 
 .signature-box canvas {
@@ -1423,7 +1433,7 @@ time {
   height: 180px;
   display: block;
   border-radius: 12px;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
   cursor: crosshair;
 }
 
@@ -1449,6 +1459,13 @@ time {
 
 .signature-download {
   margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .contract-client-grid,
+  .field-grid.contract-client-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .camp-modal-dialog form {
