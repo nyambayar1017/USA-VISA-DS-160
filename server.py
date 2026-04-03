@@ -1587,7 +1587,7 @@ def build_contract_html(data):
       .signature-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 48px;
+        gap: 40px;
         align-items: start;
       }}
       .signature-title {{
@@ -1604,25 +1604,28 @@ def build_contract_html(data):
       .signature-stack {{
         position: relative;
         width: 100%;
-        max-width: 420px;
-        height: 210px;
-        margin: 10px 0 18px;
+        max-width: 360px;
+        height: 165px;
+        margin: 8px 0 4px;
       }}
       .signature-stack img {{
         position: absolute;
         object-fit: contain;
       }}
       .stamp-image {{
-        left: 32px;
-        top: 72px;
-        width: 160px;
-        height: 160px;
+        left: 10px;
+        top: 42px;
+        width: 168px;
+        height: 168px;
       }}
       .company-signature-image {{
-        left: 126px;
-        top: 4px;
-        width: 210px;
-        height: 88px;
+        left: 18px;
+        top: 6px;
+        width: 238px;
+        height: 98px;
+      }}
+      .signature-contact {{
+        margin-top: -6px;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1691,8 +1694,8 @@ def build_contract_html(data):
             <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
             <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
             <div class="signature-stack">
-              <img class="stamp-image" src="/assets/dtx-stamp.png" alt="DTX stamp" />
-              <img class="company-signature-image" src="/assets/nyambayar-signature.png" alt="Nyambayar signature" />
+              <img class="stamp-image" src="/assets/dtx-stamp-cropped.png" alt="DTX stamp" />
+              <img class="company-signature-image" src="/assets/nyambayar-signature-cropped.png" alt="Nyambayar signature" />
             </div>
             <div class="signature-contact">
               <p class="signature-name">{manager_display_name}</p>
@@ -1898,12 +1901,12 @@ def save_contract_pdf(record):
 
     pdf.drawString(left_x, signature_y + 40, "“Дэлхий Трэвел Икс” ХХК -ийн")
 
-    company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature.png"
-    company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp.png"
+    company_signature = PUBLIC_DIR / "assets" / "nyambayar-signature-cropped.png"
+    company_stamp = PUBLIC_DIR / "assets" / "dtx-stamp-cropped.png"
     if company_signature.exists():
-        pdf.drawImage(str(company_signature), left_x + 118, signature_y + 18, width=180, height=72, mask="auto")
+        pdf.drawImage(str(company_signature), left_x + 8, signature_y + 18, width=190, height=76, mask="auto")
     if company_stamp.exists():
-        pdf.drawImage(str(company_stamp), left_x + 34, signature_y - 58, width=135, height=135, mask="auto")
+        pdf.drawImage(str(company_stamp), left_x + 8, signature_y - 42, width=120, height=120, mask="auto")
 
     signature_path = record.get("signaturePath")
     if signature_path:
