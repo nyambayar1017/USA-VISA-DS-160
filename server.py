@@ -1463,7 +1463,7 @@ def build_contract_body_html(data):
     return "\n".join(parts)
 
 
-def build_contract_html(data):
+def build_contract_html(data, signature_path=None, asset_mode="web"):
     content = build_contract_body_html(data)
     organizer_name = html.escape(get_manager_display_name(data))
     customer_name = html.escape(
@@ -1476,6 +1476,20 @@ def build_contract_html(data):
     manager_display_name = organizer_name
     contract_date = html.escape(format_contract_header_date(data["contractDate"]))
     contract_serial = html.escape(data["contractSerial"])
+    signature_markup = ""
+    if signature_path:
+        signature_src = signature_path
+        if asset_mode == "file":
+            sig_file = (GENERATED_DIR / signature_path.replace("/generated/", "", 1)).resolve()
+            if sig_file.exists():
+                signature_src = sig_file.as_uri()
+        signature_markup = f'<img class="tourist-signature-image" src="{html.escape(signature_src)}" alt="Tourist signature" />'
+
+    def asset_src(filename):
+        if asset_mode == "file":
+            return (PUBLIC_DIR / "assets" / filename).resolve().as_uri()
+        return f"/assets/{filename}"
+
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -1637,6 +1651,11 @@ def build_contract_html(data):
         position: absolute;
         object-fit: contain;
       }}
+      .tourist-signature-image {{
+        max-width: 240px;
+        max-height: 96px;
+        object-fit: contain;
+      }}
       .stamp-image {{
         left: -8px;
         top: 8px;
@@ -1703,7 +1722,7 @@ def build_contract_html(data):
     </div>
     <main class="page">
       <div class="doc-logo">
-        <img src="/assets/logo.png" alt="Дэлхий Трэвел Икс" class="doc-logo-image" />
+        <img src="{asset_src('logo.png')}" alt="Дэлхий Трэвел Икс" class="doc-logo-image" />
       </div>
       <h1>АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ</h1>
       <p class="contract-number-line"><span class="contract-number-label">Дугаар:</span> {contract_serial}</p>
@@ -1719,8 +1738,8 @@ def build_contract_html(data):
             <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
             <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
             <div class="signature-stack">
-              <img class="stamp-image" src="/assets/dtx-stamp-cropped.png" alt="DTX stamp" />
-              <img class="company-signature-image" src="/assets/nyambayar-signature-cropped.png" alt="Nyambayar signature" />
+              <img class="stamp-image" src="{asset_src('dtx-stamp-cropped.png')}" alt="DTX stamp" />
+              <img class="company-signature-image" src="{asset_src('nyambayar-signature-cropped.png')}" alt="Nyambayar signature" />
             </div>
             <div class="signature-contact">
               <p class="signature-name">{manager_display_name}</p>
@@ -1737,7 +1756,7 @@ def build_contract_html(data):
           </div>
           <div>
             <div class="signature-title">Жуулчныг төлөөлж:</div>
-            <div class="signer-signature-space"></div>
+            <div class="signer-signature-space">{signature_markup}</div>
             <div class="signer-contact">
               <p class="signature-name">{customer_name}</p>
               <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
@@ -1808,6 +1827,22 @@ def draw_wrapped_text_with_indent(pdf, text, x, y, max_width, font_name, font_si
 
 
 def save_contract_pdf(record):
+    try:
+        from weasyprint import HTML
+
+        ensure_data_store()
+        pdf_filename = f"contract-{record['id']}.pdf"
+        pdf_path = GENERATED_DIR / pdf_filename
+        html_string = build_contract_html(
+            record["data"],
+            signature_path=record.get("signaturePath"),
+            asset_mode="file",
+        )
+        HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
+        return f"/generated/{pdf_filename}"
+    except Exception:
+        pass
+
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm
@@ -3802,7 +3837,7 @@ def handle_update_contract(environ, start_response, contract_id):
                 safe_view = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
                 if str(safe_view).startswith(str(GENERATED_DIR.resolve())):
                     try:
-                        safe_view.write_text(build_contract_html(data), encoding="utf-8")
+                        safe_view.write_text(build_contract_html(data, signature_path=contract.get("signaturePath")), encoding="utf-8")
                     except Exception:
                         pass
             contract["pdfPath"] = None
@@ -3870,7 +3905,7 @@ def handle_sign_contract(environ, start_response, contract_id):
                 safe_view = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
                 if str(safe_view).startswith(str(GENERATED_DIR.resolve())):
                     try:
-                        safe_view.write_text(build_contract_html(data), encoding="utf-8")
+                        safe_view.write_text(build_contract_html(data, signature_path=contract.get("signaturePath")), encoding="utf-8")
                     except Exception:
                         pass
             contracts[idx] = contract
@@ -3914,7 +3949,10 @@ def handle_contract_document(environ, start_response, contract_id):
     safe_path = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
     if not str(safe_path).startswith(str(GENERATED_DIR.resolve())):
         return json_response(start_response, "404 Not Found", {"error": "Document not found"})
-    safe_path.write_text(build_contract_html(contract.get("data") or {}), encoding="utf-8")
+    safe_path.write_text(
+        build_contract_html(contract.get("data") or {}, signature_path=contract.get("signaturePath")),
+        encoding="utf-8",
+    )
     if contract_index is not None:
         contracts[contract_index] = contract
         write_contracts(contracts)
