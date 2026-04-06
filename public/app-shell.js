@@ -242,6 +242,14 @@ function handleProfileEdit() {
   openProfileModal();
 }
 
+async function handleLogout() {
+  try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } finally {
+    window.location.href = "/login";
+  }
+}
+
 function ensureProfileControls() {
   if (!profileCard || profileCard.querySelector(".workspace-profile-actions")) {
     return;
@@ -256,7 +264,14 @@ function ensureProfileControls() {
   editButton.textContent = "Edit profile";
   editButton.addEventListener("click", handleProfileEdit);
 
+  const logoutButton = document.createElement("button");
+  logoutButton.type = "button";
+  logoutButton.className = "workspace-profile-button workspace-profile-button-logout";
+  logoutButton.textContent = "Logout";
+  logoutButton.addEventListener("click", handleLogout);
+
   actions.appendChild(editButton);
+  actions.appendChild(logoutButton);
   profileCard.appendChild(actions);
 }
 

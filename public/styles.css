@@ -146,7 +146,9 @@ body {
 
 .workspace-profile-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 10px;
   margin-top: 12px;
 }
 
@@ -161,6 +163,12 @@ body {
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.workspace-profile-button-logout {
+  background: rgba(182, 58, 58, 0.1);
+  border-color: rgba(182, 58, 58, 0.16);
+  color: #9b2f2f;
 }
 
 .workspace-kicker {
@@ -1504,17 +1512,35 @@ time {
     grid-template-columns: 1fr;
   }
 
+  .contract-public-body {
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .contract-public-shell {
+    max-width: 100%;
+  }
+
   .contract-sign-card {
     max-width: 100%;
-    margin: 12px auto;
+    margin: 0;
+    min-height: 100vh;
+    padding: 18px 16px 28px;
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
   }
 
   .contract-preview {
-    margin-inline: -4px;
+    margin: 16px -16px 24px;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
   }
 
   .contract-preview iframe {
-    height: 88vh;
+    height: 100vh;
+    min-height: 100svh;
   }
 
   .summary-row {
