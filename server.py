@@ -1971,13 +1971,17 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         font-size: 12pt;
         font-weight: 400;
         margin: 0 0 6px;
-        min-height: 1.5em;
+        min-height: 1.75em;
+        display: flex;
+        align-items: flex-start;
       }}
       .signature-subtitle {{
         margin: 0 0 4px;
         font-size: 12pt;
         font-weight: 400;
-        min-height: 1.5em;
+        min-height: 1.75em;
+        display: flex;
+        align-items: flex-start;
       }}
       .signer-signature-space {{
         width: 100%;
