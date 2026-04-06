@@ -1382,7 +1382,17 @@ time {
   color: #fff;
 }
 
+.secondary-button.success-button {
+  background: #1f8f52;
+  color: #fff;
+}
+
 .danger-button {
+  background: #b63a3a;
+  color: #fff;
+}
+
+.secondary-button.danger-button {
   background: #b63a3a;
   color: #fff;
 }
@@ -2310,8 +2320,8 @@ body.modal-open {
 }
 
 .status-pill.is-confirmed {
-  background: rgba(68, 165, 94, 0.16);
-  color: #25643a;
+  background: rgba(43, 166, 90, 0.18);
+  color: #12823d;
 }
 
 .status-pill.is-pending {
