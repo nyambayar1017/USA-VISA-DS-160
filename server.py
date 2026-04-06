@@ -1811,7 +1811,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         height: 78px;
       }}
       .signature-contact {{
-        margin-top: -4px;
+        margin-top: 0;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1824,6 +1824,12 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         text-decoration: underline;
       }}
       .signature-name {{
+        font-size: 12pt;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }}
+      .signature-subtitle {{
+        margin: 0 0 4px;
         font-size: 12pt;
         font-weight: 700;
       }}
@@ -1875,6 +1881,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
           <div class="signature-column">
             <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
             <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
+            <p class="signature-subtitle">Аяллын менежер</p>
+            <p class="signature-name">{manager_display_name}</p>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
               <div class="signature-stack">
@@ -1883,8 +1891,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
               </div>
             </div>
             <div class="signature-contact">
-              <p class="signature-name">{manager_display_name}</p>
-              <p class="signature-role">Аяллын менежер</p>
               <p><span class="signature-label">Гар утас:</span> {manager_phone}</p>
               <p><span class="signature-label">Утас:</span> 72007722</p>
               <p><span class="signature-label">И-мэйл:</span> {manager_email}</p>
@@ -1897,13 +1903,13 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
           </div>
           <div class="signature-column">
             <div class="signature-title">Жуулчныг төлөөлж:</div>
-            <div class="signature-org-name">Аялагч</div>
+            <p class="signature-subtitle">Аялагч:</p>
+            <p class="signature-name">{customer_name}</p>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
               <div class="signer-signature-space">{signature_markup}</div>
             </div>
             <div class="signer-contact">
-              <p class="signature-name">{customer_name}</p>
               <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
               <p>Яаралтай үед холбогдох дугаар: {html.escape(data.get("emergencyContactPhone") or "")}</p>
               <p>Таны хэн болох: {html.escape(data.get("emergencyContactRelation") or "")}</p>
