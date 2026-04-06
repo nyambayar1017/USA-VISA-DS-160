@@ -95,10 +95,7 @@ function initProfileSignatureCanvas(canvas, existingSignatureUrl = "") {
 function renderProfile(user) {
   currentProfile = user;
   profileNameNode.textContent = user.fullName || user.email;
-  const contractName = [user.contractLastName, user.contractFirstName].filter(Boolean).join(" ");
-  profileEmailNode.textContent = contractName
-    ? `${user.email} · ${user.role} · Гэрээ: ${contractName}`
-    : `${user.email} · ${user.role}`;
+  profileEmailNode.textContent = `${user.email} · ${user.role}`;
 }
 
 function ensureProfileModal() {
