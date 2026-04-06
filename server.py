@@ -1439,6 +1439,15 @@ def replace_template_paragraphs(root, data):
 
     for paragraph in root.findall(f".//{qname('p')}"):
         current_text = paragraph_text(paragraph)
+        if "хараар оршин сууж байсан удаатай" in current_text:
+            set_paragraph_text(paragraph, current_text.replace("хараар оршин сууж байсан удаатай", "хараар оршин сууж байсан"))
+            continue
+        if current_text.strip().startswith("Цоо шинэ паспорттой эсэх."):
+            set_paragraph_text(paragraph, "")
+            continue
+        if current_text.strip().startswith("Гадаад паспортоо өмнө нь хаяж гээгдүүлж байсан эсэх"):
+            set_paragraph_text(paragraph, "")
+            continue
         if current_text in replacements:
             set_paragraph_text(paragraph, replacements[current_text])
             continue
@@ -1513,6 +1522,11 @@ def extract_contract_blocks(data):
         if tag == "p":
             text = paragraph_text(element).strip()
             if not text:
+                continue
+            text = text.replace("хараар оршин сууж байсан удаатай", "хараар оршин сууж байсан")
+            if text.startswith("Цоо шинэ паспорттой эсэх."):
+                continue
+            if text.startswith("Гадаад паспортоо өмнө нь хаяж гээгдүүлж байсан эсэх"):
                 continue
             normalized = normalize_contract_heading(text)
             if normalized in {"ГЭРЭЭГ БАЙГУУЛСАН:", "ГЭРЭЭГ БАЙГУУЛСАН"}:
