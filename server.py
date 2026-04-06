@@ -1681,7 +1681,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
 
     download_href = f"/api/contracts/{contract_id}/document?mode=download" if contract_id else ""
     download_button = (
-        f'<a href="{html.escape(download_href)}">Download PDF</a>'
+        f'<a href="{html.escape(download_href)}">PDF Татах</a>'
         if download_href
         else '<button onclick="window.print()">Print</button>'
     )
@@ -1981,7 +1981,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
   <body>
     <div class="toolbar">
       {download_button}
-      <a class="secondary" href="/">Back to form</a>
     </div>
     <main class="page">
       <div class="doc-logo">

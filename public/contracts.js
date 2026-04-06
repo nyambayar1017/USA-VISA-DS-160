@@ -754,8 +754,9 @@ const initContractSignPage = async () => {
     summaryEl.innerHTML = `
       <div class="summary-row">
         <div>
-          <strong>${info.touristLastName || ""} ${info.touristFirstName || ""}</strong>
-          <p>${info.destination || ""}</p>
+          <strong>Овог: ${info.touristLastName || "-"}</strong>
+          <p>Нэр: ${info.touristFirstName || "-"}</p>
+          <p>Аяллын чиглэл: ${info.destination || "-"}</p>
           <p>Гэрээний дугаар: ${info.contractSerial || "-"}</p>
         </div>
         <a class="secondary-button" href="/api/contracts/${contractId}/document?mode=view" target="_blank">Гэрээ харах</a>
@@ -814,7 +815,7 @@ const initContractSignPage = async () => {
       });
       statusEl.textContent = "Гарын үсэг амжилттай хадгалагдлаа.";
       if (result.contract?.pdfPath) {
-        downloadEl.innerHTML = `<a class="secondary-button success-button" href="${result.contract.pdfPath}" download>Гарын үсэгтэй PDF татах</a>`;
+        downloadEl.innerHTML = `<a class="secondary-button success-button" href="${result.contract.pdfPath}" download>PDF Татах</a>`;
       }
     } catch (error) {
       statusEl.textContent = error.message || "Could not confirm signature and generate PDF.";
