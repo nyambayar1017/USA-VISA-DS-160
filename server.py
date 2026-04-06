@@ -1703,9 +1703,9 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .signature-stack {{
         position: relative;
         width: 100%;
-        max-width: 460px;
-        height: 300px;
-        margin: 8px 0 4px;
+        max-width: 360px;
+        height: 210px;
+        margin: 10px 0 0;
       }}
       .signature-stack img {{
         position: absolute;
@@ -1717,19 +1717,19 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         object-fit: contain;
       }}
       .stamp-image {{
-        left: -8px;
-        top: 8px;
-        width: 9cm;
-        height: 9cm;
+        left: 6px;
+        top: 18px;
+        width: 182px;
+        height: 182px;
       }}
       .company-signature-image {{
-        left: 48px;
-        top: 48px;
-        width: 280px;
-        height: 112px;
+        left: 18px;
+        top: 34px;
+        width: 170px;
+        height: 68px;
       }}
       .signature-contact {{
-        margin-top: 72px;
+        margin-top: -4px;
       }}
       .signature-contact p,
       .signer-contact p {{
@@ -1820,8 +1820,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             <div class="signer-contact">
               <p class="signature-name">{customer_name}</p>
               <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
-              <p><span class="signature-label">Яаралтай хүн:</span> {html.escape(data.get("emergencyContactName") or "")}</p>
-              <p><span class="signature-label">Яаралтай утас:</span> {html.escape(data.get("emergencyContactPhone") or "")}</p>
+              <p>Яаралтай үед холбоо барих утасны дугаар: {html.escape(data.get("emergencyContactPhone") or "")}</p>
+              <p>Таны хэн болох: {html.escape(data.get("emergencyContactRelation") or "")}</p>
               <p class="signature-role">Жуулчин</p>
             </div>
           </div>
