@@ -1157,7 +1157,8 @@ def build_contract_data(payload):
                 numbers.append(int(str(item).replace(prefix, "")))
             except ValueError:
                 continue
-        next_num = max(numbers or [0]) + 1
+        base_number = 46 if year == "26" else 0
+        next_num = max(numbers or [base_number]) + 1
         contract_serial = f"{prefix}{next_num:03d}"
 
     manager_last = normalize_text(payload.get("managerLastName"))
