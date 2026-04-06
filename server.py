@@ -1758,6 +1758,9 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         display: flex;
         flex-direction: column;
       }}
+      .signature-prelude {{
+        min-height: 126px;
+      }}
       .signature-title {{
         margin-bottom: 12px;
         font-size: 12pt;
@@ -1879,10 +1882,12 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         <h2 class="signature-heading">ГЭРЭЭГ БАЙГУУЛСАН:</h2>
         <div class="signature-grid">
           <div class="signature-column">
-            <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
-            <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
-            <p class="signature-subtitle">Аяллын менежер</p>
-            <p class="signature-name">{manager_display_name}</p>
+            <div class="signature-prelude">
+              <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
+              <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
+              <p class="signature-subtitle">Аяллын менежер</p>
+              <p class="signature-name">{manager_display_name}</p>
+            </div>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
               <div class="signature-stack">
@@ -1902,9 +1907,11 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             </div>
           </div>
           <div class="signature-column">
-            <div class="signature-title">Жуулчныг төлөөлж:</div>
-            <p class="signature-subtitle">Аялагч:</p>
-            <p class="signature-name">{customer_name}</p>
+            <div class="signature-prelude">
+              <div class="signature-title">Жуулчныг төлөөлж:</div>
+              <p class="signature-subtitle">Аялагч:</p>
+              <p class="signature-name">{customer_name}</p>
+            </div>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
               <div class="signer-signature-space">{signature_markup}</div>
