@@ -143,7 +143,7 @@ const renderContractsTable = (contracts) => {
             <th>Tourist</th>
             <th>Manager</th>
             <th>Destination</th>
-            <th>Contract Date</th>
+            <th>Trip Start</th>
             <th>Status</th>
             <th>Created</th>
             <th>Actions</th>
@@ -168,7 +168,7 @@ const renderContractsTable = (contracts) => {
                   <td>${tourist || "-"}</td>
                   <td>${creatorName || "-"}</td>
                   <td>${data.destination || "-"}</td>
-                  <td>${formatDate(data.contractDate)}</td>
+                  <td>${formatDate(data.tripStartDate || data.contractDate)}</td>
                   <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
                   <td>${formatDate(entry.createdAt)}</td>
                   <td>
