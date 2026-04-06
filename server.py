@@ -1641,6 +1641,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         background: #f4f2ee;
         color: var(--ink);
         font-family: "Times New Roman", Tinos, "Liberation Serif", serif;
+        line-height: 1.5;
       }}
       .toolbar {{
         position: sticky;
@@ -1742,6 +1743,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         border: 1px solid #1d1d1b;
         padding: 8px 10px;
         font-size: 12pt;
+        line-height: 1.5;
         text-align: center;
       }}
       .signature-section {{
@@ -1830,6 +1832,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .signature-contact p,
       .signer-contact p {{
         margin-bottom: 8px;
+        line-height: 1.5;
       }}
       .signature-label {{
         display: inline-block;
