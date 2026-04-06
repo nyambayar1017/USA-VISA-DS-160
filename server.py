@@ -1139,14 +1139,11 @@ def build_contract_data(payload):
     balance_raw = max(total_price_raw - deposit_raw, 0)
 
     contract_serial = normalize_text(payload.get("contractSerial")).strip().strip("_")
-    serial_matches = re.findall(r"DTX-\d{2}-\d{2}-\d{3}", contract_serial)
+    serial_matches = re.findall(r"DTX-\d{2}[A-ZА-Я]?-?\d{2}-\d+|DTX-\d{2}[A-ZА-Я]?-\d{2}-\d+", contract_serial)
     if serial_matches:
         contract_serial = serial_matches[-1]
     if not contract_serial:
-        now = datetime.now(timezone.utc).astimezone(MONGOLIA_TZ)
-        month = f"{now.month:02d}"
-        year = str(now.year)[-2:]
-        prefix = f"DTX-{month}-{year}-"
+        prefix = "DTX-09A-26-"
         serials = [
             c.get("data", {}).get("contractSerial", "")
             for c in read_contracts()
@@ -1159,7 +1156,7 @@ def build_contract_data(payload):
             except ValueError:
                 continue
         next_num = max(numbers or [0]) + 1
-        contract_serial = f"{prefix}{next_num:03d}"
+        contract_serial = f"{prefix}{next_num}"
 
     manager_last = normalize_text(payload.get("managerLastName"))
     manager_first = normalize_text(payload.get("managerFirstName"))
