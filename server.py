@@ -1627,7 +1627,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         --page-width: 210mm;
         --page-height: 297mm;
         --page-top: 2cm;
-        --page-right: 1.5cm;
+        --page-right: 3cm;
         --page-bottom: 2cm;
         --page-left: 3cm;
       }}
@@ -1696,7 +1696,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         font-size: 12pt;
       }}
       .contract-number-label {{
-        text-decoration: underline;
+        text-decoration: none;
       }}
       .contract-date-row {{
         display: flex;
@@ -1747,7 +1747,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .signature-section {{
         margin-top: 42px;
         padding-top: 10px;
-        page-break-inside: avoid;
+        page-break-inside: auto;
       }}
       .signature-heading {{
         margin: 0 0 22px;
@@ -1772,7 +1772,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         margin-bottom: 12px;
         font-size: 12pt;
         font-weight: 700;
-        text-decoration: underline;
       }}
       .signature-org-name {{
         margin-bottom: 12px;
@@ -1836,7 +1835,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         display: inline-block;
         min-width: 68px;
         font-weight: 700;
-        text-decoration: underline;
       }}
       .signature-name {{
         font-size: 12pt;
@@ -1860,7 +1858,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         margin-top: 6px;
         font-size: 12pt;
         font-weight: 700;
-        text-decoration: underline;
       }}
       @media print {{
         body {{ background: white; }}
