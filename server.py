@@ -1976,6 +1976,48 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
           box-shadow: none;
         }}
       }}
+      @media (max-width: 720px) {{
+        :root {{
+          --page-top: 16px;
+          --page-right: 12px;
+          --page-bottom: 20px;
+          --page-left: 12px;
+        }}
+        body {{
+          background: #ffffff;
+        }}
+        .toolbar {{
+          position: static;
+          padding: 12px;
+          border-bottom: 0;
+          background: #ffffff;
+          justify-content: center;
+        }}
+        .page {{
+          width: 100%;
+          min-height: auto;
+          margin: 0;
+          padding: var(--page-top) var(--page-right) var(--page-bottom) var(--page-left);
+          box-shadow: none;
+        }}
+        .doc-logo-image {{
+          width: min(220px, 72vw);
+        }}
+        .contract-date-row {{
+          gap: 12px;
+          flex-wrap: wrap;
+        }}
+        .signature-grid {{
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }}
+        .signature-prelude {{
+          min-height: auto;
+        }}
+        .signature-sign-area {{
+          max-width: 100%;
+        }}
+      }}
     </style>
   </head>
   <body>

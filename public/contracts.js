@@ -754,8 +754,8 @@ const initContractSignPage = async () => {
     summaryEl.innerHTML = `
       <div class="summary-row">
         <div>
-          <strong>Овог: ${info.touristLastName || "-"}</strong>
-          <p>Нэр: ${info.touristFirstName || "-"}</p>
+          <p><strong>Овог: ${info.touristLastName || "-"}</strong></p>
+          <p><strong>Нэр: ${info.touristFirstName || "-"}</strong></p>
           <p>Аяллын чиглэл: ${info.destination || "-"}</p>
           <p>Гэрээний дугаар: ${info.contractSerial || "-"}</p>
         </div>
