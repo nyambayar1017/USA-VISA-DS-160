@@ -445,6 +445,8 @@ def build_user_account(payload):
         "resetRequestedAt": "",
         "lastLoginAt": "",
         "fullName": normalize_text(payload.get("fullName")),
+        "contractLastName": normalize_text(payload.get("contractLastName")),
+        "contractFirstName": normalize_text(payload.get("contractFirstName")),
         "email": normalize_text(payload.get("email")).lower(),
         "passwordHash": hash_password(payload.get("password") or ""),
         "role": "staff",
@@ -587,14 +589,22 @@ def handle_auth_profile_update(environ, start_response):
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
     full_name = normalize_text(payload.get("fullName"))
+    contract_last_name = normalize_text(payload.get("contractLastName"))
+    contract_first_name = normalize_text(payload.get("contractFirstName"))
     if len(full_name) < 2:
         return json_response(start_response, "400 Bad Request", {"error": "Name must be at least 2 characters"})
+    if contract_last_name and len(contract_last_name) < 2:
+        return json_response(start_response, "400 Bad Request", {"error": "Contract surname must be at least 2 characters"})
+    if contract_first_name and len(contract_first_name) < 2:
+        return json_response(start_response, "400 Bad Request", {"error": "Contract given name must be at least 2 characters"})
 
     users = read_users()
     for record in users:
         if record.get("id") != user.get("id"):
             continue
         record["fullName"] = full_name
+        record["contractLastName"] = contract_last_name
+        record["contractFirstName"] = contract_first_name
         write_users(users)
         return json_response(start_response, "200 OK", {"ok": True, "user": sanitize_user(record)})
 
@@ -624,6 +634,8 @@ def handle_list_team_members(environ, start_response):
             {
                 "id": user.get("id"),
                 "fullName": display_name,
+                "contractLastName": normalize_text(user.get("contractLastName")),
+                "contractFirstName": normalize_text(user.get("contractFirstName")),
                 "email": normalize_text(user.get("email")),
                 "role": normalize_text(user.get("role")) or "staff",
             }
@@ -651,6 +663,10 @@ def handle_update_user(environ, start_response, user_id):
             user["role"] = normalize_text(payload.get("role")).lower() or user["role"]
         if "fullName" in payload:
             user["fullName"] = normalize_text(payload.get("fullName"))
+        if "contractLastName" in payload:
+            user["contractLastName"] = normalize_text(payload.get("contractLastName"))
+        if "contractFirstName" in payload:
+            user["contractFirstName"] = normalize_text(payload.get("contractFirstName"))
         if "password" in payload:
             password = str(payload.get("password") or "")
             if len(password) < 6:
@@ -761,6 +777,24 @@ def get_manager_display_name(data):
     return combined_name or full_name or "Ч.Нямбаяр"
 
 
+def get_manager_contract_formal_name(data):
+    last_name = normalize_person_name(data.get("managerLastName"))
+    first_name = normalize_person_name(data.get("managerFirstName"))
+    if last_name and first_name:
+        return f"{last_name} овогтой {first_name}"
+    return get_manager_display_name(data)
+
+
+def get_manager_signature_name(data):
+    last_name = normalize_person_name(data.get("managerLastName"))
+    first_name = normalize_person_name(data.get("managerFirstName"))
+    if last_name and first_name:
+        return f"{last_name[:1]}.{first_name}"
+    if first_name:
+        return first_name
+    return get_manager_display_name(data)
+
+
 def slugify(value):
     cleaned = re.sub(r"[^a-zA-Z0-9а-яА-ЯөүӨҮёЁ]+", "-", normalize_text(value))
     cleaned = re.sub(r"-{2,}", "-", cleaned).strip("-")
@@ -857,6 +891,8 @@ def sanitize_user(user):
         "id": user["id"],
         "email": user["email"],
         "fullName": user.get("fullName", ""),
+        "contractLastName": user.get("contractLastName", ""),
+        "contractFirstName": user.get("contractFirstName", ""),
         "role": user.get("role", "staff"),
         "status": user.get("status", "pending"),
         "createdAt": user.get("createdAt"),
@@ -904,6 +940,8 @@ def bootstrap_admin_user():
         "resetRequestedAt": "",
         "lastLoginAt": "",
         "fullName": "Admin",
+        "contractLastName": "",
+        "contractFirstName": "",
         "email": ADMIN_EMAIL,
         "passwordHash": hash_password(ADMIN_PASSWORD),
         "role": "admin",
@@ -1228,14 +1266,15 @@ def update_docx_styles(styles_xml):
 
 
 def replace_template_paragraphs(root, data):
-    manager_full_name = normalize_person_name(data.get("managerFullName")) or "Ч.Нямбаяр"
+    manager_formal_name = get_manager_contract_formal_name(data)
+    manager_signature_name = get_manager_signature_name(data)
     replacements = {
         "Дугаар: DTX-09А-26-_____": f"Дугаар: {data['contractSerial']}",
         "2026 оны 01 сарын 26 өдөр                                                 Улаанбаатар хот":
             f"{format_contract_header_date(data['contractDate'])}                                                 Улаанбаатар хот",
         "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас 2 жуулчин төлөөлөн Батмөнх овогтой Уранчимэг (РД:ШД84011762) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.":
             "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай "
-            f"{manager_full_name}, нөгөө талаас {data['travelerCount']} жуулчин төлөөлөн {data['touristLastName']} овогтой {data['touristFirstName']} (РД:{data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
+            f"{manager_formal_name}, нөгөө талаас {data['travelerCount']} жуулчин төлөөлөн {data['touristLastName']} овогтой {data['touristFirstName']} (РД:{data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
         "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/02/17-2026/02/25 хооронд Египет аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
             f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']} аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
         "Энэхүү гэрээгээр аялагчийн төлбөр нь том хүний 7,340,000 төгрөг буюу нийт 2 хүний 14,680,000 төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.":
@@ -1272,7 +1311,7 @@ def replace_template_paragraphs(root, data):
             f"{format_contract_header_date(data['contractDate'])}                                                                                Улаанбаатар хот",
         "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн Цэдэн-Иш овогтой Чинзориг (РД: ШЕ77111832) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.":
             "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай "
-            f"{manager_full_name}, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн "
+            f"{manager_formal_name}, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн "
             f"{data['touristLastName']} овогтой {data['touristFirstName']} (РД: {data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
         "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/03/28-2026/04/03 хооронд Турк аялал, 7 өдөр 6 шөнө, хөтөлбөртэй аяллын дагуу 5 аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
             f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']}, {data['tripDuration']}, хөтөлбөртэй аяллын дагуу {data['travelerCount']} аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
@@ -1291,7 +1330,7 @@ def replace_template_paragraphs(root, data):
         "2025 оны 01 сарын  21 өдөр                     № 25 / ПУКЕТ                      Улаанбаатар хот":
             f"{format_contract_header_date(data['contractDate'])}                     № {data['contractSerial']} / {data['destination']}                      Улаанбаатар хот",
         "Нэг талаас Дэлхий Трэвел Икс ХХК (6925073 )/цаашид “Аялал зохион байгуулагч” гэх/ түүнийг төлөөлөн менежер Ч.Нямбаяр,":
-            f"Нэг талаас Дэлхий Трэвел Икс ХХК (6925073 )/цаашид “Аялал зохион байгуулагч” гэх/ түүнийг төлөөлөн менежер {manager_full_name},",
+            f"Нэг талаас Дэлхий Трэвел Икс ХХК (6925073 )/цаашид “Аялал зохион байгуулагч” гэх/ түүнийг төлөөлөн менежер {manager_signature_name},",
         "Нөгөө талаас 21 аялагчийг төлөөлөн, ХХХХХХХХ овогтой XXXXXXXX (РД: ДЙ91101311) /цаашид “Захиалагч” гэх/ нар дор дурдсан нөхцөлөөр харилцан тохиролцож  байгуулав.":
             f"Нөгөө талаас {data['travelerCount']} аялагчийг төлөөлөн, {data['touristLastName']} овогтой {data['touristFirstName']} (РД: {data['touristRegister']}) /цаашид “Захиалагч” гэх/ нар дор дурдсан нөхцөлөөр харилцан тохиролцож  байгуулав.",
         "Энэхүү гэрээгээр Аялал зохион байгуулагч нь захиалагчийн хүсэлтээр Тайланд улсын Пукет арлаар аялах хөтөлбөртэй аяллыг 2025/02/16 – 2025/02/23-ны хооронд 8 өдөр 7 шөнөөр тооцож энэ гэрээнд заагдсан аяллыг зохион байгуулах,":
@@ -1522,7 +1561,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             if part
         ).strip()
     )
-    manager_display_name = organizer_name
+    manager_display_name = html.escape(get_manager_signature_name(data))
     contract_date = html.escape(format_contract_header_date(data["contractDate"]))
     contract_serial = html.escape(data["contractSerial"])
     signature_markup = ""
@@ -3634,12 +3673,6 @@ def handle_generate_contract(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
-    actor_name = normalize_text(actor.get("fullName") or actor.get("name") or actor.get("email"))
-    if actor_name:
-        payload["managerSelect"] = actor_name
-        name_parts = actor_name.split()
-        payload["managerLastName"] = name_parts[0] if name_parts else actor_name
-        payload["managerFirstName"] = " ".join(name_parts[1:]) if len(name_parts) > 1 else actor_name
 
     data = build_contract_data(payload)
     error = validate_contract_data(data)

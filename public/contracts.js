@@ -249,21 +249,39 @@ const initContractForm = () => {
   const loadManagers = async () => {
     if (!managerSelect) return;
     try {
-      const data = await apiRequest("/api/auth/me");
-      const managerName = normalizeTextValue(data?.user?.fullName || data?.user?.email || "");
+      const data = await apiRequest("/api/team-members");
+      const entries = Array.isArray(data?.entries) ? data.entries : [];
+      managerSelect.removeAttribute("disabled");
       managerSelect.innerHTML =
-        `<option value="${managerName}">${managerName || "Нэвтэрсэн хэрэглэгч"}</option>`;
-      managerSelect.value = managerName;
-      managerSelect.dispatchEvent(new Event("change"));
-      managerSelect.setAttribute("disabled", "disabled");
+        `<option value="">Менежер сонгох</option>` +
+        entries
+          .map((entry) => {
+            const label = normalizeTextValue(entry.fullName || entry.email || "");
+            const lastName = normalizeTextValue(entry.contractLastName || "");
+            const firstName = normalizeTextValue(entry.contractFirstName || "");
+            return `<option value="${label}" data-last-name="${lastName}" data-first-name="${firstName}">${label}</option>`;
+          })
+          .join("");
+      if (entries.length === 1) {
+        managerSelect.selectedIndex = 1;
+        managerSelect.dispatchEvent(new Event("change"));
+      }
     } catch {}
   };
 
   managerSelect?.addEventListener("change", () => {
+    const selectedOption = managerSelect.options[managerSelect.selectedIndex];
     const value = managerSelect.value || "";
+    const contractLastName = normalizeTextValue(selectedOption?.dataset.lastName || "");
+    const contractFirstName = normalizeTextValue(selectedOption?.dataset.firstName || "");
     if (!value) {
       if (managerLastInput) managerLastInput.value = "";
       if (managerFirstInput) managerFirstInput.value = "";
+      return;
+    }
+    if (contractLastName || contractFirstName) {
+      if (managerLastInput) managerLastInput.value = contractLastName;
+      if (managerFirstInput) managerFirstInput.value = contractFirstName;
       return;
     }
     const parts = value.trim().split(/\s+/);

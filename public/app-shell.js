@@ -6,7 +6,10 @@ let currentProfile = null;
 function renderProfile(user) {
   currentProfile = user;
   profileNameNode.textContent = user.fullName || user.email;
-  profileEmailNode.textContent = `${user.email} · ${user.role}`;
+  const contractName = [user.contractLastName, user.contractFirstName].filter(Boolean).join(" ");
+  profileEmailNode.textContent = contractName
+    ? `${user.email} · ${user.role} · Гэрээ: ${contractName}`
+    : `${user.email} · ${user.role}`;
 }
 
 async function handleProfileEdit() {
@@ -17,7 +20,17 @@ async function handleProfileEdit() {
   if (nextName === null) {
     return;
   }
+  const nextContractLastName = window.prompt("Гэрээнд зориулсан Овог", currentProfile.contractLastName || "");
+  if (nextContractLastName === null) {
+    return;
+  }
+  const nextContractFirstName = window.prompt("Гэрээнд зориулсан Нэр", currentProfile.contractFirstName || currentProfile.fullName || "");
+  if (nextContractFirstName === null) {
+    return;
+  }
   const fullName = nextName.trim();
+  const contractLastName = nextContractLastName.trim();
+  const contractFirstName = nextContractFirstName.trim();
   if (fullName.length < 2) {
     window.alert("Please enter at least 2 characters.");
     return;
@@ -27,7 +40,7 @@ async function handleProfileEdit() {
     const response = await fetch("/api/auth/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName }),
+      body: JSON.stringify({ fullName, contractLastName, contractFirstName }),
     });
     const data = await response.json();
     if (!response.ok || !data.user) {
