@@ -1618,6 +1618,24 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Аялал жуулчлалын гэрээ</title>
     <style>
+      @font-face {{
+        font-family: "TravelXTimes";
+        src:
+          local("Times New Roman"),
+          local("Times New Roman Regular"),
+          url("/assets/fonts/times-new-roman.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+      }}
+      @font-face {{
+        font-family: "TravelXTimes";
+        src:
+          local("Times New Roman Bold"),
+          local("Times New Roman"),
+          url("/assets/fonts/times-new-roman-bold.ttf") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+      }}
       :root {{
         color-scheme: light;
         --ink: #1d1d1b;
@@ -1640,7 +1658,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         margin: 0;
         background: #f4f2ee;
         color: var(--ink);
-        font-family: "Times New Roman", Tinos, "Liberation Serif", serif;
+        font-family: "TravelXTimes", "Times New Roman", "Liberation Serif", serif;
         line-height: 1.5;
       }}
       .toolbar {{
