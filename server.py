@@ -1584,13 +1584,7 @@ def build_contract_body_html(data):
 def build_contract_html(data, signature_path=None, asset_mode="web", contract_id=None):
     content = build_contract_body_html(data)
     organizer_name = html.escape(get_manager_display_name(data))
-    customer_name = html.escape(
-        " ".join(
-            part
-            for part in [data.get("touristLastName") or "", data.get("touristFirstName") or ""]
-            if part
-        ).strip()
-    )
+    customer_name = html.escape(data.get("touristSignature") or "")
     manager_display_name = html.escape(get_manager_signature_name(data))
     manager_email = html.escape(get_manager_contract_email(data))
     manager_phone = html.escape(get_manager_contract_phone(data))
@@ -1775,8 +1769,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         position: relative;
         width: 100%;
         max-width: 360px;
-        height: 210px;
-        margin: 10px 0 0;
+        height: 220px;
+        margin: 10px 0 10px;
       }}
       .signature-stack img {{
         position: absolute;
@@ -1788,16 +1782,16 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         object-fit: contain;
       }}
       .stamp-image {{
-        left: 6px;
-        top: 18px;
-        width: 182px;
-        height: 182px;
+        left: 2px;
+        top: 6px;
+        width: 220px;
+        height: 220px;
       }}
       .company-signature-image {{
-        left: 18px;
-        top: 34px;
-        width: 170px;
-        height: 68px;
+        left: 20px;
+        top: 54px;
+        width: 190px;
+        height: 78px;
       }}
       .signature-contact {{
         margin-top: -4px;
@@ -1817,15 +1811,12 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         font-weight: 700;
       }}
       .signer-signature-space {{
-        min-height: 180px;
+        min-height: 220px;
         display: flex;
         align-items: flex-end;
         justify-content: center;
-        margin: 12px 0 8px;
-      }}
-      .signer-line {{
-        min-height: 1px;
-        margin: 54px 0 18px;
+        margin: 10px 0 10px;
+        padding-bottom: 20px;
         border-bottom: 1px solid rgba(0, 0, 0, 0.45);
       }}
       .signature-role {{
@@ -1891,7 +1882,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             <div class="signer-contact">
               <p class="signature-name">{customer_name}</p>
               <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
-              <p>Яаралтай үед холбоо барих утасны дугаар: {html.escape(data.get("emergencyContactPhone") or "")}</p>
+              <p>Яаралтай үед холбогдох дугаар: {html.escape(data.get("emergencyContactPhone") or "")}</p>
               <p>Таны хэн болох: {html.escape(data.get("emergencyContactRelation") or "")}</p>
               <p class="signature-role">Жуулчин</p>
             </div>
