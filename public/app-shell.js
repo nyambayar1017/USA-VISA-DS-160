@@ -28,9 +28,19 @@ async function handleProfileEdit() {
   if (nextContractFirstName === null) {
     return;
   }
+  const nextContractEmail = window.prompt("Гэрээнд зориулсан И-мэйл", currentProfile.contractEmail || currentProfile.email || "");
+  if (nextContractEmail === null) {
+    return;
+  }
+  const nextContractPhone = window.prompt("Гэрээнд зориулсан Гар утас", currentProfile.contractPhone || "");
+  if (nextContractPhone === null) {
+    return;
+  }
   const fullName = nextName.trim();
   const contractLastName = nextContractLastName.trim();
   const contractFirstName = nextContractFirstName.trim();
+  const contractEmail = nextContractEmail.trim();
+  const contractPhone = nextContractPhone.trim();
   if (fullName.length < 2) {
     window.alert("Please enter at least 2 characters.");
     return;
@@ -40,7 +50,7 @@ async function handleProfileEdit() {
     const response = await fetch("/api/auth/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, contractLastName, contractFirstName }),
+      body: JSON.stringify({ fullName, contractLastName, contractFirstName, contractEmail, contractPhone }),
     });
     const data = await response.json();
     if (!response.ok || !data.user) {

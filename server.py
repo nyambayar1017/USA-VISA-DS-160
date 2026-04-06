@@ -447,6 +447,8 @@ def build_user_account(payload):
         "fullName": normalize_text(payload.get("fullName")),
         "contractLastName": normalize_text(payload.get("contractLastName")),
         "contractFirstName": normalize_text(payload.get("contractFirstName")),
+        "contractEmail": normalize_text(payload.get("contractEmail")).lower(),
+        "contractPhone": normalize_text(payload.get("contractPhone")),
         "email": normalize_text(payload.get("email")).lower(),
         "passwordHash": hash_password(payload.get("password") or ""),
         "role": "staff",
@@ -591,12 +593,16 @@ def handle_auth_profile_update(environ, start_response):
     full_name = normalize_text(payload.get("fullName"))
     contract_last_name = normalize_text(payload.get("contractLastName"))
     contract_first_name = normalize_text(payload.get("contractFirstName"))
+    contract_email = normalize_text(payload.get("contractEmail")).lower()
+    contract_phone = normalize_text(payload.get("contractPhone"))
     if len(full_name) < 2:
         return json_response(start_response, "400 Bad Request", {"error": "Name must be at least 2 characters"})
     if contract_last_name and len(contract_last_name) < 2:
         return json_response(start_response, "400 Bad Request", {"error": "Contract surname must be at least 2 characters"})
     if contract_first_name and len(contract_first_name) < 2:
         return json_response(start_response, "400 Bad Request", {"error": "Contract given name must be at least 2 characters"})
+    if contract_email and "@" not in contract_email:
+        return json_response(start_response, "400 Bad Request", {"error": "Contract email must be valid"})
 
     users = read_users()
     for record in users:
@@ -605,6 +611,8 @@ def handle_auth_profile_update(environ, start_response):
         record["fullName"] = full_name
         record["contractLastName"] = contract_last_name
         record["contractFirstName"] = contract_first_name
+        record["contractEmail"] = contract_email
+        record["contractPhone"] = contract_phone
         write_users(users)
         return json_response(start_response, "200 OK", {"ok": True, "user": sanitize_user(record)})
 
@@ -636,6 +644,8 @@ def handle_list_team_members(environ, start_response):
                 "fullName": display_name,
                 "contractLastName": normalize_text(user.get("contractLastName")),
                 "contractFirstName": normalize_text(user.get("contractFirstName")),
+                "contractEmail": normalize_text(user.get("contractEmail")).lower(),
+                "contractPhone": normalize_text(user.get("contractPhone")),
                 "email": normalize_text(user.get("email")),
                 "role": normalize_text(user.get("role")) or "staff",
             }
@@ -667,6 +677,10 @@ def handle_update_user(environ, start_response, user_id):
             user["contractLastName"] = normalize_text(payload.get("contractLastName"))
         if "contractFirstName" in payload:
             user["contractFirstName"] = normalize_text(payload.get("contractFirstName"))
+        if "contractEmail" in payload:
+            user["contractEmail"] = normalize_text(payload.get("contractEmail")).lower()
+        if "contractPhone" in payload:
+            user["contractPhone"] = normalize_text(payload.get("contractPhone"))
         if "password" in payload:
             password = str(payload.get("password") or "")
             if len(password) < 6:
@@ -795,6 +809,14 @@ def get_manager_signature_name(data):
     return get_manager_display_name(data)
 
 
+def get_manager_contract_email(data):
+    return normalize_text(data.get("managerEmail")) or "nyambayar@travelx.mn"
+
+
+def get_manager_contract_phone(data):
+    return normalize_text(data.get("managerPhone")) or "85178877"
+
+
 def slugify(value):
     cleaned = re.sub(r"[^a-zA-Z0-9а-яА-ЯөүӨҮёЁ]+", "-", normalize_text(value))
     cleaned = re.sub(r"-{2,}", "-", cleaned).strip("-")
@@ -893,6 +915,8 @@ def sanitize_user(user):
         "fullName": user.get("fullName", ""),
         "contractLastName": user.get("contractLastName", ""),
         "contractFirstName": user.get("contractFirstName", ""),
+        "contractEmail": user.get("contractEmail", ""),
+        "contractPhone": user.get("contractPhone", ""),
         "role": user.get("role", "staff"),
         "status": user.get("status", "pending"),
         "createdAt": user.get("createdAt"),
@@ -942,6 +966,8 @@ def bootstrap_admin_user():
         "fullName": "Admin",
         "contractLastName": "",
         "contractFirstName": "",
+        "contractEmail": "",
+        "contractPhone": "",
         "email": ADMIN_EMAIL,
         "passwordHash": hash_password(ADMIN_PASSWORD),
         "role": "admin",
@@ -1082,6 +1108,8 @@ def build_contract_data(payload):
     manager_last = normalize_text(payload.get("managerLastName"))
     manager_first = normalize_text(payload.get("managerFirstName"))
     manager_full = dedupe_full_name(manager_last, manager_first)
+    manager_email = normalize_text(payload.get("managerEmail")).lower()
+    manager_phone = normalize_text(payload.get("managerPhone"))
 
     trip_start = normalize_text(payload.get("tripStartDate"))
     trip_end = normalize_text(payload.get("tripEndDate"))
@@ -1102,6 +1130,8 @@ def build_contract_data(payload):
         "managerLastName": manager_last,
         "managerFirstName": manager_first,
         "managerFullName": normalize_person_name(manager_full),
+        "managerEmail": manager_email,
+        "managerPhone": manager_phone,
         "touristLastName": tourist_last_name,
         "touristFirstName": tourist_first_name,
         "touristRegister": normalize_text(payload.get("touristRegister")),
@@ -1562,6 +1592,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         ).strip()
     )
     manager_display_name = html.escape(get_manager_signature_name(data))
+    manager_email = html.escape(get_manager_contract_email(data))
+    manager_phone = html.escape(get_manager_contract_phone(data))
     contract_date = html.escape(format_contract_header_date(data["contractDate"]))
     contract_serial = html.escape(data["contractSerial"])
     signature_markup = ""
@@ -1843,9 +1875,9 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             <div class="signature-contact">
               <p class="signature-name">{manager_display_name}</p>
               <p class="signature-role">Аяллын менежер</p>
-              <p><span class="signature-label">Гар утас:</span> 85178877</p>
+              <p><span class="signature-label">Гар утас:</span> {manager_phone}</p>
               <p><span class="signature-label">Утас:</span> 72007722</p>
-              <p><span class="signature-label">И-мэйл:</span> nyambayar@travelx.mn</p>
+              <p><span class="signature-label">И-мэйл:</span> {manager_email}</p>
               <p><span class="signature-label"></span> info@travelx.mn</p>
               <p><span class="signature-label">Вэбсайт:</span> www.travelx.mn</p>
               <p><span class="signature-label">Хаяг:</span> Улаанбаатар хот, Хан-Уул дүүрэг,</p>

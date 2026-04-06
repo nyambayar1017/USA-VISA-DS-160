@@ -172,6 +172,8 @@ const initContractForm = () => {
   const managerSelect = qs("#manager-select");
   const managerLastInput = form.querySelector("input[name='managerLastName']");
   const managerFirstInput = form.querySelector("input[name='managerFirstName']");
+  const managerEmailInput = form.querySelector("input[name='managerEmail']");
+  const managerPhoneInput = form.querySelector("input[name='managerPhone']");
 
   if (!panel || !toggle || !countSetup || !continueButton || !form) return;
 
@@ -259,7 +261,9 @@ const initContractForm = () => {
             const label = normalizeTextValue(entry.fullName || entry.email || "");
             const lastName = normalizeTextValue(entry.contractLastName || "");
             const firstName = normalizeTextValue(entry.contractFirstName || "");
-            return `<option value="${label}" data-last-name="${lastName}" data-first-name="${firstName}">${label}</option>`;
+            const contractEmail = normalizeTextValue(entry.contractEmail || "");
+            const contractPhone = normalizeTextValue(entry.contractPhone || "");
+            return `<option value="${label}" data-last-name="${lastName}" data-first-name="${firstName}" data-email="${contractEmail}" data-phone="${contractPhone}">${label}</option>`;
           })
           .join("");
       if (entries.length === 1) {
@@ -274,11 +278,17 @@ const initContractForm = () => {
     const value = managerSelect.value || "";
     const contractLastName = normalizeTextValue(selectedOption?.dataset.lastName || "");
     const contractFirstName = normalizeTextValue(selectedOption?.dataset.firstName || "");
+    const contractEmail = normalizeTextValue(selectedOption?.dataset.email || "");
+    const contractPhone = normalizeTextValue(selectedOption?.dataset.phone || "");
     if (!value) {
       if (managerLastInput) managerLastInput.value = "";
       if (managerFirstInput) managerFirstInput.value = "";
+      if (managerEmailInput) managerEmailInput.value = "";
+      if (managerPhoneInput) managerPhoneInput.value = "";
       return;
     }
+    if (managerEmailInput) managerEmailInput.value = contractEmail;
+    if (managerPhoneInput) managerPhoneInput.value = contractPhone;
     if (contractLastName || contractFirstName) {
       if (managerLastInput) managerLastInput.value = contractLastName;
       if (managerFirstInput) managerFirstInput.value = contractFirstName;
