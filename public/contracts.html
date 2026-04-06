@@ -217,11 +217,36 @@
                 </label>
                 <label>
                   Урьдчилгаа төлбөр
-                  <input name="depositAmount" value="0" required />
+                  <select name="depositPercent">
+                    <option value="10">10%</option>
+                    <option value="20">20%</option>
+                    <option value="30" selected>30%</option>
+                    <option value="40">40%</option>
+                    <option value="50">50%</option>
+                    <option value="100">100%</option>
+                  </select>
+                </label>
+                <label>
+                  Урьдчилгаа төлбөрийн дүн
+                  <input name="depositAmount" value="0" readonly required />
+                </label>
+                <label>
+                  Үлдэгдэл төлбөр
+                  <input name="balanceAmountDisplay" value="0" readonly />
                 </label>
                 <label>
                   Урьдчилгаа төлбөр төлөх огноо
                   <input name="depositDueDate" type="date" required />
+                </label>
+                <label>
+                  Үлдэгдэл төлбөр төлөх нөхцөл
+                  <select name="balanceDuePreset">
+                    <option value="30">Аялаас 30 хоногийн өмнө</option>
+                    <option value="20">Аялаас 20 хоногийн өмнө</option>
+                    <option value="15">Аялаас 15 хоногийн өмнө</option>
+                    <option value="10">Аялаас 10 хоногийн өмнө</option>
+                    <option value="7" selected>Аялаас 7 хоногийн өмнө</option>
+                  </select>
                 </label>
                 <label>
                   Үлдэгдэл төлбөр төлөх огноо
@@ -262,6 +287,6 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/contracts.js?v=workspace-72"></script>
+    <script src="/contracts.js?v=workspace-74"></script>
   </body>
 </html>

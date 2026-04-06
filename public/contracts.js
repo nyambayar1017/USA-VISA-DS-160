@@ -337,6 +337,7 @@ const initContractForm = () => {
     if (dateInput && !dateInput.value) {
       dateInput.value = new Date().toISOString().split("T")[0];
     }
+    updateDepositDueDate();
     openStepOne();
   });
 
@@ -439,9 +440,16 @@ const initContractForm = () => {
 
   const tripStartInput = form.querySelector("input[name='tripStartDate']");
   const tripEndInput = form.querySelector("input[name='tripEndDate']");
+  const contractDateInput = form.querySelector("input[name='contractDate']");
   const durationInput = form.querySelector("input[name='tripDuration']");
   const travelerInput = form.querySelector("input[name='travelerCount']");
   const totalPriceInput = form.querySelector("input[name='totalPrice']");
+  const depositPercentInput = form.querySelector("select[name='depositPercent']");
+  const depositAmountInput = form.querySelector("input[name='depositAmount']");
+  const balanceAmountDisplayInput = form.querySelector("input[name='balanceAmountDisplay']");
+  const depositDueDateInput = form.querySelector("input[name='depositDueDate']");
+  const balanceDuePresetInput = form.querySelector("select[name='balanceDuePreset']");
+  const balanceDueDateInput = form.querySelector("input[name='balanceDueDate']");
   const countInputs = {
     adult: form.querySelector("input[name='adultCount']"),
     child: form.querySelector("input[name='childCount']"),
@@ -489,6 +497,40 @@ const initContractForm = () => {
     if (!durationInput) return;
     const value = formatDuration(tripStartInput?.value, tripEndInput?.value);
     if (value) durationInput.value = value;
+  };
+
+  const syncTripEndToStart = () => {
+    if (!tripStartInput || !tripEndInput || !tripStartInput.value) return;
+    if (!tripEndInput.value || tripEndInput.value < tripStartInput.value) {
+      tripEndInput.value = tripStartInput.value;
+    }
+  };
+
+  const formatDateInputValue = (date) => {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const shiftDateByDays = (value, days) => {
+    const parsed = parseDate(value);
+    if (!parsed) return "";
+    parsed.setUTCDate(parsed.getUTCDate() - days);
+    return formatDateInputValue(parsed);
+  };
+
+  const updateDepositDueDate = () => {
+    if (!contractDateInput || !depositDueDateInput) return;
+    if (!contractDateInput.value) return;
+    depositDueDateInput.value = contractDateInput.value;
+  };
+
+  const updateBalanceDueDate = () => {
+    if (!tripStartInput || !balanceDuePresetInput || !balanceDueDateInput) return;
+    const days = normalizeNumber(balanceDuePresetInput.value);
+    if (!tripStartInput.value || !days) return;
+    balanceDueDateInput.value = shiftDateByDays(tripStartInput.value, days);
   };
 
   const updateTravelerCount = () => {
@@ -557,6 +599,11 @@ const initContractForm = () => {
       customCount * customPrice;
 
     totalPriceInput.value = formatMoney(total);
+    const depositPercent = normalizeNumber(depositPercentInput?.value || 0);
+    const depositAmount = Math.round((total * depositPercent) / 100);
+    const balanceAmount = Math.max(total - depositAmount, 0);
+    if (depositAmountInput) depositAmountInput.value = formatMoney(depositAmount);
+    if (balanceAmountDisplayInput) balanceAmountDisplayInput.value = formatMoney(balanceAmount);
   };
 
   const syncCountStepToForm = () => {
@@ -577,8 +624,8 @@ const initContractForm = () => {
       if (!value || value === "-") input.value = "0";
     });
     if (totalPriceInput && !normalizeTextValue(totalPriceInput.value)) totalPriceInput.value = "0";
-    const depositInput = form.querySelector("input[name='depositAmount']");
-    if (depositInput && !normalizeTextValue(depositInput.value)) depositInput.value = "0";
+    if (depositAmountInput && !normalizeTextValue(depositAmountInput.value)) depositAmountInput.value = "0";
+    if (balanceAmountDisplayInput && !normalizeTextValue(balanceAmountDisplayInput.value)) balanceAmountDisplayInput.value = "0";
   };
 
   continueButton.addEventListener("click", () => {
@@ -589,8 +636,15 @@ const initContractForm = () => {
     });
   });
 
-  tripStartInput?.addEventListener("change", updateDuration);
+  tripStartInput?.addEventListener("change", () => {
+    syncTripEndToStart();
+    updateDuration();
+    updateBalanceDueDate();
+  });
   tripEndInput?.addEventListener("change", updateDuration);
+  contractDateInput?.addEventListener("change", updateDepositDueDate);
+  depositPercentInput?.addEventListener("change", updateTotalPrice);
+  balanceDuePresetInput?.addEventListener("change", updateBalanceDueDate);
   visibleCountInputs.forEach((input) =>
     input.addEventListener("input", () => {
       updateTravelerCount();
@@ -608,6 +662,9 @@ const initContractForm = () => {
   updateTravelerCount();
   updatePriceVisibility();
   updateTotalPrice();
+  syncTripEndToStart();
+  updateDepositDueDate();
+  updateBalanceDueDate();
   loadManagers();
 
   const filterInputs = [
@@ -649,6 +706,22 @@ const initContractForm = () => {
     if (setupCounts.custom) setupCounts.custom.value = data.customCount || 0;
     form.elements.managerSignaturePath.value = data.managerSignaturePath || "";
     form.elements.managerSelect.value = getCreatorName(contract) || "";
+    if (depositPercentInput) {
+      const totalRaw = normalizeNumber(data.totalPrice || 0);
+      const depositRaw = normalizeNumber(data.depositAmount || 0);
+      const derivedPercent = totalRaw > 0 ? Math.round((depositRaw / totalRaw) * 100) : 30;
+      const allowed = ["10", "20", "30", "40", "50", "100"];
+      depositPercentInput.value = allowed.includes(String(derivedPercent)) ? String(derivedPercent) : "30";
+    }
+    if (balanceDuePresetInput && data.tripStartDate && data.balanceDueDate) {
+      const startDate = parseDate(data.tripStartDate);
+      const balanceDate = parseDate(data.balanceDueDate);
+      if (startDate && balanceDate) {
+        const diffDays = Math.round((startDate - balanceDate) / (1000 * 60 * 60 * 24));
+        const allowedDiffs = ["30", "20", "15", "10", "7"];
+        balanceDuePresetInput.value = allowedDiffs.includes(String(diffDays)) ? String(diffDays) : "7";
+      }
+    }
     syncCountStepToForm();
     updateTravelerCount();
     updatePriceVisibility();
