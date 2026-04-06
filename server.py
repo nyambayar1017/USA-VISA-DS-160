@@ -1624,10 +1624,16 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         --paper: #ffffff;
         --accent: #1d2b4f;
         --muted: #6e645f;
+        --page-width: 210mm;
+        --page-height: 297mm;
+        --page-top: 2cm;
+        --page-right: 1.5cm;
+        --page-bottom: 2cm;
+        --page-left: 3cm;
       }}
       @page {{
         size: A4;
-        margin: 2cm 1.5cm 2cm 3cm;
+        margin: 0;
       }}
       * {{ box-sizing: border-box; }}
       body {{
@@ -1661,9 +1667,10 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         background: #2f4858;
       }}
       .page {{
-        width: min(940px, calc(100vw - 32px));
+        width: var(--page-width);
+        min-height: var(--page-height);
         margin: 24px auto 56px;
-        padding: 2cm 1.5cm 2cm 3cm;
+        padding: var(--page-top) var(--page-right) var(--page-bottom) var(--page-left);
         background: var(--paper);
         box-shadow: 0 20px 60px rgba(71, 53, 43, 0.12);
       }}
@@ -1859,9 +1866,10 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         body {{ background: white; }}
         .toolbar {{ display: none; }}
         .page {{
-          width: auto;
+          width: var(--page-width);
+          min-height: var(--page-height);
           margin: 0;
-          padding: 2cm 1.5cm 2cm 3cm;
+          padding: var(--page-top) var(--page-right) var(--page-bottom) var(--page-left);
           box-shadow: none;
         }}
       }}
