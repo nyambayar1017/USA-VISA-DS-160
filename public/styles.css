@@ -1360,6 +1360,33 @@ time {
   align-items: center;
 }
 
+.contract-filter-grid {
+  margin: 18px 0 14px;
+}
+
+.contract-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.contract-pagination .secondary-button.is-active {
+  background: #17365f;
+  color: #fff;
+}
+
+.success-button {
+  background: #1f8f52;
+  color: #fff;
+}
+
+.danger-button {
+  background: #b63a3a;
+  color: #fff;
+}
+
 .contract-summary {
   margin-bottom: 20px;
 }
@@ -1465,6 +1492,24 @@ time {
   .contract-client-grid,
   .field-grid.contract-client-grid {
     grid-template-columns: 1fr;
+  }
+
+  .contract-sign-card {
+    max-width: 100%;
+    margin: 12px auto;
+  }
+
+  .contract-preview {
+    margin-inline: -4px;
+  }
+
+  .contract-preview iframe {
+    height: 88vh;
+  }
+
+  .summary-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

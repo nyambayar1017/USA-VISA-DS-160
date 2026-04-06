@@ -472,7 +472,6 @@ def validate_user_account(payload):
 def create_session(user_id):
     sessions = read_sessions()
     token = secrets.token_urlsafe(32)
-    sessions = [item for item in sessions if item.get("userId") != user_id]
     sessions.insert(0, {
         "token": token,
         "userId": user_id,
@@ -3910,6 +3909,8 @@ def handle_update_contract(environ, start_response, contract_id):
     contracts = read_contracts()
     for idx, contract in enumerate(contracts):
         if contract.get("id") == contract_id:
+            if contract.get("status") == "signed":
+                return json_response(start_response, "400 Bad Request", {"error": "Signed contracts cannot be edited"})
             data = build_contract_data(payload)
             error = validate_contract_data(data)
             if error:

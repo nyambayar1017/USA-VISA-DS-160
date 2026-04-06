@@ -1,7 +1,11 @@
 const CONTRACTS_ENDPOINT = "/api/contracts";
 const CONTRACTS_POLL_INTERVAL_MS = 10000;
+const CONTRACTS_PAGE_SIZE = 15;
 let contractsPollHandle = null;
 let latestContractsSignature = "";
+let allContracts = [];
+let currentPage = 1;
+let editingContractId = null;
 
 const qs = (selector, root = document) => root.querySelector(selector);
 const qsa = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -74,6 +78,52 @@ const apiRequest = async (url, options = {}) => {
   return data;
 };
 
+const getCreatorName = (entry) =>
+  normalizeTextValue(entry?.createdBy?.name || entry?.updatedBy?.name || "");
+
+const getFilteredContracts = () => {
+  const manager = normalizeTextValue(qs("#contract-filter-manager")?.value || "");
+  const destination = normalizeTextValue(qs("#contract-filter-destination")?.value || "").toLowerCase();
+  const dateFrom = normalizeTextValue(qs("#contract-filter-date-from")?.value || "");
+  const dateTo = normalizeTextValue(qs("#contract-filter-date-to")?.value || "");
+
+  return allContracts.filter((entry) => {
+    const data = entry.data || {};
+    const createdBy = getCreatorName(entry);
+    if (manager && createdBy !== manager) return false;
+    if (destination && !String(data.destination || "").toLowerCase().includes(destination)) return false;
+    const contractDate = normalizeTextValue(data.contractDate || "");
+    if (dateFrom && contractDate && contractDate < dateFrom) return false;
+    if (dateTo && contractDate && contractDate > dateTo) return false;
+    return true;
+  });
+};
+
+const renderPagination = (contracts) => {
+  const container = qs("#contract-pagination");
+  if (!container) return;
+  const totalPages = Math.max(1, Math.ceil(contracts.length / CONTRACTS_PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (totalPages <= 1) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const buttons = [];
+  for (let page = 1; page <= totalPages; page += 1) {
+    buttons.push(
+      `<button type="button" class="secondary-button ${page === currentPage ? "is-active" : ""}" data-contract-page="${page}">${page}</button>`
+    );
+  }
+  container.innerHTML = buttons.join("");
+  qsa("[data-contract-page]", container).forEach((button) => {
+    button.addEventListener("click", () => {
+      currentPage = Number(button.dataset.contractPage || "1");
+      renderContractsView();
+    });
+  });
+};
+
 const renderContractsTable = (contracts) => {
   const container = qs("#contract-list");
   if (!container) return;
@@ -91,6 +141,7 @@ const renderContractsTable = (contracts) => {
             <th>#</th>
             <th>Serial</th>
             <th>Tourist</th>
+            <th>Manager</th>
             <th>Destination</th>
             <th>Contract Date</th>
             <th>Status</th>
@@ -103,16 +154,19 @@ const renderContractsTable = (contracts) => {
             .map((entry, index) => {
               const data = entry.data || {};
               const tourist = `${data.touristLastName || ""} ${data.touristFirstName || ""}`.trim();
+              const creatorName = getCreatorName(entry);
               const status = entry.status || "pending";
               const statusLabel = status === "signed" ? "Signed" : "Pending";
               const statusClass = status === "signed" ? "status-confirmed" : "status-pending";
               const pdfReady = entry.pdfPath && entry.pdfPath.endsWith(".pdf");
               const shareLink = `${location.origin}/contract/${entry.id}`;
+              const signed = status === "signed";
               return `
                 <tr>
-                  <td>${index + 1}</td>
+                  <td>${(currentPage - 1) * CONTRACTS_PAGE_SIZE + index + 1}</td>
                   <td>${data.contractSerial || "-"}</td>
                   <td>${tourist || "-"}</td>
+                  <td>${creatorName || "-"}</td>
                   <td>${data.destination || "-"}</td>
                   <td>${formatDate(data.contractDate)}</td>
                   <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
@@ -120,10 +174,11 @@ const renderContractsTable = (contracts) => {
                   <td>
                     <div class="contract-actions">
                       <a class="secondary-button" href="/api/contracts/${entry.id}/document?mode=view" target="_blank">View</a>
+                      <button class="secondary-button" data-edit-id="${entry.id}" ${signed ? "disabled" : ""}>Edit</button>
                       <a class="secondary-button" href="${entry.docxPath}" download>Word</a>
-                      ${pdfReady ? `<a class="secondary-button" href="/api/contracts/${entry.id}/document?mode=download" download>PDF</a>` : `<span class="muted">PDF pending</span>`}
+                      ${pdfReady ? `<a class="secondary-button ${signed ? "success-button" : ""}" href="/api/contracts/${entry.id}/document?mode=download" download>${signed ? "Signed PDF" : "PDF"}</a>` : `<span class="muted">PDF pending</span>`}
                       <button class="secondary-button" data-copy-link="${shareLink}">Copy link</button>
-                      <button class="table-action danger compact" data-delete-id="${entry.id}">Delete</button>
+                      <button class="secondary-button danger-button" data-delete-id="${entry.id}">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -150,6 +205,14 @@ const renderContractsTable = (contracts) => {
       loadContracts();
     });
   });
+
+  qsa("[data-edit-id]", container).forEach((button) => {
+    button.addEventListener("click", () => {
+      const contract = allContracts.find((entry) => entry.id === button.dataset.editId);
+      if (!contract || contract.status === "signed") return;
+      window.openContractEditor?.(contract);
+    });
+  });
 };
 
 const getContractsSignature = (contracts) =>
@@ -172,7 +235,9 @@ const loadContracts = async ({ silent = false } = {}) => {
       return;
     }
     latestContractsSignature = nextSignature;
-    renderContractsTable(contracts);
+    allContracts = contracts;
+    refreshManagerFilterOptions();
+    renderContractsView();
   } catch (error) {
     if (silent) return;
     const container = qs("#contract-list");
@@ -180,6 +245,23 @@ const loadContracts = async ({ silent = false } = {}) => {
       container.innerHTML = `<div class="empty-state">Failed to load contracts: ${error.message}</div>`;
     }
   }
+};
+
+const renderContractsView = () => {
+  const filteredContracts = getFilteredContracts();
+  const start = (currentPage - 1) * CONTRACTS_PAGE_SIZE;
+  const pageContracts = filteredContracts.slice(start, start + CONTRACTS_PAGE_SIZE);
+  renderContractsTable(pageContracts);
+  renderPagination(filteredContracts);
+};
+
+const refreshManagerFilterOptions = () => {
+  const select = qs("#contract-filter-manager");
+  if (!select) return;
+  const currentValue = select.value;
+  const names = Array.from(new Set(allContracts.map((entry) => getCreatorName(entry)).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  select.innerHTML = `<option value="">Бүгд</option>${names.map((name) => `<option value="${name}">${name}</option>`).join("")}`;
+  select.value = names.includes(currentValue) ? currentValue : "";
 };
 
 const startContractsLiveRefresh = () => {
@@ -214,6 +296,8 @@ const initContractForm = () => {
   const managerEmailInput = form.querySelector("input[name='managerEmail']");
   const managerPhoneInput = form.querySelector("input[name='managerPhone']");
   const managerSignatureInput = form.querySelector("input[name='managerSignaturePath']");
+  const formTitle = panel.querySelector(".camp-modal-header h2");
+  const formSubmitButton = form.querySelector("button[type='submit']");
 
   if (!panel || !toggle || !countSetup || !continueButton || !form) return;
 
@@ -240,6 +324,9 @@ const initContractForm = () => {
   const closePanel = () => {
     panel.classList.add("is-hidden");
     panel.setAttribute("hidden", "");
+    editingContractId = null;
+    if (formTitle) formTitle.textContent = "Contract details";
+    if (formSubmitButton) formSubmitButton.textContent = "Save contract";
     openStepOne();
   };
 
@@ -274,8 +361,10 @@ const initContractForm = () => {
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData.entries());
     try {
-      await apiRequest(CONTRACTS_ENDPOINT, { method: "POST", body: JSON.stringify(payload) });
-      statusEl.textContent = "Saved successfully";
+      const targetUrl = editingContractId ? `${CONTRACTS_ENDPOINT}/${editingContractId}` : CONTRACTS_ENDPOINT;
+      const method = editingContractId ? "POST" : "POST";
+      await apiRequest(targetUrl, { method, body: JSON.stringify(payload) });
+      statusEl.textContent = editingContractId ? "Updated successfully" : "Saved successfully";
       form.reset();
       closePanel();
       loadContracts();
@@ -520,6 +609,53 @@ const initContractForm = () => {
   updatePriceVisibility();
   updateTotalPrice();
   loadManagers();
+
+  const filterInputs = [
+    qs("#contract-filter-manager"),
+    qs("#contract-filter-destination"),
+    qs("#contract-filter-date-from"),
+    qs("#contract-filter-date-to"),
+  ].filter(Boolean);
+  filterInputs.forEach((input) => {
+    input.addEventListener("input", () => {
+      currentPage = 1;
+      renderContractsView();
+    });
+    input.addEventListener("change", () => {
+      currentPage = 1;
+      renderContractsView();
+    });
+  });
+
+  const openEditorWithData = (contract) => {
+    const data = contract.data || {};
+    editingContractId = contract.id;
+    panel.classList.remove("is-hidden");
+    panel.removeAttribute("hidden");
+    openStepTwo();
+    if (formTitle) formTitle.textContent = "Edit contract";
+    if (formSubmitButton) formSubmitButton.textContent = "Update contract";
+    Object.entries(data).forEach(([key, value]) => {
+      const element = form.elements[key];
+      if (element) {
+        element.value = value ?? "";
+      }
+    });
+    if (setupCounts.adult) setupCounts.adult.value = data.adultCount || 0;
+    if (setupCounts.child) setupCounts.child.value = data.childCount || 0;
+    if (setupCounts.infant) setupCounts.infant.value = data.infantCount || 0;
+    if (setupCounts.ticketOnly) setupCounts.ticketOnly.value = data.ticketOnlyCount || 0;
+    if (setupCounts.landOnly) setupCounts.landOnly.value = data.landOnlyCount || 0;
+    if (setupCounts.custom) setupCounts.custom.value = data.customCount || 0;
+    form.elements.managerSignaturePath.value = data.managerSignaturePath || "";
+    form.elements.managerSelect.value = getCreatorName(contract) || "";
+    syncCountStepToForm();
+    updateTravelerCount();
+    updatePriceVisibility();
+    updateTotalPrice();
+  };
+
+  window.openContractEditor = openEditorWithData;
 };
 
 const initSignatureCanvas = (canvas) => {
@@ -620,9 +756,9 @@ const initContractSignPage = async () => {
         <div>
           <strong>${info.touristLastName || ""} ${info.touristFirstName || ""}</strong>
           <p>${info.destination || ""}</p>
-          <p>Contract No: ${info.contractSerial || "-"}</p>
+          <p>Гэрээний дугаар: ${info.contractSerial || "-"}</p>
         </div>
-        <a class="secondary-button" href="/api/contracts/${contractId}/document?mode=view" target="_blank">View contract</a>
+        <a class="secondary-button" href="/api/contracts/${contractId}/document?mode=view" target="_blank">Гэрээ харах</a>
       </div>
     `;
     const clientPhoneInput = qs("#signer-client-phone");
@@ -637,7 +773,7 @@ const initContractSignPage = async () => {
       previewFrame.src = `/api/contracts/${contractId}/document?mode=view`;
     }
   } catch (error) {
-    summaryEl.innerHTML = `<div class="empty-state">Unable to load contract.</div>`;
+    summaryEl.innerHTML = `<div class="empty-state">Гэрээ ачаалж чадсангүй.</div>`;
   }
 
   qs("#signature-clear")?.addEventListener("click", () => {
@@ -645,7 +781,7 @@ const initContractSignPage = async () => {
   });
 
   qs("#signature-submit")?.addEventListener("click", async () => {
-    statusEl.textContent = "Saving signature...";
+    statusEl.textContent = "Гарын үсгийг хадгалж байна...";
     const clientPhone = normalizeTextValue(qs("#signer-client-phone")?.value || "");
     const emergencyName = normalizeTextValue(qs("#signer-emergency-name")?.value || "");
     const emergencyPhone = normalizeTextValue(qs("#signer-emergency-phone")?.value || "");
@@ -676,9 +812,9 @@ const initContractSignPage = async () => {
           accepted,
         }),
       });
-      statusEl.textContent = "Signed successfully.";
+      statusEl.textContent = "Гарын үсэг амжилттай хадгалагдлаа.";
       if (result.contract?.pdfPath) {
-        downloadEl.innerHTML = `<a class="secondary-button" href="${result.contract.pdfPath}" download>Download PDF</a>`;
+        downloadEl.innerHTML = `<a class="secondary-button success-button" href="${result.contract.pdfPath}" download>Гарын үсэгтэй PDF татах</a>`;
       }
     } catch (error) {
       statusEl.textContent = error.message || "Could not confirm signature and generate PDF.";

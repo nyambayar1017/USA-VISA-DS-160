@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-65" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-66" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -233,11 +233,33 @@
             </div>
           </div>
 
+          <div class="field-grid contract-filter-grid">
+            <label>
+              Менежер
+              <select id="contract-filter-manager">
+                <option value="">Бүгд</option>
+              </select>
+            </label>
+            <label>
+              Чиглэл
+              <input id="contract-filter-destination" placeholder="Солонгос" />
+            </label>
+            <label>
+              Эхлэх огноо
+              <input id="contract-filter-date-from" type="date" />
+            </label>
+            <label>
+              Дуусах огноо
+              <input id="contract-filter-date-to" type="date" />
+            </label>
+          </div>
+
           <div id="contract-list" class="submission-list"></div>
+          <div id="contract-pagination" class="contract-pagination"></div>
         </section>
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-62"></script>
-    <script src="/contracts.js?v=workspace-69"></script>
+    <script src="/contracts.js?v=workspace-71"></script>
   </body>
 </html>
