@@ -1759,7 +1759,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         flex-direction: column;
       }}
       .signature-prelude {{
-        min-height: 126px;
+        min-height: 88px;
       }}
       .signature-title {{
         margin-bottom: 12px;
@@ -1783,9 +1783,19 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         max-width: 360px;
         height: 220px;
         margin: 0 0 10px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.45);
         display: flex;
         align-items: flex-end;
+      }}
+      .signature-dash-line {{
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        text-align: center;
+        font-size: 12pt;
+        line-height: 1;
+        color: rgba(0, 0, 0, 0.65);
+        letter-spacing: 0.4px;
       }}
       .signature-stack {{
         position: relative;
@@ -1829,7 +1839,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .signature-name {{
         font-size: 12pt;
         font-weight: 700;
-        margin-bottom: 6px;
+        margin: 0 0 6px;
       }}
       .signature-subtitle {{
         margin: 0 0 4px;
@@ -1885,8 +1895,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             <div class="signature-prelude">
               <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
               <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
-              <p class="signature-subtitle">Аяллын менежер</p>
-              <p class="signature-name">{manager_display_name}</p>
             </div>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
@@ -1894,8 +1902,11 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
                 <img class="stamp-image" src="{asset_src('dtx-stamp-cropped.png')}" alt="DTX stamp" />
                 <img class="company-signature-image" src="{asset_src('nyambayar-signature-cropped.png')}" alt="Nyambayar signature" />
               </div>
+              <div class="signature-dash-line">-------------------</div>
             </div>
             <div class="signature-contact">
+              <p class="signature-subtitle">Аяллын менежер</p>
+              <p class="signature-name">{manager_display_name}</p>
               <p><span class="signature-label">Гар утас:</span> {manager_phone}</p>
               <p><span class="signature-label">Утас:</span> 72007722</p>
               <p><span class="signature-label">И-мэйл:</span> {manager_email}</p>
@@ -1910,13 +1921,14 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             <div class="signature-prelude">
               <div class="signature-title">Жуулчныг төлөөлж:</div>
               <p class="signature-subtitle">Аялагч:</p>
-              <p class="signature-name">{customer_name}</p>
             </div>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
               <div class="signer-signature-space">{signature_markup}</div>
+              <div class="signature-dash-line">-------------------</div>
             </div>
             <div class="signer-contact">
+              <p class="signature-name">{customer_name}</p>
               <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
               <p>Яаралтай үед холбогдох дугаар: {html.escape(data.get("emergencyContactPhone") or "")}</p>
               <p>Таны хэн болох: {html.escape(data.get("emergencyContactRelation") or "")}</p>
