@@ -1781,11 +1781,11 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         position: relative;
         width: 100%;
         max-width: 360px;
-        height: 168px;
+        height: 132px;
         margin: 0 0 10px;
         display: flex;
         align-items: flex-end;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.28);
         overflow: visible;
       }}
       .signature-stack {{
@@ -1803,19 +1803,23 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         object-fit: contain;
       }}
       .stamp-image {{
-        left: -18px;
-        top: -42px;
-        width: 282px;
-        height: 282px;
+        left: -8px;
+        top: -18px;
+        width: 300px;
+        height: 300px;
+        z-index: 3;
       }}
       .company-signature-image {{
-        left: 6px;
-        top: 20px;
-        width: 210px;
-        height: 88px;
+        left: 22px;
+        top: 12px;
+        width: 200px;
+        height: 82px;
+        z-index: 2;
       }}
       .signature-contact {{
-        margin-top: 0;
+        margin-top: -34px;
+        position: relative;
+        z-index: 1;
       }}
       .signature-contact p,
       .signer-contact p {{
