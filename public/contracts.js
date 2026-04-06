@@ -1,4 +1,7 @@
 const CONTRACTS_ENDPOINT = "/api/contracts";
+const CONTRACTS_POLL_INTERVAL_MS = 10000;
+let contractsPollHandle = null;
+let latestContractsSignature = "";
 
 const qs = (selector, root = document) => root.querySelector(selector);
 const qsa = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -149,17 +152,53 @@ const renderContractsTable = (contracts) => {
   });
 };
 
-const loadContracts = async () => {
+const getContractsSignature = (contracts) =>
+  JSON.stringify(
+    (contracts || []).map((entry) => ({
+      id: entry.id,
+      updatedAt: entry.updatedAt || "",
+      signedAt: entry.signedAt || "",
+      status: entry.status || "",
+      pdfPath: entry.pdfPath || "",
+    }))
+  );
+
+const loadContracts = async ({ silent = false } = {}) => {
   try {
     const data = await apiRequest(CONTRACTS_ENDPOINT);
     const contracts = Array.isArray(data) ? data : data.contracts || data.entries || [];
+    const nextSignature = getContractsSignature(contracts);
+    if (silent && nextSignature === latestContractsSignature) {
+      return;
+    }
+    latestContractsSignature = nextSignature;
     renderContractsTable(contracts);
   } catch (error) {
+    if (silent) return;
     const container = qs("#contract-list");
     if (container) {
       container.innerHTML = `<div class="empty-state">Failed to load contracts: ${error.message}</div>`;
     }
   }
+};
+
+const startContractsLiveRefresh = () => {
+  if (contractsPollHandle || location.pathname !== "/contracts") return;
+
+  contractsPollHandle = window.setInterval(() => {
+    if (document.hidden) return;
+    loadContracts({ silent: true });
+  }, CONTRACTS_POLL_INTERVAL_MS);
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      loadContracts({ silent: true });
+    }
+  });
+
+  window.addEventListener("focus", () => {
+    loadContracts({ silent: true });
+  });
 };
 
 const initContractForm = () => {
@@ -651,6 +690,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (location.pathname === "/contracts") {
     initContractForm();
     loadContracts();
+    startContractsLiveRefresh();
   }
   if (location.pathname.startsWith("/contract/")) {
     initContractSignPage();
