@@ -1781,11 +1781,12 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         position: relative;
         width: 100%;
         max-width: 360px;
-        height: 220px;
+        height: 168px;
         margin: 0 0 10px;
         display: flex;
         align-items: flex-end;
         border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+        overflow: visible;
       }}
       .signature-stack {{
         position: relative;
@@ -1802,16 +1803,16 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         object-fit: contain;
       }}
       .stamp-image {{
-        left: -6px;
-        top: -2px;
-        width: 246px;
-        height: 246px;
+        left: -18px;
+        top: -42px;
+        width: 282px;
+        height: 282px;
       }}
       .company-signature-image {{
-        left: 20px;
-        top: 54px;
-        width: 190px;
-        height: 78px;
+        left: 6px;
+        top: 20px;
+        width: 210px;
+        height: 88px;
       }}
       .signature-contact {{
         margin-top: 0;
@@ -1894,8 +1895,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
               </div>
             </div>
             <div class="signature-contact">
-              <p class="signature-subtitle">Аяллын менежер</p>
               <p class="signature-name">{manager_display_name}</p>
+              <p class="signature-subtitle">Аяллын менежер</p>
               <p><span class="signature-label">Гар утас:</span> {manager_phone}</p>
               <p><span class="signature-label">Утас:</span> 72007722</p>
               <p><span class="signature-label">И-мэйл:</span> {manager_email}</p>
@@ -1915,8 +1916,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
               <div class="signer-signature-space">{signature_markup}</div>
             </div>
             <div class="signer-contact">
-              <p class="signature-subtitle">Аялагч</p>
               <p class="signature-name">{customer_name}</p>
+              <p class="signature-subtitle">Аялагч</p>
               <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
               <p>Яаралтай үед холбогдох дугаар: {html.escape(data.get("emergencyContactPhone") or "")}</p>
               <p>Таны хэн болох: {html.escape(data.get("emergencyContactRelation") or "")}</p>
