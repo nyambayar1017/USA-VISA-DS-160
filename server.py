@@ -1107,6 +1107,8 @@ def build_traveler_representation_phrase(data):
         return f"/нийт {total_count} жуулчинг/"
     if not parts:
         return "/жуулчинг/"
+    if adult_count and not child_count and not infant_count:
+        return f"/нийт {total_count} жуулчинг/"
     return f"/{', '.join(parts)} нийт {total_count} жуулчинг/"
 
 
