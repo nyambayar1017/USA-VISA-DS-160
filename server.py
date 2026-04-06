@@ -2172,7 +2172,7 @@ def save_manager_signature_image(data_url, user_id):
         raw = base64.b64decode(encoded)
     except Exception:
         return None
-    filename = f"manager-signature-{user_id}.png"
+    filename = f"manager-signature-{user_id}-{uuid4().hex[:8]}.png"
     path = GENERATED_DIR / filename
     path.write_bytes(raw)
     return f"/generated/{filename}"

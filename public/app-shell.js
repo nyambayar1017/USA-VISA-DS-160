@@ -8,6 +8,7 @@ function initProfileSignatureCanvas(canvas, existingSignatureUrl = "") {
   const ctx = canvas.getContext("2d");
   let drawing = false;
   let hasInk = false;
+  let hasExistingImage = false;
   const baseWidth = 640;
   const baseHeight = 180;
   const pixelRatio = Math.max(window.devicePixelRatio || 1, 1);
@@ -32,6 +33,7 @@ function initProfileSignatureCanvas(canvas, existingSignatureUrl = "") {
     ctx.setLineDash([]);
     ctx.strokeStyle = "#1b2a6b";
     hasInk = false;
+    hasExistingImage = false;
   };
 
   const loadExisting = (url) => {
@@ -40,6 +42,7 @@ function initProfileSignatureCanvas(canvas, existingSignatureUrl = "") {
     const image = new Image();
     image.onload = () => {
       ctx.drawImage(image, 20, 20, baseWidth - 40, 110);
+      hasExistingImage = true;
     };
     image.src = url;
   };
@@ -58,6 +61,9 @@ function initProfileSignatureCanvas(canvas, existingSignatureUrl = "") {
 
   const startDraw = (event) => {
     event.preventDefault();
+    if (hasExistingImage && !hasInk) {
+      setupCanvas();
+    }
     drawing = true;
     const pos = getPos(event);
     ctx.beginPath();
