@@ -174,6 +174,7 @@ const initContractForm = () => {
   const managerFirstInput = form.querySelector("input[name='managerFirstName']");
   const managerEmailInput = form.querySelector("input[name='managerEmail']");
   const managerPhoneInput = form.querySelector("input[name='managerPhone']");
+  const managerSignatureInput = form.querySelector("input[name='managerSignaturePath']");
 
   if (!panel || !toggle || !countSetup || !continueButton || !form) return;
 
@@ -263,7 +264,8 @@ const initContractForm = () => {
             const firstName = normalizeTextValue(entry.contractFirstName || "");
             const contractEmail = normalizeTextValue(entry.contractEmail || "");
             const contractPhone = normalizeTextValue(entry.contractPhone || "");
-            return `<option value="${label}" data-last-name="${lastName}" data-first-name="${firstName}" data-email="${contractEmail}" data-phone="${contractPhone}">${label}</option>`;
+            const contractSignaturePath = normalizeTextValue(entry.contractSignaturePath || "");
+            return `<option value="${label}" data-last-name="${lastName}" data-first-name="${firstName}" data-email="${contractEmail}" data-phone="${contractPhone}" data-signature-path="${contractSignaturePath}">${label}</option>`;
           })
           .join("");
       if (entries.length === 1) {
@@ -280,15 +282,18 @@ const initContractForm = () => {
     const contractFirstName = normalizeTextValue(selectedOption?.dataset.firstName || "");
     const contractEmail = normalizeTextValue(selectedOption?.dataset.email || "");
     const contractPhone = normalizeTextValue(selectedOption?.dataset.phone || "");
+    const contractSignaturePath = normalizeTextValue(selectedOption?.dataset.signaturePath || "");
     if (!value) {
       if (managerLastInput) managerLastInput.value = "";
       if (managerFirstInput) managerFirstInput.value = "";
       if (managerEmailInput) managerEmailInput.value = "";
       if (managerPhoneInput) managerPhoneInput.value = "";
+      if (managerSignatureInput) managerSignatureInput.value = "";
       return;
     }
     if (managerEmailInput) managerEmailInput.value = contractEmail;
     if (managerPhoneInput) managerPhoneInput.value = contractPhone;
+    if (managerSignatureInput) managerSignatureInput.value = contractSignaturePath;
     if (contractLastName || contractFirstName) {
       if (managerLastInput) managerLastInput.value = contractLastName;
       if (managerFirstInput) managerFirstInput.value = contractFirstName;

@@ -449,6 +449,7 @@ def build_user_account(payload):
         "contractFirstName": normalize_text(payload.get("contractFirstName")),
         "contractEmail": normalize_text(payload.get("contractEmail")).lower(),
         "contractPhone": normalize_text(payload.get("contractPhone")),
+        "contractSignaturePath": normalize_text(payload.get("contractSignaturePath")),
         "email": normalize_text(payload.get("email")).lower(),
         "passwordHash": hash_password(payload.get("password") or ""),
         "role": "staff",
@@ -595,6 +596,7 @@ def handle_auth_profile_update(environ, start_response):
     contract_first_name = normalize_text(payload.get("contractFirstName"))
     contract_email = normalize_text(payload.get("contractEmail")).lower()
     contract_phone = normalize_text(payload.get("contractPhone"))
+    signature_data = payload.get("contractSignatureData")
     if len(full_name) < 2:
         return json_response(start_response, "400 Bad Request", {"error": "Name must be at least 2 characters"})
     if contract_last_name and len(contract_last_name) < 2:
@@ -608,6 +610,11 @@ def handle_auth_profile_update(environ, start_response):
     for record in users:
         if record.get("id") != user.get("id"):
             continue
+        if signature_data:
+            signature_path = save_manager_signature_image(signature_data, record["id"])
+            if not signature_path:
+                return json_response(start_response, "400 Bad Request", {"error": "Invalid manager signature"})
+            record["contractSignaturePath"] = signature_path
         record["fullName"] = full_name
         record["contractLastName"] = contract_last_name
         record["contractFirstName"] = contract_first_name
@@ -646,6 +653,7 @@ def handle_list_team_members(environ, start_response):
                 "contractFirstName": normalize_text(user.get("contractFirstName")),
                 "contractEmail": normalize_text(user.get("contractEmail")).lower(),
                 "contractPhone": normalize_text(user.get("contractPhone")),
+                "contractSignaturePath": normalize_text(user.get("contractSignaturePath")),
                 "email": normalize_text(user.get("email")),
                 "role": normalize_text(user.get("role")) or "staff",
             }
@@ -681,6 +689,8 @@ def handle_update_user(environ, start_response, user_id):
             user["contractEmail"] = normalize_text(payload.get("contractEmail")).lower()
         if "contractPhone" in payload:
             user["contractPhone"] = normalize_text(payload.get("contractPhone"))
+        if "contractSignaturePath" in payload:
+            user["contractSignaturePath"] = normalize_text(payload.get("contractSignaturePath"))
         if "password" in payload:
             password = str(payload.get("password") or "")
             if len(password) < 6:
@@ -917,6 +927,7 @@ def sanitize_user(user):
         "contractFirstName": user.get("contractFirstName", ""),
         "contractEmail": user.get("contractEmail", ""),
         "contractPhone": user.get("contractPhone", ""),
+        "contractSignaturePath": user.get("contractSignaturePath", ""),
         "role": user.get("role", "staff"),
         "status": user.get("status", "pending"),
         "createdAt": user.get("createdAt"),
@@ -968,6 +979,7 @@ def bootstrap_admin_user():
         "contractFirstName": "",
         "contractEmail": "",
         "contractPhone": "",
+        "contractSignaturePath": "",
         "email": ADMIN_EMAIL,
         "passwordHash": hash_password(ADMIN_PASSWORD),
         "role": "admin",
@@ -1158,6 +1170,7 @@ def build_contract_data(payload):
         "managerFullName": normalize_person_name(manager_full),
         "managerEmail": manager_email,
         "managerPhone": manager_phone,
+        "managerSignaturePath": normalize_text(payload.get("managerSignaturePath")),
         "touristLastName": tourist_last_name,
         "touristFirstName": tourist_first_name,
         "touristRegister": normalize_text(payload.get("touristRegister")),
@@ -1638,6 +1651,15 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             return (PUBLIC_DIR / "assets" / filename).resolve().as_uri()
         return f"/assets/{filename}"
 
+    manager_signature_src = asset_src("nyambayar-signature-cropped.png")
+    manager_signature_path = normalize_text(data.get("managerSignaturePath"))
+    if manager_signature_path:
+        manager_signature_src = manager_signature_path
+        if asset_mode == "file" and manager_signature_path.startswith("/generated/"):
+            manager_file = (GENERATED_DIR / manager_signature_path.replace("/generated/", "", 1)).resolve()
+            if manager_file.exists():
+                manager_signature_src = manager_file.as_uri()
+
     download_href = f"/api/contracts/{contract_id}/document?mode=download" if contract_id else ""
     download_button = (
         f'<a href="{html.escape(download_href)}">Download PDF</a>'
@@ -1960,7 +1982,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             <div class="signature-sign-area">
               <div class="signature-stack">
                 <img class="stamp-image" src="{asset_src('dtx-stamp-cropped.png')}" alt="DTX stamp" />
-                <img class="company-signature-image" src="{asset_src('nyambayar-signature-cropped.png')}" alt="Nyambayar signature" />
+                <img class="company-signature-image" src="{html.escape(manager_signature_src)}" alt="Manager signature" />
               </div>
             </div>
             <div class="signature-contact">
@@ -2114,6 +2136,22 @@ def save_signature_image(data_url, contract_id):
     except Exception:
         return None
     filename = f"contract-signature-{contract_id}.png"
+    path = GENERATED_DIR / filename
+    path.write_bytes(raw)
+    return f"/generated/{filename}"
+
+
+def save_manager_signature_image(data_url, user_id):
+    if not data_url or "base64," not in data_url:
+        return None
+    header, encoded = data_url.split("base64,", 1)
+    if "image/png" not in header:
+        return None
+    try:
+        raw = base64.b64decode(encoded)
+    except Exception:
+        return None
+    filename = f"manager-signature-{user_id}.png"
     path = GENERATED_DIR / filename
     path.write_bytes(raw)
     return f"/generated/{filename}"
