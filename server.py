@@ -1889,7 +1889,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         position: relative;
         width: 100%;
         max-width: 360px;
-        height: 132px;
+        height: 168px;
         margin: 0 0 10px;
         display: flex;
         align-items: flex-end;
@@ -1906,8 +1906,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         object-fit: contain;
       }}
       .tourist-signature-image {{
-        max-width: 240px;
-        max-height: 96px;
+        max-width: 360px;
+        max-height: 144px;
         object-fit: contain;
       }}
       .stamp-image {{
@@ -1920,8 +1920,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .company-signature-image {{
         left: 22px;
         top: 12px;
-        width: 200px;
-        height: 82px;
+        width: 300px;
+        height: 123px;
         z-index: 2;
       }}
       .signature-contact {{
