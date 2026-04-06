@@ -1657,7 +1657,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         src:
           local("Times New Roman"),
           local("Times New Roman Regular"),
-          url("/assets/fonts/times-new-roman.ttf") format("truetype");
+          url("{asset_src('fonts/times-new-roman.ttf')}") format("truetype");
         font-weight: 400;
         font-style: normal;
       }}
@@ -1666,7 +1666,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         src:
           local("Times New Roman Bold"),
           local("Times New Roman"),
-          url("/assets/fonts/times-new-roman-bold.ttf") format("truetype");
+          url("{asset_src('fonts/times-new-roman-bold.ttf')}") format("truetype");
         font-weight: 700;
         font-style: normal;
       }}
@@ -1698,7 +1698,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         background: #f4f2ee;
         color: var(--ink);
         font-family: "TravelXTimes", "Times New Roman", "Liberation Serif", serif;
-        line-height: 1;
+        line-height: 1.5;
       }}
       .toolbar {{
         position: sticky;
@@ -1772,7 +1772,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       p {{
         margin: 0 0 12px;
         font-size: 12pt;
-        line-height: 1;
+        line-height: 1.5;
         text-align: justify;
       }}
       .contract-opening-paragraph {{
@@ -1800,7 +1800,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         border: 1px solid #1d1d1b;
         padding: 8px 10px;
         font-size: 12pt;
-        line-height: 1;
+        line-height: 1.5;
         text-align: center;
       }}
       .signature-section {{
@@ -1840,7 +1840,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .signature-sign-label {{
         margin: 0 0 8px;
         font-size: 12pt;
-        font-weight: 700;
+        font-weight: 400;
       }}
       .signature-sign-area {{
         position: relative;
@@ -1889,22 +1889,22 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .signature-contact p,
       .signer-contact p {{
         margin-bottom: 8px;
-        line-height: 1;
+        line-height: 1.5;
       }}
       .signature-label {{
         display: inline-block;
         min-width: 68px;
-        font-weight: 700;
+        font-weight: 400;
       }}
       .signature-name {{
         font-size: 12pt;
-        font-weight: 700;
+        font-weight: 400;
         margin: 0 0 6px;
       }}
       .signature-subtitle {{
         margin: 0 0 4px;
         font-size: 12pt;
-        font-weight: 700;
+        font-weight: 400;
       }}
       .signer-signature-space {{
         width: 100%;
@@ -1917,7 +1917,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .signature-role {{
         margin-top: 6px;
         font-size: 12pt;
-        font-weight: 700;
+        font-weight: 400;
       }}
       @media print {{
         body {{ background: white; }}
