@@ -382,6 +382,20 @@
             <h2>Camp Payments</h2>
             <p>Internal payment view grouped by trip and camp.</p>
           </div>
+          <div class="camp-filters">
+            <label>
+              Trip Name
+              <select id="payment-filter-trip-name">
+                <option value="">All trips</option>
+              </select>
+            </label>
+            <label>
+              Camp
+              <select id="payment-filter-camp-name">
+                <option value="">All camps</option>
+              </select>
+            </label>
+          </div>
           <div id="payment-edit-panel" class="card camp-trip-detail-panel is-hidden"></div>
           <div id="camp-payment-list" class="submission-list"></div>
         </section>
@@ -432,6 +446,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-62"></script>
-    <script src="/camp.js?v=workspace-53"></script>
+    <script src="/camp.js?v=workspace-54"></script>
   </body>
 </html>

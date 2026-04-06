@@ -31,6 +31,8 @@ const filterTripName = document.querySelector("#filter-trip-name");
 const filterTripStartDate = document.querySelector("#filter-trip-start-date");
 const filterReservedDate = document.querySelector("#filter-reserved-date");
 const filterStatus = document.querySelector("#filter-status");
+const paymentFilterTripName = document.querySelector("#payment-filter-trip-name");
+const paymentFilterCampName = document.querySelector("#payment-filter-camp-name");
 const campExportPdf = document.querySelector("#camp-export-pdf");
 const campCheckin = document.querySelector("#camp-checkin");
 const campCheckout = document.querySelector("#camp-checkout");
@@ -61,11 +63,12 @@ let editingTripId = "";
 let editingPaymentGroupKey = "";
 let currentPage = 1;
 let currentTripPage = 1;
+let currentPaymentPage = 1;
 let selectedReservationIds = new Set();
 let activeTripDayFilter = "";
 let activeTripPanelHidden = false;
 let activeCampPanelHidden = false;
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
 const TRIP_STATUS_OPTIONS = [
   ["planning", "Planning"],
   ["confirmed", "Confirmed"],
@@ -458,6 +461,47 @@ function getFilteredEntries() {
   });
 }
 
+function getFilteredPaymentGroups() {
+  const grouped = new Map();
+  const tripId = paymentFilterTripName?.value || "";
+  const campName = paymentFilterCampName?.value || "";
+
+  currentEntries
+    .filter((entry) => {
+      const matchesTrip = !tripId || entry.tripId === tripId;
+      const matchesCamp = !campName || entry.campName === campName;
+      return matchesTrip && matchesCamp;
+    })
+    .forEach((entry) => {
+      const key = `${entry.tripId}::${entry.campName}`;
+      const group = grouped.get(key) || {
+        key,
+        tripId: entry.tripId,
+        tripName: entry.tripName,
+        reservationName: entry.reservationName || entry.tripName,
+        campName: entry.campName,
+        reservations: 0,
+        deposit: Number(entry.deposit || 0),
+        depositPaidDate: entry.depositPaidDate || "",
+        secondPayment: Number(entry.secondPayment || 0),
+        secondPaidDate: entry.secondPaidDate || "",
+        totalPayment: Number(entry.totalPayment || 0),
+        balancePayment: Number(entry.balancePayment || 0),
+        paidAmount: Number(entry.paidAmount || 0),
+        paymentStatus: entry.paymentStatus || "",
+        entries: [],
+      };
+      group.reservations += 1;
+      group.entries.push(entry);
+      grouped.set(key, group);
+    });
+
+  return [...grouped.values()].sort((left, right) => {
+    const tripCompare = String(left.tripName || "").localeCompare(String(right.tripName || ""));
+    return tripCompare || String(left.campName || "").localeCompare(String(right.campName || ""));
+  });
+}
+
 function statusClass(entry) {
   const status = normalizeStatus(entry.status);
   return status ? `status-${status}` : "";
@@ -466,6 +510,8 @@ function statusClass(entry) {
 function renderSettingsOptions() {
   const currentTripFilter = filterTripName.value;
   const currentCampFilter = filterCampName.value;
+  const currentPaymentTripFilter = paymentFilterTripName?.value || "";
+  const currentPaymentCampFilter = paymentFilterCampName?.value || "";
   const currentLanguageFilter = tripFilterLanguage.value;
   const currentReservationTrip = reservationTripSelect.value;
   const languages = [...new Set(currentTrips.map((trip) => trip.language).filter(Boolean).concat(["English", "French", "Mongolian", "Korean", "Spanish", "Italian", "Other"]))];
@@ -477,14 +523,28 @@ function renderSettingsOptions() {
   filterTripName.innerHTML = `<option value="">All trips</option>${currentTrips
     .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
     .join("")}`;
+  if (paymentFilterTripName) {
+    paymentFilterTripName.innerHTML = `<option value="">All trips</option>${currentTrips
+      .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
+      .join("")}`;
+  }
   campNameSelect.innerHTML = renderCampSelectOptions();
   locationNameSelect.innerHTML = renderGenericSelectOptions(getLocationOptions(), "Choose location");
   filterCampName.innerHTML = renderOptionMarkup(campSettings.campNames, "All camps");
+  if (paymentFilterCampName) {
+    paymentFilterCampName.innerHTML = renderOptionMarkup(campSettings.campNames, "All camps");
+  }
   staffAssignmentSelect.innerHTML = renderOptionMarkup(campSettings.staffAssignments, "Choose staff");
   roomTypeSelect.innerHTML = renderOptionMarkup(campSettings.roomChoices, "Choose room type");
   tripFilterLanguage.value = currentLanguageFilter;
   filterTripName.value = currentTripFilter;
   filterCampName.value = currentCampFilter;
+  if (paymentFilterTripName) {
+    paymentFilterTripName.value = currentPaymentTripFilter;
+  }
+  if (paymentFilterCampName) {
+    paymentFilterCampName.value = currentPaymentCampFilter;
+  }
 
   if (activeTripId) {
     reservationTripSelect.value = activeTripId;
@@ -679,38 +739,17 @@ function renderActiveTrip() {
 }
 
 function renderCampPayments() {
-  const grouped = new Map();
-  currentEntries.forEach((entry) => {
-    const key = `${entry.tripId}::${entry.campName}`;
-    const group = grouped.get(key) || {
-      key,
-      tripId: entry.tripId,
-      tripName: entry.tripName,
-      reservationName: entry.reservationName || entry.tripName,
-      campName: entry.campName,
-      reservations: 0,
-      deposit: Number(entry.deposit || 0),
-      depositPaidDate: entry.depositPaidDate || "",
-      secondPayment: Number(entry.secondPayment || 0),
-      secondPaidDate: entry.secondPaidDate || "",
-      totalPayment: Number(entry.totalPayment || 0),
-      balancePayment: Number(entry.balancePayment || 0),
-      paidAmount: Number(entry.paidAmount || 0),
-      paymentStatus: entry.paymentStatus || "",
-      entries: [],
-    };
-    group.reservations += 1;
-    group.entries.push(entry);
-    grouped.set(key, group);
-  });
-  const rows = [...grouped.values()].sort((left, right) => {
-    const tripCompare = String(left.tripName || "").localeCompare(String(right.tripName || ""));
-    return tripCompare || String(left.campName || "").localeCompare(String(right.campName || ""));
-  });
+  const rows = getFilteredPaymentGroups();
   if (!rows.length) {
-    campPaymentList.innerHTML = '<p class="empty">No camp payment data yet.</p>';
+    campPaymentList.innerHTML = '<p class="empty">No camp payment data found for the selected filters.</p>';
     return;
   }
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  currentPaymentPage = Math.min(currentPaymentPage, totalPages);
+  const startIndex = (currentPaymentPage - 1) * PAGE_SIZE;
+  const visibleRows = rows.slice(startIndex, startIndex + PAGE_SIZE);
+
   campPaymentList.innerHTML = `
     <div class="camp-table-wrap">
       <table class="camp-table camp-payment-table">
@@ -732,7 +771,7 @@ function renderCampPayments() {
           </tr>
         </thead>
         <tbody>
-          ${rows
+          ${visibleRows
             .map(
               (row) => `
                 <tr>
@@ -760,6 +799,13 @@ function renderCampPayments() {
             .join("")}
         </tbody>
       </table>
+    </div>
+    <div class="table-pagination">
+      <p>${startIndex + 1}-${startIndex + visibleRows.length} / ${rows.length}</p>
+      <div class="pagination-actions">
+        <button type="button" data-action="payment-page-prev" ${currentPaymentPage === 1 ? "disabled" : ""}>Previous</button>
+        <button type="button" data-action="payment-page-next" ${currentPaymentPage === totalPages ? "disabled" : ""}>Next</button>
+      </div>
     </div>
   `;
 }
@@ -2119,6 +2165,17 @@ function handleCampTableClick(event) {
     clearPaymentGroup(target.dataset.groupKey);
     return;
   }
+  if (action === "payment-page-prev") {
+    currentPaymentPage = Math.max(1, currentPaymentPage - 1);
+    renderCampPayments();
+    return;
+  }
+  if (action === "payment-page-next") {
+    const totalPages = Math.max(1, Math.ceil(getFilteredPaymentGroups().length / PAGE_SIZE));
+    currentPaymentPage = Math.min(totalPages, currentPaymentPage + 1);
+    renderCampPayments();
+    return;
+  }
   if (action === "toggle-select-all") {
     const visibleIds = getFilteredEntries()
       .slice((currentPage - 1) * PAGE_SIZE, (currentPage - 1) * PAGE_SIZE + PAGE_SIZE)
@@ -2263,6 +2320,17 @@ campPaymentList.addEventListener("click", handleCampTableClick);
     renderEntries();
     renderActiveTripReservations();
     renderActiveCampReservations();
+    renderCampPayments();
+  });
+});
+
+[paymentFilterTripName, paymentFilterCampName].forEach((node) => {
+  node?.addEventListener("input", () => {
+    currentPaymentPage = 1;
+    renderCampPayments();
+  });
+  node?.addEventListener("change", () => {
+    currentPaymentPage = 1;
     renderCampPayments();
   });
 });
