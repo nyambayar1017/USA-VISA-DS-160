@@ -1754,6 +1754,10 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         gap: 40px;
         align-items: start;
       }}
+      .signature-column {{
+        display: flex;
+        flex-direction: column;
+      }}
       .signature-title {{
         margin-bottom: 12px;
         font-size: 12pt;
@@ -1765,12 +1769,23 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         font-size: 12pt;
         font-weight: 700;
       }}
-      .signature-stack {{
+      .signature-sign-label {{
+        margin: 0 0 8px;
+        font-size: 12pt;
+        font-weight: 700;
+      }}
+      .signature-sign-area {{
         position: relative;
         width: 100%;
         max-width: 360px;
         height: 220px;
-        margin: 10px 0 10px;
+        margin: 0 0 10px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+      }}
+      .signature-stack {{
+        position: relative;
+        width: 100%;
+        height: 100%;
       }}
       .signature-stack img {{
         position: absolute;
@@ -1811,13 +1826,12 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         font-weight: 700;
       }}
       .signer-signature-space {{
-        min-height: 220px;
+        width: 100%;
+        height: 100%;
         display: flex;
         align-items: flex-end;
         justify-content: center;
-        margin: 10px 0 10px;
         padding-bottom: 20px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.45);
       }}
       .signature-role {{
         margin-top: 6px;
@@ -1856,12 +1870,15 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       <section class="signature-section">
         <h2 class="signature-heading">ГЭРЭЭГ БАЙГУУЛСАН:</h2>
         <div class="signature-grid">
-          <div>
+          <div class="signature-column">
             <div class="signature-title">Аялал зохион байгуулагчийг төлөөлж:</div>
             <div class="signature-org-name">“Дэлхий Трэвел Икс” ХХК -ийн</div>
-            <div class="signature-stack">
-              <img class="stamp-image" src="{asset_src('dtx-stamp-cropped.png')}" alt="DTX stamp" />
-              <img class="company-signature-image" src="{asset_src('nyambayar-signature-cropped.png')}" alt="Nyambayar signature" />
+            <p class="signature-sign-label">Гарын үсэг:</p>
+            <div class="signature-sign-area">
+              <div class="signature-stack">
+                <img class="stamp-image" src="{asset_src('dtx-stamp-cropped.png')}" alt="DTX stamp" />
+                <img class="company-signature-image" src="{asset_src('nyambayar-signature-cropped.png')}" alt="Nyambayar signature" />
+              </div>
             </div>
             <div class="signature-contact">
               <p class="signature-name">{manager_display_name}</p>
@@ -1876,15 +1893,17 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
               <p><span class="signature-label"></span> Кинг Тауэр 121-102 тоот</p>
             </div>
           </div>
-          <div>
+          <div class="signature-column">
             <div class="signature-title">Жуулчныг төлөөлж:</div>
-            <div class="signer-signature-space">{signature_markup}</div>
+            <p class="signature-sign-label">Гарын үсэг:</p>
+            <div class="signature-sign-area">
+              <div class="signer-signature-space">{signature_markup}</div>
+            </div>
             <div class="signer-contact">
               <p class="signature-name">{customer_name}</p>
               <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
               <p>Яаралтай үед холбогдох дугаар: {html.escape(data.get("emergencyContactPhone") or "")}</p>
               <p>Таны хэн болох: {html.escape(data.get("emergencyContactRelation") or "")}</p>
-              <p class="signature-role">Жуулчин</p>
             </div>
           </div>
         </div>
