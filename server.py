@@ -1054,6 +1054,32 @@ def format_balance_due_date(value):
     return f"{parts['year']} оны {parts['month']} сарын {int(parts['day'] or '0')}-ий"
 
 
+def format_trip_range_phrase(start_value, end_value):
+    start = normalize_text(start_value)
+    end = normalize_text(end_value)
+    if start and end:
+        return f"{start} өдрөөс {end} хооронд"
+    if start:
+        return f"{start} өдрөөс"
+    return end
+
+
+def build_traveler_count_sentence(data):
+    parts = []
+    adult_count = parse_int(data.get("adultCount"))
+    child_count = parse_int(data.get("childCount"))
+    infant_count = parse_int(data.get("infantCount"))
+    if adult_count:
+        parts.append(f"{adult_count} том хүн")
+    if child_count:
+        parts.append(f"{child_count} хүүхэд")
+    if infant_count:
+        parts.append(f"{infant_count} нярай")
+    if not parts:
+        return "Энэхүү аялалд аялагчийн тоо тусгайлан тохиролцоно."
+    return f"Энэхүү аялалд нийт {', '.join(parts)} оролцоно."
+
+
 def build_contract_data(payload):
     today = datetime.now(timezone.utc).astimezone(MONGOLIA_TZ).date().isoformat()
     contract_date = payload.get("contractDate") or today
@@ -1298,15 +1324,17 @@ def update_docx_styles(styles_xml):
 def replace_template_paragraphs(root, data):
     manager_formal_name = get_manager_contract_formal_name(data)
     manager_signature_name = get_manager_signature_name(data)
+    trip_range_phrase = format_trip_range_phrase(data["tripStartDate"], data["tripEndDate"])
+    traveler_count_sentence = build_traveler_count_sentence(data)
     replacements = {
         "Дугаар: DTX-09А-26-_____": f"Дугаар: {data['contractSerial']}",
         "2026 оны 01 сарын 26 өдөр                                                 Улаанбаатар хот":
             f"{format_contract_header_date(data['contractDate'])}                                                 Улаанбаатар хот",
         "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас 2 жуулчин төлөөлөн Батмөнх овогтой Уранчимэг (РД:ШД84011762) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.":
             "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай "
-            f"{manager_formal_name}, нөгөө талаас {data['travelerCount']} жуулчин төлөөлөн {data['touristLastName']} овогтой {data['touristFirstName']} (РД:{data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
+            f"{manager_formal_name}, нөгөө талаас цаашид Жуулчин гэхийг төлөөлөн, {data['touristLastName']} овогтой {data['touristFirstName']} нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
         "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/02/17-2026/02/25 хооронд Египет аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
-            f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']} аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
+            f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {trip_range_phrase} {data['destination']} чиглэлийн аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
         "Энэхүү гэрээгээр аялагчийн төлбөр нь том хүний 7,340,000 төгрөг буюу нийт 2 хүний 14,680,000 төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.":
             data["paymentParagraph"],
         "Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1.Аяллын урьдчилгаа төлбөр болох 4,404,000 төгрөгийг 2026 оны 01-р сарын 26 өдөр “Дэлхий Трэвел Икс”  ХХК-ний  Төрийн Банкны MN03 0034 3432":
@@ -1341,10 +1369,10 @@ def replace_template_paragraphs(root, data):
             f"{format_contract_header_date(data['contractDate'])}                                                                                Улаанбаатар хот",
         "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай Чулуунбаатар овогтой Нямбаяр, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн Цэдэн-Иш овогтой Чинзориг (РД: ШЕ77111832) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.":
             "Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл, Иргэний хуулийн 370-379 дүгээр зүйлийг үндэслэн нэг талаас “Дэлхий Трэвел Икс” ХХК (РД:6925073) цаашид Дэлхий Трэвел Икс гэхийг төлөөлөн аяллын менежер албан тушаалтай "
-            f"{manager_formal_name}, нөгөө талаас Жуулчин цаашид “Жуулчин” гэхийг төлөөлөн "
-            f"{data['touristLastName']} овогтой {data['touristFirstName']} (РД: {data['touristRegister']}) нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
+            f"{manager_formal_name}, нөгөө талаас цаашид Жуулчин гэхийг төлөөлөн, "
+            f"{data['touristLastName']} овогтой {data['touristFirstName']} нар харилцан тохиролцож энэхүү аялал жуулчлалын гэрээг байгуулав.",
         "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/03/28-2026/04/03 хооронд Турк аялал, 7 өдөр 6 шөнө, хөтөлбөртэй аяллын дагуу 5 аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
-            f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {data['tripStartDate']}-{data['tripEndDate']} хооронд {data['destination']}, {data['tripDuration']}, хөтөлбөртэй аяллын дагуу {data['travelerCount']} аялагчдад үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
+            f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {trip_range_phrase} {data['destination']} чиглэлийн аяллын хөтөлбөртэй, {data['tripDuration']}, үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
         "Энэхүү гэрээгээр аялагчийн төлбөр нь 3 том хүний 3,990,000 төгрөг, 1 хүүхдийн 3,390,000  төгрөг, 1 хүний онгоц ороогүй дүн 2,590,000 төгрөг,  нийт 5 аялагчийн аяллын төлбөр 17,450,000 төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.":
             data["paymentParagraph"],
         "Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1.Аяллын урьдчилгаа төлбөр болох 8,725,000 төгрөгийг 2026 оны 03-р сарын":
@@ -1379,6 +1407,12 @@ def replace_template_paragraphs(root, data):
         current_text = paragraph_text(paragraph)
         if current_text in replacements:
             set_paragraph_text(paragraph, replacements[current_text])
+            continue
+        if current_text.startswith("Хөтөлбөрт аяллаар"):
+            set_paragraph_text(paragraph, traveler_count_sentence)
+            continue
+        if current_text.startswith("Зорчих чиглэл нь визтэй бол"):
+            set_paragraph_text(paragraph, "Зорчих чиглэл нь визтэй эсвэл визний тусгай нөхцөлтэй чиглэл бол энэхүү гэрээний Хавсралт 2 - Харилцан ойлголцлын санамж бичиг нь гэрээний салшгүй хэсэг байна.")
 
 
 def get_contract_template_path():
@@ -1651,7 +1685,12 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       }}
       @page {{
         size: A4;
-        margin: 0;
+        margin: 2cm 3cm 2cm 3cm;
+        @bottom-center {{
+          content: counter(page);
+          font-family: "TravelXTimes", "Times New Roman", "Liberation Serif", serif;
+          font-size: 10pt;
+        }}
       }}
       * {{ box-sizing: border-box; }}
       body {{
@@ -1659,7 +1698,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         background: #f4f2ee;
         color: var(--ink);
         font-family: "TravelXTimes", "Times New Roman", "Liberation Serif", serif;
-        line-height: 1.5;
+        line-height: 1;
       }}
       .toolbar {{
         position: sticky;
@@ -1733,7 +1772,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       p {{
         margin: 0 0 12px;
         font-size: 12pt;
-        line-height: 1.5;
+        line-height: 1;
         text-align: justify;
       }}
       .contract-opening-paragraph {{
@@ -1761,7 +1800,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         border: 1px solid #1d1d1b;
         padding: 8px 10px;
         font-size: 12pt;
-        line-height: 1.5;
+        line-height: 1;
         text-align: center;
       }}
       .signature-section {{
@@ -1850,7 +1889,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       .signature-contact p,
       .signer-contact p {{
         margin-bottom: 8px;
-        line-height: 1.5;
+        line-height: 1;
       }}
       .signature-label {{
         display: inline-block;
@@ -1884,10 +1923,10 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         body {{ background: white; }}
         .toolbar {{ display: none; }}
         .page {{
-          width: var(--page-width);
-          min-height: var(--page-height);
+          width: auto;
+          min-height: auto;
           margin: 0;
-          padding: var(--page-top) var(--page-right) var(--page-bottom) var(--page-left);
+          padding: 0;
           box-shadow: none;
         }}
       }}
