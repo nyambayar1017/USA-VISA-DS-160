@@ -1781,6 +1781,8 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         height: 220px;
         margin: 0 0 10px;
         border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: flex-end;
       }}
       .signature-stack {{
         position: relative;
@@ -1895,6 +1897,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
           </div>
           <div class="signature-column">
             <div class="signature-title">Жуулчныг төлөөлж:</div>
+            <div class="signature-org-name">Аялагч</div>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
               <div class="signer-signature-space">{signature_markup}</div>
