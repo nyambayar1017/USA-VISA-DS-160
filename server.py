@@ -1640,7 +1640,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         margin: 0;
         background: #f4f2ee;
         color: var(--ink);
-        font-family: "Times New Roman", serif;
+        font-family: "Times New Roman", Tinos, "Liberation Serif", serif;
       }}
       .toolbar {{
         position: sticky;
@@ -2078,7 +2078,7 @@ def build_document_html(title, subtitle, sections):
         padding: 48px 24px;
         background: #f5efe8;
         color: #1f1713;
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: "Times New Roman", Tinos, "Liberation Serif", serif;
       }}
       main {{
         width: min(860px, 100%);
@@ -2186,7 +2186,7 @@ def build_camp_document_html(record, pdf_href):
         margin: 0;
         background: #f1f0ec;
         color: #161616;
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: "Times New Roman", Tinos, "Liberation Serif", serif;
       }}
       .toolbar {{
         position: sticky;
@@ -2408,7 +2408,7 @@ def build_camp_bundle_document_html(records, pdf_href):
         margin: 0;
         background: #f1f0ec;
         color: #161616;
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: "Times New Roman", Tinos, "Liberation Serif", serif;
       }}
       .toolbar {{
         position: sticky;
