@@ -1716,7 +1716,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Аялал жуулчлалын гэрээ</title>
-    <link rel="icon" type="image/png" href="{asset_src('favicon-dtx-x-by.png')}" />
+    <link rel="icon" type="image/png" href="{asset_src('favicon-dtx-x.png')}" />
     <style>
       @font-face {{
         font-family: "TravelXTimes";
