@@ -1911,7 +1911,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       }}
       .stamp-image {{
         left: -8px;
-        top: -42px;
+        top: -52px;
         width: 300px;
         height: 300px;
         z-index: 3;
