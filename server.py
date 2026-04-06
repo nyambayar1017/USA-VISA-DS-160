@@ -1785,17 +1785,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         margin: 0 0 10px;
         display: flex;
         align-items: flex-end;
-      }}
-      .signature-dash-line {{
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        text-align: center;
-        font-size: 12pt;
-        line-height: 1;
-        color: rgba(0, 0, 0, 0.65);
-        letter-spacing: 0.4px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.35);
       }}
       .signature-stack {{
         position: relative;
@@ -1812,10 +1802,10 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         object-fit: contain;
       }}
       .stamp-image {{
-        left: 2px;
-        top: 6px;
-        width: 220px;
-        height: 220px;
+        left: -6px;
+        top: -2px;
+        width: 246px;
+        height: 246px;
       }}
       .company-signature-image {{
         left: 20px;
@@ -1902,7 +1892,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
                 <img class="stamp-image" src="{asset_src('dtx-stamp-cropped.png')}" alt="DTX stamp" />
                 <img class="company-signature-image" src="{asset_src('nyambayar-signature-cropped.png')}" alt="Nyambayar signature" />
               </div>
-              <div class="signature-dash-line">-------------------</div>
             </div>
             <div class="signature-contact">
               <p class="signature-subtitle">Аяллын менежер</p>
@@ -1920,14 +1909,13 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
           <div class="signature-column">
             <div class="signature-prelude">
               <div class="signature-title">Жуулчныг төлөөлж:</div>
-              <p class="signature-subtitle">Аялагч:</p>
             </div>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
               <div class="signer-signature-space">{signature_markup}</div>
-              <div class="signature-dash-line">-------------------</div>
             </div>
             <div class="signer-contact">
+              <p class="signature-subtitle">Аялагч</p>
               <p class="signature-name">{customer_name}</p>
               <p><span class="signature-label">Утас:</span> {html.escape(data.get("clientPhone") or "")}</p>
               <p>Яаралтай үед холбогдох дугаар: {html.escape(data.get("emergencyContactPhone") or "")}</p>
