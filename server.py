@@ -1908,6 +1908,11 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         position: relative;
         z-index: 1;
       }}
+      .signer-contact {{
+        margin-top: -34px;
+        position: relative;
+        z-index: 1;
+      }}
       .signature-contact p,
       .signer-contact p {{
         margin-bottom: 8px;
