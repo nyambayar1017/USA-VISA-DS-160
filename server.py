@@ -1625,6 +1625,14 @@ def build_contract_body_html(data):
     if not blocks:
         return "<p>Template is empty.</p>"
 
+    def format_contract_text_html(text):
+        escaped = html.escape(text)
+        return re.sub(
+            r"(\d{1,3}(?:,\d{3})+(?:\s*төгрөг(?:ийг|ийн|өөр|өөс|төгрөг)?)?)",
+            r"<strong>\1</strong>",
+            escaped,
+        )
+
     parts = []
     for block in blocks:
         if block["type"] == "heading":
@@ -1633,17 +1641,17 @@ def build_contract_body_html(data):
             parts.append(
                 "<p class=\"contract-numbered\">"
                 f"<span class=\"contract-number\">{html.escape(block['number'])}</span>"
-                f"<span class=\"contract-text\">{html.escape(block['text'])}</span>"
+                f"<span class=\"contract-text\">{format_contract_text_html(block['text'])}</span>"
                 "</p>"
             )
         elif block["type"] == "paragraph":
             paragraph_class = "contract-opening-paragraph" if block["text"].startswith("Монгол Улсын Аялал Жуулчлалын тухай хуулийн 13.1 дүгээр зүйл") else ""
             class_attr = f' class="{paragraph_class}"' if paragraph_class else ""
-            parts.append(f"<p{class_attr}>{html.escape(block['text'])}</p>")
+            parts.append(f"<p{class_attr}>{format_contract_text_html(block['text'])}</p>")
         elif block["type"] == "table":
             rows = []
             for row in block["rows"]:
-                cells = "".join(f"<td>{html.escape(cell)}</td>" for cell in row)
+                cells = "".join(f"<td>{format_contract_text_html(cell)}</td>" for cell in row)
                 rows.append(f"<tr>{cells}</tr>")
             parts.append(f"<table>{''.join(rows)}</table>")
     return "\n".join(parts)
@@ -1694,6 +1702,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Аялал жуулчлалын гэрээ</title>
+    <link rel="icon" type="image/png" href="{asset_src('favicon-dtx-x-by.png')}" />
     <style>
       @font-face {{
         font-family: "TravelXTimes";
