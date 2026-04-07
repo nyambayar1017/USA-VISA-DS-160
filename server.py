@@ -1065,6 +1065,23 @@ def format_balance_due_date(value):
     return f"{parts['year']} оны {parts['month']} сарын {int(parts['day'] or '0')}-ий"
 
 
+def format_iso_date_display(value):
+    raw = str(value or "").split("T", 1)[0]
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        return raw
+    return "-"
+
+
+def parse_date_safe(value):
+    raw = str(value or "").split("T", 1)[0]
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw).date()
+    except ValueError:
+        return None
+
+
 def format_trip_range_phrase(start_value, end_value):
     start = normalize_text(start_value)
     end = normalize_text(end_value)
@@ -1122,20 +1139,26 @@ def build_contract_data(payload):
     adult_count = parse_int(payload.get("adultCount"))
     child_count = parse_int(payload.get("childCount"))
     infant_count = parse_int(payload.get("infantCount"))
+    ticket_only_count = parse_int(payload.get("ticketOnlyCount"))
     land_only_count = parse_int(payload.get("landOnlyCount"))
+    custom_count = parse_int(payload.get("customCount"))
 
-    traveler_count = parse_int(payload.get("travelerCount")) or adult_count + child_count + infant_count + land_only_count
+    traveler_count = parse_int(payload.get("travelerCount")) or adult_count + child_count + infant_count + ticket_only_count + land_only_count + custom_count
     adult_price_raw = parse_int(payload.get("adultPrice"))
     child_price_raw = parse_int(payload.get("childPrice"))
     infant_price_raw = parse_int(payload.get("infantPrice"))
+    ticket_only_price_raw = parse_int(payload.get("ticketOnlyPrice"))
     land_only_price_raw = parse_int(payload.get("landOnlyPrice"))
+    custom_price_raw = parse_int(payload.get("customPrice"))
     total_price_raw = parse_int(payload.get("totalPrice"))
     if not total_price_raw:
         total_price_raw = (
             adult_count * adult_price_raw
             + child_count * child_price_raw
             + infant_count * infant_price_raw
+            + ticket_only_count * ticket_only_price_raw
             + land_only_count * land_only_price_raw
+            + custom_count * custom_price_raw
         )
     deposit_raw = parse_int(payload.get("depositAmount"))
     balance_raw = max(total_price_raw - deposit_raw, 0)
@@ -1205,12 +1228,17 @@ def build_contract_data(payload):
         "adultCount": adult_count,
         "childCount": child_count,
         "infantCount": infant_count,
+        "ticketOnlyCount": ticket_only_count,
         "landOnlyCount": land_only_count,
+        "customCount": custom_count,
         "travelerCount": traveler_count,
         "adultPrice": format_money(adult_price_raw),
         "childPrice": format_money(child_price_raw),
         "infantPrice": format_money(infant_price_raw),
+        "ticketOnlyPrice": format_money(ticket_only_price_raw),
         "landOnlyPrice": format_money(land_only_price_raw),
+        "customPriceLabel": normalize_text(payload.get("customPriceLabel")) or "Нэмэлт үйлчилгээ",
+        "customPrice": format_money(custom_price_raw),
         "totalPrice": format_money(total_price_raw),
         "depositAmount": format_money(payload.get("depositAmount")),
         "balanceAmount": format_money(balance_raw),
@@ -1228,8 +1256,12 @@ def build_contract_data(payload):
         parts.append(f"{child_count} хүүхдийн {data['childPrice']} төгрөг")
     if infant_count:
         parts.append(f"{infant_count} нярай хүүхдийн {data['infantPrice']} төгрөг")
+    if ticket_only_count:
+        parts.append(f"{ticket_only_count} зочин зөвхөн билеттэй {data['ticketOnlyPrice']} төгрөг")
     if land_only_count:
         parts.append(f"{land_only_count} зочин газрын үйлчилгээтэй {data['landOnlyPrice']} төгрөг")
+    if custom_count:
+        parts.append(f"{custom_count} зочин {data['customPriceLabel']} {data['customPrice']} төгрөг")
     price_breakdown = ", ".join(part for part in parts if part)
     data["priceBreakdown"] = price_breakdown or ""
     data["paymentParagraph"] = (
@@ -2169,6 +2201,496 @@ def draw_wrapped_text_with_indent(pdf, text, x, y, max_width, font_name, font_si
     return y
 
 
+def build_invoice_line_items(data):
+    destination = normalize_text(data.get("destination")) or "Аяллын үйлчилгээ"
+    custom_label = normalize_text(data.get("customPriceLabel")) or "Нэмэлт үйлчилгээ"
+    item_specs = [
+        ("adultCount", "adultPrice", "Том хүн"),
+        ("childCount", "childPrice", "Хүүхэд"),
+        ("infantCount", "infantPrice", "Нярай"),
+        ("ticketOnlyCount", "ticketOnlyPrice", "Зөвхөн билет"),
+        ("landOnlyCount", "landOnlyPrice", "Газрын үйлчилгээ"),
+        ("customCount", "customPrice", custom_label),
+    ]
+    populated = []
+    for count_key, price_key, label in item_specs:
+        count = parse_int(data.get(count_key))
+        unit_price = parse_int(data.get(price_key))
+        if count <= 0 or unit_price <= 0:
+            continue
+        populated.append((count, unit_price, label))
+
+    if not populated:
+        total_price = parse_int(data.get("totalPrice"))
+        return [{"description": destination, "quantity": 1, "unitPrice": total_price, "totalPrice": total_price}]
+
+    multiple_rows = len(populated) > 1
+    rows = []
+    for count, unit_price, label in populated:
+        description = destination if not multiple_rows else f"{destination} / {label}"
+        rows.append(
+            {
+                "description": description,
+                "quantity": count,
+                "unitPrice": unit_price,
+                "totalPrice": count * unit_price,
+            }
+        )
+    return rows
+
+
+def build_invoice_payment_rows(data, created_at=None, signed_at=None):
+    today = now_mongolia().date()
+    issue_date = format_iso_date_display(data.get("contractDate") or created_at)
+    signed_date = format_iso_date_display(signed_at or created_at or data.get("contractDate"))
+    balance_due = parse_date_safe(data.get("balanceDueDate"))
+    balance_amount = parse_int(data.get("balanceAmount"))
+
+    rows = []
+    deposit_amount = parse_int(data.get("depositAmount"))
+    if deposit_amount > 0:
+        rows.append(
+            {
+                "title": f"{normalize_text(data.get('destination')) or 'Аяллын'} урьдчилгаа төлбөр",
+                "created": issue_date,
+                "secondaryLabel": "Төлсөн огноо",
+                "secondaryValue": signed_date,
+                "status": "Төлөгдсөн",
+                "statusClass": "paid",
+                "amount": deposit_amount,
+            }
+        )
+
+    if balance_amount > 0:
+        overdue = bool(balance_due and balance_due < today)
+        rows.append(
+            {
+                "title": "Үлдэгдэл төлбөр",
+                "created": issue_date,
+                "secondaryLabel": "Эцсийн хугацаа",
+                "secondaryValue": format_iso_date_display(data.get("balanceDueDate")),
+                "status": "Хугацаа хэтэрсэн" if overdue else "Хүлээгдэж буй",
+                "statusClass": "overdue" if overdue else "waiting",
+                "amount": balance_amount,
+            }
+        )
+    return rows
+
+
+def build_invoice_html(record, asset_mode="web"):
+    data = record.get("data") or {}
+    invoice_number = html.escape(f"{normalize_text(data.get('contractSerial')) or record.get('id', '')}-1")
+    tourist_name = normalize_person_name(
+        f"{normalize_text(data.get('touristLastName'))} {normalize_text(data.get('touristFirstName'))}"
+    ).strip()
+    customer_name = html.escape(tourist_name.upper() or "CLIENT")
+    items = build_invoice_line_items(data)
+    payment_rows = build_invoice_payment_rows(data, created_at=record.get("createdAt"), signed_at=record.get("signedAt"))
+    total_amount = sum(item["totalPrice"] for item in items)
+
+    def asset_src(filename):
+        if asset_mode == "file":
+            return (PUBLIC_DIR / "assets" / filename).resolve().as_uri()
+        return f"/assets/{filename}"
+
+    download_href = "" if asset_mode == "file" else f"/api/contracts/{record.get('id')}/invoice?mode=download"
+    items_markup = "".join(
+        f"""
+          <tr>
+            <td>{index}</td>
+            <td>{html.escape(item['description'])}</td>
+            <td>{item['quantity']}</td>
+            <td>{format_money(item['unitPrice'])} ₮</td>
+            <td>{format_money(item['totalPrice'])} ₮</td>
+          </tr>
+        """
+        for index, item in enumerate(items, start=1)
+    )
+    payment_markup = "".join(
+        f"""
+          <div class="payment-card">
+            <div class="payment-main">
+              <strong>{html.escape(row['title'])}</strong>
+            </div>
+            <div class="payment-meta">
+              <span class="meta-label">Нэхэмжилсэн огноо</span>
+              <strong>{html.escape(row['created'])}</strong>
+            </div>
+            <div class="payment-meta">
+              <span class="meta-label">{html.escape(row['secondaryLabel'])}</span>
+              <strong>{html.escape(row['secondaryValue'])}</strong>
+            </div>
+            <div class="payment-meta">
+              <span class="meta-label">Төлөв</span>
+              <span class="payment-status {row['statusClass']}">{html.escape(row['status'])}</span>
+            </div>
+            <div class="payment-amount">{format_money(row['amount'])} ₮</div>
+          </div>
+        """
+        for row in payment_rows
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Нэхэмжлэх</title>
+    <link rel="icon" type="image/png" href="{asset_src('favicon-dtx-x.png')}" />
+    <style>
+      @page {{
+        size: A4;
+        margin: 18mm;
+      }}
+      * {{ box-sizing: border-box; }}
+      body {{
+        margin: 0;
+        background: #f3f5fb;
+        color: #22283a;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }}
+      .toolbar {{
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        border-bottom: 1px solid rgba(34, 40, 58, 0.08);
+        backdrop-filter: blur(10px);
+      }}
+      .toolbar a {{
+        padding: 12px 18px;
+        border-radius: 999px;
+        background: #253776;
+        color: #fff;
+        text-decoration: none;
+        font: 700 14px/1.2 Inter, system-ui, sans-serif;
+      }}
+      .page {{
+        width: min(210mm, calc(100vw - 24px));
+        margin: 20px auto 40px;
+        padding: 24px 22px 26px;
+        background: #fff;
+        border: 1px solid #e6e8ef;
+        border-radius: 16px;
+        box-shadow: 0 18px 50px rgba(34, 40, 58, 0.08);
+      }}
+      .invoice-number {{
+        margin: 0 0 18px;
+        color: #3b4257;
+        font-size: 15px;
+        font-weight: 500;
+      }}
+      .header-grid {{
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 26px;
+        align-items: start;
+      }}
+      .invoice-logo {{
+        width: 170px;
+        max-width: 100%;
+        display: block;
+        margin-bottom: 8px;
+      }}
+      .company-name {{
+        margin: 0 0 6px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #2a3150;
+      }}
+      .company-block p,
+      .customer-block p,
+      .meta-note {{
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.45;
+      }}
+      .meta-note {{
+        text-align: right;
+        color: #535b74;
+      }}
+      .customer-block {{
+        padding-top: 48px;
+      }}
+      .customer-block .label {{
+        display: block;
+        margin-bottom: 4px;
+        color: #6f7791;
+        font-size: 14px;
+      }}
+      .section-title {{
+        margin: 22px 0 12px;
+        color: #7f889d;
+        font-size: 15px;
+        font-weight: 500;
+      }}
+      table {{
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border-radius: 12px;
+        border: 1px solid #e7e9f1;
+      }}
+      th, td {{
+        padding: 13px 14px;
+        border-bottom: 1px solid #eceef5;
+        text-align: left;
+        font-size: 15px;
+      }}
+      th {{
+        background: #fbfcfe;
+        color: #4d566f;
+        font-weight: 700;
+      }}
+      td:last-child,
+      th:last-child,
+      td:nth-last-child(2),
+      th:nth-last-child(2) {{
+        text-align: right;
+      }}
+      .total-row td {{
+        font-weight: 700;
+        background: #fdfdfd;
+      }}
+      .payment-stack {{
+        display: grid;
+        gap: 14px;
+      }}
+      .payment-card {{
+        display: grid;
+        grid-template-columns: 1.3fr repeat(3, minmax(110px, 0.8fr)) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 16px 18px;
+        border: 1px solid #e7e9f1;
+        border-radius: 14px;
+        background: #fff;
+      }}
+      .payment-main strong,
+      .payment-amount {{
+        font-size: 16px;
+        font-weight: 700;
+        color: #2b3148;
+      }}
+      .payment-amount {{
+        text-align: right;
+        white-space: nowrap;
+      }}
+      .payment-meta {{
+        display: grid;
+        gap: 4px;
+      }}
+      .meta-label {{
+        color: #8b93a9;
+        font-size: 13px;
+      }}
+      .payment-status {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 700;
+      }}
+      .payment-status.paid {{
+        background: #dcf4e3;
+        color: #1f8550;
+      }}
+      .payment-status.overdue {{
+        background: #f8dede;
+        color: #c44747;
+      }}
+      .payment-status.waiting {{
+        background: #eef2fb;
+        color: #506189;
+      }}
+      .bank-section {{
+        margin-top: 20px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid #eceef5;
+      }}
+      .bank-grid {{
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: baseline;
+        font-size: 18px;
+        color: #2d344c;
+      }}
+      .bank-grid strong {{
+        font-weight: 700;
+      }}
+      .signature-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 28px;
+        margin-top: 24px;
+        align-items: end;
+      }}
+      .signature-card {{
+        position: relative;
+        min-height: 138px;
+        padding-top: 48px;
+      }}
+      .signature-label {{
+        margin-bottom: 54px;
+        color: #8d95aa;
+        font-size: 13px;
+      }}
+      .signature-line {{
+        border-bottom: 1px dashed #ccd3e5;
+      }}
+      .accountant-stamp {{
+        position: absolute;
+        left: 6px;
+        bottom: 20px;
+        width: 120px;
+        opacity: 0.95;
+      }}
+      .accountant-signature {{
+        position: absolute;
+        left: 88px;
+        bottom: 18px;
+        width: 120px;
+      }}
+      .signature-name {{
+        margin-top: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #2c3247;
+      }}
+      .signature-role {{
+        color: #2c3247;
+        font-size: 15px;
+      }}
+      @media print {{
+        .toolbar {{
+          display: none;
+        }}
+        .page {{
+          width: auto;
+          margin: 0;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }}
+      }}
+      @media (max-width: 820px) {{
+        .header-grid,
+        .signature-grid {{
+          grid-template-columns: 1fr;
+        }}
+        .customer-block {{
+          padding-top: 0;
+        }}
+        .payment-card {{
+          grid-template-columns: 1fr;
+        }}
+        .payment-amount {{
+          text-align: left;
+        }}
+      }}
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <a href="{html.escape(download_href)}">PDF Татах</a>
+    </div>
+    <div class="page">
+      <p class="invoice-number">Нэхэмжлэх #{invoice_number}</p>
+      <div class="header-grid">
+        <div class="company-block">
+          <img class="invoice-logo" src="{asset_src('dtx-logo-blue-yellow.png')}" alt="Дэлхий Трэвел" />
+          <p class="company-name">Дэлхий Трэвел Икс ХХК (6925073)</p>
+          <p>Улаанбаатар хот, ХУД, 17-р хороо</p>
+          <p>Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</p>
+          <p>info@travelx.mn</p>
+          <p>+976 72007722</p>
+        </div>
+        <div>
+          <p class="meta-note">Сангийн сайдын 2017 оны 12 дугаар сарын 05</p>
+          <p class="meta-note">өдрийн 347 тоот тушаалын хавсралт</p>
+          <div class="customer-block">
+            <span class="label">Төлөгч</span>
+            <p><strong>{customer_name}</strong></p>
+          </div>
+        </div>
+      </div>
+      <p class="section-title">Үнийн мэдээлэл</p>
+      <table>
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Утга</th>
+            <th>Тоо ширхэг</th>
+            <th>Нэгжийн үнэ</th>
+            <th>Нийт үнэ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items_markup}
+          <tr class="total-row">
+            <td colspan="4">Нийт үнэ</td>
+            <td>{format_money(total_amount)} ₮</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="section-title">Төлбөрийн хуваарь</p>
+      <div class="payment-stack">
+        {payment_markup}
+      </div>
+      <div class="bank-section">
+        <p class="section-title">Дансны мэдээлэл</p>
+        <div class="bank-grid">
+          <span>Дэлхий Трэвел Икс</span>
+          <span>Төрийн Банк</span>
+          <span>MN030034</span>
+          <strong>3432 7777 9999</strong>
+        </div>
+      </div>
+      <div class="signature-grid">
+        <div class="signature-card">
+          <div class="signature-label">Дэлхий Трэвел Икс ХХК</div>
+          <div class="signature-line"></div>
+          <img class="accountant-stamp" src="{asset_src('dtx-stamp-cropped.png')}" alt="Company stamp" />
+          <img class="accountant-signature" src="{asset_src('nyambayar-signature-cropped.png')}" alt="Accountant signature" />
+          <div class="signature-name">Нягтлан</div>
+          <div class="signature-role">Г.Басгалаан</div>
+        </div>
+        <div class="signature-card">
+          <div class="signature-label">Төлөгч</div>
+          <div class="signature-line"></div>
+          <div class="signature-name">{customer_name}</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>"""
+
+
+def save_invoice_pdf(record):
+    ensure_data_store()
+    pdf_filename = f"invoice-{record['id']}.pdf"
+    pdf_path = GENERATED_DIR / pdf_filename
+    try:
+        from weasyprint import HTML
+    except Exception as exc:
+        raise RuntimeError(f"WeasyPrint not available: {exc}") from exc
+
+    html_string = build_invoice_html(record, asset_mode="file")
+    try:
+        HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
+    except Exception as exc:
+        raise RuntimeError(f"HTML PDF generation failed: {exc}") from exc
+    return f"/generated/{pdf_filename}"
+
+
 def save_contract_pdf(record):
     ensure_data_store()
     pdf_filename = f"contract-{record['id']}.pdf"
@@ -2215,6 +2737,8 @@ def save_contract_files(data):
         "docxPath": f"/generated/{docx_filename}",
         "pdfViewPath": f"/generated/{html_filename}",
         "pdfPath": None,
+        "invoiceViewPath": None,
+        "invoicePath": None,
     }
     return record
 
@@ -4150,6 +4674,57 @@ def handle_contract_document(environ, start_response, contract_id):
     return file_response(start_response, safe_path)
 
 
+def handle_contract_invoice_document(environ, start_response, contract_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    mode = (params.get("mode", ["view"])[0] or "view").strip().lower()
+    contracts = read_contracts()
+    contract = None
+    contract_index = None
+    for idx, entry in enumerate(contracts):
+        if entry.get("id") == contract_id:
+            contract = entry
+            contract_index = idx
+            break
+    if not contract:
+        return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+    if contract.get("status") != "signed":
+        return json_response(start_response, "409 Conflict", {"error": "Invoice is available only for signed contracts"})
+
+    if mode == "download":
+        try:
+            invoice_path = save_invoice_pdf(contract)
+        except Exception as exc:
+            return json_response(
+                start_response,
+                "500 Internal Server Error",
+                {"error": f"Could not generate invoice PDF: {exc}"},
+            )
+        contract["invoicePath"] = invoice_path
+        if contract_index is not None:
+            contracts[contract_index] = contract
+            write_contracts(contracts)
+        safe_path = (GENERATED_DIR / unquote(invoice_path.replace("/generated/", "", 1))).resolve()
+        if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
+            return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+        return file_response(start_response, safe_path, extra_headers=generated_download_headers(safe_path))
+
+    view_path = contract.get("invoiceViewPath")
+    if not view_path:
+        view_path = f"/generated/invoice-{contract_id}.html"
+        contract["invoiceViewPath"] = view_path
+    safe_path = (GENERATED_DIR / unquote(view_path.replace("/generated/", "", 1))).resolve()
+    if not str(safe_path).startswith(str(GENERATED_DIR.resolve())):
+        return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+    safe_path.write_text(build_invoice_html(contract), encoding="utf-8")
+    if contract_index is not None:
+        contracts[contract_index] = contract
+        write_contracts(contracts)
+    return file_response(start_response, safe_path)
+
+
 def app(environ, start_response):
     ensure_data_store()
 
@@ -4319,6 +4894,11 @@ def app(environ, start_response):
             contract_id = tail.replace("/document", "", 1).strip("/")
             if method == "GET":
                 return handle_contract_document(environ, start_response, contract_id)
+            return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+        if tail.endswith("/invoice"):
+            contract_id = tail.replace("/invoice", "", 1).strip("/")
+            if method == "GET":
+                return handle_contract_invoice_document(environ, start_response, contract_id)
             return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
         contract_id = tail
         if method == "GET":
