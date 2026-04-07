@@ -143,7 +143,7 @@ const renderContractsTable = (contracts) => {
             <th>Tourist</th>
             <th>Manager</th>
             <th>Destination</th>
-            <th>Trip Start</th>
+            <th>Starting Date</th>
             <th>Status</th>
             <th>Created</th>
             <th>Actions</th>

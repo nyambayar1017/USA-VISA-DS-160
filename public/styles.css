@@ -51,23 +51,15 @@ body {
 }
 
 .sidebar-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+  display: block;
   margin: 4px 6px 26px;
-  color: #1f2230;
   text-decoration: none;
-  font-size: 1.25rem;
-  font-weight: 800;
 }
 
-.sidebar-brand::before {
-  content: "";
-  width: 11px;
-  height: 11px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #8e3167 0%, #c5587a 100%);
-  box-shadow: 0 0 0 4px rgba(197, 88, 122, 0.12);
+.sidebar-brand img {
+  display: block;
+  width: min(100%, 230px);
+  height: auto;
 }
 
 .sidebar-group + .sidebar-group {
