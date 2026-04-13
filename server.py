@@ -3055,6 +3055,20 @@ def build_invoice_html(record, asset_mode="web"):
         border: 1px solid #e7e9f1;
         border-radius: 14px;
         background: #fff;
+        position: relative;
+      }}
+      body.is-editing .payment-card {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 14px;
+        align-items: start;
+        padding-right: 52px;
+      }}
+      body.is-editing .payment-main {{
+        grid-column: 1 / -1;
+      }}
+      body.is-editing .payment-meta,
+      body.is-editing .payment-amount-wrap {{
+        min-width: 0;
       }}
       .payment-title,
       .payment-amount {{
@@ -3122,8 +3136,14 @@ def build_invoice_html(record, asset_mode="web"):
         gap: 8px;
         justify-items: end;
       }}
+      body.is-editing .payment-amount-wrap {{
+        justify-items: stretch;
+      }}
       .payment-remove-button {{
         display: none;
+        position: absolute;
+        right: 14px;
+        top: 14px;
       }}
       body.is-editing .payment-remove-button {{
         display: inline-flex;
@@ -3246,6 +3266,9 @@ def build_invoice_html(record, asset_mode="web"):
           padding-top: 0;
         }}
         .payment-card {{
+          grid-template-columns: 1fr;
+        }}
+        body.is-editing .payment-card {{
           grid-template-columns: 1fr;
         }}
         .payment-amount {{
