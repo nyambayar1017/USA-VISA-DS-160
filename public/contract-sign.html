@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Аяллын гэрээ</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-68" />
+  </head>
+  <body class="contract-public-body">
+    <main class="contract-public-shell">
+      <section class="card contract-sign-card">
+        <div class="section-head">
+          <div>
+            <h2>Аяллын гэрээ</h2>
+            <p class="workspace-subtitle">Гэрээг нягталж үзээд доор гарын үсгээ зурна уу.</p>
+          </div>
+          <a class="secondary-button" href="https://www.travelx.mn" target="_blank" rel="noreferrer">Үндсэн сайтруу шилжих</a>
+        </div>
+
+        <div id="contract-summary" class="contract-summary"></div>
+        <div class="contract-preview">
+          <iframe id="contract-preview-frame" title="Contract preview"></iframe>
+        </div>
+
+        <div class="contract-signature-panel">
+          <div class="field-grid contract-client-grid">
+            <label>
+              Таны утас
+              <input type="text" id="signer-client-phone" placeholder="Таны утас" />
+            </label>
+            <label>
+              Яаралтай үед холбогдох нэр
+              <input type="text" id="signer-emergency-name" placeholder="Яаралтай үед холбогдох нэр" />
+            </label>
+            <label>
+              Яаралтай үед холбогдох утас
+              <input type="text" id="signer-emergency-phone" placeholder="Яаралтай үед холбогдох утас" />
+            </label>
+            <label>
+              Таны хэн болох
+              <input type="text" id="signer-emergency-relation" placeholder="Таны хэн болох" />
+            </label>
+          </div>
+
+          <label class="contract-accept">
+            <input type="checkbox" id="signer-accept" />
+            Гэрээг уншиж танилцан, гэрээг хүлээн зөвшөөрч байна.
+          </label>
+
+          <div class="signature-box">
+            <div class="signature-helper">Доорх талбарт гарын үсгээ аль болох төв хэсэгт зурна уу.</div>
+            <canvas id="signature-canvas" width="700" height="220"></canvas>
+          </div>
+          <div class="signature-actions">
+            <button type="button" id="signature-clear" class="secondary-button">Арилгах</button>
+            <button type="button" id="signature-submit">Гэрээ хийх</button>
+          </div>
+          <p id="signature-status" class="status"></p>
+          <div id="signature-download" class="signature-download"></div>
+        </div>
+      </section>
+    </main>
+    <script src="/contracts.js?v=workspace-73"></script>
+  </body>
+</html>

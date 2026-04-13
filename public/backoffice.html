@@ -4,68 +4,239 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TravelX Backoffice</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-70" />
   </head>
-  <body class="backoffice-body">
-    <main class="backoffice-home">
-      <section class="backoffice-hero">
-        <div class="backoffice-badge">backoffice.travelx.mn</div>
-        <h1>TravelX Backoffice</h1>
-        <p class="backoffice-lead">
-          Танай багийн өдөр тутмын ажлын үндсэн цэс. Эндээс гэрээ, аяллын тооцоо,
-          DS-160 мэдээлэл, camp reservation зэрэг хэсгүүд рүү орох үндсэн нүүрийг харуулна.
-        </p>
-
-        <div class="backoffice-hero-actions">
-          <a class="backoffice-primary-link" href="#modules">Хэсгүүдийг харах</a>
-          <a class="backoffice-secondary-link" href="/admin">Админ хэсэг</a>
+  <body class="app-body">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar">
+        <a class="sidebar-brand" href="/backoffice" aria-label="TravelX Home">
+          <img src="/assets/dtx-logo-blue-yellow.png" alt="Дэлхий Трэвел" />
+        </a>
+        <div class="sidebar-group">
+          <p class="sidebar-label">Backoffice</p>
+          <a class="sidebar-link is-active" href="/backoffice">Home</a>
+          <a class="sidebar-link" href="/camp">Camp Reservations</a>
+          <a class="sidebar-link" href="/fifa2026-admin">FIFA 2026</a>
+          <a class="sidebar-link" href="/contracts">Contracts</a>
+          <a class="sidebar-link" href="/ds160">DS-160</a>
+          <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>
+          <a class="sidebar-link" href="/admin">Team / Admin</a>
         </div>
-      </section>
-
-      <section id="modules" class="backoffice-modules">
-        <article class="module-card module-card-contract">
-          <p class="module-kicker">01</p>
-          <h2>Гэрээ хийх</h2>
-          <p>Харилцагчийн гэрээ бэлдэх, үүсгэх, хэвлэх хэсэг.</p>
-          <span class="module-status is-live">Live</span>
-        </article>
-
-        <article class="module-card module-card-budget">
-          <p class="module-kicker">02</p>
-          <h2>Аяллын тооцоо</h2>
-          <p>Аяллын үнэ, үйлчилгээ, зардал, ашиг тооцоолох dashboard хэсэг.</p>
-          <span class="module-status is-planned">Coming soon</span>
-        </article>
-
-        <article class="module-card module-card-ds160">
-          <p class="module-kicker">03</p>
-          <h2>DS-160 Form</h2>
-          <p>АНУ-ын визийн мэдээлэл цуглуулах болон дотоод хяналтын хэсэг.</p>
-          <span class="module-status is-live">Live</span>
-        </article>
-
-        <article class="module-card module-card-camp">
-          <p class="module-kicker">04</p>
-          <h2>USM Camp Reservation</h2>
-          <p>Camp захиалга, бүртгэл, багц мэдээллийг нэг дор харах хэсэг.</p>
-          <span class="module-status is-planned">Coming soon</span>
-        </article>
-      </section>
-
-      <section class="backoffice-footer-note">
-        <div>
-          <p class="backoffice-note-label">Domain setup</p>
-          <p>
-            Энэ хуудас нь `backoffice.travelx.mn` дээр үндсэн нүүр болж ажиллахаар бэлдэгдсэн.
-          </p>
+        <div class="sidebar-group">
+          <p class="sidebar-label">Modules</p>
+          <a class="sidebar-link" href="/fifa2026-admin">FIFA 2026</a>
+          <a class="sidebar-link" href="/contracts">Contracts</a>
+          <a class="sidebar-link is-disabled" href="#">Finance</a>
         </div>
-        <div>
-          <p class="backoffice-note-label">Next step</p>
-          <p>
-            Cloudflare дээр subdomain-аа энэ сервер рүү заахад homepage шууд нээгдэнэ.
-          </p>
-        </div>
-      </section>
-    </main>
+      </aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">Manager Home</p>
+            <h1>Team Dashboard And Daily Follow-Up</h1>
+            <p class="workspace-subtitle">
+              Keep everyone aligned with one page for tasks, reminders,
+              important phone numbers, and quick access to the main modules.
+            </p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="manager-summary-grid" id="manager-summary">
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Open Tasks</p>
+            <strong id="summary-open-tasks">0</strong>
+            <span>What still needs action from the team.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Priority Contacts</p>
+            <strong id="summary-priority-contacts">0</strong>
+            <span>Important numbers to keep close and revisit fast.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Contact Total</p>
+            <strong id="summary-total-contacts">0</strong>
+            <span>Saved numbers your team can access from one place.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Completed Tasks</p>
+            <strong id="summary-done-tasks">0</strong>
+            <span>Quick view of finished work on the homepage.</span>
+          </article>
+        </section>
+
+        <section class="manager-dashboard-grid">
+          <article class="card manager-panel">
+            <div class="dashboard-head">
+              <div>
+                <h2>To-Do List</h2>
+                <p class="workspace-subtitle manager-panel-copy">
+                  Track work for managers and staff with status and priority
+                  filters.
+                </p>
+              </div>
+            </div>
+
+            <form id="task-form" class="manager-form-grid manager-form-grid-vertical">
+              <input type="hidden" name="id" />
+              <label>
+                Task title
+                <input name="title" required />
+              </label>
+              <label>
+                Manager
+                <select name="owner" id="task-manager-select" required>
+                  <option value="">Choose registered manager</option>
+                </select>
+              </label>
+              <label>
+                Priority
+                <select name="priority">
+                  <option value="high">High</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+              <label>
+                Due date
+                <input name="dueDate" type="date" />
+              </label>
+              <label class="full-span">
+                Note
+                <textarea name="note" rows="2"></textarea>
+              </label>
+              <div class="actions">
+                <button id="task-submit-button" type="submit">Add task</button>
+                <button id="task-cancel-button" type="button" class="button-secondary">Cancel</button>
+                <p id="task-status" class="status"></p>
+              </div>
+            </form>
+
+            <div class="manager-filter-row">
+              <label>
+                Search
+                <input id="task-search" type="search" placeholder="Search task or manager" />
+              </label>
+              <label>
+                Status
+                <select id="task-status-filter">
+                  <option value="all">All</option>
+                  <option value="todo">To do</option>
+                  <option value="in-progress">In progress</option>
+                  <option value="done">Done</option>
+                </select>
+              </label>
+              <label>
+                Priority
+                <select id="task-priority-filter">
+                  <option value="all">All</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="task-list" class="manager-table-wrap"></div>
+          </article>
+
+          <article class="card manager-panel">
+            <div class="dashboard-head">
+              <div>
+                <h2>Contact Numbers</h2>
+                <p class="workspace-subtitle manager-panel-copy">
+                  Keep important phone numbers for clients, staff, vendors, and
+                  partners with filters.
+                </p>
+              </div>
+            </div>
+
+            <form id="contact-form" class="manager-form-grid manager-form-grid-vertical">
+              <input type="hidden" name="id" />
+              <label>
+                Contact name
+                <input name="name" required />
+              </label>
+              <label>
+                Phone number
+                <input name="phone" required />
+              </label>
+              <label>
+                Type
+                <select name="type">
+                  <option value="client">Client</option>
+                  <option value="staff">Staff</option>
+                  <option value="partner">Partner</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+              </label>
+              <label>
+                Contact status
+                <select name="status">
+                  <option value="priority">Priority</option>
+                  <option value="warm">Warm</option>
+                  <option value="new">New</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+              <label>
+                Last contacted
+                <input name="lastContacted" type="date" />
+              </label>
+              <label class="full-span">
+                Note
+                <textarea name="note" rows="2"></textarea>
+              </label>
+              <div class="actions">
+                <button id="contact-submit-button" type="submit">Save contact</button>
+                <button id="contact-cancel-button" type="button" class="button-secondary">Cancel</button>
+                <p id="contact-status" class="status"></p>
+              </div>
+            </form>
+
+            <div class="manager-filter-row">
+              <label>
+                Search
+                <input id="contact-search" type="search" placeholder="Search name or phone" />
+              </label>
+              <label>
+                Type
+                <select id="contact-type-filter">
+                  <option value="all">All</option>
+                  <option value="client">Client</option>
+                  <option value="staff">Staff</option>
+                  <option value="partner">Partner</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+              </label>
+              <label>
+                Status
+                <select id="contact-status-filter">
+                  <option value="all">All</option>
+                  <option value="priority">Priority</option>
+                  <option value="warm">Warm</option>
+                  <option value="new">New</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="contact-list" class="manager-table-wrap"></div>
+          </article>
+        </section>
+
+      </main>
+    </div>
+    <script src="/app-shell.js?v=workspace-64"></script>
+    <script src="/backoffice.js?v=workspace-59"></script>
   </body>
 </html>

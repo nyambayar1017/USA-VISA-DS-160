@@ -1,9 +1,9 @@
 const loginForm = document.querySelector("#login-form");
 const registerForm = document.querySelector("#register-form");
-const bootstrapForm = document.querySelector("#bootstrap-form");
+const resetForm = document.querySelector("#reset-form");
 const loginStatus = document.querySelector("#login-status");
 const registerStatus = document.querySelector("#register-status");
-const bootstrapStatus = document.querySelector("#bootstrap-status");
+const resetStatus = document.querySelector("#reset-status");
 
 function buildPayload(formNode) {
   return Object.fromEntries(new FormData(formNode).entries());
@@ -36,31 +36,37 @@ loginForm.addEventListener("submit", async (event) => {
 
 registerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  registerStatus.textContent = "Sending request...";
+  registerStatus.textContent = "Creating account request...";
   try {
+    const payload = buildPayload(registerForm);
+    if (payload.password !== payload.confirmPassword) {
+      registerStatus.textContent = "Passwords do not match.";
+      return;
+    }
     await fetchJson("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildPayload(registerForm)),
+      body: JSON.stringify(payload),
     });
-    registerStatus.textContent = "Request sent. Wait for admin approval.";
+    registerStatus.textContent = "Sign up submitted. Wait for admin approval.";
     registerForm.reset();
   } catch (error) {
     registerStatus.textContent = error.message;
   }
 });
 
-bootstrapForm.addEventListener("submit", async (event) => {
+resetForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  bootstrapStatus.textContent = "Creating admin...";
+  resetStatus.textContent = "Sending reset request...";
   try {
-    await fetchJson("/api/auth/bootstrap-admin", {
+    await fetchJson("/api/auth/request-reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildPayload(bootstrapForm)),
+      body: JSON.stringify(buildPayload(resetForm)),
     });
-    window.location.href = "/admin";
+    resetStatus.textContent = "Reset request sent. Admin will help you set a new password.";
+    resetForm.reset();
   } catch (error) {
-    bootstrapStatus.textContent = error.message;
+    resetStatus.textContent = error.message;
   }
 });

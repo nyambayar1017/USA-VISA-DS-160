@@ -4,19 +4,44 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TravelX Admin</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-70" />
   </head>
-  <body>
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">Admin</p>
-        <h1>Team Access And Visa Submissions</h1>
-        <p class="intro">
-          Approve staff accounts, reject access requests, and review DS-160 submissions from one place.
-        </p>
-      </section>
+  <body class="app-body">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar">
+        <a class="sidebar-brand" href="/backoffice" aria-label="TravelX Home">
+          <img src="/assets/dtx-logo-blue-yellow.png" alt="Дэлхий Трэвел" />
+        </a>
+        <div class="sidebar-group">
+          <p class="sidebar-label">Backoffice</p>
+          <a class="sidebar-link" href="/backoffice">Home</a>
+          <a class="sidebar-link" href="/camp">Camp Reservations</a>
+          <a class="sidebar-link" href="/fifa2026-admin">FIFA 2026</a>
+          <a class="sidebar-link" href="/ds160">DS-160</a>
+          <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>
+          <a class="sidebar-link is-active" href="/admin">Team / Admin</a>
+        </div>
+      </aside>
 
-      <section class="card">
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">Admin</p>
+            <h1>Team Access And Visa Submissions</h1>
+            <p class="workspace-subtitle">Approve staff accounts and review DS-160 submissions from one place.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card">
         <div class="dashboard-head">
           <h2>Team Access</h2>
           <div class="dashboard-actions">
@@ -25,9 +50,9 @@
           </div>
         </div>
         <div id="user-list" class="submission-list"></div>
-      </section>
+        </section>
 
-      <section class="card">
+        <section class="card">
         <div class="dashboard-head">
           <h2>DS-160 Responses</h2>
           <div class="dashboard-actions">
@@ -36,9 +61,11 @@
           </div>
         </div>
         <div id="submission-list" class="submission-list"></div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
 
-    <script src="/admin.js"></script>
+    <script src="/app-shell.js?v=workspace-64"></script>
+    <script src="/admin.js?v=workspace-14"></script>
   </body>
 </html>
