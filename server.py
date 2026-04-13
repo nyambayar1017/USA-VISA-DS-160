@@ -3122,9 +3122,9 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .finance-signature {{
         position: absolute;
-        left: 70px;
-        top: 44px;
-        width: 178px;
+        left: 74px;
+        top: 18px;
+        width: 150px;
         z-index: 1;
       }}
       .finance-signature img {{
@@ -3132,8 +3132,8 @@ def build_invoice_html(record, asset_mode="web"):
         height: auto;
         display: block;
         mix-blend-mode: screen;
-        filter: brightness(2.3) contrast(1.5) saturate(1.35);
-        opacity: 0.98;
+        filter: brightness(2.5) contrast(1.6) saturate(1.4);
+        opacity: 0.96;
       }}
       .invoice-footer-space {{
         min-height: 136px;
