@@ -192,11 +192,11 @@ function syncCategorySeatTextarea(categoryCode) {
 function setTicketFormVisible(isVisible) {
   if (!ticketForm) return;
   if (isVisible) {
-    ticketForm.removeAttribute("hidden");
+    ticketForm.dataset.open = "true";
     ticketFormToggleButton?.setAttribute("hidden", "");
     ticketInventoryView?.setAttribute("hidden", "");
   } else {
-    ticketForm.setAttribute("hidden", "");
+    ticketForm.dataset.open = "false";
     ticketFormToggleButton?.removeAttribute("hidden");
     ticketInventoryView?.removeAttribute("hidden");
   }

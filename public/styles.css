@@ -2623,6 +2623,14 @@ body.modal-open {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.fifa-ticket-form-panel[data-open="false"] {
+  display: none;
+}
+
+.fifa-ticket-form-panel[data-open="true"] {
+  display: grid;
+}
+
 .fifa-category-editor {
   display: grid;
   gap: 16px;
