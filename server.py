@@ -2563,6 +2563,14 @@ def build_invoice_html(record, asset_mode="web"):
         const bankName = document.querySelector("[data-bank-name]");
         const bankPrefix = document.querySelector("[data-bank-prefix]");
         const bankNumber = document.querySelector("[data-bank-number]");
+        const showSavedNotice = () => {{
+          const notice = document.querySelector("[data-save-notice]");
+          if (!notice) return;
+          notice.hidden = false;
+          setTimeout(() => {{
+            notice.hidden = true;
+          }}, 2400);
+        }};
         const itemTemplate = () => {{
           const row = document.createElement("tr");
           row.dataset.itemKey = "item-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
@@ -2764,12 +2772,7 @@ def build_invoice_html(record, asset_mode="web"):
             if (!response.ok) {{
               throw new Error(payload.error || "Could not save invoice.");
             }}
-            syncBankAccount();
-            syncItemRows();
-            syncSelectDefaults();
-            syncBadges();
-            syncPaymentCards();
-            setMode("view");
+            sessionStorage.setItem("invoiceSaved", "1");
             window.location.reload();
           }} catch (error) {{
             window.alert(error.message || "Could not save invoice.");
@@ -2784,6 +2787,10 @@ def build_invoice_html(record, asset_mode="web"):
         syncBadges();
         syncPaymentCards();
         setMode("view");
+        if (sessionStorage.getItem("invoiceSaved") === "1") {{
+          sessionStorage.removeItem("invoiceSaved");
+          showSavedNotice();
+        }}
       }})();
     </script>"""
 
@@ -2791,15 +2798,19 @@ def build_invoice_html(record, asset_mode="web"):
         f"""
           <div class="payment-card" data-payment-key="{html.escape(row['key'])}">
             <div class="payment-main">
-              <span class="payment-title">{html.escape(row['title'])}</span>
+              <span class="payment-title invoice-view-text">{html.escape(row['title'])}</span>
+              <input class="invoice-edit-input" data-payment-field="title" value="{html.escape(row['title'])}" />
             </div>
             <div class="payment-meta">
               <span class="meta-label">Нэхэмжилсэн огноо</span>
-              <span class="meta-value">{html.escape(row['created'])}</span>
+              <span class="meta-value invoice-view-text">{html.escape(row['created'])}</span>
+              <input class="invoice-edit-input" data-payment-field="created" type="date" value="{html.escape(normalize_text(row['created']))}" />
             </div>
             <div class="payment-meta">
-              <span class="meta-label">{html.escape(row['secondaryLabel'])}</span>
-              <span class="meta-value">{html.escape(row['secondaryValue'])}</span>
+              <span class="meta-label invoice-view-text" data-secondary-label-view>{html.escape(row['secondaryLabel'])}</span>
+              <input class="invoice-edit-input" data-payment-field="secondaryLabel" value="{html.escape(row['secondaryLabel'])}" />
+              <span class="meta-value invoice-view-text">{html.escape(row['secondaryValue'])}</span>
+              <input class="invoice-edit-input" data-payment-field="secondaryValue" type="date" value="{html.escape(normalize_text(row['secondaryValue']))}" />
             </div>
             <div class="payment-meta">
               <span class="meta-label">Төлөв</span>
@@ -2808,7 +2819,11 @@ def build_invoice_html(record, asset_mode="web"):
                 {status_options_markup}
               </select>
             </div>
-            <div class="payment-amount">{format_money(row['amount'])} ₮</div>
+            <div class="payment-amount-wrap">
+              <div class="payment-amount invoice-view-text">{format_money(row['amount'])} ₮</div>
+              <input class="invoice-edit-input" data-payment-field="amount" type="number" min="0" value="{row['amount']}" />
+              <button type="button" class="invoice-remove-button payment-remove-button" data-remove-payment>×</button>
+            </div>
           </div>
         """
         for row in payment_rows
@@ -2871,6 +2886,19 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .toolbar-button[hidden] {{
         display: none;
+      }}
+      .save-notice {{
+        position: sticky;
+        top: 72px;
+        z-index: 9;
+        width: fit-content;
+        margin: 8px auto 0;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: #dcf4e3;
+        color: #1f8550;
+        font: 700 13px/1.2 Inter, system-ui, sans-serif;
+        box-shadow: 0 10px 24px rgba(31, 133, 80, 0.12);
       }}
       .page {{
         width: min(210mm, calc(100vw - 24px));
@@ -3173,14 +3201,14 @@ def build_invoice_html(record, asset_mode="web"):
         top: 18px;
         width: 150px;
         z-index: 1;
+        height: 62px;
+        overflow: hidden;
       }}
       .finance-signature img {{
-        width: 100%;
-        height: auto;
+        width: 220px;
+        max-width: none;
         display: block;
-        mix-blend-mode: screen;
-        filter: brightness(2.5) contrast(1.6) saturate(1.4);
-        opacity: 0.96;
+        transform: translate(-42px, -28px) rotate(-3deg);
       }}
       .invoice-footer-space {{
         min-height: 136px;
@@ -3228,6 +3256,7 @@ def build_invoice_html(record, asset_mode="web"):
   </head>
   <body>
     {toolbar_markup}
+    <div class="save-notice" data-save-notice hidden>Saved successfully</div>
     <div class="page">
       <p class="invoice-number">Нэхэмжлэх #{invoice_number}</p>
       <div class="header-grid">
@@ -3302,7 +3331,7 @@ def build_invoice_html(record, asset_mode="web"):
                 <img src="{asset_src('invoice-finance-stamp.png')}" alt="Санхүүгийн тамга" />
               </div>
               <div class="finance-signature">
-                <img src="{asset_src('invoice-finance-signature.png')}" alt="Нягтлан гарын үсэг" />
+                <img src="{asset_src('invoice-finance-signature-source.png')}" alt="Нягтлан гарын үсэг" />
               </div>
             </div>
             <div class="invoice-sign-line"></div>
