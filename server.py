@@ -3058,39 +3058,39 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .finance-asset-wrap {{
         position: relative;
-        min-height: 122px;
+        min-height: 136px;
       }}
       .finance-stamp {{
         position: absolute;
-        left: 0;
-        top: 18px;
-        width: 150px;
-        height: 96px;
+        left: 6px;
+        top: -2px;
+        width: 188px;
+        height: 118px;
         overflow: hidden;
       }}
       .finance-stamp img {{
-        width: 330px;
+        width: 1550px;
         max-width: none;
         display: block;
-        transform: translate(-112px, -168px) rotate(-4deg);
+        transform: translate(-646px, -820px) rotate(-7deg);
       }}
       .finance-signature {{
         position: absolute;
-        left: 70px;
-        top: 48px;
-        width: 150px;
-        height: 58px;
+        left: 118px;
+        top: 22px;
+        width: 170px;
+        height: 88px;
         overflow: hidden;
       }}
       .finance-signature img {{
-        width: 220px;
+        width: 890px;
         max-width: none;
         display: block;
-        transform: translate(-44px, -30px) rotate(-2deg);
+        transform: translate(-152px, -126px) rotate(-7deg);
       }}
       .invoice-sign-line {{
         height: 1px;
-        margin-top: 88px;
+        margin-top: 102px;
         background: #d6dceb;
       }}
       .invoice-sign-name {{
