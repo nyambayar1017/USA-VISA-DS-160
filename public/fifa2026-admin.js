@@ -34,6 +34,11 @@ const summaryNodes = {
 
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
+const seatInputContainers = {
+  "1": document.querySelector('[data-seat-inputs="1"]'),
+  "2": document.querySelector('[data-seat-inputs="2"]'),
+  "3": document.querySelector('[data-seat-inputs="3"]'),
+};
 
 const MATCH_CATALOG = [
   { stage: "Opening", matchNumber: "Match 1", matchDate: "2026-06-11", teamA: "MEX", teamB: "RSA", city: "Mexico City", venue: "Mexico City Stadium" },
@@ -152,6 +157,60 @@ function fillSelect(node, values, placeholder, keepValue = "") {
   if (keepValue && values.includes(keepValue)) node.value = keepValue;
 }
 
+function parseSeatLines(rawValue) {
+  return String(rawValue || "")
+    .split(/\n|\|/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^Ticket\s+\d+\s*:\s*/i, "").trim());
+}
+
+function syncCategorySeatTextarea(categoryCode) {
+  if (!ticketForm) return;
+  const container = seatInputContainers[categoryCode];
+  const textarea = ticketForm.elements[`category${categoryCode}Seats`];
+  if (!container || !textarea) return;
+  const values = [...container.querySelectorAll("input[data-seat-line]")]
+    .map((input, index) => {
+      const value = input.value.trim();
+      return value ? `Ticket ${index + 1}: ${value}` : "";
+    })
+    .filter(Boolean);
+  textarea.value = values.join("\n");
+}
+
+function renderCategorySeatInputs(categoryCode, seatLines = []) {
+  const container = seatInputContainers[categoryCode];
+  if (!ticketForm || !container) return;
+  const quantity = Math.max(Number(ticketForm.elements[`category${categoryCode}Quantity`].value || 0), 0);
+  const assignedLater = ticketForm.elements[`category${categoryCode}AssignedLater`].value === "yes";
+  if (!quantity) {
+    container.innerHTML = '<p class="fifa-seat-help">Set total quantity first to add individual ticket seat numbers.</p>';
+    syncCategorySeatTextarea(categoryCode);
+    return;
+  }
+  container.innerHTML = Array.from({ length: quantity }, (_, index) => {
+    const value = seatLines[index] || "";
+    return `
+      <label class="fifa-seat-line">
+        <span>Ticket ${index + 1}</span>
+        <input
+          type="text"
+          data-seat-line="${index + 1}"
+          value="${escapeHtml(value)}"
+          placeholder="${assignedLater ? "Seat will be assigned later" : `Seat detail for ticket ${index + 1}`}"
+          ${assignedLater ? 'disabled aria-disabled="true"' : ""}
+        />
+      </label>
+    `;
+  }).join("");
+  if (assignedLater) {
+    ticketForm.elements[`category${categoryCode}Seats`].value = "Seat will be assigned later";
+  } else {
+    syncCategorySeatTextarea(categoryCode);
+  }
+}
+
 function buildMatchLabel(teamA, teamB) {
   const left = String(teamA || "").trim();
   const right = String(teamB || "").trim();
@@ -236,6 +295,7 @@ function clearCategoryBlock(categoryCode) {
   ticketForm.elements[`category${categoryCode}Section`].value = "";
   ticketForm.elements[`category${categoryCode}Seats`].value = "";
   ticketForm.elements[`category${categoryCode}AssignedLater`].value = "no";
+  renderCategorySeatInputs(categoryCode, []);
 }
 
 function resetTicketForm() {
@@ -295,8 +355,9 @@ function blockHasInput(categoryCode) {
 function buildCategoryPayload(categoryCode) {
   const price = Number(ticketForm.elements[`category${categoryCode}Price`].value || 0);
   const quantity = Number(ticketForm.elements[`category${categoryCode}Quantity`].value || 0);
-  const seatDetails = ticketForm.elements[`category${categoryCode}Seats`].value.trim();
   const assignedLater = ticketForm.elements[`category${categoryCode}AssignedLater`].value === "yes";
+  if (!assignedLater) syncCategorySeatTextarea(categoryCode);
+  const seatDetails = ticketForm.elements[`category${categoryCode}Seats`].value.trim();
   return {
     categoryCode,
     categoryName: ticketForm.elements[`category${categoryCode}Name`].value.trim() || (assignedLater ? "Seat will be assigned later" : ""),
@@ -365,6 +426,7 @@ function fillTicketForm(ticket) {
     ticketForm.elements[`category${code}Section`].value = item.seatSection || "";
     ticketForm.elements[`category${code}Seats`].value = item.seatDetails || "";
     ticketForm.elements[`category${code}AssignedLater`].value = item.seatAssignedLater ? "yes" : "no";
+    renderCategorySeatInputs(code, parseSeatLines(item.seatDetails || ""));
   });
 
   state.editingTicketId = ticket.id;
@@ -626,6 +688,25 @@ async function loadDashboard() {
 }
 
 if (ticketForm) {
+  ["1", "2", "3"].forEach((categoryCode) => {
+    ticketForm.elements[`category${categoryCode}Quantity`]?.addEventListener("input", () => {
+      renderCategorySeatInputs(
+        categoryCode,
+        parseSeatLines(ticketForm.elements[`category${categoryCode}Seats`].value)
+      );
+    });
+    ticketForm.elements[`category${categoryCode}AssignedLater`]?.addEventListener("change", () => {
+      renderCategorySeatInputs(
+        categoryCode,
+        parseSeatLines(ticketForm.elements[`category${categoryCode}Seats`].value)
+      );
+    });
+    seatInputContainers[categoryCode]?.addEventListener("input", (event) => {
+      if (!event.target.matches("input[data-seat-line]")) return;
+      syncCategorySeatTextarea(categoryCode);
+    });
+  });
+
   ticketForm.elements.matchNumber.addEventListener("change", () => applyMatchSelection(ticketForm.elements.matchNumber.value));
   ticketForm.elements.city.addEventListener("change", () => applyCityVenue(ticketForm.elements.city.value));
   ticketForm.elements.teamA.addEventListener("change", () => {
