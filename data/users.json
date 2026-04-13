@@ -1,0 +1,10 @@
+[
+  {
+    "id": "1",
+    "email": "test@example.com",
+    "passwordHash": "x",
+    "status": "approved",
+    "role": "admin",
+    "name": "Test"
+  }
+]

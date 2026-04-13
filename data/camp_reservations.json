@@ -1,0 +1,49 @@
+[
+  {
+    "id": "1a8bbba2-deaf-4730-a8c1-7b9b00d40d6e",
+    "createdAt": "2026-03-26T08:36:50.579195+00:00",
+    "createdDate": "2026-03-26",
+    "tripId": "03576895-5bb3-4bea-965f-01c069f3ce03",
+    "tripName": "Test Trip",
+    "reservationName": "Test Res",
+    "language": "English",
+    "campName": "Updated Camp",
+    "locationName": "Updated Loc",
+    "newCampName": "",
+    "reservationType": "camp",
+    "checkIn": "2026-07-02",
+    "checkOut": "2026-07-03",
+    "clientCount": 3,
+    "staffCount": 1,
+    "staffAssignment": "",
+    "gerCount": 2,
+    "nights": 1,
+    "roomType": "Twin Standard Ger",
+    "breakfast": "No",
+    "lunch": "No",
+    "dinner": "No",
+    "status": "confirmed",
+    "deposit": 0,
+    "depositPaidDate": "",
+    "secondPayment": 0,
+    "secondPaidDate": "",
+    "totalPayment": 0,
+    "balancePayment": 0,
+    "paidAmount": 0,
+    "paymentStatus": "in_progress",
+    "notes": "",
+    "createdBy": {
+      "id": "",
+      "email": "test@example.com",
+      "name": "test@example.com"
+    },
+    "updatedAt": "2026-03-26T08:36:50.609361+00:00",
+    "updatedBy": {
+      "id": "",
+      "email": "test@example.com",
+      "name": "test@example.com"
+    },
+    "pdfViewPath": "/generated/camp-Test-Res-Updated-Camp-20260326083650.html",
+    "pdfPath": "/generated/camp-Test-Res-Updated-Camp-20260326083650.html"
+  }
+]
