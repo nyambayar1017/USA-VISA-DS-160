@@ -34,6 +34,7 @@ const summaryNodes = {
 
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
+const reloadSeedButton = document.querySelector("#fifa-reload-seed");
 
 const state = {
   tickets: [],
@@ -514,6 +515,17 @@ if (saleForm) {
 
 document.querySelector("#fifa-ticket-cancel")?.addEventListener("click", resetTicketForm);
 document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSaleForm);
+reloadSeedButton?.addEventListener("click", async () => {
+  if (!window.confirm("Replace current FIFA inventory with the full Excel-imported match list?")) return;
+  setStatus(ticketStatusNode, "Reloading all matches from Excel seed...");
+  try {
+    await fetchJson("/api/fifa2026/reset-from-seed", { method: "POST" });
+    await loadDashboard();
+    setStatus(ticketStatusNode, "All matches and ticket lots were reloaded from the Excel seed.");
+  } catch (error) {
+    setStatus(ticketStatusNode, error.message, true);
+  }
+});
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);

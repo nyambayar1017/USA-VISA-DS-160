@@ -403,6 +403,12 @@ def write_fifa2026_store(payload):
     write_json_object(FIFA2026_FILE, normalize_fifa2026_store(payload))
 
 
+def reset_fifa2026_store_from_seed():
+    payload = normalize_fifa2026_store(default_fifa2026_data())
+    write_fifa2026_store(payload)
+    return payload
+
+
 def json_response(start_response, status, payload, extra_headers=None):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = [
@@ -4793,6 +4799,25 @@ def handle_get_fifa2026_public(start_response):
     )
 
 
+def handle_reset_fifa2026_from_seed(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    store = reset_fifa2026_store_from_seed()
+    sales = store.get("sales", [])
+    tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "ok": True,
+            "tickets": tickets,
+            "sales": [],
+            "summary": build_fifa_summary(store),
+        },
+    )
+
+
 def handle_create_fifa_ticket(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -6065,6 +6090,11 @@ def app(environ, start_response):
     if path == "/api/fifa2026/public":
         if method == "GET":
             return handle_get_fifa2026_public(start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/fifa2026/reset-from-seed":
+        if method == "POST":
+            return handle_reset_fifa2026_from_seed(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/fifa2026/tickets":
