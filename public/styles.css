@@ -2804,6 +2804,12 @@ body.modal-open {
   font-size: 0.84rem;
 }
 
+.fifa-public-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 @media (max-width: 1200px) {
   .fifa-form-grid,
   .fifa-filters {

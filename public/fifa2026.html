@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FIFA 2026 Schedule</title>
+    <title>FIFA 2026 Tickets</title>
     <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-4" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-5" />
   </head>
   <body class="fifa-public-body">
     <main class="fifa-public-shell">
@@ -16,11 +16,11 @@
         <div>
           <p class="eyebrow">FIFA 2026</p>
           <h1>FIFA World Cup 2026</h1>
-          <p class="intro">Browse the match schedule and current seat availability. This public page hides sold inventory automatically and focuses on dates, matches, categories, and seat numbers.</p>
+          <p class="intro">Browse the available ticket list by match, city, category, and seat number. Sold inventory is removed automatically from this public page.</p>
         </div>
         <div class="fifa-public-summary">
           <article>
-            <span>Matches</span>
+            <span>Visible Lots</span>
             <strong id="public-summary-lots">0</strong>
           </article>
           <article>
@@ -35,12 +35,6 @@
           <label>
             Search
             <input id="public-filter-search" type="search" placeholder="Match, team, city, venue" />
-          </label>
-          <label>
-            Team / Match
-            <select id="public-filter-match">
-              <option value="">All matches</option>
-            </select>
           </label>
           <label>
             Stage
@@ -70,10 +64,15 @@
           </label>
         </div>
 
+        <div class="fifa-list-meta">
+          <strong id="public-list-count">0 ticket lots</strong>
+          <span id="public-list-meta">Available ticket lots with seat numbers.</span>
+        </div>
+
         <div id="fifa-public-list" class="fifa-public-table-wrap"></div>
       </section>
     </main>
 
-    <script src="/fifa2026.js?v=workspace-fifa-4"></script>
+    <script src="/fifa2026.js?v=workspace-fifa-5"></script>
   </body>
 </html>

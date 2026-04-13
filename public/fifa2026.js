@@ -1,10 +1,11 @@
 const publicList = document.querySelector("#fifa-public-list");
 const publicSummaryLots = document.querySelector("#public-summary-lots");
 const publicSummaryUnits = document.querySelector("#public-summary-units");
+const publicListCount = document.querySelector("#public-list-count");
+const publicListMeta = document.querySelector("#public-list-meta");
 
 const filters = {
   search: document.querySelector("#public-filter-search"),
-  match: document.querySelector("#public-filter-match"),
   stage: document.querySelector("#public-filter-stage"),
   city: document.querySelector("#public-filter-city"),
   category: document.querySelector("#public-filter-category"),
@@ -31,80 +32,63 @@ function fillSelect(node, values, placeholder) {
     .join("");
 }
 
-function matchKey(ticket) {
-  return `${ticket.matchDate}|${ticket.matchNumber}|${ticket.matchLabel}|${ticket.city}|${ticket.stage}`;
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString();
 }
 
-function buildRows() {
-  const grouped = new Map();
-  state.tickets.forEach((ticket) => {
-    const key = matchKey(ticket);
-    if (!grouped.has(key)) {
-      grouped.set(key, {
-        matchDate: ticket.matchDate,
-        matchNumber: ticket.matchNumber,
-        matchLabel: ticket.matchLabel,
-        teamA: ticket.teamA,
-        teamB: ticket.teamB,
-        city: ticket.city,
-        stage: ticket.stage,
-        categories: { "1": 0, "2": 0, "3": 0 },
-        seats: { "1": [], "2": [], "3": [] },
-        totalUnits: 0,
-      });
-    }
-    const row = grouped.get(key);
-    row.categories[ticket.categoryCode] += Number(ticket.availableQuantity || 0);
-    row.totalUnits += Number(ticket.availableQuantity || 0);
-    if (ticket.seatDetails) {
-      row.seats[ticket.categoryCode].push(ticket.seatDetails);
-    }
-  });
-  return [...grouped.values()].sort((left, right) => {
-    const dateCompare = String(left.matchDate || "").localeCompare(String(right.matchDate || ""));
-    if (dateCompare !== 0) return dateCompare;
-    return String(left.matchNumber || "").localeCompare(String(right.matchNumber || ""));
-  });
+function normalizedCategory(ticket) {
+  const code = String(ticket.categoryCode || "").trim();
+  if (["1", "2", "3"].includes(code)) return code;
+  const digits = code.replace(/\D+/g, "");
+  return ["1", "2", "3"].includes(digits) ? digits : code || "-";
 }
 
-function filteredRows() {
+function filteredTickets() {
   const query = filters.search.value.trim().toLowerCase();
-  return buildRows().filter((row) => {
-    if (filters.match.value && `${row.matchNumber} · ${row.matchLabel}` !== filters.match.value) return false;
-    if (filters.stage.value && row.stage !== filters.stage.value) return false;
-    if (filters.city.value && row.city !== filters.city.value) return false;
-    if (filters.category.value && row.categories[filters.category.value] <= 0) return false;
-    if (filters.dateFrom.value && row.matchDate < filters.dateFrom.value) return false;
-    if (filters.dateTo.value && row.matchDate > filters.dateTo.value) return false;
-    if (!query) return true;
-    return [
-      row.matchNumber,
-      row.matchLabel,
-      row.teamA,
-      row.teamB,
-      row.city,
-      row.stage,
-      ...row.seats["1"],
-      ...row.seats["2"],
-      ...row.seats["3"],
-    ].some((value) => String(value || "").toLowerCase().includes(query));
-  });
+  return [...state.tickets]
+    .filter((ticket) => {
+      if (filters.stage.value && ticket.stage !== filters.stage.value) return false;
+      if (filters.city.value && ticket.city !== filters.city.value) return false;
+      if (filters.category.value && normalizedCategory(ticket) !== filters.category.value) return false;
+      if (filters.dateFrom.value && String(ticket.matchDate || "") < filters.dateFrom.value) return false;
+      if (filters.dateTo.value && String(ticket.matchDate || "") > filters.dateTo.value) return false;
+      if (!query) return true;
+      return [
+        ticket.matchLabel,
+        ticket.matchNumber,
+        ticket.teamA,
+        ticket.teamB,
+        ticket.stage,
+        ticket.city,
+        ticket.venue,
+        ticket.categoryName,
+        ticket.categoryCode,
+        ticket.seatSection,
+        ticket.seatDetails,
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    })
+    .sort((left, right) => {
+      const dateCompare = String(left.matchDate || "").localeCompare(String(right.matchDate || ""));
+      if (dateCompare !== 0) return dateCompare;
+      return String(left.matchNumber || "").localeCompare(String(right.matchNumber || ""));
+    });
 }
 
-function seatSummary(row) {
-  const parts = ["1", "2", "3"]
-    .filter((category) => row.seats[category].length)
-    .map((category) => `CAT ${category}: ${row.seats[category].join(" / ")}`);
-  return parts.join(" | ") || "-";
-}
+function renderPublicTickets() {
+  const tickets = filteredTickets();
+  if (publicSummaryLots) publicSummaryLots.textContent = String(tickets.length);
+  if (publicSummaryUnits) publicSummaryUnits.textContent = String(tickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0));
+  if (publicListCount) publicListCount.textContent = `${tickets.length} ticket lots`;
+  if (publicListMeta) {
+    const matchCount = new Set(tickets.map((ticket) => ticket.matchNumber)).size;
+    publicListMeta.textContent = `${matchCount} matches in current view. Seat numbers are shown directly in the list.`;
+  }
 
-function renderRows() {
-  const rows = filteredRows();
-  if (publicSummaryLots) publicSummaryLots.textContent = String(rows.length);
-  if (publicSummaryUnits) publicSummaryUnits.textContent = String(rows.reduce((sum, row) => sum + row.totalUnits, 0));
-
-  if (!rows.length) {
-    publicList.innerHTML = '<p class="empty">No matches match the current filters.</p>';
+  if (!tickets.length) {
+    publicList.innerHTML = '<p class="empty">No tickets match the current filters.</p>';
     return;
   }
 
@@ -112,31 +96,37 @@ function renderRows() {
     <table class="fifa-public-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Stage</th>
           <th>Match</th>
-          <th>Teams</th>
+          <th>Date</th>
           <th>City</th>
-          <th>Category 1</th>
-          <th>Category 2</th>
-          <th>Category 3</th>
-          <th>Seat Number</th>
+          <th>Category</th>
+          <th>Seat / Ticket Number</th>
+          <th>Available</th>
         </tr>
       </thead>
       <tbody>
-        ${rows
+        ${tickets
           .map(
-            (row) => `
+            (ticket) => `
               <tr>
-                <td>${escapeHtml(row.matchDate)}</td>
-                <td>${escapeHtml(row.stage)}</td>
-                <td>${escapeHtml(row.matchNumber)}</td>
-                <td>${escapeHtml(row.teamA)} vs ${escapeHtml(row.teamB)}</td>
-                <td>${escapeHtml(row.city)}</td>
-                <td>${row.categories["1"] || ""}</td>
-                <td>${row.categories["2"] || ""}</td>
-                <td>${row.categories["3"] || ""}</td>
-                <td class="fifa-public-seat-cell">${escapeHtml(seatSummary(row))}</td>
+                <td>
+                  <strong>${escapeHtml(ticket.matchLabel || "-")}</strong>
+                  <div class="fifa-public-sub">${escapeHtml(ticket.stage || "-")} · ${escapeHtml(ticket.matchNumber || "-")}</div>
+                </td>
+                <td>${escapeHtml(formatDate(ticket.matchDate))}</td>
+                <td>
+                  <strong>${escapeHtml(ticket.city || "-")}</strong>
+                  <div class="fifa-public-sub">${escapeHtml(ticket.venue || "-")}</div>
+                </td>
+                <td>
+                  <strong>CAT ${escapeHtml(normalizedCategory(ticket))}</strong>
+                  <div class="fifa-public-sub">${escapeHtml(ticket.categoryName || "-")}</div>
+                </td>
+                <td class="fifa-public-seat-cell">
+                  <strong>${escapeHtml(ticket.seatDetails || "-")}</strong>
+                  <div class="fifa-public-sub">${escapeHtml(ticket.seatSection || "")}</div>
+                </td>
+                <td>${escapeHtml(String(ticket.availableQuantity || 0))}</td>
               </tr>
             `
           )
@@ -153,19 +143,15 @@ async function fetchPublicTickets() {
     throw new Error(data.error || "Could not load tickets");
   }
   state.tickets = data.tickets || [];
-  const rows = buildRows();
-  if (publicSummaryLots) publicSummaryLots.textContent = String(rows.length);
-  if (publicSummaryUnits) publicSummaryUnits.textContent = String(rows.reduce((sum, row) => sum + row.totalUnits, 0));
-  fillSelect(filters.match, [...new Set(rows.map((row) => `${row.matchNumber} · ${row.matchLabel}`))], "All matches");
-  fillSelect(filters.stage, [...new Set(rows.map((row) => row.stage).filter(Boolean))].sort(), "All stages");
-  fillSelect(filters.city, [...new Set(rows.map((row) => row.city).filter(Boolean))].sort(), "All cities");
+  fillSelect(filters.stage, [...new Set(state.tickets.map((ticket) => ticket.stage).filter(Boolean))].sort(), "All stages");
+  fillSelect(filters.city, [...new Set(state.tickets.map((ticket) => ticket.city).filter(Boolean))].sort(), "All cities");
   fillSelect(filters.category, ["1", "2", "3"], "All categories");
-  renderRows();
+  renderPublicTickets();
 }
 
 Object.values(filters).forEach((node) => {
-  node?.addEventListener("input", renderRows);
-  node?.addEventListener("change", renderRows);
+  node?.addEventListener("input", renderPublicTickets);
+  node?.addEventListener("change", renderPublicTickets);
 });
 
 fetchPublicTickets().catch((error) => {
