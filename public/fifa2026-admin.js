@@ -39,6 +39,11 @@ const state = {
   editingSaleId: "",
 };
 
+function setNodeText(node, value) {
+  if (!node) return;
+  node.textContent = value;
+}
+
 function setStatus(node, message, isError = false) {
   if (!node) return;
   node.textContent = message;
@@ -95,6 +100,7 @@ function formatDate(value) {
 }
 
 function fillSelect(node, values, placeholder, keepValue = "") {
+  if (!node) return;
   node.innerHTML = [`<option value="">${placeholder}</option>`]
     .concat(values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`))
     .join("");
@@ -121,6 +127,7 @@ function refreshFilterOptions() {
 }
 
 function refreshSaleTicketOptions() {
+  if (!saleTicketSelect) return;
   const currentValue = saleTicketSelect.value;
   const options = state.tickets
     .filter((ticket) => ticket.status === "active" && ticket.availableQuantity > 0)
@@ -136,6 +143,7 @@ function refreshSaleTicketOptions() {
 }
 
 function resetTicketForm() {
+  if (!ticketForm) return;
   ticketForm.reset();
   ticketForm.elements.id.value = "";
   ticketForm.elements.categoryCode.value = "1";
@@ -144,11 +152,12 @@ function resetTicketForm() {
   ticketForm.elements.visibility.value = "public";
   ticketForm.elements.status.value = "active";
   state.editingTicketId = "";
-  document.querySelector("#fifa-ticket-submit").textContent = "Save ticket lot";
+  setNodeText(document.querySelector("#fifa-ticket-submit"), "Save ticket lot");
   clearStatus(ticketStatusNode);
 }
 
 function resetSaleForm() {
+  if (!saleForm) return;
   saleForm.reset();
   saleForm.elements.id.value = "";
   saleForm.elements.quantity.value = "1";
@@ -156,7 +165,7 @@ function resetSaleForm() {
   saleForm.elements.saleStatus.value = "active";
   saleForm.elements.paymentStatus.value = "unpaid";
   state.editingSaleId = "";
-  document.querySelector("#fifa-sale-submit").textContent = "Register sale";
+  setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
 }
 
@@ -215,10 +224,11 @@ function filteredSales() {
 function renderTickets() {
   const tickets = filteredTickets();
   if (!tickets.length) {
-    ticketList.innerHTML = '<p class="empty">No ticket lots match these filters yet.</p>';
+    if (ticketList) ticketList.innerHTML = '<p class="empty">No ticket lots match these filters yet.</p>';
     return;
   }
 
+  if (!ticketList) return;
   ticketList.innerHTML = `
     <table class="manager-table fifa-table">
       <thead>
@@ -279,10 +289,11 @@ function renderTickets() {
 function renderSales() {
   const sales = filteredSales();
   if (!sales.length) {
-    saleList.innerHTML = '<p class="empty">No sales match these filters yet.</p>';
+    if (saleList) saleList.innerHTML = '<p class="empty">No sales match these filters yet.</p>';
     return;
   }
 
+  if (!saleList) return;
   saleList.innerHTML = `
     <table class="manager-table fifa-table">
       <thead>
@@ -341,6 +352,7 @@ function renderSales() {
 }
 
 function fillTicketForm(ticket) {
+  if (!ticketForm) return;
   ticketForm.elements.id.value = ticket.id;
   ticketForm.elements.stage.value = ticket.stage || "";
   ticketForm.elements.matchNumber.value = ticket.matchNumber || "";
@@ -362,12 +374,13 @@ function fillTicketForm(ticket) {
   ticketForm.elements.seatAssignedLater.checked = Boolean(ticket.seatAssignedLater);
   ticketForm.elements.notes.value = ticket.notes || "";
   state.editingTicketId = ticket.id;
-  document.querySelector("#fifa-ticket-submit").textContent = "Update ticket lot";
+  setNodeText(document.querySelector("#fifa-ticket-submit"), "Update ticket lot");
   setStatus(ticketStatusNode, "Editing ticket lot.");
   ticketForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function fillSaleForm(sale) {
+  if (!saleForm) return;
   saleForm.elements.id.value = sale.id;
   saleForm.elements.ticketId.value = sale.ticketId || "";
   saleForm.elements.quantity.value = sale.quantity || 1;
@@ -385,12 +398,13 @@ function fillSaleForm(sale) {
   saleForm.elements.buyerNationality.value = sale.buyerNationality || "";
   saleForm.elements.buyerNotes.value = sale.buyerNotes || "";
   state.editingSaleId = sale.id;
-  document.querySelector("#fifa-sale-submit").textContent = "Update sale";
+  setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
   setStatus(saleStatusNode, "Editing sale.");
   saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function startSaleForTicket(ticketId) {
+  if (!saleForm) return;
   resetSaleForm();
   const ticket = state.tickets.find((item) => item.id === ticketId);
   if (!ticket) return;
@@ -401,6 +415,7 @@ function startSaleForTicket(ticketId) {
 }
 
 function syncSaleTotals() {
+  if (!saleForm) return;
   const quantity = Number(saleForm.elements.quantity.value || 0);
   const pricePerTicket = Number(saleForm.elements.pricePerTicket.value || 0);
   if (!saleForm.elements.totalPrice.matches(":focus")) {
@@ -425,65 +440,69 @@ async function loadDashboard() {
   renderSales();
 }
 
-ticketForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const payload = Object.fromEntries(new FormData(ticketForm).entries());
-  payload.seatAssignedLater = ticketForm.elements.seatAssignedLater.checked;
-  const ticketId = ticketForm.elements.id.value;
-  setStatus(ticketStatusNode, ticketId ? "Updating ticket lot..." : "Saving ticket lot...");
-  try {
-    await fetchJson(ticketId ? `/api/fifa2026/tickets/${ticketId}` : "/api/fifa2026/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    resetTicketForm();
-    await loadDashboard();
-    setStatus(ticketStatusNode, ticketId ? "Ticket lot updated." : "Ticket lot saved.");
-  } catch (error) {
-    setStatus(ticketStatusNode, error.message, true);
-  }
-});
+if (ticketForm) {
+  ticketForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(ticketForm).entries());
+    payload.seatAssignedLater = ticketForm.elements.seatAssignedLater.checked;
+    const ticketId = ticketForm.elements.id.value;
+    setStatus(ticketStatusNode, ticketId ? "Updating ticket lot..." : "Saving ticket lot...");
+    try {
+      await fetchJson(ticketId ? `/api/fifa2026/tickets/${ticketId}` : "/api/fifa2026/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      resetTicketForm();
+      await loadDashboard();
+      setStatus(ticketStatusNode, ticketId ? "Ticket lot updated." : "Ticket lot saved.");
+    } catch (error) {
+      setStatus(ticketStatusNode, error.message, true);
+    }
+  });
+}
 
-saleForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const payload = Object.fromEntries(new FormData(saleForm).entries());
-  const saleId = saleForm.elements.id.value;
-  setStatus(saleStatusNode, saleId ? "Updating sale..." : "Registering sale...");
-  try {
-    await fetchJson(saleId ? `/api/fifa2026/sales/${saleId}` : "/api/fifa2026/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    resetSaleForm();
-    await loadDashboard();
-    setStatus(saleStatusNode, saleId ? "Sale updated." : "Sale registered.");
-  } catch (error) {
-    setStatus(saleStatusNode, error.message, true);
-  }
-});
+if (saleForm) {
+  saleForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(saleForm).entries());
+    const saleId = saleForm.elements.id.value;
+    setStatus(saleStatusNode, saleId ? "Updating sale..." : "Registering sale...");
+    try {
+      await fetchJson(saleId ? `/api/fifa2026/sales/${saleId}` : "/api/fifa2026/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      resetSaleForm();
+      await loadDashboard();
+      setStatus(saleStatusNode, saleId ? "Sale updated." : "Sale registered.");
+    } catch (error) {
+      setStatus(saleStatusNode, error.message, true);
+    }
+  });
+}
 
-document.querySelector("#fifa-ticket-cancel").addEventListener("click", resetTicketForm);
-document.querySelector("#fifa-sale-cancel").addEventListener("click", resetSaleForm);
-saleForm.elements.quantity.addEventListener("input", syncSaleTotals);
-saleForm.elements.pricePerTicket.addEventListener("input", syncSaleTotals);
-saleForm.elements.amountPaid.addEventListener("input", syncSaleTotals);
-saleTicketSelect.addEventListener("change", () => {
+document.querySelector("#fifa-ticket-cancel")?.addEventListener("click", resetTicketForm);
+document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSaleForm);
+saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
+saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
+saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
+saleTicketSelect?.addEventListener("change", () => {
   const ticket = state.tickets.find((item) => item.id === saleTicketSelect.value);
-  if (!ticket) return;
+  if (!ticket || !saleForm) return;
   if (!state.editingSaleId) {
     saleForm.elements.pricePerTicket.value = ticket.price || "";
     syncSaleTotals();
   }
 });
 
-Object.values(ticketFilters).forEach((node) => node.addEventListener("input", renderTickets));
-Object.values(ticketFilters).forEach((node) => node.addEventListener("change", renderTickets));
-Object.values(saleFilters).forEach((node) => node.addEventListener("input", renderSales));
-Object.values(saleFilters).forEach((node) => node.addEventListener("change", renderSales));
+Object.values(ticketFilters).forEach((node) => node?.addEventListener("input", renderTickets));
+Object.values(ticketFilters).forEach((node) => node?.addEventListener("change", renderTickets));
+Object.values(saleFilters).forEach((node) => node?.addEventListener("input", renderSales));
+Object.values(saleFilters).forEach((node) => node?.addEventListener("change", renderSales));
 
-ticketList.addEventListener("click", async (event) => {
+ticketList?.addEventListener("click", async (event) => {
   const target = event.target.closest("button[data-action]");
   if (!target) return;
   const ticketId = target.dataset.id;
@@ -525,7 +544,7 @@ ticketList.addEventListener("click", async (event) => {
   }
 });
 
-saleList.addEventListener("click", async (event) => {
+saleList?.addEventListener("click", async (event) => {
   const target = event.target.closest("button[data-action]");
   if (!target) return;
   const saleId = target.dataset.id;
