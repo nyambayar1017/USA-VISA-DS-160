@@ -2245,10 +2245,30 @@ INVOICE_STATUS_META = {
     "overdue": {"label": "Хугацаа хэтэрсэн", "className": "overdue"},
 }
 
+INVOICE_BANK_ACCOUNTS = {
+    "state": {
+        "bankName": "Төрийн Банк",
+        "prefix": "MN030034",
+        "accountNumber": "3432 7777 9999",
+    },
+    "golomt": {
+        "bankName": "Голомт Банк",
+        "prefix": "MN80001500",
+        "accountNumber": "3675114666",
+    },
+}
+
 
 def normalize_invoice_status(value, fallback="waiting"):
     normalized = normalize_text(value).strip().lower()
     if normalized in INVOICE_STATUS_META:
+        return normalized
+    return fallback
+
+
+def normalize_invoice_bank_account(value, fallback="state"):
+    normalized = normalize_text(value).strip().lower()
+    if normalized in INVOICE_BANK_ACCOUNTS:
         return normalized
     return fallback
 
@@ -2312,6 +2332,9 @@ def build_invoice_payment_rows(record):
 
 def build_invoice_html(record, asset_mode="web"):
     data = record.get("data") or {}
+    invoice_meta = record.get("invoiceMeta") if isinstance(record.get("invoiceMeta"), dict) else {}
+    bank_account_key = normalize_invoice_bank_account(invoice_meta.get("bankAccountKey"))
+    bank_account = INVOICE_BANK_ACCOUNTS[bank_account_key]
     invoice_number = html.escape(f"{normalize_text(data.get('contractSerial')) or record.get('id', '')}-1")
     tourist_name = normalize_person_name(
         f"{normalize_text(data.get('touristLastName'))} {normalize_text(data.get('touristFirstName'))}"
@@ -2355,15 +2378,27 @@ def build_invoice_html(record, asset_mode="web"):
     <script>
       (() => {{
         const statusMeta = {json.dumps(INVOICE_STATUS_META, ensure_ascii=False)};
+        const bankAccountMeta = {json.dumps(INVOICE_BANK_ACCOUNTS, ensure_ascii=False)};
         const modeButtons = Array.from(document.querySelectorAll("[data-invoice-mode]"));
         const saveButton = document.querySelector("[data-save-invoice]");
         const selects = Array.from(document.querySelectorAll("[data-status-select]"));
+        const bankSelect = document.querySelector("[data-bank-account-select]");
+        const bankName = document.querySelector("[data-bank-name]");
+        const bankPrefix = document.querySelector("[data-bank-prefix]");
+        const bankNumber = document.querySelector("[data-bank-number]");
         const setMode = (mode) => {{
           document.body.classList.toggle("is-editing", mode === "edit");
           modeButtons.forEach((button) => {{
             button.classList.toggle("is-active", button.dataset.invoiceMode === mode);
           }});
           if (saveButton) saveButton.hidden = mode !== "edit";
+        }};
+        const syncBankAccount = () => {{
+          if (!bankSelect) return;
+          const meta = bankAccountMeta[bankSelect.value] || bankAccountMeta.state;
+          if (bankName) bankName.textContent = meta.bankName;
+          if (bankPrefix) bankPrefix.textContent = meta.prefix;
+          if (bankNumber) bankNumber.textContent = meta.accountNumber;
         }};
         const syncBadges = () => {{
           selects.forEach((select) => {{
@@ -2383,6 +2418,7 @@ def build_invoice_html(record, asset_mode="web"):
           select.value = currentValue;
           select.addEventListener("change", syncBadges);
         }});
+        bankSelect?.addEventListener("change", syncBankAccount);
         modeButtons.forEach((button) => {{
           button.addEventListener("click", () => setMode(button.dataset.invoiceMode || "view"));
         }});
@@ -2401,7 +2437,10 @@ def build_invoice_html(record, asset_mode="web"):
               method: "POST",
               headers: {{ "Content-Type": "application/json" }},
               credentials: "same-origin",
-              body: JSON.stringify({{ payments }}),
+              body: JSON.stringify({{
+                payments,
+                bankAccountKey: bankSelect?.value || "state",
+              }}),
             }});
             const payload = await response.json().catch(() => ({{}}));
             if (!response.ok) {{
@@ -2416,6 +2455,7 @@ def build_invoice_html(record, asset_mode="web"):
             saveButton.textContent = "Save";
           }}
         }});
+        syncBankAccount();
         syncBadges();
         setMode("view");
       }})();
@@ -2424,6 +2464,10 @@ def build_invoice_html(record, asset_mode="web"):
     status_options_markup = "".join(
         f'<option value="{status_key}">{html.escape(status_meta["label"])}</option>'
         for status_key, status_meta in INVOICE_STATUS_META.items()
+    )
+    bank_options_markup = "".join(
+        f'<option value="{account_key}"{" selected" if account_key == bank_account_key else ""}>{html.escape(account["bankName"])} / {html.escape(account["prefix"])} / {html.escape(account["accountNumber"])}</option>'
+        for account_key, account in INVOICE_BANK_ACCOUNTS.items()
     )
     payment_markup = "".join(
         f"""
@@ -2676,6 +2720,23 @@ def build_invoice_html(record, asset_mode="web"):
         margin-top: 16px;
         padding-bottom: 0;
       }}
+      .bank-select-wrap {{
+        display: none;
+        margin: 0 0 10px;
+      }}
+      .bank-account-select {{
+        width: 100%;
+        min-height: 40px;
+        padding: 8px 12px;
+        border: 1px solid #cfd7eb;
+        border-radius: 12px;
+        background: #fff;
+        color: #2b3148;
+        font: 600 13px/1.2 Inter, system-ui, sans-serif;
+      }}
+      body.is-editing .bank-select-wrap {{
+        display: block;
+      }}
       .bank-grid {{
         display: flex;
         gap: 10px;
@@ -2694,6 +2755,9 @@ def build_invoice_html(record, asset_mode="web"):
           border: none;
           border-radius: 0;
           box-shadow: none;
+        }}
+        .bank-select-wrap {{
+          display: none !important;
         }}
       }}
       @media (max-width: 820px) {{
@@ -2759,11 +2823,16 @@ def build_invoice_html(record, asset_mode="web"):
       </div>
       <div class="bank-section">
         <p class="section-title">Дансны мэдээлэл</p>
+        <div class="bank-select-wrap">
+          <select class="bank-account-select" data-bank-account-select>
+            {bank_options_markup}
+          </select>
+        </div>
         <div class="bank-grid">
           <span>Дэлхий Трэвел Икс</span>
-          <span>Төрийн Банк</span>
-          <span>MN030034</span>
-          <strong>3432 7777 9999</strong>
+          <span data-bank-name>{html.escape(bank_account['bankName'])}</span>
+          <span data-bank-prefix>{html.escape(bank_account['prefix'])}</span>
+          <strong data-bank-number>{html.escape(bank_account['accountNumber'])}</strong>
         </div>
       </div>
     </div>
@@ -2837,7 +2906,7 @@ def save_contract_files(data):
         "pdfPath": None,
         "invoiceViewPath": None,
         "invoicePath": None,
-        "invoiceMeta": {"payments": {}},
+        "invoiceMeta": {"payments": {}, "bankAccountKey": "state"},
     }
     return record
 
@@ -4844,6 +4913,10 @@ def handle_update_contract_invoice(environ, start_response, contract_id):
 
         invoice_meta = contract.get("invoiceMeta") if isinstance(contract.get("invoiceMeta"), dict) else {}
         stored_payments = invoice_meta.get("payments") if isinstance(invoice_meta.get("payments"), dict) else {}
+        invoice_meta["bankAccountKey"] = normalize_invoice_bank_account(
+            payload.get("bankAccountKey"),
+            fallback=normalize_invoice_bank_account(invoice_meta.get("bankAccountKey")),
+        )
 
         for payment in payments_payload:
             if not isinstance(payment, dict):
