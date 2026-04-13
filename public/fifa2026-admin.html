@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FIFA 2026 Backoffice</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-1" />
+  </head>
+  <body class="app-body">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar">
+        <a class="sidebar-brand" href="/backoffice" aria-label="TravelX Home">
+          <img src="/assets/dtx-logo-blue-yellow.png" alt="Дэлхий Трэвел" />
+        </a>
+        <div class="sidebar-group">
+          <p class="sidebar-label">Backoffice</p>
+          <a class="sidebar-link" href="/backoffice">Home</a>
+          <a class="sidebar-link" href="/camp">Camp Reservations</a>
+          <a class="sidebar-link is-active" href="/fifa2026-admin">FIFA 2026</a>
+          <a class="sidebar-link" href="/contracts">Contracts</a>
+          <a class="sidebar-link" href="/ds160">DS-160</a>
+          <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>
+          <a class="sidebar-link" href="/admin">Team / Admin</a>
+        </div>
+        <div class="sidebar-group">
+          <p class="sidebar-label">FIFA Pages</p>
+          <a class="sidebar-link is-active" href="#inventory-section">Inventory</a>
+          <a class="sidebar-link" href="#sales-section">Sales</a>
+          <a class="sidebar-link" href="/fifa2026" target="_blank" rel="noreferrer">Public Page</a>
+        </div>
+      </aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">FIFA 2026</p>
+            <h1>Ticket Inventory, Sales, And Buyer Tracking</h1>
+            <p class="workspace-subtitle">Manage ticket lots, register every buyer, track payment status, and keep the public page synced with live availability.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="manager-summary-grid" id="fifa-summary">
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Available Units</p>
+            <strong id="fifa-summary-available">0</strong>
+            <span>Remaining public and private units across all lots.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Sold Units</p>
+            <strong id="fifa-summary-sold">0</strong>
+            <span>All active sold tickets already assigned to buyers.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Collected</p>
+            <strong id="fifa-summary-collected">$0</strong>
+            <span>Total money already received from all active sales.</span>
+          </article>
+          <article class="manager-stat-card">
+            <p class="manager-stat-label">Public Units</p>
+            <strong id="fifa-summary-public">0</strong>
+            <span>Live units currently visible on the public page.</span>
+          </article>
+        </section>
+
+        <section class="card fifa-panel" id="inventory-section">
+          <div class="dashboard-head">
+            <div>
+              <h2>Ticket Inventory</h2>
+              <p class="workspace-subtitle manager-panel-copy">Add ticket lots by match, city, category, seat, visibility, and quantity. Public visibility only shows the remaining quantity after sales.</p>
+            </div>
+          </div>
+
+          <form id="fifa-ticket-form" class="manager-form-grid fifa-form-grid">
+            <input type="hidden" name="id" />
+            <label>
+              Stage
+              <input name="stage" placeholder="Group Stage / Quarter Final" required />
+            </label>
+            <label>
+              Match No.
+              <input name="matchNumber" placeholder="Match 43" />
+            </label>
+            <label>
+              Match label
+              <input name="matchLabel" placeholder="Argentina vs Australia" required />
+            </label>
+            <label>
+              Match date
+              <input name="matchDate" type="date" required />
+            </label>
+            <label>
+              Team A
+              <input name="teamA" placeholder="ARG" />
+            </label>
+            <label>
+              Team B
+              <input name="teamB" placeholder="AUS" />
+            </label>
+            <label>
+              City
+              <input name="city" placeholder="Dallas" required />
+            </label>
+            <label>
+              Venue
+              <input name="venue" placeholder="Dallas Stadium" />
+            </label>
+            <label>
+              Category code
+              <input name="categoryCode" placeholder="CAT 4" />
+            </label>
+            <label>
+              Category name
+              <input name="categoryName" placeholder="Main Stand - Lower Tier" />
+            </label>
+            <label>
+              Seat section
+              <input name="seatSection" placeholder="Block 131" />
+            </label>
+            <label>
+              Seat details
+              <input name="seatDetails" placeholder="Row 4 · Seat 1-8" />
+            </label>
+            <label>
+              Price
+              <input name="price" type="number" min="1" step="1" required />
+            </label>
+            <label>
+              Currency
+              <input name="currency" value="USD" />
+            </label>
+            <label>
+              Total quantity
+              <input name="totalQuantity" type="number" min="1" step="1" value="1" required />
+            </label>
+            <label>
+              Visibility
+              <select name="visibility">
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+            </label>
+            <label>
+              Status
+              <select name="status">
+                <option value="active">Active</option>
+                <option value="hidden">Hidden</option>
+                <option value="archived">Archived</option>
+              </select>
+            </label>
+            <label class="checkbox-label">
+              <input name="seatAssignedLater" type="checkbox" />
+              Seat assigned later
+            </label>
+            <label class="full-span">
+              Notes
+              <textarea name="notes" rows="2" placeholder="Internal notes for managers"></textarea>
+            </label>
+            <div class="actions full-span">
+              <button id="fifa-ticket-submit" type="submit">Save ticket lot</button>
+              <button id="fifa-ticket-cancel" type="button" class="button-secondary">Cancel</button>
+              <p id="fifa-ticket-status" class="status"></p>
+            </div>
+          </form>
+
+          <div class="camp-filters fifa-filters">
+            <label>
+              Search
+              <input id="ticket-filter-search" type="search" placeholder="Match, team, city, seat" />
+            </label>
+            <label>
+              Stage
+              <select id="ticket-filter-stage">
+                <option value="">All stages</option>
+              </select>
+            </label>
+            <label>
+              City
+              <select id="ticket-filter-city">
+                <option value="">All cities</option>
+              </select>
+            </label>
+            <label>
+              Category
+              <select id="ticket-filter-category">
+                <option value="">All categories</option>
+              </select>
+            </label>
+            <label>
+              Visibility
+              <select id="ticket-filter-visibility">
+                <option value="">All</option>
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+            </label>
+            <label>
+              Availability
+              <select id="ticket-filter-availability">
+                <option value="">All</option>
+                <option value="available">Available</option>
+                <option value="sold-out">Sold out</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="fifa-ticket-list" class="manager-table-wrap"></div>
+        </section>
+
+        <section class="card fifa-panel" id="sales-section">
+          <div class="dashboard-head">
+            <div>
+              <h2>Buyer Registry And Sales</h2>
+              <p class="workspace-subtitle manager-panel-copy">Every sale records the buyer, quantity, price, payment progress, and which manager handled the sale.</p>
+            </div>
+          </div>
+
+          <form id="fifa-sale-form" class="manager-form-grid fifa-form-grid">
+            <input type="hidden" name="id" />
+            <label class="full-span">
+              Ticket lot
+              <select name="ticketId" id="fifa-sale-ticket" required>
+                <option value="">Choose ticket lot</option>
+              </select>
+            </label>
+            <label>
+              Quantity
+              <input name="quantity" type="number" min="1" step="1" value="1" required />
+            </label>
+            <label>
+              Price per ticket
+              <input name="pricePerTicket" type="number" min="1" step="1" required />
+            </label>
+            <label>
+              Total price
+              <input name="totalPrice" type="number" min="0" step="1" />
+            </label>
+            <label>
+              Amount paid
+              <input name="amountPaid" type="number" min="0" step="1" value="0" />
+            </label>
+            <label>
+              Payment status
+              <select name="paymentStatus">
+                <option value="unpaid">Unpaid</option>
+                <option value="partial">Partial</option>
+                <option value="paid">Paid</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </label>
+            <label>
+              Payment method
+              <input name="paymentMethod" placeholder="Cash / Transfer / Card" />
+            </label>
+            <label>
+              Sale status
+              <select name="saleStatus">
+                <option value="active">Active</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label>
+              Sold at
+              <input name="soldAt" type="datetime-local" />
+            </label>
+            <label>
+              Buyer name
+              <input name="buyerName" required />
+            </label>
+            <label>
+              Buyer phone
+              <input name="buyerPhone" />
+            </label>
+            <label>
+              Buyer email
+              <input name="buyerEmail" type="email" />
+            </label>
+            <label>
+              Passport number
+              <input name="buyerPassportNumber" />
+            </label>
+            <label>
+              Nationality
+              <input name="buyerNationality" />
+            </label>
+            <label class="full-span">
+              Buyer notes
+              <textarea name="buyerNotes" rows="2" placeholder="Special requests, invoice notes, delivery notes"></textarea>
+            </label>
+            <div class="actions full-span">
+              <button id="fifa-sale-submit" type="submit">Register sale</button>
+              <button id="fifa-sale-cancel" type="button" class="button-secondary">Cancel</button>
+              <p id="fifa-sale-status" class="status"></p>
+            </div>
+          </form>
+
+          <div class="camp-filters fifa-filters">
+            <label>
+              Search
+              <input id="sale-filter-search" type="search" placeholder="Buyer, match, phone, passport" />
+            </label>
+            <label>
+              Payment
+              <select id="sale-filter-payment">
+                <option value="">All</option>
+                <option value="paid">Paid</option>
+                <option value="partial">Partial</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </label>
+            <label>
+              Sale status
+              <select id="sale-filter-status">
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label>
+              City
+              <select id="sale-filter-city">
+                <option value="">All cities</option>
+              </select>
+            </label>
+            <label>
+              Sold by
+              <select id="sale-filter-sold-by">
+                <option value="">All managers</option>
+              </select>
+            </label>
+            <label>
+              Paid state
+              <select id="sale-filter-paid-state">
+                <option value="">All</option>
+                <option value="paid-in-full">Paid in full</option>
+                <option value="balance-due">Balance due</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="fifa-sale-list" class="manager-table-wrap"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app-shell.js?v=workspace-64"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-1"></script>
+  </body>
+</html>

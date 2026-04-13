@@ -37,6 +37,7 @@ RESERVATIONS_FILE = DATA_DIR / "reservations.json"
 CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
+FIFA2026_FILE = DATA_DIR / "fifa2026.json"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
@@ -120,6 +121,11 @@ def ensure_data_store():
             ),
             encoding="utf-8",
         )
+    if not FIFA2026_FILE.exists():
+        FIFA2026_FILE.write_text(
+            json.dumps(default_fifa2026_data(), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
     bootstrap_admin_user()
 
 
@@ -143,6 +149,7 @@ def list_backup_sources():
         CAMP_RESERVATIONS_FILE,
         CAMP_TRIPS_FILE,
         CAMP_SETTINGS_FILE,
+        FIFA2026_FILE,
         MANAGER_DASHBOARD_FILE,
         USERS_FILE,
         SESSIONS_FILE,
@@ -361,6 +368,228 @@ def read_camp_settings():
 
 def write_camp_settings(payload):
     write_json_object(CAMP_SETTINGS_FILE, payload)
+
+
+def default_fifa2026_data():
+    timestamp = now_mongolia().isoformat()
+    return {
+        "tickets": [
+            {
+                "id": "fifa-opener-1",
+                "stage": "Opening Ceremony",
+                "matchNumber": "Match 1",
+                "matchLabel": "Opening Ceremony",
+                "matchDate": "2026-06-11",
+                "teamA": "Mexico",
+                "teamB": "RSA",
+                "city": "Mexico City",
+                "venue": "Estadio Azteca",
+                "categoryCode": "CAT 2",
+                "categoryName": "Seat will be assigned later",
+                "seatSection": "Opening inventory",
+                "seatDetails": "Seat will be assigned later",
+                "seatAssignedLater": True,
+                "price": 2955,
+                "currency": "USD",
+                "totalQuantity": 2,
+                "visibility": "public",
+                "status": "active",
+                "notes": "Opening ceremony allocation",
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+            },
+            {
+                "id": "fifa-opener-2",
+                "stage": "Opening Ceremony",
+                "matchNumber": "Match 4",
+                "matchLabel": "USA vs Paraguay",
+                "matchDate": "2026-06-12",
+                "teamA": "USA",
+                "teamB": "PAR",
+                "city": "Los Angeles",
+                "venue": "Los Angeles Stadium",
+                "categoryCode": "CAT 4",
+                "categoryName": "Main Stand - Upper Tier",
+                "seatSection": "Block 520",
+                "seatDetails": "Row 15 · Seat 17-20",
+                "seatAssignedLater": False,
+                "price": 1720,
+                "currency": "USD",
+                "totalQuantity": 4,
+                "visibility": "public",
+                "status": "active",
+                "notes": "",
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+            },
+            {
+                "id": "fifa-group-1",
+                "stage": "Group Stage",
+                "matchNumber": "Match 10",
+                "matchLabel": "Netherlands vs Japan",
+                "matchDate": "2026-06-14",
+                "teamA": "NED",
+                "teamB": "JPN",
+                "city": "Dallas",
+                "venue": "Dallas Stadium",
+                "categoryCode": "CAT 4",
+                "categoryName": "Main Stand - Lower Tier",
+                "seatSection": "Block 106",
+                "seatDetails": "Row D · Seats 14-17",
+                "seatAssignedLater": False,
+                "price": 1090,
+                "currency": "USD",
+                "totalQuantity": 4,
+                "visibility": "public",
+                "status": "active",
+                "notes": "",
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+            },
+            {
+                "id": "fifa-group-2",
+                "stage": "Group Stage",
+                "matchNumber": "Match 16",
+                "matchLabel": "Egypt vs Seattle Fixture",
+                "matchDate": "2026-06-15",
+                "teamA": "EGY",
+                "teamB": "SEA",
+                "city": "Seattle",
+                "venue": "Seattle Stadium",
+                "categoryCode": "CAT 4",
+                "categoryName": "Seat will be assigned later",
+                "seatSection": "Main Stand",
+                "seatDetails": "Seat will be assigned later",
+                "seatAssignedLater": True,
+                "price": 1200,
+                "currency": "USD",
+                "totalQuantity": 4,
+                "visibility": "public",
+                "status": "active",
+                "notes": "",
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+            },
+            {
+                "id": "fifa-group-3",
+                "stage": "Group Stage",
+                "matchNumber": "Match 43",
+                "matchLabel": "Argentina vs Australia",
+                "matchDate": "2026-06-22",
+                "teamA": "ARG",
+                "teamB": "AUS",
+                "city": "Dallas",
+                "venue": "Dallas Stadium",
+                "categoryCode": "CAT 4",
+                "categoryName": "Main Stand - Lower Tier",
+                "seatSection": "Block 131",
+                "seatDetails": "Row 4 · Seat 1-8",
+                "seatAssignedLater": False,
+                "price": 1300,
+                "currency": "USD",
+                "totalQuantity": 4,
+                "visibility": "public",
+                "status": "active",
+                "notes": "",
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+            },
+            {
+                "id": "fifa-round16-1",
+                "stage": "Round of 16",
+                "matchNumber": "Match 93",
+                "matchLabel": "W81 vs W82",
+                "matchDate": "2026-07-06",
+                "teamA": "W81",
+                "teamB": "W82",
+                "city": "Dallas",
+                "venue": "Dallas Stadium",
+                "categoryCode": "CAT 4",
+                "categoryName": "Main Stand - Middle Tier",
+                "seatSection": "Block 323",
+                "seatDetails": "Row 15 · Seat 3-16",
+                "seatAssignedLater": False,
+                "price": 1215,
+                "currency": "USD",
+                "totalQuantity": 4,
+                "visibility": "public",
+                "status": "active",
+                "notes": "",
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+            },
+            {
+                "id": "fifa-quarter-1",
+                "stage": "Quarter Final",
+                "matchNumber": "Match 97",
+                "matchLabel": "W89 vs W90",
+                "matchDate": "2026-07-10",
+                "teamA": "W89",
+                "teamB": "W90",
+                "city": "Boston",
+                "venue": "Boston Stadium",
+                "categoryCode": "CAT 4",
+                "categoryName": "Main Stand - Lower Tier",
+                "seatSection": "Block 128",
+                "seatDetails": "Row 8 · Seat 9-12",
+                "seatAssignedLater": False,
+                "price": 2070,
+                "currency": "USD",
+                "totalQuantity": 4,
+                "visibility": "public",
+                "status": "active",
+                "notes": "",
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+            },
+            {
+                "id": "fifa-final-1",
+                "stage": "Final",
+                "matchNumber": "Match 104",
+                "matchLabel": "W101 vs W102",
+                "matchDate": "2026-07-20",
+                "teamA": "W101",
+                "teamB": "W102",
+                "city": "New York",
+                "venue": "New York Stadium",
+                "categoryCode": "CAT 1",
+                "categoryName": "Main Stand - Lower Tier",
+                "seatSection": "Block 135",
+                "seatDetails": "Row 22 · Seat 9",
+                "seatAssignedLater": False,
+                "price": 10680,
+                "currency": "USD",
+                "totalQuantity": 1,
+                "visibility": "private",
+                "status": "active",
+                "notes": "Keep off public page unless approved",
+                "createdAt": timestamp,
+                "updatedAt": timestamp,
+            },
+        ],
+        "sales": [],
+    }
+
+
+def normalize_fifa2026_store(payload):
+    default_payload = default_fifa2026_data()
+    if not isinstance(payload, dict):
+        return default_payload
+    tickets = payload.get("tickets") if isinstance(payload.get("tickets"), list) else default_payload["tickets"]
+    sales = payload.get("sales") if isinstance(payload.get("sales"), list) else []
+    return {
+        "tickets": tickets,
+        "sales": sales,
+    }
+
+
+def read_fifa2026_store():
+    payload = read_json_object(FIFA2026_FILE, default_fifa2026_data())
+    return normalize_fifa2026_store(payload)
+
+
+def write_fifa2026_store(payload):
+    write_json_object(FIFA2026_FILE, normalize_fifa2026_store(payload))
 
 
 def json_response(start_response, status, payload, extra_headers=None):
@@ -2538,6 +2767,9 @@ def build_invoice_html(record, asset_mode="web"):
             const quantityInput = row.querySelector('[data-item-field="quantity"]');
             const unitInput = row.querySelector('[data-item-field="unitPrice"]');
             const totalInput = row.querySelector('[data-item-field="totalPrice"]');
+            const quantity = Number(quantityInput?.value || 0);
+            const unitPrice = Number(unitInput?.value || 0);
+            if (totalInput) totalInput.value = String(quantity * unitPrice);
             const cells = row.querySelectorAll("td");
             if (cells[0]) cells[0].textContent = index + 1;
             if (cells[1]) {{
@@ -2680,6 +2912,7 @@ def build_invoice_html(record, asset_mode="web"):
             syncBadges();
             syncPaymentCards();
             setMode("view");
+            window.location.reload();
           }} catch (error) {{
             window.alert(error.message || "Could not save invoice.");
           }} finally {{
@@ -3062,31 +3295,25 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .finance-stamp {{
         position: absolute;
-        left: 6px;
-        top: -2px;
-        width: 188px;
-        height: 118px;
-        overflow: hidden;
+        left: 16px;
+        top: 14px;
+        width: 172px;
       }}
       .finance-stamp img {{
-        width: 1550px;
-        max-width: none;
+        width: 100%;
+        height: auto;
         display: block;
-        transform: translate(-646px, -820px) rotate(-7deg);
       }}
       .finance-signature {{
         position: absolute;
-        left: 118px;
-        top: 22px;
-        width: 170px;
-        height: 88px;
-        overflow: hidden;
+        left: 122px;
+        top: 52px;
+        width: 164px;
       }}
       .finance-signature img {{
-        width: 890px;
-        max-width: none;
+        width: 100%;
+        height: auto;
         display: block;
-        transform: translate(-152px, -126px) rotate(-7deg);
       }}
       .invoice-sign-line {{
         height: 1px;
@@ -3203,10 +3430,10 @@ def build_invoice_html(record, asset_mode="web"):
             <p class="invoice-footer-label">Нягтлан</p>
             <div class="finance-asset-wrap">
               <div class="finance-stamp">
-                <img src="{asset_src('invoice-finance-stamp-source.jpeg')}" alt="Санхүүгийн тамга" />
+                <img src="{asset_src('invoice-finance-stamp.png')}" alt="Санхүүгийн тамга" />
               </div>
               <div class="finance-signature">
-                <img src="{asset_src('invoice-finance-signature-source.png')}" alt="Нягтлан гарын үсэг" />
+                <img src="{asset_src('invoice-finance-signature.png')}" alt="Нягтлан гарын үсэг" />
               </div>
             </div>
             <div class="invoice-sign-line"></div>
@@ -4481,6 +4708,383 @@ def validate_manager_contact(contact):
     return None
 
 
+def fifa_active_sales(sales):
+    return [sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() != "cancelled"]
+
+
+def fifa_ticket_sales(sales, ticket_id, excluded_sale_id=None):
+    return [
+        sale
+        for sale in fifa_active_sales(sales)
+        if sale.get("ticketId") == ticket_id and sale.get("id") != excluded_sale_id
+    ]
+
+
+def fifa_ticket_available_quantity(ticket, sales, excluded_sale_id=None):
+    sold_quantity = sum(max(parse_int(sale.get("quantity")), 0) for sale in fifa_ticket_sales(sales, ticket.get("id"), excluded_sale_id))
+    return max(parse_int(ticket.get("totalQuantity")) - sold_quantity, 0)
+
+
+def find_fifa_ticket(store, ticket_id):
+    for ticket in store.get("tickets", []):
+        if ticket.get("id") == ticket_id:
+            return ticket
+    return None
+
+
+def enrich_fifa_ticket(ticket, sales):
+    sold_quantity = sum(max(parse_int(sale.get("quantity")), 0) for sale in fifa_ticket_sales(sales, ticket.get("id")))
+    total_quantity = max(parse_int(ticket.get("totalQuantity")), 0)
+    available_quantity = max(total_quantity - sold_quantity, 0)
+    public_visible = (
+        normalize_text(ticket.get("visibility")).lower() == "public"
+        and normalize_text(ticket.get("status")).lower() == "active"
+        and available_quantity > 0
+    )
+    return {
+        **ticket,
+        "totalQuantity": total_quantity,
+        "soldQuantity": sold_quantity,
+        "availableQuantity": available_quantity,
+        "publicVisible": public_visible,
+        "soldOut": available_quantity <= 0,
+    }
+
+
+def enrich_fifa_sale(sale, ticket):
+    quantity = max(parse_int(sale.get("quantity")), 0)
+    price_per_ticket = max(parse_int(sale.get("pricePerTicket")), 0)
+    total_price = max(parse_int(sale.get("totalPrice")) or (quantity * price_per_ticket), 0)
+    amount_paid = max(parse_int(sale.get("amountPaid")), 0)
+    buyer_name = normalize_text(sale.get("buyerName"))
+    sold_by = sale.get("soldBy") or {}
+    return {
+        **sale,
+        "quantity": quantity,
+        "pricePerTicket": price_per_ticket,
+        "totalPrice": total_price,
+        "amountPaid": amount_paid,
+        "balanceDue": max(total_price - amount_paid, 0),
+        "isPaid": amount_paid >= total_price and total_price > 0,
+        "buyerName": buyer_name,
+        "buyerEmail": normalize_text(sale.get("buyerEmail")).lower(),
+        "ticket": enrich_fifa_ticket(ticket, []) if ticket else None,
+        "ticketLabel": ticket.get("matchLabel") if ticket else "",
+        "city": ticket.get("city") if ticket else "",
+        "stage": ticket.get("stage") if ticket else "",
+        "seatDetails": ticket.get("seatDetails") if ticket else "",
+        "soldByName": sold_by.get("fullName") or sold_by.get("email") or "",
+    }
+
+
+def build_fifa_summary(store):
+    tickets = store.get("tickets", [])
+    sales = store.get("sales", [])
+    enriched_tickets = [enrich_fifa_ticket(ticket, sales) for ticket in tickets]
+    active_sales = fifa_active_sales(sales)
+    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId"))) for sale in sales]
+    public_tickets = [ticket for ticket in enriched_tickets if ticket.get("publicVisible")]
+    paid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "paid"]
+    unpaid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "unpaid"]
+    partial_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "partial"]
+    return {
+        "tickets": {
+            "total": len(tickets),
+            "public": len([ticket for ticket in tickets if normalize_text(ticket.get("visibility")).lower() == "public"]),
+            "availableLots": len([ticket for ticket in enriched_tickets if ticket.get("availableQuantity", 0) > 0]),
+            "soldOutLots": len([ticket for ticket in enriched_tickets if ticket.get("availableQuantity", 0) <= 0]),
+            "availableUnits": sum(ticket.get("availableQuantity", 0) for ticket in enriched_tickets),
+            "soldUnits": sum(ticket.get("soldQuantity", 0) for ticket in enriched_tickets),
+        },
+        "sales": {
+            "total": len(sales),
+            "active": len(active_sales),
+            "cancelled": len([sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() == "cancelled"]),
+            "paid": len(paid_sales),
+            "partial": len(partial_sales),
+            "unpaid": len(unpaid_sales),
+            "revenue": sum(max(parse_int(sale.get("totalPrice")), 0) for sale in active_sales),
+            "collected": sum(max(parse_int(sale.get("amountPaid")), 0) for sale in active_sales),
+        },
+        "public": {
+            "visibleLots": len(public_tickets),
+            "visibleUnits": sum(ticket.get("availableQuantity", 0) for ticket in public_tickets),
+        },
+        "filters": {
+            "stages": sorted({normalize_text(ticket.get("stage")) for ticket in tickets if normalize_text(ticket.get("stage"))}),
+            "cities": sorted({normalize_text(ticket.get("city")) for ticket in tickets if normalize_text(ticket.get("city"))}),
+            "categories": sorted({normalize_text(ticket.get("categoryCode")) for ticket in tickets if normalize_text(ticket.get("categoryCode"))}),
+            "matches": sorted({normalize_text(ticket.get("matchLabel")) for ticket in tickets if normalize_text(ticket.get("matchLabel"))}),
+            "soldBy": sorted({sale.get("soldByName") for sale in enriched_sales if sale.get("soldByName")}),
+        },
+    }
+
+
+def build_fifa_ticket(payload):
+    timestamp = now_mongolia().isoformat()
+    return {
+        "id": str(uuid4()),
+        "stage": normalize_text(payload.get("stage")),
+        "matchNumber": normalize_text(payload.get("matchNumber")),
+        "matchLabel": normalize_text(payload.get("matchLabel")),
+        "matchDate": normalize_text(payload.get("matchDate")),
+        "teamA": normalize_text(payload.get("teamA")),
+        "teamB": normalize_text(payload.get("teamB")),
+        "city": normalize_text(payload.get("city")),
+        "venue": normalize_text(payload.get("venue")),
+        "categoryCode": normalize_text(payload.get("categoryCode")) or "CAT 1",
+        "categoryName": normalize_text(payload.get("categoryName")),
+        "seatSection": normalize_text(payload.get("seatSection")),
+        "seatDetails": normalize_text(payload.get("seatDetails")),
+        "seatAssignedLater": bool(payload.get("seatAssignedLater")),
+        "price": max(parse_int(payload.get("price")), 0),
+        "currency": normalize_text(payload.get("currency")) or "USD",
+        "totalQuantity": max(parse_int(payload.get("totalQuantity")) or 1, 1),
+        "visibility": normalize_text(payload.get("visibility")).lower() or "public",
+        "status": normalize_text(payload.get("status")).lower() or "active",
+        "notes": normalize_text(payload.get("notes")),
+        "createdAt": timestamp,
+        "updatedAt": timestamp,
+    }
+
+
+def validate_fifa_ticket(ticket):
+    if len(ticket.get("matchLabel", "")) < 2:
+        return "Match label must be at least 2 characters"
+    if not ticket.get("matchDate") or not parse_date_input(ticket.get("matchDate")):
+        return "Match date must be in YYYY-MM-DD format"
+    if len(ticket.get("city", "")) < 2:
+        return "City is required"
+    if ticket.get("price", 0) <= 0:
+        return "Price must be greater than 0"
+    if ticket.get("totalQuantity", 0) <= 0:
+        return "Quantity must be greater than 0"
+    if ticket.get("visibility") not in {"public", "private"}:
+        return "Visibility must be public or private"
+    if ticket.get("status") not in {"active", "hidden", "archived"}:
+        return "Status must be active, hidden, or archived"
+    return None
+
+
+def build_fifa_sale(payload, actor=None):
+    quantity = max(parse_int(payload.get("quantity")) or 1, 1)
+    price_per_ticket = max(parse_int(payload.get("pricePerTicket")), 0)
+    total_price = max(parse_int(payload.get("totalPrice")) or (quantity * price_per_ticket), 0)
+    amount_paid = max(parse_int(payload.get("amountPaid")), 0)
+    payment_status = normalize_text(payload.get("paymentStatus")).lower()
+    if not payment_status:
+        if total_price and amount_paid >= total_price:
+            payment_status = "paid"
+        elif amount_paid > 0:
+            payment_status = "partial"
+        else:
+            payment_status = "unpaid"
+    timestamp = now_mongolia().isoformat()
+    return {
+        "id": str(uuid4()),
+        "ticketId": normalize_text(payload.get("ticketId")),
+        "quantity": quantity,
+        "buyerName": normalize_text(payload.get("buyerName")),
+        "buyerPhone": normalize_text(payload.get("buyerPhone")),
+        "buyerEmail": normalize_text(payload.get("buyerEmail")).lower(),
+        "buyerPassportNumber": normalize_text(payload.get("buyerPassportNumber")),
+        "buyerNationality": normalize_text(payload.get("buyerNationality")),
+        "buyerNotes": normalize_text(payload.get("buyerNotes")),
+        "pricePerTicket": price_per_ticket,
+        "totalPrice": total_price,
+        "amountPaid": amount_paid,
+        "paymentStatus": payment_status,
+        "paymentMethod": normalize_text(payload.get("paymentMethod")),
+        "saleStatus": normalize_text(payload.get("saleStatus")).lower() or "active",
+        "soldAt": normalize_text(payload.get("soldAt")) or timestamp,
+        "soldBy": actor_snapshot(actor),
+        "createdAt": timestamp,
+        "updatedAt": timestamp,
+    }
+
+
+def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
+    if not ticket:
+        return "Ticket was not found"
+    if ticket.get("status") == "archived":
+        return "Archived tickets cannot be sold"
+    if len(sale.get("buyerName", "")) < 2:
+        return "Buyer name must be at least 2 characters"
+    if sale.get("quantity", 0) <= 0:
+        return "Sale quantity must be greater than 0"
+    if sale.get("pricePerTicket", 0) <= 0:
+        return "Sale price must be greater than 0"
+    if sale.get("paymentStatus") not in {"unpaid", "partial", "paid", "refunded"}:
+        return "Payment status is invalid"
+    if sale.get("saleStatus") not in {"active", "cancelled"}:
+        return "Sale status is invalid"
+    if sale.get("buyerEmail") and "@" not in sale.get("buyerEmail", ""):
+        return "Buyer email must be valid"
+    if sale.get("soldAt") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?", sale.get("soldAt")) and not parse_date_input(sale.get("soldAt")[:10]):
+        return "Sold at must be a valid date or date-time"
+    if sale.get("saleStatus") != "cancelled":
+        available_quantity = fifa_ticket_available_quantity(ticket, sales, excluded_sale_id)
+        if sale.get("quantity", 0) > available_quantity:
+            return f"Only {available_quantity} ticket(s) are available for this lot"
+    return None
+
+
+def handle_get_fifa2026_dashboard(start_response):
+    store = read_fifa2026_store()
+    sales = store.get("sales", [])
+    tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
+    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId"))) for sale in sales]
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "tickets": tickets,
+            "sales": enriched_sales,
+            "summary": build_fifa_summary(store),
+        },
+    )
+
+
+def handle_get_fifa2026_public(start_response):
+    store = read_fifa2026_store()
+    sales = store.get("sales", [])
+    tickets = [
+        enrich_fifa_ticket(ticket, sales)
+        for ticket in store.get("tickets", [])
+        if enrich_fifa_ticket(ticket, sales).get("publicVisible")
+    ]
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "tickets": tickets,
+            "summary": build_fifa_summary(store).get("public", {}),
+        },
+    )
+
+
+def handle_create_fifa_ticket(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    ticket = build_fifa_ticket(payload)
+    error = validate_fifa_ticket(ticket)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    store = read_fifa2026_store()
+    store["tickets"].insert(0, ticket)
+    write_fifa2026_store(store)
+    return json_response(start_response, "201 Created", {"ok": True, "ticket": ticket, "summary": build_fifa_summary(store)})
+
+
+def handle_update_fifa_ticket(environ, start_response, ticket_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    store = read_fifa2026_store()
+    for index, item in enumerate(store.get("tickets", [])):
+        if item.get("id") != ticket_id:
+            continue
+        updated = build_fifa_ticket({**item, **payload})
+        updated["id"] = ticket_id
+        updated["createdAt"] = item.get("createdAt") or updated.get("createdAt")
+        updated["updatedAt"] = now_mongolia().isoformat()
+        error = validate_fifa_ticket(updated)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        active_sales_quantity = sum(sale.get("quantity", 0) for sale in fifa_ticket_sales(store.get("sales", []), ticket_id))
+        if updated.get("totalQuantity", 0) < active_sales_quantity:
+            return json_response(
+                start_response,
+                "400 Bad Request",
+                {"error": f"Quantity cannot be less than already sold units ({active_sales_quantity})"},
+            )
+        store["tickets"][index] = updated
+        write_fifa2026_store(store)
+        return json_response(start_response, "200 OK", {"ok": True, "ticket": updated, "summary": build_fifa_summary(store)})
+    return json_response(start_response, "404 Not Found", {"error": "Ticket not found"})
+
+
+def handle_delete_fifa_ticket(environ, start_response, ticket_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    store = read_fifa2026_store()
+    if fifa_ticket_sales(store.get("sales", []), ticket_id):
+        return json_response(start_response, "400 Bad Request", {"error": "Cancel active sales before deleting this ticket lot"})
+    before = len(store.get("tickets", []))
+    store["tickets"] = [ticket for ticket in store.get("tickets", []) if ticket.get("id") != ticket_id]
+    if len(store["tickets"]) == before:
+        return json_response(start_response, "404 Not Found", {"error": "Ticket not found"})
+    write_fifa2026_store(store)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": ticket_id, "summary": build_fifa_summary(store)})
+
+
+def handle_create_fifa_sale(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    store = read_fifa2026_store()
+    ticket = find_fifa_ticket(store, normalize_text(payload.get("ticketId")))
+    sale = build_fifa_sale(payload, actor)
+    error = validate_fifa_sale(sale, ticket, store.get("sales", []))
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    store["sales"].insert(0, sale)
+    write_fifa2026_store(store)
+    return json_response(start_response, "201 Created", {"ok": True, "sale": enrich_fifa_sale(sale, ticket), "summary": build_fifa_summary(store)})
+
+
+def handle_update_fifa_sale(environ, start_response, sale_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    store = read_fifa2026_store()
+    for index, item in enumerate(store.get("sales", [])):
+        if item.get("id") != sale_id:
+            continue
+        merged_payload = {**item, **payload}
+        sale = build_fifa_sale(merged_payload, actor)
+        sale["id"] = sale_id
+        sale["createdAt"] = item.get("createdAt") or sale.get("createdAt")
+        sale["soldBy"] = item.get("soldBy") or actor_snapshot(actor)
+        sale["soldAt"] = normalize_text(payload.get("soldAt")) or item.get("soldAt") or sale.get("soldAt")
+        sale["updatedAt"] = now_mongolia().isoformat()
+        ticket = find_fifa_ticket(store, sale.get("ticketId"))
+        error = validate_fifa_sale(sale, ticket, store.get("sales", []), excluded_sale_id=sale_id)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        store["sales"][index] = sale
+        write_fifa2026_store(store)
+        return json_response(start_response, "200 OK", {"ok": True, "sale": enrich_fifa_sale(sale, ticket), "summary": build_fifa_summary(store)})
+    return json_response(start_response, "404 Not Found", {"error": "Sale not found"})
+
+
+def handle_delete_fifa_sale(environ, start_response, sale_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    store = read_fifa2026_store()
+    before = len(store.get("sales", []))
+    store["sales"] = [sale for sale in store.get("sales", []) if sale.get("id") != sale_id]
+    if len(store["sales"]) == before:
+        return json_response(start_response, "404 Not Found", {"error": "Sale not found"})
+    write_fifa2026_store(store)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": sale_id, "summary": build_fifa_summary(store)})
+
+
 def update_manager_item(records, item_id, payload, builder, validator):
     for index, item in enumerate(records):
         if item.get("id") != item_id:
@@ -5621,6 +6225,44 @@ def app(environ, start_response):
             return handle_update_camp_settings(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/fifa2026":
+        if method == "GET":
+            if not require_login(environ, start_response):
+                return []
+            return handle_get_fifa2026_dashboard(start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/fifa2026/public":
+        if method == "GET":
+            return handle_get_fifa2026_public(start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/fifa2026/tickets":
+        if method == "POST":
+            return handle_create_fifa_ticket(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/fifa2026/sales":
+        if method == "POST":
+            return handle_create_fifa_sale(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/fifa2026/tickets/"):
+        ticket_id = path.replace("/api/fifa2026/tickets/", "", 1).strip("/")
+        if method == "POST" and ticket_id:
+            return handle_update_fifa_ticket(environ, start_response, ticket_id)
+        if method == "DELETE" and ticket_id:
+            return handle_delete_fifa_ticket(environ, start_response, ticket_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/fifa2026/sales/"):
+        sale_id = path.replace("/api/fifa2026/sales/", "", 1).strip("/")
+        if method == "POST" and sale_id:
+            return handle_update_fifa_sale(environ, start_response, sale_id)
+        if method == "DELETE" and sale_id:
+            return handle_delete_fifa_sale(environ, start_response, sale_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/camp-reservations/export":
         if method == "GET":
             return handle_export_camp_reservations(environ, start_response)
@@ -5690,6 +6332,14 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "camp.html")
+
+    if path == "/fifa2026-admin":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "fifa2026-admin.html")
+
+    if path == "/fifa2026":
+        return file_response(start_response, PUBLIC_DIR / "fifa2026.html")
 
     if path == "/admin":
         user = current_user(environ)
