@@ -3113,6 +3113,7 @@ def build_invoice_html(record, asset_mode="web"):
         left: 16px;
         top: 14px;
         width: 172px;
+        z-index: 2;
       }}
       .finance-stamp img {{
         width: 100%;
@@ -3121,14 +3122,18 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .finance-signature {{
         position: absolute;
-        left: 122px;
-        top: 52px;
-        width: 164px;
+        left: 70px;
+        top: 44px;
+        width: 178px;
+        z-index: 1;
       }}
       .finance-signature img {{
         width: 100%;
         height: auto;
         display: block;
+        mix-blend-mode: screen;
+        filter: brightness(2.3) contrast(1.5) saturate(1.35);
+        opacity: 0.98;
       }}
       .invoice-footer-space {{
         min-height: 136px;
