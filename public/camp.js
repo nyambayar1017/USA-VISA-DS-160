@@ -1626,11 +1626,15 @@ async function saveSettings() {
       roomChoices: campSettings.roomChoices,
       campLocations: campSettings.campLocations,
     };
-    await fetchJson("/api/camp-settings", {
+    const result = await fetchJson("/api/camp-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (result?.entry) {
+      campSettings = result.entry;
+      renderAllSettings();
+    }
     settingsStatus.textContent = "Settings updated.";
   } catch (error) {
     settingsStatus.textContent = error.message;

@@ -5232,8 +5232,8 @@ def handle_list_camp_settings(start_response):
 
 
 def handle_update_camp_settings(environ, start_response):
-    admin = require_admin(environ, start_response)
-    if not admin:
+    user = require_login(environ, start_response)
+    if not user:
         return []
     payload = collect_json(environ)
     if payload is None:
