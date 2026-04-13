@@ -34,10 +34,11 @@ const summaryNodes = {
 
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
-const seatInputContainers = {
-  "1": document.querySelector('[data-seat-inputs="1"]'),
-  "2": document.querySelector('[data-seat-inputs="2"]'),
-  "3": document.querySelector('[data-seat-inputs="3"]'),
+const ticketFormToggleButton = document.querySelector("#fifa-show-ticket-form");
+const ticketRowContainers = {
+  "1": document.querySelector('[data-ticket-rows="1"]'),
+  "2": document.querySelector('[data-ticket-rows="2"]'),
+  "3": document.querySelector('[data-ticket-rows="3"]'),
 };
 
 const MATCH_CATALOG = [
@@ -162,46 +163,78 @@ function parseSeatLines(rawValue) {
     .split(/\n|\|/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.replace(/^Ticket\s+\d+\s*:\s*/i, "").trim());
+    .map((line) => {
+      const cleaned = line.replace(/^Ticket\s+\d+\s*:\s*/i, "").trim();
+      const [pricePart, ...seatParts] = cleaned.split(" | ");
+      return {
+        price: String(pricePart || "").replace(/^Price\s*/i, "").replace(/^\$/, "").trim(),
+        seat: seatParts.join(" | ").replace(/^Seat\s*/i, "").trim(),
+      };
+    });
 }
 
 function syncCategorySeatTextarea(categoryCode) {
   if (!ticketForm) return;
-  const container = seatInputContainers[categoryCode];
+  const container = ticketRowContainers[categoryCode];
   const textarea = ticketForm.elements[`category${categoryCode}Seats`];
   if (!container || !textarea) return;
-  const values = [...container.querySelectorAll("input[data-seat-line]")]
-    .map((input, index) => {
-      const value = input.value.trim();
-      return value ? `Ticket ${index + 1}: ${value}` : "";
+  const values = [...container.querySelectorAll("[data-ticket-row]")]
+    .map((row, index) => {
+      const price = row.querySelector('[data-row-price]')?.value.trim() || "";
+      const seat = row.querySelector('[data-row-seat]')?.value.trim() || "";
+      return price || seat ? `Ticket ${index + 1}: Price ${price || 0} | Seat ${seat}` : "";
     })
     .filter(Boolean);
   textarea.value = values.join("\n");
 }
 
-function renderCategorySeatInputs(categoryCode, seatLines = []) {
-  const container = seatInputContainers[categoryCode];
+function setTicketFormVisible(isVisible) {
+  if (!ticketForm) return;
+  if (isVisible) {
+    ticketForm.removeAttribute("hidden");
+    ticketFormToggleButton?.setAttribute("hidden", "");
+  } else {
+    ticketForm.setAttribute("hidden", "");
+    ticketFormToggleButton?.removeAttribute("hidden");
+  }
+}
+
+function renderCategoryTicketRows(categoryCode, ticketRows = []) {
+  const container = ticketRowContainers[categoryCode];
   if (!ticketForm || !container) return;
   const quantity = Math.max(Number(ticketForm.elements[`category${categoryCode}Quantity`].value || 0), 0);
   const assignedLater = ticketForm.elements[`category${categoryCode}AssignedLater`].value === "yes";
   if (!quantity) {
-    container.innerHTML = '<p class="fifa-seat-help">Set total quantity first to add individual ticket seat numbers.</p>';
+    container.innerHTML = '<p class="fifa-seat-help">Set total quantity first. Then each ticket row will appear here.</p>';
     syncCategorySeatTextarea(categoryCode);
     return;
   }
   container.innerHTML = Array.from({ length: quantity }, (_, index) => {
-    const value = seatLines[index] || "";
+    const row = ticketRows[index] || {};
     return `
-      <label class="fifa-seat-line">
-        <span>Ticket ${index + 1}</span>
-        <input
-          type="text"
-          data-seat-line="${index + 1}"
-          value="${escapeHtml(value)}"
-          placeholder="${assignedLater ? "Seat will be assigned later" : `Seat detail for ticket ${index + 1}`}"
-          ${assignedLater ? 'disabled aria-disabled="true"' : ""}
-        />
-      </label>
+      <div class="fifa-ticket-row" data-ticket-row="${index + 1}">
+        <label>
+          Ticket ${index + 1} price
+          <input
+            type="number"
+            min="0"
+            step="1"
+            data-row-price
+            value="${escapeHtml(row.price || "")}"
+            placeholder="Price"
+          />
+        </label>
+        <label class="full-span">
+          Ticket ${index + 1} seat number
+          <input
+            type="text"
+            data-row-seat
+            value="${escapeHtml(row.seat || "")}"
+            placeholder="${assignedLater ? "Seat will be assigned later" : `Seat detail for ticket ${index + 1}`}"
+            ${assignedLater ? 'disabled aria-disabled="true"' : ""}
+          />
+        </label>
+      </div>
     `;
   }).join("");
   if (assignedLater) {
@@ -289,13 +322,12 @@ function refreshSaleTicketOptions() {
 function clearCategoryBlock(categoryCode) {
   if (!ticketForm) return;
   ticketForm.elements[`category${categoryCode}Id`].value = "";
-  ticketForm.elements[`category${categoryCode}Price`].value = "";
   ticketForm.elements[`category${categoryCode}Quantity`].value = "0";
   ticketForm.elements[`category${categoryCode}Name`].value = "";
   ticketForm.elements[`category${categoryCode}Section`].value = "";
   ticketForm.elements[`category${categoryCode}Seats`].value = "";
   ticketForm.elements[`category${categoryCode}AssignedLater`].value = "no";
-  renderCategorySeatInputs(categoryCode, []);
+  renderCategoryTicketRows(categoryCode, []);
 }
 
 function resetTicketForm() {
@@ -309,6 +341,7 @@ function resetTicketForm() {
   state.editingTicketId = "";
   setNodeText(document.querySelector("#fifa-ticket-submit"), "Save categories");
   clearStatus(ticketStatusNode);
+  setTicketFormVisible(false);
 }
 
 function resetSaleForm() {
@@ -344,29 +377,25 @@ function applyCityVenue(city) {
 
 function blockHasInput(categoryCode) {
   if (!ticketForm) return false;
-  const price = Number(ticketForm.elements[`category${categoryCode}Price`].value || 0);
   const quantity = Number(ticketForm.elements[`category${categoryCode}Quantity`].value || 0);
   const name = ticketForm.elements[`category${categoryCode}Name`].value.trim();
   const section = ticketForm.elements[`category${categoryCode}Section`].value.trim();
   const seats = ticketForm.elements[`category${categoryCode}Seats`].value.trim();
-  return Boolean(price || quantity || name || section || seats);
+  return Boolean(quantity || name || section || seats);
 }
 
-function buildCategoryPayload(categoryCode) {
-  const price = Number(ticketForm.elements[`category${categoryCode}Price`].value || 0);
-  const quantity = Number(ticketForm.elements[`category${categoryCode}Quantity`].value || 0);
+function buildCategoryRows(categoryCode) {
   const assignedLater = ticketForm.elements[`category${categoryCode}AssignedLater`].value === "yes";
+  const container = ticketRowContainers[categoryCode];
+  const rows = container
+    ? [...container.querySelectorAll("[data-ticket-row]")].map((row) => ({
+        id: row.dataset.ticketId || "",
+        price: Number(row.querySelector("[data-row-price]")?.value || 0),
+        seat: assignedLater ? "Seat will be assigned later" : (row.querySelector("[data-row-seat]")?.value.trim() || ""),
+      }))
+    : [];
   if (!assignedLater) syncCategorySeatTextarea(categoryCode);
-  const seatDetails = ticketForm.elements[`category${categoryCode}Seats`].value.trim();
-  return {
-    categoryCode,
-    categoryName: ticketForm.elements[`category${categoryCode}Name`].value.trim() || (assignedLater ? "Seat will be assigned later" : ""),
-    seatSection: ticketForm.elements[`category${categoryCode}Section`].value.trim() || (assignedLater ? "Seat will be assigned later" : ""),
-    seatDetails: seatDetails || (assignedLater ? "Seat will be assigned later" : ""),
-    seatAssignedLater: assignedLater,
-    price,
-    totalQuantity: quantity,
-  };
+  return rows;
 }
 
 function commonTicketPayload() {
@@ -419,19 +448,29 @@ function fillTicketForm(ticket) {
   matchTickets.forEach((item) => {
     const code = String(item.categoryCode || "").trim();
     if (!["1", "2", "3"].includes(code)) return;
-    ticketForm.elements[`category${code}Id`].value = item.id;
-    ticketForm.elements[`category${code}Price`].value = item.price || "";
-    ticketForm.elements[`category${code}Quantity`].value = item.totalQuantity || 0;
+    const existingIds = ticketForm.elements[`category${code}Id`].value
+      ? ticketForm.elements[`category${code}Id`].value.split(",").filter(Boolean)
+      : [];
+    existingIds.push(item.id);
+    ticketForm.elements[`category${code}Id`].value = existingIds.join(",");
+    ticketForm.elements[`category${code}Quantity`].value = existingIds.length;
     ticketForm.elements[`category${code}Name`].value = item.categoryName || "";
     ticketForm.elements[`category${code}Section`].value = item.seatSection || "";
     ticketForm.elements[`category${code}Seats`].value = item.seatDetails || "";
     ticketForm.elements[`category${code}AssignedLater`].value = item.seatAssignedLater ? "yes" : "no";
-    renderCategorySeatInputs(code, parseSeatLines(item.seatDetails || ""));
+  });
+
+  ["1", "2", "3"].forEach((code) => {
+    const categoryItems = matchTickets
+      .filter((item) => String(item.categoryCode || "").trim() === code)
+      .map((item) => ({ id: item.id, price: item.price || "", seat: item.seatAssignedLater ? "" : item.seatDetails || "" }));
+    renderCategoryTicketRows(code, categoryItems);
   });
 
   state.editingTicketId = ticket.id;
   setNodeText(document.querySelector("#fifa-ticket-submit"), "Update categories");
   setStatus(ticketStatusNode, "Editing match categories.");
+  setTicketFormVisible(true);
   ticketForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -690,19 +729,19 @@ async function loadDashboard() {
 if (ticketForm) {
   ["1", "2", "3"].forEach((categoryCode) => {
     ticketForm.elements[`category${categoryCode}Quantity`]?.addEventListener("input", () => {
-      renderCategorySeatInputs(
+      renderCategoryTicketRows(
         categoryCode,
         parseSeatLines(ticketForm.elements[`category${categoryCode}Seats`].value)
       );
     });
     ticketForm.elements[`category${categoryCode}AssignedLater`]?.addEventListener("change", () => {
-      renderCategorySeatInputs(
+      renderCategoryTicketRows(
         categoryCode,
         parseSeatLines(ticketForm.elements[`category${categoryCode}Seats`].value)
       );
     });
-    seatInputContainers[categoryCode]?.addEventListener("input", (event) => {
-      if (!event.target.matches("input[data-seat-line]")) return;
+    ticketRowContainers[categoryCode]?.addEventListener("input", (event) => {
+      if (!event.target.closest("[data-ticket-row]")) return;
       syncCategorySeatTextarea(categoryCode);
     });
   });
@@ -718,28 +757,60 @@ if (ticketForm) {
     const base = commonTicketPayload();
     const tasks = [];
     const isEditing = Boolean(state.editingTicketId);
+    let hasValidationError = false;
 
     for (const categoryCode of ["1", "2", "3"]) {
-      const existingId = ticketForm.elements[`category${categoryCode}Id`].value;
+      const existingIds = ticketForm.elements[`category${categoryCode}Id`].value
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
       const hasInput = blockHasInput(categoryCode);
-      if (!hasInput && existingId) {
-        tasks.push(fetchJson(`/api/fifa2026/tickets/${existingId}`, { method: "DELETE" }));
+      if (!hasInput && existingIds.length) {
+        existingIds.forEach((ticketId) => {
+          tasks.push(fetchJson(`/api/fifa2026/tickets/${ticketId}`, { method: "DELETE" }));
+        });
         continue;
       }
       if (!hasInput) continue;
-      const categoryPayload = buildCategoryPayload(categoryCode);
-      if (!categoryPayload.price || !categoryPayload.totalQuantity) {
-        setStatus(ticketStatusNode, `Category ${categoryCode} needs both price and quantity.`, true);
+      const categoryRows = buildCategoryRows(categoryCode);
+      if (!categoryRows.length) {
+        setStatus(ticketStatusNode, `Category ${categoryCode} needs at least one ticket row.`, true);
         return;
       }
-      const payload = { ...base, ...categoryPayload };
-      tasks.push(
-        fetchJson(existingId ? `/api/fifa2026/tickets/${existingId}` : "/api/fifa2026/tickets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        })
-      );
+      const categoryName = ticketForm.elements[`category${categoryCode}Name`].value.trim();
+      const seatSection = ticketForm.elements[`category${categoryCode}Section`].value.trim();
+      const seatAssignedLater = ticketForm.elements[`category${categoryCode}AssignedLater`].value === "yes";
+      categoryRows.forEach((row, index) => {
+        if (!row.price) {
+          setStatus(ticketStatusNode, `Category ${categoryCode}, ticket ${index + 1} needs a price.`, true);
+          hasValidationError = true;
+          return;
+        }
+        const payload = {
+          ...base,
+          categoryCode,
+          categoryName: categoryName || (seatAssignedLater ? "Seat will be assigned later" : `Category ${categoryCode}`),
+          seatSection: seatSection || (seatAssignedLater ? "Seat will be assigned later" : ""),
+          seatDetails: row.seat || (seatAssignedLater ? "Seat will be assigned later" : ""),
+          seatAssignedLater,
+          price: row.price,
+          totalQuantity: 1,
+        };
+        tasks.push(
+          fetchJson(existingIds[index] ? `/api/fifa2026/tickets/${existingIds[index]}` : "/api/fifa2026/tickets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        );
+      });
+      existingIds.slice(categoryRows.length).forEach((ticketId) => {
+        tasks.push(fetchJson(`/api/fifa2026/tickets/${ticketId}`, { method: "DELETE" }));
+      });
+    }
+
+    if (hasValidationError) {
+      return;
     }
 
     if (!tasks.length) {
@@ -781,6 +852,10 @@ if (saleForm) {
 }
 
 document.querySelector("#fifa-ticket-cancel")?.addEventListener("click", resetTicketForm);
+ticketFormToggleButton?.addEventListener("click", () => {
+  setTicketFormVisible(true);
+  ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSaleForm);
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);

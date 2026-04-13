@@ -2652,25 +2652,20 @@ body.modal-open {
   font-size: 0.9rem;
 }
 
-.fifa-seat-inputs {
+.fifa-ticket-rows {
   display: grid;
   gap: 10px;
   margin-top: 10px;
 }
 
-.fifa-seat-line {
+.fifa-ticket-row {
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 12px;
   padding: 12px 14px;
   border: 1px solid rgba(32, 53, 111, 0.12);
   border-radius: 16px;
   background: #fff;
-}
-
-.fifa-seat-line span {
-  color: var(--brand);
-  font-size: 0.86rem;
-  font-weight: 700;
 }
 
 .fifa-seat-help {

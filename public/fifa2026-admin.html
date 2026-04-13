@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-7" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-8" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -77,9 +77,12 @@
               <h2>Ticket Inventory</h2>
               <p class="workspace-subtitle manager-panel-copy">Choose the match from dropdowns, let city fill the stadium automatically, and enter category 1, 2, and 3 seats together in one manager block.</p>
             </div>
+            <div class="dashboard-actions">
+              <button id="fifa-show-ticket-form" type="button">Add Match</button>
+            </div>
           </div>
 
-          <form id="fifa-ticket-form" class="manager-form-grid fifa-form-grid">
+          <form id="fifa-ticket-form" class="manager-form-grid fifa-form-grid" hidden>
             <input type="hidden" name="id" />
             <label>
               Stage
@@ -145,14 +148,10 @@
             <section class="full-span fifa-category-editor" data-category-block="1">
               <div class="fifa-category-head">
                 <h3>Category 1</h3>
-                <p>Write the full seat block for category 1 here.</p>
+                <p>Add each ticket row manually after setting the quantity.</p>
               </div>
               <div class="manager-form-grid fifa-form-grid">
                 <input type="hidden" name="category1Id" />
-                <label>
-                  Price
-                  <input name="category1Price" type="number" min="0" step="1" placeholder="1400" />
-                </label>
                 <label>
                   Total quantity
                   <input name="category1Quantity" type="number" min="0" step="1" value="0" />
@@ -166,9 +165,9 @@
                   <input name="category1Section" placeholder="Block 131" />
                 </label>
                 <label class="full-span">
-                  Seat number(s)
+                  Ticket list
                   <textarea name="category1Seats" rows="2" placeholder="Row 4 · Seat 1-8 or Seat will be assigned later" hidden></textarea>
-                  <div class="fifa-seat-inputs" data-seat-inputs="1"></div>
+                  <div class="fifa-ticket-rows" data-ticket-rows="1"></div>
                 </label>
                 <label>
                   Seat assigned later
@@ -183,14 +182,10 @@
             <section class="full-span fifa-category-editor" data-category-block="2">
               <div class="fifa-category-head">
                 <h3>Category 2</h3>
-                <p>Write the full seat block for category 2 here.</p>
+                <p>Add each ticket row manually after setting the quantity.</p>
               </div>
               <div class="manager-form-grid fifa-form-grid">
                 <input type="hidden" name="category2Id" />
-                <label>
-                  Price
-                  <input name="category2Price" type="number" min="0" step="1" placeholder="800" />
-                </label>
                 <label>
                   Total quantity
                   <input name="category2Quantity" type="number" min="0" step="1" value="0" />
@@ -204,9 +199,9 @@
                   <input name="category2Section" placeholder="Block 520" />
                 </label>
                 <label class="full-span">
-                  Seat number(s)
+                  Ticket list
                   <textarea name="category2Seats" rows="2" placeholder="Row 15 · Seat 17-20" hidden></textarea>
-                  <div class="fifa-seat-inputs" data-seat-inputs="2"></div>
+                  <div class="fifa-ticket-rows" data-ticket-rows="2"></div>
                 </label>
                 <label>
                   Seat assigned later
@@ -221,14 +216,10 @@
             <section class="full-span fifa-category-editor" data-category-block="3">
               <div class="fifa-category-head">
                 <h3>Category 3</h3>
-                <p>Write the full seat block for category 3 here.</p>
+                <p>Add each ticket row manually after setting the quantity.</p>
               </div>
               <div class="manager-form-grid fifa-form-grid">
                 <input type="hidden" name="category3Id" />
-                <label>
-                  Price
-                  <input name="category3Price" type="number" min="0" step="1" placeholder="600" />
-                </label>
                 <label>
                   Total quantity
                   <input name="category3Quantity" type="number" min="0" step="1" value="0" />
@@ -242,9 +233,9 @@
                   <input name="category3Section" placeholder="Block 435" />
                 </label>
                 <label class="full-span">
-                  Seat number(s)
+                  Ticket list
                   <textarea name="category3Seats" rows="2" placeholder="Row 18 · Seat 5-14" hidden></textarea>
-                  <div class="fifa-seat-inputs" data-seat-inputs="3"></div>
+                  <div class="fifa-ticket-rows" data-ticket-rows="3"></div>
                 </label>
                 <label>
                   Seat assigned later
@@ -257,7 +248,7 @@
             </section>
             <div class="actions full-span">
               <button id="fifa-ticket-submit" type="submit">Save categories</button>
-              <button id="fifa-ticket-cancel" type="button" class="button-secondary">Cancel</button>
+              <button id="fifa-ticket-cancel" type="button" class="button-secondary">Hide</button>
               <p id="fifa-ticket-status" class="status"></p>
             </div>
           </form>
@@ -455,6 +446,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-7"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-8"></script>
   </body>
 </html>
