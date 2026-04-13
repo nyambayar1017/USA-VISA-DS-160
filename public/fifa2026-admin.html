@@ -65,9 +65,9 @@
             <span>Total money already received from all active sales.</span>
           </article>
           <article class="manager-stat-card">
-            <p class="manager-stat-label">Public Units</p>
-            <strong id="fifa-summary-public">0</strong>
-            <span>Live units currently visible on the public page.</span>
+            <p class="manager-stat-label">Matches</p>
+            <strong id="fifa-summary-matches">0</strong>
+            <span>Distinct FIFA 2026 matches currently loaded in inventory.</span>
           </article>
         </section>
 
@@ -115,7 +115,11 @@
             </label>
             <label>
               Category code
-              <input name="categoryCode" placeholder="CAT 4" />
+              <select name="categoryCode">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
             </label>
             <label>
               Category name

@@ -28,7 +28,7 @@ const summaryNodes = {
   available: document.querySelector("#fifa-summary-available"),
   sold: document.querySelector("#fifa-summary-sold"),
   collected: document.querySelector("#fifa-summary-collected"),
-  public: document.querySelector("#fifa-summary-public"),
+  matches: document.querySelector("#fifa-summary-matches"),
 };
 
 const state = {
@@ -106,7 +106,7 @@ function updateSummary() {
   summaryNodes.available.textContent = summary.tickets?.availableUnits ?? 0;
   summaryNodes.sold.textContent = summary.tickets?.soldUnits ?? 0;
   summaryNodes.collected.textContent = formatMoney(summary.sales?.collected ?? 0);
-  summaryNodes.public.textContent = summary.public?.visibleUnits ?? 0;
+  summaryNodes.matches.textContent = summary.tickets?.matches ?? 0;
 }
 
 function refreshFilterOptions() {
@@ -136,6 +136,7 @@ function refreshSaleTicketOptions() {
 function resetTicketForm() {
   ticketForm.reset();
   ticketForm.elements.id.value = "";
+  ticketForm.elements.categoryCode.value = "1";
   ticketForm.elements.totalQuantity.value = "1";
   ticketForm.elements.currency.value = "USD";
   ticketForm.elements.visibility.value = "public";
