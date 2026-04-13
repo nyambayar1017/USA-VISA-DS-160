@@ -3282,7 +3282,11 @@ def build_invoice_html(record, asset_mode="web"):
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 22px;
-        align-items: end;
+        align-items: start;
+      }}
+      .invoice-footer-party {{
+        display: flex;
+        flex-direction: column;
       }}
       .invoice-footer-label {{
         margin: 0 0 10px;
@@ -3315,9 +3319,11 @@ def build_invoice_html(record, asset_mode="web"):
         height: auto;
         display: block;
       }}
+      .invoice-footer-space {{
+        min-height: 136px;
+      }}
       .invoice-sign-line {{
         height: 1px;
-        margin-top: 102px;
         background: #d6dceb;
       }}
       .invoice-sign-name {{
@@ -3426,7 +3432,7 @@ def build_invoice_html(record, asset_mode="web"):
       </div>
       <div class="invoice-footer">
         <div class="invoice-footer-grid">
-          <div>
+          <div class="invoice-footer-party">
             <p class="invoice-footer-label">Нягтлан</p>
             <div class="finance-asset-wrap">
               <div class="finance-stamp">
@@ -3439,8 +3445,9 @@ def build_invoice_html(record, asset_mode="web"):
             <div class="invoice-sign-line"></div>
             <div class="invoice-sign-name">{html.escape(accountant_name)}</div>
           </div>
-          <div>
+          <div class="invoice-footer-party">
             <p class="invoice-footer-label">Төлөгч</p>
+            <div class="invoice-footer-space"></div>
             <div class="invoice-sign-line"></div>
             <div class="invoice-sign-name">{customer_name}</div>
           </div>
