@@ -17,6 +17,7 @@ const campFormPanel = document.querySelector("#camp-form-panel");
 const reservationTripSelect = document.querySelector("#reservation-trip-select");
 const campNameSelect = document.querySelector("#camp-name-select");
 const locationNameSelect = document.querySelector("#location-name-select");
+const campLocationSelect = locationNameSelect;
 const staffAssignmentSelect = document.querySelector("#staff-assignment-select");
 const roomTypeSelect = document.querySelector("#room-type-select");
 const tripLanguageSelect = document.querySelector("#trip-language-select");
@@ -2399,7 +2400,7 @@ document.addEventListener("change", (event) => {
     renderActiveTripReservations();
   }
 });
-campNameSelect.addEventListener("change", () => applyCampLocationToForm(campForm));
+campNameSelect?.addEventListener("change", () => applyCampLocationToForm(campForm));
 campExportPdf?.addEventListener("click", exportCurrentReservations);
 
 document.querySelectorAll("[data-settings-group]").forEach((formNode) => {
