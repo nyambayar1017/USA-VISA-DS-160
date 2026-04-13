@@ -3,24 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FIFA 2026 Tickets</title>
+    <title>FIFA 2026 Schedule</title>
     <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-1" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-4" />
   </head>
   <body class="fifa-public-body">
     <main class="fifa-public-shell">
       <section class="fifa-public-hero">
         <div>
           <p class="eyebrow">FIFA 2026</p>
-          <h1>Live Ticket Availability</h1>
-          <p class="intro">Browse the currently available ticket lots by match, city, category, and seat area. This page updates automatically whenever a manager sells tickets in backoffice.</p>
+          <h1>FIFA World Cup 2026</h1>
+          <p class="intro">Browse the match schedule and current seat availability. This public page hides sold inventory automatically and focuses on dates, matches, categories, and seat numbers.</p>
         </div>
         <div class="fifa-public-summary">
           <article>
-            <span>Visible lots</span>
+            <span>Matches</span>
             <strong id="public-summary-lots">0</strong>
           </article>
           <article>
@@ -35,6 +35,12 @@
           <label>
             Search
             <input id="public-filter-search" type="search" placeholder="Match, team, city, venue" />
+          </label>
+          <label>
+            Team / Match
+            <select id="public-filter-match">
+              <option value="">All matches</option>
+            </select>
           </label>
           <label>
             Stage
@@ -55,15 +61,19 @@
             </select>
           </label>
           <label>
-            Max price
-            <input id="public-filter-price" type="number" min="0" step="1" placeholder="Any" />
+            Start date from
+            <input id="public-filter-date-from" type="date" />
+          </label>
+          <label>
+            Start date to
+            <input id="public-filter-date-to" type="date" />
           </label>
         </div>
 
-        <div id="fifa-public-list" class="fifa-public-grid"></div>
+        <div id="fifa-public-list" class="fifa-public-table-wrap"></div>
       </section>
     </main>
 
-    <script src="/fifa2026.js?v=workspace-fifa-1"></script>
+    <script src="/fifa2026.js?v=workspace-fifa-4"></script>
   </body>
 </html>

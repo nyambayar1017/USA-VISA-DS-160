@@ -2770,77 +2770,43 @@ body.modal-open {
   padding: 26px;
 }
 
-.fifa-public-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+.fifa-public-table-wrap {
   margin-top: 24px;
+  overflow: auto;
 }
 
-.fifa-public-card {
-  padding: 22px;
-  box-shadow: 0 20px 44px rgba(27, 42, 88, 0.08);
+.fifa-public-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  font-size: 0.92rem;
 }
 
-.fifa-public-card-head,
-.fifa-public-footer,
-.fifa-public-tags {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
+.fifa-public-table th,
+.fifa-public-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(32, 53, 111, 0.08);
+  text-align: left;
+  vertical-align: top;
 }
 
-.fifa-public-card-head p,
-.fifa-public-card-head span {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 700;
+.fifa-public-table th {
+  color: var(--brand);
+  font-size: 0.8rem;
+  font-weight: 800;
   text-transform: uppercase;
+  background: rgba(37, 58, 119, 0.06);
 }
 
-.fifa-public-card h2 {
-  margin: 12px 0 8px;
-  font-size: 1.25rem;
-}
-
-.fifa-public-meta,
-.fifa-public-seat {
-  margin: 0;
+.fifa-public-seat-cell {
+  min-width: 320px;
   color: var(--muted);
-}
-
-.fifa-public-tags {
-  margin: 18px 0 14px;
-}
-
-.fifa-public-tags span {
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: rgba(37, 58, 119, 0.08);
-  color: var(--brand);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.fifa-public-footer {
-  align-items: center;
-  margin-top: 20px;
-}
-
-.fifa-public-footer strong {
-  font-size: 1.45rem;
-  color: var(--brand);
+  font-size: 0.84rem;
 }
 
 @media (max-width: 1200px) {
   .fifa-form-grid,
   .fifa-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .fifa-public-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -2858,7 +2824,6 @@ body.modal-open {
 @media (max-width: 640px) {
   .fifa-form-grid,
   .fifa-filters,
-  .fifa-public-grid,
   .fifa-public-summary {
     grid-template-columns: 1fr;
   }
