@@ -17,7 +17,6 @@ const campFormPanel = document.querySelector("#camp-form-panel");
 const reservationTripSelect = document.querySelector("#reservation-trip-select");
 const campNameSelect = document.querySelector("#camp-name-select");
 const locationNameSelect = document.querySelector("#location-name-select");
-const newCampNameInput = document.querySelector("#new-camp-name");
 const staffAssignmentSelect = document.querySelector("#staff-assignment-select");
 const roomTypeSelect = document.querySelector("#room-type-select");
 const tripLanguageSelect = document.querySelector("#trip-language-select");
@@ -561,9 +560,7 @@ function applyCampLocationToForm(formNode) {
   if (!formNode) return;
   const campNode = formNode.querySelector('[name="campName"]');
   const locationNode = formNode.querySelector('[name="locationName"]');
-  const newCampNode = formNode.querySelector('[name="newCampName"]');
   if (!campNode || !locationNode) return;
-  if (newCampNode && newCampNode.value.trim()) return;
   const mapped = getCampLocation(campNode.value);
   if (mapped) {
     locationNode.value = mapped;
@@ -972,7 +969,7 @@ function renderReadOnlyRow(entry, index, options = {}) {
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
       <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(entry.campName)}">${escapeHtml(entry.campName)}</button></td>
       <td>${escapeHtml(entry.locationName || "-")}</td>
-      <td>${escapeHtml(entry.reservationType === "hotel" ? "Hotel" : entry.reservationType === "herder" ? "Herder" : "Camp")}</td>
+      <td>${escapeHtml(entry.reservationType === "hotel" ? "Hotel" : entry.reservationType === "herder" ? "Herder" : entry.reservationType === "tent" ? "Tent" : "Camp")}</td>
       <td>${entry.clientCount}</td>
       <td>${entry.staffCount}</td>
       <td class="table-nowrap">${formatDate(entry.checkIn)}</td>
@@ -1019,6 +1016,7 @@ function renderEditableRow(entry, index) {
       <td>
         <select data-role="reservationType" data-id="${entry.id}">
           <option value="camp" ${entry.reservationType === "camp" ? "selected" : ""}>Camp reservation</option>
+          <option value="tent" ${entry.reservationType === "tent" ? "selected" : ""}>Tent reservation</option>
           <option value="hotel" ${entry.reservationType === "hotel" ? "selected" : ""}>Hotel reservation</option>
           <option value="herder" ${entry.reservationType === "herder" ? "selected" : ""}>Herder family reservation</option>
         </select>
@@ -1218,13 +1216,10 @@ function renderReservationEditPanel(reservation, options = {}) {
             </select>
           </label>
           <label>
-            New Camp
-            <input name="newCampName" placeholder="Create new camp if not listed" />
-          </label>
-          <label>
             Reservation type
             <select name="reservationType" required>
               <option value="camp" ${reservationData.reservationType === "camp" ? "selected" : ""}>Camp reservation</option>
+              <option value="tent" ${reservationData.reservationType === "tent" ? "selected" : ""}>Tent reservation</option>
               <option value="hotel" ${reservationData.reservationType === "hotel" ? "selected" : ""}>Hotel reservation</option>
               <option value="herder" ${reservationData.reservationType === "herder" ? "selected" : ""}>Herder family reservation</option>
             </select>
@@ -1317,9 +1312,6 @@ function renderReservationEditPanel(reservation, options = {}) {
       if (!(target instanceof HTMLElement)) return;
       if (target.getAttribute("name") === "checkIn" || target.getAttribute("name") === "nights") {
         syncInlineEditCheckout(formNode);
-      }
-      if (target.getAttribute("name") === "newCampName" && !target.value.trim()) {
-        syncReservationDraftFromCamp(formNode);
       }
     });
     formNode.addEventListener("change", (event) => {
@@ -1470,7 +1462,7 @@ async function handleInlineReservationSubmit(event) {
   if (!payload.createdDate) {
     payload.createdDate = formatDate(new Date().toISOString());
   }
-  if (!payload.locationName && payload.campName && !payload.newCampName) {
+  if (!payload.locationName && payload.campName) {
     payload.locationName = getCampLocation(payload.campName);
   }
   payload.tripId = selectedTrip.id;
@@ -1937,9 +1929,6 @@ document.addEventListener("input", (event) => {
     syncInlineEditCheckout(form);
     return;
   }
-  if (form && target.getAttribute("name") === "newCampName" && !target.value.trim()) {
-    syncReservationDraftFromCamp(form);
-  }
 });
 
 document.addEventListener("change", (event) => {
@@ -1989,7 +1978,7 @@ campForm.addEventListener("submit", async (event) => {
     payload.createdDate = getMongoliaToday();
     campCreatedDate.value = payload.createdDate;
   }
-  if (!payload.locationName && payload.campName && !payload.newCampName) {
+  if (!payload.locationName && payload.campName) {
     payload.locationName = getCampLocation(payload.campName);
     if (payload.locationName) {
       campLocationSelect.value = payload.locationName;
@@ -2411,11 +2400,6 @@ document.addEventListener("change", (event) => {
   }
 });
 campNameSelect.addEventListener("change", () => applyCampLocationToForm(campForm));
-newCampNameInput.addEventListener("input", () => {
-  if (!newCampNameInput.value.trim()) {
-    applyCampLocationToForm(campForm);
-  }
-});
 campExportPdf?.addEventListener("click", exportCurrentReservations);
 
 document.querySelectorAll("[data-settings-group]").forEach((formNode) => {

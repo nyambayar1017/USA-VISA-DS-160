@@ -78,6 +78,7 @@ DEFAULT_LANGUAGES = [
 ]
 RESERVATION_TYPE_LABELS = {
     "camp": "Баазын захиалга",
+    "tent": "Майхны захиалга",
     "hotel": "Буудлын захиалга",
     "herder": "Малчин айлын захиалга",
 }
