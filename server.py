@@ -409,6 +409,35 @@ def reset_fifa2026_store_from_seed():
     return payload
 
 
+def fifa_store_totals(store):
+    tickets = store.get("tickets", [])
+    return {
+        "lots": len(tickets),
+        "matches": len({normalize_text(ticket.get("matchNumber")) for ticket in tickets if normalize_text(ticket.get("matchNumber"))}),
+        "quantity": sum(max(parse_int(ticket.get("totalQuantity")), 0) for ticket in tickets),
+    }
+
+
+def ensure_fifa2026_seed_loaded():
+    seed = normalize_fifa2026_store(default_fifa2026_data())
+    current = read_fifa2026_store()
+    seed_totals = fifa_store_totals(seed)
+    current_totals = fifa_store_totals(current)
+    has_sales = bool(current.get("sales"))
+    should_reset = (
+        not has_sales
+        and (
+            current_totals["matches"] < seed_totals["matches"]
+            or current_totals["quantity"] < seed_totals["quantity"]
+            or current_totals["lots"] < seed_totals["lots"]
+        )
+    )
+    if should_reset:
+        write_fifa2026_store(seed)
+        return seed
+    return current
+
+
 def json_response(start_response, status, payload, extra_headers=None):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = [
@@ -4766,7 +4795,7 @@ def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
 
 
 def handle_get_fifa2026_dashboard(start_response):
-    store = read_fifa2026_store()
+    store = ensure_fifa2026_seed_loaded()
     sales = store.get("sales", [])
     tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
     enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId"))) for sale in sales]
@@ -4782,7 +4811,7 @@ def handle_get_fifa2026_dashboard(start_response):
 
 
 def handle_get_fifa2026_public(start_response):
-    store = read_fifa2026_store()
+    store = ensure_fifa2026_seed_loaded()
     sales = store.get("sales", [])
     tickets = [
         enrich_fifa_ticket(ticket, sales)
