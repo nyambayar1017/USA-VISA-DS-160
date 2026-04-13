@@ -2462,7 +2462,7 @@ def build_invoice_html(record, asset_mode="web"):
     <style>
       @page {{
         size: A4;
-        margin: 18mm;
+        margin: 14mm;
       }}
       * {{ box-sizing: border-box; }}
       body {{
@@ -2470,7 +2470,7 @@ def build_invoice_html(record, asset_mode="web"):
         background: #f3f5fb;
         color: #22283a;
         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px;
+        font-size: 14px;
       }}
       .toolbar {{
         position: sticky;
@@ -2513,33 +2513,33 @@ def build_invoice_html(record, asset_mode="web"):
       .page {{
         width: min(210mm, calc(100vw - 24px));
         margin: 20px auto 40px;
-        padding: 20px 18px 22px;
+        padding: 24px 22px 26px;
         background: #fff;
         border: 1px solid #e6e8ef;
-        border-radius: 10px;
-        box-shadow: 0 12px 36px rgba(34, 40, 58, 0.06);
+        border-radius: 12px;
+        box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08);
       }}
       .invoice-number {{
-        margin: 0 0 16px;
+        margin: 0 0 18px;
         color: #3b4257;
-        font-size: 16px;
+        font-size: 17px;
         font-weight: 500;
       }}
       .header-grid {{
         display: grid;
         grid-template-columns: 1.1fr 1fr;
-        gap: 18px;
+        gap: 26px;
         align-items: start;
       }}
       .invoice-logo {{
-        width: 132px;
+        width: 154px;
         max-width: 100%;
         display: block;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
       }}
       .company-name {{
-        margin: 0 0 4px;
-        font-size: 14px;
+        margin: 0 0 6px;
+        font-size: 15px;
         font-weight: 700;
         color: #2a3150;
       }}
@@ -2547,26 +2547,26 @@ def build_invoice_html(record, asset_mode="web"):
       .customer-block p,
       .meta-note {{
         margin: 0;
-        font-size: 13px;
-        line-height: 1.35;
+        font-size: 14px;
+        line-height: 1.4;
       }}
       .meta-note {{
         text-align: right;
         color: #535b74;
       }}
       .customer-block {{
-        padding-top: 44px;
+        padding-top: 54px;
       }}
       .customer-block .label {{
         display: block;
         margin-bottom: 4px;
         color: #6f7791;
-        font-size: 12px;
+        font-size: 13px;
       }}
       .section-title {{
-        margin: 18px 0 10px;
+        margin: 22px 0 12px;
         color: #7f889d;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 500;
       }}
       table {{
@@ -2577,10 +2577,10 @@ def build_invoice_html(record, asset_mode="web"):
         border: 1px solid #e7e9f1;
       }}
       th, td {{
-        padding: 9px 10px;
+        padding: 11px 12px;
         border-bottom: 1px solid #eceef5;
         text-align: left;
-        font-size: 13px;
+        font-size: 14px;
       }}
       th {{
         background: #fbfcfe;
@@ -2599,21 +2599,21 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .payment-stack {{
         display: grid;
-        gap: 12px;
+        gap: 14px;
       }}
       .payment-card {{
         display: grid;
         grid-template-columns: 1.3fr repeat(3, minmax(110px, 0.8fr)) auto;
-        gap: 12px;
+        gap: 14px;
         align-items: center;
-        padding: 13px 14px;
+        padding: 15px 16px;
         border: 1px solid #e7e9f1;
-        border-radius: 12px;
+        border-radius: 14px;
         background: #fff;
       }}
       .payment-title,
       .payment-amount {{
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 600;
         color: #2b3148;
       }}
@@ -2626,22 +2626,22 @@ def build_invoice_html(record, asset_mode="web"):
         gap: 4px;
       }}
       .meta-value {{
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 600;
         color: #2b3148;
       }}
       .meta-label {{
         color: #8b93a9;
-        font-size: 12px;
+        font-size: 13px;
       }}
       .payment-status {{
         display: inline-flex;
         align-items: center;
         justify-content: center;
         min-height: 30px;
-        padding: 5px 11px;
+        padding: 6px 12px;
         border-radius: 999px;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 700;
       }}
       .payment-status.paid {{
@@ -2681,7 +2681,7 @@ def build_invoice_html(record, asset_mode="web"):
         gap: 10px;
         flex-wrap: wrap;
         align-items: baseline;
-        font-size: 13px;
+        font-size: 14px;
         color: #2d344c;
       }}
       @media print {{
