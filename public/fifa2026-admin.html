@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-3" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-7" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -75,10 +75,7 @@
           <div class="dashboard-head">
             <div>
               <h2>Ticket Inventory</h2>
-              <p class="workspace-subtitle manager-panel-copy">Add ticket lots by match, city, category, seat, visibility, and quantity. Public visibility only shows the remaining quantity after sales.</p>
-            </div>
-            <div class="dashboard-actions">
-              <button id="fifa-reload-seed" type="button" class="button-secondary">Load All Matches From Excel Seed</button>
+              <p class="workspace-subtitle manager-panel-copy">Choose the match from dropdowns, let city fill the stadium automatically, and enter category 1, 2, and 3 seats together in one manager block.</p>
             </div>
           </div>
 
@@ -86,15 +83,22 @@
             <input type="hidden" name="id" />
             <label>
               Stage
-              <input name="stage" placeholder="Group Stage / Quarter Final" required />
+              <select name="stage" required>
+                <option value="">Choose stage</option>
+                <option value="Opening">Opening</option>
+                <option value="Group Stage">Group Stage</option>
+                <option value="Round 32">Round 32</option>
+                <option value="Round 16">Round 16</option>
+                <option value="Quarter Final">Quarter Final</option>
+                <option value="Semi Final">Semi Final</option>
+                <option value="Final">Final</option>
+              </select>
             </label>
             <label>
               Match No.
-              <input name="matchNumber" placeholder="Match 43" />
-            </label>
-            <label>
-              Match label
-              <input name="matchLabel" placeholder="Argentina vs Australia" required />
+              <select name="matchNumber" required>
+                <option value="">Choose match</option>
+              </select>
             </label>
             <label>
               Match date
@@ -102,51 +106,29 @@
             </label>
             <label>
               Team A
-              <input name="teamA" placeholder="ARG" />
-            </label>
-            <label>
-              Team B
-              <input name="teamB" placeholder="AUS" />
-            </label>
-            <label>
-              City
-              <input name="city" placeholder="Dallas" required />
-            </label>
-            <label>
-              Venue
-              <input name="venue" placeholder="Dallas Stadium" />
-            </label>
-            <label>
-              Category code
-              <select name="categoryCode">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
+              <select name="teamA" required>
+                <option value="">Choose team</option>
               </select>
             </label>
             <label>
-              Category name
-              <input name="categoryName" placeholder="Main Stand - Lower Tier" />
+              Team B
+              <select name="teamB" required>
+                <option value="">Choose team</option>
+              </select>
             </label>
             <label>
-              Seat section
-              <input name="seatSection" placeholder="Block 131" />
+              City
+              <select name="city" required>
+                <option value="">Choose city</option>
+              </select>
             </label>
             <label>
-              Seat details
-              <input name="seatDetails" placeholder="Row 4 · Seat 1-8" />
-            </label>
-            <label>
-              Price
-              <input name="price" type="number" min="1" step="1" required />
+              Venue
+              <input name="venue" placeholder="Dallas Stadium" readonly />
             </label>
             <label>
               Currency
               <input name="currency" value="USD" />
-            </label>
-            <label>
-              Total quantity
-              <input name="totalQuantity" type="number" min="1" step="1" value="1" required />
             </label>
             <label>
               Visibility
@@ -155,24 +137,123 @@
                 <option value="private">Private</option>
               </select>
             </label>
-            <label>
-              Status
-              <select name="status">
-                <option value="active">Active</option>
-                <option value="hidden">Hidden</option>
-                <option value="archived">Archived</option>
-              </select>
-            </label>
-            <label class="checkbox-label">
-              <input name="seatAssignedLater" type="checkbox" />
-              Seat assigned later
-            </label>
             <label class="full-span">
               Notes
               <textarea name="notes" rows="2" placeholder="Internal notes for managers"></textarea>
             </label>
+
+            <section class="full-span fifa-category-editor" data-category-block="1">
+              <div class="fifa-category-head">
+                <h3>Category 1</h3>
+                <p>Write the full seat block for category 1 here.</p>
+              </div>
+              <div class="manager-form-grid fifa-form-grid">
+                <input type="hidden" name="category1Id" />
+                <label>
+                  Price
+                  <input name="category1Price" type="number" min="0" step="1" placeholder="1400" />
+                </label>
+                <label>
+                  Total quantity
+                  <input name="category1Quantity" type="number" min="0" step="1" value="0" />
+                </label>
+                <label>
+                  Category name
+                  <input name="category1Name" placeholder="Main Stand - Lower Tier" />
+                </label>
+                <label>
+                  Seat section
+                  <input name="category1Section" placeholder="Block 131" />
+                </label>
+                <label class="full-span">
+                  Seat number(s)
+                  <textarea name="category1Seats" rows="2" placeholder="Row 4 · Seat 1-8 or Seat will be assigned later"></textarea>
+                </label>
+                <label>
+                  Seat assigned later
+                  <select name="category1AssignedLater">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section class="full-span fifa-category-editor" data-category-block="2">
+              <div class="fifa-category-head">
+                <h3>Category 2</h3>
+                <p>Write the full seat block for category 2 here.</p>
+              </div>
+              <div class="manager-form-grid fifa-form-grid">
+                <input type="hidden" name="category2Id" />
+                <label>
+                  Price
+                  <input name="category2Price" type="number" min="0" step="1" placeholder="800" />
+                </label>
+                <label>
+                  Total quantity
+                  <input name="category2Quantity" type="number" min="0" step="1" value="0" />
+                </label>
+                <label>
+                  Category name
+                  <input name="category2Name" placeholder="Main Stand - Upper Tier" />
+                </label>
+                <label>
+                  Seat section
+                  <input name="category2Section" placeholder="Block 520" />
+                </label>
+                <label class="full-span">
+                  Seat number(s)
+                  <textarea name="category2Seats" rows="2" placeholder="Row 15 · Seat 17-20"></textarea>
+                </label>
+                <label>
+                  Seat assigned later
+                  <select name="category2AssignedLater">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section class="full-span fifa-category-editor" data-category-block="3">
+              <div class="fifa-category-head">
+                <h3>Category 3</h3>
+                <p>Write the full seat block for category 3 here.</p>
+              </div>
+              <div class="manager-form-grid fifa-form-grid">
+                <input type="hidden" name="category3Id" />
+                <label>
+                  Price
+                  <input name="category3Price" type="number" min="0" step="1" placeholder="600" />
+                </label>
+                <label>
+                  Total quantity
+                  <input name="category3Quantity" type="number" min="0" step="1" value="0" />
+                </label>
+                <label>
+                  Category name
+                  <input name="category3Name" placeholder="Main Stand Right - Upper Tier" />
+                </label>
+                <label>
+                  Seat section
+                  <input name="category3Section" placeholder="Block 435" />
+                </label>
+                <label class="full-span">
+                  Seat number(s)
+                  <textarea name="category3Seats" rows="2" placeholder="Row 18 · Seat 5-14"></textarea>
+                </label>
+                <label>
+                  Seat assigned later
+                  <select name="category3AssignedLater">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+              </div>
+            </section>
             <div class="actions full-span">
-              <button id="fifa-ticket-submit" type="submit">Save ticket lot</button>
+              <button id="fifa-ticket-submit" type="submit">Save categories</button>
               <button id="fifa-ticket-cancel" type="button" class="button-secondary">Cancel</button>
               <p id="fifa-ticket-status" class="status"></p>
             </div>
@@ -371,6 +452,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-3"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-7"></script>
   </body>
 </html>

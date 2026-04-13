@@ -2623,6 +2623,35 @@ body.modal-open {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.fifa-category-editor {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  border-radius: 24px;
+  background: rgba(247, 249, 255, 0.82);
+}
+
+.fifa-category-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.fifa-category-head h3 {
+  margin: 0;
+  color: var(--brand);
+  font-size: 1rem;
+}
+
+.fifa-category-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;

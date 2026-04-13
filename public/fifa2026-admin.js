@@ -34,7 +34,51 @@ const summaryNodes = {
 
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
-const reloadSeedButton = document.querySelector("#fifa-reload-seed");
+
+const MATCH_CATALOG = [
+  { stage: "Opening", matchNumber: "Match 1", matchDate: "2026-06-11", teamA: "MEX", teamB: "RSA", city: "Mexico City", venue: "Mexico City Stadium" },
+  { stage: "Opening", matchNumber: "Match 4", matchDate: "2026-06-12", teamA: "USA", teamB: "PAR", city: "Los Angeles", venue: "Los Angeles Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 6", matchDate: "2026-06-13", teamA: "AUS", teamB: "TUR", city: "Vancouver", venue: "Vancouver Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 7", matchDate: "2026-06-13", teamA: "BRA", teamB: "MAR", city: "New York", venue: "New York Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 10", matchDate: "2026-06-14", teamA: "GER", teamB: "CUR", city: "Houston", venue: "Houston Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 11", matchDate: "2026-06-14", teamA: "NED", teamB: "JPN", city: "Dallas", venue: "Dallas Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 16", matchDate: "2026-06-15", teamA: "BEL", teamB: "EGY", city: "Seattle", venue: "Seattle Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 17", matchDate: "2026-06-16", teamA: "FRA", teamB: "SEN", city: "New York", venue: "New York Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 19", matchDate: "2026-06-16", teamA: "ARG", teamB: "ALG", city: "Kansas", venue: "Kansas Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 20", matchDate: "2026-06-16", teamA: "AUT", teamB: "JOR", city: "San Francisco", venue: "San Francisco Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 23", matchDate: "2026-06-17", teamA: "POR", teamB: "W1", city: "Houston", venue: "Houston Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 22", matchDate: "2026-06-17", teamA: "ENG", teamB: "CRO", city: "Dallas", venue: "Dallas Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 28", matchDate: "2026-06-18", teamA: "MEX", teamB: "KOR", city: "Guadalajara", venue: "Guadalajara Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 43", matchDate: "2026-06-22", teamA: "ARG", teamB: "AUS", city: "Dallas", venue: "Dallas Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 45", matchDate: "2026-06-23", teamA: "ENG", teamB: "GHA", city: "Boston", venue: "Boston Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 47", matchDate: "2026-06-23", teamA: "POR", teamB: "UZB", city: "Houston", venue: "Houston Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 51", matchDate: "2026-06-24", teamA: "SWI", teamB: "CAN", city: "Vancouver", venue: "Vancouver Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 53", matchDate: "2026-06-24", teamA: "MEX", teamB: "FIFA", city: "Mexico City", venue: "Mexico City Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 60", matchDate: "2026-06-25", teamA: "PAR", teamB: "AUS", city: "San Francisco", venue: "San Francisco Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 61", matchDate: "2026-06-26", teamA: "FRA", teamB: "NOR", city: "Boston", venue: "Boston Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 67", matchDate: "2026-06-27", teamA: "PAN", teamB: "ENG", city: "New York", venue: "New York Stadium" },
+  { stage: "Group Stage", matchNumber: "Match 70", matchDate: "2026-06-27", teamA: "ARG", teamB: "JOR", city: "Dallas", venue: "Dallas Stadium" },
+  { stage: "Round 32", matchNumber: "Match 73", matchDate: "2026-06-28", teamA: "2A", teamB: "2B", city: "Los Angeles", venue: "Los Angeles Stadium" },
+  { stage: "Round 32", matchNumber: "Match 77", matchDate: "2026-06-30", teamA: "1I", teamB: "3CDFGH", city: "New York", venue: "New York Stadium" },
+  { stage: "Round 32", matchNumber: "Match 87", matchDate: "2026-07-03", teamA: "1K", teamB: "3DEIJL", city: "Kansas", venue: "Kansas Stadium" },
+  { stage: "Round 32", matchNumber: "Match 86", matchDate: "2026-07-03", teamA: "1J", teamB: "2H", city: "Miami", venue: "Miami Stadium" },
+  { stage: "Round 16", matchNumber: "Match 89", matchDate: "2026-07-05", teamA: "W74", teamB: "W77", city: "Philadelphia", venue: "Philadelphia Stadium" },
+  { stage: "Round 16", matchNumber: "Match 91", matchDate: "2026-07-06", teamA: "W76", teamB: "W78", city: "New York", venue: "New York Stadium" },
+  { stage: "Round 16", matchNumber: "Match 93", matchDate: "2026-07-06", teamA: "W81", teamB: "W82", city: "Dallas", venue: "Dallas Stadium" },
+  { stage: "Round 16", matchNumber: "Match 95", matchDate: "2026-07-08", teamA: "W86", teamB: "W88", city: "Atlanta", venue: "Atlanta Stadium" },
+  { stage: "Round 16", matchNumber: "Match 96", matchDate: "2026-07-08", teamA: "W85", teamB: "W87", city: "Vancouver", venue: "Vancouver Stadium" },
+  { stage: "Quarter Final", matchNumber: "Match 97", matchDate: "2026-07-10", teamA: "W89", teamB: "W90", city: "Boston", venue: "Boston Stadium" },
+  { stage: "Quarter Final", matchNumber: "Match 98", matchDate: "2026-07-11", teamA: "W93", teamB: "W94", city: "Los Angeles", venue: "Los Angeles Stadium" },
+  { stage: "Quarter Final", matchNumber: "Match 99", matchDate: "2026-07-12", teamA: "W91", teamB: "W92", city: "Miami", venue: "Miami Stadium" },
+  { stage: "Quarter Final", matchNumber: "Match 100", matchDate: "2026-07-12", teamA: "W95", teamB: "W96", city: "Kansas", venue: "Kansas Stadium" },
+  { stage: "Semi Final", matchNumber: "Match 101", matchDate: "2026-07-15", teamA: "W97", teamB: "W98", city: "Dallas", venue: "Dallas Stadium" },
+  { stage: "Semi Final", matchNumber: "Match 102", matchDate: "2026-07-16", teamA: "W99", teamB: "W100", city: "Atlanta", venue: "Atlanta Stadium" },
+  { stage: "Final", matchNumber: "Match 104", matchDate: "2026-07-20", teamA: "W101", teamB: "W102", city: "New York", venue: "New York Stadium" },
+];
+
+const CITY_TO_VENUE = Object.fromEntries(MATCH_CATALOG.map((item) => [item.city, item.venue]));
+const MATCH_LOOKUP = Object.fromEntries(MATCH_CATALOG.map((item) => [item.matchNumber, item]));
+const TEAM_CODES = [...new Set(MATCH_CATALOG.flatMap((item) => [item.teamA, item.teamB]))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
 const state = {
   tickets: [],
@@ -89,18 +133,14 @@ function formatMoney(value, currency = "USD") {
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value).replace("T", " ");
-  }
+  if (Number.isNaN(date.getTime())) return String(value).replace("T", " ");
   return date.toLocaleString();
 }
 
 function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString();
 }
 
@@ -109,9 +149,38 @@ function fillSelect(node, values, placeholder, keepValue = "") {
   node.innerHTML = [`<option value="">${placeholder}</option>`]
     .concat(values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`))
     .join("");
-  if (keepValue && values.includes(keepValue)) {
-    node.value = keepValue;
-  }
+  if (keepValue && values.includes(keepValue)) node.value = keepValue;
+}
+
+function buildMatchLabel(teamA, teamB) {
+  const left = String(teamA || "").trim();
+  const right = String(teamB || "").trim();
+  return left && right ? `${left} vs ${right}` : "";
+}
+
+function normalizeStageValue(value) {
+  const stage = String(value || "").trim();
+  if (stage === "Opening Ceremony") return "Opening";
+  if (stage === "QuarterFinal") return "Quarter Final";
+  return stage;
+}
+
+function populateInventoryFormOptions() {
+  if (!ticketForm) return;
+  fillSelect(
+    ticketForm.elements.matchNumber,
+    MATCH_CATALOG.map((item) => item.matchNumber),
+    "Choose match",
+    ticketForm.elements.matchNumber.value
+  );
+  fillSelect(ticketForm.elements.teamA, TEAM_CODES, "Choose team", ticketForm.elements.teamA.value);
+  fillSelect(ticketForm.elements.teamB, TEAM_CODES, "Choose team", ticketForm.elements.teamB.value);
+  fillSelect(
+    ticketForm.elements.city,
+    [...new Set(MATCH_CATALOG.map((item) => item.city))],
+    "Choose city",
+    ticketForm.elements.city.value
+  );
 }
 
 function updateSummary() {
@@ -125,11 +194,11 @@ function updateSummary() {
 function refreshFilterOptions() {
   const filters = state.summary?.filters || {};
   fillSelect(ticketFilters.match, filters.matches || [], "All matches", ticketFilters.match?.value || "");
-  fillSelect(ticketFilters.stage, filters.stages || [], "All stages", ticketFilters.stage.value);
-  fillSelect(ticketFilters.city, filters.cities || [], "All cities", ticketFilters.city.value);
-  fillSelect(ticketFilters.category, filters.categories || [], "All categories", ticketFilters.category.value);
-  fillSelect(saleFilters.city, filters.cities || [], "All cities", saleFilters.city.value);
-  fillSelect(saleFilters.soldBy, filters.soldBy || [], "All managers", saleFilters.soldBy.value);
+  fillSelect(ticketFilters.stage, filters.stages || [], "All stages", ticketFilters.stage?.value || "");
+  fillSelect(ticketFilters.city, filters.cities || [], "All cities", ticketFilters.city?.value || "");
+  fillSelect(ticketFilters.category, filters.categories || [], "All categories", ticketFilters.category?.value || "");
+  fillSelect(saleFilters.city, filters.cities || [], "All cities", saleFilters.city?.value || "");
+  fillSelect(saleFilters.soldBy, filters.soldBy || [], "All managers", saleFilters.soldBy?.value || "");
 }
 
 function refreshSaleTicketOptions() {
@@ -155,22 +224,30 @@ function refreshSaleTicketOptions() {
     })
     .join("");
   saleTicketSelect.innerHTML = `<option value="">Choose ticket lot</option>${options}`;
-  if (state.tickets.some((ticket) => ticket.id === currentValue)) {
-    saleTicketSelect.value = currentValue;
-  }
+  if (state.tickets.some((ticket) => ticket.id === currentValue)) saleTicketSelect.value = currentValue;
+}
+
+function clearCategoryBlock(categoryCode) {
+  if (!ticketForm) return;
+  ticketForm.elements[`category${categoryCode}Id`].value = "";
+  ticketForm.elements[`category${categoryCode}Price`].value = "";
+  ticketForm.elements[`category${categoryCode}Quantity`].value = "0";
+  ticketForm.elements[`category${categoryCode}Name`].value = "";
+  ticketForm.elements[`category${categoryCode}Section`].value = "";
+  ticketForm.elements[`category${categoryCode}Seats`].value = "";
+  ticketForm.elements[`category${categoryCode}AssignedLater`].value = "no";
 }
 
 function resetTicketForm() {
   if (!ticketForm) return;
   ticketForm.reset();
   ticketForm.elements.id.value = "";
-  ticketForm.elements.categoryCode.value = "1";
-  ticketForm.elements.totalQuantity.value = "1";
   ticketForm.elements.currency.value = "USD";
   ticketForm.elements.visibility.value = "public";
-  ticketForm.elements.status.value = "active";
+  populateInventoryFormOptions();
+  ["1", "2", "3"].forEach(clearCategoryBlock);
   state.editingTicketId = "";
-  setNodeText(document.querySelector("#fifa-ticket-submit"), "Save ticket lot");
+  setNodeText(document.querySelector("#fifa-ticket-submit"), "Save categories");
   clearStatus(ticketStatusNode);
 }
 
@@ -185,6 +262,164 @@ function resetSaleForm() {
   state.editingSaleId = "";
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
+}
+
+function applyMatchSelection(matchNumber) {
+  if (!ticketForm) return;
+  const match = MATCH_LOOKUP[matchNumber];
+  if (!match) return;
+  ticketForm.elements.stage.value = match.stage;
+  ticketForm.elements.matchNumber.value = match.matchNumber;
+  ticketForm.elements.matchDate.value = match.matchDate;
+  ticketForm.elements.teamA.value = match.teamA;
+  ticketForm.elements.teamB.value = match.teamB;
+  ticketForm.elements.city.value = match.city;
+  ticketForm.elements.venue.value = match.venue;
+}
+
+function applyCityVenue(city) {
+  if (!ticketForm) return;
+  ticketForm.elements.venue.value = CITY_TO_VENUE[city] || "";
+}
+
+function blockHasInput(categoryCode) {
+  if (!ticketForm) return false;
+  const price = Number(ticketForm.elements[`category${categoryCode}Price`].value || 0);
+  const quantity = Number(ticketForm.elements[`category${categoryCode}Quantity`].value || 0);
+  const name = ticketForm.elements[`category${categoryCode}Name`].value.trim();
+  const section = ticketForm.elements[`category${categoryCode}Section`].value.trim();
+  const seats = ticketForm.elements[`category${categoryCode}Seats`].value.trim();
+  return Boolean(price || quantity || name || section || seats);
+}
+
+function buildCategoryPayload(categoryCode) {
+  const price = Number(ticketForm.elements[`category${categoryCode}Price`].value || 0);
+  const quantity = Number(ticketForm.elements[`category${categoryCode}Quantity`].value || 0);
+  const seatDetails = ticketForm.elements[`category${categoryCode}Seats`].value.trim();
+  const assignedLater = ticketForm.elements[`category${categoryCode}AssignedLater`].value === "yes";
+  return {
+    categoryCode,
+    categoryName: ticketForm.elements[`category${categoryCode}Name`].value.trim() || (assignedLater ? "Seat will be assigned later" : ""),
+    seatSection: ticketForm.elements[`category${categoryCode}Section`].value.trim() || (assignedLater ? "Seat will be assigned later" : ""),
+    seatDetails: seatDetails || (assignedLater ? "Seat will be assigned later" : ""),
+    seatAssignedLater: assignedLater,
+    price,
+    totalQuantity: quantity,
+  };
+}
+
+function commonTicketPayload() {
+  const teamA = ticketForm.elements.teamA.value;
+  const teamB = ticketForm.elements.teamB.value;
+  return {
+    stage: ticketForm.elements.stage.value,
+    matchNumber: ticketForm.elements.matchNumber.value,
+    matchLabel: buildMatchLabel(teamA, teamB),
+    matchDate: ticketForm.elements.matchDate.value,
+    teamA,
+    teamB,
+    city: ticketForm.elements.city.value,
+    venue: ticketForm.elements.venue.value,
+    currency: ticketForm.elements.currency.value || "USD",
+    visibility: ticketForm.elements.visibility.value || "public",
+    status: "active",
+    notes: ticketForm.elements.notes.value.trim(),
+  };
+}
+
+function matchIdentity(ticket) {
+  return [
+    ticket.matchNumber || "",
+    ticket.matchDate || "",
+    ticket.teamA || "",
+    ticket.teamB || "",
+    ticket.city || "",
+  ].join("|");
+}
+
+function fillTicketForm(ticket) {
+  if (!ticketForm) return;
+  resetTicketForm();
+  const groupId = matchIdentity(ticket);
+  const matchTickets = state.tickets.filter((item) => matchIdentity(item) === groupId);
+  const lead = matchTickets[0] || ticket;
+  ticketForm.elements.id.value = ticket.id;
+  ticketForm.elements.stage.value = normalizeStageValue(lead.stage);
+  ticketForm.elements.matchNumber.value = lead.matchNumber || "";
+  ticketForm.elements.matchDate.value = lead.matchDate || "";
+  ticketForm.elements.teamA.value = lead.teamA || "";
+  ticketForm.elements.teamB.value = lead.teamB || "";
+  ticketForm.elements.city.value = lead.city || "";
+  ticketForm.elements.venue.value = lead.venue || "";
+  ticketForm.elements.currency.value = lead.currency || "USD";
+  ticketForm.elements.visibility.value = lead.visibility || "public";
+  ticketForm.elements.notes.value = lead.notes || "";
+
+  matchTickets.forEach((item) => {
+    const code = String(item.categoryCode || "").trim();
+    if (!["1", "2", "3"].includes(code)) return;
+    ticketForm.elements[`category${code}Id`].value = item.id;
+    ticketForm.elements[`category${code}Price`].value = item.price || "";
+    ticketForm.elements[`category${code}Quantity`].value = item.totalQuantity || 0;
+    ticketForm.elements[`category${code}Name`].value = item.categoryName || "";
+    ticketForm.elements[`category${code}Section`].value = item.seatSection || "";
+    ticketForm.elements[`category${code}Seats`].value = item.seatDetails || "";
+    ticketForm.elements[`category${code}AssignedLater`].value = item.seatAssignedLater ? "yes" : "no";
+  });
+
+  state.editingTicketId = ticket.id;
+  setNodeText(document.querySelector("#fifa-ticket-submit"), "Update categories");
+  setStatus(ticketStatusNode, "Editing match categories.");
+  ticketForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function fillSaleForm(sale) {
+  if (!saleForm) return;
+  saleForm.elements.id.value = sale.id;
+  saleForm.elements.ticketId.value = sale.ticketId || "";
+  saleForm.elements.quantity.value = sale.quantity || 1;
+  saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
+  saleForm.elements.totalPrice.value = sale.totalPrice || "";
+  saleForm.elements.amountPaid.value = sale.amountPaid || 0;
+  saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
+  saleForm.elements.paymentMethod.value = sale.paymentMethod || "";
+  saleForm.elements.saleStatus.value = sale.saleStatus || "active";
+  saleForm.elements.soldAt.value = String(sale.soldAt || "").slice(0, 16);
+  saleForm.elements.buyerName.value = sale.buyerName || "";
+  saleForm.elements.buyerPhone.value = sale.buyerPhone || "";
+  saleForm.elements.buyerEmail.value = sale.buyerEmail || "";
+  saleForm.elements.buyerPassportNumber.value = sale.buyerPassportNumber || "";
+  saleForm.elements.buyerNationality.value = sale.buyerNationality || "";
+  saleForm.elements.buyerNotes.value = sale.buyerNotes || "";
+  state.editingSaleId = sale.id;
+  setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
+  setStatus(saleStatusNode, "Editing sale.");
+  saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function startSaleForTicket(ticketId) {
+  if (!saleForm) return;
+  resetSaleForm();
+  const ticket = state.tickets.find((item) => item.id === ticketId);
+  if (!ticket) return;
+  saleForm.elements.ticketId.value = ticket.id;
+  saleForm.elements.pricePerTicket.value = ticket.price || "";
+  saleForm.elements.totalPrice.value = ticket.price || "";
+  saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function syncSaleTotals() {
+  if (!saleForm) return;
+  const quantity = Number(saleForm.elements.quantity.value || 0);
+  const pricePerTicket = Number(saleForm.elements.pricePerTicket.value || 0);
+  if (!saleForm.elements.totalPrice.matches(":focus")) {
+    saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(quantity * pricePerTicket) : "";
+  }
+  const totalPrice = Number(saleForm.elements.totalPrice.value || 0);
+  const amountPaid = Number(saleForm.elements.amountPaid.value || 0);
+  if (!saleForm.elements.paymentStatus.matches(":focus")) {
+    saleForm.elements.paymentStatus.value = totalPrice > 0 && amountPaid >= totalPrice ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
+  }
 }
 
 function filteredTickets() {
@@ -242,9 +477,7 @@ function filteredSales() {
 
 function renderTickets() {
   const tickets = filteredTickets();
-  if (ticketCountNode) {
-    ticketCountNode.textContent = `${tickets.length} ticket lots`;
-  }
+  if (ticketCountNode) ticketCountNode.textContent = `${tickets.length} ticket lots`;
   if (ticketMetaNode) {
     const matchCount = new Set(tickets.map((ticket) => ticket.matchNumber)).size;
     ticketMetaNode.textContent = `${matchCount} matches in current view. Seat numbers come directly from the Excel import.`;
@@ -253,7 +486,6 @@ function renderTickets() {
     if (ticketList) ticketList.innerHTML = '<p class="empty">No ticket lots match these filters yet.</p>';
     return;
   }
-
   if (!ticketList) return;
   ticketList.innerHTML = `
     <table class="manager-table fifa-table">
@@ -299,7 +531,7 @@ function renderTickets() {
                 </td>
                 <td>
                   <span class="fifa-pill ${ticket.visibility === "public" ? "is-public" : "is-private"}">${escapeHtml(ticket.visibility)}</span>
-                  <span class="fifa-pill">${escapeHtml(ticket.status)}</span>
+                  ${ticket.seatAssignedLater ? '<span class="fifa-pill">assigned later</span>' : ""}
                 </td>
                 <td class="fifa-actions-cell">
                   <button type="button" data-action="sell" data-id="${escapeHtml(ticket.id)}">Sell</button>
@@ -322,7 +554,6 @@ function renderSales() {
     if (saleList) saleList.innerHTML = '<p class="empty">No sales match these filters yet.</p>';
     return;
   }
-
   if (!saleList) return;
   saleList.innerHTML = `
     <table class="manager-table fifa-table">
@@ -381,89 +612,13 @@ function renderSales() {
   `;
 }
 
-function fillTicketForm(ticket) {
-  if (!ticketForm) return;
-  ticketForm.elements.id.value = ticket.id;
-  ticketForm.elements.stage.value = ticket.stage || "";
-  ticketForm.elements.matchNumber.value = ticket.matchNumber || "";
-  ticketForm.elements.matchLabel.value = ticket.matchLabel || "";
-  ticketForm.elements.matchDate.value = ticket.matchDate || "";
-  ticketForm.elements.teamA.value = ticket.teamA || "";
-  ticketForm.elements.teamB.value = ticket.teamB || "";
-  ticketForm.elements.city.value = ticket.city || "";
-  ticketForm.elements.venue.value = ticket.venue || "";
-  ticketForm.elements.categoryCode.value = ticket.categoryCode || "";
-  ticketForm.elements.categoryName.value = ticket.categoryName || "";
-  ticketForm.elements.seatSection.value = ticket.seatSection || "";
-  ticketForm.elements.seatDetails.value = ticket.seatDetails || "";
-  ticketForm.elements.price.value = ticket.price || "";
-  ticketForm.elements.currency.value = ticket.currency || "USD";
-  ticketForm.elements.totalQuantity.value = ticket.totalQuantity || 1;
-  ticketForm.elements.visibility.value = ticket.visibility || "public";
-  ticketForm.elements.status.value = ticket.status || "active";
-  ticketForm.elements.seatAssignedLater.checked = Boolean(ticket.seatAssignedLater);
-  ticketForm.elements.notes.value = ticket.notes || "";
-  state.editingTicketId = ticket.id;
-  setNodeText(document.querySelector("#fifa-ticket-submit"), "Update ticket lot");
-  setStatus(ticketStatusNode, "Editing ticket lot.");
-  ticketForm.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function fillSaleForm(sale) {
-  if (!saleForm) return;
-  saleForm.elements.id.value = sale.id;
-  saleForm.elements.ticketId.value = sale.ticketId || "";
-  saleForm.elements.quantity.value = sale.quantity || 1;
-  saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
-  saleForm.elements.totalPrice.value = sale.totalPrice || "";
-  saleForm.elements.amountPaid.value = sale.amountPaid || 0;
-  saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
-  saleForm.elements.paymentMethod.value = sale.paymentMethod || "";
-  saleForm.elements.saleStatus.value = sale.saleStatus || "active";
-  saleForm.elements.soldAt.value = String(sale.soldAt || "").slice(0, 16);
-  saleForm.elements.buyerName.value = sale.buyerName || "";
-  saleForm.elements.buyerPhone.value = sale.buyerPhone || "";
-  saleForm.elements.buyerEmail.value = sale.buyerEmail || "";
-  saleForm.elements.buyerPassportNumber.value = sale.buyerPassportNumber || "";
-  saleForm.elements.buyerNationality.value = sale.buyerNationality || "";
-  saleForm.elements.buyerNotes.value = sale.buyerNotes || "";
-  state.editingSaleId = sale.id;
-  setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
-  setStatus(saleStatusNode, "Editing sale.");
-  saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function startSaleForTicket(ticketId) {
-  if (!saleForm) return;
-  resetSaleForm();
-  const ticket = state.tickets.find((item) => item.id === ticketId);
-  if (!ticket) return;
-  saleForm.elements.ticketId.value = ticket.id;
-  saleForm.elements.pricePerTicket.value = ticket.price || "";
-  saleForm.elements.totalPrice.value = ticket.price || "";
-  saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function syncSaleTotals() {
-  if (!saleForm) return;
-  const quantity = Number(saleForm.elements.quantity.value || 0);
-  const pricePerTicket = Number(saleForm.elements.pricePerTicket.value || 0);
-  if (!saleForm.elements.totalPrice.matches(":focus")) {
-    saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(quantity * pricePerTicket) : "";
-  }
-  const totalPrice = Number(saleForm.elements.totalPrice.value || 0);
-  const amountPaid = Number(saleForm.elements.amountPaid.value || 0);
-  if (!saleForm.elements.paymentStatus.matches(":focus")) {
-    saleForm.elements.paymentStatus.value = totalPrice > 0 && amountPaid >= totalPrice ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
-  }
-}
-
 async function loadDashboard() {
   const data = await fetchJson("/api/fifa2026");
   state.tickets = data.tickets || [];
   state.sales = data.sales || [];
   state.summary = data.summary || null;
   updateSummary();
+  populateInventoryFormOptions();
   refreshFilterOptions();
   refreshSaleTicketOptions();
   renderTickets();
@@ -471,21 +626,52 @@ async function loadDashboard() {
 }
 
 if (ticketForm) {
+  ticketForm.elements.matchNumber.addEventListener("change", () => applyMatchSelection(ticketForm.elements.matchNumber.value));
+  ticketForm.elements.city.addEventListener("change", () => applyCityVenue(ticketForm.elements.city.value));
+  ticketForm.elements.teamA.addEventListener("change", () => {
+    if (!ticketForm.elements.matchNumber.value) ticketForm.elements.matchDate.value = ticketForm.elements.matchDate.value || "";
+  });
+
   ticketForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const payload = Object.fromEntries(new FormData(ticketForm).entries());
-    payload.seatAssignedLater = ticketForm.elements.seatAssignedLater.checked;
-    const ticketId = ticketForm.elements.id.value;
-    setStatus(ticketStatusNode, ticketId ? "Updating ticket lot..." : "Saving ticket lot...");
+    const base = commonTicketPayload();
+    const tasks = [];
+    const isEditing = Boolean(state.editingTicketId);
+
+    for (const categoryCode of ["1", "2", "3"]) {
+      const existingId = ticketForm.elements[`category${categoryCode}Id`].value;
+      const hasInput = blockHasInput(categoryCode);
+      if (!hasInput && existingId) {
+        tasks.push(fetchJson(`/api/fifa2026/tickets/${existingId}`, { method: "DELETE" }));
+        continue;
+      }
+      if (!hasInput) continue;
+      const categoryPayload = buildCategoryPayload(categoryCode);
+      if (!categoryPayload.price || !categoryPayload.totalQuantity) {
+        setStatus(ticketStatusNode, `Category ${categoryCode} needs both price and quantity.`, true);
+        return;
+      }
+      const payload = { ...base, ...categoryPayload };
+      tasks.push(
+        fetchJson(existingId ? `/api/fifa2026/tickets/${existingId}` : "/api/fifa2026/tickets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      );
+    }
+
+    if (!tasks.length) {
+      setStatus(ticketStatusNode, "Add at least one category block before saving.", true);
+      return;
+    }
+
+    setStatus(ticketStatusNode, isEditing ? "Updating categories..." : "Saving categories...");
     try {
-      await fetchJson(ticketId ? `/api/fifa2026/tickets/${ticketId}` : "/api/fifa2026/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      await Promise.all(tasks);
       resetTicketForm();
       await loadDashboard();
-      setStatus(ticketStatusNode, ticketId ? "Ticket lot updated." : "Ticket lot saved.");
+      setStatus(ticketStatusNode, isEditing ? "Categories updated." : "Categories saved.");
     } catch (error) {
       setStatus(ticketStatusNode, error.message, true);
     }
@@ -515,17 +701,6 @@ if (saleForm) {
 
 document.querySelector("#fifa-ticket-cancel")?.addEventListener("click", resetTicketForm);
 document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSaleForm);
-reloadSeedButton?.addEventListener("click", async () => {
-  if (!window.confirm("Replace current FIFA inventory with the full Excel-imported match list?")) return;
-  setStatus(ticketStatusNode, "Reloading all matches from Excel seed...");
-  try {
-    await fetchJson("/api/fifa2026/reset-from-seed", { method: "POST" });
-    await loadDashboard();
-    setStatus(ticketStatusNode, "All matches and ticket lots were reloaded from the Excel seed.");
-  } catch (error) {
-    setStatus(ticketStatusNode, error.message, true);
-  }
-});
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
@@ -538,10 +713,14 @@ saleTicketSelect?.addEventListener("change", () => {
   }
 });
 
-Object.values(ticketFilters).forEach((node) => node?.addEventListener("input", renderTickets));
-Object.values(ticketFilters).forEach((node) => node?.addEventListener("change", renderTickets));
-Object.values(saleFilters).forEach((node) => node?.addEventListener("input", renderSales));
-Object.values(saleFilters).forEach((node) => node?.addEventListener("change", renderSales));
+Object.values(ticketFilters).forEach((node) => {
+  node?.addEventListener("input", renderTickets);
+  node?.addEventListener("change", renderTickets);
+});
+Object.values(saleFilters).forEach((node) => {
+  node?.addEventListener("input", renderSales);
+  node?.addEventListener("change", renderSales);
+});
 
 ticketList?.addEventListener("click", async (event) => {
   const target = event.target.closest("button[data-action]");
@@ -554,12 +733,10 @@ ticketList?.addEventListener("click", async (event) => {
     fillTicketForm(ticket);
     return;
   }
-
   if (target.dataset.action === "sell") {
     startSaleForTicket(ticketId);
     return;
   }
-
   if (target.dataset.action === "toggle-visibility") {
     try {
       await fetchJson(`/api/fifa2026/tickets/${ticketId}`, {
@@ -573,7 +750,6 @@ ticketList?.addEventListener("click", async (event) => {
     }
     return;
   }
-
   if (target.dataset.action === "delete-ticket") {
     if (!window.confirm("Delete this ticket lot?")) return;
     try {
@@ -596,7 +772,6 @@ saleList?.addEventListener("click", async (event) => {
     fillSaleForm(sale);
     return;
   }
-
   if (target.dataset.action === "cancel-sale") {
     try {
       await fetchJson(`/api/fifa2026/sales/${saleId}`, {
@@ -610,7 +785,6 @@ saleList?.addEventListener("click", async (event) => {
     }
     return;
   }
-
   if (target.dataset.action === "delete-sale") {
     if (!window.confirm("Delete this sale permanently?")) return;
     try {
