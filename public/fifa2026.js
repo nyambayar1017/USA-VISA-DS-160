@@ -79,7 +79,7 @@ function filteredTickets() {
 
 function renderPublicTickets() {
   const tickets = filteredTickets();
-  if (publicSummaryLots) publicSummaryLots.textContent = String(tickets.length);
+  if (publicSummaryLots) publicSummaryLots.textContent = String(new Set(tickets.map((ticket) => ticket.matchNumber)).size);
   if (publicSummaryUnits) publicSummaryUnits.textContent = String(tickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0));
   if (publicListCount) publicListCount.textContent = `${tickets.length} ticket lots`;
   if (publicListMeta) {
@@ -143,6 +143,12 @@ async function fetchPublicTickets() {
     throw new Error(data.error || "Could not load tickets");
   }
   state.tickets = data.tickets || [];
+  if (publicSummaryLots) {
+    publicSummaryLots.textContent = String(data.summary?.matchCount ?? new Set(state.tickets.map((ticket) => ticket.matchNumber)).size);
+  }
+  if (publicSummaryUnits) {
+    publicSummaryUnits.textContent = String(data.summary?.visibleUnits ?? state.tickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0));
+  }
   fillSelect(filters.stage, [...new Set(state.tickets.map((ticket) => ticket.stage).filter(Boolean))].sort(), "All stages");
   fillSelect(filters.city, [...new Set(state.tickets.map((ticket) => ticket.city).filter(Boolean))].sort(), "All cities");
   fillSelect(filters.category, ["1", "2", "3"], "All categories");

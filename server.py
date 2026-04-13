@@ -4813,17 +4813,30 @@ def handle_get_fifa2026_dashboard(start_response):
 def handle_get_fifa2026_public(start_response):
     store = ensure_fifa2026_seed_loaded()
     sales = store.get("sales", [])
-    tickets = [
-        enrich_fifa_ticket(ticket, sales)
-        for ticket in store.get("tickets", [])
-        if enrich_fifa_ticket(ticket, sales).get("publicVisible")
-    ]
+    tickets = []
+    for ticket in store.get("tickets", []):
+        enriched = enrich_fifa_ticket(ticket, sales)
+        is_public_schedule_item = normalize_text(ticket.get("visibility")).lower() == "public"
+        is_placeholder = max(parse_int(ticket.get("totalQuantity")), 0) == 0
+        if normalize_text(ticket.get("status")).lower() == "archived":
+            continue
+        if is_public_schedule_item or is_placeholder:
+            tickets.append(enriched)
     return json_response(
         start_response,
         "200 OK",
         {
             "tickets": tickets,
-            "summary": build_fifa_summary(store).get("public", {}),
+            "summary": {
+                **build_fifa_summary(store).get("public", {}),
+                "matchCount": len(
+                    {
+                        normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
+                        for ticket in tickets
+                        if normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
+                    }
+                ),
+            },
         },
     )
 
