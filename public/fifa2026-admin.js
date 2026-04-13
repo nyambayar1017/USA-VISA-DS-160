@@ -35,6 +35,7 @@ const summaryNodes = {
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
 const ticketFormToggleButton = document.querySelector("#fifa-show-ticket-form");
+const ticketInventoryView = document.querySelector("#fifa-ticket-inventory-view");
 const ticketRowContainers = {
   "1": document.querySelector('[data-ticket-rows="1"]'),
   "2": document.querySelector('[data-ticket-rows="2"]'),
@@ -193,9 +194,11 @@ function setTicketFormVisible(isVisible) {
   if (isVisible) {
     ticketForm.removeAttribute("hidden");
     ticketFormToggleButton?.setAttribute("hidden", "");
+    ticketInventoryView?.setAttribute("hidden", "");
   } else {
     ticketForm.setAttribute("hidden", "");
     ticketFormToggleButton?.removeAttribute("hidden");
+    ticketInventoryView?.removeAttribute("hidden");
   }
 }
 
