@@ -2414,6 +2414,7 @@ def build_invoice_html(record, asset_mode="web"):
         f'<option value="{account_key}"{" selected" if account_key == bank_account_key else ""}>{html.escape(account["bankName"])} / {html.escape(account["prefix"])} / {html.escape(account["accountNumber"])}</option>'
         for account_key, account in INVOICE_BANK_ACCOUNTS.items()
     )
+    accountant_name = "Г.Баясгалан"
 
     def asset_src(filename):
         if asset_mode == "file":
@@ -2673,7 +2674,11 @@ def build_invoice_html(record, asset_mode="web"):
             if (!response.ok) {{
               throw new Error(payload.error || "Could not save invoice.");
             }}
+            syncBankAccount();
+            syncItemRows();
+            syncSelectDefaults();
             syncBadges();
+            syncPaymentCards();
             setMode("view");
           }} catch (error) {{
             window.alert(error.message || "Could not save invoice.");
@@ -3035,6 +3040,65 @@ def build_invoice_html(record, asset_mode="web"):
         font-size: 14px;
         color: #2d344c;
       }}
+      .invoice-footer {{
+        margin-top: 28px;
+        padding-top: 18px;
+        border-top: 1px solid #e7e9f1;
+      }}
+      .invoice-footer-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+        align-items: end;
+      }}
+      .invoice-footer-label {{
+        margin: 0 0 10px;
+        color: #8b93a9;
+        font-size: 13px;
+      }}
+      .finance-asset-wrap {{
+        position: relative;
+        min-height: 122px;
+      }}
+      .finance-stamp {{
+        position: absolute;
+        left: 0;
+        top: 18px;
+        width: 150px;
+        height: 96px;
+        overflow: hidden;
+      }}
+      .finance-stamp img {{
+        width: 330px;
+        max-width: none;
+        display: block;
+        transform: translate(-112px, -168px) rotate(-4deg);
+      }}
+      .finance-signature {{
+        position: absolute;
+        left: 70px;
+        top: 48px;
+        width: 150px;
+        height: 58px;
+        overflow: hidden;
+      }}
+      .finance-signature img {{
+        width: 220px;
+        max-width: none;
+        display: block;
+        transform: translate(-44px, -30px) rotate(-2deg);
+      }}
+      .invoice-sign-line {{
+        height: 1px;
+        margin-top: 88px;
+        background: #d6dceb;
+      }}
+      .invoice-sign-name {{
+        margin-top: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #2b3148;
+      }}
       @media print {{
         .toolbar {{
           display: none;
@@ -3131,6 +3195,28 @@ def build_invoice_html(record, asset_mode="web"):
           <span data-bank-name>{html.escape(bank_account['bankName'])}</span>
           <span data-bank-prefix>{html.escape(bank_account['prefix'])}</span>
           <strong data-bank-number>{html.escape(bank_account['accountNumber'])}</strong>
+        </div>
+      </div>
+      <div class="invoice-footer">
+        <div class="invoice-footer-grid">
+          <div>
+            <p class="invoice-footer-label">Нягтлан</p>
+            <div class="finance-asset-wrap">
+              <div class="finance-stamp">
+                <img src="{asset_src('invoice-finance-stamp-source.jpeg')}" alt="Санхүүгийн тамга" />
+              </div>
+              <div class="finance-signature">
+                <img src="{asset_src('invoice-finance-signature-source.png')}" alt="Нягтлан гарын үсэг" />
+              </div>
+            </div>
+            <div class="invoice-sign-line"></div>
+            <div class="invoice-sign-name">{html.escape(accountant_name)}</div>
+          </div>
+          <div>
+            <p class="invoice-footer-label">Төлөгч</p>
+            <div class="invoice-sign-line"></div>
+            <div class="invoice-sign-name">{customer_name}</div>
+          </div>
         </div>
       </div>
     </div>
