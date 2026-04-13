@@ -40,11 +40,13 @@ const state = {
 };
 
 function setStatus(node, message, isError = false) {
+  if (!node) return;
   node.textContent = message;
   node.dataset.tone = isError ? "error" : "ok";
 }
 
 function clearStatus(node) {
+  if (!node) return;
   node.textContent = "";
   delete node.dataset.tone;
 }
@@ -103,10 +105,10 @@ function fillSelect(node, values, placeholder, keepValue = "") {
 
 function updateSummary() {
   const summary = state.summary || {};
-  summaryNodes.available.textContent = summary.tickets?.availableUnits ?? 0;
-  summaryNodes.sold.textContent = summary.tickets?.soldUnits ?? 0;
-  summaryNodes.collected.textContent = formatMoney(summary.sales?.collected ?? 0);
-  summaryNodes.matches.textContent = summary.tickets?.matches ?? 0;
+  if (summaryNodes.available) summaryNodes.available.textContent = summary.tickets?.availableUnits ?? 0;
+  if (summaryNodes.sold) summaryNodes.sold.textContent = summary.tickets?.soldUnits ?? 0;
+  if (summaryNodes.collected) summaryNodes.collected.textContent = formatMoney(summary.sales?.collected ?? 0);
+  if (summaryNodes.matches) summaryNodes.matches.textContent = summary.tickets?.matches ?? 0;
 }
 
 function refreshFilterOptions() {
@@ -121,7 +123,7 @@ function refreshFilterOptions() {
 function refreshSaleTicketOptions() {
   const currentValue = saleTicketSelect.value;
   const options = state.tickets
-    .filter((ticket) => ticket.status !== "archived")
+    .filter((ticket) => ticket.status === "active" && ticket.availableQuantity > 0)
     .map((ticket) => {
       const label = `${ticket.matchLabel} · ${ticket.city} · ${ticket.categoryCode} · ${ticket.availableQuantity}/${ticket.totalQuantity} left`;
       return `<option value="${escapeHtml(ticket.id)}">${escapeHtml(label)}</option>`;
