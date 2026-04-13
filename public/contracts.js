@@ -177,7 +177,7 @@ const renderContractsTable = (contracts) => {
                       <button class="secondary-button" data-edit-id="${entry.id}" ${signed ? "disabled" : ""}>Edit</button>
                       <a class="secondary-button" href="${entry.docxPath}" download>Word</a>
                       ${pdfReady ? `<a class="secondary-button ${signed ? "success-button" : ""}" href="/api/contracts/${entry.id}/document?mode=download" download>${signed ? "Signed PDF" : "PDF"}</a>` : `<span class="muted">PDF pending</span>`}
-                      ${signed ? `<a class="secondary-button" href="/api/contracts/${entry.id}/invoice?mode=view" target="_blank">Invoice</a>` : ""}
+                      <a class="secondary-button" href="/api/contracts/${entry.id}/invoice?mode=view" target="_blank">Invoice</a>
                       <button class="secondary-button" data-copy-link="${shareLink}">Copy link</button>
                       <button class="secondary-button danger-button" data-delete-id="${entry.id}">Delete</button>
                     </div>

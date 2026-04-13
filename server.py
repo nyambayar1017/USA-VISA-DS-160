@@ -2652,13 +2652,13 @@ def build_invoice_html(record, asset_mode="web"):
                 amount: Number(card?.querySelector('[data-payment-field="amount"]')?.value || 0),
               }};
             }});
-            const items = Array.from(itemRowsBody?.querySelectorAll("tr[data-item-key]") || []).map((row) => ({
+            const items = Array.from(itemRowsBody?.querySelectorAll("tr[data-item-key]") || []).map((row) => ({{
               key: row.dataset.itemKey || "",
               description: row.querySelector('[data-item-field="description"]')?.value || "",
               quantity: Number(row.querySelector('[data-item-field="quantity"]')?.value || 0),
               unitPrice: Number(row.querySelector('[data-item-field="unitPrice"]')?.value || 0),
               totalPrice: Number(row.querySelector('[data-item-field="totalPrice"]')?.value || 0),
-            }));
+            }}));
             const response = await fetch("/api/contracts/{record.get('id')}/invoice", {{
               method: "POST",
               headers: {{ "Content-Type": "application/json" }},
@@ -5156,9 +5156,6 @@ def handle_contract_invoice_document(environ, start_response, contract_id):
             break
     if not contract:
         return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
-    if contract.get("status") != "signed":
-        return json_response(start_response, "409 Conflict", {"error": "Invoice is available only for signed contracts"})
-
     if mode == "download":
         try:
             invoice_path = save_invoice_pdf(contract)
@@ -5203,8 +5200,6 @@ def handle_update_contract_invoice(environ, start_response, contract_id):
     for idx, contract in enumerate(contracts):
         if contract.get("id") != contract_id:
             continue
-        if contract.get("status") != "signed":
-            return json_response(start_response, "409 Conflict", {"error": "Invoice is available only for signed contracts"})
         payments_payload = payload.get("payments")
         items_payload = payload.get("items")
         if not isinstance(payments_payload, list):
