@@ -2406,6 +2406,14 @@ def build_invoice_html(record, asset_mode="web"):
     items = normalize_invoice_line_items(record)
     payment_rows = build_invoice_payment_rows(record)
     total_amount = sum(item["totalPrice"] for item in items)
+    status_options_markup = "".join(
+        f'<option value="{status_key}">{html.escape(status_meta["label"])}</option>'
+        for status_key, status_meta in INVOICE_STATUS_META.items()
+    )
+    bank_options_markup = "".join(
+        f'<option value="{account_key}"{" selected" if account_key == bank_account_key else ""}>{html.escape(account["bankName"])} / {html.escape(account["prefix"])} / {html.escape(account["accountNumber"])}</option>'
+        for account_key, account in INVOICE_BANK_ACCOUNTS.items()
+    )
 
     def asset_src(filename):
         if asset_mode == "file":
@@ -2683,14 +2691,6 @@ def build_invoice_html(record, asset_mode="web"):
       }})();
     </script>"""
 
-    status_options_markup = "".join(
-        f'<option value="{status_key}">{html.escape(status_meta["label"])}</option>'
-        for status_key, status_meta in INVOICE_STATUS_META.items()
-    )
-    bank_options_markup = "".join(
-        f'<option value="{account_key}"{" selected" if account_key == bank_account_key else ""}>{html.escape(account["bankName"])} / {html.escape(account["prefix"])} / {html.escape(account["accountNumber"])}</option>'
-        for account_key, account in INVOICE_BANK_ACCOUNTS.items()
-    )
     payment_markup = "".join(
         f"""
           <div class="payment-card" data-payment-key="{html.escape(row['key'])}">
