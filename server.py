@@ -423,16 +423,27 @@ def ensure_fifa2026_seed_loaded():
     current = read_fifa2026_store()
     seed_totals = fifa_store_totals(seed)
     current_totals = fifa_store_totals(current)
-    has_sales = bool(current.get("sales"))
-    should_reset = (
-        not has_sales
-        and (
-            current_totals["matches"] < seed_totals["matches"]
-            or current_totals["quantity"] < seed_totals["quantity"]
-            or current_totals["lots"] < seed_totals["lots"]
-        )
+    is_incomplete = (
+        current_totals["matches"] < seed_totals["matches"]
+        or current_totals["quantity"] < seed_totals["quantity"]
+        or current_totals["lots"] < seed_totals["lots"]
     )
-    if should_reset:
+    if is_incomplete:
+        if current.get("sales"):
+            # Preserve sales if any already exist, but still add the missing imported lots.
+            current_ticket_ids = {ticket.get("id") for ticket in current.get("tickets", [])}
+            merged_tickets = list(current.get("tickets", []))
+            merged_tickets.extend(
+                ticket
+                for ticket in seed.get("tickets", [])
+                if ticket.get("id") not in current_ticket_ids
+            )
+            merged = {
+                "tickets": merged_tickets,
+                "sales": current.get("sales", []),
+            }
+            write_fifa2026_store(merged)
+            return merged
         write_fifa2026_store(seed)
         return seed
     return current
