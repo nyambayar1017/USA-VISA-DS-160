@@ -4638,7 +4638,11 @@ def build_fifa_summary(store):
             "stages": sorted({normalize_text(ticket.get("stage")) for ticket in tickets if normalize_text(ticket.get("stage"))}),
             "cities": sorted({normalize_text(ticket.get("city")) for ticket in tickets if normalize_text(ticket.get("city"))}),
             "categories": sorted({normalize_text(ticket.get("categoryCode")) for ticket in tickets if normalize_text(ticket.get("categoryCode"))}),
-            "matches": sorted({normalize_text(ticket.get("matchLabel")) for ticket in tickets if normalize_text(ticket.get("matchLabel"))}),
+            "matches": sorted({
+                f"{normalize_text(ticket.get('matchNumber'))} · {normalize_text(ticket.get('matchLabel'))}".strip(" ·")
+                for ticket in tickets
+                if normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
+            }),
             "soldBy": sorted({sale.get("soldByName") for sale in enriched_sales if sale.get("soldByName")}),
         },
     }

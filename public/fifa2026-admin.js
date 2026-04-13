@@ -8,6 +8,7 @@ const saleTicketSelect = document.querySelector("#fifa-sale-ticket");
 
 const ticketFilters = {
   search: document.querySelector("#ticket-filter-search"),
+  match: document.querySelector("#ticket-filter-match"),
   stage: document.querySelector("#ticket-filter-stage"),
   city: document.querySelector("#ticket-filter-city"),
   category: document.querySelector("#ticket-filter-category"),
@@ -30,6 +31,9 @@ const summaryNodes = {
   collected: document.querySelector("#fifa-summary-collected"),
   matches: document.querySelector("#fifa-summary-matches"),
 };
+
+const ticketCountNode = document.querySelector("#fifa-ticket-count");
+const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
 
 const state = {
   tickets: [],
@@ -119,6 +123,7 @@ function updateSummary() {
 
 function refreshFilterOptions() {
   const filters = state.summary?.filters || {};
+  fillSelect(ticketFilters.match, filters.matches || [], "All matches", ticketFilters.match?.value || "");
   fillSelect(ticketFilters.stage, filters.stages || [], "All stages", ticketFilters.stage.value);
   fillSelect(ticketFilters.city, filters.cities || [], "All cities", ticketFilters.city.value);
   fillSelect(ticketFilters.category, filters.categories || [], "All categories", ticketFilters.category.value);
@@ -129,11 +134,23 @@ function refreshFilterOptions() {
 function refreshSaleTicketOptions() {
   if (!saleTicketSelect) return;
   const currentValue = saleTicketSelect.value;
-  const options = state.tickets
+  const groups = new Map();
+  state.tickets
     .filter((ticket) => ticket.status === "active" && ticket.availableQuantity > 0)
-    .map((ticket) => {
-      const label = `${ticket.matchLabel} · ${ticket.city} · ${ticket.categoryCode} · ${ticket.availableQuantity}/${ticket.totalQuantity} left`;
-      return `<option value="${escapeHtml(ticket.id)}">${escapeHtml(label)}</option>`;
+    .forEach((ticket) => {
+      const key = `${ticket.matchNumber} · ${ticket.matchLabel}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(ticket);
+    });
+  const options = [...groups.entries()]
+    .map(([label, tickets]) => {
+      const inner = tickets
+        .map((ticket) => {
+          const optionLabel = `CAT ${ticket.categoryCode} · ${ticket.seatDetails} · ${ticket.availableQuantity}/${ticket.totalQuantity} left · ${formatMoney(ticket.price, ticket.currency)}`;
+          return `<option value="${escapeHtml(ticket.id)}">${escapeHtml(optionLabel)}</option>`;
+        })
+        .join("");
+      return `<optgroup label="${escapeHtml(label)}">${inner}</optgroup>`;
     })
     .join("");
   saleTicketSelect.innerHTML = `<option value="">Choose ticket lot</option>${options}`;
@@ -174,6 +191,7 @@ function filteredTickets() {
   return [...state.tickets]
     .filter((ticket) => {
       if (ticketFilters.stage.value && ticket.stage !== ticketFilters.stage.value) return false;
+      if (ticketFilters.match.value && `${ticket.matchNumber} · ${ticket.matchLabel}` !== ticketFilters.match.value) return false;
       if (ticketFilters.city.value && ticket.city !== ticketFilters.city.value) return false;
       if (ticketFilters.category.value && ticket.categoryCode !== ticketFilters.category.value) return false;
       if (ticketFilters.visibility.value && ticket.visibility !== ticketFilters.visibility.value) return false;
@@ -223,6 +241,13 @@ function filteredSales() {
 
 function renderTickets() {
   const tickets = filteredTickets();
+  if (ticketCountNode) {
+    ticketCountNode.textContent = `${tickets.length} ticket lots`;
+  }
+  if (ticketMetaNode) {
+    const matchCount = new Set(tickets.map((ticket) => ticket.matchNumber)).size;
+    ticketMetaNode.textContent = `${matchCount} matches in current view. Seat numbers come directly from the Excel import.`;
+  }
   if (!tickets.length) {
     if (ticketList) ticketList.innerHTML = '<p class="empty">No ticket lots match these filters yet.</p>';
     return;
@@ -236,7 +261,8 @@ function renderTickets() {
           <th>Match</th>
           <th>Date</th>
           <th>City</th>
-          <th>Category / Seat</th>
+          <th>Category</th>
+          <th>Seat / Ticket Number</th>
           <th>Price</th>
           <th>Qty</th>
           <th>Visibility</th>
@@ -258,9 +284,12 @@ function renderTickets() {
                   <span class="fifa-table-sub">${escapeHtml(ticket.venue || "-")}</span>
                 </td>
                 <td>
-                  <strong>${escapeHtml(ticket.categoryCode)}</strong>
+                  <strong>CAT ${escapeHtml(ticket.categoryCode)}</strong>
                   <span class="fifa-table-sub">${escapeHtml(ticket.categoryName || "-")}</span>
-                  <span class="fifa-table-sub">${escapeHtml(ticket.seatSection || "")} ${ticket.seatDetails ? `· ${escapeHtml(ticket.seatDetails)}` : ""}</span>
+                </td>
+                <td>
+                  <strong>${escapeHtml(ticket.seatDetails || "-")}</strong>
+                  <span class="fifa-table-sub">${escapeHtml(ticket.seatSection || "")}</span>
                 </td>
                 <td>${escapeHtml(formatMoney(ticket.price, ticket.currency))}</td>
                 <td>

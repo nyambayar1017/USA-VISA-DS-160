@@ -2644,6 +2644,19 @@ body.modal-open {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+.fifa-list-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.fifa-list-meta strong {
+  color: var(--brand);
+}
+
 .manager-table.fifa-table td,
 .manager-table.fifa-table th {
   vertical-align: top;
@@ -2848,6 +2861,11 @@ body.modal-open {
   .fifa-public-grid,
   .fifa-public-summary {
     grid-template-columns: 1fr;
+  }
+
+  .fifa-list-meta {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .fifa-public-shell {

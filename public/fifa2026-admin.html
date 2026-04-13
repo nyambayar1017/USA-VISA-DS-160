@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-2" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-3" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -181,6 +181,12 @@
               <input id="ticket-filter-search" type="search" placeholder="Match, team, city, seat" />
             </label>
             <label>
+              Match
+              <select id="ticket-filter-match">
+                <option value="">All matches</option>
+              </select>
+            </label>
+            <label>
               Stage
               <select id="ticket-filter-stage">
                 <option value="">All stages</option>
@@ -214,6 +220,11 @@
                 <option value="sold-out">Sold out</option>
               </select>
             </label>
+          </div>
+
+          <div class="fifa-list-meta">
+            <strong id="fifa-ticket-count">0 ticket lots</strong>
+            <span id="fifa-ticket-meta">All matches and seat numbers from the imported workbook.</span>
           </div>
 
           <div id="fifa-ticket-list" class="manager-table-wrap"></div>
@@ -357,6 +368,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-2"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-3"></script>
   </body>
 </html>
