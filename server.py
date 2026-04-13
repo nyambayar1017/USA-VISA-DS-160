@@ -712,8 +712,8 @@ def handle_auth_profile_update(environ, start_response):
 
 
 def handle_list_users(environ, start_response):
-    admin = require_admin(environ, start_response)
-    if not admin:
+    user = require_login(environ, start_response)
+    if not user:
         return []
     users = [sanitize_user(user) for user in read_users()]
     return json_response(start_response, "200 OK", {"entries": users})
