@@ -8,6 +8,8 @@ const saleTicketSelect = document.querySelector("#fifa-sale-ticket");
 const saleFormToggleButton = document.querySelector("#fifa-show-sale-form");
 const saleRegistryView = document.querySelector("#fifa-sale-registry-view");
 const passengerRowsContainer = document.querySelector("#fifa-passenger-rows");
+const selectedSaleTicketsNode = document.querySelector("#fifa-selected-sale-tickets");
+const addSaleTicketButton = document.querySelector("#fifa-add-sale-ticket");
 
 const ticketFilters = {
   search: document.querySelector("#ticket-filter-search"),
@@ -97,6 +99,7 @@ const state = {
   editingSaleId: "",
   expandedMatches: new Set(),
   selectedTickets: new Set(),
+  selectedSaleTicketIds: [],
 };
 
 function setNodeText(node, value) {
@@ -316,6 +319,62 @@ function refreshSaleTicketOptions() {
   if (state.tickets.some((ticket) => ticket.id === currentValue)) saleTicketSelect.value = currentValue;
 }
 
+function getSelectedSaleTickets() {
+  return state.selectedSaleTicketIds
+    .map((ticketId) => state.tickets.find((item) => item.id === ticketId))
+    .filter(Boolean);
+}
+
+function syncSelectedSaleTicketsField() {
+  if (!saleForm) return;
+  saleForm.elements.ticketIds.value = state.selectedSaleTicketIds.join(",");
+  saleForm.elements.ticketId.value = state.selectedSaleTicketIds[0] || "";
+}
+
+function renderSelectedSaleTickets() {
+  if (!selectedSaleTicketsNode || !saleForm) return;
+  const selected = getSelectedSaleTickets();
+  if (!selected.length) {
+    selectedSaleTicketsNode.innerHTML = '<p class="fifa-seat-help">Add the tickets for this buyer one by one.</p>';
+    syncSelectedSaleTicketsField();
+    saleForm.elements.quantity.value = "1";
+    syncSaleTotals();
+    return;
+  }
+  selectedSaleTicketsNode.innerHTML = selected
+    .map(
+      (ticket, index) => `
+        <div class="fifa-selected-ticket-pill">
+          <span>${escapeHtml(`Ticket ${index + 1} · ${ticket.matchNumber} · CAT ${ticket.categoryCode} · ${ticket.seatDetails} · ${formatMoney(ticket.price, ticket.currency)}`)}</span>
+          <button type="button" class="button-secondary fifa-inline-action" data-action="remove-sale-ticket" data-id="${escapeHtml(ticket.id)}">Remove</button>
+        </div>
+      `
+    )
+    .join("");
+  syncSelectedSaleTicketsField();
+  saleForm.elements.quantity.value = String(selected.length);
+  syncSaleTotals();
+}
+
+function addSelectedSaleTicket(ticketId) {
+  if (!ticketId || state.selectedSaleTicketIds.includes(ticketId)) return;
+  const ticket = state.tickets.find((item) => item.id === ticketId);
+  if (!ticket) return;
+  const selected = getSelectedSaleTickets();
+  if (selected.length) {
+    const first = selected[0];
+    const sameMatch = first.matchNumber === ticket.matchNumber && first.matchLabel === ticket.matchLabel && first.city === ticket.city;
+    if (!sameMatch) {
+      setStatus(saleStatusNode, "One buyer can only add tickets from the same match right now.", true);
+      return;
+    }
+  }
+  state.selectedSaleTicketIds.push(ticketId);
+  clearStatus(saleStatusNode);
+  renderSelectedSaleTickets();
+  renderPassengerRows(parsePassengerLines(saleForm?.elements?.buyerPassengers?.value || ""));
+}
+
 function setSaleFormVisible(isVisible) {
   if (!saleForm) return;
   if (isVisible) {
@@ -413,6 +472,8 @@ function resetSaleForm() {
   if (!saleForm) return;
   saleForm.reset();
   saleForm.elements.id.value = "";
+  saleForm.elements.ticketIds.value = "";
+  state.selectedSaleTicketIds = [];
   saleForm.elements.quantity.value = "1";
   saleForm.elements.amountPaid.value = "0";
   saleForm.elements.saleStatus.value = "active";
@@ -420,6 +481,7 @@ function resetSaleForm() {
   saleForm.elements.paymentMethod.value = "bank transfer";
   saleForm.elements.buyerPassengers.value = "";
   renderPassengerRows([]);
+  renderSelectedSaleTickets();
   state.editingSaleId = "";
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
@@ -547,8 +609,13 @@ function fillTicketForm(ticket) {
 function fillSaleForm(sale) {
   if (!saleForm) return;
   setSaleFormVisible(true);
+  state.selectedSaleTicketIds = String(sale.ticketIds || sale.ticketId || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   saleForm.elements.id.value = sale.id;
   saleForm.elements.ticketId.value = sale.ticketId || "";
+  saleForm.elements.ticketIds.value = state.selectedSaleTicketIds.join(",");
   saleForm.elements.quantity.value = sale.quantity || 1;
   saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
   saleForm.elements.totalPrice.value = sale.totalPrice || "";
@@ -565,6 +632,7 @@ function fillSaleForm(sale) {
   saleForm.elements.buyerNotes.value = sale.buyerNotes || "";
   saleForm.elements.buyerPassengers.value = sale.buyerPassengers || "";
   renderPassengerRows(parsePassengerLines(sale.buyerPassengers || ""));
+  renderSelectedSaleTickets();
   state.editingSaleId = sale.id;
   setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
   setStatus(saleStatusNode, "Editing sale.");
@@ -576,9 +644,8 @@ function startSaleForTicket(ticketId) {
   resetSaleForm();
   const ticket = state.tickets.find((item) => item.id === ticketId);
   if (!ticket) return;
-  saleForm.elements.ticketId.value = ticket.id;
-  saleForm.elements.pricePerTicket.value = ticket.price || "";
-  saleForm.elements.totalPrice.value = ticket.price || "";
+  state.selectedSaleTicketIds = [ticket.id];
+  renderSelectedSaleTickets();
   saleForm.elements.paymentMethod.value = "bank transfer";
   setSaleFormVisible(true);
   saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -586,10 +653,23 @@ function startSaleForTicket(ticketId) {
 
 function syncSaleTotals() {
   if (!saleForm) return;
-  const quantity = Number(saleForm.elements.quantity.value || 0);
-  const pricePerTicket = Number(saleForm.elements.pricePerTicket.value || 0);
-  if (!saleForm.elements.totalPrice.matches(":focus")) {
-    saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(quantity * pricePerTicket) : "";
+  const selected = getSelectedSaleTickets();
+  const quantity = selected.length || Number(saleForm.elements.quantity.value || 0);
+  saleForm.elements.quantity.value = String(Math.max(quantity, 1));
+  if (selected.length) {
+    const totalSelectedPrice = selected.reduce((sum, ticket) => sum + Number(ticket.price || 0), 0);
+    const averagePrice = Math.round(totalSelectedPrice / selected.length);
+    if (!saleForm.elements.pricePerTicket.matches(":focus")) {
+      saleForm.elements.pricePerTicket.value = String(averagePrice || 0);
+    }
+    if (!saleForm.elements.totalPrice.matches(":focus")) {
+      saleForm.elements.totalPrice.value = String(totalSelectedPrice || 0);
+    }
+  } else {
+    const pricePerTicket = Number(saleForm.elements.pricePerTicket.value || 0);
+    if (!saleForm.elements.totalPrice.matches(":focus")) {
+      saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(quantity * pricePerTicket) : "";
+    }
   }
   const totalPrice = Number(saleForm.elements.totalPrice.value || 0);
   const amountPaid = Number(saleForm.elements.amountPaid.value || 0);
@@ -1026,6 +1106,19 @@ if (saleForm) {
   });
 }
 
+addSaleTicketButton?.addEventListener("click", () => {
+  if (!saleTicketSelect?.value) return;
+  addSelectedSaleTicket(saleTicketSelect.value);
+});
+
+selectedSaleTicketsNode?.addEventListener("click", (event) => {
+  const target = event.target.closest('button[data-action="remove-sale-ticket"]');
+  if (!target) return;
+  state.selectedSaleTicketIds = state.selectedSaleTicketIds.filter((ticketId) => ticketId !== target.dataset.id);
+  renderSelectedSaleTickets();
+  renderPassengerRows(parsePassengerLines(saleForm?.elements?.buyerPassengers?.value || ""));
+});
+
 document.querySelector("#fifa-ticket-cancel")?.addEventListener("click", resetTicketForm);
 ticketFormToggleButton?.addEventListener("click", () => {
   setTicketFormVisible(true);
@@ -1041,7 +1134,7 @@ saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
 saleTicketSelect?.addEventListener("change", () => {
   const ticket = state.tickets.find((item) => item.id === saleTicketSelect.value);
   if (!ticket || !saleForm) return;
-  if (!state.editingSaleId) {
+  if (!state.editingSaleId && !state.selectedSaleTicketIds.length) {
     saleForm.elements.pricePerTicket.value = ticket.price || "";
     syncSaleTotals();
   }
