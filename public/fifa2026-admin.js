@@ -1028,33 +1028,31 @@ async function loadDashboard() {
     adminError = error.message || "Could not load admin FIFA data";
   }
 
-  let tickets = data.tickets || [];
+  let tickets = [];
   let summary = data.summary || null;
 
-  if (!tickets.length) {
-    try {
-      const publicData = await fetchJson("/api/fifa2026/public");
-      if ((publicData.tickets || []).length) {
-        tickets = publicData.tickets || [];
-        summary = {
-          ...(summary || {}),
-          tickets: {
-            ...(summary?.tickets || {}),
-            availableUnits: tickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0),
-            soldUnits: tickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0),
-          },
-        };
-        setStatus(ticketStatusNode, adminError ? `Admin API issue: ${adminError}. Showing live shared FIFA tickets.` : "Showing live FIFA tickets from the shared public store.");
-      } else if (adminError) {
-        throw new Error(adminError);
-      }
-    } catch (fallbackError) {
-      if (adminError) throw new Error(adminError);
-      throw fallbackError;
+  try {
+    const sharedData = await fetchJson("/api/fifa2026/public?scope=admin");
+    tickets = sharedData.tickets || [];
+    if (adminError) {
+      setStatus(ticketStatusNode, `Admin API issue: ${adminError}. Showing shared FIFA inventory.`);
+    } else {
+      clearStatus(ticketStatusNode);
     }
-  } else {
-    clearStatus(ticketStatusNode);
+  } catch (sharedError) {
+    tickets = data.tickets || [];
+    if (adminError) throw new Error(adminError);
+    throw sharedError;
   }
+
+  summary = {
+    ...(summary || {}),
+    tickets: {
+      ...(summary?.tickets || {}),
+      availableUnits: tickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0),
+      soldUnits: tickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0),
+    },
+  };
 
   state.tickets = tickets;
   state.sales = data.sales || [];
