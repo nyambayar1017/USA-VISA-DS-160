@@ -93,10 +93,7 @@ const state = {
   editingSaleId: "",
   expandedMatches: new Set(),
   selectedTickets: new Set(),
-  currentTicketPage: 1,
 };
-
-const MATCHES_PER_PAGE = 10;
 
 function setNodeText(node, value) {
   if (!node) return;
@@ -565,15 +562,12 @@ function buildTicketGroups() {
     });
     const availableUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
     const soldUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0);
-    const categorySummary = ["1", "2", "3"]
-      .map((categoryCode) => {
-        const total = groupTickets
-          .filter((ticket) => String(ticket.categoryCode || "") === categoryCode)
-          .reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
-        return total ? `CAT ${categoryCode}: ${total}` : "";
-      })
-      .filter(Boolean)
-      .join(" · ");
+    const categoryBreakdown = ["1", "2", "3"].map((categoryCode) => {
+      const categoryTickets = groupTickets.filter((ticket) => String(ticket.categoryCode || "") === categoryCode);
+      const total = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
+      const available = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
+      return { categoryCode, total, available };
+    });
     return {
       ...match,
       key,
@@ -582,22 +576,9 @@ function buildTicketGroups() {
       ticketCount: groupTickets.length,
       availableUnits,
       soldUnits,
-      categorySummary,
+      categoryBreakdown,
     };
   });
-}
-
-function pagedTicketGroups() {
-  const groups = buildTicketGroups();
-  const totalPages = Math.max(Math.ceil(groups.length / MATCHES_PER_PAGE), 1);
-  if (state.currentTicketPage > totalPages) state.currentTicketPage = totalPages;
-  if (state.currentTicketPage < 1) state.currentTicketPage = 1;
-  const start = (state.currentTicketPage - 1) * MATCHES_PER_PAGE;
-  return {
-    groups: groups.slice(start, start + MATCHES_PER_PAGE),
-    totalGroups: groups.length,
-    totalPages,
-  };
 }
 
 function filteredSales() {
@@ -625,47 +606,59 @@ function filteredSales() {
 }
 
 function renderTickets() {
-  const { groups, totalGroups, totalPages } = pagedTicketGroups();
-  if (ticketCountNode) ticketCountNode.textContent = `${totalGroups} matches`;
+  const groups = buildTicketGroups();
+  if (ticketCountNode) ticketCountNode.textContent = `${groups.length} matches`;
   if (ticketMetaNode) {
     ticketMetaNode.textContent = "";
   }
   if (!ticketList) return;
   ticketList.innerHTML = `
-    <div class="fifa-list-toolbar">
-      <div class="fifa-pagination">
-        <button type="button" class="button-secondary" data-action="ticket-page-prev" ${state.currentTicketPage <= 1 ? "disabled" : ""}>Prev</button>
-        <span>Page ${state.currentTicketPage} / ${totalPages}</span>
-        <button type="button" class="button-secondary" data-action="ticket-page-next" ${state.currentTicketPage >= totalPages ? "disabled" : ""}>Next</button>
-      </div>
+    <div class="fifa-list-toolbar fifa-list-toolbar--right">
+      <div></div>
       <div class="fifa-bulk-actions">
         <button type="button" class="button-secondary" data-action="clear-ticket-selection" ${state.selectedTickets.size ? "" : "disabled"}>Clear</button>
         <button type="button" class="button-secondary" data-action="delete-selected-tickets" ${state.selectedTickets.size ? "" : "disabled"}>Delete Selected</button>
       </div>
     </div>
-    <div class="fifa-match-accordion">
+    <div class="fifa-match-accordion fifa-match-accordion--table">
+      <div class="fifa-match-table-head">
+        <span>#</span>
+        <span>Date</span>
+        <span>Team vs Team</span>
+        <span>Availability</span>
+        <span>City</span>
+        <span>Stage</span>
+      </div>
       ${groups
-        .map((group) => {
+        .map((group, index) => {
           const isExpanded = state.expandedMatches.has(group.key);
+          const availabilitySummary = group.categoryBreakdown
+            .filter((item) => item.total > 0)
+            .map((item) => `CAT ${item.categoryCode}: ${item.available}/${item.total}`)
+            .join(" · ");
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
               <button type="button" class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}">
-                <div class="fifa-match-main">
+                <div class="fifa-match-col fifa-match-col--number">
+                  <strong>${index + 1}</strong>
+                </div>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(formatDate(group.matchDate))}</strong>
+                  <span class="fifa-table-sub">${escapeHtml(group.matchNumber)}</span>
+                </div>
+                <div class="fifa-match-col fifa-match-col--teams">
                   <strong>${escapeHtml(group.label)}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(group.matchNumber)} · ${escapeHtml(formatDate(group.matchDate))}</span>
-                  <span class="fifa-table-sub">${escapeHtml(group.s)}</span>
+                  <span class="fifa-table-sub">${escapeHtml(group.venue || "-")}</span>
                 </div>
-                <div class="fifa-match-city">
-                  <strong>${escapeHtml(group.c)}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(group.categorySummary || "No tickets yet")}</span>
+                <div class="fifa-match-col fifa-match-col--availability">
+                  <strong>${escapeHtml(availabilitySummary || "No tickets yet")}</strong>
+                  <span class="fifa-table-sub">${group.availableUnits} available tickets</span>
                 </div>
-                <div class="fifa-match-stat">
-                  <strong>${group.ticketCount}</strong>
-                  <span class="fifa-table-sub">ticket rows</span>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(group.city)}</strong>
                 </div>
-                <div class="fifa-match-stat">
-                  <strong>${group.availableUnits}</strong>
-                  <span class="fifa-table-sub">available</span>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(group.stage)}</strong>
                 </div>
               </button>
               ${
@@ -960,14 +953,8 @@ saleTicketSelect?.addEventListener("change", () => {
 });
 
 Object.values(ticketFilters).forEach((node) => {
-  node?.addEventListener("input", () => {
-    state.currentTicketPage = 1;
-    renderTickets();
-  });
-  node?.addEventListener("change", () => {
-    state.currentTicketPage = 1;
-    renderTickets();
-  });
+  node?.addEventListener("input", renderTickets);
+  node?.addEventListener("change", renderTickets);
 });
 Object.values(saleFilters).forEach((node) => {
   node?.addEventListener("input", renderSales);
@@ -983,16 +970,6 @@ ticketList?.addEventListener("click", async (event) => {
     } else {
       state.expandedMatches.add(matchKey);
     }
-    renderTickets();
-    return;
-  }
-  if (target?.dataset.action === "ticket-page-prev") {
-    state.currentTicketPage = Math.max(state.currentTicketPage - 1, 1);
-    renderTickets();
-    return;
-  }
-  if (target?.dataset.action === "ticket-page-next") {
-    state.currentTicketPage += 1;
     renderTickets();
     return;
   }

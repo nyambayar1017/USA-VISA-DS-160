@@ -2724,16 +2724,14 @@ body.modal-open {
   flex-wrap: wrap;
 }
 
-.fifa-pagination,
+.fifa-list-toolbar--right {
+  justify-content: flex-end;
+}
+
 .fifa-bulk-actions {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.fifa-pagination span {
-  color: var(--muted);
-  font-size: 0.92rem;
 }
 
 .fifa-match-accordion {
@@ -2741,51 +2739,77 @@ body.modal-open {
   gap: 14px;
 }
 
+.fifa-match-accordion--table {
+  gap: 10px;
+}
+
+.fifa-match-table-head {
+  display: grid;
+  grid-template-columns: 88px 150px minmax(240px, 1.7fr) minmax(280px, 1.8fr) 170px 170px;
+  gap: 16px;
+  align-items: center;
+  padding: 0 18px 8px;
+  color: #42537a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .fifa-match-card {
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 20px;
+  border: 1px solid rgba(32, 53, 111, 0.14);
+  border-radius: 18px;
   overflow: hidden;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(24, 42, 88, 0.05);
+  box-shadow: 0 6px 18px rgba(24, 42, 88, 0.04);
 }
 
 .fifa-match-toggle {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(260px, 2fr) minmax(180px, 1.1fr) 120px 120px;
-  gap: 18px;
+  grid-template-columns: 88px 150px minmax(240px, 1.7fr) minmax(280px, 1.8fr) 170px 170px;
+  gap: 16px;
   align-items: center;
-  padding: 20px 22px;
+  padding: 18px;
   border: 0;
-  background:
-    linear-gradient(135deg, rgba(245, 247, 255, 0.96), rgba(255, 255, 255, 0.98));
+  background: #ffffff;
   text-align: left;
   cursor: pointer;
 }
 
 .fifa-match-toggle:hover {
-  background:
-    linear-gradient(135deg, rgba(235, 241, 255, 0.98), rgba(255, 255, 255, 1));
+  background: #f6f8fc;
 }
 
 .fifa-match-details {
   padding: 8px 18px 18px;
-  background: rgba(250, 251, 255, 0.92);
+  background: #f9fbff;
 }
 
 .fifa-nested-table {
   margin-top: 4px;
 }
 
-.fifa-match-main strong,
-.fifa-match-city strong,
-.fifa-match-stat strong {
-  color: var(--brand);
-  font-size: 1rem;
+.fifa-match-col {
+  min-width: 0;
 }
 
-.fifa-match-stat {
-  text-align: right;
+.fifa-match-col strong {
+  display: block;
+  color: #1f2d50;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.fifa-match-col--number strong {
+  font-size: 1.15rem;
+  color: var(--brand);
+}
+
+.fifa-match-col--teams strong,
+.fifa-match-col--availability strong {
+  white-space: normal;
+  word-break: break-word;
 }
 
 .fifa-nested-table .checkbox-col {
@@ -2800,8 +2824,8 @@ body.modal-open {
 .fifa-table-sub {
   display: block;
   margin-top: 4px;
-  color: var(--muted);
-  font-size: 0.8rem;
+  color: #68789c;
+  font-size: 0.82rem;
 }
 
 .fifa-actions-cell {
