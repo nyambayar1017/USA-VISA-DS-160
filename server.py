@@ -372,14 +372,6 @@ def write_camp_settings(payload):
 
 
 def default_fifa2026_data():
-    seed_file = BASE_DIR / "data" / "fifa2026.json"
-    if seed_file.exists():
-        try:
-            payload = json.loads(seed_file.read_text(encoding="utf-8"))
-            if isinstance(payload, dict):
-                return payload
-        except json.JSONDecodeError:
-            pass
     return {"tickets": [], "sales": []}
 
 
@@ -419,34 +411,16 @@ def fifa_store_totals(store):
     }
 
 
-def ensure_fifa2026_seed_loaded():
-    seed = normalize_fifa2026_store(default_fifa2026_data())
+def ensure_fifa2026_manual_inventory():
     current = read_fifa2026_store()
-    seed_totals = fifa_store_totals(seed)
-    current_totals = fifa_store_totals(current)
-    is_incomplete = (
-        current_totals["matches"] < seed_totals["matches"]
-        or current_totals["quantity"] < seed_totals["quantity"]
-        or current_totals["lots"] < seed_totals["lots"]
-    )
-    if is_incomplete:
-        if current.get("sales"):
-            # Preserve sales if any already exist, but still add the missing imported lots.
-            current_ticket_ids = {ticket.get("id") for ticket in current.get("tickets", [])}
-            merged_tickets = list(current.get("tickets", []))
-            merged_tickets.extend(
-                ticket
-                for ticket in seed.get("tickets", [])
-                if ticket.get("id") not in current_ticket_ids
-            )
-            merged = {
-                "tickets": merged_tickets,
-                "sales": current.get("sales", []),
-            }
-            write_fifa2026_store(merged)
-            return merged
-        write_fifa2026_store(seed)
-        return seed
+    tickets = current.get("tickets", [])
+    if tickets and all(
+        "Imported from DTX 2026 WC - Sales Registration.xlsx" in normalize_text(ticket.get("notes"))
+        for ticket in tickets
+    ):
+        empty_store = {"tickets": [], "sales": []}
+        write_fifa2026_store(empty_store)
+        return empty_store
     return current
 
 
@@ -4859,7 +4833,7 @@ def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
 
 
 def handle_get_fifa2026_dashboard(start_response):
-    store = ensure_fifa2026_seed_loaded()
+    store = ensure_fifa2026_manual_inventory()
     sales = store.get("sales", [])
     tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
     enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId"))) for sale in sales]
@@ -4875,7 +4849,7 @@ def handle_get_fifa2026_dashboard(start_response):
 
 
 def handle_get_fifa2026_public(start_response):
-    store = ensure_fifa2026_seed_loaded()
+    store = ensure_fifa2026_manual_inventory()
     sales = store.get("sales", [])
     tickets = []
     for ticket in store.get("tickets", []):

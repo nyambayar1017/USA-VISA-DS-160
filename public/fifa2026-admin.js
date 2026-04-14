@@ -166,10 +166,8 @@ function parseSeatLines(rawValue) {
     .filter(Boolean)
     .map((line) => {
       const cleaned = line.replace(/^Ticket\s+\d+\s*:\s*/i, "").trim();
-      const [pricePart, ...seatParts] = cleaned.split(" | ");
       return {
-        price: String(pricePart || "").replace(/^Price\s*/i, "").replace(/^\$/, "").trim(),
-        seat: seatParts.join(" | ").replace(/^Seat\s*/i, "").trim(),
+        seat: cleaned.replace(/^Seat\s*/i, "").replace(/^Price\s+\d+\s*\|\s*/i, "").trim(),
       };
     });
 }
@@ -181,9 +179,8 @@ function syncCategorySeatTextarea(categoryCode) {
   if (!container || !textarea) return;
   const values = [...container.querySelectorAll("[data-ticket-row]")]
     .map((row, index) => {
-      const price = row.querySelector('[data-row-price]')?.value.trim() || "";
       const seat = row.querySelector('[data-row-seat]')?.value.trim() || "";
-      return price || seat ? `Ticket ${index + 1}: Price ${price || 0} | Seat ${seat}` : "";
+      return seat ? `Ticket ${index + 1}: ${seat}` : "";
     })
     .filter(Boolean);
   textarea.value = values.join("\n");
@@ -216,17 +213,6 @@ function renderCategoryTicketRows(categoryCode, ticketRows = []) {
     const row = ticketRows[index] || {};
     return `
       <div class="fifa-ticket-row" data-ticket-row="${index + 1}">
-        <label>
-          Ticket ${index + 1} price
-          <input
-            type="number"
-            min="0"
-            step="1"
-            data-row-price
-            value="${escapeHtml(row.price || "")}"
-            placeholder="Price"
-          />
-        </label>
         <label class="full-span">
           Ticket ${index + 1} seat number
           <input
@@ -325,6 +311,7 @@ function refreshSaleTicketOptions() {
 function clearCategoryBlock(categoryCode) {
   if (!ticketForm) return;
   ticketForm.elements[`category${categoryCode}Id`].value = "";
+  ticketForm.elements[`category${categoryCode}Price`].value = "";
   ticketForm.elements[`category${categoryCode}Quantity`].value = "0";
   ticketForm.elements[`category${categoryCode}Name`].value = "";
   ticketForm.elements[`category${categoryCode}Section`].value = "";
@@ -380,11 +367,12 @@ function applyCityVenue(city) {
 
 function blockHasInput(categoryCode) {
   if (!ticketForm) return false;
+  const price = Number(ticketForm.elements[`category${categoryCode}Price`].value || 0);
   const quantity = Number(ticketForm.elements[`category${categoryCode}Quantity`].value || 0);
   const name = ticketForm.elements[`category${categoryCode}Name`].value.trim();
   const section = ticketForm.elements[`category${categoryCode}Section`].value.trim();
   const seats = ticketForm.elements[`category${categoryCode}Seats`].value.trim();
-  return Boolean(quantity || name || section || seats);
+  return Boolean(price || quantity || name || section || seats);
 }
 
 function buildCategoryRows(categoryCode) {
@@ -393,7 +381,6 @@ function buildCategoryRows(categoryCode) {
   const rows = container
     ? [...container.querySelectorAll("[data-ticket-row]")].map((row) => ({
         id: row.dataset.ticketId || "",
-        price: Number(row.querySelector("[data-row-price]")?.value || 0),
         seat: assignedLater ? "Seat will be assigned later" : (row.querySelector("[data-row-seat]")?.value.trim() || ""),
       }))
     : [];
@@ -456,6 +443,7 @@ function fillTicketForm(ticket) {
       : [];
     existingIds.push(item.id);
     ticketForm.elements[`category${code}Id`].value = existingIds.join(",");
+    ticketForm.elements[`category${code}Price`].value = item.price || "";
     ticketForm.elements[`category${code}Quantity`].value = existingIds.length;
     ticketForm.elements[`category${code}Name`].value = item.categoryName || "";
     ticketForm.elements[`category${code}Section`].value = item.seatSection || "";
@@ -780,15 +768,15 @@ if (ticketForm) {
         setStatus(ticketStatusNode, `Category ${categoryCode} needs at least one ticket row.`, true);
         return;
       }
+      const categoryPrice = Number(ticketForm.elements[`category${categoryCode}Price`].value || 0);
+      if (!categoryPrice) {
+        setStatus(ticketStatusNode, `Category ${categoryCode} needs a category price.`, true);
+        return;
+      }
       const categoryName = ticketForm.elements[`category${categoryCode}Name`].value.trim();
       const seatSection = ticketForm.elements[`category${categoryCode}Section`].value.trim();
       const seatAssignedLater = ticketForm.elements[`category${categoryCode}AssignedLater`].value === "yes";
       categoryRows.forEach((row, index) => {
-        if (!row.price) {
-          setStatus(ticketStatusNode, `Category ${categoryCode}, ticket ${index + 1} needs a price.`, true);
-          hasValidationError = true;
-          return;
-        }
         const payload = {
           ...base,
           categoryCode,
@@ -796,7 +784,7 @@ if (ticketForm) {
           seatSection: seatSection || (seatAssignedLater ? "Seat will be assigned later" : ""),
           seatDetails: row.seat || (seatAssignedLater ? "Seat will be assigned later" : ""),
           seatAssignedLater,
-          price: row.price,
+          price: categoryPrice,
           totalQuantity: 1,
         };
         tasks.push(
