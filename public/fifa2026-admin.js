@@ -27,6 +27,7 @@ const saleFilters = {
 
 const summaryNodes = {
   available: document.querySelector("#fifa-summary-available"),
+  total: document.querySelector("#fifa-summary-total"),
   sold: document.querySelector("#fifa-summary-sold"),
 };
 
@@ -269,6 +270,10 @@ function populateInventoryFormOptions() {
 function updateSummary() {
   const summary = state.summary || {};
   if (summaryNodes.available) summaryNodes.available.textContent = summary.tickets?.availableUnits ?? 0;
+  if (summaryNodes.total) {
+    const totalTickets = state.tickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
+    summaryNodes.total.textContent = totalTickets;
+  }
   if (summaryNodes.sold) summaryNodes.sold.textContent = summary.tickets?.soldUnits ?? 0;
 }
 
@@ -614,7 +619,9 @@ function renderTickets() {
   if (!ticketList) return;
   ticketList.innerHTML = `
     <div class="fifa-list-toolbar fifa-list-toolbar--right">
-      <div></div>
+      <div class="fifa-bulk-actions">
+        <button type="button" data-action="open-ticket-form">Add Ticket</button>
+      </div>
       <div class="fifa-bulk-actions">
         <button type="button" class="button-secondary" data-action="clear-ticket-selection" ${state.selectedTickets.size ? "" : "disabled"}>Clear</button>
         <button type="button" class="button-secondary" data-action="delete-selected-tickets" ${state.selectedTickets.size ? "" : "disabled"}>Delete Selected</button>
@@ -971,6 +978,11 @@ ticketList?.addEventListener("click", async (event) => {
       state.expandedMatches.add(matchKey);
     }
     renderTickets();
+    return;
+  }
+  if (target?.dataset.action === "open-ticket-form") {
+    setTicketFormVisible(true);
+    ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
   if (target?.dataset.action === "clear-ticket-selection") {

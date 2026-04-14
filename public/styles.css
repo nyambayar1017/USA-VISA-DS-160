@@ -2787,6 +2787,14 @@ body.modal-open {
   background: #f6f8fc;
 }
 
+.fifa-match-toggle--static {
+  cursor: default;
+}
+
+.fifa-match-toggle--static:hover {
+  background: #ffffff;
+}
+
 .fifa-match-details {
   padding: 8px 18px 18px;
   background: #f9fbff;
@@ -2938,6 +2946,35 @@ body.modal-open {
 .fifa-public-table-wrap {
   margin-top: 24px;
   overflow: auto;
+}
+
+.fifa-public-match-list {
+  min-width: 1120px;
+}
+
+.fifa-public-seat-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.fifa-public-seat-group {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(32, 53, 111, 0.08);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.fifa-public-seat-group strong {
+  color: var(--brand);
+  font-size: 0.86rem;
+}
+
+.fifa-public-seat-group span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .fifa-public-table {

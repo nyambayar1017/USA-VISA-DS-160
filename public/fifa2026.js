@@ -75,9 +75,11 @@ function fillSelect(node, values, placeholder) {
 
 function formatDate(value) {
   if (!value) return "-";
+  const normalized = String(value).slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString();
+  return date.toISOString().slice(0, 10);
 }
 
 function normalizedCategory(ticket) {
@@ -116,11 +118,22 @@ function buildCatalogRows() {
   return MATCH_CATALOG.map((row) => {
     const key = `${row.m}|${row.t}|${row.c}`;
     const live = liveByMatch.get(key);
+    const categoryBreakdown = ["1", "2", "3"].map((categoryCode) => {
+      const categoryTickets = state.tickets.filter(
+        (ticket) => ticket.matchNumber === row.m && ticket.matchLabel === row.t && ticket.city === row.c && normalizedCategory(ticket) === categoryCode
+      );
+      const available = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
+      const total = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
+      const seatDetails = categoryTickets.map((ticket) => ticket.seatDetails).filter(Boolean);
+      return { categoryCode, available, total, seatDetails };
+    });
+
     return {
       ...row,
       q1: live && live.q1 !== null ? live.q1 : row.q1,
       q2: live && live.q2 !== null ? live.q2 : row.q2,
       q3: live && live.q3 !== null ? live.q3 : row.q3,
+      categoryBreakdown,
       seatDetails: [
         ...(live?.seats1 || []),
         ...(live?.seats2 || []),
@@ -154,7 +167,7 @@ function renderPublicTickets() {
     );
   }
   if (publicListCount) publicListCount.textContent = `${rows.length} matches`;
-  if (publicListMeta) publicListMeta.textContent = "38 matches loaded. Seat numbers are shown directly in the list where available.";
+  if (publicListMeta) publicListMeta.textContent = "Live match availability without prices.";
 
   if (!rows.length) {
     publicList.innerHTML = '<p class="empty">No matches match the current filters.</p>';
@@ -162,40 +175,71 @@ function renderPublicTickets() {
   }
 
   publicList.innerHTML = `
-    <table class="fifa-public-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Stage</th>
-          <th>Match</th>
-          <th>Teams</th>
-          <th>City</th>
-          <th>Category 1</th>
-          <th>Category 2</th>
-          <th>Category 3</th>
-          <th>Seat Number</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows
-          .map(
-            (row) => `
-              <tr>
-                <td>${escapeHtml(formatDate(row.d))}</td>
-                <td>${escapeHtml(row.s)}</td>
-                <td>${escapeHtml(row.m)}</td>
-                <td>${escapeHtml(row.t)}</td>
-                <td>${escapeHtml(row.c)}</td>
-                <td>${row.q1 || ""}</td>
-                <td>${row.q2 || ""}</td>
-                <td>${row.q3 || ""}</td>
-                <td class="fifa-public-seat-cell">${escapeHtml(row.seatDetails || "-")}</td>
-              </tr>
-            `
-          )
-          .join("")}
-      </tbody>
-    </table>
+    <div class="fifa-match-accordion fifa-match-accordion--table fifa-public-match-list">
+      <div class="fifa-match-table-head">
+        <span>#</span>
+        <span>Date</span>
+        <span>Team vs Team</span>
+        <span>Availability</span>
+        <span>City</span>
+        <span>Stage</span>
+      </div>
+      ${rows
+        .map((row) => {
+          const availabilitySummary = [
+            row.q1 ? `CAT 1: ${row.q1}` : "",
+            row.q2 ? `CAT 2: ${row.q2}` : "",
+            row.q3 ? `CAT 3: ${row.q3}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          const seatBreakdown = row.categoryBreakdown
+            .filter((item) => item.seatDetails.length)
+            .map(
+              (item) => `
+                <div class="fifa-public-seat-group">
+                  <strong>CAT ${item.categoryCode}</strong>
+                  <span>${escapeHtml(item.seatDetails.join(" | "))}</span>
+                </div>
+              `
+            )
+            .join("");
+          return `
+            <article class="fifa-match-card is-open">
+              <div class="fifa-match-toggle fifa-match-toggle--static">
+                <div class="fifa-match-col fifa-match-col--number">
+                  <strong>${row.n}</strong>
+                </div>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(formatDate(row.d))}</strong>
+                  <span class="fifa-table-sub">${escapeHtml(row.m)}</span>
+                </div>
+                <div class="fifa-match-col fifa-match-col--teams">
+                  <strong>${escapeHtml(row.t)}</strong>
+                </div>
+                <div class="fifa-match-col fifa-match-col--availability">
+                  <strong>${escapeHtml(availabilitySummary || "No tickets yet")}</strong>
+                  <span class="fifa-table-sub">${Number(row.q1 || 0) + Number(row.q2 || 0) + Number(row.q3 || 0)} available tickets</span>
+                </div>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(row.c)}</strong>
+                </div>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(row.s)}</strong>
+                </div>
+              </div>
+              <div class="fifa-match-details">
+                ${
+                  seatBreakdown
+                    ? `<div class="fifa-public-seat-grid">${seatBreakdown}</div>`
+                    : '<p class="empty">No seat numbers published yet for this match.</p>'
+                }
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
   `;
 }
 
