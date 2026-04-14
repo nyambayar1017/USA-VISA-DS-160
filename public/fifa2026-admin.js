@@ -387,6 +387,7 @@ function addSelectedSaleBundle(matchNumber, categoryCode, quantity) {
 function setSaleFormVisible(isVisible) {
   if (!saleForm) return;
   if (isVisible) {
+    refreshSaleTicketOptions();
     saleForm.dataset.open = "true";
     saleFormToggleButton?.setAttribute("hidden", "");
     saleRegistryView?.setAttribute("hidden", "");
@@ -861,6 +862,7 @@ function renderTickets() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--stage">
                   <strong>${escapeHtml(group.stage)}</strong>
+                  <button type="button" class="button-secondary fifa-inline-action" data-action="edit-match" data-match-number="${escapeHtml(group.matchNumber)}">Edit</button>
                   <button type="button" class="fifa-inline-action" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
                 </div>
               </div>
@@ -1232,6 +1234,20 @@ ticketList?.addEventListener("click", async (event) => {
     applyMatchSelection(target.dataset.matchNumber || "");
     setTicketFormVisible(true);
     ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (target?.dataset.action === "edit-match") {
+    event.stopPropagation();
+    const matchNumber = target.dataset.matchNumber || "";
+    const existingTicket = state.tickets.find((item) => item.matchNumber === matchNumber);
+    if (existingTicket) {
+      fillTicketForm(existingTicket);
+    } else {
+      resetTicketForm();
+      applyMatchSelection(matchNumber);
+      setTicketFormVisible(true);
+      ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     return;
   }
   if (!target) {
