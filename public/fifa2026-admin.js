@@ -633,7 +633,7 @@ function renderTickets() {
           const availabilitySummary = group.categoryBreakdown
             .map(
               (item) => `
-                <span class="fifa-availability-line">CAT ${item.categoryCode}: ${item.available}/${item.total}</span>
+                    <span class="fifa-availability-line">CAT ${item.categoryCode}: ${item.available}/${item.total}</span>
               `
             )
             .join("");
@@ -662,7 +662,7 @@ function renderTickets() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--stage">
                   <strong>${escapeHtml(group.stage)}</strong>
-                  <button type="button" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
+                  <button type="button" class="fifa-inline-action" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
                 </div>
               </div>
               ${

@@ -2815,26 +2815,41 @@ body.modal-open {
 }
 
 .fifa-match-col--stage {
-  display: grid;
-  gap: 10px;
-  justify-items: start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .fifa-availability-block {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
 }
 
 .fifa-availability-line {
-  display: block;
+  display: inline-flex;
   color: #1f2d50;
   font-size: 0.88rem;
   font-weight: 700;
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .fifa-availability-total {
-  margin-top: 4px;
+  flex-basis: auto;
+  margin-top: 0;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.fifa-match-col--stage [data-action="add-ticket-match"] {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .fifa-nested-table .checkbox-col {
