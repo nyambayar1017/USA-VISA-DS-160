@@ -618,15 +618,6 @@ function renderTickets() {
   }
   if (!ticketList) return;
   ticketList.innerHTML = `
-    <div class="fifa-list-toolbar fifa-list-toolbar--right">
-      <div class="fifa-bulk-actions">
-        <button type="button" data-action="open-ticket-form">Add Ticket</button>
-      </div>
-      <div class="fifa-bulk-actions">
-        <button type="button" class="button-secondary" data-action="clear-ticket-selection" ${state.selectedTickets.size ? "" : "disabled"}>Clear</button>
-        <button type="button" class="button-secondary" data-action="delete-selected-tickets" ${state.selectedTickets.size ? "" : "disabled"}>Delete Selected</button>
-      </div>
-    </div>
     <div class="fifa-match-accordion fifa-match-accordion--table">
       <div class="fifa-match-table-head">
         <span>#</span>
@@ -640,12 +631,15 @@ function renderTickets() {
         .map((group, index) => {
           const isExpanded = state.expandedMatches.has(group.key);
           const availabilitySummary = group.categoryBreakdown
-            .filter((item) => item.total > 0)
-            .map((item) => `CAT ${item.categoryCode}: ${item.available}/${item.total}`)
-            .join(" · ");
+            .map(
+              (item) => `
+                <span class="fifa-availability-line">CAT ${item.categoryCode}: ${item.available}/${item.total}</span>
+              `
+            )
+            .join("");
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
-              <button type="button" class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}">
+              <div class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}" role="button" tabindex="0">
                 <div class="fifa-match-col fifa-match-col--number">
                   <strong>${index + 1}</strong>
                 </div>
@@ -658,16 +652,19 @@ function renderTickets() {
                   <span class="fifa-table-sub">${escapeHtml(group.venue || "-")}</span>
                 </div>
                 <div class="fifa-match-col fifa-match-col--availability">
-                  <strong>${escapeHtml(availabilitySummary || "No tickets yet")}</strong>
-                  <span class="fifa-table-sub">${group.availableUnits} available tickets</span>
+                  <div class="fifa-availability-block">
+                    ${availabilitySummary}
+                    <span class="fifa-table-sub fifa-availability-total">Total available: ${group.availableUnits}</span>
+                  </div>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(group.city)}</strong>
                 </div>
-                <div class="fifa-match-col">
+                <div class="fifa-match-col fifa-match-col--stage">
                   <strong>${escapeHtml(group.stage)}</strong>
+                  <button type="button" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
                 </div>
-              </button>
+              </div>
               ${
                 isExpanded
                   ? `
@@ -969,7 +966,15 @@ Object.values(saleFilters).forEach((node) => {
 });
 
 ticketList?.addEventListener("click", async (event) => {
-  const target = event.target.closest("button[data-action]");
+  const checkbox = event.target.closest('input[type="checkbox"][data-action="select-ticket"]');
+  if (checkbox) {
+    if (checkbox.checked) state.selectedTickets.add(checkbox.dataset.id);
+    else state.selectedTickets.delete(checkbox.dataset.id);
+    renderTickets();
+    return;
+  }
+
+  const target = event.target.closest("[data-action]");
   if (target?.dataset.action === "toggle-match") {
     const matchKey = target.dataset.matchKey || "";
     if (state.expandedMatches.has(matchKey)) {
@@ -980,37 +985,15 @@ ticketList?.addEventListener("click", async (event) => {
     renderTickets();
     return;
   }
-  if (target?.dataset.action === "open-ticket-form") {
+  if (target?.dataset.action === "add-ticket-match") {
+    event.stopPropagation();
+    resetTicketForm();
+    applyMatchSelection(target.dataset.matchNumber || "");
     setTicketFormVisible(true);
     ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
-  if (target?.dataset.action === "clear-ticket-selection") {
-    state.selectedTickets.clear();
-    renderTickets();
-    return;
-  }
-  if (target?.dataset.action === "delete-selected-tickets") {
-    if (!state.selectedTickets.size) return;
-    if (!window.confirm(`Delete ${state.selectedTickets.size} selected ticket row(s)?`)) return;
-    try {
-      await Promise.all(
-        [...state.selectedTickets].map((ticketId) => fetchJson(`/api/fifa2026/tickets/${ticketId}`, { method: "DELETE" }))
-      );
-      state.selectedTickets.clear();
-      await loadDashboard();
-    } catch (error) {
-      setStatus(ticketStatusNode, error.message, true);
-    }
-    return;
-  }
   if (!target) {
-    const checkbox = event.target.closest('input[type="checkbox"][data-action="select-ticket"]');
-    if (checkbox) {
-      if (checkbox.checked) state.selectedTickets.add(checkbox.dataset.id);
-      else state.selectedTickets.delete(checkbox.dataset.id);
-      renderTickets();
-    }
     return;
   }
   const ticketId = target.dataset.id;

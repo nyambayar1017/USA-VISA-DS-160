@@ -2722,18 +2722,6 @@ body.modal-open {
   color: var(--brand);
 }
 
-.fifa-list-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.fifa-list-toolbar--right {
-  justify-content: flex-end;
-}
-
 .fifa-bulk-actions {
   display: flex;
   align-items: center;
@@ -2824,6 +2812,29 @@ body.modal-open {
 .fifa-match-col--availability strong {
   white-space: normal;
   word-break: break-word;
+}
+
+.fifa-match-col--stage {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.fifa-availability-block {
+  display: grid;
+  gap: 4px;
+}
+
+.fifa-availability-line {
+  display: block;
+  color: #1f2d50;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.fifa-availability-total {
+  margin-top: 4px;
 }
 
 .fifa-nested-table .checkbox-col {
