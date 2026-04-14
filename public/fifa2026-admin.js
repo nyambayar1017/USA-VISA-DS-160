@@ -28,8 +28,6 @@ const saleFilters = {
 const summaryNodes = {
   available: document.querySelector("#fifa-summary-available"),
   sold: document.querySelector("#fifa-summary-sold"),
-  collected: document.querySelector("#fifa-summary-collected"),
-  matches: document.querySelector("#fifa-summary-matches"),
 };
 
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
@@ -273,8 +271,6 @@ function updateSummary() {
   const summary = state.summary || {};
   if (summaryNodes.available) summaryNodes.available.textContent = summary.tickets?.availableUnits ?? 0;
   if (summaryNodes.sold) summaryNodes.sold.textContent = summary.tickets?.soldUnits ?? 0;
-  if (summaryNodes.collected) summaryNodes.collected.textContent = formatMoney(summary.sales?.collected ?? 0);
-  if (summaryNodes.matches) summaryNodes.matches.textContent = summary.tickets?.matches ?? 0;
 }
 
 function refreshFilterOptions() {
@@ -624,8 +620,7 @@ function renderTickets() {
   const { groups, totalGroups, totalPages } = pagedTicketGroups();
   if (ticketCountNode) ticketCountNode.textContent = `${totalGroups} matches`;
   if (ticketMetaNode) {
-    const selectedCount = state.selectedTickets.size;
-    ticketMetaNode.textContent = `Page ${state.currentTicketPage} of ${totalPages}. Click a match to open ticket rows.${selectedCount ? ` ${selectedCount} selected.` : ""}`;
+    ticketMetaNode.textContent = "";
   }
   if (!ticketList) return;
   ticketList.innerHTML = `

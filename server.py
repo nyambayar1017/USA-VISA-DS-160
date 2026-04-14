@@ -38,6 +38,7 @@ CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
 FIFA2026_FILE = DATA_DIR / "fifa2026.json"
+FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v2.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
@@ -412,6 +413,11 @@ def fifa_store_totals(store):
 
 
 def ensure_fifa2026_manual_inventory():
+    if not FIFA2026_RESET_MARKER_FILE.exists():
+        empty_store = {"tickets": [], "sales": []}
+        write_fifa2026_store(empty_store)
+        FIFA2026_RESET_MARKER_FILE.write_text("manual-reset-v2", encoding="utf-8")
+        return empty_store
     current = read_fifa2026_store()
     tickets = current.get("tickets", [])
     if tickets and all(
