@@ -149,9 +149,11 @@ function formatDateTime(value) {
 
 function formatDate(value) {
   if (!value) return "-";
+  const normalized = String(value).slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString();
+  return date.toISOString().slice(0, 10);
 }
 
 function fillSelect(node, values, placeholder, keepValue = "") {
@@ -554,7 +556,13 @@ function buildTicketGroups() {
   });
   return MATCH_CATALOG.map((match) => {
     const key = match.matchNumber;
-    const groupTickets = ticketsByMatch.get(key) || [];
+    const groupTickets = (ticketsByMatch.get(key) || []).sort((left, right) => {
+      const categoryDiff = Number(left.categoryCode || 0) - Number(right.categoryCode || 0);
+      if (categoryDiff !== 0) return categoryDiff;
+      const seatDiff = String(left.seatDetails || "").localeCompare(String(right.seatDetails || ""));
+      if (seatDiff !== 0) return seatDiff;
+      return String(left.createdAt || "").localeCompare(String(right.createdAt || ""));
+    });
     const availableUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
     const soldUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0);
     const categorySummary = ["1", "2", "3"]
@@ -642,19 +650,20 @@ function renderTickets() {
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
               <button type="button" class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}">
-                <div>
+                <div class="fifa-match-main">
                   <strong>${escapeHtml(group.label)}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(group.s)} · ${escapeHtml(group.matchNumber)} · ${escapeHtml(formatDate(group.matchDate))}</span>
+                  <span class="fifa-table-sub">${escapeHtml(group.matchNumber)} · ${escapeHtml(formatDate(group.matchDate))}</span>
+                  <span class="fifa-table-sub">${escapeHtml(group.s)}</span>
                 </div>
-                <div>
+                <div class="fifa-match-city">
                   <strong>${escapeHtml(group.c)}</strong>
                   <span class="fifa-table-sub">${escapeHtml(group.categorySummary || "No tickets yet")}</span>
                 </div>
-                <div>
+                <div class="fifa-match-stat">
                   <strong>${group.ticketCount}</strong>
                   <span class="fifa-table-sub">ticket rows</span>
                 </div>
-                <div>
+                <div class="fifa-match-stat">
                   <strong>${group.availableUnits}</strong>
                   <span class="fifa-table-sub">available</span>
                 </div>
