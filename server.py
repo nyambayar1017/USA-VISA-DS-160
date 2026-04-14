@@ -433,6 +433,9 @@ def json_response(start_response, status, payload, extra_headers=None):
     headers = [
         ("Content-Type", "application/json; charset=utf-8"),
         ("Content-Length", str(len(body))),
+        ("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"),
+        ("Pragma", "no-cache"),
+        ("Expires", "0"),
     ]
     if extra_headers:
         headers.extend(extra_headers)

@@ -203,7 +203,7 @@ function renderPublicTickets() {
 }
 
 async function fetchPublicTickets() {
-  const response = await fetch("/api/fifa2026/public");
+  const response = await fetch("/api/fifa2026/public", { cache: "no-store" });
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || "Could not load tickets");
