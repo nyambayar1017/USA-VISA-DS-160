@@ -93,6 +93,7 @@ const state = {
   summary: null,
   editingTicketId: "",
   editingSaleId: "",
+  expandedMatches: new Set(),
 };
 
 function setNodeText(node, value) {
@@ -543,6 +544,41 @@ function filteredTickets() {
     .sort((left, right) => String(left.matchDate || "").localeCompare(String(right.matchDate || "")));
 }
 
+function buildTicketGroups() {
+  const tickets = filteredTickets();
+  const ticketsByMatch = new Map();
+  tickets.forEach((ticket) => {
+    const key = ticket.matchNumber || "";
+    if (!ticketsByMatch.has(key)) ticketsByMatch.set(key, []);
+    ticketsByMatch.get(key).push(ticket);
+  });
+  return MATCH_CATALOG.map((match) => {
+    const key = match.matchNumber;
+    const groupTickets = ticketsByMatch.get(key) || [];
+    const availableUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
+    const soldUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0);
+    const categorySummary = ["1", "2", "3"]
+      .map((categoryCode) => {
+        const total = groupTickets
+          .filter((ticket) => String(ticket.categoryCode || "") === categoryCode)
+          .reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
+        return total ? `CAT ${categoryCode}: ${total}` : "";
+      })
+      .filter(Boolean)
+      .join(" · ");
+    return {
+      ...match,
+      key,
+      label: `${match.teamA} vs ${match.teamB}`,
+      tickets: groupTickets,
+      ticketCount: groupTickets.length,
+      availableUnits,
+      soldUnits,
+      categorySummary,
+    };
+  });
+}
+
 function filteredSales() {
   const query = saleFilters.search.value.trim().toLowerCase();
   return [...state.sales]
@@ -568,75 +604,101 @@ function filteredSales() {
 }
 
 function renderTickets() {
-  const tickets = filteredTickets();
-  if (ticketCountNode) ticketCountNode.textContent = `${tickets.length} ticket lots`;
+  const groups = buildTicketGroups();
+  if (ticketCountNode) ticketCountNode.textContent = `${groups.length} matches`;
   if (ticketMetaNode) {
-    const matchCount = new Set(tickets.map((ticket) => ticket.matchNumber)).size;
-    ticketMetaNode.textContent = `${matchCount} matches in current view. Seat numbers come directly from the Excel import.`;
-  }
-  if (!tickets.length) {
-    if (ticketList) ticketList.innerHTML = '<p class="empty">No ticket lots match these filters yet.</p>';
-    return;
+    ticketMetaNode.textContent = "38 matches in inventory view. Click a match to open all ticket rows.";
   }
   if (!ticketList) return;
   ticketList.innerHTML = `
-    <table class="manager-table fifa-table">
-      <thead>
-        <tr>
-          <th>Match</th>
-          <th>Date</th>
-          <th>City</th>
-          <th>Category</th>
-          <th>Seat / Ticket Number</th>
-          <th>Price</th>
-          <th>Qty</th>
-          <th>Visibility</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tickets
-          .map(
-            (ticket) => `
-              <tr>
-                <td>
-                  <strong>${escapeHtml(ticket.matchLabel)}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(ticket.stage)} · ${escapeHtml(ticket.matchNumber || "-")}</span>
-                </td>
-                <td>${escapeHtml(formatDate(ticket.matchDate))}</td>
-                <td>
-                  <strong>${escapeHtml(ticket.city)}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(ticket.venue || "-")}</span>
-                </td>
-                <td>
-                  <strong>CAT ${escapeHtml(ticket.categoryCode)}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(ticket.categoryName || "-")}</span>
-                </td>
-                <td>
-                  <strong>${escapeHtml(ticket.seatDetails || "-")}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(ticket.seatSection || "")}</span>
-                </td>
-                <td>${escapeHtml(formatMoney(ticket.price, ticket.currency))}</td>
-                <td>
-                  <strong>${ticket.availableQuantity}/${ticket.totalQuantity}</strong>
-                  <span class="fifa-table-sub">sold ${ticket.soldQuantity}</span>
-                </td>
-                <td>
-                  <span class="fifa-pill ${ticket.visibility === "public" ? "is-public" : "is-private"}">${escapeHtml(ticket.visibility)}</span>
-                  ${ticket.seatAssignedLater ? '<span class="fifa-pill">assigned later</span>' : ""}
-                </td>
-                <td class="fifa-actions-cell">
-                  <button type="button" data-action="sell" data-id="${escapeHtml(ticket.id)}">Sell</button>
-                  <button type="button" class="button-secondary" data-action="edit-ticket" data-id="${escapeHtml(ticket.id)}">Edit</button>
-                  <button type="button" class="button-secondary" data-action="toggle-visibility" data-id="${escapeHtml(ticket.id)}">${ticket.visibility === "public" ? "Make private" : "Make public"}</button>
-                  <button type="button" class="button-secondary" data-action="delete-ticket" data-id="${escapeHtml(ticket.id)}">Delete</button>
-                </td>
-              </tr>
-            `
-          )
-          .join("")}
-      </tbody>
-    </table>
+    <div class="fifa-match-accordion">
+      ${groups
+        .map((group) => {
+          const isExpanded = state.expandedMatches.has(group.key);
+          return `
+            <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
+              <button type="button" class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}">
+                <div>
+                  <strong>${escapeHtml(group.label)}</strong>
+                  <span class="fifa-table-sub">${escapeHtml(group.s)} · ${escapeHtml(group.matchNumber)} · ${escapeHtml(formatDate(group.matchDate))}</span>
+                </div>
+                <div>
+                  <strong>${escapeHtml(group.c)}</strong>
+                  <span class="fifa-table-sub">${escapeHtml(group.categorySummary || "No tickets yet")}</span>
+                </div>
+                <div>
+                  <strong>${group.ticketCount}</strong>
+                  <span class="fifa-table-sub">ticket rows</span>
+                </div>
+                <div>
+                  <strong>${group.availableUnits}</strong>
+                  <span class="fifa-table-sub">available</span>
+                </div>
+              </button>
+              ${
+                isExpanded
+                  ? `
+                    <div class="fifa-match-details">
+                      ${
+                        group.tickets.length
+                          ? `
+                            <table class="manager-table fifa-table fifa-nested-table">
+                              <thead>
+                                <tr>
+                                  <th>Category</th>
+                                  <th>Seat / Ticket Number</th>
+                                  <th>Price</th>
+                                  <th>Qty</th>
+                                  <th>Visibility</th>
+                                  <th>Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${group.tickets
+                                  .map(
+                                    (ticket) => `
+                                      <tr>
+                                        <td>
+                                          <strong>CAT ${escapeHtml(ticket.categoryCode)}</strong>
+                                          <span class="fifa-table-sub">${escapeHtml(ticket.categoryName || "-")}</span>
+                                        </td>
+                                        <td>
+                                          <strong>${escapeHtml(ticket.seatDetails || "-")}</strong>
+                                          <span class="fifa-table-sub">${escapeHtml(ticket.seatSection || "")}</span>
+                                        </td>
+                                        <td>${escapeHtml(formatMoney(ticket.price, ticket.currency))}</td>
+                                        <td>
+                                          <strong>${ticket.availableQuantity}/${ticket.totalQuantity}</strong>
+                                          <span class="fifa-table-sub">sold ${ticket.soldQuantity}</span>
+                                        </td>
+                                        <td>
+                                          <span class="fifa-pill ${ticket.visibility === "public" ? "is-public" : "is-private"}">${escapeHtml(ticket.visibility)}</span>
+                                          ${ticket.seatAssignedLater ? '<span class="fifa-pill">assigned later</span>' : ""}
+                                        </td>
+                                        <td class="fifa-actions-cell">
+                                          <button type="button" data-action="sell" data-id="${escapeHtml(ticket.id)}">Sell</button>
+                                          <button type="button" class="button-secondary" data-action="edit-ticket" data-id="${escapeHtml(ticket.id)}">Edit</button>
+                                          <button type="button" class="button-secondary" data-action="toggle-visibility" data-id="${escapeHtml(ticket.id)}">${ticket.visibility === "public" ? "Make private" : "Make public"}</button>
+                                          <button type="button" class="button-secondary" data-action="delete-ticket" data-id="${escapeHtml(ticket.id)}">Delete</button>
+                                        </td>
+                                      </tr>
+                                    `
+                                  )
+                                  .join("")}
+                              </tbody>
+                            </table>
+                          `
+                          : '<p class="empty">No ticket rows for this match yet.</p>'
+                      }
+                    </div>
+                  `
+                  : ""
+              }
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
   `;
 }
 
@@ -872,6 +934,16 @@ Object.values(saleFilters).forEach((node) => {
 ticketList?.addEventListener("click", async (event) => {
   const target = event.target.closest("button[data-action]");
   if (!target) return;
+  if (target.dataset.action === "toggle-match") {
+    const matchKey = target.dataset.matchKey || "";
+    if (state.expandedMatches.has(matchKey)) {
+      state.expandedMatches.delete(matchKey);
+    } else {
+      state.expandedMatches.add(matchKey);
+    }
+    renderTickets();
+    return;
+  }
   const ticketId = target.dataset.id;
   const ticket = state.tickets.find((item) => item.id === ticketId);
   if (!ticket) return;

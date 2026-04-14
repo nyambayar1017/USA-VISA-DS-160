@@ -2716,6 +2716,43 @@ body.modal-open {
   color: var(--brand);
 }
 
+.fifa-match-accordion {
+  display: grid;
+  gap: 14px;
+}
+
+.fifa-match-card {
+  border: 1px solid rgba(32, 53, 111, 0.1);
+  border-radius: 22px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.fifa-match-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) minmax(180px, 1.2fr) 120px 120px;
+  gap: 14px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fifa-match-toggle:hover {
+  background: rgba(37, 58, 119, 0.04);
+}
+
+.fifa-match-details {
+  padding: 0 18px 18px;
+}
+
+.fifa-nested-table {
+  margin-top: 4px;
+}
+
 .manager-table.fifa-table td,
 .manager-table.fifa-table th {
   vertical-align: top;
