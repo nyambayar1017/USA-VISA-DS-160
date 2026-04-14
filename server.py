@@ -472,6 +472,9 @@ def file_response(start_response, file_path, extra_headers=None):
     headers = [
         ("Content-Type", mime_type or "application/octet-stream"),
         ("Content-Length", str(len(body))),
+        ("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"),
+        ("Pragma", "no-cache"),
+        ("Expires", "0"),
     ]
     if extra_headers:
         headers.extend(extra_headers)
