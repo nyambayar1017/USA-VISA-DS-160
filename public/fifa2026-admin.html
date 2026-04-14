@@ -331,15 +331,47 @@
           <form id="fifa-sale-form" class="manager-form-grid fifa-form-grid fifa-sale-form-panel" data-open="false">
             <input type="hidden" name="id" />
             <input type="hidden" name="ticketIds" />
+            <input type="hidden" name="ticketBundles" />
+            <input type="hidden" name="buyerPassengers" />
+            <input type="hidden" name="passportImageData" />
             <label class="full-span">
-              Ticket lot
-              <select name="ticketId" id="fifa-sale-ticket" required>
-                <option value="">Choose ticket lot</option>
-              </select>
+              Buyer title
+              <input name="buyerTitle" placeholder="Jack 7 Pax / 9 Tickets" required />
             </label>
-            <div class="full-span fifa-sale-ticket-picker">
-              <button id="fifa-add-sale-ticket" type="button" class="button-secondary">Add selected ticket</button>
+            <section class="full-span fifa-category-editor fifa-bundle-editor">
+              <div class="fifa-category-head">
+                <h3>Ticket Selection</h3>
+                <p>Choose a match, then a category, then how many tickets you want from that match. Add another block if this buyer needs another match too.</p>
+              </div>
+              <div class="manager-form-grid fifa-form-grid">
+                <label>
+                  Match
+                  <select id="fifa-sale-match">
+                    <option value="">Choose match</option>
+                  </select>
+                </label>
+                <label>
+                  Category
+                  <select id="fifa-sale-category">
+                    <option value="">Choose category</option>
+                    <option value="1">CAT 1</option>
+                    <option value="2">CAT 2</option>
+                    <option value="3">CAT 3</option>
+                  </select>
+                </label>
+                <label>
+                  Ticket quantity
+                  <input id="fifa-sale-ticket-quantity" type="number" min="1" step="1" value="1" />
+                </label>
+                <label>
+                  Add this block
+                  <button id="fifa-add-sale-ticket" type="button" class="button-secondary">Add Ticket Block</button>
+                </label>
+              </div>
               <div id="fifa-selected-sale-tickets" class="fifa-selected-ticket-list"></div>
+            </section>
+            <div class="full-span fifa-sale-ticket-picker">
+              <p class="fifa-seat-help">Chosen tickets are removed from general availability after you save this buyer.</p>
             </div>
             <label>
               Quantity
@@ -386,7 +418,7 @@
               <input name="soldAt" type="datetime-local" />
             </label>
             <label>
-              Buyer name
+              Buyer main contact
               <input name="buyerName" required />
             </label>
             <label>
@@ -409,12 +441,57 @@
               Buyer notes
               <textarea name="buyerNotes" rows="2" placeholder="Special requests, invoice notes, delivery notes"></textarea>
             </label>
+            <section class="full-span fifa-category-editor fifa-pass-editor">
+              <div class="fifa-category-head">
+                <h3>FIFA Pass And Ticket Transfer</h3>
+                <p>Track the name registered on fifa.com, transfer status, and extra passport details for the buyer file.</p>
+              </div>
+              <div class="manager-form-grid fifa-form-grid">
+                <label>
+                  FIFA Pass status
+                  <select name="fifaPassStatus">
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="not-needed">Not needed</option>
+                  </select>
+                </label>
+                <label>
+                  Name on fifa.com
+                  <input name="fifaPassRegisteredName" placeholder="Registered full name" />
+                </label>
+                <label>
+                  FIFA Pass email
+                  <input name="fifaPassEmail" type="email" placeholder="fifa account email" />
+                </label>
+                <label>
+                  FIFA Pass passport number
+                  <input name="fifaPassPassportNumber" placeholder="Passport number used in fifa.com" />
+                </label>
+                <label>
+                  Ticket transfer status
+                  <select name="ticketTransferStatus">
+                    <option value="pending">Pending</option>
+                    <option value="sent">Sent</option>
+                    <option value="completed">Completed</option>
+                    <option value="not-needed">Not needed</option>
+                  </select>
+                </label>
+                <label>
+                  Ticket transfer note
+                  <input name="ticketTransferNote" placeholder="Transfer remark" />
+                </label>
+              </div>
+            </section>
             <section class="full-span fifa-category-editor fifa-passenger-editor">
               <div class="fifa-category-head">
                 <h3>Passenger List</h3>
-                <p>Add every passenger for this buyer. For now one sale stays under one buyer, even if they take several tickets.</p>
+                <p>Add every passenger under this buyer file. If you upload a passport image, we can store it now, but auto-scan is not included yet.</p>
               </div>
-              <input type="hidden" name="buyerPassengers" />
+              <label class="full-span">
+                Passport image
+                <input id="fifa-passport-image" type="file" accept="image/*" />
+              </label>
+              <div id="fifa-passport-image-preview" class="fifa-passport-preview"></div>
               <div id="fifa-passenger-rows" class="fifa-ticket-rows"></div>
             </section>
             <div class="actions full-span">
