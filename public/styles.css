@@ -2149,7 +2149,7 @@ body.modal-open {
 
 .trip-table th:nth-child(1),
 .trip-table td:nth-child(1) {
-  width: 36px;
+  width: 24px;
 }
 
 .trip-table th:nth-child(2),
@@ -2208,7 +2208,7 @@ body.modal-open {
 
 .trip-table th:nth-child(12),
 .trip-table td:nth-child(12) {
-  width: 150px;
+  width: 132px;
 }
 
 .trip-table th:nth-child(13),
@@ -2220,6 +2220,11 @@ body.modal-open {
 .trip-table th:nth-child(14),
 .trip-table td:nth-child(14) {
   width: 360px;
+}
+
+.trip-created-cell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .trip-table .status-pill.is-planning {

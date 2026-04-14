@@ -696,7 +696,7 @@ function renderTrips() {
                   <td>${escapeHtml(trip.cookName || "-")}</td>
                   <td>${escapeHtml(trip.language)}</td>
                   <td><span class="status-pill is-${normalizeStatus(trip.status)}">${formatStatusLabel(trip.status)}</span></td>
-                  <td>${formatDate(trip.createdAt, true)}</td>
+                  <td class="trip-created-cell">${formatDate(trip.createdAt, true)}</td>
                   <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
                   <td>
                     <div class="trip-row-actions trip-row-actions-grid">
