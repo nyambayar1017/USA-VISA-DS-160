@@ -660,6 +660,22 @@ function renderTrips() {
   tripList.innerHTML = `
     <div class="camp-table-wrap">
       <table class="camp-table trip-table">
+        <colgroup>
+          <col style="width: 40px" />
+          <col style="width: 210px" />
+          <col style="width: 118px" />
+          <col style="width: 96px" />
+          <col style="width: 52px" />
+          <col style="width: 52px" />
+          <col style="width: 92px" />
+          <col style="width: 44px" />
+          <col style="width: 44px" />
+          <col style="width: 92px" />
+          <col style="width: 96px" />
+          <col style="width: 128px" />
+          <col style="width: 120px" />
+          <col style="width: 280px" />
+        </colgroup>
         <thead>
           <tr>
             <th>#</th>
