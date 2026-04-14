@@ -2637,6 +2637,14 @@ body.modal-open {
   display: grid;
 }
 
+.fifa-sale-form-panel[data-open="false"] {
+  display: none;
+}
+
+.fifa-sale-form-panel[data-open="true"] {
+  display: grid;
+}
+
 .fifa-category-editor {
   display: grid;
   gap: 16px;
@@ -2675,6 +2683,16 @@ body.modal-open {
 .fifa-ticket-row {
   display: grid;
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.fifa-passenger-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid rgba(32, 53, 111, 0.12);
@@ -3001,6 +3019,11 @@ body.modal-open {
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.5;
+}
+
+.fifa-buyer-table-head,
+.fifa-buyer-row {
+  grid-template-columns: minmax(220px, 1.3fr) minmax(240px, 1.5fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.1fr);
 }
 
 .fifa-public-table {

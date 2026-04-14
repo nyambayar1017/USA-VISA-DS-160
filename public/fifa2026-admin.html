@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-13" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-14" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -323,9 +323,12 @@
               <h2>Buyer Registry And Sales</h2>
               <p class="workspace-subtitle manager-panel-copy">Every sale records the buyer, quantity, price, payment progress, and which manager handled the sale.</p>
             </div>
+            <div class="dashboard-actions">
+              <button id="fifa-show-sale-form" type="button">Add Buyer</button>
+            </div>
           </div>
 
-          <form id="fifa-sale-form" class="manager-form-grid fifa-form-grid">
+          <form id="fifa-sale-form" class="manager-form-grid fifa-form-grid fifa-sale-form-panel" data-open="false">
             <input type="hidden" name="id" />
             <label class="full-span">
               Ticket lot
@@ -360,7 +363,11 @@
             </label>
             <label>
               Payment method
-              <input name="paymentMethod" placeholder="Cash / Transfer / Card" />
+              <select name="paymentMethod">
+                <option value="bank transfer">Bank transfer</option>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+              </select>
             </label>
             <label>
               Sale status
@@ -397,13 +404,22 @@
               Buyer notes
               <textarea name="buyerNotes" rows="2" placeholder="Special requests, invoice notes, delivery notes"></textarea>
             </label>
+            <section class="full-span fifa-category-editor fifa-passenger-editor">
+              <div class="fifa-category-head">
+                <h3>Passenger List</h3>
+                <p>Add every passenger for this buyer. For now one sale stays under one buyer, even if they take several tickets.</p>
+              </div>
+              <input type="hidden" name="buyerPassengers" />
+              <div id="fifa-passenger-rows" class="fifa-ticket-rows"></div>
+            </section>
             <div class="actions full-span">
               <button id="fifa-sale-submit" type="submit">Register sale</button>
-              <button id="fifa-sale-cancel" type="button" class="button-secondary">Cancel</button>
+              <button id="fifa-sale-cancel" type="button" class="button-secondary">Hide</button>
               <p id="fifa-sale-status" class="status"></p>
             </div>
           </form>
 
+          <div id="fifa-sale-registry-view">
           <div class="camp-filters fifa-filters">
             <label>
               Search
@@ -450,11 +466,12 @@
           </div>
 
           <div id="fifa-sale-list" class="manager-table-wrap"></div>
+          </div>
         </section>
       </main>
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-13"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-14"></script>
   </body>
 </html>
