@@ -94,7 +94,11 @@ const state = {
   editingTicketId: "",
   editingSaleId: "",
   expandedMatches: new Set(),
+  selectedTickets: new Set(),
+  currentTicketPage: 1,
 };
+
+const MATCHES_PER_PAGE = 10;
 
 function setNodeText(node, value) {
   if (!node) return;
@@ -579,6 +583,19 @@ function buildTicketGroups() {
   });
 }
 
+function pagedTicketGroups() {
+  const groups = buildTicketGroups();
+  const totalPages = Math.max(Math.ceil(groups.length / MATCHES_PER_PAGE), 1);
+  if (state.currentTicketPage > totalPages) state.currentTicketPage = totalPages;
+  if (state.currentTicketPage < 1) state.currentTicketPage = 1;
+  const start = (state.currentTicketPage - 1) * MATCHES_PER_PAGE;
+  return {
+    groups: groups.slice(start, start + MATCHES_PER_PAGE),
+    totalGroups: groups.length,
+    totalPages,
+  };
+}
+
 function filteredSales() {
   const query = saleFilters.search.value.trim().toLowerCase();
   return [...state.sales]
@@ -604,13 +621,25 @@ function filteredSales() {
 }
 
 function renderTickets() {
-  const groups = buildTicketGroups();
-  if (ticketCountNode) ticketCountNode.textContent = `${groups.length} matches`;
+  const { groups, totalGroups, totalPages } = pagedTicketGroups();
+  if (ticketCountNode) ticketCountNode.textContent = `${totalGroups} matches`;
   if (ticketMetaNode) {
-    ticketMetaNode.textContent = "38 matches in inventory view. Click a match to open all ticket rows.";
+    const selectedCount = state.selectedTickets.size;
+    ticketMetaNode.textContent = `Page ${state.currentTicketPage} of ${totalPages}. Click a match to open ticket rows.${selectedCount ? ` ${selectedCount} selected.` : ""}`;
   }
   if (!ticketList) return;
   ticketList.innerHTML = `
+    <div class="fifa-list-toolbar">
+      <div class="fifa-pagination">
+        <button type="button" class="button-secondary" data-action="ticket-page-prev" ${state.currentTicketPage <= 1 ? "disabled" : ""}>Prev</button>
+        <span>Page ${state.currentTicketPage} / ${totalPages}</span>
+        <button type="button" class="button-secondary" data-action="ticket-page-next" ${state.currentTicketPage >= totalPages ? "disabled" : ""}>Next</button>
+      </div>
+      <div class="fifa-bulk-actions">
+        <button type="button" class="button-secondary" data-action="clear-ticket-selection" ${state.selectedTickets.size ? "" : "disabled"}>Clear</button>
+        <button type="button" class="button-secondary" data-action="delete-selected-tickets" ${state.selectedTickets.size ? "" : "disabled"}>Delete Selected</button>
+      </div>
+    </div>
     <div class="fifa-match-accordion">
       ${groups
         .map((group) => {
@@ -645,6 +674,7 @@ function renderTickets() {
                             <table class="manager-table fifa-table fifa-nested-table">
                               <thead>
                                 <tr>
+                                  <th class="checkbox-col">Mark</th>
                                   <th>Category</th>
                                   <th>Seat / Ticket Number</th>
                                   <th>Price</th>
@@ -658,6 +688,9 @@ function renderTickets() {
                                   .map(
                                     (ticket) => `
                                       <tr>
+                                        <td class="checkbox-col">
+                                          <input type="checkbox" data-action="select-ticket" data-id="${escapeHtml(ticket.id)}" ${state.selectedTickets.has(ticket.id) ? "checked" : ""} />
+                                        </td>
                                         <td>
                                           <strong>CAT ${escapeHtml(ticket.categoryCode)}</strong>
                                           <span class="fifa-table-sub">${escapeHtml(ticket.categoryName || "-")}</span>
@@ -923,8 +956,14 @@ saleTicketSelect?.addEventListener("change", () => {
 });
 
 Object.values(ticketFilters).forEach((node) => {
-  node?.addEventListener("input", renderTickets);
-  node?.addEventListener("change", renderTickets);
+  node?.addEventListener("input", () => {
+    state.currentTicketPage = 1;
+    renderTickets();
+  });
+  node?.addEventListener("change", () => {
+    state.currentTicketPage = 1;
+    renderTickets();
+  });
 });
 Object.values(saleFilters).forEach((node) => {
   node?.addEventListener("input", renderSales);
@@ -933,8 +972,7 @@ Object.values(saleFilters).forEach((node) => {
 
 ticketList?.addEventListener("click", async (event) => {
   const target = event.target.closest("button[data-action]");
-  if (!target) return;
-  if (target.dataset.action === "toggle-match") {
+  if (target?.dataset.action === "toggle-match") {
     const matchKey = target.dataset.matchKey || "";
     if (state.expandedMatches.has(matchKey)) {
       state.expandedMatches.delete(matchKey);
@@ -942,6 +980,44 @@ ticketList?.addEventListener("click", async (event) => {
       state.expandedMatches.add(matchKey);
     }
     renderTickets();
+    return;
+  }
+  if (target?.dataset.action === "ticket-page-prev") {
+    state.currentTicketPage = Math.max(state.currentTicketPage - 1, 1);
+    renderTickets();
+    return;
+  }
+  if (target?.dataset.action === "ticket-page-next") {
+    state.currentTicketPage += 1;
+    renderTickets();
+    return;
+  }
+  if (target?.dataset.action === "clear-ticket-selection") {
+    state.selectedTickets.clear();
+    renderTickets();
+    return;
+  }
+  if (target?.dataset.action === "delete-selected-tickets") {
+    if (!state.selectedTickets.size) return;
+    if (!window.confirm(`Delete ${state.selectedTickets.size} selected ticket row(s)?`)) return;
+    try {
+      await Promise.all(
+        [...state.selectedTickets].map((ticketId) => fetchJson(`/api/fifa2026/tickets/${ticketId}`, { method: "DELETE" }))
+      );
+      state.selectedTickets.clear();
+      await loadDashboard();
+    } catch (error) {
+      setStatus(ticketStatusNode, error.message, true);
+    }
+    return;
+  }
+  if (!target) {
+    const checkbox = event.target.closest('input[type="checkbox"][data-action="select-ticket"]');
+    if (checkbox) {
+      if (checkbox.checked) state.selectedTickets.add(checkbox.dataset.id);
+      else state.selectedTickets.delete(checkbox.dataset.id);
+      renderTickets();
+    }
     return;
   }
   const ticketId = target.dataset.id;

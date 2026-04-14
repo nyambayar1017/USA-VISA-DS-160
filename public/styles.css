@@ -2716,6 +2716,26 @@ body.modal-open {
   color: var(--brand);
 }
 
+.fifa-list-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fifa-pagination,
+.fifa-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fifa-pagination span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .fifa-match-accordion {
   display: grid;
   gap: 14px;
@@ -2751,6 +2771,10 @@ body.modal-open {
 
 .fifa-nested-table {
   margin-top: 4px;
+}
+
+.fifa-nested-table .checkbox-col {
+  width: 44px;
 }
 
 .manager-table.fifa-table td,
