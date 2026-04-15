@@ -4907,12 +4907,11 @@ def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
     return None
 
 
-def handle_get_fifa2026_dashboard(environ, start_response):
+def handle_get_fifa2026_dashboard(start_response):
     store = read_fifa2026_store()
     sales = store.get("sales", [])
     tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
-    user = current_user(environ)
-    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales] if user else []
+    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales]
     return json_response(
         start_response,
         "200 OK",
@@ -6240,7 +6239,9 @@ def app(environ, start_response):
 
     if path == "/api/fifa2026":
         if method == "GET":
-            return handle_get_fifa2026_dashboard(environ, start_response)
+            if not require_login(environ, start_response):
+                return []
+            return handle_get_fifa2026_dashboard(start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/fifa2026/public":
