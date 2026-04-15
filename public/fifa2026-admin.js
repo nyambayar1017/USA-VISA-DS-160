@@ -92,7 +92,9 @@ const MATCH_CATALOG = [
 
 const CITY_TO_VENUE = Object.fromEntries(MATCH_CATALOG.map((item) => [item.city, item.venue]));
 const MATCH_LOOKUP = Object.fromEntries(MATCH_CATALOG.map((item) => [item.matchNumber, item]));
-const TEAM_CODES = [...new Set(MATCH_CATALOG.flatMap((item) => [item.teamA, item.teamB]))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+const EXTRA_TEAM_CODES = ["COD"];
+const TEAM_CODES = [...new Set([...MATCH_CATALOG.flatMap((item) => [item.teamA, item.teamB]), ...EXTRA_TEAM_CODES])]
+  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
 const state = {
   tickets: [],
@@ -190,6 +192,7 @@ const TEAM_FLAG_MAP = {
   BEL: "🇧🇪",
   BRA: "🇧🇷",
   CAN: "🇨🇦",
+  COD: "🇨🇩",
   CRO: "🇭🇷",
   CUR: "🇨🇼",
   EGY: "🇪🇬",
@@ -215,11 +218,23 @@ const TEAM_FLAG_MAP = {
   UZB: "🇺🇿",
 };
 
+const TEAM_NAME_MAP = {
+  COD: "DR Congo",
+};
+
 function teamDisplay(code) {
   const teamCode = String(code || "").trim().toUpperCase();
   if (!teamCode) return "";
   const flag = TEAM_FLAG_MAP[teamCode];
   return flag ? `${flag} ${teamCode}` : teamCode;
+}
+
+function teamOptionLabel(code) {
+  const teamCode = String(code || "").trim().toUpperCase();
+  if (!teamCode) return "";
+  const base = teamDisplay(teamCode);
+  const teamName = TEAM_NAME_MAP[teamCode];
+  return teamName ? `${base} - ${teamName}` : base;
 }
 
 function fillSelect(node, values, placeholder, keepValue = "") {
@@ -349,8 +364,18 @@ function populateInventoryFormOptions() {
     "Choose match",
     ticketForm.elements.matchNumber.value
   );
-  fillSelect(ticketForm.elements.teamA, TEAM_CODES, "Choose team", ticketForm.elements.teamA.value);
-  fillSelect(ticketForm.elements.teamB, TEAM_CODES, "Choose team", ticketForm.elements.teamB.value);
+  fillSelectFromOptions(
+    ticketForm.elements.teamA,
+    TEAM_CODES.map((code) => ({ value: code, label: teamOptionLabel(code) })),
+    "Choose team",
+    ticketForm.elements.teamA.value
+  );
+  fillSelectFromOptions(
+    ticketForm.elements.teamB,
+    TEAM_CODES.map((code) => ({ value: code, label: teamOptionLabel(code) })),
+    "Choose team",
+    ticketForm.elements.teamB.value
+  );
   fillSelect(
     ticketForm.elements.city,
     [...new Set(MATCH_CATALOG.map((item) => item.city))],
@@ -683,6 +708,7 @@ function applyMatchSelection(matchNumber) {
   const match = MATCH_LOOKUP[matchNumber];
   if (!match) return;
   ticketForm.elements.stage.value = match.stage;
+  if (ticketForm.elements.groupLabel) ticketForm.elements.groupLabel.value = match.groupLabel || "";
   ticketForm.elements.matchNumber.value = match.matchNumber;
   ticketForm.elements.matchDate.value = match.matchDate;
   ticketForm.elements.teamA.value = match.teamA;
@@ -724,6 +750,7 @@ function commonTicketPayload() {
   const teamB = ticketForm.elements.teamB.value;
   return {
     stage: ticketForm.elements.stage.value,
+    groupLabel: ticketForm.elements.groupLabel?.value || "",
     matchNumber: ticketForm.elements.matchNumber.value,
     matchLabel: buildMatchLabel(teamA, teamB),
     matchDate: ticketForm.elements.matchDate.value,
@@ -756,6 +783,7 @@ function fillTicketForm(ticket) {
   const lead = matchTickets[0] || ticket;
   ticketForm.elements.id.value = ticket.id;
   ticketForm.elements.stage.value = normalizeStageValue(lead.stage);
+  if (ticketForm.elements.groupLabel) ticketForm.elements.groupLabel.value = lead.groupLabel || "";
   ticketForm.elements.matchNumber.value = lead.matchNumber || "";
   ticketForm.elements.matchDate.value = lead.matchDate || "";
   ticketForm.elements.teamA.value = lead.teamA || "";
@@ -978,6 +1006,7 @@ function groupTicketsByMatch(tickets) {
         matchNumber: ticket.matchNumber || "",
         matchDate: ticket.matchDate || "",
         stage: ticket.stage || "",
+        groupLabel: ticket.groupLabel || "",
         city: ticket.city || "",
         venue: ticket.venue || "",
         teamA: ticket.teamA || "",
@@ -1128,6 +1157,7 @@ function renderTickets() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--stage">
                   <strong>${escapeHtml(group.stage)}</strong>
+                  ${group.groupLabel ? `<span class="fifa-table-sub">${escapeHtml(group.groupLabel)}</span>` : ""}
                 </div>
                 <div class="fifa-match-col fifa-match-col--actions">
                   <div class="fifa-match-stage-actions">

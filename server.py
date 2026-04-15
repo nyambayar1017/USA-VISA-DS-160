@@ -4765,6 +4765,7 @@ def build_fifa_ticket(payload):
     return {
         "id": str(uuid4()),
         "stage": normalize_text(payload.get("stage")),
+        "groupLabel": normalize_text(payload.get("groupLabel")),
         "matchNumber": normalize_text(payload.get("matchNumber")),
         "matchLabel": normalize_text(payload.get("matchLabel")),
         "matchDate": normalize_text(payload.get("matchDate")),
