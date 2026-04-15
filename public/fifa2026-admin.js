@@ -1021,30 +1021,9 @@ function renderSales() {
 
 async function loadDashboard() {
   const data = await fetchJson("/api/fifa2026");
-  let tickets = data.tickets || [];
-  let summary = data.summary || null;
-  if (!tickets.length) {
-    try {
-      const publicData = await fetchJson("/api/fifa2026/public");
-      if ((publicData.tickets || []).length) {
-        tickets = publicData.tickets || [];
-        summary = {
-          ...(summary || {}),
-          tickets: {
-            ...(summary?.tickets || {}),
-            availableUnits: tickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0),
-            soldUnits: tickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0),
-          },
-        };
-        setStatus(ticketStatusNode, "Showing live FIFA tickets from the shared public store.");
-      }
-    } catch {
-      // Keep the admin response as the source of truth when the public fallback is unavailable.
-    }
-  }
-  state.tickets = tickets;
+  state.tickets = data.tickets || [];
   state.sales = data.sales || [];
-  state.summary = summary;
+  state.summary = data.summary || null;
   updateSummary();
   populateInventoryFormOptions();
   refreshFilterOptions();
