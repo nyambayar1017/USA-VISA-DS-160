@@ -42,6 +42,7 @@ const saleParticipantList = document.querySelector("#fifa-sale-participant-list"
 const saleMatchSelect = document.querySelector("#fifa-sale-match-select");
 const saleCategorySelect = document.querySelector("#fifa-sale-category-select");
 const saleBlockQuantityInput = document.querySelector("#fifa-sale-block-quantity");
+const saleSeatPicker = document.querySelector("#fifa-sale-seat-picker");
 const ticketRowContainers = {
   "1": document.querySelector('[data-ticket-rows="1"]'),
   "2": document.querySelector('[data-ticket-rows="2"]'),
@@ -103,6 +104,7 @@ const state = {
   selectedTickets: new Set(),
   saleBlocks: [],
   participants: [],
+  pendingSaleSeatIds: [],
 };
 
 function setNodeText(node, value) {
@@ -169,6 +171,14 @@ function fillSelect(node, values, placeholder, keepValue = "") {
     .concat(values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`))
     .join("");
   if (keepValue && values.includes(keepValue)) node.value = keepValue;
+}
+
+function fillSelectFromOptions(node, options, placeholder, keepValue = "") {
+  if (!node) return;
+  node.innerHTML = [`<option value="">${placeholder}</option>`]
+    .concat(options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`))
+    .join("");
+  if (keepValue && options.some((option) => option.value === keepValue)) node.value = keepValue;
 }
 
 function parseSeatLines(rawValue) {
@@ -312,9 +322,12 @@ function refreshSaleTicketOptions() {
   const matches = groupTicketsByMatch(
     state.tickets.filter((ticket) => ticket.status === "active" && ticket.availableQuantity > 0)
   );
-  fillSelect(
+  fillSelectFromOptions(
     saleMatchSelect,
-    matches.map((group) => group.matchNumber),
+    matches.map((group) => ({
+      value: group.matchNumber,
+      label: `${group.matchNumber}: ${buildMatchLabel(group.teamA, group.teamB)}`,
+    })),
     "Choose match",
     saleMatchSelect.value
   );
@@ -331,6 +344,7 @@ function refreshSaleCategoryOptions(selectedCategory = "") {
       .filter(Boolean)
   )].sort((a, b) => Number(a) - Number(b));
   fillSelect(saleCategorySelect, categories.map((code) => `CAT ${code}`), "Choose category", selectedCategory ? `CAT ${selectedCategory}` : saleCategorySelect.value);
+  renderSaleSeatPicker();
 }
 
 function saleBlockAvailableTickets(matchNumber, categoryCode, excludedIds = []) {
@@ -348,6 +362,43 @@ function saleBlockAvailableTickets(matchNumber, categoryCode, excludedIds = []) 
 
 function selectedSaleTicketIds() {
   return state.saleBlocks.flatMap((block) => block.ticketIds || []);
+}
+
+function ticketSummaryLabel(ticket) {
+  return `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)} · CAT ${ticket.categoryCode} · ${ticket.seatDetails || "Seat will be assigned later"}`;
+}
+
+function renderSaleSeatPicker() {
+  if (!saleSeatPicker || !saleMatchSelect || !saleCategorySelect || !saleBlockQuantityInput) return;
+  const matchNumber = saleMatchSelect.value;
+  const categoryCode = saleCategorySelect.value.replace(/^CAT\s+/i, "").trim();
+  if (!matchNumber || !categoryCode) {
+    saleSeatPicker.innerHTML = '<p class="fifa-seat-help">Choose a match and category first. Then the available seats will appear here.</p>';
+    state.pendingSaleSeatIds = [];
+    saleBlockQuantityInput.value = "0";
+    return;
+  }
+  const availableTickets = saleBlockAvailableTickets(matchNumber, categoryCode, selectedSaleTicketIds());
+  state.pendingSaleSeatIds = state.pendingSaleSeatIds.filter((id) => availableTickets.some((ticket) => ticket.id === id));
+  if (!availableTickets.length) {
+    saleSeatPicker.innerHTML = '<p class="fifa-seat-help">No available seats for this match and category.</p>';
+    state.pendingSaleSeatIds = [];
+    saleBlockQuantityInput.value = "0";
+    return;
+  }
+  saleSeatPicker.innerHTML = availableTickets
+    .map((ticket, index) => `
+      <label class="fifa-sale-seat-option">
+        <input type="checkbox" data-sale-seat-option value="${escapeHtml(ticket.id)}" ${state.pendingSaleSeatIds.includes(ticket.id) ? "checked" : ""} />
+        <div>
+          <strong>Ticket ${index + 1}: ${escapeHtml(ticket.seatDetails || "Seat will be assigned later")}</strong>
+          <span class="fifa-table-sub">${escapeHtml(ticket.matchNumber)}: ${escapeHtml(buildMatchLabel(ticket.teamA, ticket.teamB))}</span>
+          <span class="fifa-table-sub">CAT ${escapeHtml(ticket.categoryCode)} · ${escapeHtml(formatMoney(ticket.price || 0))}</span>
+        </div>
+      </label>
+    `)
+    .join("");
+  saleBlockQuantityInput.value = String(state.pendingSaleSeatIds.length);
 }
 
 function syncSaleTicketInputs() {
@@ -372,16 +423,17 @@ function syncSalePriceFields() {
 function renderParticipants() {
   if (!saleParticipantList) return;
   if (!state.participants.length) {
-    saleParticipantList.innerHTML = '<p class="fifa-seat-help">Participants will appear from the selected ticket quantity.</p>';
+    saleParticipantList.innerHTML = '<p class="fifa-seat-help">Travelers will appear from the selected tickets.</p>';
     return;
   }
   saleParticipantList.innerHTML = state.participants
     .map((participant, index) => `
       <div class="fifa-sale-participant-card" data-participant-index="${index}">
-        <h4>Participant ${index + 1}</h4>
+        <h4>Ticket ${index + 1}</h4>
+        <p class="fifa-table-sub">${escapeHtml(participant.ticketLabel || "Selected ticket")}</p>
         <div class="manager-form-grid fifa-form-grid">
           <label>
-            Full name
+            Person using this ticket
             <input type="text" data-participant-field="name" value="${escapeHtml(participant.name || "")}" />
           </label>
           <label>
@@ -403,17 +455,28 @@ function renderParticipants() {
 }
 
 function syncParticipantsFromBlocks() {
-  const minimum = selectedSaleTicketIds().length;
-  while (state.participants.length < minimum) {
-    state.participants.push({ name: "", passportNumber: "", nationality: "", notes: "" });
-  }
+  const previous = new Map((state.participants || []).map((participant) => [participant.ticketId, participant]));
+  const selectedTickets = selectedSaleTicketIds()
+    .map((ticketId) => state.tickets.find((ticket) => ticket.id === ticketId))
+    .filter(Boolean);
+  state.participants = selectedTickets.map((ticket) => {
+    const existing = previous.get(ticket.id) || {};
+    return {
+      ticketId: ticket.id,
+      ticketLabel: ticketSummaryLabel(ticket),
+      name: existing.name || "",
+      passportNumber: existing.passportNumber || "",
+      nationality: existing.nationality || "",
+      notes: existing.notes || "",
+    };
+  });
   renderParticipants();
 }
 
 function renderSaleBlocks() {
   if (!saleBlockList) return;
   if (!state.saleBlocks.length) {
-    saleBlockList.innerHTML = '<p class="fifa-seat-help">Choose match, category, and quantity, then add a ticket block.</p>';
+    saleBlockList.innerHTML = '<p class="fifa-seat-help">Choose match, category, and seats, then add a ticket block.</p>';
     syncSaleTicketInputs();
     syncSalePriceFields();
     syncParticipantsFromBlocks();
@@ -425,7 +488,9 @@ function renderSaleBlocks() {
         <div>
           <strong>${escapeHtml(block.matchLabel)}</strong>
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s) · ${escapeHtml(formatMoney(block.totalPrice))}</span>
-          <span class="fifa-table-sub">${escapeHtml(block.seatPreview || "Seat will be assigned later")}</span>
+          <div class="fifa-sale-ticket-list">
+            ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(label)}</span>`).join("")}
+          </div>
         </div>
         <button type="button" class="button-secondary" data-action="remove-sale-block" data-index="${index}">Remove</button>
       </div>
@@ -468,7 +533,7 @@ function resetSaleForm() {
   saleForm.elements.id.value = "";
   saleForm.elements.ticketId.value = "";
   if (saleTicketIdsInput) saleTicketIdsInput.value = "";
-  saleForm.elements.quantity.value = "1";
+  saleForm.elements.quantity.value = "0";
   saleForm.elements.amountPaid.value = "0";
   saleForm.elements.saleStatus.value = "active";
   saleForm.elements.paymentStatus.value = "unpaid";
@@ -477,12 +542,14 @@ function resetSaleForm() {
   state.editingSaleId = "";
   state.saleBlocks = [];
   state.participants = [];
+  state.pendingSaleSeatIds = [];
   if (saleMatchSelect) saleMatchSelect.value = "";
   if (saleCategorySelect) saleCategorySelect.value = "";
-  if (saleBlockQuantityInput) saleBlockQuantityInput.value = "1";
+  if (saleBlockQuantityInput) saleBlockQuantityInput.value = "0";
   refreshSaleTicketOptions();
   renderSaleBlocks();
   renderParticipants();
+  renderSaleSeatPicker();
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
   setSaleFormVisible(false);
@@ -634,6 +701,7 @@ function fillSaleForm(sale) {
     quantity: Number(block.quantity || 0),
     totalPrice: Number(block.totalPrice || 0),
     seatPreview: block.seatPreview || "",
+    ticketLabels: block.ticketLabels || [],
     ticketIds: [...(block.ticketIds || [])],
   }));
   if (!state.saleBlocks.length && sale.ticketId) {
@@ -641,16 +709,22 @@ function fillSaleForm(sale) {
     if (ticket) {
       state.saleBlocks = [{
         matchNumber: ticket.matchNumber,
-        matchLabel: buildMatchLabel(ticket.teamA, ticket.teamB),
+        matchLabel: `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)}`,
         categoryCode: String(ticket.categoryCode || ""),
         quantity: Number(sale.quantity || 1),
         totalPrice: Number(sale.totalPrice || ticket.price || 0),
         seatPreview: ticket.seatDetails || "",
+        ticketLabels: (sale.ticketIds?.length ? sale.ticketIds : [sale.ticketId])
+          .map((ticketId) => state.tickets.find((item) => item.id === ticketId))
+          .filter(Boolean)
+          .map((item) => item.seatDetails || "Seat will be assigned later"),
         ticketIds: sale.ticketIds?.length ? [...sale.ticketIds] : [sale.ticketId],
       }];
     }
   }
   state.participants = (sale.participants || []).map((participant) => ({
+    ticketId: participant.ticketId || "",
+    ticketLabel: participant.ticketLabel || "Selected ticket",
     name: participant.name || "",
     passportNumber: participant.passportNumber || "",
     nationality: participant.nationality || "",
@@ -658,6 +732,7 @@ function fillSaleForm(sale) {
   }));
   renderSaleBlocks();
   renderParticipants();
+  renderSaleSeatPicker();
   state.editingSaleId = sale.id;
   setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
   setStatus(saleStatusNode, "Editing sale.");
@@ -672,11 +747,12 @@ function startSaleForTicket(ticketId) {
   if (!ticket) return;
   state.saleBlocks = [{
     matchNumber: ticket.matchNumber,
-    matchLabel: buildMatchLabel(ticket.teamA, ticket.teamB),
+    matchLabel: `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)}`,
     categoryCode: String(ticket.categoryCode || ""),
     quantity: 1,
     totalPrice: Number(ticket.price || 0),
     seatPreview: ticket.seatDetails || "",
+    ticketLabels: [ticket.seatDetails || "Seat will be assigned later"],
     ticketIds: [ticket.id],
   }];
   renderSaleBlocks();
@@ -707,21 +783,22 @@ function createSaleBlockFromSelection() {
   const categoryCode = categoryLabel.replace(/^CAT\s+/i, "").trim();
   const quantity = Math.max(Number(saleBlockQuantityInput.value || 0), 0);
   if (!matchNumber || !categoryCode || !quantity) {
-    throw new Error("Choose match, category, and quantity first");
+    throw new Error("Choose match, category, and seats first");
   }
   const match = MATCH_LOOKUP[matchNumber];
   const availableTickets = saleBlockAvailableTickets(matchNumber, categoryCode, selectedSaleTicketIds());
-  if (availableTickets.length < quantity) {
-    throw new Error(`Only ${availableTickets.length} ticket(s) are available for ${matchNumber} CAT ${categoryCode}`);
+  const chosen = availableTickets.filter((ticket) => state.pendingSaleSeatIds.includes(ticket.id));
+  if (chosen.length !== quantity) {
+    throw new Error("Choose the exact seats you want first");
   }
-  const chosen = availableTickets.slice(0, quantity);
   return {
     matchNumber,
-    matchLabel: match ? buildMatchLabel(match.teamA, match.teamB) : buildMatchLabel(chosen[0]?.teamA, chosen[0]?.teamB),
+    matchLabel: match ? `${match.matchNumber}: ${buildMatchLabel(match.teamA, match.teamB)}` : `${matchNumber}: ${buildMatchLabel(chosen[0]?.teamA, chosen[0]?.teamB)}`,
     categoryCode,
     quantity,
     totalPrice: chosen.reduce((sum, ticket) => sum + Number(ticket.price || 0), 0),
     seatPreview: chosen.map((ticket) => ticket.seatDetails || "Seat will be assigned later").join(" | "),
+    ticketLabels: chosen.map((ticket) => ticket.seatDetails || "Seat will be assigned later"),
     ticketIds: chosen.map((ticket) => ticket.id),
   };
 }
@@ -1164,16 +1241,19 @@ if (saleForm) {
       quantity: block.quantity,
       totalPrice: block.totalPrice,
       seatPreview: block.seatPreview,
+      ticketLabels: [...(block.ticketLabels || [])],
       ticketIds: [...(block.ticketIds || [])],
     }));
     payload.participants = state.participants
       .map((participant) => ({
+        ticketId: String(participant.ticketId || "").trim(),
+        ticketLabel: String(participant.ticketLabel || "").trim(),
         name: String(participant.name || "").trim(),
         passportNumber: String(participant.passportNumber || "").trim(),
         nationality: String(participant.nationality || "").trim(),
         notes: String(participant.notes || "").trim(),
       }))
-      .filter((participant) => participant.name || participant.passportNumber || participant.nationality || participant.notes);
+      .filter((participant) => participant.ticketId || participant.name || participant.passportNumber || participant.nationality || participant.notes);
     if (!payload.ticketIds.length) {
       setStatus(saleStatusNode, "Add at least one ticket block first.", true);
       return;
@@ -1209,19 +1289,22 @@ saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
 saleMatchSelect?.addEventListener("change", () => refreshSaleCategoryOptions());
+saleCategorySelect?.addEventListener("change", () => renderSaleSeatPicker());
+saleSeatPicker?.addEventListener("change", () => {
+  state.pendingSaleSeatIds = [...saleSeatPicker.querySelectorAll('[data-sale-seat-option]:checked')].map((node) => node.value);
+  if (saleBlockQuantityInput) saleBlockQuantityInput.value = String(state.pendingSaleSeatIds.length);
+});
 document.querySelector("#fifa-sale-add-block")?.addEventListener("click", () => {
   try {
     const block = createSaleBlockFromSelection();
     state.saleBlocks.push(block);
+    state.pendingSaleSeatIds = [];
+    renderSaleSeatPicker();
     renderSaleBlocks();
     clearStatus(saleStatusNode);
   } catch (error) {
     setStatus(saleStatusNode, error.message, true);
   }
-});
-document.querySelector("#fifa-sale-add-participant")?.addEventListener("click", () => {
-  state.participants.push({ name: "", passportNumber: "", nationality: "", notes: "" });
-  renderParticipants();
 });
 
 Object.values(ticketFilters).forEach((node) => {
@@ -1370,6 +1453,8 @@ saleBlockList?.addEventListener("click", (event) => {
   const index = Number(target.dataset.index || -1);
   if (index < 0) return;
   state.saleBlocks.splice(index, 1);
+  state.pendingSaleSeatIds = [];
+  renderSaleSeatPicker();
   renderSaleBlocks();
 });
 

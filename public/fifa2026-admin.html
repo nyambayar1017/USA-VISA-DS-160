@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-22" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-23" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -353,15 +353,21 @@
                   </select>
                 </label>
                 <label>
-                  Ticket quantity
-                  <input id="fifa-sale-block-quantity" type="number" min="1" step="1" value="1" />
+                  Selected tickets
+                  <input id="fifa-sale-block-quantity" type="number" min="0" step="1" value="0" readonly />
                 </label>
                 <div class="fifa-sale-block-action">
                   <span>Add this block</span>
                   <button id="fifa-sale-add-block" type="button" class="button-secondary">Add Ticket Block</button>
                 </div>
+                <div class="full-span">
+                  <label>Choose seats</label>
+                  <div id="fifa-sale-seat-picker" class="fifa-sale-seat-picker">
+                    <p class="fifa-seat-help">Choose a match and category first. Then the available seats will appear here.</p>
+                  </div>
+                </div>
                 <div class="full-span fifa-sale-block-list" id="fifa-sale-block-list">
-                  <p class="fifa-seat-help">Choose match, category, and quantity, then add a ticket block.</p>
+                  <p class="fifa-seat-help">Choose match, category, and seats, then add a ticket block.</p>
                 </div>
               </div>
             </section>
@@ -433,14 +439,11 @@
             </label>
             <section class="full-span fifa-category-editor fifa-participant-editor">
               <div class="fifa-category-head">
-                <h3>Participant List</h3>
-                <p>Add every participant attached to this buyer. Use the extra button if you need more rows.</p>
+                <h3>Ticket Travelers</h3>
+                <p>Each bought ticket is shown below clearly. Fill the traveler who will use that exact ticket. If one person uses multiple tickets, just repeat the same name.</p>
               </div>
               <div id="fifa-sale-participant-list" class="fifa-ticket-rows">
-                <p class="fifa-seat-help">Participants will appear from the selected ticket quantity.</p>
-              </div>
-              <div class="actions">
-                <button id="fifa-sale-add-participant" type="button" class="button-secondary">Add Participant</button>
+                <p class="fifa-seat-help">Travelers will appear from the selected tickets.</p>
               </div>
             </section>
             <div class="actions full-span">
@@ -501,6 +504,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-17"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-18"></script>
   </body>
 </html>

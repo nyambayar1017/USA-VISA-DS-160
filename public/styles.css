@@ -2696,6 +2696,33 @@ body.modal-open {
   font-size: 0.88rem;
 }
 
+.fifa-sale-seat-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.fifa-sale-seat-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.fifa-sale-seat-option input {
+  width: auto;
+  margin-top: 4px;
+}
+
+.fifa-sale-seat-option strong {
+  display: block;
+  color: #1f2d50;
+  font-size: 0.94rem;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -2971,6 +2998,17 @@ body.modal-open {
 .fifa-sale-block-item strong {
   display: block;
   color: #1f2d50;
+}
+
+.fifa-sale-ticket-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.fifa-sale-ticket-list .fifa-table-sub strong {
+  color: #1f2d50;
+  font-weight: 700;
 }
 
 .fifa-sale-participant-card {
