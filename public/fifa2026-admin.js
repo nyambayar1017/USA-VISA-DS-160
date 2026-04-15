@@ -43,6 +43,7 @@ const saleMatchSelect = document.querySelector("#fifa-sale-match-select");
 const saleCategorySelect = document.querySelector("#fifa-sale-category-select");
 const saleBlockQuantityInput = document.querySelector("#fifa-sale-block-quantity");
 const saleSeatPicker = document.querySelector("#fifa-sale-seat-picker");
+const salePriceBreakdown = document.querySelector("#fifa-sale-price-breakdown");
 const ticketRowContainers = {
   "1": document.querySelector('[data-ticket-rows="1"]'),
   "2": document.querySelector('[data-ticket-rows="2"]'),
@@ -528,7 +529,9 @@ function syncSaleTicketInputs() {
 function syncSalePriceFields() {
   if (!saleForm) return;
   const totalTickets = selectedSaleTicketIds().length;
-  const totalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+  const blockTotalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+  const discountAmount = Math.max(Number(saleForm.elements.discountAmount?.value || 0), 0);
+  const totalPrice = Math.max(blockTotalPrice - discountAmount, 0);
   const unitPrices = [...new Set(state.saleBlocks.map((block) => Number(block.unitPrice || 0)).filter(Boolean))];
   saleForm.elements.quantity.value = String(totalTickets || 0);
   saleForm.elements.pricePerTicket.value = unitPrices.length === 1 ? String(unitPrices[0]) : "";
@@ -536,6 +539,14 @@ function syncSalePriceFields() {
   saleForm.elements.pricePerTicket.title = unitPrices.length <= 1
     ? ""
     : "This sale has different ticket prices by match. Use the per-match block prices above.";
+  if (salePriceBreakdown) {
+    const lines = state.saleBlocks.map((block) =>
+      `${block.matchLabel}: ${formatMoney(block.unitPrice || 0)} per ticket · ${String(block.quantity || 0)} ticket(s) · Total ${formatMoney(block.totalPrice || 0)}`
+    );
+    if (discountAmount > 0) lines.push(`Discount: -${formatMoney(discountAmount)}`);
+    lines.push(`Grand total: ${formatMoney(totalPrice)}`);
+    salePriceBreakdown.value = lines.join("\n");
+  }
   saleForm.elements.totalPrice.value = totalPrice ? String(totalPrice) : "";
   syncSaleTotals();
 }
@@ -559,7 +570,9 @@ function renderSaleSummary() {
     return;
   }
   const totalTickets = state.saleBlocks.reduce((sum, block) => sum + Number(block.quantity || 0), 0);
-  const totalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+  const blockTotalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+  const discountAmount = Math.max(Number(saleForm?.elements?.discountAmount?.value || 0), 0);
+  const totalPrice = Math.max(blockTotalPrice - discountAmount, 0);
   summaryNode.innerHTML = `
     <div class="fifa-sale-summary-box">
       <div class="fifa-sale-summary-head">
@@ -575,6 +588,14 @@ function renderSaleSummary() {
             <span>Total: ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
           </div>
         `).join("")}
+        ${discountAmount > 0 ? `
+          <div class="fifa-sale-summary-row fifa-sale-summary-row--discount">
+            <strong>Discount</strong>
+            <span></span>
+            <span></span>
+            <span>-${escapeHtml(formatMoney(discountAmount))}</span>
+          </div>
+        ` : ""}
         <div class="fifa-sale-summary-row fifa-sale-summary-row--grand-total">
           <strong>Total for all tickets</strong>
           <span>${escapeHtml(String(totalTickets))} ticket(s)</span>
@@ -723,6 +744,8 @@ function resetSaleForm() {
   renderSaleBlocks();
   renderParticipants();
   renderSaleSeatPicker();
+  if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = "0";
+  if (salePriceBreakdown) salePriceBreakdown.value = "";
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
   setSaleFormVisible(false);
@@ -857,6 +880,7 @@ function fillSaleForm(sale) {
   if (saleTicketIdsInput) saleTicketIdsInput.value = (sale.ticketIds || []).join(",");
   saleForm.elements.quantity.value = sale.quantity || 1;
   saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
+  if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = sale.discountAmount || 0;
   saleForm.elements.totalPrice.value = sale.totalPrice || "";
   saleForm.elements.amountPaid.value = sale.amountPaid || 0;
   saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
@@ -945,12 +969,13 @@ function syncSaleTotals() {
   if (!saleForm) return;
   const quantity = Number(saleForm.elements.quantity.value || 0);
   const pricePerTicket = Number(saleForm.elements.pricePerTicket.value || 0);
+  const discountAmount = Math.max(Number(saleForm.elements.discountAmount?.value || 0), 0);
   if (!saleForm.elements.totalPrice.matches(":focus")) {
     if (state.saleBlocks.length) {
       const blockTotal = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
-      saleForm.elements.totalPrice.value = blockTotal ? String(blockTotal) : "";
+      saleForm.elements.totalPrice.value = Math.max(blockTotal - discountAmount, 0) ? String(Math.max(blockTotal - discountAmount, 0)) : "";
     } else {
-      saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(quantity * pricePerTicket) : "";
+      saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(Math.max((quantity * pricePerTicket) - discountAmount, 0)) : "";
     }
   }
   const totalPrice = Number(saleForm.elements.totalPrice.value || 0);
@@ -1375,10 +1400,12 @@ function renderSales() {
             total: items.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0),
           }));
           const blockTotalPrice = (sale.ticketBlocks || []).reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+          const discountAmount = Number(sale.discountAmount || 0);
           const lineTotalPrice = ticketLines.length
             ? ticketLines.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0)
             : 0;
-          const computedTotalPrice = blockTotalPrice || lineTotalPrice || Number(sale.totalPrice || 0);
+          const computedBaseTotal = blockTotalPrice || lineTotalPrice || Number(sale.totalPrice || 0);
+          const computedTotalPrice = Math.max(Number(sale.totalPrice || 0) || (computedBaseTotal - discountAmount), 0);
           const computedBalance = Math.max(0, computedTotalPrice - Number(sale.amountPaid || 0));
           return `
             <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
@@ -1947,6 +1974,7 @@ saleFormToggleButton?.addEventListener("click", () => {
 });
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
+saleForm?.elements?.discountAmount?.addEventListener("input", syncSalePriceFields);
 saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
 saleMatchSelect?.addEventListener("change", () => refreshSaleCategoryOptions());
 saleCategorySelect?.addEventListener("change", () => renderSaleSeatPicker());

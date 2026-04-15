@@ -396,7 +396,16 @@
               Quantity
               <input name="quantity" type="number" min="1" step="1" value="1" required readonly />
             </label>
+            <input name="pricePerTicket" type="hidden" />
+            <label class="full-span">
+              Match price breakdown
+              <textarea id="fifa-sale-price-breakdown" rows="3" readonly placeholder="Each chosen match price will appear automatically here"></textarea>
+            </label>
             <label>
+              Discount
+              <input name="discountAmount" type="number" min="0" step="1" value="0" />
+            </label>
+            <label hidden>
               Price per ticket
               <input name="pricePerTicket" type="number" min="1" step="1" readonly />
             </label>
@@ -523,6 +532,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-34"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-35"></script>
   </body>
 </html>
