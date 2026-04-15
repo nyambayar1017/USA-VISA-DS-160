@@ -2748,8 +2748,8 @@ body.modal-open {
 
 .fifa-match-table-head {
   display: grid;
-  grid-template-columns: 52px 118px minmax(180px, 1.15fr) minmax(260px, 1.45fr) minmax(120px, 0.8fr) minmax(110px, 0.72fr) auto;
-  gap: 14px;
+  grid-template-columns: 52px 132px 240px minmax(260px, 1fr) 150px 120px 220px;
+  gap: 10px;
   align-items: center;
   padding: 12px 8px 12px 0;
   border: 1px solid rgba(32, 53, 111, 0.08);
@@ -2774,8 +2774,8 @@ body.modal-open {
 .fifa-match-toggle {
   width: 100%;
   display: grid;
-  grid-template-columns: 52px 118px minmax(180px, 1.15fr) minmax(260px, 1.45fr) minmax(120px, 0.8fr) minmax(110px, 0.72fr) auto;
-  gap: 14px;
+  grid-template-columns: 52px 132px 240px minmax(260px, 1fr) 150px 120px 220px;
+  gap: 10px;
   align-items: start;
   padding: 14px 8px 14px 0;
   border: 0;
@@ -2895,7 +2895,7 @@ body.modal-open {
 }
 
 .fifa-match-col--availability {
-  padding-right: 16px;
+  padding-right: 8px;
 }
 
 .fifa-match-col--stage [data-action="add-ticket-match"] {
