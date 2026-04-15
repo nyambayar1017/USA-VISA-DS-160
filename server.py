@@ -4923,11 +4923,9 @@ def handle_get_fifa2026_dashboard(start_response):
     )
 
 
-def handle_get_fifa2026_public(environ, start_response):
+def handle_get_fifa2026_public(start_response):
     store = read_fifa2026_store()
     sales = store.get("sales", [])
-    params = parse_qs(environ.get("QUERY_STRING", ""))
-    admin_scope = params.get("scope", [""])[0] == "admin" and current_user(environ)
     tickets = []
     for ticket in store.get("tickets", []):
         enriched = enrich_fifa_ticket(ticket, sales)
@@ -4935,7 +4933,7 @@ def handle_get_fifa2026_public(environ, start_response):
         is_placeholder = max(parse_int(ticket.get("totalQuantity")), 0) == 0
         if normalize_text(ticket.get("status")).lower() == "archived":
             continue
-        if admin_scope or is_public_schedule_item or is_placeholder:
+        if is_public_schedule_item or is_placeholder:
             tickets.append(enriched)
     return json_response(
         start_response,
@@ -6246,7 +6244,7 @@ def app(environ, start_response):
 
     if path == "/api/fifa2026/public":
         if method == "GET":
-            return handle_get_fifa2026_public(environ, start_response)
+            return handle_get_fifa2026_public(start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/fifa2026/reset-from-seed":
