@@ -566,13 +566,13 @@ function renderSaleSummary() {
         ${state.saleBlocks.map((block) => `
           <div class="fifa-sale-summary-row">
             <strong>${escapeHtml(block.matchLabel)}</strong>
-            <span>${escapeHtml(String(block.quantity || 0))} ticket(s) · CAT ${escapeHtml(block.categoryCode)}</span>
-            <span>${escapeHtml(formatMoney(block.unitPrice || 0))} per ticket</span>
-            <span>Subtotal: ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
+            <span>CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(String(block.quantity || 0))} ticket(s)</span>
+            <span>Price per ticket: ${escapeHtml(formatMoney(block.unitPrice || 0))}</span>
+            <span>Total: ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
           </div>
         `).join("")}
         <div class="fifa-sale-summary-row fifa-sale-summary-row--grand-total">
-          <strong>Grand total price</strong>
+          <strong>Total for all tickets</strong>
           <span>${escapeHtml(String(totalTickets))} ticket(s)</span>
           <span></span>
           <span>${escapeHtml(formatMoney(totalPrice))}</span>
@@ -653,7 +653,8 @@ function renderSaleBlocks() {
         <div>
           <strong>${escapeHtml(block.matchLabel)}</strong>
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s)</span>
-          <span class="fifa-table-sub">${escapeHtml(String(block.quantity || 0))} ticket(s) · ${escapeHtml(formatMoney(derivedUnitPrice))} per ticket · Subtotal ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
+          <span class="fifa-table-sub">Price per ticket: ${escapeHtml(formatMoney(derivedUnitPrice))}</span>
+          <span class="fifa-table-sub">Total for ${escapeHtml(block.matchLabel)}: ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
           <div class="fifa-sale-ticket-list">
             ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(label)}</span>`).join("")}
           </div>
@@ -964,18 +965,20 @@ function createSaleBlockFromSelection() {
   if (!matchNumber || !categoryCode || !quantity) {
     throw new Error("Choose match, category, and seats first");
   }
-  const match = MATCH_LOOKUP[matchNumber];
   const availableTickets = saleBlockAvailableTickets(matchNumber, categoryCode, selectedSaleTicketIds());
   const chosen = availableTickets.filter((ticket) => state.pendingSaleSeatIds.includes(ticket.id));
   if (chosen.length !== quantity) {
     throw new Error("Choose the exact seats you want first");
   }
+  const leadTicket = chosen[0] || null;
   return {
     matchNumber,
-    matchLabel: match ? buildMatchTitle(match.matchNumber, match.teamA, match.teamB) : buildMatchTitle(matchNumber, chosen[0]?.teamA, chosen[0]?.teamB),
+    matchLabel: leadTicket
+      ? buildMatchTitle(leadTicket.matchNumber, leadTicket.teamA, leadTicket.teamB)
+      : buildMatchTitle(matchNumber, "", ""),
     categoryCode,
     quantity,
-    unitPrice: chosen[0] ? Number(chosen[0].price || 0) : 0,
+    unitPrice: leadTicket ? Number(leadTicket.price || 0) : 0,
     totalPrice: chosen.reduce((sum, ticket) => sum + Number(ticket.price || 0), 0),
     seatPreview: chosen.map((ticket) => ticket.seatDetails || "Seat will be assigned later").join(" | "),
     ticketLabels: chosen.map((ticket) => ticketSummaryLabel(ticket)),
