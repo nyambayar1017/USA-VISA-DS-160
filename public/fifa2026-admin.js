@@ -10,11 +10,6 @@ const saleRegistryView = document.querySelector("#fifa-sale-registry-view");
 const passengerRowsContainer = document.querySelector("#fifa-passenger-rows");
 const selectedSaleTicketsNode = document.querySelector("#fifa-selected-sale-tickets");
 const addSaleTicketButton = document.querySelector("#fifa-add-sale-ticket");
-const saleMatchSelect = document.querySelector("#fifa-sale-match");
-const saleCategorySelect = document.querySelector("#fifa-sale-category");
-const saleTicketQuantityInput = document.querySelector("#fifa-sale-ticket-quantity");
-const passportImageInput = document.querySelector("#fifa-passport-image");
-const passportImagePreview = document.querySelector("#fifa-passport-image-preview");
 
 const ticketFilters = {
   search: document.querySelector("#ticket-filter-search"),
@@ -105,7 +100,6 @@ const state = {
   expandedMatches: new Set(),
   selectedTickets: new Set(),
   selectedSaleTicketIds: [],
-  selectedSaleBundles: [],
 };
 
 function setNodeText(node, value) {
@@ -300,15 +294,29 @@ function refreshFilterOptions() {
 }
 
 function refreshSaleTicketOptions() {
-  if (!saleMatchSelect) return;
-  const currentValue = saleMatchSelect.value;
-  const matches = [...new Set(
-    state.tickets
-      .filter((ticket) => ticket.status === "active" && ticket.availableQuantity > 0)
-      .map((ticket) => ticket.matchNumber)
-      .filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  fillSelect(saleMatchSelect, matches, "Choose match", currentValue);
+  if (!saleTicketSelect) return;
+  const currentValue = saleTicketSelect.value;
+  const groups = new Map();
+  state.tickets
+    .filter((ticket) => ticket.status === "active" && ticket.availableQuantity > 0)
+    .forEach((ticket) => {
+      const key = `${ticket.matchNumber} · ${ticket.matchLabel}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(ticket);
+    });
+  const options = [...groups.entries()]
+    .map(([label, tickets]) => {
+      const inner = tickets
+        .map((ticket) => {
+          const optionLabel = `${ticket.matchNumber} · ${ticket.matchLabel} · ${ticket.city} · CAT ${ticket.categoryCode} · ${ticket.seatDetails} · ${ticket.availableQuantity}/${ticket.totalQuantity} left · ${formatMoney(ticket.price, ticket.currency)}`;
+          return `<option value="${escapeHtml(ticket.id)}">${escapeHtml(optionLabel)}</option>`;
+        })
+        .join("");
+      return `<optgroup label="${escapeHtml(label)}">${inner}</optgroup>`;
+    })
+    .join("");
+  saleTicketSelect.innerHTML = `<option value="">Choose ticket lot</option>${options}`;
+  if (state.tickets.some((ticket) => ticket.id === currentValue)) saleTicketSelect.value = currentValue;
 }
 
 function getSelectedSaleTickets() {
@@ -321,64 +329,47 @@ function syncSelectedSaleTicketsField() {
   if (!saleForm) return;
   saleForm.elements.ticketIds.value = state.selectedSaleTicketIds.join(",");
   saleForm.elements.ticketId.value = state.selectedSaleTicketIds[0] || "";
-  saleForm.elements.ticketBundles.value = JSON.stringify(state.selectedSaleBundles);
 }
 
 function renderSelectedSaleTickets() {
   if (!selectedSaleTicketsNode || !saleForm) return;
-  if (!state.selectedSaleBundles.length) {
-    selectedSaleTicketsNode.innerHTML = '<p class="fifa-seat-help">Choose match, category, and quantity, then add a ticket block.</p>';
+  const selected = getSelectedSaleTickets();
+  if (!selected.length) {
+    selectedSaleTicketsNode.innerHTML = '<p class="fifa-seat-help">Add the tickets for this buyer one by one.</p>';
     syncSelectedSaleTicketsField();
     saleForm.elements.quantity.value = "1";
     syncSaleTotals();
     return;
   }
-  selectedSaleTicketsNode.innerHTML = state.selectedSaleBundles
+  selectedSaleTicketsNode.innerHTML = selected
     .map(
-      (bundle, index) => `
+      (ticket, index) => `
         <div class="fifa-selected-ticket-pill">
-          <span>${escapeHtml(`${index + 1}. ${bundle.matchNumber} · ${bundle.matchLabel} · CAT ${bundle.categoryCode} · ${bundle.quantity} ticket(s) · ${bundle.seatSummary} · ${formatMoney(bundle.totalPrice, bundle.currency)}`)}</span>
-          <button type="button" class="button-secondary fifa-inline-action" data-action="remove-sale-bundle" data-index="${index}">Remove</button>
+          <span>${escapeHtml(`Ticket ${index + 1} · ${ticket.matchNumber} · CAT ${ticket.categoryCode} · ${ticket.seatDetails} · ${formatMoney(ticket.price, ticket.currency)}`)}</span>
+          <button type="button" class="button-secondary fifa-inline-action" data-action="remove-sale-ticket" data-id="${escapeHtml(ticket.id)}">Remove</button>
         </div>
       `
     )
     .join("");
   syncSelectedSaleTicketsField();
-  saleForm.elements.quantity.value = String(state.selectedSaleTicketIds.length || 1);
+  saleForm.elements.quantity.value = String(selected.length);
   syncSaleTotals();
 }
 
-function availableBundleTickets(matchNumber, categoryCode) {
-  return state.tickets
-    .filter((ticket) =>
-      ticket.status === "active" &&
-      ticket.availableQuantity > 0 &&
-      ticket.matchNumber === matchNumber &&
-      String(ticket.categoryCode) === String(categoryCode) &&
-      !state.selectedSaleTicketIds.includes(ticket.id)
-    )
-    .sort((left, right) => String(left.seatDetails || "").localeCompare(String(right.seatDetails || "")));
-}
-
-function addSelectedSaleBundle(matchNumber, categoryCode, quantity) {
-  if (!matchNumber || !categoryCode || quantity <= 0) return;
-  const picked = availableBundleTickets(matchNumber, categoryCode).slice(0, quantity);
-  if (picked.length < quantity) {
-    setStatus(saleStatusNode, `Only ${picked.length} ticket(s) are available for that match and category.`, true);
-    return;
+function addSelectedSaleTicket(ticketId) {
+  if (!ticketId || state.selectedSaleTicketIds.includes(ticketId)) return;
+  const ticket = state.tickets.find((item) => item.id === ticketId);
+  if (!ticket) return;
+  const selected = getSelectedSaleTickets();
+  if (selected.length) {
+    const first = selected[0];
+    const sameMatch = first.matchNumber === ticket.matchNumber && first.matchLabel === ticket.matchLabel && first.city === ticket.city;
+    if (!sameMatch) {
+      setStatus(saleStatusNode, "One buyer can only add tickets from the same match right now.", true);
+      return;
+    }
   }
-  const lead = picked[0];
-  state.selectedSaleBundles.push({
-    matchNumber,
-    matchLabel: lead.matchLabel,
-    categoryCode: String(categoryCode),
-    quantity,
-    ticketIds: picked.map((ticket) => ticket.id),
-    seatSummary: picked.map((ticket) => ticket.seatDetails).join(" | "),
-    totalPrice: picked.reduce((sum, ticket) => sum + Number(ticket.price || 0), 0),
-    currency: lead.currency || "USD",
-  });
-  state.selectedSaleTicketIds.push(...picked.map((ticket) => ticket.id));
+  state.selectedSaleTicketIds.push(ticketId);
   clearStatus(saleStatusNode);
   renderSelectedSaleTickets();
   renderPassengerRows(parsePassengerLines(saleForm?.elements?.buyerPassengers?.value || ""));
@@ -482,20 +473,13 @@ function resetSaleForm() {
   saleForm.reset();
   saleForm.elements.id.value = "";
   saleForm.elements.ticketIds.value = "";
-  saleForm.elements.ticketBundles.value = "";
   state.selectedSaleTicketIds = [];
-  state.selectedSaleBundles = [];
   saleForm.elements.quantity.value = "1";
   saleForm.elements.amountPaid.value = "0";
   saleForm.elements.saleStatus.value = "active";
   saleForm.elements.paymentStatus.value = "unpaid";
   saleForm.elements.paymentMethod.value = "bank transfer";
   saleForm.elements.buyerPassengers.value = "";
-  saleForm.elements.fifaPassStatus.value = "pending";
-  saleForm.elements.ticketTransferStatus.value = "pending";
-  saleForm.elements.passportImageData.value = "";
-  if (passportImageInput) passportImageInput.value = "";
-  if (passportImagePreview) passportImagePreview.innerHTML = "";
   renderPassengerRows([]);
   renderSelectedSaleTickets();
   state.editingSaleId = "";
@@ -625,16 +609,13 @@ function fillTicketForm(ticket) {
 function fillSaleForm(sale) {
   if (!saleForm) return;
   setSaleFormVisible(true);
-  state.selectedSaleTicketIds = String(sale.ticketIds || sale.ticketId || "").split(",").map((value) => value.trim()).filter(Boolean);
-  try {
-    state.selectedSaleBundles = JSON.parse(sale.ticketBundles || "[]");
-  } catch {
-    state.selectedSaleBundles = [];
-  }
+  state.selectedSaleTicketIds = String(sale.ticketIds || sale.ticketId || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   saleForm.elements.id.value = sale.id;
   saleForm.elements.ticketId.value = sale.ticketId || "";
   saleForm.elements.ticketIds.value = state.selectedSaleTicketIds.join(",");
-  saleForm.elements.ticketBundles.value = sale.ticketBundles || JSON.stringify(state.selectedSaleBundles);
   saleForm.elements.quantity.value = sale.quantity || 1;
   saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
   saleForm.elements.totalPrice.value = sale.totalPrice || "";
@@ -648,18 +629,7 @@ function fillSaleForm(sale) {
   saleForm.elements.buyerEmail.value = sale.buyerEmail || "";
   saleForm.elements.buyerPassportNumber.value = sale.buyerPassportNumber || "";
   saleForm.elements.buyerNationality.value = sale.buyerNationality || "";
-  saleForm.elements.buyerTitle.value = sale.buyerTitle || "";
   saleForm.elements.buyerNotes.value = sale.buyerNotes || "";
-  saleForm.elements.fifaPassStatus.value = sale.fifaPassStatus || "pending";
-  saleForm.elements.fifaPassRegisteredName.value = sale.fifaPassRegisteredName || "";
-  saleForm.elements.fifaPassEmail.value = sale.fifaPassEmail || "";
-  saleForm.elements.fifaPassPassportNumber.value = sale.fifaPassPassportNumber || "";
-  saleForm.elements.ticketTransferStatus.value = sale.ticketTransferStatus || "pending";
-  saleForm.elements.ticketTransferNote.value = sale.ticketTransferNote || "";
-  saleForm.elements.passportImageData.value = sale.passportImageData || "";
-  if (passportImagePreview) {
-    passportImagePreview.innerHTML = sale.passportImageData ? `<img src="${escapeHtml(sale.passportImageData)}" alt="Passport preview" />` : "";
-  }
   saleForm.elements.buyerPassengers.value = sale.buyerPassengers || "";
   renderPassengerRows(parsePassengerLines(sale.buyerPassengers || ""));
   renderSelectedSaleTickets();
@@ -674,16 +644,6 @@ function startSaleForTicket(ticketId) {
   resetSaleForm();
   const ticket = state.tickets.find((item) => item.id === ticketId);
   if (!ticket) return;
-  state.selectedSaleBundles = [{
-    matchNumber: ticket.matchNumber,
-    matchLabel: ticket.matchLabel,
-    categoryCode: String(ticket.categoryCode),
-    quantity: 1,
-    ticketIds: [ticket.id],
-    seatSummary: ticket.seatDetails,
-    totalPrice: Number(ticket.price || 0),
-    currency: ticket.currency || "USD",
-  }];
   state.selectedSaleTicketIds = [ticket.id];
   renderSelectedSaleTickets();
   saleForm.elements.paymentMethod.value = "bank transfer";
@@ -959,8 +919,7 @@ function renderSales() {
             <article class="fifa-match-card">
               <div class="fifa-match-toggle fifa-buyer-row fifa-match-toggle--static">
                 <div class="fifa-match-col">
-                  <strong>${escapeHtml(sale.buyerTitle || sale.buyerName)}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(sale.buyerName || "-")}</span>
+                  <strong>${escapeHtml(sale.buyerName)}</strong>
                   <span class="fifa-table-sub">${escapeHtml(sale.buyerPhone || sale.buyerEmail || "-")}</span>
                   <span class="fifa-table-sub">${escapeHtml(sale.buyerPassportNumber || "")}</span>
                 </div>
@@ -1148,20 +1107,14 @@ if (saleForm) {
 }
 
 addSaleTicketButton?.addEventListener("click", () => {
-  const matchNumber = saleMatchSelect?.value || "";
-  const categoryCode = saleCategorySelect?.value || "";
-  const quantity = Math.max(Number(saleTicketQuantityInput?.value || 0), 0);
-  addSelectedSaleBundle(matchNumber, categoryCode, quantity);
+  if (!saleTicketSelect?.value) return;
+  addSelectedSaleTicket(saleTicketSelect.value);
 });
 
 selectedSaleTicketsNode?.addEventListener("click", (event) => {
-  const target = event.target.closest('button[data-action="remove-sale-bundle"]');
+  const target = event.target.closest('button[data-action="remove-sale-ticket"]');
   if (!target) return;
-  const index = Number(target.dataset.index || -1);
-  const bundle = state.selectedSaleBundles[index];
-  if (!bundle) return;
-  state.selectedSaleBundles.splice(index, 1);
-  state.selectedSaleTicketIds = state.selectedSaleTicketIds.filter((ticketId) => !bundle.ticketIds.includes(ticketId));
+  state.selectedSaleTicketIds = state.selectedSaleTicketIds.filter((ticketId) => ticketId !== target.dataset.id);
   renderSelectedSaleTickets();
   renderPassengerRows(parsePassengerLines(saleForm?.elements?.buyerPassengers?.value || ""));
 });
@@ -1178,23 +1131,13 @@ saleFormToggleButton?.addEventListener("click", () => {
 document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSaleForm);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
-saleMatchSelect?.addEventListener("change", () => {
-  clearStatus(saleStatusNode);
-});
-passportImageInput?.addEventListener("change", () => {
-  const file = passportImageInput.files?.[0];
-  if (!file || !saleForm) {
-    saleForm.elements.passportImageData.value = "";
-    if (passportImagePreview) passportImagePreview.innerHTML = "";
-    return;
+saleTicketSelect?.addEventListener("change", () => {
+  const ticket = state.tickets.find((item) => item.id === saleTicketSelect.value);
+  if (!ticket || !saleForm) return;
+  if (!state.editingSaleId && !state.selectedSaleTicketIds.length) {
+    saleForm.elements.pricePerTicket.value = ticket.price || "";
+    syncSaleTotals();
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const result = String(reader.result || "");
-    saleForm.elements.passportImageData.value = result;
-    if (passportImagePreview) passportImagePreview.innerHTML = result ? `<img src="${escapeHtml(result)}" alt="Passport preview" />` : "";
-  };
-  reader.readAsDataURL(file);
 });
 
 Object.values(ticketFilters).forEach((node) => {

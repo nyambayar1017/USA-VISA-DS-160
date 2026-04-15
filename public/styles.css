@@ -2728,14 +2728,6 @@ body.modal-open {
   line-height: 1.4;
 }
 
-.fifa-passport-preview img {
-  max-width: 280px;
-  max-height: 180px;
-  border-radius: 14px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  object-fit: cover;
-}
-
 .fifa-seat-help {
   margin: 0;
   color: var(--muted);

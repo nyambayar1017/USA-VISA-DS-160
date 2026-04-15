@@ -4696,18 +4696,9 @@ def enrich_fifa_sale(sale, ticket, store=None):
         "balanceDue": max(total_price - amount_paid, 0),
         "isPaid": amount_paid >= total_price and total_price > 0,
         "ticketIds": ticket_ids,
-        "ticketBundles": normalize_text(sale.get("ticketBundles")),
-        "buyerTitle": normalize_text(sale.get("buyerTitle")),
         "buyerName": buyer_name,
         "buyerEmail": normalize_text(sale.get("buyerEmail")).lower(),
         "buyerPassengers": normalize_text(sale.get("buyerPassengers")),
-        "fifaPassStatus": normalize_text(sale.get("fifaPassStatus")).lower(),
-        "fifaPassRegisteredName": normalize_text(sale.get("fifaPassRegisteredName")),
-        "fifaPassEmail": normalize_text(sale.get("fifaPassEmail")).lower(),
-        "fifaPassPassportNumber": normalize_text(sale.get("fifaPassPassportNumber")),
-        "ticketTransferStatus": normalize_text(sale.get("ticketTransferStatus")).lower(),
-        "ticketTransferNote": normalize_text(sale.get("ticketTransferNote")),
-        "passportImageData": normalize_text(sale.get("passportImageData")),
         "ticket": enrich_fifa_ticket(ticket, []) if ticket else None,
         "ticketLabel": ticket.get("matchLabel") if ticket else "",
         "city": ticket.get("city") if ticket else "",
@@ -4834,9 +4825,7 @@ def build_fifa_sale(payload, actor=None):
         "id": str(uuid4()),
         "ticketId": ticket_ids[0] if ticket_ids else normalize_text(payload.get("ticketId")),
         "ticketIds": ticket_ids,
-        "ticketBundles": normalize_text(payload.get("ticketBundles")),
         "quantity": quantity,
-        "buyerTitle": normalize_text(payload.get("buyerTitle")),
         "buyerName": normalize_text(payload.get("buyerName")),
         "buyerPhone": normalize_text(payload.get("buyerPhone")),
         "buyerEmail": normalize_text(payload.get("buyerEmail")).lower(),
@@ -4844,13 +4833,6 @@ def build_fifa_sale(payload, actor=None):
         "buyerNationality": normalize_text(payload.get("buyerNationality")),
         "buyerNotes": normalize_text(payload.get("buyerNotes")),
         "buyerPassengers": normalize_text(payload.get("buyerPassengers")),
-        "fifaPassStatus": normalize_text(payload.get("fifaPassStatus")).lower(),
-        "fifaPassRegisteredName": normalize_text(payload.get("fifaPassRegisteredName")),
-        "fifaPassEmail": normalize_text(payload.get("fifaPassEmail")).lower(),
-        "fifaPassPassportNumber": normalize_text(payload.get("fifaPassPassportNumber")),
-        "ticketTransferStatus": normalize_text(payload.get("ticketTransferStatus")).lower(),
-        "ticketTransferNote": normalize_text(payload.get("ticketTransferNote")),
-        "passportImageData": normalize_text(payload.get("passportImageData")),
         "pricePerTicket": price_per_ticket,
         "totalPrice": total_price,
         "amountPaid": amount_paid,
@@ -4870,8 +4852,6 @@ def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
         return "Choose at least one ticket"
     if not ticket:
         return "Ticket was not found"
-    if len(sale.get("buyerTitle", "")) < 2:
-        return "Buyer title must be at least 2 characters"
     if ticket.get("status") == "archived":
         return "Archived tickets cannot be sold"
     if len(sale.get("buyerName", "")) < 2:
@@ -4886,8 +4866,6 @@ def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
         return "Sale status is invalid"
     if sale.get("buyerEmail") and "@" not in sale.get("buyerEmail", ""):
         return "Buyer email must be valid"
-    if sale.get("fifaPassEmail") and "@" not in sale.get("fifaPassEmail", ""):
-        return "FIFA pass email must be valid"
     passenger_lines = [line.strip() for line in normalize_text(sale.get("buyerPassengers")).splitlines() if line.strip()]
     if sale.get("quantity", 0) > 1 and len(passenger_lines) < sale.get("quantity", 0):
         return f"Add all {sale.get('quantity', 0)} passengers for this buyer"
