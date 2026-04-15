@@ -1554,6 +1554,20 @@ function openSaleInvoice(sale) {
   }
   const subtotal = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
   const discountAmount = Math.max(Number(sale.discountAmount || 0), 0);
+  const invoiceRows = discountAmount > 0
+    ? [
+        ...items,
+        {
+          index: items.length + 1,
+          description: "Хямдрал",
+          quantity: "",
+          unitPrice: "",
+          totalPrice: -discountAmount,
+          categoryCode: "",
+          isDiscount: true,
+        },
+      ]
+    : items;
   const total = Math.max(subtotal - discountAmount, 0);
   const amountPaid = Number(sale.amountPaid || 0);
   const balance = Math.max(0, total - amountPaid);
@@ -1602,7 +1616,7 @@ function openSaleInvoice(sale) {
           .toolbar button { padding: 12px 18px; border: none; border-radius: 999px; background: #253776; color: #fff; font: 700 14px/1.2 Inter, system-ui, sans-serif; cursor: pointer; }
           .toolbar .secondary { background: #e9edf8; color: #2a3c78; }
           .toolbar .save { background: #157347; }
-          .page { width: min(230mm, calc(100vw - 40px)); margin: 20px auto 40px; padding: 24px 22px 26px; background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08); }
+          .page { width: 210mm; min-height: 297mm; margin: 20px auto 40px; padding: 18mm 16mm 18mm; background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08); }
           .invoice-number { margin: 0 0 18px; color: #3b4257; font-size: 17px; font-weight: 500; }
           .header-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 26px; align-items: start; }
           .invoice-logo { width: 154px; max-width: 100%; display: block; margin-bottom: 8px; }
@@ -1616,7 +1630,6 @@ function openSaleInvoice(sale) {
           th, td { padding: 11px 12px; border-bottom: 1px solid #eceef5; text-align: left; font-size: 14px; }
           th { background: #fbfcfe; color: #4d566f; font-weight: 700; }
           td:last-child, th:last-child, td:nth-last-child(2), th:nth-last-child(2) { text-align: right; }
-          .discount-row td { color: #8b6510; background: #fffaf0; font-weight: 600; }
           .total-row td { font-weight: 700; background: #fdfdfd; }
           .payment-stack { display: grid; gap: 14px; }
           .payment-card { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(110px, 0.8fr)) auto; gap: 14px; align-items: center; padding: 15px 16px; border: 1px solid #e7e9f1; border-radius: 14px; background: #fff; }
@@ -1632,6 +1645,9 @@ function openSaleInvoice(sale) {
           .payment-status-select { display: none; min-height: 38px; padding: 8px 12px; border: 1px solid #cfd7eb; border-radius: 12px; background: #fff; color: #2b3148; font: 600 13px/1.2 Inter, system-ui, sans-serif; }
           body.is-editing .payment-status { display: none; }
           body.is-editing .payment-status-select { display: inline-flex; }
+          .exchange-section { margin-top: 16px; display: none; }
+          body.is-editing .exchange-section { display: block; }
+          .exchange-rate-input { width: 220px; min-height: 40px; padding: 8px 12px; border: 1px solid #cfd7eb; border-radius: 12px; background: #fff; color: #2b3148; font: 600 13px/1.2 Inter, system-ui, sans-serif; }
           .bank-section { margin-top: 16px; padding-bottom: 0; }
           .bank-select-wrap { display: none; margin: 0 0 10px; }
           .bank-account-select { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid #cfd7eb; border-radius: 12px; background: #fff; color: #2b3148; font: 600 13px/1.2 Inter, system-ui, sans-serif; }
@@ -1653,7 +1669,12 @@ function openSaleInvoice(sale) {
           .invoice-edit-input { display: none; }
           body.is-editing .invoice-view-text { display: none; }
           body.is-editing .invoice-edit-input { display: block; width: 100%; min-height: 36px; padding: 8px 10px; border: 1px solid #cfd7eb; border-radius: 10px; background: #fff; color: #2b3148; font: 600 13px/1.2 Inter, system-ui, sans-serif; }
-          @media print { .toolbar { display: none; } .page { width: auto; margin: 0; border: none; border-radius: 0; box-shadow: none; } }
+          @media print {
+            .toolbar { display: none; }
+            .exchange-section { display: none !important; }
+            body { background: #fff; }
+            .page { width: auto; min-height: auto; margin: 0; border: none; border-radius: 0; box-shadow: none; }
+          }
         </style>
       </head>
       <body>
@@ -1680,7 +1701,6 @@ function openSaleInvoice(sale) {
               <div class="customer-block">
                 <span class="label">Төлөгч</span>
                 <p><strong>${escapeHtml(String(buyerName).toUpperCase())}</strong></p>
-                <p class="meta-note">Ханш: 1 USD = ${escapeHtml(formatMnt(exchangeRate))}</p>
               </div>
             </div>
           </div>
@@ -1696,8 +1716,8 @@ function openSaleInvoice(sale) {
               </tr>
             </thead>
             <tbody>
-              ${items.map((item) => `
-                <tr>
+              ${invoiceRows.map((item) => `
+                <tr${item.isDiscount ? ' class="invoice-discount-row"' : ""} data-usd-unit="${item.isDiscount ? 0 : Number(item.unitPrice || 0)}" data-usd-total="${Number(item.totalPrice || 0)}">
                   <td>${item.index}</td>
                   <td>
                     <span class="invoice-view-text">${escapeHtml(item.description.replace(/^Match\s+/i, "Тоглолт "))}${item.categoryCode ? ` · Кат ${escapeHtml(item.categoryCode)}` : ""}</span>
@@ -1708,8 +1728,8 @@ function openSaleInvoice(sale) {
                     <input class="invoice-edit-input" type="number" value="${item.quantity}" />
                   </td>
                   <td>
-                    <span class="invoice-view-text">${escapeHtml(formatMnt(item.unitPrice * exchangeRate))}</span>
-                    <input class="invoice-edit-input" type="number" value="${Math.round(item.unitPrice * exchangeRate)}" />
+                    <span class="invoice-view-text">${item.isDiscount ? "" : escapeHtml(formatMnt(item.unitPrice * exchangeRate))}</span>
+                    <input class="invoice-edit-input" type="number" value="${item.isDiscount ? "" : Math.round(item.unitPrice * exchangeRate)}" />
                   </td>
                   <td>
                     <span class="invoice-view-text">${escapeHtml(formatMnt(item.totalPrice * exchangeRate))}</span>
@@ -1717,22 +1737,20 @@ function openSaleInvoice(sale) {
                   </td>
                 </tr>
               `).join("")}
-              ${discountAmount > 0 ? `
-                <tr class="discount-row">
-                  <td colspan="4">Хямдрал</td>
-                  <td>-${escapeHtml(formatMnt(discountAmount * exchangeRate))}</td>
-                </tr>
-              ` : ""}
               <tr class="total-row">
                 <td colspan="4">Нийт үнэ</td>
-                <td>${escapeHtml(formatMnt(total * exchangeRate))}</td>
+                <td data-grand-total>${escapeHtml(formatMnt(total * exchangeRate))}</td>
               </tr>
             </tbody>
           </table>
+          <div class="exchange-section">
+            <p class="section-title">Ханш</p>
+            <input class="exchange-rate-input" type="number" min="1" step="1" value="${Math.round(exchangeRate)}" />
+          </div>
           <p class="section-title">Төлбөрийн хуваарь</p>
           <div class="payment-stack">
             ${paymentRows.map((row) => `
-              <div class="payment-card">
+              <div class="payment-card" data-payment-usd="${Number(row.amount || 0)}">
                 <div class="payment-main">
                   <span class="payment-title invoice-view-text">${escapeHtml(row.title)}</span>
                   <input class="invoice-edit-input" value="${escapeHtml(row.title)}" />
@@ -1756,7 +1774,7 @@ function openSaleInvoice(sale) {
                     <option value="overdue"${row.status.className === "overdue" ? " selected" : ""}>Хугацаа хэтэрсэн</option>
                   </select>
                 </div>
-                <div class="payment-amount">${escapeHtml(formatMnt(row.amount * exchangeRate))}</div>
+                <div class="payment-amount" data-payment-amount>${escapeHtml(formatMnt(row.amount * exchangeRate))}</div>
               </div>
             `).join("")}
           </div>
@@ -1807,6 +1825,7 @@ function openSaleInvoice(sale) {
           const bankName = document.querySelector('[data-bank-name]');
           const bankPrefix = document.querySelector('[data-bank-prefix]');
           const bankNumber = document.querySelector('[data-bank-number]');
+          const exchangeRateInput = document.querySelector('.exchange-rate-input');
           document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
           const syncBankAccount = () => {
             const selected = bankAccounts[bankSelect?.value || 'state'] || bankAccounts.state;
@@ -1814,7 +1833,29 @@ function openSaleInvoice(sale) {
             if (bankPrefix) bankPrefix.textContent = selected.prefix;
             if (bankNumber) bankNumber.textContent = selected.accountNumber;
           };
+          const formatMnt = (value) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(Number(value || 0))) + ' ₮';
+          const syncExchangeRate = () => {
+            const rate = Math.max(Number(exchangeRateInput?.value || 0), 1);
+            document.querySelectorAll('tbody tr').forEach((row) => {
+              const inputs = row.querySelectorAll('.invoice-edit-input');
+              const usdUnit = Number(row.dataset.usdUnit || 0);
+              const usdTotal = Number(row.dataset.usdTotal || 0);
+              const viewCells = row.querySelectorAll('.invoice-view-text');
+              if (viewCells[2]) viewCells[2].textContent = usdUnit ? formatMnt(usdUnit * rate) : '';
+              if (viewCells[3]) viewCells[3].textContent = formatMnt(usdTotal * rate);
+              if (inputs[2]) inputs[2].value = usdUnit ? String(Math.round(usdUnit * rate)) : '';
+              if (inputs[3]) inputs[3].value = String(Math.round(usdTotal * rate));
+            });
+            const grandTotal = document.querySelector('[data-grand-total]');
+            if (grandTotal) grandTotal.textContent = formatMnt(${total} * rate);
+            document.querySelectorAll('[data-payment-usd]').forEach((card) => {
+              const amount = Number(card.dataset.paymentUsd || 0);
+              const amountNode = card.querySelector('[data-payment-amount]');
+              if (amountNode) amountNode.textContent = formatMnt(amount * rate);
+            });
+          };
           bankSelect?.addEventListener('change', syncBankAccount);
+          exchangeRateInput?.addEventListener('input', syncExchangeRate);
           modeButtons.forEach((button) => {
             button.addEventListener('click', () => {
               const isEdit = button.dataset.mode === 'edit';
@@ -1839,6 +1880,7 @@ function openSaleInvoice(sale) {
             modeButtons[0].style.color = '#fff';
           }
           syncBankAccount();
+          syncExchangeRate();
         </script>
       </body>
     </html>
