@@ -853,6 +853,7 @@ function renderTickets() {
         <span>Availability</span>
         <span>City</span>
         <span>Stage</span>
+        <span>Actions</span>
       </div>
       ${groups
         .map((group, index) => {
@@ -889,6 +890,8 @@ function renderTickets() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--stage">
                   <strong>${escapeHtml(group.stage)}</strong>
+                </div>
+                <div class="fifa-match-col fifa-match-col--actions">
                   <div class="fifa-match-stage-actions">
                     <button type="button" class="button-secondary fifa-inline-action" data-action="edit-match" data-match-number="${escapeHtml(group.matchNumber)}">Edit</button>
                     <button type="button" class="button-secondary fifa-inline-action" data-action="delete-match" data-match-key="${escapeHtml(group.key)}">Delete</button>
