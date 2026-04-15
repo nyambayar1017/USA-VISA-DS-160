@@ -2914,11 +2914,29 @@ body.modal-open {
   white-space: nowrap;
 }
 
+.fifa-availability-line.is-available {
+  background: rgba(59, 145, 96, 0.12);
+  color: #216a44;
+}
+
+.fifa-availability-line.is-sold {
+  background: rgba(214, 171, 61, 0.18);
+  color: #8b6510;
+}
+
 .fifa-availability-total {
   flex-basis: 100%;
   margin-top: 3px;
   margin-left: 0;
   white-space: nowrap;
+}
+
+.fifa-availability-total.is-available {
+  color: #216a44;
+}
+
+.fifa-availability-sold-total {
+  color: #8b6510;
 }
 
 .fifa-match-col--availability {
@@ -3048,11 +3066,11 @@ body.modal-open {
 }
 
 .fifa-actions-cell {
-  min-width: 220px;
+  min-width: 190px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .fifa-actions-cell button {
@@ -3072,6 +3090,60 @@ body.modal-open {
 .fifa-actions-cell .fifa-table-sub {
   flex-basis: 100%;
   margin-top: 0;
+}
+
+.fifa-actions-cell .button-secondary {
+  padding: 5px 9px;
+  font-size: 0.74rem;
+}
+
+.fifa-sale-card .fifa-match-toggle {
+  grid-template-columns: 72px minmax(240px, 1.25fr) minmax(180px, 0.95fr) 120px 140px 140px 170px 220px;
+}
+
+.fifa-sale-status-col {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-content: flex-start;
+}
+
+.fifa-sales-table-head {
+  grid-template-columns: 72px minmax(240px, 1.25fr) minmax(180px, 0.95fr) 120px 140px 140px 170px 220px;
+}
+
+.fifa-sale-card .fifa-match-col--number {
+  display: flex;
+  align-items: flex-start;
+}
+
+.fifa-sale-card .fifa-match-col--actions .fifa-match-stage-actions {
+  gap: 6px;
+}
+
+.fifa-sale-card .fifa-match-col--actions .fifa-inline-action,
+.fifa-sale-card .fifa-match-col--actions .button-secondary {
+  padding: 6px 10px;
+  font-size: 0.76rem;
+}
+
+.fifa-sale-card .fifa-match-details {
+  padding-top: 8px;
+}
+
+.fifa-pill.is-paid {
+  background: rgba(59, 145, 96, 0.12);
+  color: #216a44;
+}
+
+.fifa-pill.is-pending {
+  background: rgba(214, 171, 61, 0.18);
+  color: #8b6510;
+}
+
+.fifa-pill.is-overdue {
+  background: rgba(183, 74, 74, 0.14);
+  color: #9a3030;
 }
 
 .fifa-pill {

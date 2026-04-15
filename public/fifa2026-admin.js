@@ -101,6 +101,7 @@ const state = {
   editingTicketId: "",
   editingSaleId: "",
   expandedMatches: new Set(),
+  expandedSales: new Set(),
   selectedTickets: new Set(),
   saleBlocks: [],
   participants: [],
@@ -494,7 +495,7 @@ function renderSaleBlocks() {
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s)</span>
           <span class="fifa-table-sub">${escapeHtml(formatMoney(block.unitPrice || 0))} per ticket · ${escapeHtml(formatMoney(block.totalPrice))} total</span>
           <div class="fifa-sale-ticket-list">
-            ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(label)}</span>`).join("")}
+            ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(block.matchLabel)} · ${escapeHtml(label)}</span>`).join("")}
           </div>
         </div>
         <button type="button" class="button-secondary" data-action="remove-sale-block" data-index="${index}">Remove</button>
@@ -876,7 +877,8 @@ function groupTicketsByMatch(tickets) {
         const categoryTickets = groupTickets.filter((ticket) => String(ticket.categoryCode || "") === categoryCode);
         const total = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
         const available = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
-        return { categoryCode, total, available };
+        const sold = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0);
+        return { categoryCode, total, available, sold };
       }).filter((item) => item.total > 0);
       return {
         ...group,
@@ -947,7 +949,8 @@ function renderTickets() {
           const availabilitySummary = group.categoryBreakdown
             .map(
               (item) => `
-                    <span class="fifa-availability-line">CAT ${item.categoryCode}: ${item.available}/${item.total}</span>
+                    ${item.available > 0 ? `<span class="fifa-availability-line is-available">CAT ${item.categoryCode} available: ${item.available}</span>` : ""}
+                    ${item.sold > 0 ? `<span class="fifa-availability-line is-sold">CAT ${item.categoryCode} sold: ${item.sold}</span>` : ""}
               `
             )
             .join("");
@@ -968,7 +971,8 @@ function renderTickets() {
                 <div class="fifa-match-col fifa-match-col--availability">
                   <div class="fifa-availability-block">
                     ${availabilitySummary}
-                    <span class="fifa-table-sub fifa-availability-total">Total available: ${group.availableUnits}</span>
+                    <span class="fifa-table-sub fifa-availability-total is-available">Available: ${group.availableUnits}</span>
+                    ${group.soldUnits > 0 ? `<span class="fifa-table-sub fifa-availability-total fifa-availability-sold-total">Sold: ${group.soldUnits}</span>` : ""}
                   </div>
                 </div>
                 <div class="fifa-match-col fifa-match-col--city">
@@ -1031,24 +1035,23 @@ function renderTickets() {
                                         <td>${escapeHtml(formatMoney(ticket.price, ticket.currency))}</td>
                                         <td>
                                           <strong>${soldOut ? "Sold" : `${ticket.availableQuantity}/${ticket.totalQuantity}`}</strong>
-                                          <span class="fifa-table-sub">${soldOut ? `${ticket.soldQuantity} of ${ticket.totalQuantity}` : `sold ${ticket.soldQuantity}`}</span>
+                                          <span class="fifa-table-sub">${soldOut ? "Buyer assigned" : `sold ${ticket.soldQuantity}`}</span>
                                         </td>
                                         <td>
                                           <span class="fifa-pill ${ticket.visibility === "public" ? "is-public" : "is-private"}">${escapeHtml(ticket.visibility)}</span>
                                           ${ticket.seatAssignedLater ? '<span class="fifa-pill">assigned later</span>' : ""}
                                         </td>
                                         <td class="fifa-actions-cell">
+                                          <button type="button" class="button-secondary" data-action="edit-ticket" data-id="${escapeHtml(ticket.id)}">Edit</button>
+                                          <button type="button" class="button-secondary" data-action="toggle-visibility" data-id="${escapeHtml(ticket.id)}">${ticket.visibility === "public" ? "Make private" : "Make public"}</button>
+                                          <button type="button" class="button-secondary" data-action="delete-ticket" data-id="${escapeHtml(ticket.id)}">Delete</button>
                                           ${
                                             soldOut
                                               ? `
                                                 <button type="button" class="fifa-inline-action fifa-inline-action--sold" data-action="view-sold-ticket" data-id="${escapeHtml(ticket.id)}">SOLD</button>
-                                                <span class="fifa-table-sub">${escapeHtml(soldBuyerLabel)}</span>
                                               `
                                               : ""
                                           }
-                                          <button type="button" class="button-secondary" data-action="edit-ticket" data-id="${escapeHtml(ticket.id)}">Edit</button>
-                                          <button type="button" class="button-secondary" data-action="toggle-visibility" data-id="${escapeHtml(ticket.id)}">${ticket.visibility === "public" ? "Make private" : "Make public"}</button>
-                                          <button type="button" class="button-secondary" data-action="delete-ticket" data-id="${escapeHtml(ticket.id)}">Delete</button>
                                         </td>
                                       </tr>
                                     `;
@@ -1079,60 +1082,131 @@ function renderSales() {
   }
   if (!saleList) return;
   saleList.innerHTML = `
-    <table class="manager-table fifa-table">
-      <thead>
-        <tr>
-          <th>Buyer</th>
-          <th>Ticket</th>
-          <th>Qty</th>
-          <th>Total</th>
-          <th>Paid</th>
-          <th>Status</th>
-          <th>Manager</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${sales
-          .map(
-            (sale) => `
-              <tr>
-                <td>
-                  <strong>${escapeHtml(sale.buyerTitle || sale.buyerName)}</strong>
+    <div class="fifa-match-accordion fifa-match-accordion--table fifa-sales-accordion">
+      <div class="fifa-match-table-head fifa-sales-table-head">
+        <span>#</span>
+        <span>Buyer</span>
+        <span>Tickets</span>
+        <span>Total</span>
+        <span>Paid</span>
+        <span>Status</span>
+        <span>Manager</span>
+        <span>Actions</span>
+      </div>
+      ${sales
+        .map((sale, saleIndex) => {
+          const isExpanded = state.expandedSales.has(sale.id);
+          const paymentLabel = sale.paymentStatus === "paid"
+            ? "Paid"
+            : sale.paymentStatus === "overdue"
+              ? "Overdue"
+              : "Pending";
+          const paymentClass = sale.paymentStatus === "paid"
+            ? "is-paid"
+            : sale.paymentStatus === "overdue"
+              ? "is-overdue"
+              : "is-pending";
+          const ticketLines = sale.ticketBlocks?.length
+            ? sale.ticketBlocks.flatMap((block) => (block.ticketLabels || []).map((label, index) => ({
+                matchLabel: block.matchLabel || sale.ticketLabel || "-",
+                unitPrice: block.unitPrice || sale.pricePerTicket || 0,
+                ticketLabel: label,
+                number: index + 1,
+              })))
+            : (sale.ticketIds || []).map((ticketId, index) => {
+                const ticket = state.tickets.find((item) => item.id === ticketId);
+                return {
+                  matchLabel: ticket ? `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)}` : sale.ticketLabel || "-",
+                  unitPrice: ticket?.price || sale.pricePerTicket || 0,
+                  ticketLabel: ticket ? ticketSummaryLabel(ticket) : sale.ticketLabel || "-",
+                  number: index + 1,
+                };
+              });
+          return `
+            <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
+              <div class="fifa-match-toggle fifa-sale-toggle" data-action="toggle-sale" data-id="${escapeHtml(sale.id)}" role="button" tabindex="0">
+                <div class="fifa-match-col fifa-match-col--number">
+                  <strong>${isExpanded ? "▾" : "▸"} ${saleIndex + 1}</strong>
+                </div>
+                <div class="fifa-match-col fifa-match-col--teams">
+                  <strong>${escapeHtml(sale.buyerTitle || sale.buyerName || "-")}</strong>
                   ${sale.buyerTitle ? `<span class="fifa-table-sub">${escapeHtml(sale.buyerName || "")}</span>` : ""}
                   <span class="fifa-table-sub">${escapeHtml(sale.buyerPhone || sale.buyerEmail || "-")}</span>
-                  <span class="fifa-table-sub">${escapeHtml(sale.buyerPassportNumber || "")}</span>
-                </td>
-                <td>
-                  <strong>${escapeHtml(sale.ticketLabel || "-")}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(sale.city || "")}</span>
-                  <span class="fifa-table-sub">${escapeHtml(sale.seatDetails || "")}</span>
-                </td>
-                <td>${sale.quantity}</td>
-                <td>${escapeHtml(formatMoney(sale.totalPrice))}</td>
-                <td>
-                  <strong>${escapeHtml(formatMoney(sale.amountPaid))}</strong>
+                </div>
+                <div class="fifa-match-col">
+                  <strong>${sale.quantity} ticket(s)</strong>
+                  <span class="fifa-table-sub">${escapeHtml(ticketLines[0]?.matchLabel || sale.ticketLabel || "-")}</span>
+                </div>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(formatMoney(sale.totalPrice))}</strong>
                   <span class="fifa-table-sub">Balance ${escapeHtml(formatMoney(sale.balanceDue))}</span>
-                </td>
-                <td>
-                  <span class="fifa-pill">${escapeHtml(sale.paymentStatus)}</span>
-                  <span class="fifa-pill ${sale.saleStatus === "cancelled" ? "is-cancelled" : ""}">${escapeHtml(sale.saleStatus)}</span>
-                </td>
-                <td>
-                  <strong>${escapeHtml(sale.soldByName || "-")}</strong>
+                </div>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(formatMoney(sale.amountPaid))}</strong>
                   <span class="fifa-table-sub">${escapeHtml(formatDateTime(sale.soldAt))}</span>
-                </td>
-                <td class="fifa-actions-cell">
-                  <button type="button" class="button-secondary" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
-                  <button type="button" class="button-secondary" data-action="cancel-sale" data-id="${escapeHtml(sale.id)}">Cancel</button>
-                  <button type="button" class="button-secondary" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
-                </td>
-              </tr>
-            `
-          )
-          .join("")}
-      </tbody>
-    </table>
+                </div>
+                <div class="fifa-match-col fifa-sale-status-col">
+                  <span class="fifa-pill ${paymentClass}">${paymentLabel}</span>
+                  <span class="fifa-table-sub">${escapeHtml(sale.saleStatus)}</span>
+                </div>
+                <div class="fifa-match-col">
+                  <strong>${escapeHtml(sale.soldByName || "-")}</strong>
+                </div>
+                <div class="fifa-match-col fifa-match-col--actions">
+                  <div class="fifa-match-stage-actions">
+                    <button type="button" class="button-secondary fifa-inline-action" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
+                    <button type="button" class="button-secondary fifa-inline-action" data-action="cancel-sale" data-id="${escapeHtml(sale.id)}">Cancel</button>
+                    <button type="button" class="button-secondary fifa-inline-action" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
+                  </div>
+                </div>
+              </div>
+              ${
+                isExpanded
+                  ? `
+                    <div class="fifa-match-details">
+                      <table class="manager-table fifa-table fifa-nested-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Match</th>
+                            <th>Ticket</th>
+                            <th>Price</th>
+                            <th>Traveler</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${ticketLines.map((item, index) => {
+                            const participant = sale.participants?.find((p) => p.ticketLabel === item.ticketLabel) || sale.participants?.[index];
+                            return `
+                              <tr>
+                                <td>${index + 1}</td>
+                                <td>
+                                  <strong>${escapeHtml(item.matchLabel)}</strong>
+                                </td>
+                                <td>
+                                  <strong>Ticket ${index + 1}</strong>
+                                  <span class="fifa-table-sub">${escapeHtml(item.matchLabel)}</span>
+                                  <span class="fifa-table-sub">${escapeHtml(item.ticketLabel)}</span>
+                                </td>
+                                <td>${escapeHtml(formatMoney(item.unitPrice || 0))}</td>
+                                <td>
+                                  <strong>${escapeHtml(participant?.name || "-")}</strong>
+                                  <span class="fifa-table-sub">${escapeHtml(participant?.passportNumber || "")}</span>
+                                </td>
+                              </tr>
+                            `;
+                          }).join("")}
+                        </tbody>
+                      </table>
+                    </div>
+                  `
+                  : ""
+              }
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
   `;
 }
 
@@ -1362,6 +1436,9 @@ ticketList?.addEventListener("click", async (event) => {
     renderTickets();
     return;
   }
+  if (target?.dataset.action === "toggle-sale") {
+    return;
+  }
   if (target?.dataset.action === "add-ticket-match") {
     event.stopPropagation();
     resetTicketForm();
@@ -1416,7 +1493,10 @@ ticketList?.addEventListener("click", async (event) => {
       return saleTicketIds.includes(ticketId) && sale.saleStatus !== "cancelled";
     });
     if (relatedSale) {
-      fillSaleForm(relatedSale);
+      state.expandedSales.clear();
+      state.expandedSales.add(relatedSale.id);
+      renderSales();
+      document.querySelector("#sales-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
       setStatus(saleStatusNode, `Sold to ${relatedSale.buyerTitle || relatedSale.buyerName || "buyer"}.`);
     }
     return;
@@ -1447,6 +1527,18 @@ ticketList?.addEventListener("click", async (event) => {
 
 saleList?.addEventListener("click", async (event) => {
   const target = event.target.closest("button[data-action]");
+  const toggle = event.target.closest('[data-action="toggle-sale"]');
+  if (toggle && !target) {
+    const saleId = toggle.dataset.id || "";
+    if (state.expandedSales.has(saleId)) {
+      state.expandedSales.delete(saleId);
+    } else {
+      state.expandedSales.clear();
+      state.expandedSales.add(saleId);
+    }
+    renderSales();
+    return;
+  }
   if (!target) return;
   const saleId = target.dataset.id;
   const sale = state.sales.find((item) => item.id === saleId);
