@@ -413,10 +413,12 @@ def fifa_store_totals(store):
 
 
 def ensure_fifa2026_manual_inventory():
-    current = read_fifa2026_store()
     if not FIFA2026_RESET_MARKER_FILE.exists():
+        empty_store = {"tickets": [], "sales": []}
+        write_fifa2026_store(empty_store)
         FIFA2026_RESET_MARKER_FILE.write_text("manual-reset-v3", encoding="utf-8")
-        return current
+        return empty_store
+    current = read_fifa2026_store()
     tickets = current.get("tickets", [])
     if tickets and all(
         "Imported from DTX 2026 WC - Sales Registration.xlsx" in normalize_text(ticket.get("notes"))
