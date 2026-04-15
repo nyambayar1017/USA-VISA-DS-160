@@ -2928,19 +2928,19 @@ body.modal-open {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 8px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .fifa-price-line {
   display: inline-flex;
   align-items: center;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: rgba(32, 53, 111, 0.08);
-  color: #31446f;
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.25;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #66789d;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.15;
   white-space: nowrap;
 }
 
