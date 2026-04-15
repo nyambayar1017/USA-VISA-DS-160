@@ -44,10 +44,16 @@ const saleCategorySelect = document.querySelector("#fifa-sale-category-select");
 const saleBlockQuantityInput = document.querySelector("#fifa-sale-block-quantity");
 const saleSeatPicker = document.querySelector("#fifa-sale-seat-picker");
 const salePriceBreakdown = document.querySelector("#fifa-sale-price-breakdown");
+const invoiceScheduleEditor = document.querySelector("#fifa-invoice-schedule-editor");
 const ticketRowContainers = {
   "1": document.querySelector('[data-ticket-rows="1"]'),
   "2": document.querySelector('[data-ticket-rows="2"]'),
   "3": document.querySelector('[data-ticket-rows="3"]'),
+};
+const DEFAULT_INVOICE_EXCHANGE_RATE = 3600;
+const BANK_ACCOUNTS = {
+  state: { bankName: "Төрийн Банк", prefix: "MN030034", accountNumber: "3432 7777 9999" },
+  golomt: { bankName: "Голомт Банк", prefix: "MN80001500", accountNumber: "3675114666" },
 };
 
 const MATCH_CATALOG = [
@@ -109,6 +115,8 @@ const state = {
   saleBlocks: [],
   participants: [],
   pendingSaleSeatIds: [],
+  invoiceSchedule: [],
+  invoiceScheduleTouched: false,
 };
 
 function setNodeText(node, value) {
@@ -126,6 +134,13 @@ function clearStatus(node) {
   if (!node) return;
   node.textContent = "";
   delete node.dataset.tone;
+}
+
+function safeDateInput(value) {
+  const raw = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (/^\d{4}\.\d{2}\.\d{2}$/.test(raw)) return raw.replaceAll(".", "-");
+  return "";
 }
 
 async function fetchJson(url, options) {
@@ -549,6 +564,7 @@ function syncSalePriceFields() {
   }
   saleForm.elements.totalPrice.value = totalPrice ? String(totalPrice) : "";
   syncSaleTotals();
+  renderInvoiceScheduleEditor();
 }
 
 function resetSaleBlockSelection() {
@@ -602,6 +618,135 @@ function renderSaleSummary() {
           <span></span>
           <span>${escapeHtml(formatMoney(totalPrice))}</span>
         </div>
+      </div>
+    </div>
+  `;
+}
+
+function getInvoiceBankAccount(key) {
+  return BANK_ACCOUNTS[key] || BANK_ACCOUNTS.state;
+}
+
+function saleInvoiceSubtotal(saleLike = null) {
+  const blocks = saleLike?.ticketBlocks || state.saleBlocks || [];
+  return blocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+}
+
+function saleInvoiceTotal(saleLike = null) {
+  const subtotal = saleInvoiceSubtotal(saleLike);
+  const discountAmount = Math.max(Number(saleLike?.discountAmount ?? saleForm?.elements?.discountAmount?.value ?? 0), 0);
+  return Math.max(subtotal - discountAmount, 0);
+}
+
+function defaultInvoiceSchedule(totalPrice, amountPaid, soldAtValue = "") {
+  const soldAt = safeDateInput(soldAtValue) || new Date().toISOString().slice(0, 10);
+  const paidAmount = Math.max(Number(amountPaid || 0), 0);
+  const total = Math.max(Number(totalPrice || 0), 0);
+  const balance = Math.max(total - paidAmount, 0);
+  const lines = [];
+  if (paidAmount > 0) {
+    lines.push({
+      title: balance > 0 ? "Урьдчилгаа төлбөр" : "Төлбөр",
+      created: soldAt,
+      due: soldAt,
+      status: "paid",
+      amount: paidAmount,
+    });
+  }
+  if (balance > 0) {
+    lines.push({
+      title: lines.length ? "Үлдэгдэл төлбөр" : "Төлбөр",
+      created: soldAt,
+      due: soldAt,
+      status: paidAmount > 0 ? "waiting" : "waiting",
+      amount: balance,
+    });
+  }
+  if (!lines.length) {
+    lines.push({
+      title: "Төлбөр",
+      created: soldAt,
+      due: soldAt,
+      status: "waiting",
+      amount: total,
+    });
+  }
+  return lines;
+}
+
+function normalizedInvoiceSchedule(lines) {
+  return (lines || [])
+    .map((line, index) => ({
+      title: String(line?.title || "").trim() || `Төлбөр ${index + 1}`,
+      created: safeDateInput(line?.created || line?.createdAt || ""),
+      due: safeDateInput(line?.due || line?.dueDate || ""),
+      status: ["paid", "waiting", "overdue"].includes(String(line?.status || "").trim()) ? String(line.status).trim() : "waiting",
+      amount: Math.max(Number(line?.amount || 0), 0),
+    }))
+    .filter((line) => line.title || line.amount > 0);
+}
+
+function activeInvoiceSchedule(saleLike = null) {
+  if (saleLike) {
+    const saved = normalizedInvoiceSchedule(saleLike.invoiceSchedule || []);
+    return saved.length
+      ? saved
+      : defaultInvoiceSchedule(saleInvoiceTotal(saleLike), Number(saleLike.amountPaid || 0), saleLike.soldAt || "");
+  }
+  if (state.invoiceScheduleTouched) {
+    const current = normalizedInvoiceSchedule(state.invoiceSchedule);
+    return current.length
+      ? current
+      : defaultInvoiceSchedule(saleInvoiceTotal(), Number(saleForm?.elements?.amountPaid?.value || 0), saleForm?.elements?.soldAt?.value || "");
+  }
+  return defaultInvoiceSchedule(saleInvoiceTotal(), Number(saleForm?.elements?.amountPaid?.value || 0), saleForm?.elements?.soldAt?.value || "");
+}
+
+function renderInvoiceScheduleEditor() {
+  if (!invoiceScheduleEditor || !saleForm) return;
+  const schedule = activeInvoiceSchedule();
+  const totalPrice = saleInvoiceTotal();
+  const scheduleTotal = schedule.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  invoiceScheduleEditor.innerHTML = `
+    <div class="fifa-invoice-schedule-box">
+      <div class="fifa-invoice-schedule-head">
+        <strong>Төлбөрийн хуваарь</strong>
+        <button type="button" class="button-secondary fifa-inline-action" data-action="add-invoice-line">Add line</button>
+      </div>
+      <div class="fifa-invoice-schedule-list">
+        ${schedule.map((line, index) => `
+          <div class="fifa-invoice-schedule-row" data-schedule-index="${index}">
+            <label>
+              Line title
+              <input type="text" data-schedule-field="title" value="${escapeHtml(line.title)}" />
+            </label>
+            <label>
+              Invoice date
+              <input type="date" data-schedule-field="created" value="${escapeHtml(line.created)}" />
+            </label>
+            <label>
+              Due / paid date
+              <input type="date" data-schedule-field="due" value="${escapeHtml(line.due)}" />
+            </label>
+            <label>
+              Төлөв
+              <select data-schedule-field="status">
+                <option value="paid"${line.status === "paid" ? " selected" : ""}>Төлөгдсөн</option>
+                <option value="waiting"${line.status === "waiting" ? " selected" : ""}>Хүлээгдэж буй</option>
+                <option value="overdue"${line.status === "overdue" ? " selected" : ""}>Хугацаа хэтэрсэн</option>
+              </select>
+            </label>
+            <label>
+              Amount (₮)
+              <input type="number" min="0" step="1" data-schedule-field="amount" value="${escapeHtml(String(Math.round(Number(line.amount || 0) * Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE))))}" />
+            </label>
+            <button type="button" class="button-secondary fifa-inline-action" data-action="remove-invoice-line" data-index="${index}">Remove</button>
+          </div>
+        `).join("")}
+      </div>
+      <div class="fifa-invoice-schedule-footer">
+        <span>Schedule total: ${formatMoney(scheduleTotal * Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE), "MNT")}</span>
+        <span>Invoice total: ${formatMoney(totalPrice * Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE), "MNT")}</span>
       </div>
     </div>
   `;
@@ -737,6 +882,8 @@ function resetSaleForm() {
   state.saleBlocks = [];
   state.participants = [];
   state.pendingSaleSeatIds = [];
+  state.invoiceSchedule = [];
+  state.invoiceScheduleTouched = false;
   if (saleMatchSelect) saleMatchSelect.value = "";
   if (saleCategorySelect) saleCategorySelect.value = "";
   if (saleBlockQuantityInput) saleBlockQuantityInput.value = "0";
@@ -745,8 +892,10 @@ function resetSaleForm() {
   renderParticipants();
   renderSaleSeatPicker();
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = "0";
-  if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = "3500";
+  if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = String(DEFAULT_INVOICE_EXCHANGE_RATE);
+  if (saleForm.elements.invoiceBankAccount) saleForm.elements.invoiceBankAccount.value = "state";
   if (salePriceBreakdown) salePriceBreakdown.value = "";
+  renderInvoiceScheduleEditor();
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
   setSaleFormVisible(false);
@@ -882,7 +1031,8 @@ function fillSaleForm(sale) {
   saleForm.elements.quantity.value = sale.quantity || 1;
   saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = sale.discountAmount || 0;
-  if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = sale.invoiceExchangeRate || 3500;
+  if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE;
+  if (saleForm.elements.invoiceBankAccount) saleForm.elements.invoiceBankAccount.value = sale.invoiceBankAccount || "state";
   saleForm.elements.totalPrice.value = sale.totalPrice || "";
   saleForm.elements.amountPaid.value = sale.amountPaid || 0;
   saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
@@ -934,7 +1084,10 @@ function fillSaleForm(sale) {
     nationality: participant.nationality || "",
     notes: participant.notes || "",
   }));
+  state.invoiceSchedule = normalizedInvoiceSchedule(sale.invoiceSchedule || []);
+  state.invoiceScheduleTouched = Boolean(state.invoiceSchedule.length);
   renderSaleBlocks();
+  renderInvoiceScheduleEditor();
   renderParticipants();
   renderSaleSeatPicker();
   state.editingSaleId = sale.id;
@@ -960,9 +1113,12 @@ function startSaleForTicket(ticketId) {
     ticketLabels: [ticketSummaryLabel(ticket)],
     ticketIds: [ticket.id],
   }];
+  state.invoiceSchedule = [];
+  state.invoiceScheduleTouched = false;
   renderSaleBlocks();
   saleForm.elements.pricePerTicket.value = ticket.price || "";
   saleForm.elements.totalPrice.value = ticket.price || "";
+  renderInvoiceScheduleEditor();
   setSaleFormVisible(true);
   saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1311,6 +1467,68 @@ function renderTickets() {
   `;
 }
 
+function buildInvoiceItemsForSale(sale) {
+  const items = (sale.ticketBlocks || [])
+    .filter((block) => Number(block.quantity || 0) > 0)
+    .map((block, index) => ({
+      index: index + 1,
+      description: block.matchLabel || "-",
+      quantity: Number(block.quantity || 0),
+      unitPrice: Number(block.unitPrice || 0),
+      totalPrice: Number(block.totalPrice || 0),
+      categoryCode: block.categoryCode || "",
+    }));
+  if (items.length) return items;
+  const grouped = {};
+  (sale.ticketIds || []).forEach((ticketId) => {
+    const ticket = state.tickets.find((item) => item.id === ticketId);
+    if (!ticket) return;
+    const key = `${ticket.matchNumber || ""}|${ticket.categoryCode || ""}`;
+    if (!grouped[key]) {
+      grouped[key] = {
+        description: buildMatchTitle(ticket.matchNumber, ticket.teamA, ticket.teamB),
+        quantity: 0,
+        unitPrice: Number(ticket.price || 0),
+        totalPrice: 0,
+        categoryCode: ticket.categoryCode || "",
+      };
+    }
+    grouped[key].quantity += 1;
+    grouped[key].totalPrice += Number(ticket.price || 0);
+  });
+  return Object.values(grouped).map((item, index) => ({ index: index + 1, ...item }));
+}
+
+function buildInvoiceRowsForSale(sale) {
+  const items = buildInvoiceItemsForSale(sale);
+  const discountAmount = Math.max(Number(sale.discountAmount || 0), 0);
+  return discountAmount > 0
+    ? [
+        ...items,
+        {
+          index: items.length + 1,
+          description: "Хямдрал",
+          quantity: "",
+          unitPrice: "",
+          totalPrice: -discountAmount,
+          categoryCode: "",
+          isDiscount: true,
+        },
+      ]
+    : items;
+}
+
+function buildInvoiceScheduleForSale(sale) {
+  return activeInvoiceSchedule(sale).map((row) => ({
+    ...row,
+    statusMeta: row.status === "paid"
+      ? { label: "Төлөгдсөн", className: "paid" }
+      : row.status === "overdue"
+        ? { label: "Хугацаа хэтэрсэн", className: "overdue" }
+        : { label: "Хүлээгдэж буй", className: "waiting" },
+  }));
+}
+
 function renderSales() {
   const sales = filteredSales();
   if (!sales.length) {
@@ -1409,6 +1627,10 @@ function renderSales() {
           const computedBaseTotal = blockTotalPrice || lineTotalPrice || Number(sale.totalPrice || 0);
           const computedTotalPrice = Math.max(Number(sale.totalPrice || 0) || (computedBaseTotal - discountAmount), 0);
           const computedBalance = Math.max(0, computedTotalPrice - Number(sale.amountPaid || 0));
+          const exchangeRate = Math.max(Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+          const invoiceRows = buildInvoiceRowsForSale(sale);
+          const invoiceSchedule = buildInvoiceScheduleForSale(sale);
+          const invoiceBank = getInvoiceBankAccount(sale.invoiceBankAccount || "state");
           return `
             <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle fifa-sale-toggle" data-action="toggle-sale" data-id="${escapeHtml(sale.id)}" role="button" tabindex="0">
@@ -1490,6 +1712,58 @@ function renderSales() {
                           </section>
                         `).join("")}
                       </div>
+                      <section class="fifa-sale-inline-invoice">
+                        <div class="fifa-sale-inline-invoice-head">
+                          <strong>INVOICE</strong>
+                          <button type="button" class="button-secondary fifa-inline-action" data-action="invoice-sale" data-id="${escapeHtml(sale.id)}">Open invoice</button>
+                        </div>
+                        <div class="fifa-sale-inline-invoice-meta">
+                          <span><strong>Төлөгч:</strong> ${escapeHtml(sale.buyerName || sale.buyerTitle || "-")}</span>
+                          <span><strong>Ханш:</strong> 1 USD = ${escapeHtml(formatMoney(exchangeRate, "MNT"))}</span>
+                          <span><strong>Данс:</strong> ${escapeHtml(invoiceBank.bankName)} ${escapeHtml(invoiceBank.prefix)} ${escapeHtml(invoiceBank.accountNumber)}</span>
+                        </div>
+                        <table class="manager-table fifa-table fifa-nested-table fifa-sale-invoice-table">
+                          <thead>
+                            <tr>
+                              <th>№</th>
+                              <th>Утга</th>
+                              <th>Тоо ширхэг</th>
+                              <th>Нэгжийн үнэ</th>
+                              <th>Нийт үнэ</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${invoiceRows.map((row) => `
+                              <tr>
+                                <td>${row.index}</td>
+                                <td>${escapeHtml(row.description.replace(/^Match\s+/i, "Тоглолт "))}${row.categoryCode ? ` · Кат ${escapeHtml(row.categoryCode)}` : ""}</td>
+                                <td>${row.quantity || ""}</td>
+                                <td>${row.isDiscount ? "" : escapeHtml(formatMoney(Number(row.unitPrice || 0) * exchangeRate, "MNT"))}</td>
+                                <td>${escapeHtml(formatMoney(Number(row.totalPrice || 0) * exchangeRate, "MNT"))}</td>
+                              </tr>
+                            `).join("")}
+                            <tr class="fifa-sale-summary-row--grand-total">
+                              <td colspan="4">Нийт үнэ</td>
+                              <td>${escapeHtml(formatMoney(computedTotalPrice * exchangeRate, "MNT"))}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div class="fifa-sale-inline-schedule">
+                          <strong>Төлбөрийн хуваарь</strong>
+                          <div class="fifa-sale-inline-schedule-list">
+                            ${invoiceSchedule.map((row) => `
+                              <div class="fifa-sale-inline-schedule-row">
+                                <div>
+                                  <strong>${escapeHtml(row.title)}</strong>
+                                  <span class="fifa-table-sub">Нэхэмжилсэн огноо ${escapeHtml(row.created || "-")} · ${escapeHtml(row.due || "-")}</span>
+                                </div>
+                                <span class="fifa-pill ${escapeHtml(`is-${row.statusMeta.className}`)}">${escapeHtml(row.statusMeta.label)}</span>
+                                <strong>${escapeHtml(formatMoney(Number(row.amount || 0) * exchangeRate, "MNT"))}</strong>
+                              </div>
+                            `).join("")}
+                          </div>
+                        </div>
+                      </section>
                     </div>
                   `
                   : ""
@@ -1507,101 +1781,16 @@ function openSaleInvoice(sale) {
     const normalized = formatDate(value);
     return normalized && normalized !== "-" ? normalized.replaceAll("-", ".") : "-";
   };
-  const invoicePaymentStatusMeta = (status) => {
-    if (status === "paid") return { label: "Төлөгдсөн", className: "paid" };
-    if (status === "overdue") return { label: "Хугацаа хэтэрсэн", className: "overdue" };
-    return { label: "Хүлээгдэж буй", className: "waiting" };
-  };
-  const bankAccounts = {
-    state: { bankName: "Төрийн Банк", prefix: "MN030034", accountNumber: "3432 7777 9999" },
-    golomt: { bankName: "Голомт Банк", prefix: "MN80001500", accountNumber: "3675114666" },
-  };
   const invoiceNumber = `FIFA-${String(sale.id || "").slice(0, 8).toUpperCase() || "00000000"}-1`;
   const buyerName = sale.buyerName || sale.buyerTitle || "-";
   const soldDate = formatDate(sale.soldAt);
   const invoiceDate = formatInvoiceDate(sale.soldAt);
-  const exchangeRate = Math.max(Number(sale.invoiceExchangeRate || 3500), 1);
+  const exchangeRate = Math.max(Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
   const formatMnt = (value) => `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(Number(value || 0)))} ₮`;
-  const items = (sale.ticketBlocks || [])
-    .filter((block) => Number(block.quantity || 0) > 0)
-    .map((block, index) => ({
-      index: index + 1,
-      description: block.matchLabel || "-",
-      quantity: Number(block.quantity || 0),
-      unitPrice: Number(block.unitPrice || 0),
-      totalPrice: Number(block.totalPrice || 0),
-      categoryCode: block.categoryCode || "",
-    }));
-  if (!items.length && (sale.ticketIds || []).length) {
-    const grouped = {};
-    (sale.ticketIds || []).forEach((ticketId) => {
-      const ticket = state.tickets.find((item) => item.id === ticketId);
-      if (!ticket) return;
-      const key = `${ticket.matchNumber || ""}|${ticket.categoryCode || ""}`;
-      if (!grouped[key]) {
-        grouped[key] = {
-          description: buildMatchTitle(ticket.matchNumber, ticket.teamA, ticket.teamB),
-          quantity: 0,
-          unitPrice: Number(ticket.price || 0),
-          totalPrice: 0,
-          categoryCode: ticket.categoryCode || "",
-        };
-      }
-      grouped[key].quantity += 1;
-      grouped[key].totalPrice += Number(ticket.price || 0);
-    });
-    Object.values(grouped).forEach((item, index) => items.push({ index: index + 1, ...item }));
-  }
-  const subtotal = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
-  const discountAmount = Math.max(Number(sale.discountAmount || 0), 0);
-  const invoiceRows = discountAmount > 0
-    ? [
-        ...items,
-        {
-          index: items.length + 1,
-          description: "Хямдрал",
-          quantity: "",
-          unitPrice: "",
-          totalPrice: -discountAmount,
-          categoryCode: "",
-          isDiscount: true,
-        },
-      ]
-    : items;
-  const total = Math.max(subtotal - discountAmount, 0);
-  const amountPaid = Number(sale.amountPaid || 0);
-  const balance = Math.max(0, total - amountPaid);
-  const paymentRows = [];
-  if (amountPaid > 0) {
-    paymentRows.push({
-      title: balance > 0 ? "Урьдчилгаа төлбөр" : "Төлбөр",
-      created: invoiceDate,
-      secondaryLabel: "Төлсөн огноо",
-      secondaryValue: invoiceDate,
-      status: invoicePaymentStatusMeta("paid"),
-      amount: amountPaid,
-    });
-  }
-  if (balance > 0) {
-    paymentRows.push({
-      title: "Үлдэгдэл төлбөр",
-      created: invoiceDate,
-      secondaryLabel: "Эцсийн хугацаа",
-      secondaryValue: invoiceDate,
-      status: invoicePaymentStatusMeta("waiting"),
-      amount: balance,
-    });
-  }
-  if (!paymentRows.length) {
-    paymentRows.push({
-      title: "Төлбөр",
-      created: invoiceDate,
-      secondaryLabel: "Эцсийн хугацаа",
-      secondaryValue: invoiceDate,
-      status: invoicePaymentStatusMeta("waiting"),
-      amount: total,
-    });
-  }
+  const invoiceRows = buildInvoiceRowsForSale(sale);
+  const total = saleInvoiceTotal(sale);
+  const paymentRows = buildInvoiceScheduleForSale(sale);
+  const selectedBankAccount = sale.invoiceBankAccount || "state";
   const popup = window.open("", "_blank");
   if (!popup) return;
   popup.document.write(`
@@ -1616,7 +1805,7 @@ function openSaleInvoice(sale) {
           .toolbar button { padding: 12px 18px; border: none; border-radius: 999px; background: #253776; color: #fff; font: 700 14px/1.2 Inter, system-ui, sans-serif; cursor: pointer; }
           .toolbar .secondary { background: #e9edf8; color: #2a3c78; }
           .toolbar .save { background: #157347; }
-          .page { width: 210mm; min-height: 297mm; margin: 20px auto 40px; padding: 18mm 16mm 18mm; background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08); }
+          .page { width: min(980px, calc(100vw - 48px)); min-height: calc(min(980px, calc(100vw - 48px)) * 1.4142); margin: 18px auto 32px; padding: 72px 62px 68px; background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08); }
           .invoice-number { margin: 0 0 18px; color: #3b4257; font-size: 17px; font-weight: 500; }
           .header-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 26px; align-items: start; }
           .invoice-logo { width: 154px; max-width: 100%; display: block; margin-bottom: 8px; }
@@ -1673,7 +1862,7 @@ function openSaleInvoice(sale) {
             .toolbar { display: none; }
             .exchange-section { display: none !important; }
             body { background: #fff; }
-            .page { width: auto; min-height: auto; margin: 0; border: none; border-radius: 0; box-shadow: none; }
+            .page { width: auto; min-height: auto; margin: 0; padding: 18mm 16mm 18mm; border: none; border-radius: 0; box-shadow: none; }
           }
         </style>
       </head>
@@ -1700,7 +1889,7 @@ function openSaleInvoice(sale) {
               <p class="meta-note">өдрийн 347 тоот тушаалын хавсралт</p>
               <div class="customer-block">
                 <span class="label">Төлөгч</span>
-                <p><strong>${escapeHtml(String(buyerName).toUpperCase())}</strong></p>
+                <p><strong>${escapeHtml(buyerName)}</strong></p>
               </div>
             </div>
           </div>
@@ -1757,21 +1946,21 @@ function openSaleInvoice(sale) {
                 </div>
                 <div class="payment-meta">
                   <span class="meta-label">Нэхэмжилсэн огноо</span>
-                  <span class="meta-value invoice-view-text">${escapeHtml(row.created)}</span>
-                  <input class="invoice-edit-input" type="date" value="${escapeHtml(soldDate || "")}" />
+                  <span class="meta-value invoice-view-text">${escapeHtml(formatInvoiceDate(row.created))}</span>
+                  <input class="invoice-edit-input" type="date" value="${escapeHtml(safeDateInput(row.created))}" />
                 </div>
                 <div class="payment-meta">
-                  <span class="meta-label">${escapeHtml(row.secondaryLabel)}</span>
-                  <span class="meta-value invoice-view-text">${escapeHtml(row.secondaryValue)}</span>
-                  <input class="invoice-edit-input" type="date" value="${escapeHtml(soldDate || "")}" />
+                  <span class="meta-label">${escapeHtml(row.status === "paid" ? "Төлсөн огноо" : "Эцсийн хугацаа")}</span>
+                  <span class="meta-value invoice-view-text">${escapeHtml(formatInvoiceDate(row.due))}</span>
+                  <input class="invoice-edit-input" type="date" value="${escapeHtml(safeDateInput(row.due))}" />
                 </div>
                 <div class="payment-meta">
                   <span class="meta-label">Төлөв</span>
-                  <span class="payment-status ${row.status.className}">${escapeHtml(row.status.label)}</span>
+                  <span class="payment-status ${row.statusMeta.className}">${escapeHtml(row.statusMeta.label)}</span>
                   <select class="payment-status-select">
-                    <option value="paid"${row.status.className === "paid" ? " selected" : ""}>Төлөгдсөн</option>
-                    <option value="waiting"${row.status.className === "waiting" ? " selected" : ""}>Хүлээгдэж буй</option>
-                    <option value="overdue"${row.status.className === "overdue" ? " selected" : ""}>Хугацаа хэтэрсэн</option>
+                    <option value="paid"${row.statusMeta.className === "paid" ? " selected" : ""}>Төлөгдсөн</option>
+                    <option value="waiting"${row.statusMeta.className === "waiting" ? " selected" : ""}>Хүлээгдэж буй</option>
+                    <option value="overdue"${row.statusMeta.className === "overdue" ? " selected" : ""}>Хугацаа хэтэрсэн</option>
                   </select>
                 </div>
                 <div class="payment-amount" data-payment-amount>${escapeHtml(formatMnt(row.amount * exchangeRate))}</div>
@@ -1782,15 +1971,15 @@ function openSaleInvoice(sale) {
             <p class="section-title">Дансны мэдээлэл</p>
             <div class="bank-select-wrap">
               <select class="bank-account-select" data-bank-account-select>
-                <option value="state">Төрийн Банк / MN030034 / 3432 7777 9999</option>
-                <option value="golomt">Голомт Банк / MN80001500 / 3675114666</option>
+                <option value="state"${selectedBankAccount === "state" ? " selected" : ""}>Төрийн Банк / MN030034 / 3432 7777 9999</option>
+                <option value="golomt"${selectedBankAccount === "golomt" ? " selected" : ""}>Голомт Банк / MN80001500 / 3675114666</option>
               </select>
             </div>
             <div class="bank-grid">
               <span>Дэлхий Трэвел Икс</span>
-              <span data-bank-name>Төрийн Банк</span>
-              <span data-bank-prefix>MN030034</span>
-              <strong data-bank-number>3432 7777 9999</strong>
+              <span data-bank-name>${escapeHtml(getInvoiceBankAccount(selectedBankAccount).bankName)}</span>
+              <span data-bank-prefix>${escapeHtml(getInvoiceBankAccount(selectedBankAccount).prefix)}</span>
+              <strong data-bank-number>${escapeHtml(getInvoiceBankAccount(selectedBankAccount).accountNumber)}</strong>
             </div>
           </div>
           <div class="invoice-footer">
@@ -1812,13 +2001,13 @@ function openSaleInvoice(sale) {
                 <p class="invoice-footer-label">Төлөгч</p>
                 <div class="invoice-footer-space"></div>
                 <div class="invoice-sign-line"></div>
-                <div class="invoice-sign-name">${escapeHtml(String(buyerName).toUpperCase())}</div>
+                <div class="invoice-sign-name">${escapeHtml(buyerName)}</div>
               </div>
             </div>
           </div>
         </div>
         <script>
-          const bankAccounts = ${JSON.stringify(bankAccounts)};
+          const bankAccounts = ${JSON.stringify(BANK_ACCOUNTS)};
           const modeButtons = Array.from(document.querySelectorAll('[data-mode]'));
           const saveButton = document.querySelector('[data-save]');
           const bankSelect = document.querySelector('[data-bank-account-select]');
@@ -2031,6 +2220,13 @@ if (saleForm) {
         notes: String(participant.notes || "").trim(),
       }))
       .filter((participant) => participant.ticketId || participant.name || participant.passportNumber || participant.nationality || participant.notes);
+    payload.invoiceSchedule = activeInvoiceSchedule().map((line) => ({
+      title: line.title,
+      created: line.created,
+      due: line.due,
+      status: line.status,
+      amount: Math.round(Number(line.amount || 0)),
+    }));
     if (!payload.ticketIds.length) {
       setStatus(saleStatusNode, "Add at least one ticket block first.", true);
       return;
@@ -2065,7 +2261,14 @@ saleFormToggleButton?.addEventListener("click", () => {
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.discountAmount?.addEventListener("input", syncSalePriceFields);
-saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
+saleForm?.elements?.amountPaid?.addEventListener("input", () => {
+  if (!state.invoiceScheduleTouched) renderInvoiceScheduleEditor();
+  syncSaleTotals();
+});
+saleForm?.elements?.soldAt?.addEventListener("input", () => {
+  if (!state.invoiceScheduleTouched) renderInvoiceScheduleEditor();
+});
+saleForm?.elements?.invoiceExchangeRate?.addEventListener("input", renderInvoiceScheduleEditor);
 saleMatchSelect?.addEventListener("change", () => refreshSaleCategoryOptions());
 saleCategorySelect?.addEventListener("change", () => renderSaleSeatPicker());
 saleSeatPicker?.addEventListener("change", () => {
@@ -2273,6 +2476,68 @@ saleParticipantList?.addEventListener("input", (event) => {
   const field = event.target.dataset.participantField;
   if (index < 0 || !field || !state.participants[index]) return;
   state.participants[index][field] = event.target.value;
+});
+
+invoiceScheduleEditor?.addEventListener("input", (event) => {
+  const row = event.target.closest("[data-schedule-index]");
+  if (!row) return;
+  const index = Number(row.dataset.scheduleIndex || -1);
+  const field = event.target.dataset.scheduleField;
+  if (index < 0 || !field) return;
+  const schedule = activeInvoiceSchedule();
+  if (!schedule[index]) return;
+  const rate = Math.max(Number(saleForm?.elements?.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+  state.invoiceScheduleTouched = true;
+  state.invoiceSchedule = normalizedInvoiceSchedule(schedule);
+  if (!state.invoiceSchedule[index]) return;
+  if (field === "amount") {
+    state.invoiceSchedule[index].amount = Math.max(Math.round(Number(event.target.value || 0) / rate), 0);
+    renderInvoiceScheduleEditor();
+  } else {
+    state.invoiceSchedule[index][field] = event.target.value;
+  }
+});
+
+invoiceScheduleEditor?.addEventListener("change", (event) => {
+  if (event.target.matches("[data-schedule-field='status']")) {
+    const row = event.target.closest("[data-schedule-index]");
+    const index = Number(row?.dataset.scheduleIndex || -1);
+    const schedule = activeInvoiceSchedule();
+    if (index < 0 || !schedule[index]) return;
+    state.invoiceScheduleTouched = true;
+    state.invoiceSchedule = normalizedInvoiceSchedule(schedule);
+    if (!state.invoiceSchedule[index]) return;
+    state.invoiceSchedule[index].status = event.target.value;
+    renderInvoiceScheduleEditor();
+  }
+});
+
+invoiceScheduleEditor?.addEventListener("click", (event) => {
+  const addButton = event.target.closest('[data-action="add-invoice-line"]');
+  if (addButton) {
+    const current = activeInvoiceSchedule();
+    state.invoiceScheduleTouched = true;
+    state.invoiceSchedule = normalizedInvoiceSchedule(current);
+    const soldAt = safeDateInput(saleForm?.elements?.soldAt?.value || "") || new Date().toISOString().slice(0, 10);
+    state.invoiceSchedule.push({
+      title: `Төлбөр ${state.invoiceSchedule.length + 1}`,
+      created: soldAt,
+      due: soldAt,
+      status: "waiting",
+      amount: 0,
+    });
+    renderInvoiceScheduleEditor();
+    return;
+  }
+  const removeButton = event.target.closest('[data-action="remove-invoice-line"]');
+  if (removeButton) {
+    const index = Number(removeButton.dataset.index || -1);
+    const current = activeInvoiceSchedule();
+    state.invoiceScheduleTouched = true;
+    state.invoiceSchedule = normalizedInvoiceSchedule(current);
+    if (index >= 0) state.invoiceSchedule.splice(index, 1);
+    renderInvoiceScheduleEditor();
+  }
 });
 
 resetTicketForm();

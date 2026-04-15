@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-35" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-36" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -400,13 +400,31 @@
               Match price breakdown
               <textarea id="fifa-sale-price-breakdown" rows="3" readonly placeholder="Each chosen match price will appear automatically here"></textarea>
             </label>
+            <section class="full-span fifa-category-editor fifa-sale-invoice-editor">
+              <div class="fifa-category-head">
+                <h3>Invoice</h3>
+                <p>Set the exchange rate, bank account, and payment schedule lines for this buyer invoice.</p>
+              </div>
+              <div class="manager-form-grid fifa-form-grid">
+                <label>
+                  USD to MNT rate
+                  <input name="invoiceExchangeRate" type="number" min="1" step="1" value="3600" />
+                </label>
+                <label>
+                  Bank account
+                  <select name="invoiceBankAccount">
+                    <option value="state">Төрийн Банк / MN030034 / 3432 7777 9999</option>
+                    <option value="golomt">Голомт Банк / MN80001500 / 3675114666</option>
+                  </select>
+                </label>
+                <div class="full-span fifa-invoice-schedule-editor" id="fifa-invoice-schedule-editor">
+                  <p class="fifa-seat-help">Payment schedule lines will appear here.</p>
+                </div>
+              </div>
+            </section>
             <label>
               Discount
               <input name="discountAmount" type="number" min="0" step="1" value="0" />
-            </label>
-            <label>
-              USD to MNT rate
-              <input name="invoiceExchangeRate" type="number" min="1" step="1" value="3500" />
             </label>
             <label hidden>
               Price per ticket
@@ -535,6 +553,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-39"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-40"></script>
   </body>
 </html>

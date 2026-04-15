@@ -4681,7 +4681,7 @@ def enrich_fifa_sale(sale, ticket, store=None):
     block_total_price = sum(max(parse_int(block.get("totalPrice")), 0) for block in (sale.get("ticketBlocks") or []))
     total_price = max(parse_int(sale.get("totalPrice")) or max(block_total_price - discount_amount, 0) or (quantity * price_per_ticket), 0)
     amount_paid = max(parse_int(sale.get("amountPaid")), 0)
-    invoice_exchange_rate = max(parse_int(sale.get("invoiceExchangeRate")) or 3500, 1)
+    invoice_exchange_rate = max(parse_int(sale.get("invoiceExchangeRate")) or 3600, 1)
     buyer_name = normalize_text(sale.get("buyerName"))
     sold_by = sale.get("soldBy") or {}
     sold_by_email = normalize_text(sold_by.get("email")).lower()
@@ -4707,6 +4707,8 @@ def enrich_fifa_sale(sale, ticket, store=None):
         "pricePerTicket": price_per_ticket,
         "discountAmount": discount_amount,
         "invoiceExchangeRate": invoice_exchange_rate,
+        "invoiceBankAccount": normalize_text(sale.get("invoiceBankAccount")) or "state",
+        "invoiceSchedule": sale.get("invoiceSchedule") or [],
         "totalPrice": total_price,
         "amountPaid": amount_paid,
         "balanceDue": max(total_price - amount_paid, 0),
@@ -4856,7 +4858,21 @@ def build_fifa_sale(payload, actor=None):
     if not price_per_ticket and len(unique_unit_prices) == 1:
         price_per_ticket = next(iter(unique_unit_prices))
     discount_amount = max(parse_int(payload.get("discountAmount")), 0)
-    invoice_exchange_rate = max(parse_int(payload.get("invoiceExchangeRate")) or 3500, 1)
+    invoice_exchange_rate = max(parse_int(payload.get("invoiceExchangeRate")) or 3600, 1)
+    invoice_bank_account = normalize_text(payload.get("invoiceBankAccount")) or "state"
+    invoice_schedule = []
+    for row in payload.get("invoiceSchedule") or []:
+        if not isinstance(row, dict):
+            continue
+        invoice_schedule.append(
+            {
+                "title": normalize_text(row.get("title")),
+                "created": normalize_text(row.get("created")),
+                "due": normalize_text(row.get("due")),
+                "status": normalize_text(row.get("status")).lower() or "waiting",
+                "amount": max(parse_int(row.get("amount")), 0),
+            }
+        )
     total_price = max(parse_int(payload.get("totalPrice")) or max(block_total_price - discount_amount, 0) or (quantity * price_per_ticket), 0)
     amount_paid = max(parse_int(payload.get("amountPaid")), 0)
     payment_status = normalize_text(payload.get("paymentStatus")).lower()
@@ -4885,6 +4901,8 @@ def build_fifa_sale(payload, actor=None):
         "pricePerTicket": price_per_ticket,
         "discountAmount": discount_amount,
         "invoiceExchangeRate": invoice_exchange_rate,
+        "invoiceBankAccount": invoice_bank_account,
+        "invoiceSchedule": invoice_schedule,
         "totalPrice": total_price,
         "amountPaid": amount_paid,
         "paymentStatus": payment_status,
@@ -4920,12 +4938,15 @@ def validate_fifa_sale(sale, ticket, sales, store, excluded_sale_id=None):
             return "Each match block must have a valid total price"
         if sum(max(parse_int(block.get("totalPrice")), 0) for block in ticket_blocks) <= 0:
             return "Total price must be greater than 0"
-    if max(parse_int(sale.get("discountAmount")), 0) < 0:
-        return "Discount must not be negative"
     if sale.get("paymentStatus") not in {"unpaid", "partial", "paid", "refunded"}:
         return "Payment status is invalid"
     if sale.get("saleStatus") not in {"active", "cancelled"}:
         return "Sale status is invalid"
+    if sale.get("invoiceBankAccount") not in {"state", "golomt"}:
+        return "Invoice bank account is invalid"
+    for row in sale.get("invoiceSchedule") or []:
+        if normalize_text(row.get("status")).lower() not in {"paid", "waiting", "overdue"}:
+            return "Invoice schedule status is invalid"
     if sale.get("buyerEmail") and "@" not in sale.get("buyerEmail", ""):
         return "Buyer email must be valid"
     if sale.get("soldAt") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?", sale.get("soldAt")) and not parse_date_input(sale.get("soldAt")[:10]):

@@ -3192,6 +3192,51 @@ body.modal-open {
   color: var(--brand);
 }
 
+.fifa-sale-invoice-editor {
+  background: rgba(247, 249, 255, 0.72);
+}
+
+.fifa-invoice-schedule-box {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.fifa-invoice-schedule-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.fifa-invoice-schedule-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fifa-invoice-schedule-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) repeat(4, minmax(120px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding-top: 10px;
+  border-top: 1px solid rgba(32, 53, 111, 0.08);
+}
+
+.fifa-invoice-schedule-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  color: #51627f;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .fifa-sale-nested-table {
   border: 0;
   border-radius: 0;
@@ -3235,6 +3280,64 @@ body.modal-open {
 
 .fifa-sale-card .fifa-match-details {
   padding-top: 8px;
+}
+
+.fifa-sale-inline-invoice {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(32, 53, 111, 0.1);
+  border-radius: 18px;
+  background: rgba(247, 249, 255, 0.78);
+}
+
+.fifa-sale-inline-invoice-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.fifa-sale-inline-invoice-head strong {
+  color: var(--brand);
+}
+
+.fifa-sale-inline-invoice-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: #5a6c8a;
+  font-size: 0.84rem;
+}
+
+.fifa-sale-invoice-table td:last-child,
+.fifa-sale-invoice-table th:last-child,
+.fifa-sale-invoice-table td:nth-last-child(2),
+.fifa-sale-invoice-table th:nth-last-child(2) {
+  text-align: right;
+}
+
+.fifa-sale-inline-schedule {
+  display: grid;
+  gap: 10px;
+}
+
+.fifa-sale-inline-schedule-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fifa-sale-inline-schedule-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) auto auto;
+  gap: 10px 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid rgba(32, 53, 111, 0.08);
+  border-radius: 14px;
+  background: #fff;
 }
 
 .fifa-pill.is-paid {
