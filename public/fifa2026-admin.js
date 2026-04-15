@@ -5,9 +5,6 @@ const saleList = document.querySelector("#fifa-sale-list");
 const ticketStatusNode = document.querySelector("#fifa-ticket-status");
 const saleStatusNode = document.querySelector("#fifa-sale-status");
 const saleTicketSelect = document.querySelector("#fifa-sale-ticket");
-const saleFormToggleButton = document.querySelector("#fifa-show-sale-form");
-const saleRegistryView = document.querySelector("#fifa-sale-registry-view");
-const passengerRowsContainer = document.querySelector("#fifa-passenger-rows");
 
 const ticketFilters = {
   search: document.querySelector("#ticket-filter-search"),
@@ -305,7 +302,7 @@ function refreshSaleTicketOptions() {
     .map(([label, tickets]) => {
       const inner = tickets
         .map((ticket) => {
-          const optionLabel = `${ticket.matchNumber} · ${ticket.matchLabel} · ${ticket.city} · CAT ${ticket.categoryCode} · ${ticket.seatDetails} · ${ticket.availableQuantity}/${ticket.totalQuantity} left · ${formatMoney(ticket.price, ticket.currency)}`;
+          const optionLabel = `CAT ${ticket.categoryCode} · ${ticket.seatDetails} · ${ticket.availableQuantity}/${ticket.totalQuantity} left · ${formatMoney(ticket.price, ticket.currency)}`;
           return `<option value="${escapeHtml(ticket.id)}">${escapeHtml(optionLabel)}</option>`;
         })
         .join("");
@@ -314,73 +311,6 @@ function refreshSaleTicketOptions() {
     .join("");
   saleTicketSelect.innerHTML = `<option value="">Choose ticket lot</option>${options}`;
   if (state.tickets.some((ticket) => ticket.id === currentValue)) saleTicketSelect.value = currentValue;
-}
-
-function setSaleFormVisible(isVisible) {
-  if (!saleForm) return;
-  if (isVisible) {
-    saleForm.dataset.open = "true";
-    saleFormToggleButton?.setAttribute("hidden", "");
-    saleRegistryView?.setAttribute("hidden", "");
-  } else {
-    saleForm.dataset.open = "false";
-    saleFormToggleButton?.removeAttribute("hidden");
-    saleRegistryView?.removeAttribute("hidden");
-  }
-}
-
-function parsePassengerLines(rawValue) {
-  return String(rawValue || "")
-    .split(/\n|\|/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const cleaned = line.replace(/^Passenger\s+\d+\s*:\s*/i, "").trim();
-      const pieces = cleaned.split(/\s*-\s*/);
-      return {
-        name: pieces[0] || "",
-        passport: pieces[1] || "",
-        nationality: pieces[2] || "",
-      };
-    });
-}
-
-function syncPassengerTextarea() {
-  if (!saleForm || !passengerRowsContainer) return;
-  const rows = [...passengerRowsContainer.querySelectorAll("[data-passenger-row]")]
-    .map((row, index) => {
-      const name = row.querySelector("[data-passenger-name]")?.value.trim() || "";
-      const passport = row.querySelector("[data-passenger-passport]")?.value.trim() || "";
-      const nationality = row.querySelector("[data-passenger-nationality]")?.value.trim() || "";
-      return name ? `Passenger ${index + 1}: ${name} - ${passport} - ${nationality}` : "";
-    })
-    .filter(Boolean);
-  saleForm.elements.buyerPassengers.value = rows.join("\n");
-}
-
-function renderPassengerRows(passengers = []) {
-  if (!saleForm || !passengerRowsContainer) return;
-  const quantity = Math.max(Number(saleForm.elements.quantity.value || 1), 1);
-  passengerRowsContainer.innerHTML = Array.from({ length: quantity }, (_, index) => {
-    const passenger = passengers[index] || {};
-    return `
-      <div class="fifa-passenger-row" data-passenger-row="${index + 1}">
-        <label>
-          Passenger ${index + 1} name
-          <input type="text" data-passenger-name value="${escapeHtml(passenger.name || "")}" placeholder="Full name" />
-        </label>
-        <label>
-          Passport number
-          <input type="text" data-passenger-passport value="${escapeHtml(passenger.passport || "")}" placeholder="Passport number" />
-        </label>
-        <label>
-          Nationality
-          <input type="text" data-passenger-nationality value="${escapeHtml(passenger.nationality || "")}" placeholder="Nationality" />
-        </label>
-      </div>
-    `;
-  }).join("");
-  syncPassengerTextarea();
 }
 
 function clearCategoryBlock(categoryCode) {
@@ -417,13 +347,9 @@ function resetSaleForm() {
   saleForm.elements.amountPaid.value = "0";
   saleForm.elements.saleStatus.value = "active";
   saleForm.elements.paymentStatus.value = "unpaid";
-  saleForm.elements.paymentMethod.value = "bank transfer";
-  saleForm.elements.buyerPassengers.value = "";
-  renderPassengerRows([]);
   state.editingSaleId = "";
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
-  setSaleFormVisible(false);
 }
 
 function applyMatchSelection(matchNumber) {
@@ -546,7 +472,6 @@ function fillTicketForm(ticket) {
 
 function fillSaleForm(sale) {
   if (!saleForm) return;
-  setSaleFormVisible(true);
   saleForm.elements.id.value = sale.id;
   saleForm.elements.ticketId.value = sale.ticketId || "";
   saleForm.elements.quantity.value = sale.quantity || 1;
@@ -563,8 +488,6 @@ function fillSaleForm(sale) {
   saleForm.elements.buyerPassportNumber.value = sale.buyerPassportNumber || "";
   saleForm.elements.buyerNationality.value = sale.buyerNationality || "";
   saleForm.elements.buyerNotes.value = sale.buyerNotes || "";
-  saleForm.elements.buyerPassengers.value = sale.buyerPassengers || "";
-  renderPassengerRows(parsePassengerLines(sale.buyerPassengers || ""));
   state.editingSaleId = sale.id;
   setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
   setStatus(saleStatusNode, "Editing sale.");
@@ -579,8 +502,6 @@ function startSaleForTicket(ticketId) {
   saleForm.elements.ticketId.value = ticket.id;
   saleForm.elements.pricePerTicket.value = ticket.price || "";
   saleForm.elements.totalPrice.value = ticket.price || "";
-  saleForm.elements.paymentMethod.value = "bank transfer";
-  setSaleFormVisible(true);
   saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -817,65 +738,65 @@ function renderTickets() {
 
 function renderSales() {
   const sales = filteredSales();
-  if (!saleList) return;
   if (!sales.length) {
-    saleList.innerHTML = '<p class="empty">No buyers match these filters yet.</p>';
+    if (saleList) saleList.innerHTML = '<p class="empty">No sales match these filters yet.</p>';
     return;
   }
+  if (!saleList) return;
   saleList.innerHTML = `
-    <div class="fifa-match-accordion fifa-match-accordion--table fifa-buyer-list">
-      <div class="fifa-match-table-head fifa-buyer-table-head">
-        <span>Buyer</span>
-        <span>Match / Seat</span>
-        <span>Passengers</span>
-        <span>Payment</span>
-        <span>Manager</span>
-        <span>Status</span>
-      </div>
-      ${sales
-        .map((sale) => {
-          const passengerCount = parsePassengerLines(sale.buyerPassengers || "").length || Number(sale.quantity || 1);
-          return `
-            <article class="fifa-match-card">
-              <div class="fifa-match-toggle fifa-buyer-row fifa-match-toggle--static">
-                <div class="fifa-match-col">
+    <table class="manager-table fifa-table">
+      <thead>
+        <tr>
+          <th>Buyer</th>
+          <th>Ticket</th>
+          <th>Qty</th>
+          <th>Total</th>
+          <th>Paid</th>
+          <th>Status</th>
+          <th>Manager</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sales
+          .map(
+            (sale) => `
+              <tr>
+                <td>
                   <strong>${escapeHtml(sale.buyerName)}</strong>
                   <span class="fifa-table-sub">${escapeHtml(sale.buyerPhone || sale.buyerEmail || "-")}</span>
                   <span class="fifa-table-sub">${escapeHtml(sale.buyerPassportNumber || "")}</span>
-                </div>
-                <div class="fifa-match-col fifa-match-col--teams">
+                </td>
+                <td>
                   <strong>${escapeHtml(sale.ticketLabel || "-")}</strong>
                   <span class="fifa-table-sub">${escapeHtml(sale.city || "")}</span>
                   <span class="fifa-table-sub">${escapeHtml(sale.seatDetails || "")}</span>
-                </div>
-                <div class="fifa-match-col">
-                  <strong>${passengerCount} passenger(s)</strong>
-                  <span class="fifa-table-sub">${escapeHtml(sale.buyerNotes || "No note")}</span>
-                </div>
-                <div class="fifa-match-col">
-                  <strong>${escapeHtml(sale.paymentMethod || "bank transfer")}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(formatMoney(sale.amountPaid))} / ${escapeHtml(formatMoney(sale.totalPrice))}</span>
+                </td>
+                <td>${sale.quantity}</td>
+                <td>${escapeHtml(formatMoney(sale.totalPrice))}</td>
+                <td>
+                  <strong>${escapeHtml(formatMoney(sale.amountPaid))}</strong>
                   <span class="fifa-table-sub">Balance ${escapeHtml(formatMoney(sale.balanceDue))}</span>
-                </div>
-                <div class="fifa-match-col">
-                  <strong>${escapeHtml(sale.soldByName || "-")}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(formatDateTime(sale.soldAt))}</span>
-                </div>
-                <div class="fifa-match-col fifa-match-col--stage">
+                </td>
+                <td>
                   <span class="fifa-pill">${escapeHtml(sale.paymentStatus)}</span>
                   <span class="fifa-pill ${sale.saleStatus === "cancelled" ? "is-cancelled" : ""}">${escapeHtml(sale.saleStatus)}</span>
-                  <div class="fifa-bulk-actions">
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="cancel-sale" data-id="${escapeHtml(sale.id)}">Cancel</button>
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
-                  </div>
-                </div>
-              </div>
-            </article>
-          `;
-        })
-        .join("")}
-    </div>
+                </td>
+                <td>
+                  <strong>${escapeHtml(sale.soldByName || "-")}</strong>
+                  <span class="fifa-table-sub">${escapeHtml(formatDateTime(sale.soldAt))}</span>
+                </td>
+                <td class="fifa-actions-cell">
+                  <button type="button" class="button-secondary" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
+                  <button type="button" class="button-secondary" data-action="cancel-sale" data-id="${escapeHtml(sale.id)}">Cancel</button>
+                  <button type="button" class="button-secondary" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
   `;
 }
 
@@ -997,17 +918,8 @@ if (ticketForm) {
 }
 
 if (saleForm) {
-  saleForm.elements.quantity?.addEventListener("input", () => {
-    renderPassengerRows(parsePassengerLines(saleForm.elements.buyerPassengers.value));
-    syncSaleTotals();
-  });
-  passengerRowsContainer?.addEventListener("input", (event) => {
-    if (!event.target.closest("[data-passenger-row]")) return;
-    syncPassengerTextarea();
-  });
   saleForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    syncPassengerTextarea();
     const payload = Object.fromEntries(new FormData(saleForm).entries());
     const saleId = saleForm.elements.id.value;
     setStatus(saleStatusNode, saleId ? "Updating sale..." : "Registering sale...");
@@ -1031,11 +943,8 @@ ticketFormToggleButton?.addEventListener("click", () => {
   setTicketFormVisible(true);
   ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
-saleFormToggleButton?.addEventListener("click", () => {
-  setSaleFormVisible(true);
-  saleForm?.scrollIntoView({ behavior: "smooth", block: "start" });
-});
 document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSaleForm);
+saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
 saleTicketSelect?.addEventListener("change", () => {

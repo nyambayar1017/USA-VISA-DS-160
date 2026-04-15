@@ -4670,7 +4670,6 @@ def enrich_fifa_sale(sale, ticket):
         "isPaid": amount_paid >= total_price and total_price > 0,
         "buyerName": buyer_name,
         "buyerEmail": normalize_text(sale.get("buyerEmail")).lower(),
-        "buyerPassengers": normalize_text(sale.get("buyerPassengers")),
         "ticket": enrich_fifa_ticket(ticket, []) if ticket else None,
         "ticketLabel": ticket.get("matchLabel") if ticket else "",
         "city": ticket.get("city") if ticket else "",
@@ -4800,7 +4799,6 @@ def build_fifa_sale(payload, actor=None):
         "buyerPassportNumber": normalize_text(payload.get("buyerPassportNumber")),
         "buyerNationality": normalize_text(payload.get("buyerNationality")),
         "buyerNotes": normalize_text(payload.get("buyerNotes")),
-        "buyerPassengers": normalize_text(payload.get("buyerPassengers")),
         "pricePerTicket": price_per_ticket,
         "totalPrice": total_price,
         "amountPaid": amount_paid,
@@ -4831,9 +4829,6 @@ def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
         return "Sale status is invalid"
     if sale.get("buyerEmail") and "@" not in sale.get("buyerEmail", ""):
         return "Buyer email must be valid"
-    passenger_lines = [line.strip() for line in normalize_text(sale.get("buyerPassengers")).splitlines() if line.strip()]
-    if sale.get("quantity", 0) > 1 and len(passenger_lines) < sale.get("quantity", 0):
-        return f"Add all {sale.get('quantity', 0)} passengers for this buyer"
     if sale.get("soldAt") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?", sale.get("soldAt")) and not parse_date_input(sale.get("soldAt")[:10]):
         return "Sold at must be a valid date or date-time"
     if sale.get("saleStatus") != "cancelled":
