@@ -17,47 +17,6 @@ const state = {
   tickets: [],
 };
 
-const MATCH_CATALOG = [
-  { n: 1, d: "2026-06-11", s: "Opening", m: "Match 1", t: "MEX vs RSA", c: "Mexico", q1: 2, q2: 10, q3: 0 },
-  { n: 2, d: "2026-06-12", s: "Opening", m: "Match 4", t: "USA vs PAR", c: "Los Angeles", q1: 0, q2: 0, q3: 4 },
-  { n: 3, d: "2026-06-13", s: "Group Stage", m: "Match 6", t: "AUS vs FIFA", c: "Vancouver", q1: 0, q2: 3, q3: 0 },
-  { n: 4, d: "2026-06-13", s: "Group Stage", m: "Match 7", t: "BRA vs MAR", c: "New York", q1: 0, q2: 0, q3: 10 },
-  { n: 5, d: "2026-06-14", s: "Group Stage", m: "Match 10", t: "GER vs CUR", c: "Houston", q1: 4, q2: 4, q3: 0 },
-  { n: 6, d: "2026-06-14", s: "Group Stage", m: "Match 11", t: "NED vs JPN", c: "Dallas", q1: 4, q2: 0, q3: 10 },
-  { n: 7, d: "2026-06-15", s: "Group Stage", m: "Match 16", t: "BEL vs EGY", c: "Seattle", q1: 0, q2: 4, q3: 0 },
-  { n: 8, d: "2026-06-16", s: "Group Stage", m: "Match 17", t: "FRA vs SEN", c: "New York", q1: 4, q2: 0, q3: 3 },
-  { n: 9, d: "2026-06-16", s: "Group Stage", m: "Match 19", t: "ARG vs ALG", c: "Kansas", q1: 0, q2: 0, q3: 3 },
-  { n: 10, d: "2026-06-16", s: "Group Stage", m: "Match 20", t: "AUT vs JOR", c: "San Francisco", q1: 3, q2: 0, q3: 0 },
-  { n: 11, d: "2026-06-17", s: "Group Stage", m: "Match 23", t: "POR vs W1", c: "Houston", q1: 4, q2: 4, q3: 0 },
-  { n: 12, d: "2026-06-17", s: "Group Stage", m: "Match 22", t: "ENG vs CRO", c: "Dallas", q1: 4, q2: 6, q3: 13 },
-  { n: 13, d: "2026-06-18", s: "Group Stage", m: "Match 28", t: "MEX vs KOR", c: "Guadalajara", q1: 4, q2: 0, q3: 0 },
-  { n: 14, d: "2026-06-22", s: "Group Stage", m: "Match 43", t: "ARG vs AUS", c: "Dallas", q1: 2, q2: 0, q3: 0 },
-  { n: 15, d: "2026-06-23", s: "Group Stage", m: "Match 45", t: "ENG vs GHA", c: "Boston", q1: 4, q2: 0, q3: 0 },
-  { n: 16, d: "2026-06-23", s: "Group Stage", m: "Match 47", t: "POR vs UZB", c: "Houston", q1: 4, q2: 6, q3: 7 },
-  { n: 17, d: "2026-06-24", s: "Group Stage", m: "Match 51", t: "SWI vs CAN", c: "Vancouver", q1: 4, q2: 0, q3: 0 },
-  { n: 18, d: "2026-06-24", s: "Group Stage", m: "Match 53", t: "MEX vs FIFA", c: "Mexico", q1: 4, q2: 0, q3: 0 },
-  { n: 19, d: "2026-06-25", s: "Group Stage", m: "Match 60", t: "PAR vs AUS", c: "San Francisco", q1: 0, q2: 4, q3: 0 },
-  { n: 20, d: "2026-06-26", s: "Group Stage", m: "Match 61", t: "FRA vs NOR", c: "Boston", q1: 4, q2: 2, q3: 0 },
-  { n: 21, d: "2026-06-27", s: "Group Stage", m: "Match 67", t: "PAN vs ENG", c: "New York", q1: 4, q2: 0, q3: 8 },
-  { n: 22, d: "2026-06-27", s: "Group Stage", m: "Match 70", t: "ARG vs JOR", c: "Dallas", q1: 4, q2: 0, q3: 6 },
-  { n: 23, d: "2026-06-28", s: "Round 32", m: "Match 73", t: "2A vs 2B", c: "Los Angeles", q1: 4, q2: 4, q3: 0 },
-  { n: 24, d: "2026-06-30", s: "Round 32", m: "Match 77", t: "1I vs 3CDFGH", c: "New York", q1: 8, q2: 0, q3: 10 },
-  { n: 25, d: "2026-07-03", s: "Round 32", m: "Match 87", t: "1K vs 3DEIJL", c: "Kansas", q1: 4, q2: 0, q3: 0 },
-  { n: 26, d: "2026-07-03", s: "Round 32", m: "Match 86", t: "1J vs 2H", c: "Miami", q1: 8, q2: 0, q3: 10 },
-  { n: 27, d: "2026-07-05", s: "Round 16", m: "Match 89", t: "W74 vs W77", c: "Philadelphia", q1: 10, q2: 10, q3: 0 },
-  { n: 28, d: "2026-07-06", s: "Round 16", m: "Match 91", t: "W76 vs W78", c: "New York", q1: 0, q2: 10, q3: 0 },
-  { n: 29, d: "2026-07-06", s: "Round 16", m: "Match 93", t: "W81 vs W82", c: "Dallas", q1: 0, q2: 4, q3: 0 },
-  { n: 30, d: "2026-07-08", s: "Round 16", m: "Match 95", t: "W86 vs W88", c: "Atlanta", q1: 0, q2: 10, q3: 0 },
-  { n: 31, d: "2026-07-08", s: "Round 16", m: "Match 96", t: "W85 vs W87", c: "Vancouver", q1: 0, q2: 0, q3: 0 },
-  { n: 32, d: "2026-07-10", s: "Quarter Final", m: "Match 97", t: "W89 vs W90", c: "Boston", q1: 10, q2: 4, q3: 0 },
-  { n: 33, d: "2026-07-11", s: "Quarter Final", m: "Match 98", t: "W93 vs W94", c: "Los Angeles", q1: 0, q2: 4, q3: 0 },
-  { n: 34, d: "2026-07-12", s: "Quarter Final", m: "Match 99", t: "W91 vs W92", c: "Miami", q1: 0, q2: 4, q3: 0 },
-  { n: 35, d: "2026-07-12", s: "Quarter Final", m: "Match 100", t: "W95 vs W96", c: "Kansas", q1: 14, q2: 10, q3: 0 },
-  { n: 36, d: "2026-07-15", s: "Semi Final", m: "Match 101", t: "W97 vs W98", c: "Dallas", q1: 2, q2: 0, q3: 0 },
-  { n: 37, d: "2026-07-16", s: "Semi Final", m: "Match 102", t: "W99 vs W100", c: "Atlanta", q1: 2, q2: 0, q3: 0 },
-  { n: 38, d: "2026-07-20", s: "Final", m: "Match 104", t: "W101 vs W102", c: "New York", q1: 2, q2: 0, q3: 0 },
-];
-
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -89,70 +48,63 @@ function normalizedCategory(ticket) {
   return ["1", "2", "3"].includes(digits) ? digits : "";
 }
 
-function buildCatalogRows() {
-  const liveByMatch = new Map();
-
+function buildMatchRows() {
+  const groups = new Map();
   for (const ticket of state.tickets) {
-    const key = `${ticket.matchNumber}|${ticket.matchLabel}|${ticket.city}`;
-    if (!liveByMatch.has(key)) {
-      liveByMatch.set(key, {
-        q1: null,
-        q2: null,
-        q3: null,
-        seats1: [],
-        seats2: [],
-        seats3: [],
+    const key = [
+      ticket.matchNumber || "",
+      ticket.matchDate || "",
+      ticket.teamA || "",
+      ticket.teamB || "",
+      ticket.city || "",
+    ].join("|");
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        d: ticket.matchDate || "",
+        s: ticket.stage || "",
+        m: ticket.matchNumber || "",
+        t: ticket.matchLabel || [ticket.teamA || "", ticket.teamB || ""].filter(Boolean).join(" vs "),
+        c: ticket.city || "",
+        venue: ticket.venue || "",
+        categoryBreakdown: [
+          { categoryCode: "1", available: 0, total: 0, seatDetails: [] },
+          { categoryCode: "2", available: 0, total: 0, seatDetails: [] },
+          { categoryCode: "3", available: 0, total: 0, seatDetails: [] },
+        ],
       });
     }
-    const bucket = liveByMatch.get(key);
-    const category = normalizedCategory(ticket);
+    const row = groups.get(key);
+    const categoryCode = normalizedCategory(ticket);
+    if (!categoryCode) continue;
+    const category = row.categoryBreakdown.find((item) => item.categoryCode === categoryCode);
     if (!category) continue;
-
-    const quantityKey = `q${category}`;
-    const seatsKey = `seats${category}`;
-    if (bucket[quantityKey] === null) bucket[quantityKey] = 0;
-    bucket[quantityKey] += Number(ticket.availableQuantity || 0);
-    if (ticket.seatDetails) bucket[seatsKey].push(ticket.seatDetails);
+    category.available += Number(ticket.availableQuantity || 0);
+    category.total += Number(ticket.totalQuantity || 0);
+    if (ticket.seatDetails) category.seatDetails.push(ticket.seatDetails);
   }
 
-  return MATCH_CATALOG.map((row) => {
-    const key = `${row.m}|${row.t}|${row.c}`;
-    const live = liveByMatch.get(key);
-    const categoryBreakdown = ["1", "2", "3"].map((categoryCode) => {
-      const categoryTickets = state.tickets.filter(
-        (ticket) => ticket.matchNumber === row.m && ticket.matchLabel === row.t && ticket.city === row.c && normalizedCategory(ticket) === categoryCode
-      );
-      const available = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
-      const total = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
-      const seatDetails = categoryTickets.map((ticket) => ticket.seatDetails).filter(Boolean);
-      return { categoryCode, available, total, seatDetails };
-    });
-
-    return {
+  return [...groups.values()]
+    .sort((left, right) => String(left.d || "").localeCompare(String(right.d || "")))
+    .map((row, index) => ({
       ...row,
-      q1: live && live.q1 !== null ? live.q1 : row.q1,
-      q2: live && live.q2 !== null ? live.q2 : row.q2,
-      q3: live && live.q3 !== null ? live.q3 : row.q3,
-      categoryBreakdown,
-      seatDetails: [
-        ...(live?.seats1 || []),
-        ...(live?.seats2 || []),
-        ...(live?.seats3 || []),
-      ].join(" | "),
-    };
-  });
+      n: index + 1,
+    }));
 }
 
 function filteredRows() {
   const query = filters.search.value.trim().toLowerCase();
-  return buildCatalogRows().filter((row) => {
+  return buildMatchRows().filter((row) => {
     if (filters.stage.value && row.s !== filters.stage.value) return false;
     if (filters.city.value && row.c !== filters.city.value) return false;
-    if (filters.category.value && !Number(row[`q${filters.category.value}`] || 0)) return false;
+    if (filters.category.value) {
+      const category = row.categoryBreakdown.find((item) => item.categoryCode === filters.category.value);
+      if (!category || !Number(category.available || 0)) return false;
+    }
     if (filters.dateFrom.value && row.d < filters.dateFrom.value) return false;
     if (filters.dateTo.value && row.d > filters.dateTo.value) return false;
     if (!query) return true;
-    return [row.m, row.t, row.c, row.s, row.seatDetails].some((value) =>
+    return [row.m, row.t, row.c, row.s, row.venue, ...row.categoryBreakdown.flatMap((item) => item.seatDetails)].some((value) =>
       String(value || "").toLowerCase().includes(query)
     );
   });
@@ -163,7 +115,10 @@ function renderPublicTickets() {
   if (publicSummaryLots) publicSummaryLots.textContent = String(rows.length);
   if (publicSummaryUnits) {
     publicSummaryUnits.textContent = String(
-      rows.reduce((sum, row) => sum + Number(row.q1 || 0) + Number(row.q2 || 0) + Number(row.q3 || 0), 0)
+      rows.reduce(
+        (sum, row) => sum + row.categoryBreakdown.reduce((categorySum, item) => categorySum + Number(item.available || 0), 0),
+        0
+      )
     );
   }
   if (publicListCount) publicListCount.textContent = `${rows.length} matches`;
@@ -186,11 +141,9 @@ function renderPublicTickets() {
       </div>
       ${rows
         .map((row) => {
-          const availabilitySummary = [
-            row.q1 ? `CAT 1: ${row.q1}` : "",
-            row.q2 ? `CAT 2: ${row.q2}` : "",
-            row.q3 ? `CAT 3: ${row.q3}` : "",
-          ]
+          const availabilitySummary = row.categoryBreakdown
+            .filter((item) => item.available)
+            .map((item) => `CAT ${item.categoryCode}: ${item.available}`)
             .filter(Boolean)
             .join(" · ");
           const seatBreakdown = row.categoryBreakdown
@@ -219,7 +172,7 @@ function renderPublicTickets() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--availability">
                   <strong>${escapeHtml(availabilitySummary || "No tickets yet")}</strong>
-                  <span class="fifa-table-sub">${Number(row.q1 || 0) + Number(row.q2 || 0) + Number(row.q3 || 0)} available tickets</span>
+                  <span class="fifa-table-sub">${row.categoryBreakdown.reduce((sum, item) => sum + Number(item.available || 0), 0)} available tickets</span>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(row.c)}</strong>
@@ -250,8 +203,9 @@ async function fetchPublicTickets() {
     throw new Error(data.error || "Could not load tickets");
   }
   state.tickets = data.tickets || [];
-  fillSelect(filters.stage, [...new Set(MATCH_CATALOG.map((row) => row.s))], "All stages");
-  fillSelect(filters.city, [...new Set(MATCH_CATALOG.map((row) => row.c))], "All cities");
+  const rows = buildMatchRows();
+  fillSelect(filters.stage, [...new Set(rows.map((row) => row.s).filter(Boolean))], "All stages");
+  fillSelect(filters.city, [...new Set(rows.map((row) => row.c).filter(Boolean))], "All cities");
   fillSelect(filters.category, ["1", "2", "3"], "All categories");
   renderPublicTickets();
 }

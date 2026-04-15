@@ -548,42 +548,58 @@ function filteredTickets() {
     .sort((left, right) => String(left.matchDate || "").localeCompare(String(right.matchDate || "")));
 }
 
-function buildTicketGroups() {
-  const tickets = filteredTickets();
-  const ticketsByMatch = new Map();
+function groupTicketsByMatch(tickets) {
+  const groups = new Map();
   tickets.forEach((ticket) => {
-    const key = ticket.matchNumber || "";
-    if (!ticketsByMatch.has(key)) ticketsByMatch.set(key, []);
-    ticketsByMatch.get(key).push(ticket);
+    const key = matchIdentity(ticket);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        matchNumber: ticket.matchNumber || "",
+        matchDate: ticket.matchDate || "",
+        stage: ticket.stage || "",
+        city: ticket.city || "",
+        venue: ticket.venue || "",
+        teamA: ticket.teamA || "",
+        teamB: ticket.teamB || "",
+        tickets: [],
+      });
+    }
+    groups.get(key).tickets.push(ticket);
   });
-  return MATCH_CATALOG.map((match) => {
-    const key = match.matchNumber;
-    const groupTickets = (ticketsByMatch.get(key) || []).sort((left, right) => {
-      const categoryDiff = Number(left.categoryCode || 0) - Number(right.categoryCode || 0);
-      if (categoryDiff !== 0) return categoryDiff;
-      const seatDiff = String(left.seatDetails || "").localeCompare(String(right.seatDetails || ""));
-      if (seatDiff !== 0) return seatDiff;
-      return String(left.createdAt || "").localeCompare(String(right.createdAt || ""));
-    });
-    const availableUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
-    const soldUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0);
-    const categoryBreakdown = ["1", "2", "3"].map((categoryCode) => {
-      const categoryTickets = groupTickets.filter((ticket) => String(ticket.categoryCode || "") === categoryCode);
-      const total = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
-      const available = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
-      return { categoryCode, total, available };
-    });
-    return {
-      ...match,
-      key,
-      label: `${match.teamA} vs ${match.teamB}`,
-      tickets: groupTickets,
-      ticketCount: groupTickets.length,
-      availableUnits,
-      soldUnits,
-      categoryBreakdown,
-    };
-  });
+
+  return [...groups.values()]
+    .map((group) => {
+      const groupTickets = group.tickets.sort((left, right) => {
+        const categoryDiff = Number(left.categoryCode || 0) - Number(right.categoryCode || 0);
+        if (categoryDiff !== 0) return categoryDiff;
+        const seatDiff = String(left.seatDetails || "").localeCompare(String(right.seatDetails || ""));
+        if (seatDiff !== 0) return seatDiff;
+        return String(left.createdAt || "").localeCompare(String(right.createdAt || ""));
+      });
+      const availableUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
+      const soldUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0);
+      const categoryBreakdown = ["1", "2", "3"].map((categoryCode) => {
+        const categoryTickets = groupTickets.filter((ticket) => String(ticket.categoryCode || "") === categoryCode);
+        const total = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
+        const available = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
+        return { categoryCode, total, available };
+      });
+      return {
+        ...group,
+        label: buildMatchLabel(group.teamA, group.teamB),
+        tickets: groupTickets,
+        ticketCount: groupTickets.length,
+        availableUnits,
+        soldUnits,
+        categoryBreakdown,
+      };
+    })
+    .sort((left, right) => String(left.matchDate || "").localeCompare(String(right.matchDate || "")));
+}
+
+function buildTicketGroups() {
+  return groupTicketsByMatch(filteredTickets());
 }
 
 function filteredSales() {
@@ -617,6 +633,10 @@ function renderTickets() {
     ticketMetaNode.textContent = "";
   }
   if (!ticketList) return;
+  if (!groups.length) {
+    ticketList.innerHTML = '<p class="empty">No saved matches yet.</p>';
+    return;
+  }
   ticketList.innerHTML = `
     <div class="fifa-match-accordion fifa-match-accordion--table">
       <div class="fifa-match-table-head">
