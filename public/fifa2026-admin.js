@@ -5,6 +5,7 @@ const saleList = document.querySelector("#fifa-sale-list");
 const ticketStatusNode = document.querySelector("#fifa-ticket-status");
 const saleStatusNode = document.querySelector("#fifa-sale-status");
 const saleTicketSelect = document.querySelector("#fifa-sale-ticket");
+const saleTicketIdsInput = document.querySelector("#fifa-sale-ticket-ids");
 
 const ticketFilters = {
   search: document.querySelector("#ticket-filter-search"),
@@ -35,6 +36,12 @@ const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
 const ticketFormToggleButton = document.querySelector("#fifa-show-ticket-form");
 const ticketInventoryView = document.querySelector("#fifa-ticket-inventory-view");
+const saleFormToggleButton = document.querySelector("#fifa-show-sale-form");
+const saleBlockList = document.querySelector("#fifa-sale-block-list");
+const saleParticipantList = document.querySelector("#fifa-sale-participant-list");
+const saleMatchSelect = document.querySelector("#fifa-sale-match-select");
+const saleCategorySelect = document.querySelector("#fifa-sale-category-select");
+const saleBlockQuantityInput = document.querySelector("#fifa-sale-block-quantity");
 const ticketRowContainers = {
   "1": document.querySelector('[data-ticket-rows="1"]'),
   "2": document.querySelector('[data-ticket-rows="2"]'),
@@ -94,6 +101,8 @@ const state = {
   editingSaleId: "",
   expandedMatches: new Set(),
   selectedTickets: new Set(),
+  saleBlocks: [],
+  participants: [],
 };
 
 function setNodeText(node, value) {
@@ -202,6 +211,17 @@ function setTicketFormVisible(isVisible) {
   }
 }
 
+function setSaleFormVisible(isVisible) {
+  if (!saleForm) return;
+  if (isVisible) {
+    saleForm.dataset.open = "true";
+    saleFormToggleButton?.setAttribute("hidden", "");
+  } else {
+    saleForm.dataset.open = "false";
+    saleFormToggleButton?.removeAttribute("hidden");
+  }
+}
+
 function renderCategoryTicketRows(categoryCode, ticketRows = []) {
   const container = ticketRowContainers[categoryCode];
   if (!ticketForm || !container) return;
@@ -288,29 +308,132 @@ function refreshFilterOptions() {
 }
 
 function refreshSaleTicketOptions() {
-  if (!saleTicketSelect) return;
-  const currentValue = saleTicketSelect.value;
-  const groups = new Map();
-  state.tickets
-    .filter((ticket) => ticket.status === "active" && ticket.availableQuantity > 0)
-    .forEach((ticket) => {
-      const key = `${ticket.matchNumber} · ${ticket.matchLabel}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(ticket);
-    });
-  const options = [...groups.entries()]
-    .map(([label, tickets]) => {
-      const inner = tickets
-        .map((ticket) => {
-          const optionLabel = `CAT ${ticket.categoryCode} · ${ticket.seatDetails} · ${ticket.availableQuantity}/${ticket.totalQuantity} left · ${formatMoney(ticket.price, ticket.currency)}`;
-          return `<option value="${escapeHtml(ticket.id)}">${escapeHtml(optionLabel)}</option>`;
-        })
-        .join("");
-      return `<optgroup label="${escapeHtml(label)}">${inner}</optgroup>`;
-    })
+  if (!saleMatchSelect || !saleCategorySelect) return;
+  const matches = groupTicketsByMatch(
+    state.tickets.filter((ticket) => ticket.status === "active" && ticket.availableQuantity > 0)
+  );
+  fillSelect(
+    saleMatchSelect,
+    matches.map((group) => group.matchNumber),
+    "Choose match",
+    saleMatchSelect.value
+  );
+  refreshSaleCategoryOptions();
+}
+
+function refreshSaleCategoryOptions(selectedCategory = "") {
+  if (!saleMatchSelect || !saleCategorySelect) return;
+  const matchNumber = saleMatchSelect.value;
+  const categories = [...new Set(
+    state.tickets
+      .filter((ticket) => ticket.matchNumber === matchNumber && ticket.status === "active" && ticket.availableQuantity > 0)
+      .map((ticket) => String(ticket.categoryCode || ""))
+      .filter(Boolean)
+  )].sort((a, b) => Number(a) - Number(b));
+  fillSelect(saleCategorySelect, categories.map((code) => `CAT ${code}`), "Choose category", selectedCategory ? `CAT ${selectedCategory}` : saleCategorySelect.value);
+}
+
+function saleBlockAvailableTickets(matchNumber, categoryCode, excludedIds = []) {
+  const excluded = new Set(excludedIds);
+  return state.tickets
+    .filter((ticket) =>
+      ticket.matchNumber === matchNumber
+      && String(ticket.categoryCode || "") === String(categoryCode || "")
+      && ticket.status === "active"
+      && ticket.availableQuantity > 0
+      && !excluded.has(ticket.id)
+    )
+    .sort((left, right) => String(left.seatDetails || "").localeCompare(String(right.seatDetails || "")));
+}
+
+function selectedSaleTicketIds() {
+  return state.saleBlocks.flatMap((block) => block.ticketIds || []);
+}
+
+function syncSaleTicketInputs() {
+  const ids = selectedSaleTicketIds();
+  if (saleTicketSelect) saleTicketSelect.value = ids[0] || "";
+  if (saleTicketIdsInput) saleTicketIdsInput.value = ids.join(",");
+  if (saleForm?.elements?.ticketId) saleForm.elements.ticketId.value = ids[0] || "";
+  if (saleForm?.elements?.quantity) saleForm.elements.quantity.value = String(ids.length || 0);
+}
+
+function syncSalePriceFields() {
+  if (!saleForm) return;
+  const totalTickets = selectedSaleTicketIds().length;
+  const totalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+  const averagePrice = totalTickets ? Math.round(totalPrice / totalTickets) : 0;
+  saleForm.elements.quantity.value = String(totalTickets || 0);
+  saleForm.elements.pricePerTicket.value = averagePrice ? String(averagePrice) : "";
+  saleForm.elements.totalPrice.value = totalPrice ? String(totalPrice) : "";
+  syncSaleTotals();
+}
+
+function renderParticipants() {
+  if (!saleParticipantList) return;
+  if (!state.participants.length) {
+    saleParticipantList.innerHTML = '<p class="fifa-seat-help">Participants will appear from the selected ticket quantity.</p>';
+    return;
+  }
+  saleParticipantList.innerHTML = state.participants
+    .map((participant, index) => `
+      <div class="fifa-sale-participant-card" data-participant-index="${index}">
+        <h4>Participant ${index + 1}</h4>
+        <div class="manager-form-grid fifa-form-grid">
+          <label>
+            Full name
+            <input type="text" data-participant-field="name" value="${escapeHtml(participant.name || "")}" />
+          </label>
+          <label>
+            Passport number
+            <input type="text" data-participant-field="passportNumber" value="${escapeHtml(participant.passportNumber || "")}" />
+          </label>
+          <label>
+            Nationality
+            <input type="text" data-participant-field="nationality" value="${escapeHtml(participant.nationality || "")}" />
+          </label>
+          <label>
+            Notes
+            <input type="text" data-participant-field="notes" value="${escapeHtml(participant.notes || "")}" />
+          </label>
+        </div>
+      </div>
+    `)
     .join("");
-  saleTicketSelect.innerHTML = `<option value="">Choose ticket lot</option>${options}`;
-  if (state.tickets.some((ticket) => ticket.id === currentValue)) saleTicketSelect.value = currentValue;
+}
+
+function syncParticipantsFromBlocks() {
+  const minimum = selectedSaleTicketIds().length;
+  while (state.participants.length < minimum) {
+    state.participants.push({ name: "", passportNumber: "", nationality: "", notes: "" });
+  }
+  renderParticipants();
+}
+
+function renderSaleBlocks() {
+  if (!saleBlockList) return;
+  if (!state.saleBlocks.length) {
+    saleBlockList.innerHTML = '<p class="fifa-seat-help">Choose match, category, and quantity, then add a ticket block.</p>';
+    syncSaleTicketInputs();
+    syncSalePriceFields();
+    syncParticipantsFromBlocks();
+    return;
+  }
+  saleBlockList.innerHTML = state.saleBlocks
+    .map((block, index) => `
+      <div class="fifa-sale-block-item" data-sale-block-index="${index}">
+        <div>
+          <strong>${escapeHtml(block.matchLabel)}</strong>
+          <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s) · ${escapeHtml(formatMoney(block.totalPrice))}</span>
+          <span class="fifa-table-sub">${escapeHtml(block.seatPreview || "Seat will be assigned later")}</span>
+        </div>
+        <button type="button" class="button-secondary" data-action="remove-sale-block" data-index="${index}">Remove</button>
+      </div>
+    `)
+    .join("");
+  syncSaleTicketInputs();
+  syncSalePriceFields();
+  syncParticipantsFromBlocks();
 }
 
 function clearCategoryBlock(categoryCode) {
@@ -343,13 +466,26 @@ function resetSaleForm() {
   if (!saleForm) return;
   saleForm.reset();
   saleForm.elements.id.value = "";
+  saleForm.elements.ticketId.value = "";
+  if (saleTicketIdsInput) saleTicketIdsInput.value = "";
   saleForm.elements.quantity.value = "1";
   saleForm.elements.amountPaid.value = "0";
   saleForm.elements.saleStatus.value = "active";
   saleForm.elements.paymentStatus.value = "unpaid";
+  saleForm.elements.paymentMethod.value = "Bank transfer";
+  saleForm.elements.buyerTitle.value = "";
   state.editingSaleId = "";
+  state.saleBlocks = [];
+  state.participants = [];
+  if (saleMatchSelect) saleMatchSelect.value = "";
+  if (saleCategorySelect) saleCategorySelect.value = "";
+  if (saleBlockQuantityInput) saleBlockQuantityInput.value = "1";
+  refreshSaleTicketOptions();
+  renderSaleBlocks();
+  renderParticipants();
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
+  setSaleFormVisible(false);
 }
 
 function applyMatchSelection(matchNumber) {
@@ -472,25 +608,60 @@ function fillTicketForm(ticket) {
 
 function fillSaleForm(sale) {
   if (!saleForm) return;
+  resetSaleForm();
   saleForm.elements.id.value = sale.id;
   saleForm.elements.ticketId.value = sale.ticketId || "";
+  if (saleTicketIdsInput) saleTicketIdsInput.value = (sale.ticketIds || []).join(",");
   saleForm.elements.quantity.value = sale.quantity || 1;
   saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
   saleForm.elements.totalPrice.value = sale.totalPrice || "";
   saleForm.elements.amountPaid.value = sale.amountPaid || 0;
   saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
-  saleForm.elements.paymentMethod.value = sale.paymentMethod || "";
+  saleForm.elements.paymentMethod.value = sale.paymentMethod || "Bank transfer";
   saleForm.elements.saleStatus.value = sale.saleStatus || "active";
   saleForm.elements.soldAt.value = String(sale.soldAt || "").slice(0, 16);
+  saleForm.elements.buyerTitle.value = sale.buyerTitle || "";
   saleForm.elements.buyerName.value = sale.buyerName || "";
   saleForm.elements.buyerPhone.value = sale.buyerPhone || "";
   saleForm.elements.buyerEmail.value = sale.buyerEmail || "";
   saleForm.elements.buyerPassportNumber.value = sale.buyerPassportNumber || "";
   saleForm.elements.buyerNationality.value = sale.buyerNationality || "";
   saleForm.elements.buyerNotes.value = sale.buyerNotes || "";
+  state.saleBlocks = (sale.ticketBlocks || []).map((block) => ({
+    matchNumber: block.matchNumber || "",
+    matchLabel: block.matchLabel || "",
+    categoryCode: String(block.categoryCode || ""),
+    quantity: Number(block.quantity || 0),
+    totalPrice: Number(block.totalPrice || 0),
+    seatPreview: block.seatPreview || "",
+    ticketIds: [...(block.ticketIds || [])],
+  }));
+  if (!state.saleBlocks.length && sale.ticketId) {
+    const ticket = state.tickets.find((item) => item.id === sale.ticketId);
+    if (ticket) {
+      state.saleBlocks = [{
+        matchNumber: ticket.matchNumber,
+        matchLabel: buildMatchLabel(ticket.teamA, ticket.teamB),
+        categoryCode: String(ticket.categoryCode || ""),
+        quantity: Number(sale.quantity || 1),
+        totalPrice: Number(sale.totalPrice || ticket.price || 0),
+        seatPreview: ticket.seatDetails || "",
+        ticketIds: sale.ticketIds?.length ? [...sale.ticketIds] : [sale.ticketId],
+      }];
+    }
+  }
+  state.participants = (sale.participants || []).map((participant) => ({
+    name: participant.name || "",
+    passportNumber: participant.passportNumber || "",
+    nationality: participant.nationality || "",
+    notes: participant.notes || "",
+  }));
+  renderSaleBlocks();
+  renderParticipants();
   state.editingSaleId = sale.id;
   setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
   setStatus(saleStatusNode, "Editing sale.");
+  setSaleFormVisible(true);
   saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -499,9 +670,19 @@ function startSaleForTicket(ticketId) {
   resetSaleForm();
   const ticket = state.tickets.find((item) => item.id === ticketId);
   if (!ticket) return;
-  saleForm.elements.ticketId.value = ticket.id;
+  state.saleBlocks = [{
+    matchNumber: ticket.matchNumber,
+    matchLabel: buildMatchLabel(ticket.teamA, ticket.teamB),
+    categoryCode: String(ticket.categoryCode || ""),
+    quantity: 1,
+    totalPrice: Number(ticket.price || 0),
+    seatPreview: ticket.seatDetails || "",
+    ticketIds: [ticket.id],
+  }];
+  renderSaleBlocks();
   saleForm.elements.pricePerTicket.value = ticket.price || "";
   saleForm.elements.totalPrice.value = ticket.price || "";
+  setSaleFormVisible(true);
   saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -517,6 +698,32 @@ function syncSaleTotals() {
   if (!saleForm.elements.paymentStatus.matches(":focus")) {
     saleForm.elements.paymentStatus.value = totalPrice > 0 && amountPaid >= totalPrice ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
   }
+}
+
+function createSaleBlockFromSelection() {
+  if (!saleMatchSelect || !saleCategorySelect || !saleBlockQuantityInput) return null;
+  const matchNumber = saleMatchSelect.value;
+  const categoryLabel = saleCategorySelect.value;
+  const categoryCode = categoryLabel.replace(/^CAT\s+/i, "").trim();
+  const quantity = Math.max(Number(saleBlockQuantityInput.value || 0), 0);
+  if (!matchNumber || !categoryCode || !quantity) {
+    throw new Error("Choose match, category, and quantity first");
+  }
+  const match = MATCH_LOOKUP[matchNumber];
+  const availableTickets = saleBlockAvailableTickets(matchNumber, categoryCode, selectedSaleTicketIds());
+  if (availableTickets.length < quantity) {
+    throw new Error(`Only ${availableTickets.length} ticket(s) are available for ${matchNumber} CAT ${categoryCode}`);
+  }
+  const chosen = availableTickets.slice(0, quantity);
+  return {
+    matchNumber,
+    matchLabel: match ? buildMatchLabel(match.teamA, match.teamB) : buildMatchLabel(chosen[0]?.teamA, chosen[0]?.teamB),
+    categoryCode,
+    quantity,
+    totalPrice: chosen.reduce((sum, ticket) => sum + Number(ticket.price || 0), 0),
+    seatPreview: chosen.map((ticket) => ticket.seatDetails || "Seat will be assigned later").join(" | "),
+    ticketIds: chosen.map((ticket) => ticket.id),
+  };
 }
 
 function filteredTickets() {
@@ -682,7 +889,11 @@ function renderTickets() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--stage">
                   <strong>${escapeHtml(group.stage)}</strong>
-                  <button type="button" class="fifa-inline-action" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
+                  <div class="fifa-match-stage-actions">
+                    <button type="button" class="button-secondary fifa-inline-action" data-action="edit-match" data-match-number="${escapeHtml(group.matchNumber)}">Edit</button>
+                    <button type="button" class="button-secondary fifa-inline-action" data-action="delete-match" data-match-key="${escapeHtml(group.key)}">Delete</button>
+                    <button type="button" class="fifa-inline-action" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
+                  </div>
                 </div>
               </div>
               ${
@@ -783,7 +994,8 @@ function renderSales() {
             (sale) => `
               <tr>
                 <td>
-                  <strong>${escapeHtml(sale.buyerName)}</strong>
+                  <strong>${escapeHtml(sale.buyerTitle || sale.buyerName)}</strong>
+                  ${sale.buyerTitle ? `<span class="fifa-table-sub">${escapeHtml(sale.buyerName || "")}</span>` : ""}
                   <span class="fifa-table-sub">${escapeHtml(sale.buyerPhone || sale.buyerEmail || "-")}</span>
                   <span class="fifa-table-sub">${escapeHtml(sale.buyerPassportNumber || "")}</span>
                 </td>
@@ -941,6 +1153,28 @@ if (saleForm) {
   saleForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(saleForm).entries());
+    payload.ticketIds = selectedSaleTicketIds();
+    payload.ticketBlocks = state.saleBlocks.map((block) => ({
+      matchNumber: block.matchNumber,
+      matchLabel: block.matchLabel,
+      categoryCode: block.categoryCode,
+      quantity: block.quantity,
+      totalPrice: block.totalPrice,
+      seatPreview: block.seatPreview,
+      ticketIds: [...(block.ticketIds || [])],
+    }));
+    payload.participants = state.participants
+      .map((participant) => ({
+        name: String(participant.name || "").trim(),
+        passportNumber: String(participant.passportNumber || "").trim(),
+        nationality: String(participant.nationality || "").trim(),
+        notes: String(participant.notes || "").trim(),
+      }))
+      .filter((participant) => participant.name || participant.passportNumber || participant.nationality || participant.notes);
+    if (!payload.ticketIds.length) {
+      setStatus(saleStatusNode, "Add at least one ticket block first.", true);
+      return;
+    }
     const saleId = saleForm.elements.id.value;
     setStatus(saleStatusNode, saleId ? "Updating sale..." : "Registering sale...");
     try {
@@ -964,16 +1198,27 @@ ticketFormToggleButton?.addEventListener("click", () => {
   ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSaleForm);
+saleFormToggleButton?.addEventListener("click", () => {
+  setSaleFormVisible(true);
+  saleForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.amountPaid?.addEventListener("input", syncSaleTotals);
-saleTicketSelect?.addEventListener("change", () => {
-  const ticket = state.tickets.find((item) => item.id === saleTicketSelect.value);
-  if (!ticket || !saleForm) return;
-  if (!state.editingSaleId) {
-    saleForm.elements.pricePerTicket.value = ticket.price || "";
-    syncSaleTotals();
+saleMatchSelect?.addEventListener("change", () => refreshSaleCategoryOptions());
+document.querySelector("#fifa-sale-add-block")?.addEventListener("click", () => {
+  try {
+    const block = createSaleBlockFromSelection();
+    state.saleBlocks.push(block);
+    renderSaleBlocks();
+    clearStatus(saleStatusNode);
+  } catch (error) {
+    setStatus(saleStatusNode, error.message, true);
   }
+});
+document.querySelector("#fifa-sale-add-participant")?.addEventListener("click", () => {
+  state.participants.push({ name: "", passportNumber: "", nationality: "", notes: "" });
+  renderParticipants();
 });
 
 Object.values(ticketFilters).forEach((node) => {
@@ -1011,6 +1256,27 @@ ticketList?.addEventListener("click", async (event) => {
     applyMatchSelection(target.dataset.matchNumber || "");
     setTicketFormVisible(true);
     ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (target?.dataset.action === "edit-match") {
+    event.stopPropagation();
+    const group = buildTicketGroups().find((item) => item.matchNumber === target.dataset.matchNumber);
+    if (group?.tickets?.[0]) fillTicketForm(group.tickets[0]);
+    return;
+  }
+  if (target?.dataset.action === "delete-match") {
+    event.stopPropagation();
+    const group = buildTicketGroups().find((item) => item.key === target.dataset.matchKey);
+    if (!group || !group.tickets.length) return;
+    if (!window.confirm(`Delete match ${group.matchNumber} and all of its tickets?`)) return;
+    try {
+      for (const groupedTicket of group.tickets) {
+        await fetchJson(`/api/fifa2026/tickets/${groupedTicket.id}`, { method: "DELETE" });
+      }
+      await loadDashboard();
+    } catch (error) {
+      setStatus(ticketStatusNode, error.message, true);
+    }
     return;
   }
   if (!target) {
@@ -1085,6 +1351,24 @@ saleList?.addEventListener("click", async (event) => {
       setStatus(saleStatusNode, error.message, true);
     }
   }
+});
+
+saleBlockList?.addEventListener("click", (event) => {
+  const target = event.target.closest('[data-action="remove-sale-block"]');
+  if (!target) return;
+  const index = Number(target.dataset.index || -1);
+  if (index < 0) return;
+  state.saleBlocks.splice(index, 1);
+  renderSaleBlocks();
+});
+
+saleParticipantList?.addEventListener("input", (event) => {
+  const card = event.target.closest("[data-participant-index]");
+  if (!card) return;
+  const index = Number(card.dataset.participantIndex || -1);
+  const field = event.target.dataset.participantField;
+  if (index < 0 || !field || !state.participants[index]) return;
+  state.participants[index][field] = event.target.value;
 });
 
 resetTicketForm();

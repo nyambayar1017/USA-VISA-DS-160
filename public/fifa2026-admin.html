@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-13" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-15" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -323,19 +323,53 @@
               <h2>Buyer Registry And Sales</h2>
               <p class="workspace-subtitle manager-panel-copy">Every sale records the buyer, quantity, price, payment progress, and which manager handled the sale.</p>
             </div>
+            <div class="dashboard-actions">
+              <button id="fifa-show-sale-form" type="button">Add Buyer</button>
+            </div>
           </div>
 
-          <form id="fifa-sale-form" class="manager-form-grid fifa-form-grid">
+          <form id="fifa-sale-form" class="manager-form-grid fifa-form-grid fifa-collapsible-panel" data-open="false">
             <input type="hidden" name="id" />
             <label class="full-span">
-              Ticket lot
-              <select name="ticketId" id="fifa-sale-ticket" required>
-                <option value="">Choose ticket lot</option>
-              </select>
+              Buyer title
+              <input name="buyerTitle" placeholder="Buyer / group title" />
             </label>
+            <section class="full-span fifa-category-editor fifa-sale-block-editor">
+              <div class="fifa-category-head">
+                <h3>Ticket Selection</h3>
+                <p>Choose a match, then a category, then how many tickets you want from that match. Add another block if this buyer needs another match too.</p>
+              </div>
+              <div class="manager-form-grid fifa-form-grid">
+                <label>
+                  Match
+                  <select id="fifa-sale-match-select">
+                    <option value="">Choose match</option>
+                  </select>
+                </label>
+                <label>
+                  Category
+                  <select id="fifa-sale-category-select">
+                    <option value="">Choose category</option>
+                  </select>
+                </label>
+                <label>
+                  Ticket quantity
+                  <input id="fifa-sale-block-quantity" type="number" min="1" step="1" value="1" />
+                </label>
+                <div class="fifa-sale-block-action">
+                  <span>Add this block</span>
+                  <button id="fifa-sale-add-block" type="button" class="button-secondary">Add Ticket Block</button>
+                </div>
+                <div class="full-span fifa-sale-block-list" id="fifa-sale-block-list">
+                  <p class="fifa-seat-help">Choose match, category, and quantity, then add a ticket block.</p>
+                </div>
+              </div>
+            </section>
+            <input type="hidden" name="ticketId" id="fifa-sale-ticket" />
+            <input type="hidden" name="ticketIds" id="fifa-sale-ticket-ids" />
             <label>
               Quantity
-              <input name="quantity" type="number" min="1" step="1" value="1" required />
+              <input name="quantity" type="number" min="1" step="1" value="1" required readonly />
             </label>
             <label>
               Price per ticket
@@ -360,7 +394,7 @@
             </label>
             <label>
               Payment method
-              <input name="paymentMethod" placeholder="Cash / Transfer / Card" />
+              <input name="paymentMethod" placeholder="Bank transfer / Cash / Card" value="Bank transfer" />
             </label>
             <label>
               Sale status
@@ -397,9 +431,21 @@
               Buyer notes
               <textarea name="buyerNotes" rows="2" placeholder="Special requests, invoice notes, delivery notes"></textarea>
             </label>
+            <section class="full-span fifa-category-editor fifa-participant-editor">
+              <div class="fifa-category-head">
+                <h3>Participant List</h3>
+                <p>Add every participant attached to this buyer. Use the extra button if you need more rows.</p>
+              </div>
+              <div id="fifa-sale-participant-list" class="fifa-ticket-rows">
+                <p class="fifa-seat-help">Participants will appear from the selected ticket quantity.</p>
+              </div>
+              <div class="actions">
+                <button id="fifa-sale-add-participant" type="button" class="button-secondary">Add Participant</button>
+              </div>
+            </section>
             <div class="actions full-span">
               <button id="fifa-sale-submit" type="submit">Register sale</button>
-              <button id="fifa-sale-cancel" type="button" class="button-secondary">Cancel</button>
+              <button id="fifa-sale-cancel" type="button" class="button-secondary">Hide</button>
               <p id="fifa-sale-status" class="status"></p>
             </div>
           </form>
@@ -455,6 +501,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-14"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-15"></script>
   </body>
 </html>

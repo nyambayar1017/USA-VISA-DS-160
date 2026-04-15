@@ -2629,6 +2629,14 @@ body.modal-open {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.fifa-collapsible-panel[data-open="false"] {
+  display: none;
+}
+
+.fifa-collapsible-panel[data-open="true"] {
+  display: grid;
+}
+
 .fifa-ticket-form-panel[data-open="false"] {
   display: none;
 }
@@ -2822,6 +2830,13 @@ body.modal-open {
   flex-wrap: nowrap;
 }
 
+.fifa-match-stage-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
 .fifa-availability-block {
   display: flex;
   flex-wrap: wrap;
@@ -2850,6 +2865,64 @@ body.modal-open {
   font-size: 0.78rem;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.fifa-match-col--stage [data-action="edit-match"],
+.fifa-match-col--stage [data-action="delete-match"],
+.fifa-match-col--stage [data-action="add-ticket-match"] {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.fifa-sale-block-editor,
+.fifa-participant-editor {
+  background: rgba(247, 249, 255, 0.82);
+}
+
+.fifa-sale-block-action {
+  display: grid;
+  align-content: end;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.fifa-sale-block-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fifa-sale-block-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.fifa-sale-block-item strong {
+  display: block;
+  color: #1f2d50;
+}
+
+.fifa-sale-participant-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.fifa-sale-participant-card h4 {
+  margin: 0;
+  color: var(--brand);
+  font-size: 0.94rem;
 }
 
 .fifa-nested-table .checkbox-col {

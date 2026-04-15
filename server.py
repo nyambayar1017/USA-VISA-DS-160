@@ -4616,12 +4616,29 @@ def fifa_ticket_sales(sales, ticket_id, excluded_sale_id=None):
     return [
         sale
         for sale in fifa_active_sales(sales)
-        if sale.get("ticketId") == ticket_id and sale.get("id") != excluded_sale_id
+        if sale.get("id") != excluded_sale_id
+        and (
+            sale.get("ticketId") == ticket_id
+            or ticket_id in (sale.get("ticketIds") or [])
+        )
     ]
 
 
+def fifa_sale_quantity_for_ticket(sale, ticket_id):
+    ticket_ids = [normalize_text(value) for value in (sale.get("ticketIds") or []) if normalize_text(value)]
+    primary_ticket_id = normalize_text(sale.get("ticketId"))
+    if ticket_ids:
+        return 1 if ticket_id in ticket_ids else 0
+    if primary_ticket_id == ticket_id:
+        return max(parse_int(sale.get("quantity")), 0)
+    return 0
+
+
 def fifa_ticket_available_quantity(ticket, sales, excluded_sale_id=None):
-    sold_quantity = sum(max(parse_int(sale.get("quantity")), 0) for sale in fifa_ticket_sales(sales, ticket.get("id"), excluded_sale_id))
+    sold_quantity = sum(
+        fifa_sale_quantity_for_ticket(sale, ticket.get("id"))
+        for sale in fifa_ticket_sales(sales, ticket.get("id"), excluded_sale_id)
+    )
     return max(parse_int(ticket.get("totalQuantity")) - sold_quantity, 0)
 
 
@@ -4633,7 +4650,10 @@ def find_fifa_ticket(store, ticket_id):
 
 
 def enrich_fifa_ticket(ticket, sales):
-    sold_quantity = sum(max(parse_int(sale.get("quantity")), 0) for sale in fifa_ticket_sales(sales, ticket.get("id")))
+    sold_quantity = sum(
+        fifa_sale_quantity_for_ticket(sale, ticket.get("id"))
+        for sale in fifa_ticket_sales(sales, ticket.get("id"))
+    )
     total_quantity = max(parse_int(ticket.get("totalQuantity")), 0)
     available_quantity = max(total_quantity - sold_quantity, 0)
     public_visible = (
@@ -4651,15 +4671,27 @@ def enrich_fifa_ticket(ticket, sales):
     }
 
 
-def enrich_fifa_sale(sale, ticket):
-    quantity = max(parse_int(sale.get("quantity")), 0)
+def enrich_fifa_sale(sale, ticket, store=None):
+    ticket_ids = sale.get("ticketIds") or ([sale.get("ticketId")] if sale.get("ticketId") else [])
+    linked_tickets = [find_fifa_ticket(store or {"tickets": []}, ticket_id) for ticket_id in ticket_ids]
+    linked_tickets = [item for item in linked_tickets if item]
+    quantity = max(parse_int(sale.get("quantity")) or len(ticket_ids), 0)
     price_per_ticket = max(parse_int(sale.get("pricePerTicket")), 0)
     total_price = max(parse_int(sale.get("totalPrice")) or (quantity * price_per_ticket), 0)
     amount_paid = max(parse_int(sale.get("amountPaid")), 0)
     buyer_name = normalize_text(sale.get("buyerName"))
     sold_by = sale.get("soldBy") or {}
+    ticket_labels = [
+        f"{normalize_text(item.get('matchNumber'))} · {normalize_text(item.get('matchLabel'))}".strip(" ·")
+        for item in linked_tickets
+        if normalize_text(item.get("matchNumber")) or normalize_text(item.get("matchLabel"))
+    ]
+    cities = [normalize_text(item.get("city")) for item in linked_tickets if normalize_text(item.get("city"))]
+    stages = [normalize_text(item.get("stage")) for item in linked_tickets if normalize_text(item.get("stage"))]
+    seat_details = [normalize_text(item.get("seatDetails")) for item in linked_tickets if normalize_text(item.get("seatDetails"))]
     return {
         **sale,
+        "ticketIds": ticket_ids,
         "quantity": quantity,
         "pricePerTicket": price_per_ticket,
         "totalPrice": total_price,
@@ -4669,10 +4701,13 @@ def enrich_fifa_sale(sale, ticket):
         "buyerName": buyer_name,
         "buyerEmail": normalize_text(sale.get("buyerEmail")).lower(),
         "ticket": enrich_fifa_ticket(ticket, []) if ticket else None,
-        "ticketLabel": ticket.get("matchLabel") if ticket else "",
-        "city": ticket.get("city") if ticket else "",
-        "stage": ticket.get("stage") if ticket else "",
-        "seatDetails": ticket.get("seatDetails") if ticket else "",
+        "ticketLabel": normalize_text(sale.get("buyerTitle")) or ", ".join(dict.fromkeys(ticket_labels)),
+        "city": ", ".join(dict.fromkeys(cities)),
+        "stage": ", ".join(dict.fromkeys(stages)),
+        "seatDetails": " | ".join(seat_details),
+        "buyerTitle": normalize_text(sale.get("buyerTitle")),
+        "ticketBlocks": sale.get("ticketBlocks") or [],
+        "participants": sale.get("participants") or [],
         "soldByName": sold_by.get("fullName") or sold_by.get("email") or "",
     }
 
@@ -4682,7 +4717,7 @@ def build_fifa_summary(store):
     sales = store.get("sales", [])
     enriched_tickets = [enrich_fifa_ticket(ticket, sales) for ticket in tickets]
     active_sales = fifa_active_sales(sales)
-    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId"))) for sale in sales]
+    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales]
     public_tickets = [ticket for ticket in enriched_tickets if ticket.get("publicVisible")]
     paid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "paid"]
     unpaid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "unpaid"]
@@ -4774,7 +4809,12 @@ def validate_fifa_ticket(ticket):
 
 
 def build_fifa_sale(payload, actor=None):
-    quantity = max(parse_int(payload.get("quantity")) or 1, 1)
+    ticket_ids = [normalize_text(value) for value in (payload.get("ticketIds") or []) if normalize_text(value)]
+    if not ticket_ids and normalize_text(payload.get("ticketId")):
+        ticket_ids = [normalize_text(payload.get("ticketId"))]
+    ticket_blocks = payload.get("ticketBlocks") if isinstance(payload.get("ticketBlocks"), list) else []
+    participants = payload.get("participants") if isinstance(payload.get("participants"), list) else []
+    quantity = max(parse_int(payload.get("quantity")) or len(ticket_ids) or 1, 1)
     price_per_ticket = max(parse_int(payload.get("pricePerTicket")), 0)
     total_price = max(parse_int(payload.get("totalPrice")) or (quantity * price_per_ticket), 0)
     amount_paid = max(parse_int(payload.get("amountPaid")), 0)
@@ -4789,8 +4829,12 @@ def build_fifa_sale(payload, actor=None):
     timestamp = now_mongolia().isoformat()
     return {
         "id": str(uuid4()),
-        "ticketId": normalize_text(payload.get("ticketId")),
+        "ticketId": ticket_ids[0] if ticket_ids else "",
+        "ticketIds": ticket_ids,
+        "ticketBlocks": ticket_blocks,
+        "participants": participants,
         "quantity": quantity,
+        "buyerTitle": normalize_text(payload.get("buyerTitle")),
         "buyerName": normalize_text(payload.get("buyerName")),
         "buyerPhone": normalize_text(payload.get("buyerPhone")),
         "buyerEmail": normalize_text(payload.get("buyerEmail")).lower(),
@@ -4810,15 +4854,19 @@ def build_fifa_sale(payload, actor=None):
     }
 
 
-def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
-    if not ticket:
-        return "Ticket was not found"
-    if ticket.get("status") == "archived":
+def validate_fifa_sale(sale, ticket, sales, store, excluded_sale_id=None):
+    ticket_ids = sale.get("ticketIds") or ([sale.get("ticketId")] if sale.get("ticketId") else [])
+    if not ticket_ids:
+        return "Choose at least one ticket"
+    linked_tickets = [find_fifa_ticket(store, ticket_id) for ticket_id in ticket_ids]
+    if any(not item for item in linked_tickets):
+        return "One or more tickets were not found"
+    if any(item.get("status") == "archived" for item in linked_tickets if item):
         return "Archived tickets cannot be sold"
     if len(sale.get("buyerName", "")) < 2:
         return "Buyer name must be at least 2 characters"
-    if sale.get("quantity", 0) <= 0:
-        return "Sale quantity must be greater than 0"
+    if sale.get("quantity", 0) != len(ticket_ids):
+        return "Selected ticket count and quantity must match"
     if sale.get("pricePerTicket", 0) <= 0:
         return "Sale price must be greater than 0"
     if sale.get("paymentStatus") not in {"unpaid", "partial", "paid", "refunded"}:
@@ -4829,10 +4877,13 @@ def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
         return "Buyer email must be valid"
     if sale.get("soldAt") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?", sale.get("soldAt")) and not parse_date_input(sale.get("soldAt")[:10]):
         return "Sold at must be a valid date or date-time"
+    if len(sale.get("participants") or []) < sale.get("quantity", 0):
+        return "Add all participants for this buyer"
     if sale.get("saleStatus") != "cancelled":
-        available_quantity = fifa_ticket_available_quantity(ticket, sales, excluded_sale_id)
-        if sale.get("quantity", 0) > available_quantity:
-            return f"Only {available_quantity} ticket(s) are available for this lot"
+        for linked_ticket in linked_tickets:
+            available_quantity = fifa_ticket_available_quantity(linked_ticket, sales, excluded_sale_id)
+            if available_quantity < 1:
+                return f"Ticket {linked_ticket.get('seatDetails') or linked_ticket.get('id')} is no longer available"
     return None
 
 
@@ -4840,7 +4891,7 @@ def handle_get_fifa2026_dashboard(start_response):
     store = ensure_fifa2026_manual_inventory()
     sales = store.get("sales", [])
     tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
-    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId"))) for sale in sales]
+    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales]
     return json_response(
         start_response,
         "200 OK",
@@ -4937,7 +4988,10 @@ def handle_update_fifa_ticket(environ, start_response, ticket_id):
         error = validate_fifa_ticket(updated)
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})
-        active_sales_quantity = sum(sale.get("quantity", 0) for sale in fifa_ticket_sales(store.get("sales", []), ticket_id))
+        active_sales_quantity = sum(
+            fifa_sale_quantity_for_ticket(sale, ticket_id)
+            for sale in fifa_ticket_sales(store.get("sales", []), ticket_id)
+        )
         if updated.get("totalQuantity", 0) < active_sales_quantity:
             return json_response(
                 start_response,
@@ -4973,14 +5027,14 @@ def handle_create_fifa_sale(environ, start_response):
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     store = read_fifa2026_store()
-    ticket = find_fifa_ticket(store, normalize_text(payload.get("ticketId")))
     sale = build_fifa_sale(payload, actor)
-    error = validate_fifa_sale(sale, ticket, store.get("sales", []))
+    ticket = find_fifa_ticket(store, sale.get("ticketId"))
+    error = validate_fifa_sale(sale, ticket, store.get("sales", []), store)
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})
     store["sales"].insert(0, sale)
     write_fifa2026_store(store)
-    return json_response(start_response, "201 Created", {"ok": True, "sale": enrich_fifa_sale(sale, ticket), "summary": build_fifa_summary(store)})
+    return json_response(start_response, "201 Created", {"ok": True, "sale": enrich_fifa_sale(sale, ticket, store), "summary": build_fifa_summary(store)})
 
 
 def handle_update_fifa_sale(environ, start_response, sale_id):
@@ -5002,12 +5056,12 @@ def handle_update_fifa_sale(environ, start_response, sale_id):
         sale["soldAt"] = normalize_text(payload.get("soldAt")) or item.get("soldAt") or sale.get("soldAt")
         sale["updatedAt"] = now_mongolia().isoformat()
         ticket = find_fifa_ticket(store, sale.get("ticketId"))
-        error = validate_fifa_sale(sale, ticket, store.get("sales", []), excluded_sale_id=sale_id)
+        error = validate_fifa_sale(sale, ticket, store.get("sales", []), store, excluded_sale_id=sale_id)
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})
         store["sales"][index] = sale
         write_fifa2026_store(store)
-        return json_response(start_response, "200 OK", {"ok": True, "sale": enrich_fifa_sale(sale, ticket), "summary": build_fifa_summary(store)})
+        return json_response(start_response, "200 OK", {"ok": True, "sale": enrich_fifa_sale(sale, ticket, store), "summary": build_fifa_summary(store)})
     return json_response(start_response, "404 Not Found", {"error": "Sale not found"})
 
 
