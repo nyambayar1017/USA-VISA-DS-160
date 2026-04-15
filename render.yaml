@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: python3 server.py
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT
     healthCheckPath: /health
     disk:
       name: submissions
