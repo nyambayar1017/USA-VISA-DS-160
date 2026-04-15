@@ -849,7 +849,7 @@ function renderTickets() {
       <div class="fifa-match-table-head">
         <span>#</span>
         <span>Date</span>
-        <span>Team vs Team</span>
+        <span>Match</span>
         <span>Availability</span>
         <span>City</span>
         <span>Stage</span>
