@@ -2291,13 +2291,11 @@ def build_invoice_line_items(data):
         total_price = parse_int(data.get("totalPrice"))
         return [{"description": destination, "quantity": 1, "unitPrice": total_price, "totalPrice": total_price}]
 
-    multiple_rows = len(populated) > 1
     rows = []
     for count, unit_price, label in populated:
-        description = destination if not multiple_rows else f"{destination} / {label}"
         rows.append(
             {
-                "description": description,
+                "description": label or destination,
                 "quantity": count,
                 "unitPrice": unit_price,
                 "totalPrice": count * unit_price,
