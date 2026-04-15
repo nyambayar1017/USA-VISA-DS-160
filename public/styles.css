@@ -3053,6 +3053,10 @@ body.modal-open {
   vertical-align: top;
 }
 
+.fifa-nested-table tbody tr.is-sold td {
+  background: rgba(214, 171, 61, 0.14);
+}
+
 .fifa-nested-table th:first-child,
 .fifa-nested-table td:first-child {
   width: 42px;
@@ -3066,25 +3070,15 @@ body.modal-open {
 }
 
 .fifa-actions-cell {
-  min-width: 190px;
+  min-width: 220px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .fifa-actions-cell button {
   margin: 0;
-}
-
-.fifa-inline-action--sold {
-  background: #2f8a57;
-  color: #fff;
-  border: 1px solid rgba(47, 138, 87, 0.22);
-}
-
-.fifa-inline-action--sold:hover {
-  background: #277548;
 }
 
 .fifa-actions-cell .fifa-table-sub {
@@ -3093,8 +3087,31 @@ body.modal-open {
 }
 
 .fifa-actions-cell .button-secondary {
-  padding: 5px 9px;
-  font-size: 0.74rem;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+}
+
+.fifa-inline-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.fifa-inline-badge--sold {
+  background: rgba(214, 171, 61, 0.22);
+  color: #8b6510;
+}
+
+.fifa-inline-action--see-buyer {
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
 
 .fifa-sale-card .fifa-match-toggle {

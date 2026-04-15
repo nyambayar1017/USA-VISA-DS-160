@@ -170,6 +170,18 @@ function naturalTextCompare(left, right) {
   return String(left || "").localeCompare(String(right || ""), undefined, { numeric: true, sensitivity: "base" });
 }
 
+function matchNumberSortValue(value) {
+  const match = String(value || "").match(/(\d+)/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function managerInitial(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "-";
+  const emailSafe = raw.includes("@") ? raw.split("@")[0] : raw;
+  return `${emailSafe.charAt(0).toUpperCase()}.`;
+}
+
 function fillSelect(node, values, placeholder, keepValue = "") {
   if (!node) return;
   node.innerHTML = [`<option value="">${placeholder}</option>`]
@@ -839,7 +851,11 @@ function filteredTickets() {
         ticket.seatDetails,
       ].some((value) => String(value || "").toLowerCase().includes(query));
     })
-    .sort((left, right) => String(left.matchDate || "").localeCompare(String(right.matchDate || "")));
+    .sort((left, right) => {
+      const dateDiff = String(left.matchDate || "").localeCompare(String(right.matchDate || ""));
+      if (dateDiff !== 0) return dateDiff;
+      return matchNumberSortValue(left.matchNumber) - matchNumberSortValue(right.matchNumber);
+    });
 }
 
 function groupTicketsByMatch(tickets) {
@@ -890,7 +906,11 @@ function groupTicketsByMatch(tickets) {
         categoryBreakdown,
       };
     })
-    .sort((left, right) => String(left.matchDate || "").localeCompare(String(right.matchDate || "")));
+    .sort((left, right) => {
+      const dateDiff = String(left.matchDate || "").localeCompare(String(right.matchDate || ""));
+      if (dateDiff !== 0) return dateDiff;
+      return matchNumberSortValue(left.matchNumber) - matchNumberSortValue(right.matchNumber);
+    });
 }
 
 function buildTicketGroups() {
@@ -972,7 +992,7 @@ function renderTickets() {
                   <div class="fifa-availability-block">
                     ${availabilitySummary}
                     <span class="fifa-table-sub fifa-availability-total is-available">Available: ${group.availableUnits}</span>
-                    ${group.soldUnits > 0 ? `<span class="fifa-table-sub fifa-availability-total fifa-availability-sold-total">Sold: ${group.soldUnits}</span>` : ""}
+                    <span class="fifa-table-sub fifa-availability-total fifa-availability-sold-total">Sold: ${group.soldUnits}</span>
                   </div>
                 </div>
                 <div class="fifa-match-col fifa-match-col--city">
@@ -1019,7 +1039,7 @@ function renderTickets() {
                                     const soldBuyerLabel = relatedSale?.buyerTitle || relatedSale?.buyerName || "Sold buyer";
                                     const soldOut = Number(ticket.availableQuantity || 0) <= 0 && Number(ticket.soldQuantity || 0) > 0;
                                     return `
-                                      <tr>
+                                      <tr class="${soldOut ? "is-sold" : ""}">
                                         <td>${ticketIndex + 1}</td>
                                         <td class="checkbox-col">
                                           <input type="checkbox" data-action="select-ticket" data-id="${escapeHtml(ticket.id)}" ${state.selectedTickets.has(ticket.id) ? "checked" : ""} />
@@ -1048,7 +1068,8 @@ function renderTickets() {
                                           ${
                                             soldOut
                                               ? `
-                                                <button type="button" class="fifa-inline-action fifa-inline-action--sold" data-action="view-sold-ticket" data-id="${escapeHtml(ticket.id)}">SOLD</button>
+                                                <span class="fifa-inline-badge fifa-inline-badge--sold">Sold</span>
+                                                <button type="button" class="button-secondary fifa-inline-action fifa-inline-action--see-buyer" data-action="view-sold-ticket" data-id="${escapeHtml(ticket.id)}">See buyer</button>
                                               `
                                               : ""
                                           }
@@ -1106,22 +1127,35 @@ function renderSales() {
             : sale.paymentStatus === "overdue"
               ? "is-overdue"
               : "is-pending";
-          const ticketLines = sale.ticketBlocks?.length
-            ? sale.ticketBlocks.flatMap((block) => (block.ticketLabels || []).map((label, index) => ({
-                matchLabel: block.matchLabel || sale.ticketLabel || "-",
-                unitPrice: block.unitPrice || sale.pricePerTicket || 0,
-                ticketLabel: label,
-                number: index + 1,
-              })))
-            : (sale.ticketIds || []).map((ticketId, index) => {
-                const ticket = state.tickets.find((item) => item.id === ticketId);
-                return {
-                  matchLabel: ticket ? `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)}` : sale.ticketLabel || "-",
-                  unitPrice: ticket?.price || sale.pricePerTicket || 0,
-                  ticketLabel: ticket ? ticketSummaryLabel(ticket) : sale.ticketLabel || "-",
-                  number: index + 1,
-                };
+          const ticketLines = (sale.ticketIds || []).map((ticketId, index) => {
+            const ticket = state.tickets.find((item) => item.id === ticketId);
+            const participant = sale.participants?.find((p) => p.ticketId === ticketId) || sale.participants?.[index];
+            return {
+              matchLabel: ticket ? `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)}` : sale.ticketLabel || "-",
+              unitPrice: ticket?.price || sale.pricePerTicket || 0,
+              ticketLabel: ticket ? ticketSummaryLabel(ticket) : sale.ticketLabel || "-",
+              travelerName: participant?.name || "-",
+              travelerPassport: participant?.passportNumber || "",
+            };
+          });
+          if (!ticketLines.length && sale.ticketBlocks?.length) {
+            sale.ticketBlocks.forEach((block) => {
+              (block.ticketLabels || []).forEach((label, index) => {
+                const participant = sale.participants?.[ticketLines.length];
+                ticketLines.push({
+                  matchLabel: block.matchLabel || sale.ticketLabel || "-",
+                  unitPrice: block.unitPrice || sale.pricePerTicket || 0,
+                  ticketLabel: label,
+                  travelerName: participant?.name || "-",
+                  travelerPassport: participant?.passportNumber || "",
+                });
               });
+            });
+          }
+          const computedTotalPrice = ticketLines.length
+            ? ticketLines.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0)
+            : Number(sale.totalPrice || 0);
+          const computedBalance = Math.max(0, computedTotalPrice - Number(sale.amountPaid || 0));
           return `
             <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle fifa-sale-toggle" data-action="toggle-sale" data-id="${escapeHtml(sale.id)}" role="button" tabindex="0">
@@ -1138,8 +1172,8 @@ function renderSales() {
                   <span class="fifa-table-sub">${escapeHtml(ticketLines[0]?.matchLabel || sale.ticketLabel || "-")}</span>
                 </div>
                 <div class="fifa-match-col">
-                  <strong>${escapeHtml(formatMoney(sale.totalPrice))}</strong>
-                  <span class="fifa-table-sub">Balance ${escapeHtml(formatMoney(sale.balanceDue))}</span>
+                  <strong>${escapeHtml(formatMoney(computedTotalPrice))}</strong>
+                  <span class="fifa-table-sub">Balance ${escapeHtml(formatMoney(computedBalance))}</span>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(formatMoney(sale.amountPaid))}</strong>
@@ -1150,7 +1184,7 @@ function renderSales() {
                   <span class="fifa-table-sub">${escapeHtml(sale.saleStatus)}</span>
                 </div>
                 <div class="fifa-match-col">
-                  <strong>${escapeHtml(sale.soldByName || "-")}</strong>
+                  <strong>${escapeHtml(managerInitial(sale.soldByName))}</strong>
                 </div>
                 <div class="fifa-match-col fifa-match-col--actions">
                   <div class="fifa-match-stage-actions">
@@ -1176,7 +1210,6 @@ function renderSales() {
                         </thead>
                         <tbody>
                           ${ticketLines.map((item, index) => {
-                            const participant = sale.participants?.find((p) => p.ticketLabel === item.ticketLabel) || sale.participants?.[index];
                             return `
                               <tr>
                                 <td>${index + 1}</td>
@@ -1190,8 +1223,8 @@ function renderSales() {
                                 </td>
                                 <td>${escapeHtml(formatMoney(item.unitPrice || 0))}</td>
                                 <td>
-                                  <strong>${escapeHtml(participant?.name || "-")}</strong>
-                                  <span class="fifa-table-sub">${escapeHtml(participant?.passportNumber || "")}</span>
+                                  <strong>${escapeHtml(item.travelerName || "-")}</strong>
+                                  <span class="fifa-table-sub">${escapeHtml(item.travelerPassport || "")}</span>
                                 </td>
                               </tr>
                             `;
