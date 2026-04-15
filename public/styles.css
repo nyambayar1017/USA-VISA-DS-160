@@ -2750,21 +2750,21 @@ body.modal-open {
   grid-template-columns: 52px 118px minmax(180px, 1.15fr) minmax(260px, 1.45fr) minmax(120px, 0.8fr) minmax(110px, 0.72fr) auto;
   gap: 14px;
   align-items: center;
-  padding: 11px 18px 9px;
-  border: 1px solid rgba(32, 53, 111, 0.06);
+  padding: 12px 16px;
+  border: 1px solid rgba(32, 53, 111, 0.08);
   border-bottom: 0;
-  border-radius: 18px 18px 0 0;
-  background: linear-gradient(180deg, rgba(248, 250, 255, 0.98), rgba(243, 246, 253, 0.92));
-  color: #66779a;
-  font-size: 0.7rem;
+  border-radius: 16px 16px 0 0;
+  background: rgba(37, 58, 119, 0.06);
+  color: var(--brand);
+  font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
 .fifa-match-card {
   border: 1px solid rgba(32, 53, 111, 0.07);
-  border-radius: 18px;
+  border-radius: 16px;
   overflow: hidden;
   background: #ffffff;
   box-shadow: none;
@@ -2776,7 +2776,7 @@ body.modal-open {
   grid-template-columns: 52px 118px minmax(180px, 1.15fr) minmax(260px, 1.45fr) minmax(120px, 0.8fr) minmax(110px, 0.72fr) auto;
   gap: 14px;
   align-items: start;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border: 0;
   background: transparent;
   text-align: left;
@@ -2812,7 +2812,7 @@ body.modal-open {
 .fifa-match-col strong {
   display: block;
   color: #1f2d50;
-  font-size: 0.96rem;
+  font-size: 0.92rem;
   line-height: 1.18;
 }
 
@@ -2909,7 +2909,7 @@ body.modal-open {
 .fifa-match-col--actions [data-action="add-ticket-match"] {
   padding: 6px 10px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   line-height: 1.2;
   white-space: nowrap;
 }
