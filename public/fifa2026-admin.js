@@ -1032,7 +1032,7 @@ async function loadDashboard() {
   let summary = data.summary || null;
 
   try {
-    const sharedData = await fetchJson("/api/fifa2026/public");
+    const sharedData = await fetchJson("/api/fifa2026/public?scope=admin");
     tickets = sharedData.tickets || [];
     if (adminError) {
       setStatus(ticketStatusNode, `Admin API issue: ${adminError}. Showing shared FIFA inventory.`);
