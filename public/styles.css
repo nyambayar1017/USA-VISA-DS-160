@@ -2924,6 +2924,26 @@ body.modal-open {
   color: #8b6510;
 }
 
+.fifa-price-block {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 8px;
+}
+
+.fifa-price-line {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(32, 53, 111, 0.08);
+  color: #31446f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
 .fifa-match-col--availability {
   padding-right: 8px;
 }

@@ -989,7 +989,15 @@ function groupTicketsByMatch(tickets) {
         const total = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
         const available = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
         const sold = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0);
-        return { categoryCode, total, available, sold };
+        const priceTicket = categoryTickets.find((ticket) => Number(ticket.price || 0) > 0) || categoryTickets[0] || null;
+        return {
+          categoryCode,
+          total,
+          available,
+          sold,
+          price: priceTicket ? Number(priceTicket.price || 0) : 0,
+          currency: priceTicket?.currency || groupTickets[0]?.currency || "USD",
+        };
       }).filter((item) => item.total > 0);
       return {
         ...group,
@@ -1074,6 +1082,10 @@ function renderTickets() {
             <span class="fifa-availability-line is-available">Total available: ${group.availableUnits}</span>
             <span class="fifa-availability-line is-sold">Total sold: ${group.soldUnits}</span>
           `;
+          const priceSummary = group.categoryBreakdown
+            .filter((item) => item.price > 0)
+            .map((item) => `<span class="fifa-price-line">CAT ${item.categoryCode}: ${escapeHtml(formatMoney(item.price, item.currency))}</span>`)
+            .join("");
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}" role="button" tabindex="0">
@@ -1092,6 +1104,7 @@ function renderTickets() {
                   <div class="fifa-availability-block">
                     ${availabilityBadges}
                   </div>
+                  ${priceSummary ? `<div class="fifa-price-block">${priceSummary}</div>` : ""}
                 </div>
                 <div class="fifa-match-col fifa-match-col--city">
                   <strong>${escapeHtml(group.city)}</strong>
