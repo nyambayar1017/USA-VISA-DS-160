@@ -1437,7 +1437,7 @@ function renderSales() {
                   <span class="fifa-table-sub">${escapeHtml(sale.saleStatus)}</span>
                 </div>
                 <div class="fifa-match-col">
-                  <strong>${escapeHtml(managerInitial(sale.soldByName))}</strong>
+                  <strong>${escapeHtml(sale.soldByName || "-")}</strong>
                 </div>
                 <div class="fifa-match-col fifa-match-col--actions">
                   <div class="fifa-match-stage-actions">
@@ -1510,8 +1510,12 @@ function openSaleInvoice(sale) {
     if (status === "overdue") return { label: "Хугацаа хэтэрсэн", className: "overdue" };
     return { label: "Хүлээгдэж буй", className: "waiting" };
   };
+  const bankAccounts = {
+    state: { bankName: "Төрийн Банк", prefix: "MN030034", accountNumber: "3432 7777 9999" },
+    golomt: { bankName: "Голомт Банк", prefix: "MN80001500", accountNumber: "3675114666" },
+  };
   const invoiceNumber = `FIFA-${String(sale.id || "").slice(0, 8).toUpperCase() || "00000000"}-1`;
-  const buyerName = sale.buyerTitle || sale.buyerName || "-";
+  const buyerName = sale.buyerName || sale.buyerTitle || "-";
   const soldDate = formatDate(sale.soldAt);
   const invoiceDate = formatInvoiceDate(sale.soldAt);
   const items = (sale.ticketBlocks || [])
@@ -1621,7 +1625,13 @@ function openSaleInvoice(sale) {
           .payment-status.paid { background: #dcf4e3; color: #1f8550; }
           .payment-status.overdue { background: #f8dede; color: #c44747; }
           .payment-status.waiting { background: #eef2fb; color: #506189; }
+          .payment-status-select { display: none; min-height: 38px; padding: 8px 12px; border: 1px solid #cfd7eb; border-radius: 12px; background: #fff; color: #2b3148; font: 600 13px/1.2 Inter, system-ui, sans-serif; }
+          body.is-editing .payment-status { display: none; }
+          body.is-editing .payment-status-select { display: inline-flex; }
           .bank-section { margin-top: 16px; padding-bottom: 0; }
+          .bank-select-wrap { display: none; margin: 0 0 10px; }
+          .bank-account-select { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid #cfd7eb; border-radius: 12px; background: #fff; color: #2b3148; font: 600 13px/1.2 Inter, system-ui, sans-serif; }
+          body.is-editing .bank-select-wrap { display: block; }
           .bank-grid { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; font-size: 14px; color: #2d344c; }
           .invoice-footer { margin-top: 28px; padding-top: 18px; border-top: 1px solid #e7e9f1; }
           .invoice-footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
@@ -1685,8 +1695,8 @@ function openSaleInvoice(sale) {
                 <tr>
                   <td>${item.index}</td>
                   <td>
-                    <span class="invoice-view-text">${escapeHtml(item.description)}${item.categoryCode ? ` · CAT ${escapeHtml(item.categoryCode)}` : ""}</span>
-                    <input class="invoice-edit-input" value="${escapeHtml(item.description)}${item.categoryCode ? ` · CAT ${escapeHtml(item.categoryCode)}` : ""}" />
+                    <span class="invoice-view-text">${escapeHtml(item.description.replace(/^Match\s+/i, "Тоглолт "))}${item.categoryCode ? ` · Кат ${escapeHtml(item.categoryCode)}` : ""}</span>
+                    <input class="invoice-edit-input" value="${escapeHtml(item.description.replace(/^Match\s+/i, "Тоглолт "))}${item.categoryCode ? ` · Кат ${escapeHtml(item.categoryCode)}` : ""}" />
                   </td>
                   <td>
                     <span class="invoice-view-text">${item.quantity}</span>
@@ -1704,7 +1714,7 @@ function openSaleInvoice(sale) {
               `).join("")}
               ${discountAmount > 0 ? `
                 <tr class="discount-row">
-                  <td colspan="4">Discount</td>
+                  <td colspan="4">Хямдрал</td>
                   <td>-${escapeHtml(formatMoney(discountAmount))}</td>
                 </tr>
               ` : ""}
@@ -1735,6 +1745,11 @@ function openSaleInvoice(sale) {
                 <div class="payment-meta">
                   <span class="meta-label">Төлөв</span>
                   <span class="payment-status ${row.status.className}">${escapeHtml(row.status.label)}</span>
+                  <select class="payment-status-select">
+                    <option value="paid"${row.status.className === "paid" ? " selected" : ""}>Төлөгдсөн</option>
+                    <option value="waiting"${row.status.className === "waiting" ? " selected" : ""}>Хүлээгдэж буй</option>
+                    <option value="overdue"${row.status.className === "overdue" ? " selected" : ""}>Хугацаа хэтэрсэн</option>
+                  </select>
                 </div>
                 <div class="payment-amount">${escapeHtml(formatMoney(row.amount))}</div>
               </div>
@@ -1742,11 +1757,17 @@ function openSaleInvoice(sale) {
           </div>
           <div class="bank-section">
             <p class="section-title">Дансны мэдээлэл</p>
+            <div class="bank-select-wrap">
+              <select class="bank-account-select" data-bank-account-select>
+                <option value="state">Төрийн Банк / MN030034 / 3432 7777 9999</option>
+                <option value="golomt">Голомт Банк / MN80001500 / 3675114666</option>
+              </select>
+            </div>
             <div class="bank-grid">
               <span>Дэлхий Трэвел Икс</span>
-              <span>Төрийн Банк</span>
-              <span>MN030034</span>
-              <strong>3432 7777 9999</strong>
+              <span data-bank-name>Төрийн Банк</span>
+              <span data-bank-prefix>MN030034</span>
+              <strong data-bank-number>3432 7777 9999</strong>
             </div>
           </div>
           <div class="invoice-footer">
@@ -1774,9 +1795,21 @@ function openSaleInvoice(sale) {
           </div>
         </div>
         <script>
+          const bankAccounts = ${JSON.stringify(bankAccounts)};
           const modeButtons = Array.from(document.querySelectorAll('[data-mode]'));
           const saveButton = document.querySelector('[data-save]');
+          const bankSelect = document.querySelector('[data-bank-account-select]');
+          const bankName = document.querySelector('[data-bank-name]');
+          const bankPrefix = document.querySelector('[data-bank-prefix]');
+          const bankNumber = document.querySelector('[data-bank-number]');
           document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
+          const syncBankAccount = () => {
+            const selected = bankAccounts[bankSelect?.value || 'state'] || bankAccounts.state;
+            if (bankName) bankName.textContent = selected.bankName;
+            if (bankPrefix) bankPrefix.textContent = selected.prefix;
+            if (bankNumber) bankNumber.textContent = selected.accountNumber;
+          };
+          bankSelect?.addEventListener('change', syncBankAccount);
           modeButtons.forEach((button) => {
             button.addEventListener('click', () => {
               const isEdit = button.dataset.mode === 'edit';
@@ -1800,6 +1833,7 @@ function openSaleInvoice(sale) {
             modeButtons[0].style.background = '#253776';
             modeButtons[0].style.color = '#fff';
           }
+          syncBankAccount();
         </script>
       </body>
     </html>
