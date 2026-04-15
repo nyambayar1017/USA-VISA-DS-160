@@ -117,6 +117,7 @@ const state = {
   pendingSaleSeatIds: [],
   invoiceSchedule: [],
   invoiceScheduleTouched: false,
+  invoiceDrafts: {},
 };
 
 function setNodeText(node, value) {
@@ -625,6 +626,37 @@ function renderSaleSummary() {
 
 function getInvoiceBankAccount(key) {
   return BANK_ACCOUNTS[key] || BANK_ACCOUNTS.state;
+}
+
+function buildInvoiceDraftFromSale(sale) {
+  return {
+    buyerName: sale.buyerName || sale.buyerTitle || "",
+    invoiceExchangeRate: Math.max(Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1),
+    invoiceBankAccount: sale.invoiceBankAccount || "state",
+    invoiceSchedule: activeInvoiceSchedule(sale).map((row) => ({
+      title: row.title || "",
+      created: safeDateInput(row.created || ""),
+      due: safeDateInput(row.due || ""),
+      status: row.status || "waiting",
+      amount: Math.max(Number(row.amount || 0), 0),
+    })),
+  };
+}
+
+function invoiceDraftForSale(sale) {
+  return state.invoiceDrafts[sale.id] || null;
+}
+
+function saleLikeWithInvoiceDraft(sale) {
+  const draft = invoiceDraftForSale(sale);
+  if (!draft) return sale;
+  return {
+    ...sale,
+    buyerName: draft.buyerName,
+    invoiceExchangeRate: draft.invoiceExchangeRate,
+    invoiceBankAccount: draft.invoiceBankAccount,
+    invoiceSchedule: draft.invoiceSchedule,
+  };
 }
 
 function saleInvoiceSubtotal(saleLike = null) {
@@ -1550,6 +1582,8 @@ function renderSales() {
       </div>
       ${sales
         .map((sale, saleIndex) => {
+          const editingInvoice = Boolean(invoiceDraftForSale(sale));
+          const invoiceSource = saleLikeWithInvoiceDraft(sale);
           const isExpanded = state.expandedSales.has(sale.id);
           const paymentLabel = sale.paymentStatus === "paid"
             ? "Paid"
@@ -1627,10 +1661,10 @@ function renderSales() {
           const computedBaseTotal = blockTotalPrice || lineTotalPrice || Number(sale.totalPrice || 0);
           const computedTotalPrice = Math.max(Number(sale.totalPrice || 0) || (computedBaseTotal - discountAmount), 0);
           const computedBalance = Math.max(0, computedTotalPrice - Number(sale.amountPaid || 0));
-          const exchangeRate = Math.max(Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
-          const invoiceRows = buildInvoiceRowsForSale(sale);
-          const invoiceSchedule = buildInvoiceScheduleForSale(sale);
-          const invoiceBank = getInvoiceBankAccount(sale.invoiceBankAccount || "state");
+          const exchangeRate = Math.max(Number(invoiceSource.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+          const invoiceRows = buildInvoiceRowsForSale(invoiceSource);
+          const invoiceSchedule = buildInvoiceScheduleForSale(invoiceSource);
+          const invoiceBank = getInvoiceBankAccount(invoiceSource.invoiceBankAccount || "state");
           return `
             <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle fifa-sale-toggle" data-action="toggle-sale" data-id="${escapeHtml(sale.id)}" role="button" tabindex="0">
@@ -1715,12 +1749,48 @@ function renderSales() {
                       <section class="fifa-sale-inline-invoice">
                         <div class="fifa-sale-inline-invoice-head">
                           <strong>INVOICE</strong>
-                          <button type="button" class="button-secondary fifa-inline-action" data-action="invoice-sale" data-id="${escapeHtml(sale.id)}">Open invoice</button>
+                          <div class="fifa-match-stage-actions">
+                            ${
+                              editingInvoice
+                                ? `
+                                  <button type="button" class="button-secondary fifa-inline-action" data-action="save-inline-invoice" data-id="${escapeHtml(sale.id)}">Save</button>
+                                  <button type="button" class="button-secondary fifa-inline-action" data-action="cancel-inline-invoice" data-id="${escapeHtml(sale.id)}">Cancel</button>
+                                `
+                                : `<button type="button" class="button-secondary fifa-inline-action" data-action="edit-inline-invoice" data-id="${escapeHtml(sale.id)}">Edit invoice</button>`
+                            }
+                            <button type="button" class="button-secondary fifa-inline-action" data-action="invoice-sale" data-id="${escapeHtml(sale.id)}">Open invoice</button>
+                          </div>
                         </div>
                         <div class="fifa-sale-inline-invoice-meta">
-                          <span><strong>Төлөгч:</strong> ${escapeHtml(sale.buyerName || sale.buyerTitle || "-")}</span>
-                          <span><strong>Ханш:</strong> 1 USD = ${escapeHtml(formatMoney(exchangeRate, "MNT"))}</span>
-                          <span><strong>Данс:</strong> ${escapeHtml(invoiceBank.bankName)} ${escapeHtml(invoiceBank.prefix)} ${escapeHtml(invoiceBank.accountNumber)}</span>
+                          <span>
+                            <strong>Төлөгч:</strong>
+                            ${
+                              editingInvoice
+                                ? `<input type="text" class="fifa-inline-invoice-input" data-action="invoice-draft-field" data-id="${escapeHtml(sale.id)}" data-field="buyerName" value="${escapeHtml(invoiceSource.buyerName || "")}" />`
+                                : escapeHtml(invoiceSource.buyerName || invoiceSource.buyerTitle || "-")
+                            }
+                          </span>
+                          <span>
+                            <strong>Ханш:</strong>
+                            ${
+                              editingInvoice
+                                ? `1 USD = <input type="number" min="1" step="1" class="fifa-inline-invoice-input fifa-inline-invoice-input--small" data-action="invoice-draft-field" data-id="${escapeHtml(sale.id)}" data-field="invoiceExchangeRate" value="${escapeHtml(String(exchangeRate))}" /> ₮`
+                                : `1 USD = ${escapeHtml(formatMoney(exchangeRate, "MNT"))}`
+                            }
+                          </span>
+                          <span>
+                            <strong>Данс:</strong>
+                            ${
+                              editingInvoice
+                                ? `
+                                  <select class="fifa-inline-invoice-input" data-action="invoice-draft-field" data-id="${escapeHtml(sale.id)}" data-field="invoiceBankAccount">
+                                    <option value="state"${invoiceSource.invoiceBankAccount === "state" ? " selected" : ""}>Төрийн Банк MN030034 3432 7777 9999</option>
+                                    <option value="golomt"${invoiceSource.invoiceBankAccount === "golomt" ? " selected" : ""}>Голомт Банк MN80001500 3675114666</option>
+                                  </select>
+                                `
+                                : `${escapeHtml(invoiceBank.bankName)} ${escapeHtml(invoiceBank.prefix)} ${escapeHtml(invoiceBank.accountNumber)}`
+                            }
+                          </span>
                         </div>
                         <table class="manager-table fifa-table fifa-nested-table fifa-sale-invoice-table">
                           <thead>
@@ -1749,16 +1819,49 @@ function renderSales() {
                           </tbody>
                         </table>
                         <div class="fifa-sale-inline-schedule">
-                          <strong>Төлбөрийн хуваарь</strong>
+                          <div class="fifa-sale-inline-schedule-head">
+                            <strong>Төлбөрийн хуваарь</strong>
+                            ${
+                              editingInvoice
+                                ? `<button type="button" class="button-secondary fifa-inline-action" data-action="add-inline-invoice-line" data-id="${escapeHtml(sale.id)}">Add line</button>`
+                                : ""
+                            }
+                          </div>
                           <div class="fifa-sale-inline-schedule-list">
-                            ${invoiceSchedule.map((row) => `
+                            ${invoiceSchedule.map((row, rowIndex) => `
                               <div class="fifa-sale-inline-schedule-row">
-                                <div>
-                                  <strong>${escapeHtml(row.title)}</strong>
-                                  <span class="fifa-table-sub">Нэхэмжилсэн огноо ${escapeHtml(row.created || "-")} · ${escapeHtml(row.due || "-")}</span>
+                                <div class="fifa-sale-inline-schedule-main">
+                                  ${
+                                    editingInvoice
+                                      ? `
+                                        <input type="text" class="fifa-inline-invoice-input" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="title" value="${escapeHtml(row.title)}" />
+                                        <div class="fifa-sale-inline-schedule-dates">
+                                          <label>Нэхэмжилсэн огноо <input type="date" class="fifa-inline-invoice-input" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="created" value="${escapeHtml(safeDateInput(row.created))}" /></label>
+                                          <label>${escapeHtml(row.status === "paid" ? "Төлсөн огноо" : "Эцсийн хугацаа")} <input type="date" class="fifa-inline-invoice-input" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="due" value="${escapeHtml(safeDateInput(row.due))}" /></label>
+                                        </div>
+                                      `
+                                      : `
+                                        <strong>${escapeHtml(row.title)}</strong>
+                                        <span class="fifa-table-sub">Нэхэмжилсэн огноо ${escapeHtml(row.created || "-")} · ${escapeHtml(row.due || "-")}</span>
+                                      `
+                                  }
                                 </div>
-                                <span class="fifa-pill ${escapeHtml(`is-${row.statusMeta.className}`)}">${escapeHtml(row.statusMeta.label)}</span>
-                                <strong>${escapeHtml(formatMoney(Number(row.amount || 0) * exchangeRate, "MNT"))}</strong>
+                                ${
+                                  editingInvoice
+                                    ? `
+                                      <select class="fifa-inline-invoice-input" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="status">
+                                        <option value="paid"${row.status === "paid" ? " selected" : ""}>Төлөгдсөн</option>
+                                        <option value="waiting"${row.status === "waiting" ? " selected" : ""}>Хүлээгдэж буй</option>
+                                        <option value="overdue"${row.status === "overdue" ? " selected" : ""}>Хугацаа хэтэрсэн</option>
+                                      </select>
+                                    `
+                                    : `<span class="fifa-pill is-${escapeHtml(row.statusMeta.className)}">${escapeHtml(row.statusMeta.label)}</span>`
+                                }
+                                ${
+                                  editingInvoice
+                                    ? `<div class="fifa-sale-inline-schedule-actions"><input type="number" min="0" step="1" class="fifa-inline-invoice-input fifa-inline-invoice-input--small" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="amount" value="${escapeHtml(String(Math.round(Number(row.amount || 0) * exchangeRate)))}" /><button type="button" class="button-secondary fifa-inline-action" data-action="remove-inline-invoice-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}">Remove</button></div>`
+                                    : `<strong>${escapeHtml(formatMoney(Number(row.amount || 0) * exchangeRate, "MNT"))}</strong>`
+                                }
                               </div>
                             `).join("")}
                           </div>
@@ -2430,8 +2533,68 @@ saleList?.addEventListener("click", async (event) => {
     fillSaleForm(sale);
     return;
   }
+  if (target.dataset.action === "edit-inline-invoice") {
+    state.invoiceDrafts[sale.id] = buildInvoiceDraftFromSale(sale);
+    renderSales();
+    return;
+  }
+  if (target.dataset.action === "cancel-inline-invoice") {
+    delete state.invoiceDrafts[sale.id];
+    renderSales();
+    return;
+  }
+  if (target.dataset.action === "add-inline-invoice-line") {
+    const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+    const fallbackDate = safeDateInput(sale.soldAt || "") || new Date().toISOString().slice(0, 10);
+    draft.invoiceSchedule.push({
+      title: `Төлбөр ${draft.invoiceSchedule.length + 1}`,
+      created: fallbackDate,
+      due: fallbackDate,
+      status: "waiting",
+      amount: 0,
+    });
+    state.invoiceDrafts[sale.id] = draft;
+    renderSales();
+    return;
+  }
+  if (target.dataset.action === "remove-inline-invoice-line") {
+    const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+    const index = Number(target.dataset.index || -1);
+    if (index >= 0) draft.invoiceSchedule.splice(index, 1);
+    state.invoiceDrafts[sale.id] = draft;
+    renderSales();
+    return;
+  }
+  if (target.dataset.action === "save-inline-invoice") {
+    const draft = invoiceDraftForSale(sale);
+    if (!draft) return;
+    try {
+      await fetchJson(`/api/fifa2026/sales/${sale.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buyerName: draft.buyerName,
+          invoiceExchangeRate: Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1),
+          invoiceBankAccount: draft.invoiceBankAccount || "state",
+          invoiceSchedule: (draft.invoiceSchedule || []).map((row) => ({
+            title: row.title || "",
+            created: row.created || "",
+            due: row.due || "",
+            status: row.status || "waiting",
+            amount: Math.max(Number(row.amount || 0), 0),
+          })),
+        }),
+      });
+      delete state.invoiceDrafts[sale.id];
+      await loadDashboard();
+      setStatus(saleStatusNode, "Invoice updated.");
+    } catch (error) {
+      setStatus(saleStatusNode, error.message, true);
+    }
+    return;
+  }
   if (target.dataset.action === "invoice-sale") {
-    openSaleInvoice(sale);
+    openSaleInvoice(saleLikeWithInvoiceDraft(sale));
     return;
   }
   if (target.dataset.action === "cancel-sale") {
@@ -2456,6 +2619,54 @@ saleList?.addEventListener("click", async (event) => {
       setStatus(saleStatusNode, error.message, true);
     }
   }
+});
+
+saleList?.addEventListener("input", (event) => {
+  const action = event.target.dataset.action;
+  const saleId = event.target.dataset.id;
+  if (!saleId || !saleList || !["invoice-draft-field", "invoice-draft-line"].includes(action)) return;
+  const sale = state.sales.find((item) => item.id === saleId);
+  if (!sale) return;
+  const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+  if (action === "invoice-draft-field") {
+    const field = event.target.dataset.field;
+    if (field === "invoiceExchangeRate") draft.invoiceExchangeRate = Math.max(Number(event.target.value || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+    else draft[field] = event.target.value;
+  } else {
+    const index = Number(event.target.dataset.index || -1);
+    const field = event.target.dataset.field;
+    if (index < 0 || !draft.invoiceSchedule[index]) return;
+    if (field === "amount") {
+      draft.invoiceSchedule[index].amount = Math.max(
+        Math.round(Number(event.target.value || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
+        0
+      );
+      state.invoiceDrafts[sale.id] = draft;
+      renderSales();
+      return;
+    }
+    draft.invoiceSchedule[index][field] = event.target.value;
+  }
+  state.invoiceDrafts[sale.id] = draft;
+});
+
+saleList?.addEventListener("change", (event) => {
+  const action = event.target.dataset.action;
+  const saleId = event.target.dataset.id;
+  if (!saleId || !["invoice-draft-field", "invoice-draft-line"].includes(action)) return;
+  const sale = state.sales.find((item) => item.id === saleId);
+  if (!sale) return;
+  const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+  if (action === "invoice-draft-field") {
+    draft[event.target.dataset.field] = event.target.value;
+  } else {
+    const index = Number(event.target.dataset.index || -1);
+    const field = event.target.dataset.field;
+    if (index < 0 || !draft.invoiceSchedule[index]) return;
+    draft.invoiceSchedule[index][field] = event.target.value;
+  }
+  state.invoiceDrafts[sale.id] = draft;
+  renderSales();
 });
 
 saleBlockList?.addEventListener("click", (event) => {

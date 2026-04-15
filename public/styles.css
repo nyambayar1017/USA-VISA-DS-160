@@ -3312,6 +3312,20 @@ body.modal-open {
   font-size: 0.84rem;
 }
 
+.fifa-inline-invoice-input {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid rgba(32, 53, 111, 0.14);
+  border-radius: 10px;
+  background: #fff;
+  color: #24345e;
+  font: inherit;
+}
+
+.fifa-inline-invoice-input--small {
+  width: 140px;
+}
+
 .fifa-sale-invoice-table td:last-child,
 .fifa-sale-invoice-table th:last-child,
 .fifa-sale-invoice-table td:nth-last-child(2),
@@ -3324,6 +3338,14 @@ body.modal-open {
   gap: 10px;
 }
 
+.fifa-sale-inline-schedule-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 12px;
+}
+
 .fifa-sale-inline-schedule-list {
   display: grid;
   gap: 10px;
@@ -3331,13 +3353,38 @@ body.modal-open {
 
 .fifa-sale-inline-schedule-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1.2fr) auto auto;
+  grid-template-columns: minmax(260px, 1.2fr) auto auto;
   gap: 10px 16px;
   align-items: center;
   padding: 12px 14px;
   border: 1px solid rgba(32, 53, 111, 0.08);
   border-radius: 14px;
   background: #fff;
+}
+
+.fifa-sale-inline-schedule-main {
+  display: grid;
+  gap: 8px;
+}
+
+.fifa-sale-inline-schedule-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.fifa-sale-inline-schedule-dates label {
+  display: grid;
+  gap: 4px;
+  color: #5a6c8a;
+  font-size: 0.78rem;
+}
+
+.fifa-sale-inline-schedule-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .fifa-pill.is-paid {
