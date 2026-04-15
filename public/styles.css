@@ -141,15 +141,6 @@ body {
   line-height: 1;
 }
 
-.sidebar-group .sidebar-link[href="/fifa2026-admin"]::before,
-.sidebar-group .sidebar-link[href="/fifa2026"]::before {
-  content: "◉";
-  display: grid;
-  place-items: center;
-  font-size: 0.78rem;
-  line-height: 1;
-}
-
 .sidebar-group .sidebar-link[href="/contracts"]::before {
   content: "▤";
   display: grid;
@@ -1900,9 +1891,8 @@ body.modal-open {
 }
 
 .trip-table {
-  width: max-content;
-  min-width: 100%;
-  table-layout: fixed;
+  min-width: 980px;
+  table-layout: auto;
 }
 
 .camp-table th,
@@ -2150,7 +2140,7 @@ body.modal-open {
 
 .trip-table th:nth-child(1),
 .trip-table td:nth-child(1) {
-  width: 28px;
+  width: 36px;
 }
 
 .trip-table th:nth-child(2),
@@ -2161,71 +2151,66 @@ body.modal-open {
 
 .trip-table th:nth-child(3),
 .trip-table td:nth-child(3) {
-  width: 92px;
+  width: 180px;
   text-align: left;
 }
 
 .trip-table th:nth-child(4),
 .trip-table td:nth-child(4) {
-  width: 84px;
+  width: 104px;
 }
 
 .trip-table th:nth-child(5),
 .trip-table td:nth-child(5),
 .trip-table th:nth-child(6),
 .trip-table td:nth-child(6) {
-  width: 34px;
+  width: 44px;
   text-align: center;
 }
 
 .trip-table th:nth-child(7),
 .trip-table td:nth-child(7) {
-  width: 78px;
+  width: 118px;
   text-align: left;
 }
 
 .trip-table th:nth-child(8),
 .trip-table td:nth-child(8) {
-  width: 34px;
+  width: 118px;
   text-align: left;
 }
 
 .trip-table th:nth-child(9),
 .trip-table td:nth-child(9) {
-  width: 34px;
+  width: 118px;
   text-align: left;
 }
 
 .trip-table th:nth-child(10),
 .trip-table td:nth-child(10) {
-  width: 78px;
+  width: 92px;
   text-align: left;
 }
 
 .trip-table th:nth-child(11),
 .trip-table td:nth-child(11) {
-  width: 86px;
+  width: 104px;
 }
 
 .trip-table th:nth-child(12),
 .trip-table td:nth-child(12) {
-  width: 96px;
+  width: 150px;
 }
 
 .trip-table th:nth-child(13),
 .trip-table td:nth-child(13) {
-  width: 96px;
+  width: 150px;
   text-align: left;
 }
 
 .trip-table th:nth-child(14),
 .trip-table td:nth-child(14) {
-  width: 268px;
-}
-
-.trip-created-cell {
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  width: 360px;
 }
 
 .trip-table .status-pill.is-planning {
@@ -2618,521 +2603,4 @@ body.modal-open {
 .camp-table td.checkbox-col,
 .table-checkbox {
   display: none !important;
-}
-
-.fifa-panel {
-  display: grid;
-  gap: 22px;
-}
-
-.fifa-form-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.fifa-ticket-form-panel[data-open="false"] {
-  display: none;
-}
-
-.fifa-ticket-form-panel[data-open="true"] {
-  display: grid;
-}
-
-.fifa-sale-form-panel[data-open="false"] {
-  display: none;
-}
-
-.fifa-sale-form-panel[data-open="true"] {
-  display: grid;
-}
-
-.fifa-category-editor {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 24px;
-  background: rgba(247, 249, 255, 0.82);
-}
-
-.fifa-category-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: baseline;
-  flex-wrap: wrap;
-}
-
-.fifa-category-head h3 {
-  margin: 0;
-  color: var(--brand);
-  font-size: 1rem;
-}
-
-.fifa-category-head p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.fifa-ticket-rows {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.fifa-ticket-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 16px;
-  background: #fff;
-}
-
-.fifa-passenger-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 16px;
-  background: #fff;
-}
-
-.fifa-sale-ticket-picker {
-  display: grid;
-  gap: 10px;
-  align-items: start;
-}
-
-.fifa-selected-ticket-list {
-  display: grid;
-  gap: 8px;
-}
-
-.fifa-selected-ticket-pill {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 14px;
-  background: #fff;
-}
-
-.fifa-selected-ticket-pill span {
-  color: #1f2d50;
-  font-size: 0.88rem;
-  line-height: 1.4;
-}
-
-.fifa-passport-preview img {
-  max-width: 280px;
-  max-height: 180px;
-  border-radius: 14px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  object-fit: cover;
-}
-
-.fifa-seat-help {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 12px 14px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.84);
-  font-weight: 600;
-}
-
-.checkbox-label input {
-  width: auto;
-  margin: 0;
-}
-
-.fifa-filters {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.fifa-list-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.fifa-list-meta strong {
-  color: var(--brand);
-}
-
-.fifa-bulk-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.fifa-match-accordion {
-  display: grid;
-  gap: 14px;
-}
-
-.fifa-match-accordion--table {
-  gap: 10px;
-}
-
-.fifa-match-table-head {
-  display: grid;
-  grid-template-columns: 88px 150px minmax(240px, 1.7fr) minmax(280px, 1.8fr) 170px 170px;
-  gap: 16px;
-  align-items: center;
-  padding: 0 18px 8px;
-  color: #42537a;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.fifa-match-card {
-  border: 1px solid rgba(32, 53, 111, 0.14);
-  border-radius: 18px;
-  overflow: hidden;
-  background: #ffffff;
-  box-shadow: 0 6px 18px rgba(24, 42, 88, 0.04);
-}
-
-.fifa-match-toggle {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 88px 150px minmax(240px, 1.7fr) minmax(280px, 1.8fr) 170px 170px;
-  gap: 16px;
-  align-items: center;
-  padding: 18px;
-  border: 0;
-  background: #ffffff;
-  text-align: left;
-  cursor: pointer;
-}
-
-.fifa-match-toggle:hover {
-  background: #f6f8fc;
-}
-
-.fifa-match-toggle--static {
-  cursor: default;
-}
-
-.fifa-match-toggle--static:hover {
-  background: #ffffff;
-}
-
-.fifa-match-details {
-  padding: 8px 18px 18px;
-  background: #f9fbff;
-}
-
-.fifa-nested-table {
-  margin-top: 4px;
-}
-
-.fifa-match-col {
-  min-width: 0;
-}
-
-.fifa-match-col strong {
-  display: block;
-  color: #1f2d50;
-  font-size: 0.98rem;
-  line-height: 1.35;
-}
-
-.fifa-match-col--number strong {
-  font-size: 1.15rem;
-  color: var(--brand);
-}
-
-.fifa-match-col--teams strong,
-.fifa-match-col--availability strong {
-  white-space: normal;
-  word-break: break-word;
-}
-
-.fifa-match-col--stage {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: nowrap;
-}
-
-.fifa-availability-block {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-}
-
-.fifa-availability-line {
-  display: inline-flex;
-  color: #1f2d50;
-  font-size: 0.88rem;
-  font-weight: 700;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-.fifa-availability-total {
-  flex-basis: auto;
-  margin-top: 0;
-  margin-left: 8px;
-  white-space: nowrap;
-}
-
-.fifa-match-col--stage [data-action="add-ticket-match"] {
-  padding: 5px 10px;
-  font-size: 0.78rem;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.fifa-nested-table .checkbox-col {
-  width: 44px;
-}
-
-.manager-table.fifa-table td,
-.manager-table.fifa-table th {
-  vertical-align: top;
-}
-
-.fifa-table-sub {
-  display: block;
-  margin-top: 4px;
-  color: #68789c;
-  font-size: 0.82rem;
-}
-
-.fifa-actions-cell {
-  min-width: 180px;
-}
-
-.fifa-actions-cell button {
-  margin: 0 8px 8px 0;
-}
-
-.fifa-pill {
-  display: inline-flex;
-  align-items: center;
-  margin: 0 6px 6px 0;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(37, 58, 119, 0.08);
-  color: var(--brand);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: capitalize;
-}
-
-.fifa-pill.is-public {
-  background: rgba(59, 145, 96, 0.12);
-  color: #216a44;
-}
-
-.fifa-pill.is-private,
-.fifa-pill.is-cancelled {
-  background: rgba(166, 84, 46, 0.14);
-  color: #8f4a2e;
-}
-
-.fifa-public-body {
-  min-height: 100vh;
-  margin: 0;
-  color: var(--text);
-  font-family: "Montserrat", "Avenir Next", "Segoe UI", sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(234, 106, 79, 0.18), transparent 24%),
-    radial-gradient(circle at top right, rgba(37, 58, 119, 0.16), transparent 20%),
-    linear-gradient(180deg, #eff3fb 0%, #f8fafc 100%);
-}
-
-.fifa-public-shell {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 32px 20px 48px;
-}
-
-.fifa-public-hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
-  padding: 34px;
-  border: 1px solid rgba(32, 53, 111, 0.08);
-  border-radius: 32px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 255, 0.95)),
-    linear-gradient(120deg, rgba(234, 106, 79, 0.12), rgba(37, 58, 119, 0.1));
-  box-shadow: var(--shadow);
-}
-
-.fifa-public-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
-  gap: 14px;
-  min-width: 320px;
-}
-
-.fifa-public-summary article,
-.fifa-public-card {
-  border: 1px solid rgba(32, 53, 111, 0.08);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.fifa-public-summary article {
-  padding: 18px;
-}
-
-.fifa-public-summary span {
-  display: block;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.fifa-public-summary strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 2rem;
-  color: var(--brand);
-}
-
-.fifa-public-panel {
-  padding: 26px;
-}
-
-.fifa-public-table-wrap {
-  margin-top: 24px;
-  overflow: auto;
-}
-
-.fifa-public-match-list {
-  min-width: 1120px;
-}
-
-.fifa-public-seat-grid {
-  display: grid;
-  gap: 10px;
-}
-
-.fifa-public-seat-group {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid rgba(32, 53, 111, 0.08);
-  border-radius: 14px;
-  background: #ffffff;
-}
-
-.fifa-public-seat-group strong {
-  color: var(--brand);
-  font-size: 0.86rem;
-}
-
-.fifa-public-seat-group span {
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.5;
-}
-
-.fifa-buyer-table-head,
-.fifa-buyer-row {
-  grid-template-columns: minmax(220px, 1.3fr) minmax(240px, 1.5fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.1fr);
-}
-
-.fifa-public-table {
-  width: 100%;
-  min-width: 980px;
-  border-collapse: collapse;
-  font-size: 0.92rem;
-}
-
-.fifa-public-table th,
-.fifa-public-table td {
-  padding: 12px 10px;
-  border-bottom: 1px solid rgba(32, 53, 111, 0.08);
-  text-align: left;
-  vertical-align: top;
-}
-
-.fifa-public-table th {
-  color: var(--brand);
-  font-size: 0.8rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  background: rgba(37, 58, 119, 0.06);
-}
-
-.fifa-public-seat-cell {
-  min-width: 320px;
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.fifa-public-sub {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-@media (max-width: 1200px) {
-  .fifa-form-grid,
-  .fifa-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 820px) {
-  .fifa-public-hero {
-    flex-direction: column;
-  }
-
-  .fifa-public-summary {
-    min-width: 0;
-  }
-}
-
-@media (max-width: 640px) {
-  .fifa-form-grid,
-  .fifa-filters,
-  .fifa-public-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .fifa-list-meta {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .fifa-public-shell {
-    padding-inline: 12px;
-  }
-
-  .fifa-public-hero,
-  .fifa-public-panel {
-    padding: 20px;
-    border-radius: 24px;
-  }
 }

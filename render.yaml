@@ -2,20 +2,19 @@ services:
   - type: web
     name: ds160-intake-form
     runtime: python
-    plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: python3 server.py
-    healthCheckPath: /health
-    disk:
-      name: submissions
-      mountPath: /var/data
-      sizeGB: 1
+    startCommand: gunicorn server:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.4
-      - key: PORT
-        value: 10000
-      - key: DATA_DIR
-        value: /var/data
-      - key: ADMIN_TOKEN
-        sync: false
+    aptPackages:
+      - libcairo2
+      - libpango-1.0-0
+      - libpangocairo-1.0-0
+      - libpangoft2-1.0-0
+      - libgdk-pixbuf-2.0-0
+      - libffi-dev
+      - shared-mime-info
+      - fonts-croscore
+      - fonts-dejavu-core
+      - fonts-liberation2

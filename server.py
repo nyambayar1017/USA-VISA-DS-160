@@ -37,8 +37,6 @@ RESERVATIONS_FILE = DATA_DIR / "reservations.json"
 CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
-FIFA2026_FILE = DATA_DIR / "fifa2026.json"
-FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
@@ -79,7 +77,6 @@ DEFAULT_LANGUAGES = [
 ]
 RESERVATION_TYPE_LABELS = {
     "camp": "Баазын захиалга",
-    "tent": "Майхны захиалга",
     "hotel": "Буудлын захиалга",
     "herder": "Малчин айлын захиалга",
 }
@@ -123,11 +120,6 @@ def ensure_data_store():
             ),
             encoding="utf-8",
         )
-    if not FIFA2026_FILE.exists():
-        FIFA2026_FILE.write_text(
-            json.dumps(default_fifa2026_data(), indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
     bootstrap_admin_user()
 
 
@@ -151,7 +143,6 @@ def list_backup_sources():
         CAMP_RESERVATIONS_FILE,
         CAMP_TRIPS_FILE,
         CAMP_SETTINGS_FILE,
-        FIFA2026_FILE,
         MANAGER_DASHBOARD_FILE,
         USERS_FILE,
         SESSIONS_FILE,
@@ -372,70 +363,11 @@ def write_camp_settings(payload):
     write_json_object(CAMP_SETTINGS_FILE, payload)
 
 
-def default_fifa2026_data():
-    return {"tickets": [], "sales": []}
-
-
-def normalize_fifa2026_store(payload):
-    default_payload = default_fifa2026_data()
-    if not isinstance(payload, dict):
-        return default_payload
-    tickets = payload.get("tickets") if isinstance(payload.get("tickets"), list) else default_payload["tickets"]
-    sales = payload.get("sales") if isinstance(payload.get("sales"), list) else []
-    return {
-        "tickets": tickets,
-        "sales": sales,
-    }
-
-
-def read_fifa2026_store():
-    payload = read_json_object(FIFA2026_FILE, default_fifa2026_data())
-    return normalize_fifa2026_store(payload)
-
-
-def write_fifa2026_store(payload):
-    write_json_object(FIFA2026_FILE, normalize_fifa2026_store(payload))
-
-
-def reset_fifa2026_store_from_seed():
-    payload = normalize_fifa2026_store(default_fifa2026_data())
-    write_fifa2026_store(payload)
-    return payload
-
-
-def fifa_store_totals(store):
-    tickets = store.get("tickets", [])
-    return {
-        "lots": len(tickets),
-        "matches": len({normalize_text(ticket.get("matchNumber")) for ticket in tickets if normalize_text(ticket.get("matchNumber"))}),
-        "quantity": sum(max(parse_int(ticket.get("totalQuantity")), 0) for ticket in tickets),
-    }
-
-
-def ensure_fifa2026_manual_inventory():
-    current = read_fifa2026_store()
-    if not FIFA2026_RESET_MARKER_FILE.exists():
-        FIFA2026_RESET_MARKER_FILE.write_text("manual-reset-v3", encoding="utf-8")
-        return current
-    tickets = current.get("tickets", [])
-    if tickets and all(
-        "Imported from DTX 2026 WC - Sales Registration.xlsx" in normalize_text(ticket.get("notes"))
-        for ticket in tickets
-    ):
-        empty_store = {"tickets": [], "sales": []}
-        write_fifa2026_store(empty_store)
-        return empty_store
-    return current
-
-
 def json_response(start_response, status, payload, extra_headers=None):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = [
         ("Content-Type", "application/json; charset=utf-8"),
         ("Content-Length", str(len(body))),
-        ("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"),
-        ("Pragma", "no-cache"),
-        ("Expires", "0"),
     ]
     if extra_headers:
         headers.extend(extra_headers)
@@ -472,9 +404,6 @@ def file_response(start_response, file_path, extra_headers=None):
     headers = [
         ("Content-Type", mime_type or "application/octet-stream"),
         ("Content-Length", str(len(body))),
-        ("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"),
-        ("Pragma", "no-cache"),
-        ("Expires", "0"),
     ]
     if extra_headers:
         headers.extend(extra_headers)
@@ -697,8 +626,8 @@ def handle_auth_profile_update(environ, start_response):
 
 
 def handle_list_users(environ, start_response):
-    user = require_login(environ, start_response)
-    if not user:
+    admin = require_admin(environ, start_response)
+    if not admin:
         return []
     users = [sanitize_user(user) for user in read_users()]
     return json_response(start_response, "200 OK", {"entries": users})
@@ -2310,154 +2239,38 @@ def build_invoice_line_items(data):
     return rows
 
 
-def normalize_invoice_line_items(record):
-    invoice_meta = record.get("invoiceMeta") if isinstance(record.get("invoiceMeta"), dict) else {}
-    raw_items = invoice_meta.get("lineItems")
-    normalized = []
-    if isinstance(raw_items, list):
-        for item in raw_items:
-            if not isinstance(item, dict):
-                continue
-            description = normalize_text(item.get("description"))
-            quantity = parse_int(item.get("quantity"))
-            unit_price = parse_int(item.get("unitPrice"))
-            total_price = parse_int(item.get("totalPrice")) or quantity * unit_price
-            if not description or quantity <= 0:
-                continue
-            normalized.append(
-                {
-                    "key": normalize_text(item.get("key")) or f"item-{len(normalized) + 1}",
-                    "description": description,
-                    "quantity": quantity,
-                    "unitPrice": unit_price,
-                    "totalPrice": total_price,
-                }
-            )
-    if normalized:
-        return normalized
-    return [
-        {
-            "key": f"item-{index}",
-            "description": item["description"],
-            "quantity": item["quantity"],
-            "unitPrice": item["unitPrice"],
-            "totalPrice": item["totalPrice"],
-        }
-        for index, item in enumerate(build_invoice_line_items(record.get("data") or {}), start=1)
-    ]
-
-
-INVOICE_STATUS_META = {
-    "paid": {"label": "Төлөгдсөн", "className": "paid"},
-    "waiting": {"label": "Хүлээгдэж буй", "className": "waiting"},
-    "overdue": {"label": "Хугацаа хэтэрсэн", "className": "overdue"},
-}
-
-INVOICE_BANK_ACCOUNTS = {
-    "state": {
-        "bankName": "Төрийн Банк",
-        "prefix": "MN030034",
-        "accountNumber": "3432 7777 9999",
-    },
-    "golomt": {
-        "bankName": "Голомт Банк",
-        "prefix": "MN80001500",
-        "accountNumber": "3675114666",
-    },
-}
-
-
-def normalize_invoice_status(value, fallback="waiting"):
-    normalized = normalize_text(value).strip().lower()
-    if normalized in INVOICE_STATUS_META:
-        return normalized
-    return fallback
-
-
-def normalize_invoice_bank_account(value, fallback="state"):
-    normalized = normalize_text(value).strip().lower()
-    if normalized in INVOICE_BANK_ACCOUNTS:
-        return normalized
-    return fallback
-
-
-def build_invoice_payment_rows(record):
-    data = record.get("data") or {}
-    created_at = record.get("createdAt")
-    signed_at = record.get("signedAt")
+def build_invoice_payment_rows(data, created_at=None, signed_at=None):
     today = now_mongolia().date()
     issue_date = format_iso_date_display(data.get("contractDate") or created_at)
     signed_date = format_iso_date_display(signed_at or created_at or data.get("contractDate"))
     balance_due = parse_date_safe(data.get("balanceDueDate"))
     balance_amount = parse_int(data.get("balanceAmount"))
-    invoice_meta = record.get("invoiceMeta") or {}
-    payment_meta = invoice_meta.get("payments") if isinstance(invoice_meta, dict) else {}
-    payment_meta = payment_meta if isinstance(payment_meta, dict) else {}
-
-    custom_rows = []
-    if isinstance(payment_meta.get("rows"), list):
-        for row in payment_meta.get("rows"):
-            if not isinstance(row, dict):
-                continue
-            amount = parse_int(row.get("amount"))
-            title = normalize_text(row.get("title"))
-            if not title or amount <= 0:
-                continue
-            status_key = normalize_invoice_status(row.get("status"), fallback="waiting")
-            custom_rows.append(
-                {
-                    "key": normalize_text(row.get("key")) or f"payment-{len(custom_rows) + 1}",
-                    "title": title,
-                    "created": format_iso_date_display(row.get("created")),
-                    "secondaryLabel": normalize_text(row.get("secondaryLabel")) or "Эцсийн хугацаа",
-                    "secondaryValue": format_iso_date_display(row.get("secondaryValue")),
-                    "statusKey": status_key,
-                    "status": INVOICE_STATUS_META[status_key]["label"],
-                    "statusClass": INVOICE_STATUS_META[status_key]["className"],
-                    "amount": amount,
-                }
-            )
-    if custom_rows:
-        return custom_rows
 
     rows = []
     deposit_amount = parse_int(data.get("depositAmount"))
     if deposit_amount > 0:
-        deposit_status = normalize_invoice_status(
-            (payment_meta.get("deposit") or {}).get("status"),
-            fallback="paid",
-        )
         rows.append(
             {
-                "key": "deposit",
-                "title": "Урьдчилгаа төлбөр",
+                "title": f"{normalize_text(data.get('destination')) or 'Аяллын'} урьдчилгаа төлбөр",
                 "created": issue_date,
                 "secondaryLabel": "Төлсөн огноо",
                 "secondaryValue": signed_date,
-                "statusKey": deposit_status,
-                "status": INVOICE_STATUS_META[deposit_status]["label"],
-                "statusClass": INVOICE_STATUS_META[deposit_status]["className"],
+                "status": "Төлөгдсөн",
+                "statusClass": "paid",
                 "amount": deposit_amount,
             }
         )
 
     if balance_amount > 0:
         overdue = bool(balance_due and balance_due < today)
-        default_balance_status = "overdue" if overdue else "waiting"
-        balance_status = normalize_invoice_status(
-            (payment_meta.get("balance") or {}).get("status"),
-            fallback=default_balance_status,
-        )
         rows.append(
             {
-                "key": "balance",
                 "title": "Үлдэгдэл төлбөр",
                 "created": issue_date,
                 "secondaryLabel": "Эцсийн хугацаа",
                 "secondaryValue": format_iso_date_display(data.get("balanceDueDate")),
-                "statusKey": balance_status,
-                "status": INVOICE_STATUS_META[balance_status]["label"],
-                "statusClass": INVOICE_STATUS_META[balance_status]["className"],
+                "status": "Хугацаа хэтэрсэн" if overdue else "Хүлээгдэж буй",
+                "statusClass": "overdue" if overdue else "waiting",
                 "amount": balance_amount,
             }
         )
@@ -2466,26 +2279,14 @@ def build_invoice_payment_rows(record):
 
 def build_invoice_html(record, asset_mode="web"):
     data = record.get("data") or {}
-    invoice_meta = record.get("invoiceMeta") if isinstance(record.get("invoiceMeta"), dict) else {}
-    bank_account_key = normalize_invoice_bank_account(invoice_meta.get("bankAccountKey"))
-    bank_account = INVOICE_BANK_ACCOUNTS[bank_account_key]
     invoice_number = html.escape(f"{normalize_text(data.get('contractSerial')) or record.get('id', '')}-1")
     tourist_name = normalize_person_name(
         f"{normalize_text(data.get('touristLastName'))} {normalize_text(data.get('touristFirstName'))}"
     ).strip()
     customer_name = html.escape(tourist_name.upper() or "CLIENT")
-    items = normalize_invoice_line_items(record)
-    payment_rows = build_invoice_payment_rows(record)
+    items = build_invoice_line_items(data)
+    payment_rows = build_invoice_payment_rows(data, created_at=record.get("createdAt"), signed_at=record.get("signedAt"))
     total_amount = sum(item["totalPrice"] for item in items)
-    status_options_markup = "".join(
-        f'<option value="{status_key}">{html.escape(status_meta["label"])}</option>'
-        for status_key, status_meta in INVOICE_STATUS_META.items()
-    )
-    bank_options_markup = "".join(
-        f'<option value="{account_key}"{" selected" if account_key == bank_account_key else ""}>{html.escape(account["bankName"])} / {html.escape(account["prefix"])} / {html.escape(account["accountNumber"])}</option>'
-        for account_key, account in INVOICE_BANK_ACCOUNTS.items()
-    )
-    accountant_name = "Г.Баясгалан"
 
     def asset_src(filename):
         if asset_mode == "file":
@@ -2495,319 +2296,35 @@ def build_invoice_html(record, asset_mode="web"):
     download_href = "" if asset_mode == "file" else f"/api/contracts/{record.get('id')}/invoice?mode=download"
     items_markup = "".join(
         f"""
-          <tr data-item-key="{html.escape(item['key'])}">
+          <tr>
             <td>{index}</td>
-            <td>
-              <span class="invoice-view-text">{html.escape(item['description'])}</span>
-              <input class="invoice-edit-input" data-item-field="description" value="{html.escape(item['description'])}" />
-            </td>
-            <td>
-              <span class="invoice-view-text">{item['quantity']}</span>
-              <input class="invoice-edit-input" data-item-field="quantity" type="number" min="1" value="{item['quantity']}" />
-            </td>
-            <td>
-              <span class="invoice-view-text">{format_money(item['unitPrice'])} ₮</span>
-              <input class="invoice-edit-input" data-item-field="unitPrice" type="number" min="0" value="{item['unitPrice']}" />
-            </td>
-            <td>
-              <span class="invoice-view-text">{format_money(item['totalPrice'])} ₮</span>
-              <input class="invoice-edit-input" data-item-field="totalPrice" type="number" min="0" value="{item['totalPrice']}" />
-            </td>
-            <td class="item-remove-cell">
-              <button type="button" class="invoice-remove-button" data-remove-item hidden>×</button>
-            </td>
+            <td>{html.escape(item['description'])}</td>
+            <td>{item['quantity']}</td>
+            <td>{format_money(item['unitPrice'])} ₮</td>
+            <td>{format_money(item['totalPrice'])} ₮</td>
           </tr>
         """
         for index, item in enumerate(items, start=1)
     )
-    toolbar_markup = ""
-    if asset_mode != "file":
-        toolbar_markup = f"""
-    <div class="toolbar">
-      <button type="button" class="toolbar-button is-active" data-invoice-mode="view">View</button>
-      <button type="button" class="toolbar-button" data-invoice-mode="edit">Edit</button>
-      <button type="button" class="toolbar-button toolbar-save" data-save-invoice hidden>Save</button>
-      <a href="{html.escape(download_href)}">PDF Татах</a>
-    </div>"""
-
-    script_markup = ""
-    if asset_mode != "file":
-        script_markup = f"""
-    <script>
-      (() => {{
-        const statusMeta = {json.dumps(INVOICE_STATUS_META, ensure_ascii=False)};
-        const bankAccountMeta = {json.dumps(INVOICE_BANK_ACCOUNTS, ensure_ascii=False)};
-        const modeButtons = Array.from(document.querySelectorAll("[data-invoice-mode]"));
-        const saveButton = document.querySelector("[data-save-invoice]");
-        const itemRowsBody = document.querySelector("[data-invoice-items-body]");
-        const addItemButton = document.querySelector("[data-add-item]");
-        const paymentStack = document.querySelector("[data-payment-stack]");
-        const addPaymentButton = document.querySelector("[data-add-payment]");
-        const bankSelect = document.querySelector("[data-bank-account-select]");
-        const bankName = document.querySelector("[data-bank-name]");
-        const bankPrefix = document.querySelector("[data-bank-prefix]");
-        const bankNumber = document.querySelector("[data-bank-number]");
-        const showSavedNotice = () => {{
-          const notice = document.querySelector("[data-save-notice]");
-          if (!notice) return;
-          notice.hidden = false;
-          setTimeout(() => {{
-            notice.hidden = true;
-          }}, 2400);
-        }};
-        const itemTemplate = () => {{
-          const row = document.createElement("tr");
-          row.dataset.itemKey = "item-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
-          row.innerHTML = `
-            <td></td>
-            <td><span class="invoice-view-text"></span><input class="invoice-edit-input" data-item-field="description" value="" /></td>
-            <td><span class="invoice-view-text">1</span><input class="invoice-edit-input" data-item-field="quantity" type="number" min="1" value="1" /></td>
-            <td><span class="invoice-view-text">0 ₮</span><input class="invoice-edit-input" data-item-field="unitPrice" type="number" min="0" value="0" /></td>
-            <td><span class="invoice-view-text">0 ₮</span><input class="invoice-edit-input" data-item-field="totalPrice" type="number" min="0" value="0" /></td>
-            <td class="item-remove-cell"><button type="button" class="invoice-remove-button" data-remove-item>×</button></td>
-          `;
-          return row;
-        }};
-        const paymentTemplate = () => {{
-          const wrap = document.createElement("div");
-          wrap.className = "payment-card";
-          wrap.dataset.paymentKey = "payment-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
-          wrap.innerHTML = `
-            <div class="payment-main">
-              <span class="payment-title invoice-view-text"></span>
-              <input class="invoice-edit-input" data-payment-field="title" value="Төлбөр" />
-            </div>
-            <div class="payment-meta">
-              <span class="meta-label">Нэхэмжилсэн огноо</span>
-              <span class="meta-value invoice-view-text">-</span>
-              <input class="invoice-edit-input" data-payment-field="created" type="date" />
-            </div>
-            <div class="payment-meta">
-              <span class="meta-label invoice-view-text" data-secondary-label-view>Эцсийн хугацаа</span>
-              <input class="invoice-edit-input" data-payment-field="secondaryLabel" value="Эцсийн хугацаа" />
-              <span class="meta-value invoice-view-text">-</span>
-              <input class="invoice-edit-input" data-payment-field="secondaryValue" type="date" />
-            </div>
-            <div class="payment-meta">
-              <span class="meta-label">Төлөв</span>
-              <span class="payment-status payment-status-view waiting" data-status-badge>Хүлээгдэж буй</span>
-              <select class="payment-status-select" data-status-select>{status_options_markup}</select>
-            </div>
-            <div class="payment-amount-wrap">
-              <div class="payment-amount invoice-view-text">0 ₮</div>
-              <input class="invoice-edit-input" data-payment-field="amount" type="number" min="0" value="0" />
-              <button type="button" class="invoice-remove-button payment-remove-button" data-remove-payment>×</button>
-            </div>
-          `;
-          return wrap;
-        }};
-        const setMode = (mode) => {{
-          document.body.classList.toggle("is-editing", mode === "edit");
-          modeButtons.forEach((button) => {{
-            button.classList.toggle("is-active", button.dataset.invoiceMode === mode);
-          }});
-          if (saveButton) saveButton.hidden = mode !== "edit";
-          if (addItemButton) addItemButton.hidden = mode !== "edit";
-          if (addPaymentButton) addPaymentButton.hidden = mode !== "edit";
-        }};
-        const formatMoney = (value) => new Intl.NumberFormat("en-US").format(Number(value || 0)) + " ₮";
-        const syncItemRows = () => {{
-          Array.from(itemRowsBody?.querySelectorAll("tr[data-item-key]") || []).forEach((row, index) => {{
-            const descriptionInput = row.querySelector('[data-item-field="description"]');
-            const quantityInput = row.querySelector('[data-item-field="quantity"]');
-            const unitInput = row.querySelector('[data-item-field="unitPrice"]');
-            const totalInput = row.querySelector('[data-item-field="totalPrice"]');
-            const quantity = Number(quantityInput?.value || 0);
-            const unitPrice = Number(unitInput?.value || 0);
-            if (totalInput) totalInput.value = String(quantity * unitPrice);
-            const cells = row.querySelectorAll("td");
-            if (cells[0]) cells[0].textContent = index + 1;
-            if (cells[1]) {{
-              const view = cells[1].querySelector(".invoice-view-text");
-              if (view) view.textContent = descriptionInput?.value || "";
-            }}
-            if (cells[2]) {{
-              const view = cells[2].querySelector(".invoice-view-text");
-              if (view) view.textContent = quantityInput?.value || "0";
-            }}
-            if (cells[3]) {{
-              const view = cells[3].querySelector(".invoice-view-text");
-              if (view) view.textContent = formatMoney(unitInput?.value || 0);
-            }}
-            if (cells[4]) {{
-              const view = cells[4].querySelector(".invoice-view-text");
-              if (view) view.textContent = formatMoney(totalInput?.value || 0);
-            }}
-          }});
-          const total = Array.from(itemRowsBody?.querySelectorAll('[data-item-field="totalPrice"]') || []).reduce((sum, input) => sum + Number(input.value || 0), 0);
-          const totalCell = document.querySelector("[data-invoice-total]");
-          if (totalCell) totalCell.textContent = formatMoney(total);
-        }};
-        const syncBankAccount = () => {{
-          if (!bankSelect) return;
-          const meta = bankAccountMeta[bankSelect.value] || bankAccountMeta.state;
-          if (bankName) bankName.textContent = meta.bankName;
-          if (bankPrefix) bankPrefix.textContent = meta.prefix;
-          if (bankNumber) bankNumber.textContent = meta.accountNumber;
-        }};
-        const syncBadges = () => {{
-          Array.from(document.querySelectorAll("[data-status-select]")).forEach((select) => {{
-            const card = select.closest("[data-payment-key]");
-            const badge = card?.querySelector("[data-status-badge]");
-            const meta = statusMeta[select.value] || statusMeta.waiting;
-            if (!badge) return;
-            badge.textContent = meta.label;
-            badge.className = "payment-status payment-status-view " + meta.className;
-          }});
-        }};
-        const syncSelectDefaults = () => {{
-          Array.from(document.querySelectorAll("[data-status-select]")).forEach((select) => {{
-            const card = select.closest("[data-payment-key]");
-            if (!card) return;
-            const badge = card.querySelector("[data-status-badge]");
-            const currentValue = Object.entries(statusMeta).find(([, meta]) => meta.label === badge?.textContent)?.[0] || select.value || "waiting";
-            select.value = currentValue;
-          }});
-        }};
-        const syncPaymentCards = () => {{
-          Array.from(paymentStack?.querySelectorAll("[data-payment-key]") || []).forEach((card) => {{
-            const titleInput = card.querySelector('[data-payment-field="title"]');
-            const createdInput = card.querySelector('[data-payment-field="created"]');
-            const secondaryLabelInput = card.querySelector('[data-payment-field="secondaryLabel"]');
-            const secondaryValueInput = card.querySelector('[data-payment-field="secondaryValue"]');
-            const amountInput = card.querySelector('[data-payment-field="amount"]');
-            const views = card.querySelectorAll(".invoice-view-text");
-            if (views[0]) views[0].textContent = titleInput?.value || "";
-            if (views[1]) views[1].textContent = createdInput?.value || "-";
-            if (views[2]) views[2].textContent = secondaryValueInput?.value || "-";
-            if (views[3]) views[3].textContent = formatMoney(amountInput?.value || 0);
-            const labelView = card.querySelector("[data-secondary-label-view]");
-            if (labelView) labelView.textContent = secondaryLabelInput?.value || "Эцсийн хугацаа";
-          }});
-        }};
-        itemRowsBody?.addEventListener("input", syncItemRows);
-        paymentStack?.addEventListener("input", syncPaymentCards);
-        paymentStack?.addEventListener("change", () => {{
-          syncBadges();
-          syncPaymentCards();
-        }});
-        itemRowsBody?.addEventListener("click", (event) => {{
-          const button = event.target.closest("[data-remove-item]");
-          if (!button) return;
-          button.closest("tr")?.remove();
-          syncItemRows();
-        }});
-        paymentStack?.addEventListener("click", (event) => {{
-          const button = event.target.closest("[data-remove-payment]");
-          if (!button) return;
-          button.closest("[data-payment-key]")?.remove();
-          syncPaymentCards();
-        }});
-        addItemButton?.addEventListener("click", () => {{
-          const row = itemTemplate();
-          itemRowsBody?.appendChild(row);
-          syncItemRows();
-        }});
-        addPaymentButton?.addEventListener("click", () => {{
-          const card = paymentTemplate();
-          paymentStack?.appendChild(card);
-          syncSelectDefaults();
-          syncBadges();
-          syncPaymentCards();
-        }});
-        bankSelect?.addEventListener("change", syncBankAccount);
-        modeButtons.forEach((button) => {{
-          button.addEventListener("click", () => setMode(button.dataset.invoiceMode || "view"));
-        }});
-        saveButton?.addEventListener("click", async () => {{
-          saveButton.disabled = true;
-          saveButton.textContent = "Saving...";
-          try {{
-            const payments = Array.from(document.querySelectorAll("[data-status-select]")).map((select) => {{
-              const card = select.closest("[data-payment-key]");
-              return {{
-                key: card?.dataset.paymentKey || "",
-                title: card?.querySelector('[data-payment-field="title"]')?.value || "",
-                created: card?.querySelector('[data-payment-field="created"]')?.value || "",
-                secondaryLabel: card?.querySelector('[data-payment-field="secondaryLabel"]')?.value || "",
-                secondaryValue: card?.querySelector('[data-payment-field="secondaryValue"]')?.value || "",
-                status: select.value,
-                amount: Number(card?.querySelector('[data-payment-field="amount"]')?.value || 0),
-              }};
-            }});
-            const items = Array.from(itemRowsBody?.querySelectorAll("tr[data-item-key]") || []).map((row) => ({{
-              key: row.dataset.itemKey || "",
-              description: row.querySelector('[data-item-field="description"]')?.value || "",
-              quantity: Number(row.querySelector('[data-item-field="quantity"]')?.value || 0),
-              unitPrice: Number(row.querySelector('[data-item-field="unitPrice"]')?.value || 0),
-              totalPrice: Number(row.querySelector('[data-item-field="totalPrice"]')?.value || 0),
-            }}));
-            const response = await fetch("/api/contracts/{record.get('id')}/invoice", {{
-              method: "POST",
-              headers: {{ "Content-Type": "application/json" }},
-              credentials: "same-origin",
-              body: JSON.stringify({{
-                items,
-                payments,
-                bankAccountKey: bankSelect?.value || "state",
-              }}),
-            }});
-            const payload = await response.json().catch(() => ({{}}));
-            if (!response.ok) {{
-              throw new Error(payload.error || "Could not save invoice.");
-            }}
-            sessionStorage.setItem("invoiceSaved", "1");
-            window.location.reload();
-          }} catch (error) {{
-            window.alert(error.message || "Could not save invoice.");
-          }} finally {{
-            saveButton.disabled = false;
-            saveButton.textContent = "Save";
-          }}
-        }});
-        syncBankAccount();
-        syncItemRows();
-        syncSelectDefaults();
-        syncBadges();
-        syncPaymentCards();
-        setMode("view");
-        if (sessionStorage.getItem("invoiceSaved") === "1") {{
-          sessionStorage.removeItem("invoiceSaved");
-          showSavedNotice();
-        }}
-      }})();
-    </script>"""
-
     payment_markup = "".join(
         f"""
-          <div class="payment-card" data-payment-key="{html.escape(row['key'])}">
+          <div class="payment-card">
             <div class="payment-main">
-              <span class="payment-title invoice-view-text">{html.escape(row['title'])}</span>
-              <input class="invoice-edit-input" data-payment-field="title" value="{html.escape(row['title'])}" />
+              <strong>{html.escape(row['title'])}</strong>
             </div>
             <div class="payment-meta">
               <span class="meta-label">Нэхэмжилсэн огноо</span>
-              <span class="meta-value invoice-view-text">{html.escape(row['created'])}</span>
-              <input class="invoice-edit-input" data-payment-field="created" type="date" value="{html.escape(normalize_text(row['created']))}" />
+              <strong>{html.escape(row['created'])}</strong>
             </div>
             <div class="payment-meta">
-              <span class="meta-label invoice-view-text" data-secondary-label-view>{html.escape(row['secondaryLabel'])}</span>
-              <input class="invoice-edit-input" data-payment-field="secondaryLabel" value="{html.escape(row['secondaryLabel'])}" />
-              <span class="meta-value invoice-view-text">{html.escape(row['secondaryValue'])}</span>
-              <input class="invoice-edit-input" data-payment-field="secondaryValue" type="date" value="{html.escape(normalize_text(row['secondaryValue']))}" />
+              <span class="meta-label">{html.escape(row['secondaryLabel'])}</span>
+              <strong>{html.escape(row['secondaryValue'])}</strong>
             </div>
             <div class="payment-meta">
               <span class="meta-label">Төлөв</span>
-              <span class="payment-status payment-status-view {row['statusClass']}" data-status-badge>{html.escape(row['status'])}</span>
-              <select class="payment-status-select" data-status-select>
-                {status_options_markup}
-              </select>
+              <span class="payment-status {row['statusClass']}">{html.escape(row['status'])}</span>
             </div>
-            <div class="payment-amount-wrap">
-              <div class="payment-amount invoice-view-text">{format_money(row['amount'])} ₮</div>
-              <input class="invoice-edit-input" data-payment-field="amount" type="number" min="0" value="{row['amount']}" />
-              <button type="button" class="invoice-remove-button payment-remove-button" data-remove-payment>×</button>
-            </div>
+            <div class="payment-amount">{format_money(row['amount'])} ₮</div>
           </div>
         """
         for row in payment_rows
@@ -2823,7 +2340,7 @@ def build_invoice_html(record, asset_mode="web"):
     <style>
       @page {{
         size: A4;
-        margin: 14mm;
+        margin: 18mm;
       }}
       * {{ box-sizing: border-box; }}
       body {{
@@ -2831,7 +2348,6 @@ def build_invoice_html(record, asset_mode="web"):
         background: #f3f5fb;
         color: #22283a;
         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 14px;
       }}
       .toolbar {{
         position: sticky;
@@ -2845,44 +2361,13 @@ def build_invoice_html(record, asset_mode="web"):
         border-bottom: 1px solid rgba(34, 40, 58, 0.08);
         backdrop-filter: blur(10px);
       }}
-      .toolbar a,
-      .toolbar-button {{
+      .toolbar a {{
         padding: 12px 18px;
-        border: none;
         border-radius: 999px;
         background: #253776;
         color: #fff;
         text-decoration: none;
         font: 700 14px/1.2 Inter, system-ui, sans-serif;
-        cursor: pointer;
-      }}
-      .toolbar-button {{
-        background: #e9edf8;
-        color: #2a3c78;
-      }}
-      .toolbar-button.is-active {{
-        background: #253776;
-        color: #fff;
-      }}
-      .toolbar-save {{
-        background: #157347;
-        color: #fff;
-      }}
-      .toolbar-button[hidden] {{
-        display: none;
-      }}
-      .save-notice {{
-        position: sticky;
-        top: 72px;
-        z-index: 9;
-        width: fit-content;
-        margin: 8px auto 0;
-        padding: 10px 16px;
-        border-radius: 999px;
-        background: #dcf4e3;
-        color: #1f8550;
-        font: 700 13px/1.2 Inter, system-ui, sans-serif;
-        box-shadow: 0 10px 24px rgba(31, 133, 80, 0.12);
       }}
       .page {{
         width: min(210mm, calc(100vw - 24px));
@@ -2890,13 +2375,13 @@ def build_invoice_html(record, asset_mode="web"):
         padding: 24px 22px 26px;
         background: #fff;
         border: 1px solid #e6e8ef;
-        border-radius: 12px;
-        box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08);
+        border-radius: 16px;
+        box-shadow: 0 18px 50px rgba(34, 40, 58, 0.08);
       }}
       .invoice-number {{
         margin: 0 0 18px;
         color: #3b4257;
-        font-size: 17px;
+        font-size: 15px;
         font-weight: 500;
       }}
       .header-grid {{
@@ -2906,14 +2391,14 @@ def build_invoice_html(record, asset_mode="web"):
         align-items: start;
       }}
       .invoice-logo {{
-        width: 154px;
+        width: 170px;
         max-width: 100%;
         display: block;
         margin-bottom: 8px;
       }}
       .company-name {{
         margin: 0 0 6px;
-        font-size: 15px;
+        font-size: 18px;
         font-weight: 700;
         color: #2a3150;
       }}
@@ -2921,69 +2406,27 @@ def build_invoice_html(record, asset_mode="web"):
       .customer-block p,
       .meta-note {{
         margin: 0;
-        font-size: 14px;
-        line-height: 1.4;
+        font-size: 15px;
+        line-height: 1.45;
       }}
       .meta-note {{
         text-align: right;
         color: #535b74;
       }}
       .customer-block {{
-        padding-top: 54px;
+        padding-top: 48px;
       }}
       .customer-block .label {{
         display: block;
         margin-bottom: 4px;
         color: #6f7791;
-        font-size: 13px;
+        font-size: 14px;
       }}
       .section-title {{
         margin: 22px 0 12px;
         color: #7f889d;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 500;
-      }}
-      .invoice-edit-toolbar {{
-        display: none;
-        margin: -2px 0 10px;
-        justify-content: flex-end;
-      }}
-      body.is-editing .invoice-edit-toolbar,
-      body.is-editing .payment-edit-toolbar {{
-        display: flex;
-      }}
-      .invoice-edit-button,
-      .invoice-remove-button {{
-        border: none;
-        border-radius: 999px;
-        background: #eef2fb;
-        color: #2a3c78;
-        font: 700 12px/1.2 Inter, system-ui, sans-serif;
-        cursor: pointer;
-      }}
-      .invoice-edit-button {{
-        padding: 8px 12px;
-      }}
-      .invoice-remove-button {{
-        width: 28px;
-        height: 28px;
-      }}
-      .invoice-edit-input {{
-        display: none;
-        width: 100%;
-        min-height: 36px;
-        padding: 8px 10px;
-        border: 1px solid #cfd7eb;
-        border-radius: 10px;
-        background: #fff;
-        color: #2b3148;
-        font: 600 13px/1.2 Inter, system-ui, sans-serif;
-      }}
-      body.is-editing .invoice-edit-input {{
-        display: block;
-      }}
-      body.is-editing .invoice-view-text {{
-        display: none;
       }}
       table {{
         width: 100%;
@@ -2993,10 +2436,10 @@ def build_invoice_html(record, asset_mode="web"):
         border: 1px solid #e7e9f1;
       }}
       th, td {{
-        padding: 11px 12px;
+        padding: 13px 14px;
         border-bottom: 1px solid #eceef5;
         text-align: left;
-        font-size: 14px;
+        font-size: 15px;
       }}
       th {{
         background: #fbfcfe;
@@ -3013,51 +2456,24 @@ def build_invoice_html(record, asset_mode="web"):
         font-weight: 700;
         background: #fdfdfd;
       }}
-      .item-remove-cell {{
-        display: none;
-        width: 40px;
-        text-align: center !important;
-      }}
-      body.is-editing .item-remove-cell {{
-        display: table-cell;
-      }}
       .payment-stack {{
         display: grid;
         gap: 14px;
-      }}
-      .payment-edit-toolbar {{
-        display: none;
-        margin: -2px 0 10px;
-        justify-content: flex-end;
       }}
       .payment-card {{
         display: grid;
         grid-template-columns: 1.3fr repeat(3, minmax(110px, 0.8fr)) auto;
         gap: 14px;
         align-items: center;
-        padding: 15px 16px;
+        padding: 16px 18px;
         border: 1px solid #e7e9f1;
         border-radius: 14px;
         background: #fff;
-        position: relative;
       }}
-      body.is-editing .payment-card {{
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px 14px;
-        align-items: start;
-        padding-right: 52px;
-      }}
-      body.is-editing .payment-main {{
-        grid-column: 1 / -1;
-      }}
-      body.is-editing .payment-meta,
-      body.is-editing .payment-amount-wrap {{
-        min-width: 0;
-      }}
-      .payment-title,
+      .payment-main strong,
       .payment-amount {{
-        font-size: 14px;
-        font-weight: 600;
+        font-size: 16px;
+        font-weight: 700;
         color: #2b3148;
       }}
       .payment-amount {{
@@ -3068,11 +2484,6 @@ def build_invoice_html(record, asset_mode="web"):
         display: grid;
         gap: 4px;
       }}
-      .meta-value {{
-        font-size: 14px;
-        font-weight: 600;
-        color: #2b3148;
-      }}
       .meta-label {{
         color: #8b93a9;
         font-size: 13px;
@@ -3081,10 +2492,10 @@ def build_invoice_html(record, asset_mode="web"):
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 30px;
+        min-height: 34px;
         padding: 6px 12px;
         border-radius: 999px;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 700;
       }}
       .payment-status.paid {{
@@ -3099,133 +2510,64 @@ def build_invoice_html(record, asset_mode="web"):
         background: #eef2fb;
         color: #506189;
       }}
-      .payment-status-select {{
-        display: none;
-        min-height: 38px;
-        padding: 8px 12px;
-        border: 1px solid #cfd7eb;
-        border-radius: 12px;
-        background: #fff;
-        color: #2b3148;
-        font: 600 13px/1.2 Inter, system-ui, sans-serif;
-      }}
-      body.is-editing .payment-status-view {{
-        display: none;
-      }}
-      body.is-editing .payment-status-select {{
-        display: inline-flex;
-      }}
-      .payment-amount-wrap {{
-        display: grid;
-        gap: 8px;
-        justify-items: end;
-      }}
-      body.is-editing .payment-amount-wrap {{
-        justify-items: stretch;
-      }}
-      .payment-remove-button {{
-        display: none;
-        position: absolute;
-        right: 14px;
-        top: 14px;
-      }}
-      body.is-editing .payment-remove-button {{
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }}
       .bank-section {{
-        margin-top: 16px;
-        padding-bottom: 0;
-      }}
-      .bank-select-wrap {{
-        display: none;
-        margin: 0 0 10px;
-      }}
-      .bank-account-select {{
-        width: 100%;
-        min-height: 40px;
-        padding: 8px 12px;
-        border: 1px solid #cfd7eb;
-        border-radius: 12px;
-        background: #fff;
-        color: #2b3148;
-        font: 600 13px/1.2 Inter, system-ui, sans-serif;
-      }}
-      body.is-editing .bank-select-wrap {{
-        display: block;
+        margin-top: 20px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid #eceef5;
       }}
       .bank-grid {{
         display: flex;
-        gap: 10px;
+        gap: 14px;
         flex-wrap: wrap;
         align-items: baseline;
-        font-size: 14px;
+        font-size: 18px;
         color: #2d344c;
       }}
-      .invoice-footer {{
-        margin-top: 28px;
-        padding-top: 18px;
-        border-top: 1px solid #e7e9f1;
+      .bank-grid strong {{
+        font-weight: 700;
       }}
-      .invoice-footer-grid {{
+      .signature-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 22px;
-        align-items: start;
+        gap: 28px;
+        margin-top: 24px;
+        align-items: end;
       }}
-      .invoice-footer-party {{
-        display: flex;
-        flex-direction: column;
-      }}
-      .invoice-footer-label {{
-        margin: 0 0 10px;
-        color: #8b93a9;
-        font-size: 13px;
-      }}
-      .finance-asset-wrap {{
+      .signature-card {{
         position: relative;
-        min-height: 136px;
+        min-height: 138px;
+        padding-top: 48px;
       }}
-      .finance-stamp {{
-        position: absolute;
-        left: 16px;
-        top: 14px;
-        width: 172px;
-        z-index: 2;
-      }}
-      .finance-stamp img {{
-        width: 100%;
-        height: auto;
-        display: block;
-      }}
-      .finance-signature {{
-        position: absolute;
-        left: 74px;
-        top: 18px;
-        width: 150px;
-        z-index: 1;
-        height: 62px;
-        overflow: hidden;
-      }}
-      .finance-signature img {{
-        width: 220px;
-        max-width: none;
-        display: block;
-        transform: translate(-42px, -28px) rotate(-3deg);
-      }}
-      .invoice-footer-space {{
-        min-height: 136px;
-      }}
-      .invoice-sign-line {{
-        height: 1px;
-        background: #d6dceb;
-      }}
-      .invoice-sign-name {{
-        margin-top: 8px;
+      .signature-label {{
+        margin-bottom: 54px;
+        color: #8d95aa;
         font-size: 13px;
+      }}
+      .signature-line {{
+        border-bottom: 1px dashed #ccd3e5;
+      }}
+      .accountant-stamp {{
+        position: absolute;
+        left: 6px;
+        bottom: 20px;
+        width: 120px;
+        opacity: 0.95;
+      }}
+      .accountant-signature {{
+        position: absolute;
+        left: 88px;
+        bottom: 18px;
+        width: 120px;
+      }}
+      .signature-name {{
+        margin-top: 10px;
+        font-size: 15px;
         font-weight: 700;
-        color: #2b3148;
+        color: #2c3247;
+      }}
+      .signature-role {{
+        color: #2c3247;
+        font-size: 15px;
       }}
       @media print {{
         .toolbar {{
@@ -3238,21 +2580,16 @@ def build_invoice_html(record, asset_mode="web"):
           border-radius: 0;
           box-shadow: none;
         }}
-        .bank-select-wrap {{
-          display: none !important;
-        }}
       }}
       @media (max-width: 820px) {{
-        .header-grid {{
+        .header-grid,
+        .signature-grid {{
           grid-template-columns: 1fr;
         }}
         .customer-block {{
           padding-top: 0;
         }}
         .payment-card {{
-          grid-template-columns: 1fr;
-        }}
-        body.is-editing .payment-card {{
           grid-template-columns: 1fr;
         }}
         .payment-amount {{
@@ -3262,13 +2599,14 @@ def build_invoice_html(record, asset_mode="web"):
     </style>
   </head>
   <body>
-    {toolbar_markup}
-    <div class="save-notice" data-save-notice hidden>Saved successfully</div>
+    <div class="toolbar">
+      <a href="{html.escape(download_href)}">PDF Татах</a>
+    </div>
     <div class="page">
       <p class="invoice-number">Нэхэмжлэх #{invoice_number}</p>
       <div class="header-grid">
         <div class="company-block">
-          <img class="invoice-logo" src="{asset_src('logo.png')}" alt="Дэлхий Трэвел" />
+          <img class="invoice-logo" src="{asset_src('dtx-logo-blue-yellow.png')}" alt="Дэлхий Трэвел" />
           <p class="company-name">Дэлхий Трэвел Икс ХХК (6925073)</p>
           <p>Улаанбаатар хот, ХУД, 17-р хороо</p>
           <p>Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</p>
@@ -3285,9 +2623,6 @@ def build_invoice_html(record, asset_mode="web"):
         </div>
       </div>
       <p class="section-title">Үнийн мэдээлэл</p>
-      <div class="invoice-edit-toolbar">
-        <button type="button" class="invoice-edit-button" data-add-item hidden>Мөр нэмэх</button>
-      </div>
       <table>
         <thead>
           <tr>
@@ -3296,64 +2631,45 @@ def build_invoice_html(record, asset_mode="web"):
             <th>Тоо ширхэг</th>
             <th>Нэгжийн үнэ</th>
             <th>Нийт үнэ</th>
-            <th class="item-remove-cell"></th>
           </tr>
         </thead>
-        <tbody data-invoice-items-body>
+        <tbody>
           {items_markup}
           <tr class="total-row">
             <td colspan="4">Нийт үнэ</td>
-            <td data-invoice-total>{format_money(total_amount)} ₮</td>
-            <td class="item-remove-cell"></td>
+            <td>{format_money(total_amount)} ₮</td>
           </tr>
         </tbody>
       </table>
       <p class="section-title">Төлбөрийн хуваарь</p>
-      <div class="payment-edit-toolbar">
-        <button type="button" class="invoice-edit-button" data-add-payment hidden>Төлбөр нэмэх</button>
-      </div>
-      <div class="payment-stack" data-payment-stack>
+      <div class="payment-stack">
         {payment_markup}
       </div>
       <div class="bank-section">
         <p class="section-title">Дансны мэдээлэл</p>
-        <div class="bank-select-wrap">
-          <select class="bank-account-select" data-bank-account-select>
-            {bank_options_markup}
-          </select>
-        </div>
         <div class="bank-grid">
           <span>Дэлхий Трэвел Икс</span>
-          <span data-bank-name>{html.escape(bank_account['bankName'])}</span>
-          <span data-bank-prefix>{html.escape(bank_account['prefix'])}</span>
-          <strong data-bank-number>{html.escape(bank_account['accountNumber'])}</strong>
+          <span>Төрийн Банк</span>
+          <span>MN030034</span>
+          <strong>3432 7777 9999</strong>
         </div>
       </div>
-      <div class="invoice-footer">
-        <div class="invoice-footer-grid">
-          <div class="invoice-footer-party">
-            <p class="invoice-footer-label">Нягтлан</p>
-            <div class="finance-asset-wrap">
-              <div class="finance-stamp">
-                <img src="{asset_src('invoice-finance-stamp.png')}" alt="Санхүүгийн тамга" />
-              </div>
-              <div class="finance-signature">
-                <img src="{asset_src('invoice-finance-signature-source.png')}" alt="Нягтлан гарын үсэг" />
-              </div>
-            </div>
-            <div class="invoice-sign-line"></div>
-            <div class="invoice-sign-name">{html.escape(accountant_name)}</div>
-          </div>
-          <div class="invoice-footer-party">
-            <p class="invoice-footer-label">Төлөгч</p>
-            <div class="invoice-footer-space"></div>
-            <div class="invoice-sign-line"></div>
-            <div class="invoice-sign-name">{customer_name}</div>
-          </div>
+      <div class="signature-grid">
+        <div class="signature-card">
+          <div class="signature-label">Дэлхий Трэвел Икс ХХК</div>
+          <div class="signature-line"></div>
+          <img class="accountant-stamp" src="{asset_src('dtx-stamp-cropped.png')}" alt="Company stamp" />
+          <img class="accountant-signature" src="{asset_src('nyambayar-signature-cropped.png')}" alt="Accountant signature" />
+          <div class="signature-name">Нягтлан</div>
+          <div class="signature-role">Г.Басгалаан</div>
+        </div>
+        <div class="signature-card">
+          <div class="signature-label">Төлөгч</div>
+          <div class="signature-line"></div>
+          <div class="signature-name">{customer_name}</div>
         </div>
       </div>
     </div>
-    {script_markup}
   </body>
 </html>"""
 
@@ -3423,7 +2739,6 @@ def save_contract_files(data):
         "pdfPath": None,
         "invoiceViewPath": None,
         "invoicePath": None,
-        "invoiceMeta": {"payments": {}, "bankAccountKey": "state"},
     }
     return record
 
@@ -4614,490 +3929,6 @@ def validate_manager_contact(contact):
     return None
 
 
-def fifa_active_sales(sales):
-    return [sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() != "cancelled"]
-
-
-def fifa_sale_ticket_ids(sale):
-    ticket_ids_raw = sale.get("ticketIds")
-    if isinstance(ticket_ids_raw, list):
-        values = ticket_ids_raw
-    else:
-        values = str(ticket_ids_raw or "").split(",")
-    ticket_ids = [normalize_text(value) for value in values if normalize_text(value)]
-    if not ticket_ids and normalize_text(sale.get("ticketId")):
-        ticket_ids = [normalize_text(sale.get("ticketId"))]
-    return ticket_ids
-
-
-def fifa_sale_quantity_for_ticket(sale, ticket_id):
-    ticket_ids = fifa_sale_ticket_ids(sale)
-    if ticket_ids:
-        return len([value for value in ticket_ids if value == ticket_id])
-    return max(parse_int(sale.get("quantity")), 0) if sale.get("ticketId") == ticket_id else 0
-
-
-def fifa_ticket_sales(sales, ticket_id, excluded_sale_id=None):
-    return [
-        sale
-        for sale in fifa_active_sales(sales)
-        if fifa_sale_quantity_for_ticket(sale, ticket_id) > 0 and sale.get("id") != excluded_sale_id
-    ]
-
-
-def fifa_ticket_available_quantity(ticket, sales, excluded_sale_id=None):
-    sold_quantity = sum(
-        fifa_sale_quantity_for_ticket(sale, ticket.get("id"))
-        for sale in fifa_ticket_sales(sales, ticket.get("id"), excluded_sale_id)
-    )
-    return max(parse_int(ticket.get("totalQuantity")) - sold_quantity, 0)
-
-
-def find_fifa_ticket(store, ticket_id):
-    for ticket in store.get("tickets", []):
-        if ticket.get("id") == ticket_id:
-            return ticket
-    return None
-
-
-def enrich_fifa_ticket(ticket, sales):
-    sold_quantity = sum(fifa_sale_quantity_for_ticket(sale, ticket.get("id")) for sale in fifa_ticket_sales(sales, ticket.get("id")))
-    total_quantity = max(parse_int(ticket.get("totalQuantity")), 0)
-    available_quantity = max(total_quantity - sold_quantity, 0)
-    public_visible = (
-        normalize_text(ticket.get("visibility")).lower() == "public"
-        and normalize_text(ticket.get("status")).lower() == "active"
-        and available_quantity > 0
-    )
-    return {
-        **ticket,
-        "totalQuantity": total_quantity,
-        "soldQuantity": sold_quantity,
-        "availableQuantity": available_quantity,
-        "publicVisible": public_visible,
-        "soldOut": available_quantity <= 0,
-    }
-
-
-def enrich_fifa_sale(sale, ticket, store=None):
-    ticket_ids = fifa_sale_ticket_ids(sale)
-    linked_tickets = []
-    if store:
-        linked_tickets = [find_fifa_ticket(store, ticket_id) for ticket_id in ticket_ids]
-        linked_tickets = [item for item in linked_tickets if item]
-    quantity = len(ticket_ids) if ticket_ids else max(parse_int(sale.get("quantity")), 0)
-    price_per_ticket = max(parse_int(sale.get("pricePerTicket")), 0)
-    total_price = max(parse_int(sale.get("totalPrice")) or (quantity * price_per_ticket), 0)
-    amount_paid = max(parse_int(sale.get("amountPaid")), 0)
-    buyer_name = normalize_text(sale.get("buyerName"))
-    sold_by = sale.get("soldBy") or {}
-    return {
-        **sale,
-        "quantity": quantity,
-        "pricePerTicket": price_per_ticket,
-        "totalPrice": total_price,
-        "amountPaid": amount_paid,
-        "balanceDue": max(total_price - amount_paid, 0),
-        "isPaid": amount_paid >= total_price and total_price > 0,
-        "ticketIds": ticket_ids,
-        "ticketBundles": normalize_text(sale.get("ticketBundles")),
-        "buyerTitle": normalize_text(sale.get("buyerTitle")),
-        "buyerName": buyer_name,
-        "buyerEmail": normalize_text(sale.get("buyerEmail")).lower(),
-        "buyerPassengers": normalize_text(sale.get("buyerPassengers")),
-        "fifaPassStatus": normalize_text(sale.get("fifaPassStatus")).lower(),
-        "fifaPassRegisteredName": normalize_text(sale.get("fifaPassRegisteredName")),
-        "fifaPassEmail": normalize_text(sale.get("fifaPassEmail")).lower(),
-        "fifaPassPassportNumber": normalize_text(sale.get("fifaPassPassportNumber")),
-        "ticketTransferStatus": normalize_text(sale.get("ticketTransferStatus")).lower(),
-        "ticketTransferNote": normalize_text(sale.get("ticketTransferNote")),
-        "passportImageData": normalize_text(sale.get("passportImageData")),
-        "ticket": enrich_fifa_ticket(ticket, []) if ticket else None,
-        "ticketLabel": ticket.get("matchLabel") if ticket else "",
-        "city": ticket.get("city") if ticket else "",
-        "stage": ticket.get("stage") if ticket else "",
-        "seatDetails": " | ".join([normalize_text(item.get("seatDetails")) for item in linked_tickets if normalize_text(item.get("seatDetails"))]) or (ticket.get("seatDetails") if ticket else ""),
-        "soldByName": sold_by.get("fullName") or sold_by.get("email") or "",
-    }
-
-
-def build_fifa_summary(store):
-    tickets = store.get("tickets", [])
-    sales = store.get("sales", [])
-    enriched_tickets = [enrich_fifa_ticket(ticket, sales) for ticket in tickets]
-    active_sales = fifa_active_sales(sales)
-    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales]
-    public_tickets = [ticket for ticket in enriched_tickets if ticket.get("publicVisible")]
-    paid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "paid"]
-    unpaid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "unpaid"]
-    partial_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "partial"]
-    return {
-        "tickets": {
-            "total": len(tickets),
-            "matches": len({normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel")) for ticket in tickets}),
-            "public": len([ticket for ticket in tickets if normalize_text(ticket.get("visibility")).lower() == "public"]),
-            "availableLots": len([ticket for ticket in enriched_tickets if ticket.get("availableQuantity", 0) > 0]),
-            "soldOutLots": len([ticket for ticket in enriched_tickets if ticket.get("availableQuantity", 0) <= 0]),
-            "availableUnits": sum(ticket.get("availableQuantity", 0) for ticket in enriched_tickets),
-            "soldUnits": sum(ticket.get("soldQuantity", 0) for ticket in enriched_tickets),
-        },
-        "sales": {
-            "total": len(sales),
-            "active": len(active_sales),
-            "cancelled": len([sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() == "cancelled"]),
-            "paid": len(paid_sales),
-            "partial": len(partial_sales),
-            "unpaid": len(unpaid_sales),
-            "revenue": sum(max(parse_int(sale.get("totalPrice")), 0) for sale in active_sales),
-            "collected": sum(max(parse_int(sale.get("amountPaid")), 0) for sale in active_sales),
-        },
-        "public": {
-            "visibleLots": len(public_tickets),
-            "visibleUnits": sum(ticket.get("availableQuantity", 0) for ticket in public_tickets),
-        },
-        "filters": {
-            "stages": sorted({normalize_text(ticket.get("stage")) for ticket in tickets if normalize_text(ticket.get("stage"))}),
-            "cities": sorted({normalize_text(ticket.get("city")) for ticket in tickets if normalize_text(ticket.get("city"))}),
-            "categories": sorted({normalize_text(ticket.get("categoryCode")) for ticket in tickets if normalize_text(ticket.get("categoryCode"))}),
-            "matches": sorted({
-                f"{normalize_text(ticket.get('matchNumber'))} · {normalize_text(ticket.get('matchLabel'))}".strip(" ·")
-                for ticket in tickets
-                if normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
-            }),
-            "soldBy": sorted({sale.get("soldByName") for sale in enriched_sales if sale.get("soldByName")}),
-        },
-    }
-
-
-def build_fifa_ticket(payload):
-    timestamp = now_mongolia().isoformat()
-    return {
-        "id": str(uuid4()),
-        "stage": normalize_text(payload.get("stage")),
-        "matchNumber": normalize_text(payload.get("matchNumber")),
-        "matchLabel": normalize_text(payload.get("matchLabel")),
-        "matchDate": normalize_text(payload.get("matchDate")),
-        "teamA": normalize_text(payload.get("teamA")),
-        "teamB": normalize_text(payload.get("teamB")),
-        "city": normalize_text(payload.get("city")),
-        "venue": normalize_text(payload.get("venue")),
-        "categoryCode": normalize_text(payload.get("categoryCode")) or "1",
-        "categoryName": normalize_text(payload.get("categoryName")),
-        "seatSection": normalize_text(payload.get("seatSection")),
-        "seatDetails": normalize_text(payload.get("seatDetails")),
-        "seatAssignedLater": bool(payload.get("seatAssignedLater")),
-        "price": max(parse_int(payload.get("price")), 0),
-        "currency": normalize_text(payload.get("currency")) or "USD",
-        "totalQuantity": max(parse_int(payload.get("totalQuantity")) or 1, 1),
-        "visibility": normalize_text(payload.get("visibility")).lower() or "public",
-        "status": normalize_text(payload.get("status")).lower() or "active",
-        "notes": normalize_text(payload.get("notes")),
-        "createdAt": timestamp,
-        "updatedAt": timestamp,
-    }
-
-
-def validate_fifa_ticket(ticket):
-    if len(ticket.get("matchLabel", "")) < 2:
-        return "Match label must be at least 2 characters"
-    if not ticket.get("matchDate") or not parse_date_input(ticket.get("matchDate")):
-        return "Match date must be in YYYY-MM-DD format"
-    if len(ticket.get("city", "")) < 2:
-        return "City is required"
-    if ticket.get("price", 0) <= 0:
-        return "Price must be greater than 0"
-    if ticket.get("totalQuantity", 0) <= 0:
-        return "Quantity must be greater than 0"
-    if ticket.get("categoryCode") not in {"1", "2", "3"}:
-        return "Category must be 1, 2, or 3"
-    if ticket.get("visibility") not in {"public", "private"}:
-        return "Visibility must be public or private"
-    if ticket.get("status") not in {"active", "hidden", "archived"}:
-        return "Status must be active, hidden, or archived"
-    return None
-
-
-def build_fifa_sale(payload, actor=None):
-    ticket_ids = [normalize_text(value) for value in str(payload.get("ticketIds") or "").split(",") if normalize_text(value)]
-    if not ticket_ids and normalize_text(payload.get("ticketId")):
-        ticket_ids = [normalize_text(payload.get("ticketId"))]
-    quantity = len(ticket_ids) if ticket_ids else max(parse_int(payload.get("quantity")) or 1, 1)
-    price_per_ticket = max(parse_int(payload.get("pricePerTicket")), 0)
-    total_price = max(parse_int(payload.get("totalPrice")) or (quantity * price_per_ticket), 0)
-    amount_paid = max(parse_int(payload.get("amountPaid")), 0)
-    payment_status = normalize_text(payload.get("paymentStatus")).lower()
-    if not payment_status:
-        if total_price and amount_paid >= total_price:
-            payment_status = "paid"
-        elif amount_paid > 0:
-            payment_status = "partial"
-        else:
-            payment_status = "unpaid"
-    timestamp = now_mongolia().isoformat()
-    return {
-        "id": str(uuid4()),
-        "ticketId": ticket_ids[0] if ticket_ids else normalize_text(payload.get("ticketId")),
-        "ticketIds": ticket_ids,
-        "ticketBundles": normalize_text(payload.get("ticketBundles")),
-        "quantity": quantity,
-        "buyerTitle": normalize_text(payload.get("buyerTitle")),
-        "buyerName": normalize_text(payload.get("buyerName")),
-        "buyerPhone": normalize_text(payload.get("buyerPhone")),
-        "buyerEmail": normalize_text(payload.get("buyerEmail")).lower(),
-        "buyerPassportNumber": normalize_text(payload.get("buyerPassportNumber")),
-        "buyerNationality": normalize_text(payload.get("buyerNationality")),
-        "buyerNotes": normalize_text(payload.get("buyerNotes")),
-        "buyerPassengers": normalize_text(payload.get("buyerPassengers")),
-        "fifaPassStatus": normalize_text(payload.get("fifaPassStatus")).lower(),
-        "fifaPassRegisteredName": normalize_text(payload.get("fifaPassRegisteredName")),
-        "fifaPassEmail": normalize_text(payload.get("fifaPassEmail")).lower(),
-        "fifaPassPassportNumber": normalize_text(payload.get("fifaPassPassportNumber")),
-        "ticketTransferStatus": normalize_text(payload.get("ticketTransferStatus")).lower(),
-        "ticketTransferNote": normalize_text(payload.get("ticketTransferNote")),
-        "passportImageData": normalize_text(payload.get("passportImageData")),
-        "pricePerTicket": price_per_ticket,
-        "totalPrice": total_price,
-        "amountPaid": amount_paid,
-        "paymentStatus": payment_status,
-        "paymentMethod": normalize_text(payload.get("paymentMethod")),
-        "saleStatus": normalize_text(payload.get("saleStatus")).lower() or "active",
-        "soldAt": normalize_text(payload.get("soldAt")) or timestamp,
-        "soldBy": actor_snapshot(actor),
-        "createdAt": timestamp,
-        "updatedAt": timestamp,
-    }
-
-
-def validate_fifa_sale(sale, ticket, sales, excluded_sale_id=None):
-    ticket_ids = fifa_sale_ticket_ids(sale)
-    if not ticket_ids:
-        return "Choose at least one ticket"
-    if not ticket:
-        return "Ticket was not found"
-    if len(sale.get("buyerTitle", "")) < 2:
-        return "Buyer title must be at least 2 characters"
-    if ticket.get("status") == "archived":
-        return "Archived tickets cannot be sold"
-    if len(sale.get("buyerName", "")) < 2:
-        return "Buyer name must be at least 2 characters"
-    if sale.get("quantity", 0) <= 0:
-        return "Sale quantity must be greater than 0"
-    if sale.get("pricePerTicket", 0) <= 0:
-        return "Sale price must be greater than 0"
-    if sale.get("paymentStatus") not in {"unpaid", "partial", "paid", "refunded"}:
-        return "Payment status is invalid"
-    if sale.get("saleStatus") not in {"active", "cancelled"}:
-        return "Sale status is invalid"
-    if sale.get("buyerEmail") and "@" not in sale.get("buyerEmail", ""):
-        return "Buyer email must be valid"
-    if sale.get("fifaPassEmail") and "@" not in sale.get("fifaPassEmail", ""):
-        return "FIFA pass email must be valid"
-    passenger_lines = [line.strip() for line in normalize_text(sale.get("buyerPassengers")).splitlines() if line.strip()]
-    if sale.get("quantity", 0) > 1 and len(passenger_lines) < sale.get("quantity", 0):
-        return f"Add all {sale.get('quantity', 0)} passengers for this buyer"
-    if sale.get("soldAt") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?", sale.get("soldAt")) and not parse_date_input(sale.get("soldAt")[:10]):
-        return "Sold at must be a valid date or date-time"
-    if sale.get("saleStatus") != "cancelled":
-        if sale.get("quantity", 0) != len(ticket_ids):
-            return "Selected tickets and quantity do not match"
-        for ticket_id in ticket_ids:
-            available_quantity = fifa_ticket_available_quantity({"id": ticket_id, "totalQuantity": 1}, sales, excluded_sale_id)
-            if available_quantity <= 0:
-                return "One of the selected tickets is no longer available"
-    return None
-
-
-def handle_get_fifa2026_dashboard(environ, start_response):
-    store = read_fifa2026_store()
-    sales = store.get("sales", [])
-    tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
-    user = current_user(environ)
-    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales] if user else []
-    return json_response(
-        start_response,
-        "200 OK",
-        {
-            "tickets": tickets,
-            "sales": enriched_sales,
-            "summary": build_fifa_summary(store),
-        },
-    )
-
-
-def handle_get_fifa2026_public(environ, start_response):
-    store = read_fifa2026_store()
-    sales = store.get("sales", [])
-    params = parse_qs(environ.get("QUERY_STRING", ""))
-    admin_scope = params.get("scope", [""])[0] == "admin" and current_user(environ)
-    tickets = []
-    for ticket in store.get("tickets", []):
-        enriched = enrich_fifa_ticket(ticket, sales)
-        is_public_schedule_item = normalize_text(ticket.get("visibility")).lower() == "public"
-        is_placeholder = max(parse_int(ticket.get("totalQuantity")), 0) == 0
-        if normalize_text(ticket.get("status")).lower() == "archived":
-            continue
-        if admin_scope or is_public_schedule_item or is_placeholder:
-            tickets.append(enriched)
-    return json_response(
-        start_response,
-        "200 OK",
-        {
-            "tickets": tickets,
-            "summary": {
-                **build_fifa_summary(store).get("public", {}),
-                "matchCount": len(
-                    {
-                        normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
-                        for ticket in tickets
-                        if normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
-                    }
-                ),
-            },
-        },
-    )
-
-
-def handle_reset_fifa2026_from_seed(environ, start_response):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    store = reset_fifa2026_store_from_seed()
-    sales = store.get("sales", [])
-    tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
-    return json_response(
-        start_response,
-        "200 OK",
-        {
-            "ok": True,
-            "tickets": tickets,
-            "sales": [],
-            "summary": build_fifa_summary(store),
-        },
-    )
-
-
-def handle_create_fifa_ticket(environ, start_response):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    payload = collect_json(environ)
-    if payload is None:
-        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
-    ticket = build_fifa_ticket(payload)
-    error = validate_fifa_ticket(ticket)
-    if error:
-        return json_response(start_response, "400 Bad Request", {"error": error})
-    store = read_fifa2026_store()
-    store["tickets"].insert(0, ticket)
-    write_fifa2026_store(store)
-    return json_response(start_response, "201 Created", {"ok": True, "ticket": ticket, "summary": build_fifa_summary(store)})
-
-
-def handle_update_fifa_ticket(environ, start_response, ticket_id):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    payload = collect_json(environ)
-    if payload is None:
-        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
-    store = read_fifa2026_store()
-    for index, item in enumerate(store.get("tickets", [])):
-        if item.get("id") != ticket_id:
-            continue
-        updated = build_fifa_ticket({**item, **payload})
-        updated["id"] = ticket_id
-        updated["createdAt"] = item.get("createdAt") or updated.get("createdAt")
-        updated["updatedAt"] = now_mongolia().isoformat()
-        error = validate_fifa_ticket(updated)
-        if error:
-            return json_response(start_response, "400 Bad Request", {"error": error})
-        active_sales_quantity = sum(sale.get("quantity", 0) for sale in fifa_ticket_sales(store.get("sales", []), ticket_id))
-        if updated.get("totalQuantity", 0) < active_sales_quantity:
-            return json_response(
-                start_response,
-                "400 Bad Request",
-                {"error": f"Quantity cannot be less than already sold units ({active_sales_quantity})"},
-            )
-        store["tickets"][index] = updated
-        write_fifa2026_store(store)
-        return json_response(start_response, "200 OK", {"ok": True, "ticket": updated, "summary": build_fifa_summary(store)})
-    return json_response(start_response, "404 Not Found", {"error": "Ticket not found"})
-
-
-def handle_delete_fifa_ticket(environ, start_response, ticket_id):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    store = read_fifa2026_store()
-    if fifa_ticket_sales(store.get("sales", []), ticket_id):
-        return json_response(start_response, "400 Bad Request", {"error": "Cancel active sales before deleting this ticket lot"})
-    before = len(store.get("tickets", []))
-    store["tickets"] = [ticket for ticket in store.get("tickets", []) if ticket.get("id") != ticket_id]
-    if len(store["tickets"]) == before:
-        return json_response(start_response, "404 Not Found", {"error": "Ticket not found"})
-    write_fifa2026_store(store)
-    return json_response(start_response, "200 OK", {"ok": True, "deletedId": ticket_id, "summary": build_fifa_summary(store)})
-
-
-def handle_create_fifa_sale(environ, start_response):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    payload = collect_json(environ)
-    if payload is None:
-        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
-    store = read_fifa2026_store()
-    ticket = find_fifa_ticket(store, normalize_text(payload.get("ticketId")))
-    sale = build_fifa_sale(payload, actor)
-    error = validate_fifa_sale(sale, ticket, store.get("sales", []))
-    if error:
-        return json_response(start_response, "400 Bad Request", {"error": error})
-    store["sales"].insert(0, sale)
-    write_fifa2026_store(store)
-    return json_response(start_response, "201 Created", {"ok": True, "sale": enrich_fifa_sale(sale, ticket, store), "summary": build_fifa_summary(store)})
-
-
-def handle_update_fifa_sale(environ, start_response, sale_id):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    payload = collect_json(environ)
-    if payload is None:
-        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
-    store = read_fifa2026_store()
-    for index, item in enumerate(store.get("sales", [])):
-        if item.get("id") != sale_id:
-            continue
-        merged_payload = {**item, **payload}
-        sale = build_fifa_sale(merged_payload, actor)
-        sale["id"] = sale_id
-        sale["createdAt"] = item.get("createdAt") or sale.get("createdAt")
-        sale["soldBy"] = item.get("soldBy") or actor_snapshot(actor)
-        sale["soldAt"] = normalize_text(payload.get("soldAt")) or item.get("soldAt") or sale.get("soldAt")
-        sale["updatedAt"] = now_mongolia().isoformat()
-        ticket = find_fifa_ticket(store, sale.get("ticketId"))
-        error = validate_fifa_sale(sale, ticket, store.get("sales", []), excluded_sale_id=sale_id)
-        if error:
-            return json_response(start_response, "400 Bad Request", {"error": error})
-        store["sales"][index] = sale
-        write_fifa2026_store(store)
-        return json_response(start_response, "200 OK", {"ok": True, "sale": enrich_fifa_sale(sale, ticket, store), "summary": build_fifa_summary(store)})
-    return json_response(start_response, "404 Not Found", {"error": "Sale not found"})
-
-
-def handle_delete_fifa_sale(environ, start_response, sale_id):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    store = read_fifa2026_store()
-    before = len(store.get("sales", []))
-    store["sales"] = [sale for sale in store.get("sales", []) if sale.get("id") != sale_id]
-    if len(store["sales"]) == before:
-        return json_response(start_response, "404 Not Found", {"error": "Sale not found"})
-    write_fifa2026_store(store)
-    return json_response(start_response, "200 OK", {"ok": True, "deletedId": sale_id, "summary": build_fifa_summary(store)})
-
-
 def update_manager_item(records, item_id, payload, builder, validator):
     for index, item in enumerate(records):
         if item.get("id") != item_id:
@@ -5337,8 +4168,8 @@ def handle_list_camp_settings(start_response):
 
 
 def handle_update_camp_settings(environ, start_response):
-    user = require_login(environ, start_response)
-    if not user:
+    admin = require_admin(environ, start_response)
+    if not admin:
         return []
     payload = collect_json(environ)
     if payload is None:
@@ -5859,6 +4690,9 @@ def handle_contract_invoice_document(environ, start_response, contract_id):
             break
     if not contract:
         return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+    if contract.get("status") != "signed":
+        return json_response(start_response, "409 Conflict", {"error": "Invoice is available only for signed contracts"})
+
     if mode == "download":
         try:
             invoice_path = save_invoice_pdf(contract)
@@ -5889,90 +4723,6 @@ def handle_contract_invoice_document(environ, start_response, contract_id):
         contracts[contract_index] = contract
         write_contracts(contracts)
     return file_response(start_response, safe_path)
-
-
-def handle_update_contract_invoice(environ, start_response, contract_id):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    payload = collect_json(environ)
-    if payload is None:
-        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
-
-    contracts = read_contracts()
-    for idx, contract in enumerate(contracts):
-        if contract.get("id") != contract_id:
-            continue
-        payments_payload = payload.get("payments")
-        items_payload = payload.get("items")
-        if not isinstance(payments_payload, list):
-            return json_response(start_response, "400 Bad Request", {"error": "Payments payload is invalid"})
-        if not isinstance(items_payload, list):
-            return json_response(start_response, "400 Bad Request", {"error": "Items payload is invalid"})
-
-        invoice_meta = contract.get("invoiceMeta") if isinstance(contract.get("invoiceMeta"), dict) else {}
-        stored_payments = invoice_meta.get("payments") if isinstance(invoice_meta.get("payments"), dict) else {}
-        invoice_meta["bankAccountKey"] = normalize_invoice_bank_account(
-            payload.get("bankAccountKey"),
-            fallback=normalize_invoice_bank_account(invoice_meta.get("bankAccountKey")),
-        )
-
-        normalized_items = []
-        for item in items_payload:
-            if not isinstance(item, dict):
-                continue
-            description = normalize_text(item.get("description"))
-            quantity = parse_int(item.get("quantity"))
-            unit_price = parse_int(item.get("unitPrice"))
-            total_price = parse_int(item.get("totalPrice")) or quantity * unit_price
-            if not description or quantity <= 0:
-                continue
-            normalized_items.append(
-                {
-                    "key": normalize_text(item.get("key")) or f"item-{len(normalized_items) + 1}",
-                    "description": description,
-                    "quantity": quantity,
-                    "unitPrice": unit_price,
-                    "totalPrice": total_price,
-                }
-            )
-        if not normalized_items:
-            return json_response(start_response, "400 Bad Request", {"error": "At least one invoice item is required"})
-
-        normalized_payment_rows = []
-        for payment in payments_payload:
-            if not isinstance(payment, dict):
-                continue
-            title = normalize_text(payment.get("title"))
-            amount = parse_int(payment.get("amount"))
-            if not title or amount <= 0:
-                continue
-            status_value = normalize_invoice_status(payment.get("status"))
-            normalized_payment_rows.append(
-                {
-                    "key": normalize_text(payment.get("key")) or f"payment-{len(normalized_payment_rows) + 1}",
-                    "title": title,
-                    "created": normalize_text(payment.get("created")),
-                    "secondaryLabel": normalize_text(payment.get("secondaryLabel")) or "Эцсийн хугацаа",
-                    "secondaryValue": normalize_text(payment.get("secondaryValue")),
-                    "status": status_value,
-                    "amount": amount,
-                }
-            )
-        if not normalized_payment_rows:
-            return json_response(start_response, "400 Bad Request", {"error": "At least one payment row is required"})
-
-        stored_payments["rows"] = normalized_payment_rows
-        invoice_meta["payments"] = stored_payments
-        invoice_meta["lineItems"] = normalized_items
-        contract["invoiceMeta"] = invoice_meta
-        contract["updatedBy"] = actor_snapshot(actor)
-        contract["updatedAt"] = datetime.now(timezone.utc).isoformat()
-        contracts[idx] = contract
-        write_contracts(contracts)
-        return json_response(start_response, "200 OK", {"ok": True, "contract": contract})
-
-    return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
 
 
 def app(environ, start_response):
@@ -6149,8 +4899,6 @@ def app(environ, start_response):
             contract_id = tail.replace("/invoice", "", 1).strip("/")
             if method == "GET":
                 return handle_contract_invoice_document(environ, start_response, contract_id)
-            if method == "POST":
-                return handle_update_contract_invoice(environ, start_response, contract_id)
             return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
         contract_id = tail
         if method == "GET":
@@ -6238,47 +4986,6 @@ def app(environ, start_response):
             return handle_update_camp_settings(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
-    if path == "/api/fifa2026":
-        if method == "GET":
-            return handle_get_fifa2026_dashboard(environ, start_response)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
-    if path == "/api/fifa2026/public":
-        if method == "GET":
-            return handle_get_fifa2026_public(environ, start_response)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
-    if path == "/api/fifa2026/reset-from-seed":
-        if method == "POST":
-            return handle_reset_fifa2026_from_seed(environ, start_response)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
-    if path == "/api/fifa2026/tickets":
-        if method == "POST":
-            return handle_create_fifa_ticket(environ, start_response)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
-    if path == "/api/fifa2026/sales":
-        if method == "POST":
-            return handle_create_fifa_sale(environ, start_response)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
-    if path.startswith("/api/fifa2026/tickets/"):
-        ticket_id = path.replace("/api/fifa2026/tickets/", "", 1).strip("/")
-        if method == "POST" and ticket_id:
-            return handle_update_fifa_ticket(environ, start_response, ticket_id)
-        if method == "DELETE" and ticket_id:
-            return handle_delete_fifa_ticket(environ, start_response, ticket_id)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
-    if path.startswith("/api/fifa2026/sales/"):
-        sale_id = path.replace("/api/fifa2026/sales/", "", 1).strip("/")
-        if method == "POST" and sale_id:
-            return handle_update_fifa_sale(environ, start_response, sale_id)
-        if method == "DELETE" and sale_id:
-            return handle_delete_fifa_sale(environ, start_response, sale_id)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
     if path == "/api/camp-reservations/export":
         if method == "GET":
             return handle_export_camp_reservations(environ, start_response)
@@ -6348,19 +5055,6 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "camp.html")
-
-    if path == "/fifa2026-admin":
-        if not current_user(environ):
-            return file_response(start_response, PUBLIC_DIR / "login.html")
-        return file_response(start_response, PUBLIC_DIR / "fifa2026-admin.html")
-
-    if path == "/fifa2026-admin-fresh":
-        if not current_user(environ):
-            return file_response(start_response, PUBLIC_DIR / "login.html")
-        return file_response(start_response, PUBLIC_DIR / "fifa2026-admin.html")
-
-    if path == "/fifa2026":
-        return file_response(start_response, PUBLIC_DIR / "fifa2026.html")
 
     if path == "/admin":
         user = current_user(environ)
