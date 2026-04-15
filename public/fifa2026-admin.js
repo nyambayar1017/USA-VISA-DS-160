@@ -1544,7 +1544,9 @@ function openSaleInvoice(sale) {
     });
     Object.values(grouped).forEach((item, index) => items.push({ index: index + 1, ...item }));
   }
-  const total = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+  const subtotal = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+  const discountAmount = Math.max(Number(sale.discountAmount || 0), 0);
+  const total = Math.max(subtotal - discountAmount, 0);
   const amountPaid = Number(sale.amountPaid || 0);
   const balance = Math.max(0, total - amountPaid);
   const paymentRows = [];
@@ -1606,6 +1608,7 @@ function openSaleInvoice(sale) {
           th, td { padding: 11px 12px; border-bottom: 1px solid #eceef5; text-align: left; font-size: 14px; }
           th { background: #fbfcfe; color: #4d566f; font-weight: 700; }
           td:last-child, th:last-child, td:nth-last-child(2), th:nth-last-child(2) { text-align: right; }
+          .discount-row td { color: #8b6510; background: #fffaf0; font-weight: 600; }
           .total-row td { font-weight: 700; background: #fdfdfd; }
           .payment-stack { display: grid; gap: 14px; }
           .payment-card { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(110px, 0.8fr)) auto; gap: 14px; align-items: center; padding: 15px 16px; border: 1px solid #e7e9f1; border-radius: 14px; background: #fff; }
@@ -1699,6 +1702,12 @@ function openSaleInvoice(sale) {
                   </td>
                 </tr>
               `).join("")}
+              ${discountAmount > 0 ? `
+                <tr class="discount-row">
+                  <td colspan="4">Discount</td>
+                  <td>-${escapeHtml(formatMoney(discountAmount))}</td>
+                </tr>
+              ` : ""}
               <tr class="total-row">
                 <td colspan="4">Нийт үнэ</td>
                 <td>${escapeHtml(formatMoney(total))}</td>
