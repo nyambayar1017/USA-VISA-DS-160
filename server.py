@@ -2224,13 +2224,11 @@ def build_invoice_line_items(data):
         total_price = parse_int(data.get("totalPrice"))
         return [{"description": destination, "quantity": 1, "unitPrice": total_price, "totalPrice": total_price}]
 
-    multiple_rows = len(populated) > 1
     rows = []
     for count, unit_price, label in populated:
-        description = destination if not multiple_rows else f"{destination} / {label}"
         rows.append(
             {
-                "description": description,
+                "description": label or destination,
                 "quantity": count,
                 "unitPrice": unit_price,
                 "totalPrice": count * unit_price,
@@ -2239,12 +2237,154 @@ def build_invoice_line_items(data):
     return rows
 
 
+<<<<<<< HEAD
 def build_invoice_payment_rows(data, created_at=None, signed_at=None):
+=======
+def strip_invoice_destination_prefix(text, destination):
+    value = normalize_text(text)
+    base = normalize_text(destination)
+    if not value or not base:
+        return value
+
+    lowered = value.lower()
+    base_lowered = base.lower()
+    if lowered == base_lowered:
+        return value
+
+    removable_tail_keywords = (
+        "урьдчилгаа төлбөр",
+        "үлдэгдэл төлбөр",
+        "том хүн",
+        "хүүхэд",
+        "нярай",
+        "зөвхөн билет",
+        "газрын үйлчилгээ",
+    )
+    for separator in (" / ", "/", " - ", "-", " "):
+        prefix = f"{base_lowered}{separator}"
+        if not lowered.startswith(prefix):
+            continue
+        stripped = value[len(base) + len(separator) :].strip(" /-")
+        if stripped and any(keyword in stripped.lower() for keyword in removable_tail_keywords):
+            return stripped
+    return value
+
+
+def normalize_invoice_line_items(record):
+    destination = normalize_text((record.get("data") or {}).get("destination"))
+    invoice_meta = record.get("invoiceMeta") if isinstance(record.get("invoiceMeta"), dict) else {}
+    raw_items = invoice_meta.get("lineItems")
+    normalized = []
+    if isinstance(raw_items, list):
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            description = strip_invoice_destination_prefix(item.get("description"), destination)
+            quantity = parse_int(item.get("quantity"))
+            unit_price = parse_int(item.get("unitPrice"))
+            total_price = parse_int(item.get("totalPrice")) or quantity * unit_price
+            if not description or quantity <= 0:
+                continue
+            normalized.append(
+                {
+                    "key": normalize_text(item.get("key")) or f"item-{len(normalized) + 1}",
+                    "description": description,
+                    "quantity": quantity,
+                    "unitPrice": unit_price,
+                    "totalPrice": total_price,
+                }
+            )
+    if normalized:
+        return normalized
+    return [
+        {
+            "key": f"item-{index}",
+            "description": item["description"],
+            "quantity": item["quantity"],
+            "unitPrice": item["unitPrice"],
+            "totalPrice": item["totalPrice"],
+        }
+        for index, item in enumerate(build_invoice_line_items(record.get("data") or {}), start=1)
+    ]
+
+
+INVOICE_STATUS_META = {
+    "paid": {"label": "Төлөгдсөн", "className": "paid"},
+    "waiting": {"label": "Хүлээгдэж буй", "className": "waiting"},
+    "overdue": {"label": "Хугацаа хэтэрсэн", "className": "overdue"},
+}
+
+INVOICE_BANK_ACCOUNTS = {
+    "state": {
+        "bankName": "Төрийн Банк",
+        "prefix": "MN030034",
+        "accountNumber": "3432 7777 9999",
+    },
+    "golomt": {
+        "bankName": "Голомт Банк",
+        "prefix": "MN80001500",
+        "accountNumber": "3675114666",
+    },
+}
+
+
+def normalize_invoice_status(value, fallback="waiting"):
+    normalized = normalize_text(value).strip().lower()
+    if normalized in INVOICE_STATUS_META:
+        return normalized
+    return fallback
+
+
+def normalize_invoice_bank_account(value, fallback="state"):
+    normalized = normalize_text(value).strip().lower()
+    if normalized in INVOICE_BANK_ACCOUNTS:
+        return normalized
+    return fallback
+
+
+def build_invoice_payment_rows(record):
+    data = record.get("data") or {}
+    destination = normalize_text(data.get("destination"))
+    created_at = record.get("createdAt")
+    signed_at = record.get("signedAt")
+>>>>>>> 44cde35 (Refine invoice wording and footer)
     today = now_mongolia().date()
     issue_date = format_iso_date_display(data.get("contractDate") or created_at)
     signed_date = format_iso_date_display(signed_at or created_at or data.get("contractDate"))
     balance_due = parse_date_safe(data.get("balanceDueDate"))
     balance_amount = parse_int(data.get("balanceAmount"))
+<<<<<<< HEAD
+=======
+    invoice_meta = record.get("invoiceMeta") or {}
+    payment_meta = invoice_meta.get("payments") if isinstance(invoice_meta, dict) else {}
+    payment_meta = payment_meta if isinstance(payment_meta, dict) else {}
+
+    custom_rows = []
+    if isinstance(payment_meta.get("rows"), list):
+        for row in payment_meta.get("rows"):
+            if not isinstance(row, dict):
+                continue
+            amount = parse_int(row.get("amount"))
+            title = strip_invoice_destination_prefix(row.get("title"), destination)
+            if not title or amount <= 0:
+                continue
+            status_key = normalize_invoice_status(row.get("status"), fallback="waiting")
+            custom_rows.append(
+                {
+                    "key": normalize_text(row.get("key")) or f"payment-{len(custom_rows) + 1}",
+                    "title": title,
+                    "created": format_iso_date_display(row.get("created")),
+                    "secondaryLabel": normalize_text(row.get("secondaryLabel")) or "Эцсийн хугацаа",
+                    "secondaryValue": format_iso_date_display(row.get("secondaryValue")),
+                    "statusKey": status_key,
+                    "status": INVOICE_STATUS_META[status_key]["label"],
+                    "statusClass": INVOICE_STATUS_META[status_key]["className"],
+                    "amount": amount,
+                }
+            )
+    if custom_rows:
+        return custom_rows
+>>>>>>> 44cde35 (Refine invoice wording and footer)
 
     rows = []
     deposit_amount = parse_int(data.get("depositAmount"))
@@ -2472,8 +2612,13 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .payment-main strong,
       .payment-amount {{
+<<<<<<< HEAD
         font-size: 16px;
         font-weight: 700;
+=======
+        font-size: 14px;
+        font-weight: 500;
+>>>>>>> 44cde35 (Refine invoice wording and footer)
         color: #2b3148;
       }}
       .payment-amount {{
@@ -2484,6 +2629,14 @@ def build_invoice_html(record, asset_mode="web"):
         display: grid;
         gap: 4px;
       }}
+<<<<<<< HEAD
+=======
+      .meta-value {{
+        font-size: 14px;
+        font-weight: 500;
+        color: #2b3148;
+      }}
+>>>>>>> 44cde35 (Refine invoice wording and footer)
       .meta-label {{
         color: #8b93a9;
         font-size: 13px;
@@ -2535,6 +2688,7 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .signature-card {{
         position: relative;
+<<<<<<< HEAD
         min-height: 138px;
         padding-top: 48px;
       }}
@@ -2568,6 +2722,49 @@ def build_invoice_html(record, asset_mode="web"):
       .signature-role {{
         color: #2c3247;
         font-size: 15px;
+=======
+        min-height: 108px;
+      }}
+      .finance-stamp {{
+        position: absolute;
+        left: 4px;
+        top: 24px;
+        width: 184px;
+        z-index: 2;
+      }}
+      .finance-stamp img {{
+        width: 100%;
+        height: auto;
+        display: block;
+      }}
+      .finance-signature {{
+        position: absolute;
+        left: 80px;
+        top: 42px;
+        width: 148px;
+        z-index: 1;
+        height: 56px;
+        overflow: hidden;
+      }}
+      .finance-signature img {{
+        width: 212px;
+        max-width: none;
+        display: block;
+        transform: translate(-30px, -16px) rotate(-3deg);
+      }}
+      .invoice-footer-space {{
+        min-height: 108px;
+      }}
+      .invoice-sign-line {{
+        height: 1px;
+        background: #d6dceb;
+      }}
+      .invoice-sign-name {{
+        margin-top: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #2b3148;
+>>>>>>> 44cde35 (Refine invoice wording and footer)
       }}
       @media print {{
         .toolbar {{
