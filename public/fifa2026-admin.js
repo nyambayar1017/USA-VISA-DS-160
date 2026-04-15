@@ -491,6 +491,17 @@ function syncSalePriceFields() {
   syncSaleTotals();
 }
 
+function resetSaleBlockSelection() {
+  state.pendingSaleSeatIds = [];
+  if (saleMatchSelect) saleMatchSelect.value = "";
+  if (saleCategorySelect) {
+    saleCategorySelect.innerHTML = '<option value="">Choose category</option>';
+    saleCategorySelect.value = "";
+  }
+  if (saleBlockQuantityInput) saleBlockQuantityInput.value = "0";
+  renderSaleSeatPicker();
+}
+
 function renderSaleSummary() {
   const summaryNode = document.querySelector("#fifa-sale-summary");
   if (!summaryNode) return;
@@ -504,17 +515,23 @@ function renderSaleSummary() {
     <div class="fifa-sale-summary-box">
       <div class="fifa-sale-summary-head">
         <strong>Payment and invoice summary</strong>
-        <span class="fifa-table-sub">${totalTickets} tickets · ${formatMoney(totalPrice)} total</span>
+        <span class="fifa-table-sub">Grand total: ${formatMoney(totalPrice)} · ${totalTickets} ticket(s)</span>
       </div>
       <div class="fifa-sale-summary-list">
         ${state.saleBlocks.map((block) => `
           <div class="fifa-sale-summary-row">
             <strong>${escapeHtml(block.matchLabel)}</strong>
-            <span>${escapeHtml(String(block.quantity || 0))} ticket(s)</span>
+            <span>${escapeHtml(String(block.quantity || 0))} ticket(s) · CAT ${escapeHtml(block.categoryCode)}</span>
             <span>${escapeHtml(formatMoney(block.unitPrice || 0))} per ticket</span>
-            <span>${escapeHtml(formatMoney(block.totalPrice || 0))} total</span>
+            <span>Subtotal: ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
           </div>
         `).join("")}
+        <div class="fifa-sale-summary-row fifa-sale-summary-row--grand-total">
+          <strong>Grand total price</strong>
+          <span>${escapeHtml(String(totalTickets))} ticket(s)</span>
+          <span></span>
+          <span>${escapeHtml(formatMoney(totalPrice))}</span>
+        </div>
       </div>
     </div>
   `;
@@ -591,7 +608,7 @@ function renderSaleBlocks() {
         <div>
           <strong>${escapeHtml(block.matchLabel)}</strong>
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s)</span>
-          <span class="fifa-table-sub">${escapeHtml(formatMoney(derivedUnitPrice))} per ticket · ${escapeHtml(String(block.quantity || 0))} ticket(s) · ${escapeHtml(formatMoney(block.totalPrice || 0))} total</span>
+          <span class="fifa-table-sub">${escapeHtml(String(block.quantity || 0))} ticket(s) · ${escapeHtml(formatMoney(derivedUnitPrice))} per ticket · Subtotal ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
           <div class="fifa-sale-ticket-list">
             ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(label)}</span>`).join("")}
           </div>
@@ -792,7 +809,7 @@ function fillSaleForm(sale) {
   saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
   saleForm.elements.paymentMethod.value = sale.paymentMethod || "Bank transfer";
   saleForm.elements.saleStatus.value = sale.saleStatus || "active";
-  saleForm.elements.soldAt.value = String(sale.soldAt || "").slice(0, 16);
+  saleForm.elements.soldAt.value = String(sale.soldAt || "").slice(0, 10);
   saleForm.elements.buyerTitle.value = sale.buyerTitle || "";
   saleForm.elements.buyerName.value = sale.buyerName || "";
   saleForm.elements.buyerPhone.value = sale.buyerPhone || "";
@@ -1320,7 +1337,7 @@ function renderSales() {
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(formatMoney(sale.amountPaid))}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(formatDateTime(sale.soldAt))}</span>
+                  <span class="fifa-table-sub">${escapeHtml(formatDate(sale.soldAt))}</span>
                 </div>
                 <div class="fifa-match-col fifa-sale-status-col">
                   <span class="fifa-pill ${paymentClass}">${paymentLabel}</span>
@@ -1639,8 +1656,8 @@ document.querySelector("#fifa-sale-add-block")?.addEventListener("click", () => 
   try {
     const block = createSaleBlockFromSelection();
     state.saleBlocks.push(block);
-    state.pendingSaleSeatIds = [];
-    renderSaleSeatPicker();
+    refreshSaleTicketOptions();
+    resetSaleBlockSelection();
     renderSaleBlocks();
     clearStatus(saleStatusNode);
   } catch (error) {
