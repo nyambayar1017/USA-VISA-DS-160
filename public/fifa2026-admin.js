@@ -165,6 +165,10 @@ function formatDate(value) {
   return date.toISOString().slice(0, 10);
 }
 
+function naturalTextCompare(left, right) {
+  return String(left || "").localeCompare(String(right || ""), undefined, { numeric: true, sensitivity: "base" });
+}
+
 function fillSelect(node, values, placeholder, keepValue = "") {
   if (!node) return;
   node.innerHTML = [`<option value="">${placeholder}</option>`]
@@ -357,7 +361,7 @@ function saleBlockAvailableTickets(matchNumber, categoryCode, excludedIds = []) 
       && ticket.availableQuantity > 0
       && !excluded.has(ticket.id)
     )
-    .sort((left, right) => String(left.seatDetails || "").localeCompare(String(right.seatDetails || "")));
+    .sort((left, right) => naturalTextCompare(left.seatDetails, right.seatDetails));
 }
 
 function selectedSaleTicketIds() {
@@ -862,9 +866,9 @@ function groupTicketsByMatch(tickets) {
       const groupTickets = group.tickets.sort((left, right) => {
         const categoryDiff = Number(left.categoryCode || 0) - Number(right.categoryCode || 0);
         if (categoryDiff !== 0) return categoryDiff;
-        const seatDiff = String(left.seatDetails || "").localeCompare(String(right.seatDetails || ""));
+        const seatDiff = naturalTextCompare(left.seatDetails, right.seatDetails);
         if (seatDiff !== 0) return seatDiff;
-        return String(left.createdAt || "").localeCompare(String(right.createdAt || ""));
+        return naturalTextCompare(left.createdAt, right.createdAt);
       });
       const availableUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
       const soldUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.soldQuantity || 0), 0);
@@ -873,7 +877,7 @@ function groupTicketsByMatch(tickets) {
         const total = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.totalQuantity || 0), 0);
         const available = categoryTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
         return { categoryCode, total, available };
-      });
+      }).filter((item) => item.total > 0);
       return {
         ...group,
         label: buildMatchLabel(group.teamA, group.teamB),
@@ -951,7 +955,7 @@ function renderTickets() {
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}" role="button" tabindex="0">
                 <div class="fifa-match-col fifa-match-col--number">
-                  <strong>${index + 1}</strong>
+                  <strong>${isExpanded ? "▾" : "▸"} ${index + 1}</strong>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(formatDate(group.matchDate))}</strong>
@@ -991,6 +995,7 @@ function renderTickets() {
                             <table class="manager-table fifa-table fifa-nested-table">
                               <thead>
                                 <tr>
+                                  <th>#</th>
                                   <th class="checkbox-col">Mark</th>
                                   <th>Category</th>
                                   <th>Seat / Ticket Number</th>
@@ -1002,9 +1007,16 @@ function renderTickets() {
                               </thead>
                               <tbody>
                                 ${group.tickets
-                                  .map(
-                                    (ticket) => `
+                                  .map((ticket, ticketIndex) => {
+                                    const relatedSale = state.sales.find((sale) => {
+                                      const saleTicketIds = sale.ticketIds?.length ? sale.ticketIds : (sale.ticketId ? [sale.ticketId] : []);
+                                      return saleTicketIds.includes(ticket.id) && sale.saleStatus !== "cancelled";
+                                    });
+                                    const soldBuyerLabel = relatedSale?.buyerTitle || relatedSale?.buyerName || "Sold buyer";
+                                    const soldOut = Number(ticket.availableQuantity || 0) <= 0 && Number(ticket.soldQuantity || 0) > 0;
+                                    return `
                                       <tr>
+                                        <td>${ticketIndex + 1}</td>
                                         <td class="checkbox-col">
                                           <input type="checkbox" data-action="select-ticket" data-id="${escapeHtml(ticket.id)}" ${state.selectedTickets.has(ticket.id) ? "checked" : ""} />
                                         </td>
@@ -1018,22 +1030,29 @@ function renderTickets() {
                                         </td>
                                         <td>${escapeHtml(formatMoney(ticket.price, ticket.currency))}</td>
                                         <td>
-                                          <strong>${ticket.availableQuantity}/${ticket.totalQuantity}</strong>
-                                          <span class="fifa-table-sub">sold ${ticket.soldQuantity}</span>
+                                          <strong>${soldOut ? "Sold" : `${ticket.availableQuantity}/${ticket.totalQuantity}`}</strong>
+                                          <span class="fifa-table-sub">${soldOut ? `${ticket.soldQuantity} of ${ticket.totalQuantity}` : `sold ${ticket.soldQuantity}`}</span>
                                         </td>
                                         <td>
                                           <span class="fifa-pill ${ticket.visibility === "public" ? "is-public" : "is-private"}">${escapeHtml(ticket.visibility)}</span>
                                           ${ticket.seatAssignedLater ? '<span class="fifa-pill">assigned later</span>' : ""}
                                         </td>
                                         <td class="fifa-actions-cell">
-                                          <button type="button" data-action="sell" data-id="${escapeHtml(ticket.id)}">Sell</button>
+                                          ${
+                                            soldOut
+                                              ? `
+                                                <button type="button" class="fifa-inline-action fifa-inline-action--sold" data-action="view-sold-ticket" data-id="${escapeHtml(ticket.id)}">SOLD</button>
+                                                <span class="fifa-table-sub">${escapeHtml(soldBuyerLabel)}</span>
+                                              `
+                                              : ""
+                                          }
                                           <button type="button" class="button-secondary" data-action="edit-ticket" data-id="${escapeHtml(ticket.id)}">Edit</button>
                                           <button type="button" class="button-secondary" data-action="toggle-visibility" data-id="${escapeHtml(ticket.id)}">${ticket.visibility === "public" ? "Make private" : "Make public"}</button>
                                           <button type="button" class="button-secondary" data-action="delete-ticket" data-id="${escapeHtml(ticket.id)}">Delete</button>
                                         </td>
                                       </tr>
-                                    `
-                                  )
+                                    `;
+                                  })
                                   .join("")}
                               </tbody>
                             </table>
@@ -1337,6 +1356,7 @@ ticketList?.addEventListener("click", async (event) => {
     if (state.expandedMatches.has(matchKey)) {
       state.expandedMatches.delete(matchKey);
     } else {
+      state.expandedMatches.clear();
       state.expandedMatches.add(matchKey);
     }
     renderTickets();
@@ -1390,8 +1410,15 @@ ticketList?.addEventListener("click", async (event) => {
     fillTicketForm(ticket);
     return;
   }
-  if (target.dataset.action === "sell") {
-    startSaleForTicket(ticketId);
+  if (target.dataset.action === "view-sold-ticket") {
+    const relatedSale = state.sales.find((sale) => {
+      const saleTicketIds = sale.ticketIds?.length ? sale.ticketIds : (sale.ticketId ? [sale.ticketId] : []);
+      return saleTicketIds.includes(ticketId) && sale.saleStatus !== "cancelled";
+    });
+    if (relatedSale) {
+      fillSaleForm(relatedSale);
+      setStatus(saleStatusNode, `Sold to ${relatedSale.buyerTitle || relatedSale.buyerName || "buyer"}.`);
+    }
     return;
   }
   if (target.dataset.action === "toggle-visibility") {

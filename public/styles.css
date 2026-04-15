@@ -3035,6 +3035,11 @@ body.modal-open {
   vertical-align: top;
 }
 
+.fifa-nested-table th:first-child,
+.fifa-nested-table td:first-child {
+  width: 42px;
+}
+
 .fifa-table-sub {
   display: block;
   margin-top: 4px;
@@ -3043,11 +3048,30 @@ body.modal-open {
 }
 
 .fifa-actions-cell {
-  min-width: 180px;
+  min-width: 220px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .fifa-actions-cell button {
-  margin: 0 8px 8px 0;
+  margin: 0;
+}
+
+.fifa-inline-action--sold {
+  background: #2f8a57;
+  color: #fff;
+  border: 1px solid rgba(47, 138, 87, 0.22);
+}
+
+.fifa-inline-action--sold:hover {
+  background: #277548;
+}
+
+.fifa-actions-cell .fifa-table-sub {
+  flex-basis: 100%;
+  margin-top: 0;
 }
 
 .fifa-pill {
