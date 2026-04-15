@@ -385,6 +385,11 @@ function ticketSummaryLabel(ticket) {
   return `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)} · CAT ${ticket.categoryCode} · ${ticket.seatDetails || "Seat will be assigned later"}`;
 }
 
+function extractSeatSortValue(label) {
+  const match = String(label || "").match(/Seat\s+(\d+)/i);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
 function renderSaleSeatPicker() {
   if (!saleSeatPicker || !saleMatchSelect || !saleCategorySelect || !saleBlockQuantityInput) return;
   const matchNumber = saleMatchSelect.value;
@@ -500,19 +505,22 @@ function renderSaleBlocks() {
     return;
   }
   saleBlockList.innerHTML = state.saleBlocks
-    .map((block, index) => `
+    .map((block, index) => {
+      const derivedUnitPrice = Number(block.unitPrice || 0) || (Number(block.quantity || 0) ? Math.round(Number(block.totalPrice || 0) / Number(block.quantity || 1)) : 0);
+      return `
       <div class="fifa-sale-block-item" data-sale-block-index="${index}">
         <div>
           <strong>${escapeHtml(block.matchLabel)}</strong>
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s)</span>
-          <span class="fifa-table-sub">${escapeHtml(formatMoney(block.unitPrice || 0))} per ticket · ${escapeHtml(formatMoney(block.totalPrice))} total</span>
+          <span class="fifa-table-sub">${escapeHtml(formatMoney(derivedUnitPrice))} per ticket · ${escapeHtml(formatMoney(block.totalPrice))} total</span>
           <div class="fifa-sale-ticket-list">
-            ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(block.matchLabel)} · ${escapeHtml(label)}</span>`).join("")}
+            ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(label)}</span>`).join("")}
           </div>
         </div>
         <button type="button" class="button-secondary" data-action="remove-sale-block" data-index="${index}">Remove</button>
       </div>
-    `)
+    `;
+    })
     .join("");
   syncSaleTicketInputs();
   syncSalePriceFields();
@@ -991,8 +999,10 @@ function renderTickets() {
                 <div class="fifa-match-col fifa-match-col--availability">
                   <div class="fifa-availability-block">
                     ${availabilitySummary}
-                    <span class="fifa-table-sub fifa-availability-total is-available">Available: ${group.availableUnits}</span>
-                    <span class="fifa-table-sub fifa-availability-total fifa-availability-sold-total">Sold: ${group.soldUnits}</span>
+                    <div class="fifa-availability-totals">
+                      <span class="fifa-table-sub fifa-availability-total is-available">Total available: ${group.availableUnits}</span>
+                      <span class="fifa-table-sub fifa-availability-total fifa-availability-sold-total">Total sold: ${group.soldUnits}</span>
+                    </div>
                   </div>
                 </div>
                 <div class="fifa-match-col fifa-match-col--city">
@@ -1131,11 +1141,15 @@ function renderSales() {
             const ticket = state.tickets.find((item) => item.id === ticketId);
             const participant = sale.participants?.find((p) => p.ticketId === ticketId) || sale.participants?.[index];
             return {
+              ticketId,
+              matchNumber: ticket?.matchNumber || "",
+              matchDate: ticket?.matchDate || "",
               matchLabel: ticket ? `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)}` : sale.ticketLabel || "-",
               unitPrice: ticket?.price || sale.pricePerTicket || 0,
               ticketLabel: ticket ? ticketSummaryLabel(ticket) : sale.ticketLabel || "-",
               travelerName: participant?.name || "-",
               travelerPassport: participant?.passportNumber || "",
+              seatSortValue: ticket ? extractSeatSortValue(ticket.seatDetails) : extractSeatSortValue(participant?.ticketLabel || ""),
             };
           });
           if (!ticketLines.length && sale.ticketBlocks?.length) {
@@ -1143,18 +1157,38 @@ function renderSales() {
               (block.ticketLabels || []).forEach((label, index) => {
                 const participant = sale.participants?.[ticketLines.length];
                 ticketLines.push({
+                  ticketId: participant?.ticketId || `${block.matchNumber}-${index}`,
+                  matchNumber: block.matchNumber || "",
+                  matchDate: "",
                   matchLabel: block.matchLabel || sale.ticketLabel || "-",
                   unitPrice: block.unitPrice || sale.pricePerTicket || 0,
                   ticketLabel: label,
                   travelerName: participant?.name || "-",
                   travelerPassport: participant?.passportNumber || "",
+                  seatSortValue: extractSeatSortValue(label),
                 });
               });
             });
           }
-          const computedTotalPrice = ticketLines.length
-            ? ticketLines.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0)
-            : Number(sale.totalPrice || 0);
+          const groupedTicketLines = [...ticketLines]
+            .sort((left, right) => {
+              const dateDiff = String(left.matchDate || "").localeCompare(String(right.matchDate || ""));
+              if (dateDiff !== 0) return dateDiff;
+              const matchDiff = matchNumberSortValue(left.matchNumber) - matchNumberSortValue(right.matchNumber);
+              if (matchDiff !== 0) return matchDiff;
+              return left.seatSortValue - right.seatSortValue;
+            })
+            .reduce((groups, item) => {
+              const key = item.matchLabel || "-";
+              if (!groups[key]) groups[key] = [];
+              groups[key].push(item);
+              return groups;
+            }, {});
+          const blockTotalPrice = (sale.ticketBlocks || []).reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+          const computedTotalPrice = blockTotalPrice
+            || (ticketLines.length
+              ? ticketLines.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0)
+              : Number(sale.totalPrice || 0));
           const computedBalance = Math.max(0, computedTotalPrice - Number(sale.amountPaid || 0));
           return `
             <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
@@ -1198,39 +1232,42 @@ function renderSales() {
                 isExpanded
                   ? `
                     <div class="fifa-match-details">
-                      <table class="manager-table fifa-table fifa-nested-table">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>Match</th>
-                            <th>Ticket</th>
-                            <th>Price</th>
-                            <th>Traveler</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${ticketLines.map((item, index) => {
-                            return `
-                              <tr>
-                                <td>${index + 1}</td>
-                                <td>
-                                  <strong>${escapeHtml(item.matchLabel)}</strong>
-                                </td>
-                                <td>
-                                  <strong>Ticket ${index + 1}</strong>
-                                  <span class="fifa-table-sub">${escapeHtml(item.matchLabel)}</span>
-                                  <span class="fifa-table-sub">${escapeHtml(item.ticketLabel)}</span>
-                                </td>
-                                <td>${escapeHtml(formatMoney(item.unitPrice || 0))}</td>
-                                <td>
-                                  <strong>${escapeHtml(item.travelerName || "-")}</strong>
-                                  <span class="fifa-table-sub">${escapeHtml(item.travelerPassport || "")}</span>
-                                </td>
-                              </tr>
-                            `;
-                          }).join("")}
-                        </tbody>
-                      </table>
+                      <div class="fifa-sale-groups">
+                        ${Object.entries(groupedTicketLines).map(([matchLabel, items]) => `
+                          <section class="fifa-sale-group">
+                            <div class="fifa-sale-group-head">
+                              <strong>${escapeHtml(matchLabel)}</strong>
+                              <span class="fifa-table-sub">${items.length} ticket(s) · ${escapeHtml(formatMoney(items.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0)))} total</span>
+                            </div>
+                            <table class="manager-table fifa-table fifa-nested-table fifa-sale-nested-table">
+                              <thead>
+                                <tr>
+                                  <th>#</th>
+                                  <th>Ticket</th>
+                                  <th>Price</th>
+                                  <th>Traveler</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${items.map((item, index) => `
+                                  <tr>
+                                    <td>${index + 1}</td>
+                                    <td>
+                                      <strong>Ticket ${index + 1}</strong>
+                                      <span class="fifa-table-sub">${escapeHtml(item.ticketLabel)}</span>
+                                    </td>
+                                    <td>${escapeHtml(formatMoney(item.unitPrice || 0))}</td>
+                                    <td>
+                                      <strong>${escapeHtml(item.travelerName || "-")}</strong>
+                                      <span class="fifa-table-sub">${escapeHtml(item.travelerPassport || "")}</span>
+                                    </td>
+                                  </tr>
+                                `).join("")}
+                              </tbody>
+                            </table>
+                          </section>
+                        `).join("")}
+                      </div>
                     </div>
                   `
                   : ""
