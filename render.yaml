@@ -13,6 +13,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.4
+      - key: PORT
+        value: 10000
       - key: DATA_DIR
         value: /var/data
       - key: ADMIN_TOKEN
