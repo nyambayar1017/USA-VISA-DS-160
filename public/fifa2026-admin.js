@@ -445,7 +445,7 @@ function saleBlockAvailableTickets(matchNumber, categoryCode, excludedIds = []) 
       && !excluded.has(ticket.id)
     )
     .sort((left, right) => {
-      const seatDiff = extractSeatSortValue(left.seatDetails) - extractSeatSortValue(right.seatDetails);
+      const seatDiff = compareSeatSortValue(left.seatDetails, right.seatDetails);
       if (seatDiff !== 0) return seatDiff;
       return naturalTextCompare(left.seatDetails, right.seatDetails);
     });
@@ -460,8 +460,28 @@ function ticketSummaryLabel(ticket) {
 }
 
 function extractSeatSortValue(label) {
-  const match = String(label || "").match(/Seat\s+(\d+)/i);
-  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+  const raw = String(label || "");
+  const blockMatch = raw.match(/Block\s+([A-Z0-9-]+)/i);
+  const rowMatch = raw.match(/Row\s+(\d+)/i);
+  const seatMatch = raw.match(/Seat\s+(\d+)/i);
+  return {
+    block: blockMatch ? String(blockMatch[1]).toUpperCase() : "",
+    row: rowMatch ? Number(rowMatch[1]) : Number.MAX_SAFE_INTEGER,
+    seat: seatMatch ? Number(seatMatch[1]) : Number.MAX_SAFE_INTEGER,
+    raw,
+  };
+}
+
+function compareSeatSortValue(leftLabel, rightLabel) {
+  const left = extractSeatSortValue(leftLabel);
+  const right = extractSeatSortValue(rightLabel);
+  const blockDiff = naturalTextCompare(left.block, right.block);
+  if (blockDiff !== 0) return blockDiff;
+  const rowDiff = left.row - right.row;
+  if (rowDiff !== 0) return rowDiff;
+  const seatDiff = left.seat - right.seat;
+  if (seatDiff !== 0) return seatDiff;
+  return naturalTextCompare(left.raw, right.raw);
 }
 
 function renderSaleSeatPicker() {
@@ -1022,7 +1042,7 @@ function groupTicketsByMatch(tickets) {
       const groupTickets = group.tickets.sort((left, right) => {
         const categoryDiff = Number(left.categoryCode || 0) - Number(right.categoryCode || 0);
         if (categoryDiff !== 0) return categoryDiff;
-        const seatDiff = extractSeatSortValue(left.seatDetails) - extractSeatSortValue(right.seatDetails);
+        const seatDiff = compareSeatSortValue(left.seatDetails, right.seatDetails);
         if (seatDiff !== 0) return seatDiff;
         const labelDiff = naturalTextCompare(left.seatDetails, right.seatDetails);
         if (labelDiff !== 0) return labelDiff;
@@ -1325,7 +1345,13 @@ function renderSales() {
               if (dateDiff !== 0) return dateDiff;
               const matchDiff = matchNumberSortValue(left.matchNumber) - matchNumberSortValue(right.matchNumber);
               if (matchDiff !== 0) return matchDiff;
-              return left.seatSortValue - right.seatSortValue;
+              const blockDiff = naturalTextCompare(left.seatSortValue.block, right.seatSortValue.block);
+              if (blockDiff !== 0) return blockDiff;
+              const rowDiff = left.seatSortValue.row - right.seatSortValue.row;
+              if (rowDiff !== 0) return rowDiff;
+              const seatDiff = left.seatSortValue.seat - right.seatSortValue.seat;
+              if (seatDiff !== 0) return seatDiff;
+              return naturalTextCompare(left.ticketLabel, right.ticketLabel);
             })
             .reduce((groups, item) => {
               const key = item.matchLabel || "-";
