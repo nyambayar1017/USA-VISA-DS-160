@@ -20,6 +20,7 @@
           <p class="sidebar-label">Backoffice</p>
           <a class="sidebar-link" href="/backoffice">Home</a>
           <a class="sidebar-link is-active" href="/camp">Camp Reservations</a>
+          <a class="sidebar-link" href="/fifa2026-admin">FIFA 2026</a>
           <a class="sidebar-link" href="/contracts">Contracts</a>
           <a class="sidebar-link" href="/ds160">DS-160</a>
           <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>
@@ -241,13 +242,10 @@
                       </select>
                     </label>
                     <label>
-                      New Camp
-                      <input name="newCampName" id="new-camp-name" placeholder="Create new camp if not listed" />
-                    </label>
-                    <label>
                       Reservation type
                       <select name="reservationType" required>
                         <option value="camp">Camp reservation</option>
+                        <option value="tent">Tent reservation</option>
                         <option value="hotel">Hotel reservation</option>
                         <option value="herder">Herder family reservation</option>
                       </select>
@@ -450,6 +448,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/camp.js?v=workspace-54"></script>
+    <script src="/camp.js?v=workspace-60"></script>
   </body>
 </html>
