@@ -2742,7 +2742,7 @@ body.modal-open {
 }
 
 .fifa-match-accordion--table {
-  gap: 10px;
+  gap: 12px;
 }
 
 .fifa-match-table-head {
@@ -2750,20 +2750,23 @@ body.modal-open {
   grid-template-columns: 44px 96px 260px 300px 120px 100px 190px;
   gap: 10px;
   align-items: center;
-  padding: 0 18px 8px;
-  color: #42537a;
-  font-size: 0.78rem;
+  padding: 12px 18px;
+  border: 1px solid rgba(32, 53, 111, 0.08);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(238, 243, 255, 0.95), rgba(248, 250, 255, 0.92));
+  color: #52668f;
+  font-size: 0.74rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
 .fifa-match-card {
-  border: 1px solid rgba(32, 53, 111, 0.14);
-  border-radius: 18px;
+  border: 1px solid rgba(32, 53, 111, 0.1);
+  border-radius: 22px;
   overflow: hidden;
-  background: #ffffff;
-  box-shadow: 0 6px 18px rgba(24, 42, 88, 0.04);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  box-shadow: 0 12px 28px rgba(24, 42, 88, 0.06);
 }
 
 .fifa-match-toggle {
@@ -2772,15 +2775,15 @@ body.modal-open {
   grid-template-columns: 44px 96px 260px 300px 120px 100px 190px;
   gap: 10px;
   align-items: center;
-  padding: 18px;
+  padding: 20px 18px;
   border: 0;
-  background: #ffffff;
+  background: transparent;
   text-align: left;
   cursor: pointer;
 }
 
 .fifa-match-toggle:hover {
-  background: #f6f8fc;
+  background: rgba(244, 247, 255, 0.92);
 }
 
 .fifa-match-toggle--static {
@@ -2807,12 +2810,19 @@ body.modal-open {
 .fifa-match-col strong {
   display: block;
   color: #1f2d50;
-  font-size: 0.98rem;
-  line-height: 1.35;
+  font-size: 1rem;
+  line-height: 1.25;
 }
 
 .fifa-match-col--number strong {
-  font-size: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(32, 53, 111, 0.08);
+  font-size: 1rem;
   color: var(--brand);
 }
 
@@ -2847,22 +2857,26 @@ body.modal-open {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 12px;
+  gap: 8px 10px;
 }
 
 .fifa-availability-line {
   display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(32, 53, 111, 0.06);
   color: #1f2d50;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 700;
   line-height: 1.4;
   white-space: nowrap;
 }
 
 .fifa-availability-total {
-  flex-basis: auto;
-  margin-top: 0;
-  margin-left: 8px;
+  flex-basis: 100%;
+  margin-top: 2px;
+  margin-left: 0;
   white-space: nowrap;
 }
 
@@ -2880,10 +2894,30 @@ body.modal-open {
 .fifa-match-col--actions [data-action="edit-match"],
 .fifa-match-col--actions [data-action="delete-match"],
 .fifa-match-col--actions [data-action="add-ticket-match"] {
-  padding: 4px 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
   font-size: 0.74rem;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.fifa-match-col--actions [data-action="edit-match"],
+.fifa-match-col--actions [data-action="delete-match"] {
+  background: rgba(32, 53, 111, 0.08);
+  color: var(--brand);
+  border: 1px solid transparent;
+}
+
+.fifa-match-col--actions [data-action="edit-match"]:hover,
+.fifa-match-col--actions [data-action="delete-match"]:hover {
+  background: rgba(32, 53, 111, 0.12);
+}
+
+.fifa-table-sub {
+  display: block;
+  margin-top: 5px;
+  color: #7b8bab;
+  font-size: 0.8rem;
 }
 
 .fifa-sale-block-editor,
