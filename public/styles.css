@@ -2891,7 +2891,7 @@ body.modal-open {
   align-items: center;
   gap: 8px;
   justify-content: flex-start;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .fifa-availability-block {
@@ -2927,7 +2927,7 @@ body.modal-open {
 .fifa-price-block {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 8px;
+  gap: 2px 12px;
   margin-top: 6px;
 }
 
@@ -3183,6 +3183,7 @@ body.modal-open {
 
 .fifa-sale-card .fifa-match-col--actions .fifa-match-stage-actions {
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .fifa-sale-card .fifa-match-col--actions .fifa-inline-action,

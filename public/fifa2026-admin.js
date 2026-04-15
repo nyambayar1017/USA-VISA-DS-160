@@ -1084,7 +1084,7 @@ function renderTickets() {
           `;
           const priceSummary = group.categoryBreakdown
             .filter((item) => item.price > 0)
-            .map((item) => `<span class="fifa-price-line">CAT ${item.categoryCode}: ${escapeHtml(formatMoney(item.price, item.currency))}</span>`)
+            .map((item) => `<span class="fifa-price-line">Cat ${item.categoryCode}: ${escapeHtml(formatMoney(item.price, item.currency))}</span>`)
             .join("");
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
