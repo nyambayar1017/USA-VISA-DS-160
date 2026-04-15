@@ -6355,11 +6355,6 @@ def app(environ, start_response):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "fifa2026-admin.html")
 
-    if path == "/fifa2026-admin-fresh":
-        if not current_user(environ):
-            return file_response(start_response, PUBLIC_DIR / "login.html")
-        return file_response(start_response, PUBLIC_DIR / "fifa2026-admin.html")
-
     if path == "/fifa2026":
         return file_response(start_response, PUBLIC_DIR / "fifa2026.html")
 
