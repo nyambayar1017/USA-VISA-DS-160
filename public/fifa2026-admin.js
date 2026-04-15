@@ -1271,8 +1271,16 @@ ticketList?.addEventListener("click", async (event) => {
     event.stopPropagation();
     const group = buildTicketGroups().find((item) => item.key === target.dataset.matchKey);
     if (!group || !group.tickets.length) return;
-    if (!window.confirm(`Delete match ${group.matchNumber} and all of its tickets?`)) return;
+    if (!window.confirm(`Delete match ${group.matchNumber} with all of its sales and tickets?`)) return;
     try {
+      const relatedTicketIds = new Set(group.tickets.map((item) => item.id));
+      const relatedSales = state.sales.filter((sale) => {
+        const saleTicketIds = sale.ticketIds?.length ? sale.ticketIds : (sale.ticketId ? [sale.ticketId] : []);
+        return saleTicketIds.some((ticketId) => relatedTicketIds.has(ticketId));
+      });
+      for (const sale of relatedSales) {
+        await fetchJson(`/api/fifa2026/sales/${sale.id}`, { method: "DELETE" });
+      }
       for (const groupedTicket of group.tickets) {
         await fetchJson(`/api/fifa2026/tickets/${groupedTicket.id}`, { method: "DELETE" });
       }
