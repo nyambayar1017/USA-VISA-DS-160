@@ -1464,22 +1464,83 @@ function renderSales() {
 }
 
 function openSaleInvoice(sale) {
-  const ticketLines = (sale.ticketIds || []).map((ticketId, index) => {
-    const ticket = state.tickets.find((item) => item.id === ticketId);
-    const participant = sale.participants?.find((p) => p.ticketId === ticketId) || sale.participants?.[index];
-    return {
-      matchLabel: ticket ? buildMatchTitle(ticket.matchNumber, ticket.teamA, ticket.teamB) : sale.ticketLabel || "-",
-      ticketLabel: ticket ? ticketSummaryLabel(ticket) : sale.ticketLabel || "-",
-      unitPrice: ticket?.price || 0,
-      travelerName: participant?.name || "-",
-    };
-  });
-  const groups = ticketLines.reduce((bucket, item) => {
-    if (!bucket[item.matchLabel]) bucket[item.matchLabel] = [];
-    bucket[item.matchLabel].push(item);
-    return bucket;
-  }, {});
-  const total = Object.values(groups).flat().reduce((sum, item) => sum + Number(item.unitPrice || 0), 0);
+  const formatInvoiceDate = (value) => {
+    const normalized = formatDate(value);
+    return normalized && normalized !== "-" ? normalized.replaceAll("-", ".") : "-";
+  };
+  const invoicePaymentStatusMeta = (status) => {
+    if (status === "paid") return { label: "Төлөгдсөн", className: "paid" };
+    if (status === "overdue") return { label: "Хугацаа хэтэрсэн", className: "overdue" };
+    return { label: "Хүлээгдэж буй", className: "waiting" };
+  };
+  const invoiceNumber = `FIFA-${String(sale.id || "").slice(0, 8).toUpperCase() || "00000000"}-1`;
+  const buyerName = sale.buyerTitle || sale.buyerName || "-";
+  const soldDate = formatDate(sale.soldAt);
+  const invoiceDate = formatInvoiceDate(sale.soldAt);
+  const items = (sale.ticketBlocks || [])
+    .filter((block) => Number(block.quantity || 0) > 0)
+    .map((block, index) => ({
+      index: index + 1,
+      description: block.matchLabel || "-",
+      quantity: Number(block.quantity || 0),
+      unitPrice: Number(block.unitPrice || 0),
+      totalPrice: Number(block.totalPrice || 0),
+      categoryCode: block.categoryCode || "",
+    }));
+  if (!items.length && (sale.ticketIds || []).length) {
+    const grouped = {};
+    (sale.ticketIds || []).forEach((ticketId) => {
+      const ticket = state.tickets.find((item) => item.id === ticketId);
+      if (!ticket) return;
+      const key = `${ticket.matchNumber || ""}|${ticket.categoryCode || ""}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          description: buildMatchTitle(ticket.matchNumber, ticket.teamA, ticket.teamB),
+          quantity: 0,
+          unitPrice: Number(ticket.price || 0),
+          totalPrice: 0,
+          categoryCode: ticket.categoryCode || "",
+        };
+      }
+      grouped[key].quantity += 1;
+      grouped[key].totalPrice += Number(ticket.price || 0);
+    });
+    Object.values(grouped).forEach((item, index) => items.push({ index: index + 1, ...item }));
+  }
+  const total = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+  const amountPaid = Number(sale.amountPaid || 0);
+  const balance = Math.max(0, total - amountPaid);
+  const paymentRows = [];
+  if (amountPaid > 0) {
+    paymentRows.push({
+      title: balance > 0 ? "Урьдчилгаа төлбөр" : "Төлсөн төлбөр",
+      created: invoiceDate,
+      secondaryLabel: "Төлсөн огноо",
+      secondaryValue: invoiceDate,
+      status: invoicePaymentStatusMeta("paid"),
+      amount: amountPaid,
+    });
+  }
+  if (balance > 0) {
+    paymentRows.push({
+      title: "Үлдэгдэл төлбөр",
+      created: invoiceDate,
+      secondaryLabel: "Эцсийн хугацаа",
+      secondaryValue: invoiceDate,
+      status: invoicePaymentStatusMeta("waiting"),
+      amount: balance,
+    });
+  }
+  if (!paymentRows.length) {
+    paymentRows.push({
+      title: "Төлбөр",
+      created: invoiceDate,
+      secondaryLabel: "Төлсөн огноо",
+      secondaryValue: invoiceDate,
+      status: invoicePaymentStatusMeta("waiting"),
+      amount: total,
+    });
+  }
   const popup = window.open("", "_blank", "width=960,height=780");
   if (!popup) return;
   popup.document.write(`
@@ -1487,38 +1548,213 @@ function openSaleInvoice(sale) {
       <head>
         <title>FIFA Invoice</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 32px; color: #1f2d50; }
-          h1 { margin: 0 0 8px; }
-          h2 { margin: 28px 0 10px; font-size: 18px; }
-          .meta { color: #68789c; margin-bottom: 18px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-          th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #dde3f1; }
-          th { font-size: 12px; text-transform: uppercase; color: #68789c; letter-spacing: .06em; }
-          .totals { margin-top: 18px; font-weight: 700; }
+          @page { size: A4; margin: 14mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; background: #f3f5fb; color: #22283a; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; }
+          .toolbar { position: sticky; top: 0; z-index: 10; display: flex; justify-content: center; gap: 12px; padding: 16px; background: rgba(255, 255, 255, 0.96); border-bottom: 1px solid rgba(34, 40, 58, 0.08); backdrop-filter: blur(10px); }
+          .toolbar button { padding: 12px 18px; border: none; border-radius: 999px; background: #253776; color: #fff; font: 700 14px/1.2 Inter, system-ui, sans-serif; cursor: pointer; }
+          .toolbar .secondary { background: #e9edf8; color: #2a3c78; }
+          .toolbar .save { background: #157347; }
+          .page { width: min(210mm, calc(100vw - 24px)); margin: 20px auto 40px; padding: 24px 22px 26px; background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08); }
+          .invoice-number { margin: 0 0 18px; color: #3b4257; font-size: 17px; font-weight: 500; }
+          .header-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 26px; align-items: start; }
+          .invoice-logo { width: 154px; max-width: 100%; display: block; margin-bottom: 8px; }
+          .company-name { margin: 0 0 6px; font-size: 15px; font-weight: 700; color: #2a3150; }
+          .company-block p, .customer-block p, .meta-note { margin: 0; font-size: 14px; line-height: 1.4; }
+          .meta-note { text-align: right; color: #535b74; }
+          .customer-block { padding-top: 54px; }
+          .customer-block .label { display: block; margin-bottom: 4px; color: #6f7791; font-size: 13px; }
+          .section-title { margin: 22px 0 12px; color: #7f889d; font-size: 14px; font-weight: 500; }
+          table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 12px; border: 1px solid #e7e9f1; }
+          th, td { padding: 11px 12px; border-bottom: 1px solid #eceef5; text-align: left; font-size: 14px; }
+          th { background: #fbfcfe; color: #4d566f; font-weight: 700; }
+          td:last-child, th:last-child, td:nth-last-child(2), th:nth-last-child(2) { text-align: right; }
+          .total-row td { font-weight: 700; background: #fdfdfd; }
+          .payment-stack { display: grid; gap: 14px; }
+          .payment-card { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(110px, 0.8fr)) auto; gap: 14px; align-items: center; padding: 15px 16px; border: 1px solid #e7e9f1; border-radius: 14px; background: #fff; }
+          .payment-title, .payment-amount { font-size: 14px; font-weight: 600; color: #2b3148; }
+          .payment-amount { text-align: right; white-space: nowrap; }
+          .payment-meta { display: grid; gap: 4px; }
+          .meta-value { font-size: 14px; font-weight: 600; color: #2b3148; }
+          .meta-label { color: #8b93a9; font-size: 13px; }
+          .payment-status { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+          .payment-status.paid { background: #dcf4e3; color: #1f8550; }
+          .payment-status.overdue { background: #f8dede; color: #c44747; }
+          .payment-status.waiting { background: #eef2fb; color: #506189; }
+          .bank-section { margin-top: 16px; padding-bottom: 0; }
+          .bank-grid { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; font-size: 14px; color: #2d344c; }
+          .invoice-footer { margin-top: 28px; padding-top: 18px; border-top: 1px solid #e7e9f1; }
+          .invoice-footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+          .invoice-footer-party { display: flex; flex-direction: column; }
+          .invoice-footer-label { margin: 0 0 10px; color: #8b93a9; font-size: 13px; }
+          .finance-asset-wrap { position: relative; min-height: 136px; }
+          .finance-stamp { position: absolute; left: 16px; top: 14px; width: 172px; z-index: 2; }
+          .finance-stamp img { width: 100%; height: auto; display: block; }
+          .finance-signature { position: absolute; left: 74px; top: 18px; width: 150px; z-index: 1; height: 62px; overflow: hidden; }
+          .finance-signature img { width: 220px; max-width: none; display: block; transform: translate(-42px, -28px) rotate(-3deg); }
+          .invoice-footer-space { min-height: 136px; }
+          .invoice-sign-line { height: 1px; background: #d6dceb; }
+          .invoice-sign-name { margin-top: 8px; font-size: 13px; font-weight: 700; color: #2b3148; }
+          .invoice-view-text { display: inline; }
+          .invoice-edit-input { display: none; }
+          body.is-editing .invoice-view-text { display: none; }
+          body.is-editing .invoice-edit-input { display: block; width: 100%; min-height: 36px; padding: 8px 10px; border: 1px solid #cfd7eb; border-radius: 10px; background: #fff; color: #2b3148; font: 600 13px/1.2 Inter, system-ui, sans-serif; }
+          @media print { .toolbar { display: none; } .page { width: auto; margin: 0; border: none; border-radius: 0; box-shadow: none; } }
         </style>
       </head>
       <body>
-        <h1>Invoice</h1>
-        <div class="meta">${sale.buyerTitle || sale.buyerName || "-"} · ${sale.buyerPhone || ""}</div>
-        ${Object.entries(groups).map(([matchLabel, items]) => `
-          <h2>${matchLabel}</h2>
+        <div class="toolbar">
+          <button type="button" class="secondary" data-mode="view">View</button>
+          <button type="button" class="secondary" data-mode="edit">Edit</button>
+          <button type="button" class="save" data-save hidden>Save</button>
+          <button type="button" data-print>PDF Татах</button>
+        </div>
+        <div class="page">
+          <p class="invoice-number">Нэхэмжлэх #${escapeHtml(invoiceNumber)}</p>
+          <div class="header-grid">
+            <div class="company-block">
+              <img class="invoice-logo" src="/assets/logo.png" alt="Дэлхий Трэвел" />
+              <p class="company-name">Дэлхий Трэвел Икс ХХК (6925073)</p>
+              <p>Улаанбаатар хот, ХУД, 17-р хороо</p>
+              <p>Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</p>
+              <p>info@travelx.mn</p>
+              <p>+976 72007722</p>
+            </div>
+            <div>
+              <p class="meta-note">Сангийн сайдын 2017 оны 12 дугаар сарын 05</p>
+              <p class="meta-note">өдрийн 347 тоот тушаалын хавсралт</p>
+              <div class="customer-block">
+                <span class="label">Төлөгч</span>
+                <p><strong>${escapeHtml(String(buyerName).toUpperCase())}</strong></p>
+              </div>
+            </div>
+          </div>
+          <p class="section-title">Үнийн мэдээлэл</p>
           <table>
-            <thead><tr><th>#</th><th>Ticket</th><th>Traveler</th><th>Price</th></tr></thead>
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Утга</th>
+                <th>Тоо ширхэг</th>
+                <th>Нэгжийн үнэ</th>
+                <th>Нийт үнэ</th>
+              </tr>
+            </thead>
             <tbody>
-              ${items.map((item, index) => `
+              ${items.map((item) => `
                 <tr>
-                  <td>${index + 1}</td>
-                  <td>${item.ticketLabel}</td>
-                  <td>${item.travelerName}</td>
-                  <td>${formatMoney(item.unitPrice || 0)}</td>
+                  <td>${item.index}</td>
+                  <td>
+                    <span class="invoice-view-text">${escapeHtml(item.description)}${item.categoryCode ? ` · CAT ${escapeHtml(item.categoryCode)}` : ""}</span>
+                    <input class="invoice-edit-input" value="${escapeHtml(item.description)}${item.categoryCode ? ` · CAT ${escapeHtml(item.categoryCode)}` : ""}" />
+                  </td>
+                  <td>
+                    <span class="invoice-view-text">${item.quantity}</span>
+                    <input class="invoice-edit-input" type="number" value="${item.quantity}" />
+                  </td>
+                  <td>
+                    <span class="invoice-view-text">${escapeHtml(formatMoney(item.unitPrice))}</span>
+                    <input class="invoice-edit-input" type="number" value="${item.unitPrice}" />
+                  </td>
+                  <td>
+                    <span class="invoice-view-text">${escapeHtml(formatMoney(item.totalPrice))}</span>
+                    <input class="invoice-edit-input" type="number" value="${item.totalPrice}" />
+                  </td>
                 </tr>
               `).join("")}
+              <tr class="total-row">
+                <td colspan="4">Нийт үнэ</td>
+                <td>${escapeHtml(formatMoney(total))}</td>
+              </tr>
             </tbody>
           </table>
-        `).join("")}
-        <div class="totals">Total: ${formatMoney(total)}</div>
-        <div class="totals">Paid: ${formatMoney(sale.amountPaid || 0)}</div>
-        <div class="totals">Balance: ${formatMoney(Math.max(0, total - Number(sale.amountPaid || 0)))}</div>
+          <p class="section-title">Төлбөрийн хуваарь</p>
+          <div class="payment-stack">
+            ${paymentRows.map((row) => `
+              <div class="payment-card">
+                <div class="payment-main">
+                  <span class="payment-title invoice-view-text">${escapeHtml(row.title)}</span>
+                  <input class="invoice-edit-input" value="${escapeHtml(row.title)}" />
+                </div>
+                <div class="payment-meta">
+                  <span class="meta-label">Нэхэмжилсэн огноо</span>
+                  <span class="meta-value invoice-view-text">${escapeHtml(row.created)}</span>
+                  <input class="invoice-edit-input" type="date" value="${escapeHtml(soldDate || "")}" />
+                </div>
+                <div class="payment-meta">
+                  <span class="meta-label">${escapeHtml(row.secondaryLabel)}</span>
+                  <span class="meta-value invoice-view-text">${escapeHtml(row.secondaryValue)}</span>
+                  <input class="invoice-edit-input" type="date" value="${escapeHtml(soldDate || "")}" />
+                </div>
+                <div class="payment-meta">
+                  <span class="meta-label">Төлөв</span>
+                  <span class="payment-status ${row.status.className}">${escapeHtml(row.status.label)}</span>
+                </div>
+                <div class="payment-amount">${escapeHtml(formatMoney(row.amount))}</div>
+              </div>
+            `).join("")}
+          </div>
+          <div class="bank-section">
+            <p class="section-title">Дансны мэдээлэл</p>
+            <div class="bank-grid">
+              <span>Дэлхий Трэвел Икс</span>
+              <span>Төрийн Банк</span>
+              <span>MN030034</span>
+              <strong>3432 7777 9999</strong>
+            </div>
+          </div>
+          <div class="invoice-footer">
+            <div class="invoice-footer-grid">
+              <div class="invoice-footer-party">
+                <p class="invoice-footer-label">Нягтлан</p>
+                <div class="finance-asset-wrap">
+                  <div class="finance-stamp">
+                    <img src="/assets/invoice-finance-stamp.png" alt="Санхүүгийн тамга" />
+                  </div>
+                  <div class="finance-signature">
+                    <img src="/assets/invoice-finance-signature-source.png" alt="Нягтлан гарын үсэг" />
+                  </div>
+                </div>
+                <div class="invoice-sign-line"></div>
+                <div class="invoice-sign-name">Г.Баясгалан</div>
+              </div>
+              <div class="invoice-footer-party">
+                <p class="invoice-footer-label">Төлөгч</p>
+                <div class="invoice-footer-space"></div>
+                <div class="invoice-sign-line"></div>
+                <div class="invoice-sign-name">${escapeHtml(String(buyerName).toUpperCase())}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <script>
+          const modeButtons = Array.from(document.querySelectorAll('[data-mode]'));
+          const saveButton = document.querySelector('[data-save]');
+          document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
+          modeButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+              const isEdit = button.dataset.mode === 'edit';
+              document.body.classList.toggle('is-editing', isEdit);
+              saveButton.hidden = !isEdit;
+              modeButtons.forEach((item) => {
+                item.style.background = item.dataset.mode === button.dataset.mode ? '#253776' : '#e9edf8';
+                item.style.color = item.dataset.mode === button.dataset.mode ? '#fff' : '#2a3c78';
+              });
+            });
+          });
+          saveButton?.addEventListener('click', () => {
+            document.body.classList.remove('is-editing');
+            saveButton.hidden = true;
+            modeButtons.forEach((item) => {
+              item.style.background = item.dataset.mode === 'view' ? '#253776' : '#e9edf8';
+              item.style.color = item.dataset.mode === 'view' ? '#fff' : '#2a3c78';
+            });
+          });
+          if (modeButtons[0]) {
+            modeButtons[0].style.background = '#253776';
+            modeButtons[0].style.color = '#fff';
+          }
+        </script>
       </body>
     </html>
   `);
