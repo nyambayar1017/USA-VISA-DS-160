@@ -532,6 +532,10 @@ function syncSalePriceFields() {
   const unitPrices = [...new Set(state.saleBlocks.map((block) => Number(block.unitPrice || 0)).filter(Boolean))];
   saleForm.elements.quantity.value = String(totalTickets || 0);
   saleForm.elements.pricePerTicket.value = unitPrices.length === 1 ? String(unitPrices[0]) : "";
+  saleForm.elements.pricePerTicket.placeholder = unitPrices.length <= 1 ? "" : "Mixed prices above";
+  saleForm.elements.pricePerTicket.title = unitPrices.length <= 1
+    ? ""
+    : "This sale has different ticket prices by match. Use the per-match block prices above.";
   saleForm.elements.totalPrice.value = totalPrice ? String(totalPrice) : "";
   syncSaleTotals();
 }

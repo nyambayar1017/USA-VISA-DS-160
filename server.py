@@ -4816,8 +4816,33 @@ def build_fifa_sale(payload, actor=None):
     ticket_blocks = payload.get("ticketBlocks") if isinstance(payload.get("ticketBlocks"), list) else []
     participants = payload.get("participants") if isinstance(payload.get("participants"), list) else []
     quantity = max(parse_int(payload.get("quantity")) or len(ticket_ids) or 1, 1)
+    normalized_blocks = []
+    for block in ticket_blocks:
+        if not isinstance(block, dict):
+            continue
+        normalized_block = {
+            "matchNumber": normalize_text(block.get("matchNumber")),
+            "matchLabel": normalize_text(block.get("matchLabel")),
+            "categoryCode": normalize_text(block.get("categoryCode")),
+            "quantity": max(parse_int(block.get("quantity")), 0),
+            "unitPrice": max(parse_int(block.get("unitPrice")), 0),
+            "totalPrice": max(parse_int(block.get("totalPrice")), 0),
+            "seatPreview": normalize_text(block.get("seatPreview")),
+            "ticketLabels": [normalize_text(item) for item in (block.get("ticketLabels") or []) if normalize_text(item)],
+            "ticketIds": [normalize_text(item) for item in (block.get("ticketIds") or []) if normalize_text(item)],
+        }
+        if normalized_block["quantity"] <= 0 and normalized_block["ticketIds"]:
+            normalized_block["quantity"] = len(normalized_block["ticketIds"])
+        if normalized_block["totalPrice"] <= 0 and normalized_block["quantity"] > 0 and normalized_block["unitPrice"] > 0:
+            normalized_block["totalPrice"] = normalized_block["quantity"] * normalized_block["unitPrice"]
+        normalized_blocks.append(normalized_block)
+    ticket_blocks = normalized_blocks
+    block_total_price = sum(max(parse_int(block.get("totalPrice")), 0) for block in ticket_blocks)
+    unique_unit_prices = {max(parse_int(block.get("unitPrice")), 0) for block in ticket_blocks if max(parse_int(block.get("unitPrice")), 0) > 0}
     price_per_ticket = max(parse_int(payload.get("pricePerTicket")), 0)
-    total_price = max(parse_int(payload.get("totalPrice")) or (quantity * price_per_ticket), 0)
+    if not price_per_ticket and len(unique_unit_prices) == 1:
+        price_per_ticket = next(iter(unique_unit_prices))
+    total_price = max(parse_int(payload.get("totalPrice")) or block_total_price or (quantity * price_per_ticket), 0)
     amount_paid = max(parse_int(payload.get("amountPaid")), 0)
     payment_status = normalize_text(payload.get("paymentStatus")).lower()
     if not payment_status:
@@ -4868,8 +4893,16 @@ def validate_fifa_sale(sale, ticket, sales, store, excluded_sale_id=None):
         return "Buyer name must be at least 2 characters"
     if sale.get("quantity", 0) != len(ticket_ids):
         return "Selected ticket count and quantity must match"
-    if sale.get("pricePerTicket", 0) <= 0:
+    ticket_blocks = sale.get("ticketBlocks") or []
+    if not ticket_blocks and sale.get("pricePerTicket", 0) <= 0:
         return "Sale price must be greater than 0"
+    if ticket_blocks:
+        if any(max(parse_int(block.get("unitPrice")), 0) <= 0 for block in ticket_blocks):
+            return "Each match block must have a valid price per ticket"
+        if any(max(parse_int(block.get("totalPrice")), 0) <= 0 for block in ticket_blocks):
+            return "Each match block must have a valid total price"
+        if sum(max(parse_int(block.get("totalPrice")), 0) for block in ticket_blocks) <= 0:
+            return "Total price must be greater than 0"
     if sale.get("paymentStatus") not in {"unpaid", "partial", "paid", "refunded"}:
         return "Payment status is invalid"
     if sale.get("saleStatus") not in {"active", "cancelled"}:
