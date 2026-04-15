@@ -4681,8 +4681,17 @@ def enrich_fifa_sale(sale, ticket, store=None):
     block_total_price = sum(max(parse_int(block.get("totalPrice")), 0) for block in (sale.get("ticketBlocks") or []))
     total_price = max(parse_int(sale.get("totalPrice")) or max(block_total_price - discount_amount, 0) or (quantity * price_per_ticket), 0)
     amount_paid = max(parse_int(sale.get("amountPaid")), 0)
+    invoice_exchange_rate = max(parse_int(sale.get("invoiceExchangeRate")) or 3500, 1)
     buyer_name = normalize_text(sale.get("buyerName"))
     sold_by = sale.get("soldBy") or {}
+    sold_by_email = normalize_text(sold_by.get("email")).lower()
+    sold_by_user = find_user_by_email(sold_by_email) if sold_by_email else None
+    sold_by_name = (
+        normalize_text(sold_by.get("fullName"))
+        or normalize_text(sold_by_user.get("fullName") if sold_by_user else "")
+        or normalize_text(sold_by_user.get("name") if sold_by_user else "")
+        or sold_by_email
+    )
     ticket_labels = [
         f"{normalize_text(item.get('matchNumber'))} · {normalize_text(item.get('matchLabel'))}".strip(" ·")
         for item in linked_tickets
@@ -4697,6 +4706,7 @@ def enrich_fifa_sale(sale, ticket, store=None):
         "quantity": quantity,
         "pricePerTicket": price_per_ticket,
         "discountAmount": discount_amount,
+        "invoiceExchangeRate": invoice_exchange_rate,
         "totalPrice": total_price,
         "amountPaid": amount_paid,
         "balanceDue": max(total_price - amount_paid, 0),
@@ -4711,7 +4721,7 @@ def enrich_fifa_sale(sale, ticket, store=None):
         "buyerTitle": normalize_text(sale.get("buyerTitle")),
         "ticketBlocks": sale.get("ticketBlocks") or [],
         "participants": sale.get("participants") or [],
-        "soldByName": sold_by.get("fullName") or sold_by.get("email") or "",
+        "soldByName": sold_by_name,
     }
 
 
@@ -4846,6 +4856,7 @@ def build_fifa_sale(payload, actor=None):
     if not price_per_ticket and len(unique_unit_prices) == 1:
         price_per_ticket = next(iter(unique_unit_prices))
     discount_amount = max(parse_int(payload.get("discountAmount")), 0)
+    invoice_exchange_rate = max(parse_int(payload.get("invoiceExchangeRate")) or 3500, 1)
     total_price = max(parse_int(payload.get("totalPrice")) or max(block_total_price - discount_amount, 0) or (quantity * price_per_ticket), 0)
     amount_paid = max(parse_int(payload.get("amountPaid")), 0)
     payment_status = normalize_text(payload.get("paymentStatus")).lower()
@@ -4873,6 +4884,7 @@ def build_fifa_sale(payload, actor=None):
         "buyerNotes": normalize_text(payload.get("buyerNotes")),
         "pricePerTicket": price_per_ticket,
         "discountAmount": discount_amount,
+        "invoiceExchangeRate": invoice_exchange_rate,
         "totalPrice": total_price,
         "amountPaid": amount_paid,
         "paymentStatus": payment_status,

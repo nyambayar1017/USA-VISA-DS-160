@@ -745,6 +745,7 @@ function resetSaleForm() {
   renderParticipants();
   renderSaleSeatPicker();
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = "0";
+  if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = "3500";
   if (salePriceBreakdown) salePriceBreakdown.value = "";
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
   clearStatus(saleStatusNode);
@@ -881,6 +882,7 @@ function fillSaleForm(sale) {
   saleForm.elements.quantity.value = sale.quantity || 1;
   saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = sale.discountAmount || 0;
+  if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = sale.invoiceExchangeRate || 3500;
   saleForm.elements.totalPrice.value = sale.totalPrice || "";
   saleForm.elements.amountPaid.value = sale.amountPaid || 0;
   saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
@@ -1518,6 +1520,8 @@ function openSaleInvoice(sale) {
   const buyerName = sale.buyerName || sale.buyerTitle || "-";
   const soldDate = formatDate(sale.soldAt);
   const invoiceDate = formatInvoiceDate(sale.soldAt);
+  const exchangeRate = Math.max(Number(sale.invoiceExchangeRate || 3500), 1);
+  const formatMnt = (value) => `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(Number(value || 0)))} ₮`;
   const items = (sale.ticketBlocks || [])
     .filter((block) => Number(block.quantity || 0) > 0)
     .map((block, index) => ({
@@ -1598,7 +1602,7 @@ function openSaleInvoice(sale) {
           .toolbar button { padding: 12px 18px; border: none; border-radius: 999px; background: #253776; color: #fff; font: 700 14px/1.2 Inter, system-ui, sans-serif; cursor: pointer; }
           .toolbar .secondary { background: #e9edf8; color: #2a3c78; }
           .toolbar .save { background: #157347; }
-          .page { width: min(210mm, calc(100vw - 24px)); margin: 20px auto 40px; padding: 24px 22px 26px; background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08); }
+          .page { width: min(230mm, calc(100vw - 40px)); margin: 20px auto 40px; padding: 24px 22px 26px; background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; box-shadow: 0 16px 44px rgba(34, 40, 58, 0.08); }
           .invoice-number { margin: 0 0 18px; color: #3b4257; font-size: 17px; font-weight: 500; }
           .header-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 26px; align-items: start; }
           .invoice-logo { width: 154px; max-width: 100%; display: block; margin-bottom: 8px; }
@@ -1676,6 +1680,7 @@ function openSaleInvoice(sale) {
               <div class="customer-block">
                 <span class="label">Төлөгч</span>
                 <p><strong>${escapeHtml(String(buyerName).toUpperCase())}</strong></p>
+                <p class="meta-note">Ханш: 1 USD = ${escapeHtml(formatMnt(exchangeRate))}</p>
               </div>
             </div>
           </div>
@@ -1703,24 +1708,24 @@ function openSaleInvoice(sale) {
                     <input class="invoice-edit-input" type="number" value="${item.quantity}" />
                   </td>
                   <td>
-                    <span class="invoice-view-text">${escapeHtml(formatMoney(item.unitPrice))}</span>
-                    <input class="invoice-edit-input" type="number" value="${item.unitPrice}" />
+                    <span class="invoice-view-text">${escapeHtml(formatMnt(item.unitPrice * exchangeRate))}</span>
+                    <input class="invoice-edit-input" type="number" value="${Math.round(item.unitPrice * exchangeRate)}" />
                   </td>
                   <td>
-                    <span class="invoice-view-text">${escapeHtml(formatMoney(item.totalPrice))}</span>
-                    <input class="invoice-edit-input" type="number" value="${item.totalPrice}" />
+                    <span class="invoice-view-text">${escapeHtml(formatMnt(item.totalPrice * exchangeRate))}</span>
+                    <input class="invoice-edit-input" type="number" value="${Math.round(item.totalPrice * exchangeRate)}" />
                   </td>
                 </tr>
               `).join("")}
               ${discountAmount > 0 ? `
                 <tr class="discount-row">
                   <td colspan="4">Хямдрал</td>
-                  <td>-${escapeHtml(formatMoney(discountAmount))}</td>
+                  <td>-${escapeHtml(formatMnt(discountAmount * exchangeRate))}</td>
                 </tr>
               ` : ""}
               <tr class="total-row">
                 <td colspan="4">Нийт үнэ</td>
-                <td>${escapeHtml(formatMoney(total))}</td>
+                <td>${escapeHtml(formatMnt(total * exchangeRate))}</td>
               </tr>
             </tbody>
           </table>
@@ -1751,7 +1756,7 @@ function openSaleInvoice(sale) {
                     <option value="overdue"${row.status.className === "overdue" ? " selected" : ""}>Хугацаа хэтэрсэн</option>
                   </select>
                 </div>
-                <div class="payment-amount">${escapeHtml(formatMoney(row.amount))}</div>
+                <div class="payment-amount">${escapeHtml(formatMnt(row.amount * exchangeRate))}</div>
               </div>
             `).join("")}
           </div>
