@@ -1069,6 +1069,11 @@ function renderTickets() {
               `
             )
             .join("");
+          const availabilityBadges = `
+            ${availabilitySummary}
+            <span class="fifa-availability-line is-available">Total available: ${group.availableUnits}</span>
+            <span class="fifa-availability-line is-sold">Total sold: ${group.soldUnits}</span>
+          `;
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}" role="button" tabindex="0">
@@ -1085,11 +1090,7 @@ function renderTickets() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--availability">
                   <div class="fifa-availability-block">
-                    ${availabilitySummary}
-                    <div class="fifa-availability-totals">
-                      <span class="fifa-table-sub fifa-availability-total is-available">Total available: ${group.availableUnits}</span>
-                      <span class="fifa-table-sub fifa-availability-total fifa-availability-sold-total">Total sold: ${group.soldUnits}</span>
-                    </div>
+                    ${availabilityBadges}
                   </div>
                 </div>
                 <div class="fifa-match-col fifa-match-col--city">

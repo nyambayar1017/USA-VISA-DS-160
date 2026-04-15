@@ -2901,14 +2901,6 @@ body.modal-open {
   gap: 6px 8px;
 }
 
-.fifa-availability-totals {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-}
-
 .fifa-availability-line {
   display: inline-flex;
   align-items: center;
@@ -2928,27 +2920,6 @@ body.modal-open {
 }
 
 .fifa-availability-line.is-sold {
-  background: rgba(214, 171, 61, 0.18);
-  color: #8b6510;
-}
-
-.fifa-availability-total {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 9px;
-  border-radius: 999px;
-  margin: 0;
-  white-space: nowrap;
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
-.fifa-availability-total.is-available {
-  background: rgba(59, 145, 96, 0.12);
-  color: #216a44;
-}
-
-.fifa-availability-sold-total {
   background: rgba(214, 171, 61, 0.18);
   color: #8b6510;
 }
@@ -2997,6 +2968,7 @@ body.modal-open {
 .fifa-match-col--availability .fifa-table-sub {
   margin-top: 6px;
 }
+
 
 .fifa-sale-block-editor,
 .fifa-participant-editor {
