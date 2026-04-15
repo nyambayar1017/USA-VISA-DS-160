@@ -2775,7 +2775,7 @@ body.modal-open {
   display: grid;
   grid-template-columns: 52px 118px minmax(180px, 1.15fr) minmax(260px, 1.45fr) minmax(120px, 0.8fr) minmax(110px, 0.72fr) auto;
   gap: 14px;
-  align-items: center;
+  align-items: start;
   padding: 16px 18px;
   border: 0;
   background: transparent;
@@ -2806,6 +2806,7 @@ body.modal-open {
 
 .fifa-match-col {
   min-width: 0;
+  padding-top: 2px;
 }
 
 .fifa-match-col strong {
@@ -2835,15 +2836,26 @@ body.modal-open {
 
 .fifa-match-col--stage {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding-right: 0;
 }
 
 .fifa-match-col--actions {
   display: flex;
   justify-content: flex-start;
+  align-items: flex-start;
   min-width: 0;
   padding-left: 0;
+}
+
+.fifa-match-col--city {
+  display: flex;
+  align-items: flex-start;
+}
+
+.fifa-match-col--number,
+.fifa-match-col--actions {
+  padding-top: 0;
 }
 
 .fifa-match-stage-actions {

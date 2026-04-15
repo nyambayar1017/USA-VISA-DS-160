@@ -885,7 +885,7 @@ function renderTickets() {
                     <span class="fifa-table-sub fifa-availability-total">Total available: ${group.availableUnits}</span>
                   </div>
                 </div>
-                <div class="fifa-match-col">
+                <div class="fifa-match-col fifa-match-col--city">
                   <strong>${escapeHtml(group.city)}</strong>
                 </div>
                 <div class="fifa-match-col fifa-match-col--stage">
