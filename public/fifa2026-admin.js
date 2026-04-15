@@ -1129,6 +1129,7 @@ function renderTickets() {
         <span>Match</span>
         <span>Availability</span>
         <span>City</span>
+        <span>Group</span>
         <span>Stage</span>
         <span>Actions</span>
       </div>
@@ -1175,9 +1176,11 @@ function renderTickets() {
                 <div class="fifa-match-col fifa-match-col--city">
                   <strong>${escapeHtml(group.city)}</strong>
                 </div>
+                <div class="fifa-match-col fifa-match-col--group">
+                  <strong>${escapeHtml(group.groupLabel || "-")}</strong>
+                </div>
                 <div class="fifa-match-col fifa-match-col--stage">
                   <strong>${escapeHtml(group.stage)}</strong>
-                  ${group.groupLabel ? `<span class="fifa-table-sub">${escapeHtml(group.groupLabel)}</span>` : ""}
                 </div>
                 <div class="fifa-match-col fifa-match-col--actions">
                   <div class="fifa-match-stage-actions">
@@ -1513,7 +1516,7 @@ function openSaleInvoice(sale) {
   const paymentRows = [];
   if (amountPaid > 0) {
     paymentRows.push({
-      title: balance > 0 ? "Урьдчилгаа төлбөр" : "Төлсөн төлбөр",
+      title: balance > 0 ? "Урьдчилгаа төлбөр" : "Төлбөр",
       created: invoiceDate,
       secondaryLabel: "Төлсөн огноо",
       secondaryValue: invoiceDate,
@@ -1535,13 +1538,13 @@ function openSaleInvoice(sale) {
     paymentRows.push({
       title: "Төлбөр",
       created: invoiceDate,
-      secondaryLabel: "Төлсөн огноо",
+      secondaryLabel: "Эцсийн хугацаа",
       secondaryValue: invoiceDate,
       status: invoicePaymentStatusMeta("waiting"),
       amount: total,
     });
   }
-  const popup = window.open("", "_blank", "width=960,height=780");
+  const popup = window.open("", "_blank");
   if (!popup) return;
   popup.document.write(`
     <html>

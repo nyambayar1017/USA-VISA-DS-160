@@ -2775,7 +2775,7 @@ body.modal-open {
 
 .fifa-match-table-head {
   display: grid;
-  grid-template-columns: 52px 132px 240px minmax(260px, 1fr) 150px 120px 220px;
+  grid-template-columns: 52px 132px 240px minmax(260px, 1fr) 150px 110px 120px 220px;
   gap: 10px;
   align-items: center;
   padding: 12px 8px 12px 0;
@@ -2801,7 +2801,7 @@ body.modal-open {
 .fifa-match-toggle {
   width: 100%;
   display: grid;
-  grid-template-columns: 52px 132px 240px minmax(260px, 1fr) 150px 120px 220px;
+  grid-template-columns: 52px 132px 240px minmax(260px, 1fr) 150px 110px 120px 220px;
   gap: 10px;
   align-items: start;
   padding: 14px 8px 14px 0;
@@ -2877,6 +2877,11 @@ body.modal-open {
 }
 
 .fifa-match-col--city {
+  display: flex;
+  align-items: flex-start;
+}
+
+.fifa-match-col--group {
   display: flex;
   align-items: flex-start;
 }
