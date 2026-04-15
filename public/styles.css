@@ -2902,11 +2902,11 @@ body.modal-open {
 }
 
 .fifa-availability-totals {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  flex-basis: 100%;
-  margin-top: 3px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 .fifa-availability-line {
@@ -2933,15 +2933,23 @@ body.modal-open {
 }
 
 .fifa-availability-total {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
   margin: 0;
   white-space: nowrap;
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .fifa-availability-total.is-available {
+  background: rgba(59, 145, 96, 0.12);
   color: #216a44;
 }
 
 .fifa-availability-sold-total {
+  background: rgba(214, 171, 61, 0.18);
   color: #8b6510;
 }
 
@@ -3060,11 +3068,11 @@ body.modal-open {
 }
 
 .fifa-nested-table tbody tr.is-sold {
-  box-shadow: inset 0 0 0 9999px rgba(214, 171, 61, 0.14);
+  background: rgba(214, 171, 61, 0.14);
 }
 
 .fifa-nested-table tbody tr.is-sold td {
-  background: transparent;
+  background: rgba(214, 171, 61, 0.14);
 }
 
 .fifa-nested-table th:first-child,
@@ -3080,7 +3088,7 @@ body.modal-open {
 }
 
 .fifa-actions-cell {
-  min-width: 220px;
+  min-width: 180px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -3122,6 +3130,10 @@ body.modal-open {
   padding: 3px 7px;
   font-size: 0.68rem;
   white-space: nowrap;
+}
+
+.fifa-nested-table tbody tr.is-sold .fifa-actions-cell {
+  background: transparent;
 }
 
 .fifa-sale-groups {

@@ -182,6 +182,46 @@ function managerInitial(value) {
   return `${emailSafe.charAt(0).toUpperCase()}.`;
 }
 
+const TEAM_FLAG_MAP = {
+  ALG: "🇩🇿",
+  ARG: "🇦🇷",
+  AUS: "🇦🇺",
+  AUT: "🇦🇹",
+  BEL: "🇧🇪",
+  BRA: "🇧🇷",
+  CAN: "🇨🇦",
+  CRO: "🇭🇷",
+  CUR: "🇨🇼",
+  EGY: "🇪🇬",
+  ENG: "🏴",
+  FRA: "🇫🇷",
+  GER: "🇩🇪",
+  GHA: "🇬🇭",
+  JOR: "🇯🇴",
+  JPN: "🇯🇵",
+  KOR: "🇰🇷",
+  MAR: "🇲🇦",
+  MEX: "🇲🇽",
+  NED: "🇳🇱",
+  NOR: "🇳🇴",
+  PAN: "🇵🇦",
+  PAR: "🇵🇾",
+  POR: "🇵🇹",
+  RSA: "🇿🇦",
+  SEN: "🇸🇳",
+  SWI: "🇨🇭",
+  TUR: "🇹🇷",
+  USA: "🇺🇸",
+  UZB: "🇺🇿",
+};
+
+function teamDisplay(code) {
+  const teamCode = String(code || "").trim().toUpperCase();
+  if (!teamCode) return "";
+  const flag = TEAM_FLAG_MAP[teamCode];
+  return flag ? `${flag} ${teamCode}` : teamCode;
+}
+
 function fillSelect(node, values, placeholder, keepValue = "") {
   if (!node) return;
   node.innerHTML = [`<option value="">${placeholder}</option>`]
@@ -286,7 +326,12 @@ function renderCategoryTicketRows(categoryCode, ticketRows = []) {
 function buildMatchLabel(teamA, teamB) {
   const left = String(teamA || "").trim();
   const right = String(teamB || "").trim();
-  return left && right ? `${left} vs ${right}` : "";
+  return left && right ? `${teamDisplay(left)} vs ${teamDisplay(right)}` : teamDisplay(left || right);
+}
+
+function buildMatchTitle(matchNumber, teamA, teamB) {
+  const label = buildMatchLabel(teamA, teamB);
+  return matchNumber ? `${matchNumber}: ${label}` : label;
 }
 
 function normalizeStageValue(value) {
@@ -374,7 +419,11 @@ function saleBlockAvailableTickets(matchNumber, categoryCode, excludedIds = []) 
       && ticket.availableQuantity > 0
       && !excluded.has(ticket.id)
     )
-    .sort((left, right) => naturalTextCompare(left.seatDetails, right.seatDetails));
+    .sort((left, right) => {
+      const seatDiff = extractSeatSortValue(left.seatDetails) - extractSeatSortValue(right.seatDetails);
+      if (seatDiff !== 0) return seatDiff;
+      return naturalTextCompare(left.seatDetails, right.seatDetails);
+    });
 }
 
 function selectedSaleTicketIds() {
@@ -382,7 +431,7 @@ function selectedSaleTicketIds() {
 }
 
 function ticketSummaryLabel(ticket) {
-  return `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)} · CAT ${ticket.categoryCode} · ${ticket.seatDetails || "Seat will be assigned later"}`;
+  return `${buildMatchTitle(ticket.matchNumber, ticket.teamA, ticket.teamB)} · CAT ${ticket.categoryCode} · ${ticket.seatDetails || "Seat will be assigned later"}`;
 }
 
 function extractSeatSortValue(label) {
@@ -435,11 +484,40 @@ function syncSalePriceFields() {
   if (!saleForm) return;
   const totalTickets = selectedSaleTicketIds().length;
   const totalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
-  const averagePrice = totalTickets ? Math.round(totalPrice / totalTickets) : 0;
+  const unitPrices = [...new Set(state.saleBlocks.map((block) => Number(block.unitPrice || 0)).filter(Boolean))];
   saleForm.elements.quantity.value = String(totalTickets || 0);
-  saleForm.elements.pricePerTicket.value = averagePrice ? String(averagePrice) : "";
+  saleForm.elements.pricePerTicket.value = unitPrices.length === 1 ? String(unitPrices[0]) : "";
   saleForm.elements.totalPrice.value = totalPrice ? String(totalPrice) : "";
   syncSaleTotals();
+}
+
+function renderSaleSummary() {
+  const summaryNode = document.querySelector("#fifa-sale-summary");
+  if (!summaryNode) return;
+  if (!state.saleBlocks.length) {
+    summaryNode.innerHTML = "";
+    return;
+  }
+  const totalTickets = state.saleBlocks.reduce((sum, block) => sum + Number(block.quantity || 0), 0);
+  const totalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+  summaryNode.innerHTML = `
+    <div class="fifa-sale-summary-box">
+      <div class="fifa-sale-summary-head">
+        <strong>Payment and invoice summary</strong>
+        <span class="fifa-table-sub">${totalTickets} tickets · ${formatMoney(totalPrice)} total</span>
+      </div>
+      <div class="fifa-sale-summary-list">
+        ${state.saleBlocks.map((block) => `
+          <div class="fifa-sale-summary-row">
+            <strong>${escapeHtml(block.matchLabel)}</strong>
+            <span>${escapeHtml(String(block.quantity || 0))} ticket(s)</span>
+            <span>${escapeHtml(formatMoney(block.unitPrice || 0))} per ticket</span>
+            <span>${escapeHtml(formatMoney(block.totalPrice || 0))} total</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderParticipants() {
@@ -502,6 +580,7 @@ function renderSaleBlocks() {
     syncSaleTicketInputs();
     syncSalePriceFields();
     syncParticipantsFromBlocks();
+    renderSaleSummary();
     return;
   }
   saleBlockList.innerHTML = state.saleBlocks
@@ -512,7 +591,7 @@ function renderSaleBlocks() {
         <div>
           <strong>${escapeHtml(block.matchLabel)}</strong>
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s)</span>
-          <span class="fifa-table-sub">${escapeHtml(formatMoney(derivedUnitPrice))} per ticket · ${escapeHtml(formatMoney(block.totalPrice))} total</span>
+          <span class="fifa-table-sub">${escapeHtml(formatMoney(derivedUnitPrice))} per ticket · ${escapeHtml(String(block.quantity || 0))} ticket(s) · ${escapeHtml(formatMoney(block.totalPrice || 0))} total</span>
           <div class="fifa-sale-ticket-list">
             ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(label)}</span>`).join("")}
           </div>
@@ -525,6 +604,7 @@ function renderSaleBlocks() {
   syncSaleTicketInputs();
   syncSalePriceFields();
   syncParticipantsFromBlocks();
+  renderSaleSummary();
 }
 
 function clearCategoryBlock(categoryCode) {
@@ -736,7 +816,7 @@ function fillSaleForm(sale) {
     if (ticket) {
       state.saleBlocks = [{
         matchNumber: ticket.matchNumber,
-        matchLabel: `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)}`,
+        matchLabel: buildMatchTitle(ticket.matchNumber, ticket.teamA, ticket.teamB),
         categoryCode: String(ticket.categoryCode || ""),
         quantity: Number(sale.quantity || 1),
         unitPrice: Number(ticket.price || 0),
@@ -775,7 +855,7 @@ function startSaleForTicket(ticketId) {
   if (!ticket) return;
   state.saleBlocks = [{
     matchNumber: ticket.matchNumber,
-    matchLabel: `${ticket.matchNumber}: ${buildMatchLabel(ticket.teamA, ticket.teamB)}`,
+        matchLabel: buildMatchTitle(ticket.matchNumber, ticket.teamA, ticket.teamB),
     categoryCode: String(ticket.categoryCode || ""),
     quantity: 1,
     unitPrice: Number(ticket.price || 0),
@@ -796,7 +876,12 @@ function syncSaleTotals() {
   const quantity = Number(saleForm.elements.quantity.value || 0);
   const pricePerTicket = Number(saleForm.elements.pricePerTicket.value || 0);
   if (!saleForm.elements.totalPrice.matches(":focus")) {
-    saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(quantity * pricePerTicket) : "";
+    if (state.saleBlocks.length) {
+      const blockTotal = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+      saleForm.elements.totalPrice.value = blockTotal ? String(blockTotal) : "";
+    } else {
+      saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(quantity * pricePerTicket) : "";
+    }
   }
   const totalPrice = Number(saleForm.elements.totalPrice.value || 0);
   const amountPaid = Number(saleForm.elements.amountPaid.value || 0);
@@ -822,7 +907,7 @@ function createSaleBlockFromSelection() {
   }
   return {
     matchNumber,
-    matchLabel: match ? `${match.matchNumber}: ${buildMatchLabel(match.teamA, match.teamB)}` : `${matchNumber}: ${buildMatchLabel(chosen[0]?.teamA, chosen[0]?.teamB)}`,
+    matchLabel: match ? buildMatchTitle(match.matchNumber, match.teamA, match.teamB) : buildMatchTitle(matchNumber, chosen[0]?.teamA, chosen[0]?.teamB),
     categoryCode,
     quantity,
     unitPrice: chosen[0] ? Number(chosen[0].price || 0) : 0,
@@ -891,8 +976,10 @@ function groupTicketsByMatch(tickets) {
       const groupTickets = group.tickets.sort((left, right) => {
         const categoryDiff = Number(left.categoryCode || 0) - Number(right.categoryCode || 0);
         if (categoryDiff !== 0) return categoryDiff;
-        const seatDiff = naturalTextCompare(left.seatDetails, right.seatDetails);
+        const seatDiff = extractSeatSortValue(left.seatDetails) - extractSeatSortValue(right.seatDetails);
         if (seatDiff !== 0) return seatDiff;
+        const labelDiff = naturalTextCompare(left.seatDetails, right.seatDetails);
+        if (labelDiff !== 0) return labelDiff;
         return naturalTextCompare(left.createdAt, right.createdAt);
       });
       const availableUnits = groupTickets.reduce((sum, ticket) => sum + Number(ticket.availableQuantity || 0), 0);
@@ -1072,16 +1159,17 @@ function renderTickets() {
                                           ${ticket.seatAssignedLater ? '<span class="fifa-pill">assigned later</span>' : ""}
                                         </td>
                                         <td class="fifa-actions-cell">
-                                          <button type="button" class="button-secondary" data-action="edit-ticket" data-id="${escapeHtml(ticket.id)}">Edit</button>
-                                          <button type="button" class="button-secondary" data-action="toggle-visibility" data-id="${escapeHtml(ticket.id)}">${ticket.visibility === "public" ? "Make private" : "Make public"}</button>
-                                          <button type="button" class="button-secondary" data-action="delete-ticket" data-id="${escapeHtml(ticket.id)}">Delete</button>
                                           ${
                                             soldOut
                                               ? `
                                                 <span class="fifa-inline-badge fifa-inline-badge--sold">Sold</span>
                                                 <button type="button" class="button-secondary fifa-inline-action fifa-inline-action--see-buyer" data-action="view-sold-ticket" data-id="${escapeHtml(ticket.id)}">See buyer</button>
                                               `
-                                              : ""
+                                              : `
+                                                <button type="button" class="button-secondary" data-action="edit-ticket" data-id="${escapeHtml(ticket.id)}">Edit</button>
+                                                <button type="button" class="button-secondary" data-action="toggle-visibility" data-id="${escapeHtml(ticket.id)}">${ticket.visibility === "public" ? "Make private" : "Make public"}</button>
+                                                <button type="button" class="button-secondary" data-action="delete-ticket" data-id="${escapeHtml(ticket.id)}">Delete</button>
+                                              `
                                           }
                                         </td>
                                       </tr>
@@ -1184,11 +1272,16 @@ function renderSales() {
               groups[key].push(item);
               return groups;
             }, {});
+          const groupedSaleSummaries = Object.entries(groupedTicketLines).map(([matchLabel, items]) => ({
+            matchLabel,
+            quantity: items.length,
+            total: items.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0),
+          }));
           const blockTotalPrice = (sale.ticketBlocks || []).reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
-          const computedTotalPrice = blockTotalPrice
-            || (ticketLines.length
-              ? ticketLines.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0)
-              : Number(sale.totalPrice || 0));
+          const lineTotalPrice = ticketLines.length
+            ? ticketLines.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0)
+            : 0;
+          const computedTotalPrice = blockTotalPrice || lineTotalPrice || Number(sale.totalPrice || 0);
           const computedBalance = Math.max(0, computedTotalPrice - Number(sale.amountPaid || 0));
           return `
             <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
@@ -1202,8 +1295,10 @@ function renderSales() {
                   <span class="fifa-table-sub">${escapeHtml(sale.buyerPhone || sale.buyerEmail || "-")}</span>
                 </div>
                 <div class="fifa-match-col">
-                  <strong>${sale.quantity} ticket(s)</strong>
-                  <span class="fifa-table-sub">${escapeHtml(ticketLines[0]?.matchLabel || sale.ticketLabel || "-")}</span>
+                  <strong>${ticketLines.length || sale.quantity} ticket(s)</strong>
+                  <div class="fifa-sale-summary-preview">
+                    ${groupedSaleSummaries.map((item) => `<span class="fifa-table-sub">${escapeHtml(item.matchLabel)} · ${item.quantity} ticket(s) · ${escapeHtml(formatMoney(item.total))}</span>`).join("")}
+                  </div>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(formatMoney(computedTotalPrice))}</strong>
@@ -1223,6 +1318,7 @@ function renderSales() {
                 <div class="fifa-match-col fifa-match-col--actions">
                   <div class="fifa-match-stage-actions">
                     <button type="button" class="button-secondary fifa-inline-action" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
+                    <button type="button" class="button-secondary fifa-inline-action" data-action="invoice-sale" data-id="${escapeHtml(sale.id)}">Invoice</button>
                     <button type="button" class="button-secondary fifa-inline-action" data-action="cancel-sale" data-id="${escapeHtml(sale.id)}">Cancel</button>
                     <button type="button" class="button-secondary fifa-inline-action" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
                   </div>
@@ -1236,7 +1332,7 @@ function renderSales() {
                         ${Object.entries(groupedTicketLines).map(([matchLabel, items]) => `
                           <section class="fifa-sale-group">
                             <div class="fifa-sale-group-head">
-                              <strong>${escapeHtml(matchLabel)}</strong>
+                              <strong>MATCH ${escapeHtml(matchLabel)}</strong>
                               <span class="fifa-table-sub">${items.length} ticket(s) · ${escapeHtml(formatMoney(items.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0)))} total</span>
                             </div>
                             <table class="manager-table fifa-table fifa-nested-table fifa-sale-nested-table">
@@ -1278,6 +1374,68 @@ function renderSales() {
         .join("")}
     </div>
   `;
+}
+
+function openSaleInvoice(sale) {
+  const ticketLines = (sale.ticketIds || []).map((ticketId, index) => {
+    const ticket = state.tickets.find((item) => item.id === ticketId);
+    const participant = sale.participants?.find((p) => p.ticketId === ticketId) || sale.participants?.[index];
+    return {
+      matchLabel: ticket ? buildMatchTitle(ticket.matchNumber, ticket.teamA, ticket.teamB) : sale.ticketLabel || "-",
+      ticketLabel: ticket ? ticketSummaryLabel(ticket) : sale.ticketLabel || "-",
+      unitPrice: ticket?.price || 0,
+      travelerName: participant?.name || "-",
+    };
+  });
+  const groups = ticketLines.reduce((bucket, item) => {
+    if (!bucket[item.matchLabel]) bucket[item.matchLabel] = [];
+    bucket[item.matchLabel].push(item);
+    return bucket;
+  }, {});
+  const total = Object.values(groups).flat().reduce((sum, item) => sum + Number(item.unitPrice || 0), 0);
+  const popup = window.open("", "_blank", "width=960,height=780");
+  if (!popup) return;
+  popup.document.write(`
+    <html>
+      <head>
+        <title>FIFA Invoice</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 32px; color: #1f2d50; }
+          h1 { margin: 0 0 8px; }
+          h2 { margin: 28px 0 10px; font-size: 18px; }
+          .meta { color: #68789c; margin-bottom: 18px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+          th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #dde3f1; }
+          th { font-size: 12px; text-transform: uppercase; color: #68789c; letter-spacing: .06em; }
+          .totals { margin-top: 18px; font-weight: 700; }
+        </style>
+      </head>
+      <body>
+        <h1>Invoice</h1>
+        <div class="meta">${sale.buyerTitle || sale.buyerName || "-"} · ${sale.buyerPhone || ""}</div>
+        ${Object.entries(groups).map(([matchLabel, items]) => `
+          <h2>${matchLabel}</h2>
+          <table>
+            <thead><tr><th>#</th><th>Ticket</th><th>Traveler</th><th>Price</th></tr></thead>
+            <tbody>
+              ${items.map((item, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${item.ticketLabel}</td>
+                  <td>${item.travelerName}</td>
+                  <td>${formatMoney(item.unitPrice || 0)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `).join("")}
+        <div class="totals">Total: ${formatMoney(total)}</div>
+        <div class="totals">Paid: ${formatMoney(sale.amountPaid || 0)}</div>
+        <div class="totals">Balance: ${formatMoney(Math.max(0, total - Number(sale.amountPaid || 0)))}</div>
+      </body>
+    </html>
+  `);
+  popup.document.close();
 }
 
 async function loadDashboard() {
@@ -1616,6 +1774,10 @@ saleList?.addEventListener("click", async (event) => {
 
   if (target.dataset.action === "edit-sale") {
     fillSaleForm(sale);
+    return;
+  }
+  if (target.dataset.action === "invoice-sale") {
+    openSaleInvoice(sale);
     return;
   }
   if (target.dataset.action === "cancel-sale") {

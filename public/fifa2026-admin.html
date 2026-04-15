@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-27" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-29" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -369,6 +369,7 @@
                 <div class="full-span fifa-sale-block-list" id="fifa-sale-block-list">
                   <p class="fifa-seat-help">Choose match, category, and seats, then add a ticket block.</p>
                 </div>
+                <div class="full-span fifa-sale-summary" id="fifa-sale-summary"></div>
               </div>
             </section>
             <input type="hidden" name="ticketId" id="fifa-sale-ticket" />
@@ -379,7 +380,7 @@
             </label>
             <label>
               Price per ticket
-              <input name="pricePerTicket" type="number" min="1" step="1" required />
+              <input name="pricePerTicket" type="number" min="1" step="1" readonly />
             </label>
             <label>
               Total price
@@ -504,6 +505,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-22"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-24"></script>
   </body>
 </html>
