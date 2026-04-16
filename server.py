@@ -6630,6 +6630,11 @@ def app(environ, start_response):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "camp-reservations.html")
 
+    if path == "/trip-detail":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "trip-detail.html")
+
     if path == "/flight-reservations":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")

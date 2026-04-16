@@ -41,6 +41,7 @@ const settingsStatus = document.querySelector("#settings-status");
 const campCreatedDate = campForm.querySelector('[name="createdDate"]');
 const MONGOLIA_TIME_ZONE = "Asia/Ulaanbaatar";
 const CAMP_RESERVATIONS_PATH = "/camp-reservations";
+const TRIP_DETAIL_PATH = "/trip-detail";
 
 let currentTrips = [];
 let currentEntries = [];
@@ -110,6 +111,10 @@ function isCampReservationsPage() {
   return window.location.pathname === CAMP_RESERVATIONS_PATH;
 }
 
+function isTripDetailPage() {
+  return window.location.pathname === TRIP_DETAIL_PATH;
+}
+
 function buildCampReservationsUrl(params = {}) {
   const url = new URL(CAMP_RESERVATIONS_PATH, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -117,6 +122,14 @@ function buildCampReservationsUrl(params = {}) {
       url.searchParams.set(key, value);
     }
   });
+  return url.toString();
+}
+
+function buildTripDetailUrl(tripId) {
+  const url = new URL(TRIP_DETAIL_PATH, window.location.origin);
+  if (tripId) {
+    url.searchParams.set("tripId", tripId);
+  }
   return url.toString();
 }
 
@@ -780,8 +793,49 @@ function renderTrips() {
 }
 
 function renderActiveTrip() {
-  activeTripBox.className = "is-hidden";
-  activeTripBox.innerHTML = "";
+  if (!activeTripId || !isTripDetailPage()) {
+    activeTripBox.className = "is-hidden";
+    activeTripBox.innerHTML = "";
+    return;
+  }
+  const trip = getTripById(activeTripId);
+  if (!trip) {
+    activeTripBox.className = "is-hidden";
+    activeTripBox.innerHTML = "";
+    return;
+  }
+  activeTripBox.className = "card trip-summary-card";
+  activeTripBox.innerHTML = `
+    <div class="section-head">
+      <div>
+        <h2>${escapeHtml(trip.tripName)}</h2>
+        <p>${escapeHtml(trip.reservationName || trip.tripName)} · Start ${formatDate(trip.startDate)} · ${escapeHtml(formatStatusLabel(trip.status))}</p>
+      </div>
+      <div class="camp-toolbar">
+        <a class="secondary-button" href="/camp-reservations?tripId=${encodeURIComponent(trip.id)}">Camp Page</a>
+        <a class="secondary-button" href="/flight-reservations?tripId=${encodeURIComponent(trip.id)}">Flights Page</a>
+        <a class="secondary-button" href="/transfer-reservations?tripId=${encodeURIComponent(trip.id)}">Transfers Page</a>
+      </div>
+    </div>
+    <div class="trip-summary-grid">
+      <article class="trip-summary-stat">
+        <span>Pax</span>
+        <strong>${trip.participantCount}</strong>
+      </article>
+      <article class="trip-summary-stat">
+        <span>Staff</span>
+        <strong>${trip.staffCount}</strong>
+      </article>
+      <article class="trip-summary-stat">
+        <span>Guide</span>
+        <strong>${escapeHtml(trip.guideName || "-")}</strong>
+      </article>
+      <article class="trip-summary-stat">
+        <span>Language</span>
+        <strong>${escapeHtml(trip.language || "-")}</strong>
+      </article>
+    </div>
+  `;
 }
 
 function renderCampPayments() {
@@ -2099,7 +2153,7 @@ tripList.addEventListener("click", (event) => {
 
   if (actionTarget.dataset.action === "select-trip") {
     if (isTripsPage()) {
-      window.location.href = buildCampReservationsUrl({ tripId: actionTarget.dataset.tripId });
+      window.location.href = buildTripDetailUrl(actionTarget.dataset.tripId);
       return;
     }
     setActiveTrip(actionTarget.dataset.tripId);
@@ -2574,7 +2628,7 @@ async function init() {
   await loadSettings();
   await loadTrips();
   await loadReservations();
-  if (isCampReservationsPage()) {
+  if (isCampReservationsPage() || isTripDetailPage()) {
     const params = new URLSearchParams(window.location.search);
     const tripId = params.get("tripId");
     const campName = params.get("campName");

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TravelX Trips</title>
+    <title>TravelX Trip Detail</title>
     <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,7 +19,7 @@
         <div class="sidebar-group">
           <p class="sidebar-label">Backoffice</p>
           <a class="sidebar-link" href="/backoffice">Home</a>
-          <a class="sidebar-link is-active" href="/camp">Trips</a>
+          <a class="sidebar-link" href="/camp">Trips</a>
           <a class="sidebar-link" href="/camp-reservations">Camp Reservations</a>
           <a class="sidebar-link" href="/flight-reservations">Flight Reservations</a>
           <a class="sidebar-link" href="/transfer-reservations">Transfer Reservations</a>
@@ -30,8 +30,8 @@
           <a class="sidebar-link" href="/admin">Team / Admin</a>
         </div>
         <div class="sidebar-group">
-          <p class="sidebar-label">Reservations Pages</p>
-          <a class="sidebar-link is-active" href="/camp">Trips</a>
+          <p class="sidebar-label">Trip Workspace</p>
+          <a class="sidebar-link" href="/camp">Trips</a>
           <a class="sidebar-link" href="/camp-reservations">Camp</a>
           <a class="sidebar-link" href="/flight-reservations">Flights</a>
           <a class="sidebar-link" href="/transfer-reservations">Transfers</a>
@@ -42,8 +42,8 @@
         <section class="workspace-topbar">
           <div>
             <p class="workspace-kicker">TravelX Operations</p>
-            <h1>Trips</h1>
-            <p class="workspace-subtitle">Create and manage trips here, then open the separate Camp, Flights, and Transfers pages for each reservation workflow.</p>
+            <h1>Trip Workspace</h1>
+            <p class="workspace-subtitle">See one chosen trip with its camp reservations, flights, and transfers together on the same page.</p>
           </div>
           <div class="workspace-profile" id="workspace-profile">
             <span class="workspace-profile-label">Signed in</span>
@@ -52,7 +52,7 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card page-hidden-section">
           <div class="section-head">
             <div>
               <h2>Reservation Pages</h2>
@@ -66,7 +66,7 @@
           </div>
         </section>
 
-        <section class="card" id="trips-section">
+        <section class="card page-hidden-section" id="trips-section">
           <div class="section-head">
             <h2>Trips</h2>
             <div class="camp-toolbar">
@@ -178,7 +178,11 @@
           <div id="trip-list" class="submission-list"></div>
         </section>
 
-        <section class="card page-hidden-section" id="reservations-section">
+        <section class="card" id="trip-summary-section">
+          <div id="active-trip" class="is-hidden"></div>
+        </section>
+
+        <section class="card" id="reservations-section">
           <div class="section-head">
             <div>
               <h2>Camp Reservations</h2>
@@ -394,13 +398,12 @@
           </div>
 
           <div id="reservation-edit-panel" class="card camp-trip-detail-panel is-hidden"></div>
-          <div id="camp-list" class="submission-list"></div>
-          <div id="active-trip" class="is-hidden"></div>
+          <div id="camp-list" class="page-hidden-section submission-list"></div>
           <div id="active-trip-reservations" class="card camp-trip-detail-panel mini-pagination is-hidden"></div>
           <div id="active-camp-reservations" class="card camp-trip-detail-panel mini-pagination is-hidden"></div>
         </section>
 
-        <section class="card page-hidden-section" id="flight-reservations-section">
+        <section class="card" id="flight-reservations-section">
           <div class="section-head">
             <div>
               <h2>Flight Reservations</h2>
@@ -544,7 +547,7 @@
           <div id="flight-list" class="submission-list"></div>
         </section>
 
-        <section class="card page-hidden-section" id="flight-payments-section">
+        <section class="card" id="flight-payments-section">
           <div class="section-head">
             <div>
               <h2>Flight Payments</h2>
@@ -623,7 +626,7 @@
           <div id="flight-payment-list" class="submission-list"></div>
         </section>
 
-        <section class="card page-hidden-section" id="transfer-reservations-section">
+        <section class="card" id="transfer-reservations-section">
           <div class="section-head">
             <div>
               <h2>Transfer Reservations</h2>
