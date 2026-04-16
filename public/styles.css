@@ -3723,6 +3723,7 @@ body.modal-open {
   align-items: center;
   gap: 14px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .travelx-language-button {
