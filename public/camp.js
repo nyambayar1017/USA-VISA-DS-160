@@ -750,6 +750,14 @@ function renderTrips() {
                       </div>
                       <div class="trip-action-row">
                         <button type="button" class="table-action compact" data-action="add-reservation" data-trip-id="${trip.id}">Add Camp</button>
+                        <details class="trip-menu">
+                          <summary class="trip-menu-trigger" aria-label="Open trip sections">⋮</summary>
+                          <div class="trip-menu-popover">
+                            <button type="button" class="trip-menu-item" data-action="open-trip-camp" data-trip-id="${trip.id}">Camp Reservations</button>
+                            <button type="button" class="trip-menu-item" data-action="open-trip-flights" data-trip-id="${trip.id}">Flights</button>
+                            <button type="button" class="trip-menu-item" data-action="open-trip-transfers" data-trip-id="${trip.id}">Transfers</button>
+                          </div>
+                        </details>
                         <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
                       </div>
                     </div>
@@ -2113,6 +2121,25 @@ tripList.addEventListener("click", (event) => {
     closeInlineEditPanels();
     renderActiveCampReservations();
     startReservationCreate(actionTarget.dataset.tripId);
+    return;
+  }
+
+  if (actionTarget.dataset.action === "open-trip-camp") {
+    window.location.href = buildCampReservationsUrl({ tripId: actionTarget.dataset.tripId });
+    return;
+  }
+
+  if (actionTarget.dataset.action === "open-trip-flights") {
+    const url = new URL("/flight-reservations", window.location.origin);
+    url.searchParams.set("tripId", actionTarget.dataset.tripId);
+    window.location.href = url.toString();
+    return;
+  }
+
+  if (actionTarget.dataset.action === "open-trip-transfers") {
+    const url = new URL("/transfer-reservations", window.location.origin);
+    url.searchParams.set("tripId", actionTarget.dataset.tripId);
+    window.location.href = url.toString();
     return;
   }
 

@@ -3606,10 +3606,16 @@ def camp_reservation_meals(record):
     ) or "No meal"
 
 
-def build_camp_document_html(record, pdf_href):
+def build_camp_document_html(record, pdf_href, show_toolbar=True):
     meals = camp_reservation_meals(record)
     reservation_title = camp_reservation_title(record)
     manager_name = record.get("staffAssignment") or STEPPE_MANAGER
+    toolbar_markup = f"""
+    <div class="toolbar">
+      <button onclick="window.print()">Print / Save PDF</button>
+      <a href="{html.escape(pdf_href)}" download>Download PDF</a>
+    </div>
+    """ if show_toolbar else ""
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -3725,13 +3731,28 @@ def build_camp_document_html(record, pdf_href):
       .status-box p {{
         margin: 0 0 8px;
       }}
+      @page {{
+        size: A4 landscape;
+        margin: 18mm;
+      }}
+      @media print {{
+        body {{
+          background: white;
+        }}
+        .toolbar {{
+          display: none !important;
+        }}
+        .page {{
+          width: auto;
+          margin: 0;
+          padding: 0;
+          box-shadow: none;
+        }}
+      }}
     </style>
   </head>
   <body>
-    <div class="toolbar">
-      <button onclick="window.print()">Print / Save PDF</button>
-      <a href="{html.escape(pdf_href)}" download>Download PDF</a>
-    </div>
+    {toolbar_markup}
     <div class="page">
       <div class="top">
         <div>
@@ -3804,7 +3825,7 @@ def build_camp_document_html(record, pdf_href):
 """
 
 
-def build_camp_bundle_document_html(records, pdf_href):
+def build_camp_bundle_document_html(records, pdf_href, show_toolbar=True):
     if not records:
         return build_document_html("Camp reservations", "No records", [])
 
@@ -3832,6 +3853,12 @@ def build_camp_bundle_document_html(records, pdf_href):
         """
         for index, record in enumerate(records)
     )
+    toolbar_markup = f"""
+    <div class="toolbar">
+      <button onclick="window.print()">Print / Save PDF</button>
+      <a href="{html.escape(pdf_href)}" download>Download PDF</a>
+    </div>
+    """ if show_toolbar else ""
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -3947,13 +3974,28 @@ def build_camp_bundle_document_html(records, pdf_href):
       .status-box p {{
         margin: 0 0 8px;
       }}
+      @page {{
+        size: A4 landscape;
+        margin: 18mm;
+      }}
+      @media print {{
+        body {{
+          background: white;
+        }}
+        .toolbar {{
+          display: none !important;
+        }}
+        .page {{
+          width: auto;
+          margin: 0;
+          padding: 0;
+          box-shadow: none;
+        }}
+      }}
     </style>
   </head>
   <body>
-    <div class="toolbar">
-      <button onclick="window.print()">Print / Save PDF</button>
-      <a href="{html.escape(pdf_href)}" download>Download PDF</a>
-    </div>
+    {toolbar_markup}
     <div class="page">
       <div class="top">
         <div>
@@ -4024,112 +4066,15 @@ def save_camp_reservation_document(record):
     pdf_path = GENERATED_DIR / pdf_filename
 
     pdf_href = f"/generated/{pdf_filename}"
-    html_path.write_text(build_camp_document_html(record, pdf_href), encoding="utf-8")
+    view_html = build_camp_document_html(record, pdf_href, show_toolbar=True)
+    html_path.write_text(view_html, encoding="utf-8")
 
     pdf_ready = False
-
     try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.pdfgen import canvas
-        from reportlab.platypus import Table, TableStyle
+        from weasyprint import HTML
 
-        pdf = canvas.Canvas(str(pdf_path), pagesize=landscape(A4))
-        width, height = landscape(A4)
-        font_name = "Helvetica"
-        bold_font_name = "Helvetica-Bold"
-
-        for candidate in [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            "/Library/Fonts/Arial Unicode.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        ]:
-            if Path(candidate).exists():
-                pdfmetrics.registerFont(TTFont("TravelXUnicode", candidate))
-                font_name = "TravelXUnicode"
-                bold_font_name = "TravelXUnicode"
-                break
-
-        reservation_title = camp_reservation_title(record)
-        manager_name = record.get("staffAssignment") or STEPPE_MANAGER
-        meals = camp_reservation_meals(record)
-
-        def draw_logo(x, y):
-            pdf.setFillColor(colors.HexColor("#1d2f86"))
-            pdf.setFont(bold_font_name, 18)
-            pdf.drawString(x, y - 16, "UNLOCK STEPPE MONGOLIA")
-
-        draw_logo(40, height - 40)
-        pdf.setFillColor(colors.HexColor("#1d2f86"))
-        pdf.setFont(bold_font_name, 15)
-        pdf.drawString(width - 360, height - 36, STEPPE_COMPANY_NAME)
-        pdf.setFillColor(colors.black)
-        pdf.setFont(font_name, 12)
-        pdf.drawRightString(width - 40, height - 58, STEPPE_CITY)
-        pdf.drawRightString(width - 40, height - 76, format_pdf_date(record["createdDate"]))
-
-        text = pdf.beginText(40, height - 92)
-        text.setFont(font_name, 10)
-        for line in STEPPE_ADDRESS_LINES:
-            text.textLine(line)
-        text.textLine(f"Утас: {STEPPE_PHONES}")
-        text.textLine(f"И-мэйл: {STEPPE_EMAIL}")
-        pdf.drawText(text)
-
-        pdf.setFont(bold_font_name, 16)
-        pdf.drawCentredString(width / 2, height - 160, f"Аяллын нэр: {record.get('reservationName') or record['tripName']}")
-        pdf.drawCentredString(width / 2, height - 190, f"{reservation_title} - “{record['campName']}”")
-
-        table = Table(
-            [[
-                "Жуулчны\nтоо",
-                "Ажилчдын\nтоо",
-                "Ирэх\nөдөр",
-                "Явах\nөдөр",
-                "Хоногийн\nтоо",
-                "Гэрийн\nтоо",
-                "Өрөөний\nтөрөл",
-                "Хоолны\nтөрөл",
-            ], [
-                str(record["clientCount"]),
-                str(record["staffCount"]),
-                format_iso_date(record["checkIn"]),
-                format_iso_date(record["checkOut"]),
-                str(record["nights"]),
-                str(record["gerCount"]),
-                record["roomType"],
-                meals,
-            ]],
-            colWidths=[68, 68, 74, 74, 62, 62, 150, 118],
-        )
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("FONTNAME", (0, 0), (-1, 0), bold_font_name),
-            ("FONTNAME", (0, 1), (-1, -1), font_name),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("LEADING", (0, 0), (-1, -1), 13),
-        ]))
-        table.wrapOn(pdf, width - 80, height)
-        table.drawOn(pdf, 40, height - 320)
-
-        pdf.setFont(bold_font_name, 12)
-        pdf.drawString(40, 120, f"Нэмэлт тэмдэглэл: {record['notes'] or '-'}")
-        pdf.drawString(width - 320, 110, f"Захиалгын менежер: {manager_name}")
-        pdf.setFont(font_name, 12)
-        pdf.drawString(width - 320, 84, f"Харилцах утас : {STEPPE_CONTACT_PHONES}")
-        pdf.drawString(width - 320, 60, f"Цахим шуудан : {STEPPE_EMAIL}")
-
-        pdf.showPage()
-        pdf.save()
+        pdf_html = build_camp_document_html(record, pdf_href, show_toolbar=False)
+        HTML(string=pdf_html, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
         pdf_ready = True
     except Exception:
         pdf_href = f"/generated/{html_filename}"
@@ -4152,124 +4097,15 @@ def save_camp_reservations_bundle(records):
     pdf_path = GENERATED_DIR / pdf_filename
 
     pdf_href = f"/generated/{pdf_filename}"
-    html_path.write_text(build_camp_bundle_document_html(records, pdf_href), encoding="utf-8")
+    view_html = build_camp_bundle_document_html(records, pdf_href, show_toolbar=True)
+    html_path.write_text(view_html, encoding="utf-8")
 
     pdf_ready = False
     try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.pdfgen import canvas
-        from reportlab.platypus import Table, TableStyle
+        from weasyprint import HTML
 
-        pdf = canvas.Canvas(str(pdf_path), pagesize=landscape(A4))
-        width, height = landscape(A4)
-        font_name = "Helvetica"
-        bold_font_name = "Helvetica-Bold"
-
-        for candidate in [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            "/Library/Fonts/Arial Unicode.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        ]:
-            if Path(candidate).exists():
-                pdfmetrics.registerFont(TTFont("TravelXUnicode", candidate))
-                font_name = "TravelXUnicode"
-                bold_font_name = "TravelXUnicode"
-                break
-
-        reservation_title = camp_reservation_title(first)
-        manager_name = first.get("staffAssignment") or STEPPE_MANAGER
-
-        pdf.setFillColor(colors.HexColor("#1d2f86"))
-        pdf.setFont(bold_font_name, 18)
-        pdf.drawString(40, height - 40, "UNLOCK STEPPE MONGOLIA")
-        pdf.setFillColor(colors.HexColor("#1d2f86"))
-        pdf.setFont(bold_font_name, 15)
-        pdf.drawString(width - 360, height - 36, STEPPE_COMPANY_NAME)
-        pdf.setFillColor(colors.black)
-        pdf.setFont(font_name, 12)
-        pdf.drawRightString(width - 40, height - 58, STEPPE_CITY)
-        pdf.drawRightString(width - 40, height - 76, format_pdf_date(first["createdDate"]))
-
-        text = pdf.beginText(40, height - 92)
-        text.setFont(font_name, 10)
-        for line in STEPPE_ADDRESS_LINES:
-            text.textLine(line)
-        text.textLine(f"Утас: {STEPPE_PHONES}")
-        text.textLine(f"И-мэйл: {STEPPE_EMAIL}")
-        pdf.drawText(text)
-
-        pdf.setFont(bold_font_name, 16)
-        pdf.drawCentredString(width / 2, height - 160, f"Аяллын нэр: {first.get('reservationName') or first['tripName']}")
-        pdf.drawCentredString(width / 2, height - 190, f"{reservation_title} - “{first['campName']}”")
-
-        table_rows = [[
-            "#",
-            "Аяллын нэр",
-            "Жуулчны\nтоо",
-            "Ажилчдын\nтоо",
-            "Ирэх\nөдөр",
-            "Явах\nөдөр",
-            "Хоногийн\nтоо",
-            "Гэрийн\nтоо",
-            "Өрөөний\nтөрөл",
-            "Хоол",
-        ]]
-        for index, record in enumerate(records, start=1):
-            table_rows.append([
-                str(index),
-                record.get("reservationName") or record["tripName"],
-                str(record["clientCount"]),
-                str(record["staffCount"]),
-                format_iso_date(record["checkIn"]),
-                format_iso_date(record["checkOut"]),
-                str(record["nights"]),
-                str(record["gerCount"]),
-                record["roomType"],
-                camp_reservation_meals(record),
-            ])
-
-        table = Table(
-            table_rows,
-            colWidths=[28, 124, 58, 58, 68, 68, 58, 58, 118, 90],
-            repeatRows=1,
-        )
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("FONTNAME", (0, 0), (-1, 0), bold_font_name),
-            ("FONTNAME", (0, 1), (-1, -1), font_name),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("LEADING", (0, 0), (-1, -1), 12),
-        ]))
-        table.wrapOn(pdf, width - 80, height)
-        table_height = min(340, 30 + 26 * len(table_rows))
-        table.drawOn(pdf, 40, height - 220 - table_height)
-
-        note_lines = [f"{index}. {record['tripName']}: {record.get('notes') or '-'}" for index, record in enumerate(records, start=1)]
-        note_text = pdf.beginText(40, 120)
-        note_text.setFont(font_name, 10)
-        note_text.textLine("Нэмэлт тэмдэглэл:")
-        for line in note_lines[:6]:
-            note_text.textLine(line)
-        pdf.drawText(note_text)
-
-        pdf.setFont(bold_font_name, 12)
-        pdf.drawString(width - 320, 110, f"Захиалгын менежер: {manager_name}")
-        pdf.setFont(font_name, 12)
-        pdf.drawString(width - 320, 84, f"Харилцах утас : {STEPPE_CONTACT_PHONES}")
-        pdf.drawString(width - 320, 60, f"Цахим шуудан : {STEPPE_EMAIL}")
-
-        pdf.showPage()
-        pdf.save()
+        pdf_html = build_camp_bundle_document_html(records, pdf_href, show_toolbar=False)
+        HTML(string=pdf_html, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
         pdf_ready = True
     except Exception:
         pdf_href = f"/generated/{html_filename}"

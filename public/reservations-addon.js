@@ -225,6 +225,23 @@
       .sort((left, right) => String(left.serviceDate || "").localeCompare(String(right.serviceDate || "")));
   }
 
+  function applyQueryFilters() {
+    const params = new URLSearchParams(window.location.search);
+    const tripId = params.get("tripId");
+    if (!tripId) {
+      return;
+    }
+    if (flightFilterTrip) {
+      flightFilterTrip.value = tripId;
+    }
+    if (flightPaymentFilterTrip) {
+      flightPaymentFilterTrip.value = tripId;
+    }
+    if (transferFilterTrip) {
+      transferFilterTrip.value = tripId;
+    }
+  }
+
   function renderFlights() {
     const rows = getFilteredFlights();
     if (!rows.length) {
@@ -399,6 +416,7 @@
     const payload = await fetchJson("/api/camp-trips");
     trips = payload.entries || [];
     refreshTripSelectors();
+    applyQueryFilters();
   }
 
   async function loadFlights() {
@@ -686,15 +704,21 @@
     }
   });
 
-  Promise.all([loadTrips(), loadFlights(), loadTransfers()]).catch((error) => {
-    if (flightStatus) {
-      flightStatus.textContent = error.message;
-    }
-    if (flightPaymentStatus) {
-      flightPaymentStatus.textContent = error.message;
-    }
-    if (transferStatus) {
-      transferStatus.textContent = error.message;
-    }
-  });
+  Promise.all([loadTrips(), loadFlights(), loadTransfers()])
+    .then(() => {
+      renderFlights();
+      renderFlightPayments();
+      renderTransfers();
+    })
+    .catch((error) => {
+      if (flightStatus) {
+        flightStatus.textContent = error.message;
+      }
+      if (flightPaymentStatus) {
+        flightPaymentStatus.textContent = error.message;
+      }
+      if (transferStatus) {
+        transferStatus.textContent = error.message;
+      }
+    });
 })();
