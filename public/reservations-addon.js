@@ -178,9 +178,10 @@
     }
     flightList.innerHTML = `
       <div class="camp-table-wrap">
-        <table class="camp-table reservation-addon-table">
+        <table class="camp-table reservation-addon-table flight-reservation-table">
           <thead>
             <tr>
+              <th>#</th>
               <th>Trip</th>
               <th>Route</th>
               <th>Airline</th>
@@ -198,8 +199,9 @@
           <tbody>
             ${rows
               .map(
-                (entry) => `
+                (entry, index) => `
                   <tr>
+                    <td class="table-center">${index + 1}</td>
                     <td>${escapeHtml(entry.tripName)}</td>
                     <td>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → "))}</td>
                     <td>${escapeHtml(entry.airline || "-")}</td>
@@ -235,9 +237,10 @@
     }
     transferList.innerHTML = `
       <div class="camp-table-wrap">
-        <table class="camp-table reservation-addon-table">
+        <table class="camp-table reservation-addon-table transfer-reservation-table">
           <thead>
             <tr>
+              <th>#</th>
               <th>Trip</th>
               <th>Transfer Type</th>
               <th>Pickup</th>
@@ -256,8 +259,9 @@
           <tbody>
             ${rows
               .map(
-                (entry) => `
+                (entry, index) => `
                   <tr>
+                    <td class="table-center">${index + 1}</td>
                     <td>${escapeHtml(entry.tripName)}</td>
                     <td>${escapeHtml(formatStatus(entry.transferType))}</td>
                     <td>${escapeHtml(entry.pickupLocation)}</td>
