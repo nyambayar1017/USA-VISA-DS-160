@@ -2718,6 +2718,18 @@ saleList?.addEventListener("change", (event) => {
   }
 });
 
+saleList?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-inline-invoice] input, [data-inline-invoice] select, [data-inline-invoice] button")) {
+    event.stopPropagation();
+  }
+});
+
+saleList?.addEventListener("keydown", (event) => {
+  if (event.target.closest("[data-inline-invoice] input, [data-inline-invoice] select, [data-inline-invoice] textarea")) {
+    event.stopPropagation();
+  }
+});
+
 saleBlockList?.addEventListener("click", (event) => {
   const target = event.target.closest('[data-action="remove-sale-block"]');
   if (!target) return;
