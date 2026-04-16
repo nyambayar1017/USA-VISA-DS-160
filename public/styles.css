@@ -1331,17 +1331,24 @@ time {
 }
 
 .reservation-filters-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.reservation-addon-table {
+  table-layout: auto;
 }
 
 .reservation-addon-table th,
 .reservation-addon-table td {
   vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .reservation-addon-table th:nth-child(1),
 .reservation-addon-table td:nth-child(1) {
-  width: 44px;
+  width: 28px;
+  min-width: 28px;
   padding-left: 12px;
   text-align: center;
   white-space: nowrap;
@@ -1349,92 +1356,126 @@ time {
 
 .reservation-addon-table th:nth-child(2),
 .reservation-addon-table td:nth-child(2) {
-  width: 210px;
-  white-space: nowrap;
+  min-width: 180px;
 }
 
 .flight-reservation-table th:nth-child(3),
-.flight-reservation-table td:nth-child(3),
-.transfer-reservation-table th:nth-child(3),
-.transfer-reservation-table td:nth-child(3) {
-  width: 180px;
+.flight-reservation-table td:nth-child(3) {
+  min-width: 120px;
 }
 
 .flight-reservation-table th:nth-child(4),
-.flight-reservation-table td:nth-child(4),
-.transfer-reservation-table th:nth-child(4),
-.transfer-reservation-table td:nth-child(4) {
-  width: 120px;
+.flight-reservation-table td:nth-child(4) {
+  min-width: 90px;
 }
 
 .flight-reservation-table th:nth-child(5),
 .flight-reservation-table td:nth-child(5),
-.transfer-reservation-table th:nth-child(5),
-.transfer-reservation-table td:nth-child(5) {
-  width: 120px;
+.flight-reservation-table th:nth-child(6),
+.flight-reservation-table td:nth-child(6) {
+  min-width: 140px;
+  white-space: nowrap;
 }
 
-.flight-reservation-table th:nth-child(6),
-.flight-reservation-table td:nth-child(6),
 .flight-reservation-table th:nth-child(7),
-.flight-reservation-table td:nth-child(7),
-.transfer-reservation-table th:nth-child(6),
-.transfer-reservation-table td:nth-child(6),
-.transfer-reservation-table th:nth-child(7),
-.transfer-reservation-table td:nth-child(7) {
-  width: 150px;
+.flight-reservation-table td:nth-child(7) {
+  min-width: 48px;
+  text-align: center;
   white-space: nowrap;
 }
 
 .flight-reservation-table th:nth-child(8),
-.flight-reservation-table td:nth-child(8),
-.transfer-reservation-table th:nth-child(8),
-.transfer-reservation-table td:nth-child(8),
-.transfer-reservation-table th:nth-child(9),
-.transfer-reservation-table td:nth-child(9) {
-  width: 64px;
-  text-align: center;
+.flight-reservation-table td:nth-child(8) {
+  min-width: 100px;
 }
 
 .flight-reservation-table th:nth-child(9),
-.flight-reservation-table td:nth-child(9),
+.flight-reservation-table td:nth-child(9) {
+  min-width: 100px;
+}
+
 .flight-reservation-table th:nth-child(10),
 .flight-reservation-table td:nth-child(10),
-.transfer-reservation-table th:nth-child(10),
-.transfer-reservation-table td:nth-child(10),
-.transfer-reservation-table th:nth-child(11),
-.transfer-reservation-table td:nth-child(11) {
-  width: 110px;
+.flight-reservation-table th:nth-child(11),
+.flight-reservation-table td:nth-child(11),
+.flight-reservation-table th:nth-child(12),
+.flight-reservation-table td:nth-child(12) {
+  min-width: 96px;
   text-align: center;
   white-space: nowrap;
 }
 
-.flight-reservation-table th:nth-child(11),
-.flight-reservation-table td:nth-child(11),
-.transfer-reservation-table th:nth-child(12),
-.transfer-reservation-table td:nth-child(12) {
-  width: 110px;
+.flight-reservation-table th:nth-child(13),
+.flight-reservation-table td:nth-child(13) {
+  min-width: 100px;
   text-align: right;
   white-space: nowrap;
 }
 
-.flight-reservation-table th:nth-child(12),
-.flight-reservation-table td:nth-child(12),
-.transfer-reservation-table th:nth-child(11),
-.transfer-reservation-table td:nth-child(11) {
-  width: 160px;
+.flight-reservation-table th:nth-child(14),
+.flight-reservation-table td:nth-child(14) {
+  min-width: 110px;
 }
 
-.flight-reservation-table th:nth-child(13),
-.flight-reservation-table td:nth-child(13),
+.flight-reservation-table th:nth-child(15),
+.flight-reservation-table td:nth-child(15) {
+  min-width: 120px;
+}
+
+.transfer-reservation-table th:nth-child(3),
+.transfer-reservation-table td:nth-child(3) {
+  min-width: 140px;
+}
+
+.transfer-reservation-table th:nth-child(4),
+.transfer-reservation-table td:nth-child(4),
+.transfer-reservation-table th:nth-child(5),
+.transfer-reservation-table td:nth-child(5) {
+  min-width: 90px;
+}
+
+.transfer-reservation-table th:nth-child(6),
+.transfer-reservation-table td:nth-child(6) {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.transfer-reservation-table th:nth-child(7),
+.transfer-reservation-table td:nth-child(7),
+.transfer-reservation-table th:nth-child(8),
+.transfer-reservation-table td:nth-child(8) {
+  min-width: 90px;
+}
+
+.transfer-reservation-table th:nth-child(9),
+.transfer-reservation-table td:nth-child(9) {
+  min-width: 48px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.transfer-reservation-table th:nth-child(10),
+.transfer-reservation-table td:nth-child(10) {
+  min-width: 96px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.transfer-reservation-table th:nth-child(11),
+.transfer-reservation-table td:nth-child(11) {
+  min-width: 110px;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .transfer-reservation-table th:nth-child(12),
 .transfer-reservation-table td:nth-child(12) {
-  width: 146px;
+  min-width: 110px;
 }
 
 .transfer-reservation-table th:nth-child(13),
 .transfer-reservation-table td:nth-child(13) {
-  width: 146px;
+  min-width: 120px;
 }
 
 .reservation-addon-table .status-pill {

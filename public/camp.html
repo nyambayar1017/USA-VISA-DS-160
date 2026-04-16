@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-73" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-74" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -449,6 +449,20 @@
                   <input name="guideName" />
                 </label>
                 <label>
+                  Guide Ticket
+                  <input name="guideTicket" />
+                </label>
+                <label>
+                  Guide Status
+                  <select name="guideStatus">
+                    <option value="to_check">To check</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="ticketed">Ticketed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+                <label>
                   From
                   <input name="fromCity" required />
                 </label>
@@ -500,12 +514,8 @@
                   </select>
                 </label>
                 <label>
-                  Amount
+                  Amount (MNT)
                   <input name="amount" type="number" min="0" value="0" />
-                </label>
-                <label>
-                  Currency
-                  <input name="currency" value="USD" />
                 </label>
                 <label class="full-span">
                   Notes
@@ -556,6 +566,10 @@
                 <option value="unpaid">Unpaid</option>
                 <option value="paid">Paid</option>
               </select>
+            </label>
+            <label>
+              Driver
+              <input id="transfer-filter-driver" type="search" placeholder="Search driver" />
             </label>
             <label>
               Service Date
@@ -711,6 +725,6 @@
 
     <script src="/app-shell.js?v=workspace-64"></script>
     <script src="/camp.js?v=workspace-61"></script>
-    <script src="/reservations-addon.js?v=workspace-5"></script>
+    <script src="/reservations-addon.js?v=workspace-6"></script>
   </body>
 </html>

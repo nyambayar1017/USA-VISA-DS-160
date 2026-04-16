@@ -4489,6 +4489,8 @@ def build_flight_reservation(payload, actor=None):
         "airline": normalize_text(payload.get("airline")),
         "flightNumber": normalize_text(payload.get("flightNumber")),
         "guideName": normalize_text(payload.get("guideName")),
+        "guideTicket": normalize_text(payload.get("guideTicket")),
+        "guideStatus": normalize_text(payload.get("guideStatus")).lower() or "to_check",
         "fromCity": normalize_text(payload.get("fromCity")),
         "toCity": normalize_text(payload.get("toCity")),
         "departureDate": normalize_text(payload.get("departureDate")),
@@ -4502,7 +4504,7 @@ def build_flight_reservation(payload, actor=None):
         "boughtDate": normalize_text(payload.get("boughtDate")),
         "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
         "amount": parse_int(payload.get("amount")),
-        "currency": normalize_text(payload.get("currency")).upper() or "USD",
+        "currency": "MNT",
         "notes": normalize_text(payload.get("notes")),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
@@ -5782,6 +5784,8 @@ def handle_update_flight_reservation(environ, start_response, reservation_id):
             "airline",
             "flightNumber",
             "guideName",
+            "guideTicket",
+            "guideStatus",
             "fromCity",
             "toCity",
             "departureDate",
@@ -5802,6 +5806,7 @@ def handle_update_flight_reservation(environ, start_response, reservation_id):
         for key in ["passengerCount", "amount"]:
             if key in payload:
                 merged[key] = parse_int(payload.get(key))
+        merged["currency"] = "MNT"
         if normalize_text(merged.get("tripId")):
             trip = find_camp_trip(merged.get("tripId"))
             if trip is None:

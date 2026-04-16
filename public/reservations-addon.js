@@ -17,6 +17,7 @@
   const transferFilterTrip = document.querySelector("#transfer-filter-trip");
   const transferFilterType = document.querySelector("#transfer-filter-type");
   const transferFilterStatus = document.querySelector("#transfer-filter-status");
+  const transferFilterDriver = document.querySelector("#transfer-filter-driver");
   const transferFilterDate = document.querySelector("#transfer-filter-date");
 
   if (!flightList || !transferList || !flightForm || !transferForm) {
@@ -60,12 +61,12 @@
     return value || "-";
   }
 
-  function formatMoney(value, currency) {
+  function formatMoney(value) {
     const amount = Number(value || 0);
     if (!amount) {
       return "-";
     }
-    return `${new Intl.NumberFormat("en-US").format(amount)} ${currency || ""}`.trim();
+    return `₮${new Intl.NumberFormat("en-US").format(amount)}`;
   }
 
   function formatStatus(status) {
@@ -93,6 +94,7 @@
   function refreshTripSelectors() {
     const currentFlightFilter = flightFilterTrip.value;
     const currentTransferFilter = transferFilterTrip.value;
+    const currentTransferDriver = transferFilterDriver ? transferFilterDriver.value : "";
     const currentFlightFormTrip = flightTripSelect.value;
     const currentTransferFormTrip = transferTripSelect.value;
 
@@ -107,6 +109,9 @@
 
     flightFilterTrip.value = currentFlightFilter;
     transferFilterTrip.value = currentTransferFilter;
+    if (transferFilterDriver) {
+      transferFilterDriver.value = currentTransferDriver;
+    }
   }
 
   function openPanel(panel) {
@@ -179,6 +184,7 @@
       .filter((entry) => (!transferFilterTrip.value || entry.tripId === transferFilterTrip.value))
       .filter((entry) => (!transferFilterType.value || entry.transferType === transferFilterType.value))
       .filter((entry) => (!transferFilterStatus.value || entry.paymentStatus === transferFilterStatus.value))
+      .filter((entry) => !transferFilterDriver?.value || String(entry.driverName || "").toLowerCase().includes(transferFilterDriver.value.trim().toLowerCase()))
       .filter((entry) => (!transferFilterDate.value || entry.serviceDate === transferFilterDate.value))
       .sort((left, right) => String(left.serviceDate || "").localeCompare(String(right.serviceDate || "")));
   }
@@ -198,10 +204,12 @@
               <th>Trip</th>
               <th>Route</th>
               <th>Airline</th>
-              <th>Guide</th>
               <th>Departure</th>
               <th>Arrival</th>
               <th>Pax</th>
+              <th>Guide</th>
+              <th>Guide Ticket</th>
+              <th>Guide Status</th>
               <th>Status</th>
               <th>Payment</th>
               <th>Amount</th>
@@ -218,13 +226,15 @@
                     <td>${escapeHtml(entry.tripName)}</td>
                     <td>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → "))}</td>
                     <td>${escapeHtml(entry.airline || "-")}</td>
-                    <td>${escapeHtml(entry.guideName || "-")}</td>
                     <td>${escapeHtml(`${formatDate(entry.departureDate)} ${entry.departureTime || ""}`.trim())}</td>
                     <td>${escapeHtml(`${formatDate(entry.arrivalDate)} ${entry.arrivalTime || ""}`.trim() || "-")}</td>
                     <td>${escapeHtml(entry.passengerCount || "-")}</td>
+                    <td>${escapeHtml(entry.guideName || "-")}</td>
+                    <td>${escapeHtml(entry.guideTicket || "-")}</td>
+                    <td><span class="status-pill is-${escapeHtml(entry.guideStatus || "to_check")}">${escapeHtml(formatStatus(entry.guideStatus || "to_check"))}</span></td>
                     <td><span class="status-pill is-${escapeHtml(entry.status)}">${escapeHtml(formatStatus(entry.status))}</span></td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
-                    <td>${escapeHtml(formatMoney(entry.amount, entry.currency))}</td>
+                    <td>${escapeHtml(formatMoney(entry.amount))}</td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
                     <td>
                       <div class="trip-row-actions payment-row-actions">
@@ -283,7 +293,7 @@
                     <td>${escapeHtml(entry.vehicleType || "-")}</td>
                     <td>${escapeHtml(entry.passengerCount || "-")}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
-                    <td>${escapeHtml(formatMoney(entry.driverSalary || entry.amount, "MNT"))}</td>
+                    <td>${escapeHtml(formatMoney(entry.driverSalary || entry.amount))}</td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
                     <td>
                       <div class="trip-row-actions payment-row-actions">
@@ -324,8 +334,8 @@
     flightForm.reset();
     flightForm.elements.passengerCount.value = "1";
     flightForm.elements.amount.value = "0";
-    flightForm.elements.currency.value = "USD";
     flightForm.elements.status.value = "to_check";
+    flightForm.elements.guideStatus.value = "to_check";
     flightForm.elements.paymentStatus.value = "unpaid";
     flightStatus.textContent = "";
     refreshTripSelectors();
@@ -382,7 +392,7 @@
     node?.addEventListener("change", renderFlights);
   });
 
-  [transferFilterTrip, transferFilterType, transferFilterStatus, transferFilterDate].forEach((node) => {
+  [transferFilterTrip, transferFilterType, transferFilterStatus, transferFilterDriver, transferFilterDate].forEach((node) => {
     node?.addEventListener("input", renderTransfers);
     node?.addEventListener("change", renderTransfers);
   });
@@ -397,6 +407,7 @@
       return;
     }
     payload.tripName = trip.tripName;
+    payload.currency = "MNT";
     try {
       await fetchJson(editingFlightId ? `/api/flight-reservations/${editingFlightId}` : "/api/flight-reservations", {
         method: "POST",
