@@ -1420,7 +1420,7 @@ function renderTickets() {
           const availabilityBadges = `
             ${availabilitySummary}
             <span class="fifa-availability-line is-available">Total available: ${group.availableUnits}</span>
-            <span class="fifa-availability-line is-sold">Total sold: ${group.soldUnits}</span>
+            ${group.soldUnits > 0 ? `<span class="fifa-availability-line is-sold">Total sold: ${group.soldUnits}</span>` : ""}
           `;
           const priceSummary = group.categoryBreakdown
             .filter((item) => item.price > 0)
