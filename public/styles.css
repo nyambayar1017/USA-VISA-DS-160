@@ -2365,14 +2365,10 @@ body.modal-open {
 }
 
 .row-action-menu[open] .trip-menu-popover,
-.fifa-action-menu[open] .trip-menu-popover {
+.fifa-action-menu[open] .trip-menu-popover,
+.trip-page-menu .trip-menu-popover {
   position: static;
   margin-top: 8px;
-}
-
-.trip-page-menu .trip-menu-popover {
-  top: auto;
-  bottom: calc(100% + 8px);
 }
 
 .workspace-main .card,
@@ -3333,8 +3329,8 @@ body.modal-open {
 
 .fifa-match-table-head {
   display: grid;
-  grid-template-columns: 36px 90px 174px minmax(140px, 1fr) 88px 70px 88px 74px;
-  gap: 5px;
+  grid-template-columns: 36px 96px 186px minmax(170px, 1fr) 112px 100px 114px 88px;
+  gap: 12px;
   align-items: center;
   padding: 8px 6px 8px 0;
   border: 1px solid rgba(32, 53, 111, 0.08);
@@ -3359,8 +3355,8 @@ body.modal-open {
 .fifa-match-toggle {
   width: 100%;
   display: grid;
-  grid-template-columns: 36px 90px 174px minmax(140px, 1fr) 88px 70px 88px 74px;
-  gap: 5px;
+  grid-template-columns: 36px 96px 186px minmax(170px, 1fr) 112px 100px 114px 88px;
+  gap: 12px;
   align-items: start;
   padding: 10px 6px 10px 0;
   border: 0;
@@ -3510,26 +3506,18 @@ body.modal-open {
 }
 
 .fifa-action-menu .trip-menu-popover {
-  min-width: 210px;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
+  min-width: 190px;
 }
 
 .fifa-action-menu[open] .trip-menu-popover {
-  position: absolute;
-  margin-top: 0;
+  position: static;
+  margin-top: 8px;
 }
 
 .fifa-action-menu .trip-menu-item {
   font-size: 0.96rem;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
-}
-
-.fifa-action-menu .trip-menu-item {
-  font-size: 1rem;
-  font-weight: 700;
 }
 
 .fifa-table-sub {
