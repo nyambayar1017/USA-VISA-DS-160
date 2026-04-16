@@ -611,11 +611,9 @@ function syncSalePriceFields() {
   const totalPrice = Math.max(blockTotalPrice - discountAmount, 0);
   const unitPrices = [...new Set(state.saleBlocks.map((block) => Number(block.unitPrice || 0)).filter(Boolean))];
   saleForm.elements.quantity.value = String(totalTickets || 0);
-  saleForm.elements.pricePerTicket.value = unitPrices.length === 1 ? String(unitPrices[0]) : "";
-  saleForm.elements.pricePerTicket.placeholder = unitPrices.length <= 1 ? "" : "Mixed prices above";
-  saleForm.elements.pricePerTicket.title = unitPrices.length <= 1
-    ? ""
-    : "This sale has different ticket prices by match. Use the per-match block prices above.";
+  if (saleForm.elements.pricePerTicket) {
+    saleForm.elements.pricePerTicket.value = unitPrices.length === 1 ? String(unitPrices[0]) : "";
+  }
   if (salePriceBreakdown) {
     const lines = state.saleBlocks.flatMap((block, index) => {
       const unitPriceMnt = Math.round(Number(block.unitPrice || 0) * exchangeRate);
@@ -1218,7 +1216,7 @@ function fillSaleForm(sale) {
   saleForm.elements.ticketId.value = sale.ticketId || "";
   if (saleTicketIdsInput) saleTicketIdsInput.value = (sale.ticketIds || []).join(",");
   saleForm.elements.quantity.value = sale.quantity || 1;
-  saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
+  if (saleForm.elements.pricePerTicket) saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = sale.discountAmount || 0;
   if (saleForm.elements.discountAmountMnt) saleForm.elements.discountAmountMnt.value = String(Math.round(Number(sale.discountAmount || 0) * Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE)));
   if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE;
@@ -1234,7 +1232,7 @@ function fillSaleForm(sale) {
   saleForm.elements.saleStatus.value = sale.saleStatus || "active";
   saleForm.elements.soldAt.value = String(sale.soldAt || "").slice(0, 10);
   saleForm.elements.buyerTitle.value = sale.buyerTitle || "";
-  saleForm.elements.buyerName.value = sale.buyerName || "";
+  saleForm.elements.buyerName.value = sale.buyerName || sale.buyerTitle || "";
   saleForm.elements.buyerPhone.value = sale.buyerPhone || "";
   saleForm.elements.buyerEmail.value = sale.buyerEmail || "";
   saleForm.elements.buyerPassportNumber.value = sale.buyerPassportNumber || "";
@@ -1336,7 +1334,8 @@ function syncSaleTotals() {
   saleForm.elements.paymentStatus.value = totalPrice > 0 && amountPaid >= totalPrice ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
   saleForm.elements.paymentMethod.value = saleForm.elements.invoiceBankAccount?.value || "state";
   saleForm.elements.soldAt.value = saleForm.elements.soldAt.value || new Date().toISOString().slice(0, 10);
-  saleForm.elements.buyerName.value = state.participants.map(combinedParticipantName).find(Boolean) || saleForm.elements.buyerTitle.value || "";
+  const buyerTitle = String(saleForm.elements.buyerTitle?.value || "").trim();
+  saleForm.elements.buyerName.value = state.participants.map(combinedParticipantName).find(Boolean) || buyerTitle;
   const leadParticipant = state.participants[0] || {};
   saleForm.elements.buyerPassportNumber.value = leadParticipant.passportNumber || "";
   saleForm.elements.buyerNationality.value = leadParticipant.nationality || "Mongolian";
@@ -2485,7 +2484,7 @@ if (saleForm) {
     payload.totalPrice = String(currentSaleTotalUsd());
     payload.amountPaid = String(currentAmountPaidUsd());
     payload.paymentMethod = payload.invoiceBankAccount || "state";
-    payload.buyerName = state.participants.map(combinedParticipantName).find(Boolean) || payload.buyerTitle || "";
+    payload.buyerName = String(state.participants.map(combinedParticipantName).find(Boolean) || payload.buyerTitle || "").trim();
     payload.buyerNationality = state.participants[0]?.nationality || "Mongolian";
     payload.buyerPassportNumber = state.participants[0]?.passportNumber || "";
     payload.soldAt = payload.soldAt || new Date().toISOString().slice(0, 10);
@@ -2553,6 +2552,7 @@ saleFormToggleButton?.addEventListener("click", () => {
   setSaleFormVisible(true);
   saleForm?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
+saleForm?.elements?.buyerTitle?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.discountAmountMnt?.addEventListener("input", syncSalePriceFields);
