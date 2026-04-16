@@ -2157,6 +2157,7 @@ body.modal-open {
 
 .camp-table-wrap {
   overflow-x: auto;
+  overflow-y: visible;
   margin-top: 18px;
 }
 
@@ -2349,6 +2350,11 @@ body.modal-open {
 .row-action-menu .trip-menu-trigger {
   width: 36px;
   height: 36px;
+}
+
+.workspace-main .card,
+.manager-table-wrap {
+  overflow: visible;
 }
 
 .trip-menu-item {
@@ -2770,6 +2776,164 @@ body.modal-open {
 .camp-payment-table th:nth-child(13),
 .camp-payment-table td:nth-child(13) {
   width: 160px;
+}
+
+.camp-reservation-table th:nth-child(1),
+.camp-reservation-table td:nth-child(1) {
+  width: 52px;
+  padding-left: 12px;
+  text-align: center;
+}
+
+.camp-reservation-table th:nth-child(2),
+.camp-reservation-table td:nth-child(2) {
+  width: 220px;
+  white-space: nowrap;
+}
+
+.camp-reservation-table th:nth-child(3),
+.camp-reservation-table td:nth-child(3) {
+  width: 220px;
+  white-space: nowrap;
+}
+
+.camp-reservation-table th:nth-child(4),
+.camp-reservation-table td:nth-child(4) {
+  width: 80px;
+  text-align: center;
+}
+
+.camp-reservation-table th:nth-child(5),
+.camp-reservation-table td:nth-child(5) {
+  width: 170px;
+}
+
+.camp-reservation-table th:nth-child(6),
+.camp-reservation-table td:nth-child(6) {
+  width: 170px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.camp-reservation-table th:nth-child(7),
+.camp-reservation-table td:nth-child(7) {
+  width: 88px;
+}
+
+.camp-reservation-table th:nth-child(8),
+.camp-reservation-table td:nth-child(8),
+.camp-reservation-table th:nth-child(9),
+.camp-reservation-table td:nth-child(9),
+.camp-reservation-table th:nth-child(11),
+.camp-reservation-table td:nth-child(11),
+.camp-reservation-table th:nth-child(13),
+.camp-reservation-table td:nth-child(13) {
+  width: 52px;
+  text-align: center;
+}
+
+.camp-reservation-table th:nth-child(10),
+.camp-reservation-table td:nth-child(10),
+.camp-reservation-table th:nth-child(12),
+.camp-reservation-table td:nth-child(12) {
+  width: 110px;
+}
+
+.camp-reservation-table th:nth-child(14),
+.camp-reservation-table td:nth-child(14) {
+  width: 180px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.camp-reservation-table th:nth-child(15),
+.camp-reservation-table td:nth-child(15) {
+  width: 150px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.camp-reservation-table th:nth-child(16),
+.camp-reservation-table td:nth-child(16) {
+  width: 128px;
+}
+
+.camp-reservation-table th:nth-child(17),
+.camp-reservation-table td:nth-child(17) {
+  width: 124px;
+}
+
+.camp-reservation-table th:nth-child(18),
+.camp-reservation-table td:nth-child(18) {
+  width: 150px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.camp-reservation-table th:nth-child(19),
+.camp-reservation-table td:nth-child(19) {
+  width: 136px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.camp-reservation-table th:nth-child(20),
+.camp-reservation-table td:nth-child(20) {
+  width: 180px;
+}
+
+.camp-payment-table th:nth-child(1),
+.camp-payment-table td:nth-child(1) {
+  width: 52px;
+  text-align: center;
+}
+
+.camp-payment-table th:nth-child(2),
+.camp-payment-table td:nth-child(2) {
+  width: 140px;
+}
+
+.camp-payment-table th:nth-child(3),
+.camp-payment-table td:nth-child(3) {
+  width: 180px;
+}
+
+.camp-payment-table th:nth-child(4),
+.camp-payment-table td:nth-child(4) {
+  width: 200px;
+}
+
+.camp-payment-table th:nth-child(5),
+.camp-payment-table td:nth-child(5) {
+  width: 90px;
+}
+
+.camp-payment-table th:nth-child(13),
+.camp-payment-table td:nth-child(13) {
+  width: 120px;
+}
+
+.camp-payment-table th:nth-child(14),
+.camp-payment-table td:nth-child(14) {
+  width: 160px;
+}
+
+.camp-payment-table td:nth-child(5),
+.camp-payment-table td:nth-child(6),
+.camp-payment-table td:nth-child(7),
+.camp-payment-table td:nth-child(8),
+.camp-payment-table td:nth-child(9),
+.camp-payment-table td:nth-child(10),
+.camp-payment-table td:nth-child(11) {
+  text-align: right;
+}
+
+.camp-payment-table td:nth-child(2),
+.camp-payment-table td:nth-child(3),
+.camp-payment-table td:nth-child(4),
+.camp-payment-table td:nth-child(13),
+.camp-payment-table td:nth-child(14) {
+  text-align: left;
 }
 
 .camp-modal-dialog .actions {
@@ -3316,33 +3480,19 @@ body.modal-open {
   padding-right: 8px;
 }
 
-.fifa-match-col--stage [data-action="add-ticket-match"] {
-  padding: 5px 10px;
-  font-size: 0.78rem;
-  line-height: 1.2;
-  white-space: nowrap;
+.fifa-action-menu .trip-menu-trigger {
+  width: 42px;
+  height: 42px;
+  font-size: 1.45rem;
 }
 
-.fifa-match-col--actions [data-action="edit-match"],
-.fifa-match-col--actions [data-action="delete-match"],
-.fifa-match-col--actions [data-action="add-ticket-match"] {
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  line-height: 1.2;
-  white-space: nowrap;
+.fifa-action-menu .trip-menu-popover {
+  min-width: 210px;
 }
 
-.fifa-match-col--actions [data-action="edit-match"],
-.fifa-match-col--actions [data-action="delete-match"] {
-  background: rgba(32, 53, 111, 0.08);
-  color: var(--brand);
-  border: 1px solid transparent;
-}
-
-.fifa-match-col--actions [data-action="edit-match"]:hover,
-.fifa-match-col--actions [data-action="delete-match"]:hover {
-  background: rgba(32, 53, 111, 0.12);
+.fifa-action-menu .trip-menu-item {
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .fifa-table-sub {

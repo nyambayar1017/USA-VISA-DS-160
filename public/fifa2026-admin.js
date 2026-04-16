@@ -71,6 +71,15 @@ const NATIONALITY_OPTIONS = [
   "Other",
 ];
 
+function closeOpenTripMenus(exceptMenu = null) {
+  document.querySelectorAll(".trip-menu[open]").forEach((menu) => {
+    if (exceptMenu && menu === exceptMenu) {
+      return;
+    }
+    menu.removeAttribute("open");
+  });
+}
+
 const MATCH_CATALOG = [
   { stage: "Opening", matchNumber: "Match 1", matchDate: "2026-06-11", teamA: "MEX", teamB: "RSA", city: "Mexico City", venue: "Mexico City Stadium" },
   { stage: "Opening", matchNumber: "Match 4", matchDate: "2026-06-12", teamA: "USA", teamB: "PAR", city: "Los Angeles", venue: "Los Angeles Stadium" },
@@ -1604,11 +1613,14 @@ function renderTickets() {
                   <strong>${escapeHtml(group.stage)}</strong>
                 </div>
                 <div class="fifa-match-col fifa-match-col--actions">
-                  <div class="fifa-match-stage-actions">
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="edit-match" data-match-number="${escapeHtml(group.matchNumber)}">Edit</button>
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="delete-match" data-match-key="${escapeHtml(group.key)}">Delete</button>
-                    <button type="button" class="fifa-inline-action" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
-                  </div>
+                  <details class="trip-menu fifa-action-menu">
+                    <summary class="trip-menu-trigger" data-action="toggle-match-menu" aria-label="Match actions">⋮</summary>
+                    <div class="trip-menu-popover">
+                      <button type="button" class="trip-menu-item" data-action="edit-match" data-match-number="${escapeHtml(group.matchNumber)}">Edit</button>
+                      <button type="button" class="trip-menu-item" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
+                      <button type="button" class="trip-menu-item is-danger" data-action="delete-match" data-match-key="${escapeHtml(group.key)}">Delete</button>
+                    </div>
+                  </details>
                 </div>
               </div>
               ${
@@ -2630,6 +2642,13 @@ Object.values(saleFilters).forEach((node) => {
   node?.addEventListener("change", renderSales);
 });
 
+document.addEventListener("click", (event) => {
+  const clickedMenu = event.target.closest(".trip-menu");
+  if (!clickedMenu) {
+    closeOpenTripMenus();
+  }
+});
+
 ticketList?.addEventListener("click", async (event) => {
   const checkbox = event.target.closest('input[type="checkbox"][data-action="select-ticket"]');
   if (checkbox) {
@@ -2640,6 +2659,9 @@ ticketList?.addEventListener("click", async (event) => {
   }
 
   const target = event.target.closest("[data-action]");
+  if (target?.closest(".trip-menu")) {
+    closeOpenTripMenus();
+  }
   if (target?.dataset.action === "toggle-match") {
     const matchKey = target.dataset.matchKey || "";
     if (state.expandedMatches.has(matchKey)) {
@@ -2652,6 +2674,10 @@ ticketList?.addEventListener("click", async (event) => {
     return;
   }
   if (target?.dataset.action === "toggle-sale") {
+    return;
+  }
+  if (target?.dataset.action === "toggle-match-menu") {
+    event.stopPropagation();
     return;
   }
   if (target?.dataset.action === "add-ticket-match") {

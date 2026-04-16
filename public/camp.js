@@ -857,6 +857,7 @@ function renderCampPayments() {
       <table class="camp-table camp-payment-table">
         <thead>
           <tr>
+            <th>#</th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Camp</th>
@@ -875,8 +876,9 @@ function renderCampPayments() {
         <tbody>
           ${visibleRows
             .map(
-              (row) => `
+              (row, index) => `
                 <tr>
+                  <td class="table-center">${startIndex + index + 1}</td>
                   <td>${escapeHtml(row.tripName)}</td>
                   <td>${escapeHtml(row.reservationName)}</td>
                   <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button></td>
@@ -1068,8 +1070,10 @@ function renderReadOnlyRow(entry, index, options = {}) {
   const meals = [entry.breakfast === "Yes" && "Breakfast", entry.lunch === "Yes" && "Lunch", entry.dinner === "Yes" && "Dinner"]
     .filter(Boolean)
     .join(" / ");
+  const rowNumber = options.showIndex ? `<td class="table-center">${index + 1}</td>` : "";
   return `
     <tr class="${statusClass(entry)}">
+      ${rowNumber}
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
@@ -1105,9 +1109,11 @@ function renderReadOnlyRow(entry, index, options = {}) {
   `;
 }
 
-function renderEditableRow(entry, index) {
+function renderEditableRow(entry, index, options = {}) {
+  const rowNumber = options.showIndex ? `<td class="table-center">${index + 1}</td>` : "";
   return `
     <tr class="is-editing ${statusClass(entry)}">
+      ${rowNumber}
       <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
@@ -1200,9 +1206,10 @@ function renderEntries() {
 
   campList.innerHTML = `
     <div class="camp-table-wrap">
-      <table class="camp-table">
+      <table class="camp-table camp-reservation-table">
         <thead>
           <tr>
+            <th>#</th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
@@ -1228,8 +1235,8 @@ function renderEntries() {
           ${visibleEntries
             .map((entry, index) =>
               editingReservationId === entry.id
-                ? renderEditableRow(entry, startIndex + index)
-                : renderReadOnlyRow(entry, startIndex + index)
+                ? renderEditableRow(entry, startIndex + index, { showIndex: true })
+                : renderReadOnlyRow(entry, startIndex + index, { showIndex: true })
             )
             .join("")}
         </tbody>
