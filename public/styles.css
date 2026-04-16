@@ -3656,6 +3656,132 @@ body.modal-open {
     linear-gradient(180deg, #eff3fb 0%, #f8fafc 100%);
 }
 
+.travelx-menu-open {
+  overflow: hidden;
+}
+
+.travelx-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(18px);
+  background: rgba(43, 25, 18, 0.56);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.travelx-site-header__bar {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 12px 22px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.travelx-site-header__brand {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.travelx-site-header__brand img {
+  width: 138px;
+  height: auto;
+  display: block;
+}
+
+.travelx-site-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  flex: 1;
+}
+
+.travelx-site-nav a,
+.travelx-mobile-menu__panel a,
+.travelx-language-button {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.travelx-site-nav a {
+  opacity: 0.92;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.travelx-site-nav a:hover,
+.travelx-site-nav a.is-active {
+  color: #f0a15d;
+  opacity: 1;
+}
+
+.travelx-site-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.travelx-language-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.travelx-menu-button {
+  display: none;
+  width: 48px;
+  height: 48px;
+  padding: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.travelx-menu-button span {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin: 5px 0;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.travelx-mobile-menu {
+  position: fixed;
+  inset: 72px 0 0;
+  background: rgba(16, 18, 28, 0.32);
+  z-index: 49;
+}
+
+.travelx-mobile-menu__panel {
+  width: min(320px, calc(100vw - 24px));
+  margin-left: auto;
+  margin-right: 12px;
+  padding: 18px 0;
+  background: #ffffff;
+  border-radius: 0 0 0 18px;
+  box-shadow: 0 24px 60px rgba(16, 25, 52, 0.22);
+}
+
+.travelx-mobile-menu__panel a {
+  display: block;
+  padding: 16px 22px;
+  color: #16233f;
+}
+
+.travelx-mobile-menu__panel a.is-active {
+  color: #16233f;
+}
+
 .fifa-public-shell {
   max-width: 1280px;
   margin: 0 auto;
@@ -3784,9 +3910,31 @@ body.modal-open {
 }
 
 @media (max-width: 1200px) {
+  .travelx-site-nav {
+    gap: 18px;
+  }
+
   .fifa-form-grid,
   .fifa-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .travelx-site-nav {
+    display: none;
+  }
+
+  .travelx-menu-button {
+    display: inline-block;
+  }
+
+  .travelx-site-header__bar {
+    padding: 10px 14px;
+  }
+
+  .travelx-site-header__brand img {
+    width: 166px;
   }
 }
 
@@ -3801,6 +3949,26 @@ body.modal-open {
 }
 
 @media (max-width: 640px) {
+  .travelx-site-header {
+    background: rgba(57, 33, 23, 0.48);
+  }
+
+  .travelx-site-header__bar {
+    gap: 10px;
+  }
+
+  .travelx-site-header__brand img {
+    width: 150px;
+  }
+
+  .travelx-language-button {
+    font-size: 0.85rem;
+  }
+
+  .travelx-mobile-menu {
+    top: 68px;
+  }
+
   .fifa-form-grid,
   .fifa-filters,
   .fifa-public-summary {

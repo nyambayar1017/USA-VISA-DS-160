@@ -4,6 +4,8 @@ const publicSummaryTotal = document.querySelector("#public-summary-total");
 const publicSummaryUnits = document.querySelector("#public-summary-units");
 const publicListCount = document.querySelector("#public-list-count");
 const publicListMeta = document.querySelector("#public-list-meta");
+const mobileMenuToggle = document.querySelector("#travelx-mobile-menu-toggle");
+const mobileMenu = document.querySelector("#travelx-mobile-menu");
 
 const filters = {
   search: document.querySelector("#public-filter-search"),
@@ -64,7 +66,15 @@ const STAGE_LABELS = {
 const state = {
   tickets: [],
   expandedMatches: new Set(),
+  mobileMenuOpen: false,
 };
+
+function setMobileMenuOpen(isOpen) {
+  state.mobileMenuOpen = Boolean(isOpen);
+  if (mobileMenu) mobileMenu.hidden = !state.mobileMenuOpen;
+  if (mobileMenuToggle) mobileMenuToggle.setAttribute("aria-expanded", state.mobileMenuOpen ? "true" : "false");
+  document.body.classList.toggle("travelx-menu-open", state.mobileMenuOpen);
+}
 
 function escapeHtml(value) {
   return String(value || "")
@@ -417,6 +427,26 @@ publicList?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
   event.preventDefault();
   toggleMatch(toggle.dataset.matchKey || "");
+});
+
+mobileMenuToggle?.addEventListener("click", () => {
+  setMobileMenuOpen(!state.mobileMenuOpen);
+});
+
+mobileMenu?.addEventListener("click", (event) => {
+  if (event.target === mobileMenu) {
+    setMobileMenuOpen(false);
+    return;
+  }
+  if (event.target.closest("a")) {
+    setMobileMenuOpen(false);
+  }
+});
+
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 980 && state.mobileMenuOpen) {
+    setMobileMenuOpen(false);
+  }
 });
 
 fetchPublicTickets().catch((error) => {

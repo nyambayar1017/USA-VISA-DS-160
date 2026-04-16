@@ -8,9 +8,60 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-7" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-11" />
   </head>
   <body class="fifa-public-body">
+    <header class="travelx-site-header">
+      <div class="travelx-site-header__bar">
+        <a class="travelx-site-header__brand" href="https://www.travelx.mn/" aria-label="Дэлхий Трэвел X">
+          <img src="/assets/dtx-logo-blue-yellow.png" alt="Дэлхий Трэвел X" />
+        </a>
+
+        <nav class="travelx-site-nav" aria-label="Үндсэн цэс">
+          <a class="is-active" href="https://www.travelx.mn/">Нүүр хуудас</a>
+          <a href="https://www.travelx.mn/group-trips">Аялал</a>
+          <a href="https://www.travelx.mn/group-trips">Аяллын хуваарь</a>
+          <a href="https://www.travelx.mn/discover-world">Аяллын хөтөч</a>
+          <a href="https://www.travelx.mn/">Нийтлэл</a>
+          <a href="https://travelx.mn/practical-infos">Хэрэгтэй мэдээлэл</a>
+          <a href="https://travelx.mn/our-agency">Бидний тухай</a>
+          <a href="https://travelx.mn/contact-us">Холбоо барих</a>
+        </nav>
+
+        <div class="travelx-site-header__actions">
+          <button type="button" class="travelx-language-button" aria-label="Хэл сонгох">
+            MN
+            <span aria-hidden="true">⌄</span>
+          </button>
+          <button
+            type="button"
+            class="travelx-menu-button"
+            id="travelx-mobile-menu-toggle"
+            aria-expanded="false"
+            aria-controls="travelx-mobile-menu"
+            aria-label="Цэс нээх"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="travelx-mobile-menu" id="travelx-mobile-menu" hidden>
+        <nav class="travelx-mobile-menu__panel" aria-label="Гар утасны цэс">
+          <a class="is-active" href="https://www.travelx.mn/">Нүүр хуудас</a>
+          <a href="https://www.travelx.mn/group-trips">Аялал</a>
+          <a href="https://www.travelx.mn/group-trips">Аяллын хуваарь</a>
+          <a href="https://www.travelx.mn/discover-world">Аяллын хөтөч</a>
+          <a href="https://www.travelx.mn/">Нийтлэл</a>
+          <a href="https://travelx.mn/practical-infos">Хэрэгтэй мэдээлэл</a>
+          <a href="https://travelx.mn/our-agency">Бидний тухай</a>
+          <a href="https://travelx.mn/contact-us">Холбоо барих</a>
+        </nav>
+      </div>
+    </header>
+
     <main class="fifa-public-shell">
       <section class="fifa-public-hero">
         <div>
@@ -77,6 +128,6 @@
       </section>
     </main>
 
-    <script src="/fifa2026.js?v=workspace-fifa-9"></script>
+    <script src="/fifa2026.js?v=workspace-fifa-10"></script>
   </body>
 </html>
