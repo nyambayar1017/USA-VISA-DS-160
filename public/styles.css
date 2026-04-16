@@ -3326,6 +3326,11 @@ body.modal-open {
   width: 140px;
 }
 
+.fifa-inline-invoice-input--amount {
+  width: 180px;
+  text-align: right;
+}
+
 .fifa-sale-invoice-table td:last-child,
 .fifa-sale-invoice-table th:last-child,
 .fifa-sale-invoice-table td:nth-last-child(2),
@@ -3353,7 +3358,7 @@ body.modal-open {
 
 .fifa-sale-inline-schedule-row {
   display: grid;
-  grid-template-columns: minmax(260px, 1.2fr) auto auto;
+  grid-template-columns: minmax(320px, 1.5fr) minmax(170px, auto) minmax(240px, auto);
   gap: 10px 16px;
   align-items: center;
   padding: 12px 14px;
@@ -3385,6 +3390,7 @@ body.modal-open {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  min-width: 0;
 }
 
 .fifa-pill.is-paid {
