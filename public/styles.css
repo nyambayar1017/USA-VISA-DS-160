@@ -1423,7 +1423,7 @@ time {
   inset: 0;
   z-index: 80;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: 24px;
   overflow-y: auto;
@@ -1448,7 +1448,7 @@ time {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  margin: 0 auto;
+  margin: auto;
   padding: 18px 18px 16px;
   border: 1px solid rgba(37, 58, 119, 0.14);
   border-radius: 16px;
