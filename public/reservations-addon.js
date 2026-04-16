@@ -1,10 +1,4 @@
 (function () {
-  const tabs = Array.from(document.querySelectorAll("[data-reservation-tab]"));
-  const panels = Array.from(document.querySelectorAll("[data-reservation-panel]"));
-  if (!tabs.length || !panels.length) {
-    return;
-  }
-
   const flightList = document.querySelector("#flight-list");
   const transferList = document.querySelector("#transfer-list");
   const flightFormPanel = document.querySelector("#flight-form-panel");
@@ -26,7 +20,10 @@
   const transferFilterStatus = document.querySelector("#transfer-filter-status");
   const transferFilterDate = document.querySelector("#transfer-filter-date");
 
-  let activeTab = "camp";
+  if (!flightList || !transferList || !flightForm || !transferForm) {
+    return;
+  }
+
   let trips = [];
   let flights = [];
   let transfers = [];
@@ -68,9 +65,11 @@
   }
 
   function formatStatus(status) {
-    return String(status || "")
-      .replaceAll("_", " ")
-      .replace(/\b\w/g, (match) => match.toUpperCase()) || "-";
+    return (
+      String(status || "")
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (match) => match.toUpperCase()) || "-"
+    );
   }
 
   function getTrip(tripId) {
@@ -82,14 +81,25 @@
       '<option value="">Choose trip</option>',
       ...trips.map(
         (trip) =>
-          `<option value="${escapeHtml(trip.id)}" ${selectedValue === trip.id ? "selected" : ""}>${escapeHtml(trip.tripName)}</option>`
+          `<option value="${escapeHtml(trip.id)}" ${trip.id === selectedValue ? "selected" : ""}>${escapeHtml(trip.tripName)}</option>`
       ),
     ].join("");
   }
 
+  function syncReservationName(formNode, tripId, force = false) {
+    const trip = getTrip(tripId);
+    if (!trip) {
+      return;
+    }
+    const nameNode = formNode.querySelector('[name="reservationName"]');
+    if (nameNode && (force || !nameNode.value.trim())) {
+      nameNode.value = trip.reservationName || trip.tripName || "";
+    }
+  }
+
   function refreshTripSelectors() {
-    const currentFlightTrip = flightFilterTrip.value;
-    const currentTransferTrip = transferFilterTrip.value;
+    const currentFlightFilter = flightFilterTrip.value;
+    const currentTransferFilter = transferFilterTrip.value;
     const currentFlightFormTrip = flightTripSelect.value;
     const currentTransferFormTrip = transferTripSelect.value;
 
@@ -102,26 +112,23 @@
       .map((trip) => `<option value="${escapeHtml(trip.id)}">${escapeHtml(trip.tripName)}</option>`)
       .join("")}`;
 
-    flightFilterTrip.value = currentFlightTrip;
-    transferFilterTrip.value = currentTransferTrip;
-  }
-
-  function setActiveTab(nextTab) {
-    activeTab = nextTab;
-    tabs.forEach((tab) => {
-      tab.classList.toggle("is-active", tab.dataset.reservationTab === nextTab);
-    });
-    panels.forEach((panel) => {
-      panel.classList.toggle("is-active", panel.dataset.reservationPanel === nextTab);
-    });
-    if (nextTab === "flight" || nextTab === "transfer") {
-      loadTrips().catch(() => {});
-    }
+    flightFilterTrip.value = currentFlightFilter;
+    transferFilterTrip.value = currentTransferFilter;
   }
 
   function openPanel(panel) {
     panel.classList.remove("is-hidden");
     document.body.classList.add("modal-open");
+    const dialog = panel.querySelector(".camp-modal-dialog");
+    const form = panel.querySelector("form");
+    requestAnimationFrame(() => {
+      if (dialog) {
+        dialog.scrollTop = 0;
+      }
+      if (form) {
+        form.scrollTop = 0;
+      }
+    });
   }
 
   function closePanel(panel) {
@@ -135,15 +142,14 @@
     }
   }
 
-  function syncReservationName(formNode, tripId) {
-    const trip = getTrip(tripId);
-    if (!trip) {
+  function ensureDefaultTrip(formNode, tripSelect) {
+    if (!trips.length) {
       return;
     }
-    const nameNode = formNode.querySelector('[name="reservationName"]');
-    if (nameNode && !nameNode.value.trim()) {
-      nameNode.value = trip.reservationName || trip.tripName || "";
+    if (!tripSelect.value) {
+      tripSelect.value = trips[0].id;
     }
+    syncReservationName(formNode, tripSelect.value, true);
   }
 
   function getFilteredFlights() {
@@ -318,6 +324,7 @@
     flightForm.elements.paymentStatus.value = "unpaid";
     flightStatus.textContent = "";
     refreshTripSelectors();
+    ensureDefaultTrip(flightForm, flightTripSelect);
   }
 
   function resetTransferForm() {
@@ -330,6 +337,7 @@
     transferForm.elements.paymentStatus.value = "unpaid";
     transferStatus.textContent = "";
     refreshTripSelectors();
+    ensureDefaultTrip(transferForm, transferTripSelect);
   }
 
   function fillFlightForm(entry) {
@@ -362,10 +370,6 @@
     openPanel(transferFormPanel);
   });
 
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => setActiveTab(tab.dataset.reservationTab));
-  });
-
   flightTripSelect?.addEventListener("change", () => syncReservationName(flightForm, flightTripSelect.value));
   transferTripSelect?.addEventListener("change", () => syncReservationName(transferForm, transferTripSelect.value));
 
@@ -379,7 +383,7 @@
     node?.addEventListener("change", renderTransfers);
   });
 
-  flightForm?.addEventListener("submit", async (event) => {
+  flightForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     flightStatus.textContent = editingFlightId ? "Saving flight..." : "Creating flight...";
     const payload = buildPayload(flightForm);
@@ -397,15 +401,14 @@
         body: JSON.stringify(payload),
       });
       closePanel(flightFormPanel);
-      resetFlightForm();
       await loadFlights();
-      flightStatus.textContent = "Flight reservation saved.";
+      resetFlightForm();
     } catch (error) {
       flightStatus.textContent = error.message;
     }
   });
 
-  transferForm?.addEventListener("submit", async (event) => {
+  transferForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     transferStatus.textContent = editingTransferId ? "Saving transfer..." : "Creating transfer...";
     const payload = buildPayload(transferForm);
@@ -423,15 +426,14 @@
         body: JSON.stringify(payload),
       });
       closePanel(transferFormPanel);
-      resetTransferForm();
       await loadTransfers();
-      transferStatus.textContent = "Transfer saved.";
+      resetTransferForm();
     } catch (error) {
       transferStatus.textContent = error.message;
     }
   });
 
-  flightList?.addEventListener("click", async (event) => {
+  flightList.addEventListener("click", async (event) => {
     const target = event.target.closest("[data-action]");
     if (!target) {
       return;
@@ -457,7 +459,7 @@
     }
   });
 
-  transferList?.addEventListener("click", async (event) => {
+  transferList.addEventListener("click", async (event) => {
     const target = event.target.closest("[data-action]");
     if (!target) {
       return;

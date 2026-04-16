@@ -1330,38 +1330,6 @@ time {
   flex-wrap: wrap;
 }
 
-.reservation-tabs {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 0 0 20px;
-}
-
-.reservation-tab {
-  border: 1px solid rgba(37, 58, 119, 0.14);
-  border-radius: 999px;
-  background: rgba(238, 243, 255, 0.74);
-  color: #18355f;
-  font-weight: 700;
-}
-
-.reservation-tab.is-active {
-  background: #17365f;
-  color: #ffffff;
-}
-
-.reservation-panel {
-  display: none;
-}
-
-.reservation-panel.is-active {
-  display: block;
-}
-
-.reservation-subhead {
-  margin-bottom: 18px;
-}
-
 .reservation-filters-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }

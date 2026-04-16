@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-70" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-71" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -163,21 +163,7 @@
         <section class="card" id="reservations-section">
           <div class="section-head">
             <div>
-              <h2>Reservations</h2>
-              <p>Use one trip-linked workspace for camp stays, flight tickets, and transfers.</p>
-            </div>
-          </div>
-
-          <div class="reservation-tabs" role="tablist" aria-label="Reservation types">
-            <button type="button" class="reservation-tab is-active" data-reservation-tab="camp">Camp</button>
-            <button type="button" class="reservation-tab" data-reservation-tab="flight">Flights</button>
-            <button type="button" class="reservation-tab" data-reservation-tab="transfer">Transfers</button>
-          </div>
-
-          <div class="reservation-panel is-active" data-reservation-panel="camp">
-          <div class="section-head reservation-subhead">
-            <div>
-              <h3>Camp Reservations</h3>
+              <h2>Camp Reservations</h2>
               <p>Accommodation and camp coordination linked to each trip.</p>
             </div>
             <div class="camp-toolbar">
@@ -394,316 +380,315 @@
           <div id="active-trip" class="is-hidden"></div>
           <div id="active-trip-reservations" class="card camp-trip-detail-panel mini-pagination is-hidden"></div>
           <div id="active-camp-reservations" class="card camp-trip-detail-panel mini-pagination is-hidden"></div>
-          </div>
+        </section>
 
-          <div class="reservation-panel" data-reservation-panel="flight">
-            <div class="section-head reservation-subhead">
-              <div>
-                <h3>Flight Reservations</h3>
-                <p>Domestic and international tickets related to each trip.</p>
-              </div>
-              <div class="camp-toolbar">
-                <button type="button" id="flight-toggle-form">Add flight reservation</button>
-              </div>
+        <section class="card" id="flight-reservations-section">
+          <div class="section-head">
+            <div>
+              <h2>Flight Reservations</h2>
+              <p>Domestic and international tickets related to each trip.</p>
             </div>
-            <div class="camp-filters reservation-filters-grid">
-              <label>
-                Trip Name
-                <select id="flight-filter-trip">
-                  <option value="">All trips</option>
-                </select>
-              </label>
-              <label>
-                Type
-                <select id="flight-filter-scope">
-                  <option value="">All types</option>
-                  <option value="domestic">Domestic</option>
-                  <option value="international">International</option>
-                </select>
-              </label>
-              <label>
-                Status
-                <select id="flight-filter-status">
-                  <option value="">All statuses</option>
-                  <option value="to_check">To check</option>
-                  <option value="reserved">Reserved</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="ticketed">Ticketed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </label>
-              <label>
-                Departure date
-                <input id="flight-filter-date" type="date" />
-              </label>
+            <div class="camp-toolbar">
+              <button type="button" id="flight-toggle-form">Add flight reservation</button>
             </div>
-            <div id="flight-form-panel" class="camp-modal is-hidden">
-              <div class="camp-modal-backdrop" data-action="close-flight-modal"></div>
-              <div class="camp-modal-dialog">
-                <div class="camp-modal-header">
-                  <div>
-                    <h2>Flight reservation</h2>
-                    <p class="camp-modal-copy">Link domestic or international tickets to a trip and track buying/payment progress.</p>
-                  </div>
-                  <button type="button" class="camp-modal-close" data-action="close-flight-modal" aria-label="Close flight window">×</button>
-                </div>
-                <form id="flight-form" class="field-grid">
-                  <input type="hidden" name="id" />
-                  <label>
-                    Selected Trip
-                    <select name="tripId" id="flight-trip-select" required></select>
-                  </label>
-                  <label>
-                    Reservation Name
-                    <input name="reservationName" required />
-                  </label>
-                  <label>
-                    Flight Type
-                    <select name="flightScope">
-                      <option value="domestic">Domestic</option>
-                      <option value="international">International</option>
-                    </select>
-                  </label>
-                  <label>
-                    Route Type
-                    <select name="routeType">
-                      <option value="internal">Internal</option>
-                      <option value="inbound">Inbound</option>
-                      <option value="outbound">Outbound</option>
-                      <option value="roundtrip">Roundtrip</option>
-                    </select>
-                  </label>
-                  <label>
-                    Airline
-                    <input name="airline" />
-                  </label>
-                  <label>
-                    Flight Number
-                    <input name="flightNumber" />
-                  </label>
-                  <label>
-                    From
-                    <input name="fromCity" required />
-                  </label>
-                  <label>
-                    To
-                    <input name="toCity" required />
-                  </label>
-                  <label>
-                    Departure Date
-                    <input name="departureDate" type="date" required />
-                  </label>
-                  <label>
-                    Departure Time
-                    <input name="departureTime" type="time" />
-                  </label>
-                  <label>
-                    Arrival Date
-                    <input name="arrivalDate" type="date" />
-                  </label>
-                  <label>
-                    Arrival Time
-                    <input name="arrivalTime" type="time" />
-                  </label>
-                  <label>
-                    Booking Ref / PNR
-                    <input name="bookingReference" />
-                  </label>
-                  <label>
-                    Ticket Number
-                    <input name="ticketNumber" />
-                  </label>
-                  <label>
-                    Passengers
-                    <input name="passengerCount" type="number" min="1" value="1" required />
-                  </label>
-                  <label>
-                    Status
-                    <select name="status">
-                      <option value="to_check">To check</option>
-                      <option value="reserved">Reserved</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="ticketed">Ticketed</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </label>
-                  <label>
-                    Bought Date
-                    <input name="boughtDate" type="date" />
-                  </label>
-                  <label>
-                    Payment Status
-                    <select name="paymentStatus">
-                      <option value="unpaid">Unpaid</option>
-                      <option value="deposit">Deposit</option>
-                      <option value="paid">Paid</option>
-                      <option value="refunded">Refunded</option>
-                    </select>
-                  </label>
-                  <label>
-                    Amount
-                    <input name="amount" type="number" min="0" value="0" />
-                  </label>
-                  <label>
-                    Currency
-                    <input name="currency" value="USD" />
-                  </label>
-                  <label class="full-span">
-                    Notes
-                    <textarea name="notes" rows="3"></textarea>
-                  </label>
-                  <div class="actions full-span">
-                    <button type="submit">Save flight reservation</button>
-                    <p id="flight-status" class="status"></p>
-                  </div>
-                </form>
-              </div>
-            </div>
-            <div id="flight-list" class="submission-list"></div>
           </div>
+          <div class="camp-filters reservation-filters-grid">
+            <label>
+              Trip Name
+              <select id="flight-filter-trip">
+                <option value="">All trips</option>
+              </select>
+            </label>
+            <label>
+              Type
+              <select id="flight-filter-scope">
+                <option value="">All types</option>
+                <option value="domestic">Domestic</option>
+                <option value="international">International</option>
+              </select>
+            </label>
+            <label>
+              Status
+              <select id="flight-filter-status">
+                <option value="">All statuses</option>
+                <option value="to_check">To check</option>
+                <option value="reserved">Reserved</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="ticketed">Ticketed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label>
+              Departure date
+              <input id="flight-filter-date" type="date" />
+            </label>
+          </div>
+          <div id="flight-form-panel" class="camp-modal is-hidden">
+            <div class="camp-modal-backdrop" data-action="close-flight-modal"></div>
+            <div class="camp-modal-dialog">
+              <div class="camp-modal-header">
+                <div>
+                  <h2>Flight reservation</h2>
+                  <p class="camp-modal-copy">Link domestic or international tickets to a trip and track buying/payment progress.</p>
+                </div>
+                <button type="button" class="camp-modal-close" data-action="close-flight-modal" aria-label="Close flight window">×</button>
+              </div>
+              <form id="flight-form" class="field-grid">
+                <input type="hidden" name="id" />
+                <label>
+                  Selected Trip
+                  <select name="tripId" id="flight-trip-select" required></select>
+                </label>
+                <label>
+                  Reservation Name
+                  <input name="reservationName" required />
+                </label>
+                <label>
+                  Flight Type
+                  <select name="flightScope">
+                    <option value="domestic">Domestic</option>
+                    <option value="international">International</option>
+                  </select>
+                </label>
+                <label>
+                  Route Type
+                  <select name="routeType">
+                    <option value="internal">Internal</option>
+                    <option value="inbound">Inbound</option>
+                    <option value="outbound">Outbound</option>
+                    <option value="roundtrip">Roundtrip</option>
+                  </select>
+                </label>
+                <label>
+                  Airline
+                  <input name="airline" />
+                </label>
+                <label>
+                  Flight Number
+                  <input name="flightNumber" />
+                </label>
+                <label>
+                  From
+                  <input name="fromCity" required />
+                </label>
+                <label>
+                  To
+                  <input name="toCity" required />
+                </label>
+                <label>
+                  Departure Date
+                  <input name="departureDate" type="date" required />
+                </label>
+                <label>
+                  Departure Time
+                  <input name="departureTime" type="time" />
+                </label>
+                <label>
+                  Arrival Date
+                  <input name="arrivalDate" type="date" />
+                </label>
+                <label>
+                  Arrival Time
+                  <input name="arrivalTime" type="time" />
+                </label>
+                <label>
+                  Booking Ref / PNR
+                  <input name="bookingReference" />
+                </label>
+                <label>
+                  Ticket Number
+                  <input name="ticketNumber" />
+                </label>
+                <label>
+                  Passengers
+                  <input name="passengerCount" type="number" min="1" value="1" required />
+                </label>
+                <label>
+                  Status
+                  <select name="status">
+                    <option value="to_check">To check</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="ticketed">Ticketed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+                <label>
+                  Bought Date
+                  <input name="boughtDate" type="date" />
+                </label>
+                <label>
+                  Payment Status
+                  <select name="paymentStatus">
+                    <option value="unpaid">Unpaid</option>
+                    <option value="deposit">Deposit</option>
+                    <option value="paid">Paid</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
+                </label>
+                <label>
+                  Amount
+                  <input name="amount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Currency
+                  <input name="currency" value="USD" />
+                </label>
+                <label class="full-span">
+                  Notes
+                  <textarea name="notes" rows="3"></textarea>
+                </label>
+                <div class="actions full-span">
+                  <button type="submit">Save flight reservation</button>
+                  <p id="flight-status" class="status"></p>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div id="flight-list" class="submission-list"></div>
+        </section>
 
-          <div class="reservation-panel" data-reservation-panel="transfer">
-            <div class="section-head reservation-subhead">
-              <div>
-                <h3>Transfer Reservations</h3>
-                <p>Airport, hotel, train, and custom transfer services related to each trip.</p>
-              </div>
-              <div class="camp-toolbar">
-                <button type="button" id="transfer-toggle-form">Add transfer</button>
-              </div>
+        <section class="card" id="transfer-reservations-section">
+          <div class="section-head">
+            <div>
+              <h2>Transfer Reservations</h2>
+              <p>Airport, hotel, train, and custom transfer services related to each trip.</p>
             </div>
-            <div class="camp-filters reservation-filters-grid">
-              <label>
-                Trip Name
-                <select id="transfer-filter-trip">
-                  <option value="">All trips</option>
-                </select>
-              </label>
-              <label>
-                Transfer Type
-                <select id="transfer-filter-type">
-                  <option value="">All transfer types</option>
-                  <option value="airport_hotel">Airport to hotel</option>
-                  <option value="hotel_airport">Hotel to airport</option>
-                  <option value="train_hotel">Train to hotel</option>
-                  <option value="hotel_train">Hotel to train</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </label>
-              <label>
-                Status
-                <select id="transfer-filter-status">
-                  <option value="">All statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </label>
-              <label>
-                Service Date
-                <input id="transfer-filter-date" type="date" />
-              </label>
+            <div class="camp-toolbar">
+              <button type="button" id="transfer-toggle-form">Add transfer</button>
             </div>
-            <div id="transfer-form-panel" class="camp-modal is-hidden">
-              <div class="camp-modal-backdrop" data-action="close-transfer-modal"></div>
-              <div class="camp-modal-dialog">
-                <div class="camp-modal-header">
-                  <div>
-                    <h2>Transfer reservation</h2>
-                    <p class="camp-modal-copy">Track airport, hotel, train, or custom transfer coordination and payments.</p>
-                  </div>
-                  <button type="button" class="camp-modal-close" data-action="close-transfer-modal" aria-label="Close transfer window">×</button>
-                </div>
-                <form id="transfer-form" class="field-grid">
-                  <input type="hidden" name="id" />
-                  <label>
-                    Selected Trip
-                    <select name="tripId" id="transfer-trip-select" required></select>
-                  </label>
-                  <label>
-                    Reservation Name
-                    <input name="reservationName" required />
-                  </label>
-                  <label>
-                    Transfer Type
-                    <select name="transferType">
-                      <option value="airport_hotel">Airport to hotel</option>
-                      <option value="hotel_airport">Hotel to airport</option>
-                      <option value="train_hotel">Train to hotel</option>
-                      <option value="hotel_train">Hotel to train</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </label>
-                  <label>
-                    Pickup
-                    <input name="pickupLocation" required />
-                  </label>
-                  <label>
-                    Dropoff
-                    <input name="dropoffLocation" required />
-                  </label>
-                  <label>
-                    Service Date
-                    <input name="serviceDate" type="date" required />
-                  </label>
-                  <label>
-                    Service Time
-                    <input name="serviceTime" type="time" />
-                  </label>
-                  <label>
-                    Supplier
-                    <input name="supplierName" />
-                  </label>
-                  <label>
-                    Driver
-                    <input name="driverName" />
-                  </label>
-                  <label>
-                    Vehicle
-                    <input name="vehicleType" />
-                  </label>
-                  <label>
-                    Passengers
-                    <input name="passengerCount" type="number" min="1" value="1" required />
-                  </label>
-                  <label>
-                    Status
-                    <select name="status">
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="completed">Completed</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </label>
-                  <label>
-                    Payment Status
-                    <select name="paymentStatus">
-                      <option value="unpaid">Unpaid</option>
-                      <option value="paid">Paid</option>
-                    </select>
-                  </label>
-                  <label>
-                    Amount
-                    <input name="amount" type="number" min="0" value="0" />
-                  </label>
-                  <label>
-                    Currency
-                    <input name="currency" value="USD" />
-                  </label>
-                  <label class="full-span">
-                    Notes
-                    <textarea name="notes" rows="3"></textarea>
-                  </label>
-                  <div class="actions full-span">
-                    <button type="submit">Save transfer</button>
-                    <p id="transfer-status" class="status"></p>
-                  </div>
-                </form>
-              </div>
-            </div>
-            <div id="transfer-list" class="submission-list"></div>
           </div>
+          <div class="camp-filters reservation-filters-grid">
+            <label>
+              Trip Name
+              <select id="transfer-filter-trip">
+                <option value="">All trips</option>
+              </select>
+            </label>
+            <label>
+              Transfer Type
+              <select id="transfer-filter-type">
+                <option value="">All transfer types</option>
+                <option value="airport_hotel">Airport to hotel</option>
+                <option value="hotel_airport">Hotel to airport</option>
+                <option value="train_hotel">Train to hotel</option>
+                <option value="hotel_train">Hotel to train</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label>
+              Status
+              <select id="transfer-filter-status">
+                <option value="">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label>
+              Service Date
+              <input id="transfer-filter-date" type="date" />
+            </label>
+          </div>
+          <div id="transfer-form-panel" class="camp-modal is-hidden">
+            <div class="camp-modal-backdrop" data-action="close-transfer-modal"></div>
+            <div class="camp-modal-dialog">
+              <div class="camp-modal-header">
+                <div>
+                  <h2>Transfer reservation</h2>
+                  <p class="camp-modal-copy">Track airport, hotel, train, or custom transfer coordination and payments.</p>
+                </div>
+                <button type="button" class="camp-modal-close" data-action="close-transfer-modal" aria-label="Close transfer window">×</button>
+              </div>
+              <form id="transfer-form" class="field-grid">
+                <input type="hidden" name="id" />
+                <label>
+                  Selected Trip
+                  <select name="tripId" id="transfer-trip-select" required></select>
+                </label>
+                <label>
+                  Reservation Name
+                  <input name="reservationName" required />
+                </label>
+                <label>
+                  Transfer Type
+                  <select name="transferType">
+                    <option value="airport_hotel">Airport to hotel</option>
+                    <option value="hotel_airport">Hotel to airport</option>
+                    <option value="train_hotel">Train to hotel</option>
+                    <option value="hotel_train">Hotel to train</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+                <label>
+                  Pickup
+                  <input name="pickupLocation" required />
+                </label>
+                <label>
+                  Dropoff
+                  <input name="dropoffLocation" required />
+                </label>
+                <label>
+                  Service Date
+                  <input name="serviceDate" type="date" required />
+                </label>
+                <label>
+                  Service Time
+                  <input name="serviceTime" type="time" />
+                </label>
+                <label>
+                  Supplier
+                  <input name="supplierName" />
+                </label>
+                <label>
+                  Driver
+                  <input name="driverName" />
+                </label>
+                <label>
+                  Vehicle
+                  <input name="vehicleType" />
+                </label>
+                <label>
+                  Passengers
+                  <input name="passengerCount" type="number" min="1" value="1" required />
+                </label>
+                <label>
+                  Status
+                  <select name="status">
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+                <label>
+                  Payment Status
+                  <select name="paymentStatus">
+                    <option value="unpaid">Unpaid</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                </label>
+                <label>
+                  Amount
+                  <input name="amount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Currency
+                  <input name="currency" value="USD" />
+                </label>
+                <label class="full-span">
+                  Notes
+                  <textarea name="notes" rows="3"></textarea>
+                </label>
+                <div class="actions full-span">
+                  <button type="submit">Save transfer</button>
+                  <p id="transfer-status" class="status"></p>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div id="transfer-list" class="submission-list"></div>
         </section>
 
         <section class="card" id="payments-section">
@@ -776,6 +761,6 @@
 
     <script src="/app-shell.js?v=workspace-64"></script>
     <script src="/camp.js?v=workspace-61"></script>
-    <script src="/reservations-addon.js?v=workspace-1"></script>
+    <script src="/reservations-addon.js?v=workspace-2"></script>
   </body>
 </html>
