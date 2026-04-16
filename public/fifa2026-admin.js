@@ -514,6 +514,13 @@ function compareTicketSeatOrder(leftTicket, rightTicket) {
   return naturalTextCompare(left.raw, right.raw);
 }
 
+function compareSeatSortValue(leftLabel, rightLabel) {
+  return compareTicketSeatOrder(
+    { seatDetails: leftLabel, seatSection: leftLabel },
+    { seatDetails: rightLabel, seatSection: rightLabel }
+  );
+}
+
 function renderSaleSeatPicker() {
   if (!saleSeatPicker || !saleMatchSelect || !saleCategorySelect || !saleBlockQuantityInput) return;
   const matchNumber = saleMatchSelect.value;
