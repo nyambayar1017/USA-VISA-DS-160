@@ -2378,6 +2378,26 @@ INVOICE_BANK_ACCOUNTS = {
         "prefix": "MN80001500",
         "accountNumber": "3675114666",
     },
+    "lkham-erdene": {
+        "bankName": "Лхам-Эрдэнэ",
+        "prefix": "Хувийн данс",
+        "accountNumber": "",
+    },
+    "azjargal": {
+        "bankName": "Азжаргал",
+        "prefix": "Хувийн данс",
+        "accountNumber": "",
+    },
+    "bayaraa": {
+        "bankName": "Баяраа",
+        "prefix": "Хувийн данс",
+        "accountNumber": "",
+    },
+    "other": {
+        "bankName": "Other",
+        "prefix": "",
+        "accountNumber": "",
+    },
 }
 
 
@@ -4975,6 +4995,7 @@ def build_fifa_sale(payload, actor=None):
     discount_amount = max(parse_int(payload.get("discountAmount")), 0)
     invoice_exchange_rate = max(parse_int(payload.get("invoiceExchangeRate")) or 3600, 1)
     invoice_bank_account = normalize_text(payload.get("invoiceBankAccount")) or "state"
+    invoice_bank_account_other = normalize_text(payload.get("invoiceBankAccountOther"))
     invoice_schedule = []
     invoice_descriptions = [normalize_text(item) for item in (payload.get("invoiceDescriptions") or []) if normalize_text(item)]
     for row in payload.get("invoiceSchedule") or []:
@@ -5018,6 +5039,7 @@ def build_fifa_sale(payload, actor=None):
         "discountAmount": discount_amount,
         "invoiceExchangeRate": invoice_exchange_rate,
         "invoiceBankAccount": invoice_bank_account,
+        "invoiceBankAccountOther": invoice_bank_account_other,
         "invoiceDescriptions": invoice_descriptions,
         "invoiceSchedule": invoice_schedule,
         "totalPrice": total_price,
@@ -5059,7 +5081,7 @@ def validate_fifa_sale(sale, ticket, sales, store, excluded_sale_id=None):
         return "Payment status is invalid"
     if sale.get("saleStatus") not in {"active", "cancelled"}:
         return "Sale status is invalid"
-    if sale.get("invoiceBankAccount") not in {"state", "golomt"}:
+    if sale.get("invoiceBankAccount") not in {"state", "golomt", "lkham-erdene", "azjargal", "bayaraa", "other"}:
         return "Invoice bank account is invalid"
     for row in sale.get("invoiceSchedule") or []:
         if normalize_text(row.get("status")).lower() not in {"paid", "waiting", "overdue"}:

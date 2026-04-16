@@ -54,7 +54,22 @@ const DEFAULT_INVOICE_EXCHANGE_RATE = 3600;
 const BANK_ACCOUNTS = {
   state: { bankName: "Төрийн Банк", prefix: "MN030034", accountNumber: "3432 7777 9999" },
   golomt: { bankName: "Голомт Банк", prefix: "MN80001500", accountNumber: "3675114666" },
+  "lkham-erdene": { bankName: "Лхам-Эрдэнэ", prefix: "Хувийн данс", accountNumber: "" },
+  azjargal: { bankName: "Азжаргал", prefix: "Хувийн данс", accountNumber: "" },
+  bayaraa: { bankName: "Баяраа", prefix: "Хувийн данс", accountNumber: "" },
+  other: { bankName: "Other", prefix: "", accountNumber: "" },
 };
+const NATIONALITY_OPTIONS = [
+  "Mongolian",
+  "Japanese",
+  "Korean",
+  "Mexican",
+  "Brazilian",
+  "English",
+  "French",
+  "American",
+  "Other",
+];
 
 const MATCH_CATALOG = [
   { stage: "Opening", matchNumber: "Match 1", matchDate: "2026-06-11", teamA: "MEX", teamB: "RSA", city: "Mexico City", venue: "Mexico City Stadium" },
@@ -183,6 +198,31 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toISOString().slice(0, 10);
+}
+
+function currentInvoiceExchangeRate() {
+  return Math.max(Number(saleForm?.elements?.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+}
+
+function currentDiscountUsd() {
+  const discountMnt = Math.max(Number(saleForm?.elements?.discountAmountMnt?.value || 0), 0);
+  return Math.round(discountMnt / currentInvoiceExchangeRate());
+}
+
+function currentAmountPaidUsd() {
+  const amountPaidMnt = Math.max(Number(saleForm?.elements?.amountPaidMnt?.value || 0), 0);
+  return Math.round(amountPaidMnt / currentInvoiceExchangeRate());
+}
+
+function currentSaleTotalUsd() {
+  const blockTotalUsd = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
+  return Math.max(blockTotalUsd - currentDiscountUsd(), 0);
+}
+
+function combinedParticipantName(participant) {
+  const givenName = String(participant?.givenName || "").trim();
+  const surname = String(participant?.surname || "").trim();
+  return [surname, givenName].filter(Boolean).join(" ").trim() || String(participant?.name || "").trim();
 }
 
 function naturalTextCompare(left, right) {
@@ -566,7 +606,8 @@ function syncSalePriceFields() {
   if (!saleForm) return;
   const totalTickets = selectedSaleTicketIds().length;
   const blockTotalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
-  const discountAmount = Math.max(Number(saleForm.elements.discountAmount?.value || 0), 0);
+  const exchangeRate = currentInvoiceExchangeRate();
+  const discountAmount = currentDiscountUsd();
   const totalPrice = Math.max(blockTotalPrice - discountAmount, 0);
   const unitPrices = [...new Set(state.saleBlocks.map((block) => Number(block.unitPrice || 0)).filter(Boolean))];
   saleForm.elements.quantity.value = String(totalTickets || 0);
@@ -576,14 +617,23 @@ function syncSalePriceFields() {
     ? ""
     : "This sale has different ticket prices by match. Use the per-match block prices above.";
   if (salePriceBreakdown) {
-    const lines = state.saleBlocks.map((block) =>
-      `${block.matchLabel}: ${formatMoney(block.unitPrice || 0)} per ticket · ${String(block.quantity || 0)} ticket(s) · Total ${formatMoney(block.totalPrice || 0)}`
-    );
-    if (discountAmount > 0) lines.push(`Discount: -${formatMoney(discountAmount)}`);
-    lines.push(`Grand total: ${formatMoney(totalPrice)}`);
+    const lines = state.saleBlocks.flatMap((block, index) => {
+      const unitPriceMnt = Math.round(Number(block.unitPrice || 0) * exchangeRate);
+      const totalPriceMnt = Math.round(Number(block.totalPrice || 0) * exchangeRate);
+      return [
+        `${index + 1}. ${block.matchLabel}`,
+        `Price ticket: ${formatMoney(unitPriceMnt, "MNT")}`,
+        `Quantity: ${String(block.quantity || 0)}`,
+        `Total price: ${formatMoney(totalPriceMnt, "MNT")}`,
+      ];
+    });
+    if (discountAmount > 0) lines.push(`Discount: -${formatMoney(Math.round(discountAmount * exchangeRate), "MNT")}`);
+    lines.push(`Grand total amount: ${formatMoney(Math.round(totalPrice * exchangeRate), "MNT")}`);
     salePriceBreakdown.value = lines.join("\n");
   }
   saleForm.elements.totalPrice.value = totalPrice ? String(totalPrice) : "";
+  if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = totalPrice ? String(Math.round(totalPrice * exchangeRate)) : "";
+  if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = String(discountAmount);
   syncSaleTotals();
   renderInvoiceScheduleEditor();
 }
@@ -608,21 +658,22 @@ function renderSaleSummary() {
   }
   const totalTickets = state.saleBlocks.reduce((sum, block) => sum + Number(block.quantity || 0), 0);
   const blockTotalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
-  const discountAmount = Math.max(Number(saleForm?.elements?.discountAmount?.value || 0), 0);
+  const exchangeRate = currentInvoiceExchangeRate();
+  const discountAmount = currentDiscountUsd();
   const totalPrice = Math.max(blockTotalPrice - discountAmount, 0);
   summaryNode.innerHTML = `
     <div class="fifa-sale-summary-box">
       <div class="fifa-sale-summary-head">
         <strong>Payment and invoice summary</strong>
-        <span class="fifa-table-sub">Grand total: ${formatMoney(totalPrice)} · ${totalTickets} ticket(s)</span>
+        <span class="fifa-table-sub">Grand total: ${formatMoney(Math.round(totalPrice * exchangeRate), "MNT")} · ${totalTickets} ticket(s)</span>
       </div>
       <div class="fifa-sale-summary-list">
         ${state.saleBlocks.map((block) => `
           <div class="fifa-sale-summary-row">
             <strong>${escapeHtml(block.matchLabel)}</strong>
             <span>CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(String(block.quantity || 0))} ticket(s)</span>
-            <span>Price per ticket: ${escapeHtml(formatMoney(block.unitPrice || 0))}</span>
-            <span>Total: ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
+            <span>Price ticket: ${escapeHtml(formatMoney(Math.round(Number(block.unitPrice || 0) * exchangeRate), "MNT"))}</span>
+            <span>Total: ${escapeHtml(formatMoney(Math.round(Number(block.totalPrice || 0) * exchangeRate), "MNT"))}</span>
           </div>
         `).join("")}
         ${discountAmount > 0 ? `
@@ -630,14 +681,14 @@ function renderSaleSummary() {
             <strong>Discount</strong>
             <span></span>
             <span></span>
-            <span>-${escapeHtml(formatMoney(discountAmount))}</span>
+            <span>-${escapeHtml(formatMoney(Math.round(discountAmount * exchangeRate), "MNT"))}</span>
           </div>
         ` : ""}
         <div class="fifa-sale-summary-row fifa-sale-summary-row--grand-total">
           <strong>Total for all tickets</strong>
           <span>${escapeHtml(String(totalTickets))} ticket(s)</span>
           <span></span>
-          <span>${escapeHtml(formatMoney(totalPrice))}</span>
+          <span>${escapeHtml(formatMoney(Math.round(totalPrice * exchangeRate), "MNT"))}</span>
         </div>
       </div>
     </div>
@@ -645,7 +696,25 @@ function renderSaleSummary() {
 }
 
 function getInvoiceBankAccount(key) {
+  if (typeof key === "object" && key) return key;
   return BANK_ACCOUNTS[key] || BANK_ACCOUNTS.state;
+}
+
+function invoiceBankAccountLabel(bankKey, otherValue = "") {
+  if (bankKey === "other") return String(otherValue || "").trim() || "Other";
+  const account = getInvoiceBankAccount(bankKey);
+  return [account.bankName, account.prefix, account.accountNumber].filter(Boolean).join(" ");
+}
+
+function toggleOtherBankAccountField() {
+  const otherField = document.querySelector("#fifa-sale-other-bank-account-field");
+  if (!otherField || !saleForm?.elements?.invoiceBankAccount) return;
+  const isOther = saleForm.elements.invoiceBankAccount.value === "other";
+  if (isOther) {
+    otherField.removeAttribute("hidden");
+  } else {
+    otherField.setAttribute("hidden", "");
+  }
 }
 
 function buildInvoiceDraftFromSale(sale) {
@@ -655,6 +724,7 @@ function buildInvoiceDraftFromSale(sale) {
     buyerName: sale.buyerName || sale.buyerTitle || "",
     invoiceExchangeRate: exchangeRate,
     invoiceBankAccount: sale.invoiceBankAccount || "state",
+    invoiceBankAccountOther: sale.invoiceBankAccountOther || "",
     invoiceDescriptions: invoiceRows.map((row) => row.description || ""),
     invoiceSchedule: activeInvoiceSchedule(sale).map((row) => ({
       title: row.title || "",
@@ -678,6 +748,7 @@ function captureInlineInvoiceDraft(sale) {
   const buyerNameInput = container.querySelector('[data-action="invoice-draft-field"][data-field="buyerName"]');
   const exchangeRateInput = container.querySelector('[data-action="invoice-draft-field"][data-field="invoiceExchangeRate"]');
   const bankAccountSelect = container.querySelector('[data-action="invoice-draft-field"][data-field="invoiceBankAccount"]');
+  const bankAccountOtherInput = container.querySelector('[data-action="invoice-draft-field"][data-field="invoiceBankAccountOther"]');
   const descriptions = [...container.querySelectorAll('[data-action="invoice-draft-description"]')].map((node) => node.value);
   const schedule = [...container.querySelectorAll("[data-inline-invoice-row]")].map((rowNode, index) => {
     const getValue = (field) => rowNode.querySelector(`[data-field="${field}"]`)?.value || "";
@@ -697,6 +768,7 @@ function captureInlineInvoiceDraft(sale) {
     buyerName: buyerNameInput?.value ?? existing.buyerName,
     invoiceExchangeRate: Math.max(Number(exchangeRateInput?.value || existing.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1),
     invoiceBankAccount: bankAccountSelect?.value || existing.invoiceBankAccount || "state",
+    invoiceBankAccountOther: bankAccountOtherInput?.value ?? existing.invoiceBankAccountOther ?? "",
     invoiceDescriptions: descriptions.length ? descriptions : existing.invoiceDescriptions,
     invoiceSchedule: schedule.length ? schedule : existing.invoiceSchedule,
   };
@@ -712,6 +784,7 @@ function saleLikeWithInvoiceDraft(sale) {
     buyerName: draft.buyerName,
     invoiceExchangeRate: draft.invoiceExchangeRate,
     invoiceBankAccount: draft.invoiceBankAccount,
+    invoiceBankAccountOther: draft.invoiceBankAccountOther,
     invoiceDescriptions: draft.invoiceDescriptions,
     invoiceSchedule: draft.invoiceSchedule,
   };
@@ -848,6 +921,7 @@ function renderParticipants() {
     saleParticipantList.innerHTML = '<p class="fifa-seat-help">Travelers will appear from the selected tickets.</p>';
     return;
   }
+  const nationalityOptions = NATIONALITY_OPTIONS.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
   saleParticipantList.innerHTML = state.participants
     .map((participant, index) => `
       <div class="fifa-sale-participant-card" data-participant-index="${index}">
@@ -855,8 +929,12 @@ function renderParticipants() {
         <p class="fifa-table-sub">${escapeHtml(participant.ticketLabel || "Selected ticket")}</p>
         <div class="manager-form-grid fifa-form-grid">
           <label>
-            Person using this ticket
-            <input type="text" data-participant-field="name" value="${escapeHtml(participant.name || "")}" />
+            Name
+            <input type="text" data-participant-field="givenName" value="${escapeHtml(participant.givenName || participant.name || "")}" />
+          </label>
+          <label>
+            Surname
+            <input type="text" data-participant-field="surname" value="${escapeHtml(participant.surname || "")}" />
           </label>
           <label>
             Passport number
@@ -864,9 +942,19 @@ function renderParticipants() {
           </label>
           <label>
             Nationality
-            <input type="text" data-participant-field="nationality" value="${escapeHtml(participant.nationality || "")}" />
+            <select data-participant-field="nationality">
+              ${nationalityOptions.replace(`value="${escapeHtml(participant.nationality || "Mongolian")}"`, `value="${escapeHtml(participant.nationality || "Mongolian")}" selected`)}
+            </select>
           </label>
           <label>
+            Birth date
+            <input type="date" data-participant-field="birthDate" value="${escapeHtml(safeDateInput(participant.birthDate || ""))}" />
+          </label>
+          <label>
+            Passport expiry date
+            <input type="date" data-participant-field="passportExpiryDate" value="${escapeHtml(safeDateInput(participant.passportExpiryDate || ""))}" />
+          </label>
+          <label class="full-span">
             Notes
             <input type="text" data-participant-field="notes" value="${escapeHtml(participant.notes || "")}" />
           </label>
@@ -887,8 +975,12 @@ function syncParticipantsFromBlocks() {
       ticketId: ticket.id,
       ticketLabel: ticketSummaryLabel(ticket),
       name: existing.name || "",
+      givenName: existing.givenName || existing.name || "",
+      surname: existing.surname || "",
       passportNumber: existing.passportNumber || "",
-      nationality: existing.nationality || "",
+      nationality: existing.nationality || "Mongolian",
+      birthDate: existing.birthDate || "",
+      passportExpiryDate: existing.passportExpiryDate || "",
       notes: existing.notes || "",
     };
   });
@@ -908,13 +1000,14 @@ function renderSaleBlocks() {
   saleBlockList.innerHTML = state.saleBlocks
     .map((block, index) => {
       const derivedUnitPrice = Number(block.unitPrice || 0) || (Number(block.quantity || 0) ? Math.round(Number(block.totalPrice || 0) / Number(block.quantity || 1)) : 0);
+      const exchangeRate = currentInvoiceExchangeRate();
       return `
       <div class="fifa-sale-block-item" data-sale-block-index="${index}">
         <div>
           <strong>${escapeHtml(block.matchLabel)}</strong>
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s)</span>
-          <span class="fifa-table-sub">Price per ticket: ${escapeHtml(formatMoney(derivedUnitPrice))}</span>
-          <span class="fifa-table-sub">Total for ${escapeHtml(block.matchLabel)}: ${escapeHtml(formatMoney(block.totalPrice || 0))}</span>
+          <span class="fifa-table-sub">Price ticket: ${escapeHtml(formatMoney(Math.round(derivedUnitPrice * exchangeRate), "MNT"))}</span>
+          <span class="fifa-table-sub">Total for ${escapeHtml(block.matchLabel)}: ${escapeHtml(formatMoney(Math.round(Number(block.totalPrice || 0) * exchangeRate), "MNT"))}</span>
           <div class="fifa-sale-ticket-list">
             ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(label)}</span>`).join("")}
           </div>
@@ -964,9 +1057,11 @@ function resetSaleForm() {
   if (saleTicketIdsInput) saleTicketIdsInput.value = "";
   saleForm.elements.quantity.value = "0";
   saleForm.elements.amountPaid.value = "0";
+  if (saleForm.elements.amountPaidMnt) saleForm.elements.amountPaidMnt.value = "0";
+  if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = "0";
   saleForm.elements.saleStatus.value = "active";
   saleForm.elements.paymentStatus.value = "unpaid";
-  saleForm.elements.paymentMethod.value = "Bank transfer";
+  saleForm.elements.paymentMethod.value = "state";
   saleForm.elements.buyerTitle.value = "";
   state.editingSaleId = "";
   state.saleBlocks = [];
@@ -982,8 +1077,12 @@ function resetSaleForm() {
   renderParticipants();
   renderSaleSeatPicker();
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = "0";
+  if (saleForm.elements.discountAmountMnt) saleForm.elements.discountAmountMnt.value = "0";
   if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = String(DEFAULT_INVOICE_EXCHANGE_RATE);
   if (saleForm.elements.invoiceBankAccount) saleForm.elements.invoiceBankAccount.value = "state";
+  if (saleForm.elements.invoiceBankAccountOther) saleForm.elements.invoiceBankAccountOther.value = "";
+  toggleOtherBankAccountField();
+  if (saleForm.elements.soldAt) saleForm.elements.soldAt.value = new Date().toISOString().slice(0, 10);
   if (salePriceBreakdown) salePriceBreakdown.value = "";
   renderInvoiceScheduleEditor();
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
@@ -1121,12 +1220,17 @@ function fillSaleForm(sale) {
   saleForm.elements.quantity.value = sale.quantity || 1;
   saleForm.elements.pricePerTicket.value = sale.pricePerTicket || "";
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = sale.discountAmount || 0;
+  if (saleForm.elements.discountAmountMnt) saleForm.elements.discountAmountMnt.value = String(Math.round(Number(sale.discountAmount || 0) * Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE)));
   if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE;
   if (saleForm.elements.invoiceBankAccount) saleForm.elements.invoiceBankAccount.value = sale.invoiceBankAccount || "state";
+  if (saleForm.elements.invoiceBankAccountOther) saleForm.elements.invoiceBankAccountOther.value = sale.invoiceBankAccountOther || "";
+  toggleOtherBankAccountField();
   saleForm.elements.totalPrice.value = sale.totalPrice || "";
+  if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = String(Math.round(Number(sale.totalPrice || 0) * Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE)));
   saleForm.elements.amountPaid.value = sale.amountPaid || 0;
+  if (saleForm.elements.amountPaidMnt) saleForm.elements.amountPaidMnt.value = String(Math.round(Number(sale.amountPaid || 0) * Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE)));
   saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
-  saleForm.elements.paymentMethod.value = sale.paymentMethod || "Bank transfer";
+  saleForm.elements.paymentMethod.value = sale.paymentMethod || "state";
   saleForm.elements.saleStatus.value = sale.saleStatus || "active";
   saleForm.elements.soldAt.value = String(sale.soldAt || "").slice(0, 10);
   saleForm.elements.buyerTitle.value = sale.buyerTitle || "";
@@ -1170,8 +1274,12 @@ function fillSaleForm(sale) {
     ticketId: participant.ticketId || "",
     ticketLabel: participant.ticketLabel || "Selected ticket",
     name: participant.name || "",
+    givenName: participant.givenName || participant.name || "",
+    surname: participant.surname || "",
     passportNumber: participant.passportNumber || "",
-    nationality: participant.nationality || "",
+    nationality: participant.nationality || "Mongolian",
+    birthDate: participant.birthDate || "",
+    passportExpiryDate: participant.passportExpiryDate || "",
     notes: participant.notes || "",
   }));
   state.invoiceSchedule = normalizedInvoiceSchedule(sale.invoiceSchedule || []);
@@ -1215,22 +1323,25 @@ function startSaleForTicket(ticketId) {
 
 function syncSaleTotals() {
   if (!saleForm) return;
+  const exchangeRate = currentInvoiceExchangeRate();
   const quantity = Number(saleForm.elements.quantity.value || 0);
-  const pricePerTicket = Number(saleForm.elements.pricePerTicket.value || 0);
-  const discountAmount = Math.max(Number(saleForm.elements.discountAmount?.value || 0), 0);
-  if (!saleForm.elements.totalPrice.matches(":focus")) {
-    if (state.saleBlocks.length) {
-      const blockTotal = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
-      saleForm.elements.totalPrice.value = Math.max(blockTotal - discountAmount, 0) ? String(Math.max(blockTotal - discountAmount, 0)) : "";
-    } else {
-      saleForm.elements.totalPrice.value = quantity > 0 && pricePerTicket > 0 ? String(Math.max((quantity * pricePerTicket) - discountAmount, 0)) : "";
-    }
-  }
+  const discountAmount = currentDiscountUsd();
+  const computedTotalUsd = state.saleBlocks.length ? currentSaleTotalUsd() : 0;
+  saleForm.elements.totalPrice.value = computedTotalUsd ? String(computedTotalUsd) : "";
+  if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = computedTotalUsd ? String(Math.round(computedTotalUsd * exchangeRate)) : "";
+  if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = String(discountAmount);
+  if (saleForm.elements.amountPaid) saleForm.elements.amountPaid.value = String(currentAmountPaidUsd());
   const totalPrice = Number(saleForm.elements.totalPrice.value || 0);
   const amountPaid = Number(saleForm.elements.amountPaid.value || 0);
-  if (!saleForm.elements.paymentStatus.matches(":focus")) {
-    saleForm.elements.paymentStatus.value = totalPrice > 0 && amountPaid >= totalPrice ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
-  }
+  saleForm.elements.paymentStatus.value = totalPrice > 0 && amountPaid >= totalPrice ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
+  saleForm.elements.paymentMethod.value = saleForm.elements.invoiceBankAccount?.value || "state";
+  saleForm.elements.soldAt.value = saleForm.elements.soldAt.value || new Date().toISOString().slice(0, 10);
+  saleForm.elements.buyerName.value = state.participants.map(combinedParticipantName).find(Boolean) || saleForm.elements.buyerTitle.value || "";
+  const leadParticipant = state.participants[0] || {};
+  saleForm.elements.buyerPassportNumber.value = leadParticipant.passportNumber || "";
+  saleForm.elements.buyerNationality.value = leadParticipant.nationality || "Mongolian";
+  saleForm.elements.buyerPhone.value = "";
+  saleForm.elements.buyerEmail.value = "";
 }
 
 function createSaleBlockFromSelection() {
@@ -2370,6 +2481,14 @@ if (saleForm) {
   saleForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(saleForm).entries());
+    payload.discountAmount = String(currentDiscountUsd());
+    payload.totalPrice = String(currentSaleTotalUsd());
+    payload.amountPaid = String(currentAmountPaidUsd());
+    payload.paymentMethod = payload.invoiceBankAccount || "state";
+    payload.buyerName = state.participants.map(combinedParticipantName).find(Boolean) || payload.buyerTitle || "";
+    payload.buyerNationality = state.participants[0]?.nationality || "Mongolian";
+    payload.buyerPassportNumber = state.participants[0]?.passportNumber || "";
+    payload.soldAt = payload.soldAt || new Date().toISOString().slice(0, 10);
     payload.ticketIds = selectedSaleTicketIds();
     payload.ticketBlocks = state.saleBlocks.map((block) => ({
       matchNumber: block.matchNumber,
@@ -2386,12 +2505,16 @@ if (saleForm) {
       .map((participant) => ({
         ticketId: String(participant.ticketId || "").trim(),
         ticketLabel: String(participant.ticketLabel || "").trim(),
-        name: String(participant.name || "").trim(),
+        name: String(combinedParticipantName(participant) || "").trim(),
+        givenName: String(participant.givenName || participant.name || "").trim(),
+        surname: String(participant.surname || "").trim(),
         passportNumber: String(participant.passportNumber || "").trim(),
-        nationality: String(participant.nationality || "").trim(),
+        nationality: String(participant.nationality || "Mongolian").trim(),
+        birthDate: safeDateInput(participant.birthDate || ""),
+        passportExpiryDate: safeDateInput(participant.passportExpiryDate || ""),
         notes: String(participant.notes || "").trim(),
       }))
-      .filter((participant) => participant.ticketId || participant.name || participant.passportNumber || participant.nationality || participant.notes);
+      .filter((participant) => participant.ticketId || participant.name || participant.passportNumber || participant.nationality || participant.notes || participant.birthDate || participant.passportExpiryDate);
     payload.invoiceSchedule = activeInvoiceSchedule().map((line) => ({
       title: line.title,
       created: line.created,
@@ -2432,15 +2555,22 @@ saleFormToggleButton?.addEventListener("click", () => {
 });
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
-saleForm?.elements?.discountAmount?.addEventListener("input", syncSalePriceFields);
-saleForm?.elements?.amountPaid?.addEventListener("input", () => {
+saleForm?.elements?.discountAmountMnt?.addEventListener("input", syncSalePriceFields);
+saleForm?.elements?.amountPaidMnt?.addEventListener("input", () => {
   if (!state.invoiceScheduleTouched) renderInvoiceScheduleEditor();
   syncSaleTotals();
 });
 saleForm?.elements?.soldAt?.addEventListener("input", () => {
   if (!state.invoiceScheduleTouched) renderInvoiceScheduleEditor();
 });
-saleForm?.elements?.invoiceExchangeRate?.addEventListener("input", renderInvoiceScheduleEditor);
+saleForm?.elements?.invoiceExchangeRate?.addEventListener("input", () => {
+  syncSalePriceFields();
+  if (!state.invoiceScheduleTouched) renderInvoiceScheduleEditor();
+});
+saleForm?.elements?.invoiceBankAccount?.addEventListener("change", () => {
+  toggleOtherBankAccountField();
+  syncSaleTotals();
+});
 saleMatchSelect?.addEventListener("change", () => refreshSaleCategoryOptions());
 saleCategorySelect?.addEventListener("change", () => renderSaleSeatPicker());
 saleSeatPicker?.addEventListener("change", () => {
@@ -2768,7 +2898,22 @@ saleParticipantList?.addEventListener("input", (event) => {
   const field = event.target.dataset.participantField;
   if (index < 0 || !field || !state.participants[index]) return;
   state.participants[index][field] = event.target.value;
+  state.participants[index].name = combinedParticipantName(state.participants[index]);
+  syncSaleTotals();
 });
+
+saleParticipantList?.addEventListener("change", (event) => {
+  const card = event.target.closest("[data-participant-index]");
+  if (!card) return;
+  const index = Number(card.dataset.participantIndex || -1);
+  const field = event.target.dataset.participantField;
+  if (index < 0 || !field || !state.participants[index]) return;
+  state.participants[index][field] = event.target.value;
+  state.participants[index].name = combinedParticipantName(state.participants[index]);
+  syncSaleTotals();
+});
+
+toggleOtherBankAccountField();
 
 invoiceScheduleEditor?.addEventListener("input", (event) => {
   const row = event.target.closest("[data-schedule-index]");
