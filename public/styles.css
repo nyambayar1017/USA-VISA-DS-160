@@ -125,6 +125,10 @@ body {
   pointer-events: none;
 }
 
+.page-hidden-section {
+  display: none !important;
+}
+
 .sidebar-group .sidebar-link[href="/backoffice"]::before {
   content: "⌂";
   display: grid;
@@ -133,7 +137,10 @@ body {
   line-height: 1;
 }
 
-.sidebar-group .sidebar-link[href="/camp"]::before {
+.sidebar-group .sidebar-link[href="/camp"]::before,
+.sidebar-group .sidebar-link[href="/camp-reservations"]::before,
+.sidebar-group .sidebar-link[href="/flight-reservations"]::before,
+.sidebar-group .sidebar-link[href="/transfer-reservations"]::before {
   content: "□";
   display: grid;
   place-items: center;

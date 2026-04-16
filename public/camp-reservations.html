@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TravelX Trips</title>
+    <title>TravelX Camp Reservations</title>
     <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,8 +19,8 @@
         <div class="sidebar-group">
           <p class="sidebar-label">Backoffice</p>
           <a class="sidebar-link" href="/backoffice">Home</a>
-          <a class="sidebar-link is-active" href="/camp">Trips</a>
-          <a class="sidebar-link" href="/camp-reservations">Camp Reservations</a>
+          <a class="sidebar-link" href="/camp">Trips</a>
+          <a class="sidebar-link is-active" href="/camp-reservations">Camp Reservations</a>
           <a class="sidebar-link" href="/flight-reservations">Flight Reservations</a>
           <a class="sidebar-link" href="/transfer-reservations">Transfer Reservations</a>
           <a class="sidebar-link" href="/fifa2026-admin">FIFA 2026</a>
@@ -31,8 +31,8 @@
         </div>
         <div class="sidebar-group">
           <p class="sidebar-label">Reservations Pages</p>
-          <a class="sidebar-link is-active" href="/camp">Trips</a>
-          <a class="sidebar-link" href="/camp-reservations">Camp</a>
+          <a class="sidebar-link" href="/camp">Trips</a>
+          <a class="sidebar-link is-active" href="/camp-reservations">Camp</a>
           <a class="sidebar-link" href="/flight-reservations">Flights</a>
           <a class="sidebar-link" href="/transfer-reservations">Transfers</a>
         </div>
@@ -42,8 +42,8 @@
         <section class="workspace-topbar">
           <div>
             <p class="workspace-kicker">TravelX Operations</p>
-            <h1>Trips</h1>
-            <p class="workspace-subtitle">Create and manage trips here, then open the separate Camp, Flights, and Transfers pages for each reservation workflow.</p>
+            <h1>Camp Reservations</h1>
+            <p class="workspace-subtitle">Manage camp stays, camp payments, and camp settings in one dedicated workspace.</p>
           </div>
           <div class="workspace-profile" id="workspace-profile">
             <span class="workspace-profile-label">Signed in</span>
@@ -52,21 +52,7 @@
           </div>
         </section>
 
-        <section class="card">
-          <div class="section-head">
-            <div>
-              <h2>Reservation Pages</h2>
-              <p>Open the separate workspaces for camp stays, flights, and transfers.</p>
-            </div>
-            <div class="camp-toolbar">
-              <a class="secondary-button" href="/camp-reservations">Camp Reservations</a>
-              <a class="secondary-button" href="/flight-reservations">Flight Reservations</a>
-              <a class="secondary-button" href="/transfer-reservations">Transfer Reservations</a>
-            </div>
-          </div>
-        </section>
-
-        <section class="card" id="trips-section">
+        <section class="card page-hidden-section" id="trips-section">
           <div class="section-head">
             <h2>Trips</h2>
             <div class="camp-toolbar">
@@ -178,7 +164,7 @@
           <div id="trip-list" class="submission-list"></div>
         </section>
 
-        <section class="card page-hidden-section" id="reservations-section">
+        <section class="card" id="reservations-section">
           <div class="section-head">
             <div>
               <h2>Camp Reservations</h2>
@@ -747,7 +733,7 @@
           <div id="transfer-list" class="submission-list"></div>
         </section>
 
-        <section class="card page-hidden-section" id="payments-section">
+        <section class="card" id="payments-section">
           <div class="section-head">
             <h2>Camp Payment Summary</h2>
             <p>Grouped internal payment view for the camp reservation side.</p>
@@ -770,7 +756,7 @@
           <div id="camp-payment-list" class="submission-list"></div>
         </section>
 
-        <section class="card page-hidden-section" id="settings-section">
+        <section class="card" id="settings-section">
           <div class="section-head">
             <h2>Camp Settings</h2>
             <p>Manage camp names, locations, staff, and room types used in the camp reservation tab.</p>

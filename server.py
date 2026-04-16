@@ -6789,6 +6789,21 @@ def app(environ, start_response):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "camp.html")
 
+    if path == "/camp-reservations":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "camp-reservations.html")
+
+    if path == "/flight-reservations":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "flight-reservations.html")
+
+    if path == "/transfer-reservations":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "transfer-reservations.html")
+
     if path == "/fifa2026-admin":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
