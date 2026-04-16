@@ -3331,6 +3331,11 @@ body.modal-open {
   text-align: right;
 }
 
+.fifa-inline-invoice-input--wide {
+  width: 100%;
+  min-width: 260px;
+}
+
 .fifa-sale-invoice-table td:last-child,
 .fifa-sale-invoice-table th:last-child,
 .fifa-sale-invoice-table td:nth-last-child(2),

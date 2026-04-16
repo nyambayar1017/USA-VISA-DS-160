@@ -630,10 +630,12 @@ function getInvoiceBankAccount(key) {
 
 function buildInvoiceDraftFromSale(sale) {
   const exchangeRate = Math.max(Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+  const invoiceRows = buildInvoiceRowsForSale(sale);
   return {
     buyerName: sale.buyerName || sale.buyerTitle || "",
     invoiceExchangeRate: exchangeRate,
     invoiceBankAccount: sale.invoiceBankAccount || "state",
+    invoiceDescriptions: invoiceRows.map((row) => row.description || ""),
     invoiceSchedule: activeInvoiceSchedule(sale).map((row) => ({
       title: row.title || "",
       created: safeDateInput(row.created || ""),
@@ -657,6 +659,7 @@ function saleLikeWithInvoiceDraft(sale) {
     buyerName: draft.buyerName,
     invoiceExchangeRate: draft.invoiceExchangeRate,
     invoiceBankAccount: draft.invoiceBankAccount,
+    invoiceDescriptions: draft.invoiceDescriptions,
     invoiceSchedule: draft.invoiceSchedule,
   };
 }
@@ -1536,7 +1539,7 @@ function buildInvoiceItemsForSale(sale) {
 function buildInvoiceRowsForSale(sale) {
   const items = buildInvoiceItemsForSale(sale);
   const discountAmount = Math.max(Number(sale.discountAmount || 0), 0);
-  return discountAmount > 0
+  const rows = discountAmount > 0
     ? [
         ...items,
         {
@@ -1550,6 +1553,11 @@ function buildInvoiceRowsForSale(sale) {
         },
       ]
     : items;
+  const labels = Array.isArray(sale.invoiceDescriptions) ? sale.invoiceDescriptions : [];
+  return rows.map((row, index) => ({
+    ...row,
+    description: labels[index] || row.description,
+  }));
 }
 
 function buildInvoiceScheduleForSale(sale) {
@@ -1808,7 +1816,13 @@ function renderSales() {
                             ${invoiceRows.map((row) => `
                               <tr>
                                 <td>${row.index}</td>
-                                <td>${escapeHtml(row.description.replace(/^Match\s+/i, "Тоглолт "))}${row.categoryCode ? ` · Кат ${escapeHtml(row.categoryCode)}` : ""}</td>
+                                <td>
+                                  ${
+                                    editingInvoice
+                                      ? `<input type="text" class="fifa-inline-invoice-input fifa-inline-invoice-input--wide" data-action="invoice-draft-description" data-id="${escapeHtml(sale.id)}" data-index="${row.index - 1}" value="${escapeHtml(row.description.replace(/^Match\s+/i, "Тоглолт "))}${row.categoryCode ? ` · Кат ${escapeHtml(row.categoryCode)}` : ""}" />`
+                                      : `${escapeHtml(row.description.replace(/^Match\s+/i, "Тоглолт "))}${row.categoryCode ? ` · Кат ${escapeHtml(row.categoryCode)}` : ""}`
+                                  }
+                                </td>
                                 <td>${row.quantity || ""}</td>
                                 <td>${row.isDiscount ? "" : escapeHtml(formatMoney(Number(row.unitPrice || 0) * exchangeRate, "MNT"))}</td>
                                 <td>${escapeHtml(formatMoney(Number(row.totalPrice || 0) * exchangeRate, "MNT"))}</td>
@@ -1861,7 +1875,7 @@ function renderSales() {
                                 }
                                 ${
                                   editingInvoice
-                                    ? `<div class="fifa-sale-inline-schedule-actions"><input type="number" min="0" step="1" class="fifa-inline-invoice-input fifa-inline-invoice-input--amount" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="amount" value="${escapeHtml(String(row.amountMnt ?? Math.round(Number(row.amount || 0) * exchangeRate)))}" /><button type="button" class="button-secondary fifa-inline-action" data-action="remove-inline-invoice-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}">Remove</button></div>`
+                                    ? `<div class="fifa-sale-inline-schedule-actions"><input type="text" inputmode="numeric" class="fifa-inline-invoice-input fifa-inline-invoice-input--amount" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="amount" value="${escapeHtml(String(row.amountMnt ?? Math.round(Number(row.amount || 0) * exchangeRate)))}" /><button type="button" class="button-secondary fifa-inline-action" data-action="remove-inline-invoice-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}">Remove</button></div>`
                                     : `<strong>${escapeHtml(formatMoney(Number(row.amount || 0) * exchangeRate, "MNT"))}</strong>`
                                 }
                               </div>
@@ -2579,6 +2593,7 @@ saleList?.addEventListener("click", async (event) => {
           buyerName: draft.buyerName,
           invoiceExchangeRate: Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1),
           invoiceBankAccount: draft.invoiceBankAccount || "state",
+          invoiceDescriptions: draft.invoiceDescriptions || [],
           invoiceSchedule: (draft.invoiceSchedule || []).map((row) => ({
             title: row.title || "",
             created: row.created || "",
@@ -2627,10 +2642,17 @@ saleList?.addEventListener("click", async (event) => {
 saleList?.addEventListener("input", (event) => {
   const action = event.target.dataset.action;
   const saleId = event.target.dataset.id;
-  if (!saleId || !saleList || !["invoice-draft-field", "invoice-draft-line"].includes(action)) return;
+  if (!saleId || !saleList || !["invoice-draft-field", "invoice-draft-line", "invoice-draft-description"].includes(action)) return;
   const sale = state.sales.find((item) => item.id === saleId);
   if (!sale) return;
   const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+  if (action === "invoice-draft-description") {
+    const index = Number(event.target.dataset.index || -1);
+    if (index < 0) return;
+    draft.invoiceDescriptions[index] = event.target.value;
+    state.invoiceDrafts[sale.id] = draft;
+    return;
+  }
   if (action === "invoice-draft-field") {
     const field = event.target.dataset.field;
     if (field === "invoiceExchangeRate") {
@@ -2649,9 +2671,11 @@ saleList?.addEventListener("input", (event) => {
     const field = event.target.dataset.field;
     if (index < 0 || !draft.invoiceSchedule[index]) return;
     if (field === "amount") {
-      draft.invoiceSchedule[index].amountMnt = event.target.value;
+      const digitsOnly = String(event.target.value || "").replace(/[^\d]/g, "");
+      draft.invoiceSchedule[index].amountMnt = digitsOnly;
+      event.target.value = digitsOnly;
       draft.invoiceSchedule[index].amount = Math.max(
-        Math.round(Number(event.target.value || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
+        Math.round(Number(digitsOnly || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
         0
       );
     } else {
@@ -2664,10 +2688,18 @@ saleList?.addEventListener("input", (event) => {
 saleList?.addEventListener("change", (event) => {
   const action = event.target.dataset.action;
   const saleId = event.target.dataset.id;
-  if (!saleId || !["invoice-draft-field", "invoice-draft-line"].includes(action)) return;
+  if (!saleId || !["invoice-draft-field", "invoice-draft-line", "invoice-draft-description"].includes(action)) return;
   const sale = state.sales.find((item) => item.id === saleId);
   if (!sale) return;
   const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+  if (action === "invoice-draft-description") {
+    const index = Number(event.target.dataset.index || -1);
+    if (index < 0) return;
+    draft.invoiceDescriptions[index] = event.target.value;
+    state.invoiceDrafts[sale.id] = draft;
+    renderSales();
+    return;
+  }
   if (action === "invoice-draft-field") {
     const field = event.target.dataset.field;
     if (field === "invoiceExchangeRate") {
@@ -2684,9 +2716,10 @@ saleList?.addEventListener("change", (event) => {
     const field = event.target.dataset.field;
     if (index < 0 || !draft.invoiceSchedule[index]) return;
     if (field === "amount") {
-      draft.invoiceSchedule[index].amountMnt = event.target.value;
+      const digitsOnly = String(event.target.value || "").replace(/[^\d]/g, "");
+      draft.invoiceSchedule[index].amountMnt = digitsOnly;
       draft.invoiceSchedule[index].amount = Math.max(
-        Math.round(Number(event.target.value || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
+        Math.round(Number(digitsOnly || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
         0
       );
     } else {

@@ -4708,6 +4708,7 @@ def enrich_fifa_sale(sale, ticket, store=None):
         "discountAmount": discount_amount,
         "invoiceExchangeRate": invoice_exchange_rate,
         "invoiceBankAccount": normalize_text(sale.get("invoiceBankAccount")) or "state",
+        "invoiceDescriptions": sale.get("invoiceDescriptions") or [],
         "invoiceSchedule": sale.get("invoiceSchedule") or [],
         "totalPrice": total_price,
         "amountPaid": amount_paid,
@@ -4861,6 +4862,7 @@ def build_fifa_sale(payload, actor=None):
     invoice_exchange_rate = max(parse_int(payload.get("invoiceExchangeRate")) or 3600, 1)
     invoice_bank_account = normalize_text(payload.get("invoiceBankAccount")) or "state"
     invoice_schedule = []
+    invoice_descriptions = [normalize_text(item) for item in (payload.get("invoiceDescriptions") or []) if normalize_text(item)]
     for row in payload.get("invoiceSchedule") or []:
         if not isinstance(row, dict):
             continue
@@ -4902,6 +4904,7 @@ def build_fifa_sale(payload, actor=None):
         "discountAmount": discount_amount,
         "invoiceExchangeRate": invoice_exchange_rate,
         "invoiceBankAccount": invoice_bank_account,
+        "invoiceDescriptions": invoice_descriptions,
         "invoiceSchedule": invoice_schedule,
         "totalPrice": total_price,
         "amountPaid": amount_paid,
