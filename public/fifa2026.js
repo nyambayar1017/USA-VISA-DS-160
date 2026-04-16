@@ -1,5 +1,6 @@
 const publicList = document.querySelector("#fifa-public-list");
 const publicSummaryLots = document.querySelector("#public-summary-lots");
+const publicSummaryTotal = document.querySelector("#public-summary-total");
 const publicSummaryUnits = document.querySelector("#public-summary-units");
 const publicListCount = document.querySelector("#public-list-count");
 const publicListMeta = document.querySelector("#public-list-meta");
@@ -13,46 +14,8 @@ const filters = {
   dateTo: document.querySelector("#public-filter-date-to"),
 };
 
-const MATCH_CATALOG = [
-  { stage: "Opening", matchNumber: "Match 1", matchDate: "2026-06-11", teamA: "MEX", teamB: "RSA", city: "Mexico City", venue: "Mexico City Stadium" },
-  { stage: "Opening", matchNumber: "Match 4", matchDate: "2026-06-12", teamA: "USA", teamB: "PAR", city: "Los Angeles", venue: "Los Angeles Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 6", matchDate: "2026-06-13", teamA: "AUS", teamB: "TUR", city: "Vancouver", venue: "Vancouver Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 7", matchDate: "2026-06-13", teamA: "BRA", teamB: "MAR", city: "New York", venue: "New York Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 10", matchDate: "2026-06-14", teamA: "GER", teamB: "CUR", city: "Houston", venue: "Houston Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 11", matchDate: "2026-06-14", teamA: "NED", teamB: "JPN", city: "Dallas", venue: "Dallas Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 16", matchDate: "2026-06-15", teamA: "BEL", teamB: "EGY", city: "Seattle", venue: "Seattle Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 17", matchDate: "2026-06-16", teamA: "FRA", teamB: "SEN", city: "New York", venue: "New York Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 19", matchDate: "2026-06-16", teamA: "ARG", teamB: "ALG", city: "Kansas", venue: "Kansas Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 20", matchDate: "2026-06-16", teamA: "AUT", teamB: "JOR", city: "San Francisco", venue: "San Francisco Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 23", matchDate: "2026-06-17", teamA: "POR", teamB: "W1", city: "Houston", venue: "Houston Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 22", matchDate: "2026-06-17", teamA: "ENG", teamB: "CRO", city: "Dallas", venue: "Dallas Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 28", matchDate: "2026-06-18", teamA: "MEX", teamB: "KOR", city: "Guadalajara", venue: "Guadalajara Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 43", matchDate: "2026-06-22", teamA: "ARG", teamB: "AUS", city: "Dallas", venue: "Dallas Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 45", matchDate: "2026-06-23", teamA: "ENG", teamB: "GHA", city: "Boston", venue: "Boston Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 47", matchDate: "2026-06-23", teamA: "POR", teamB: "UZB", city: "Houston", venue: "Houston Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 51", matchDate: "2026-06-24", teamA: "SWI", teamB: "CAN", city: "Vancouver", venue: "Vancouver Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 53", matchDate: "2026-06-24", teamA: "MEX", teamB: "FIFA", city: "Mexico City", venue: "Mexico City Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 60", matchDate: "2026-06-25", teamA: "PAR", teamB: "AUS", city: "San Francisco", venue: "San Francisco Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 61", matchDate: "2026-06-26", teamA: "FRA", teamB: "NOR", city: "Boston", venue: "Boston Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 67", matchDate: "2026-06-27", teamA: "PAN", teamB: "ENG", city: "New York", venue: "New York Stadium" },
-  { stage: "Group Stage", matchNumber: "Match 70", matchDate: "2026-06-27", teamA: "ARG", teamB: "JOR", city: "Dallas", venue: "Dallas Stadium" },
-  { stage: "Round 32", matchNumber: "Match 73", matchDate: "2026-06-28", teamA: "2A", teamB: "2B", city: "Los Angeles", venue: "Los Angeles Stadium" },
-  { stage: "Round 32", matchNumber: "Match 77", matchDate: "2026-06-30", teamA: "1I", teamB: "3CDFGH", city: "New York", venue: "New York Stadium" },
-  { stage: "Round 32", matchNumber: "Match 87", matchDate: "2026-07-03", teamA: "1K", teamB: "3DEIJL", city: "Kansas", venue: "Kansas Stadium" },
-  { stage: "Round 32", matchNumber: "Match 86", matchDate: "2026-07-03", teamA: "1J", teamB: "2H", city: "Miami", venue: "Miami Stadium" },
-  { stage: "Round 16", matchNumber: "Match 89", matchDate: "2026-07-05", teamA: "W74", teamB: "W77", city: "Philadelphia", venue: "Philadelphia Stadium" },
-  { stage: "Round 16", matchNumber: "Match 91", matchDate: "2026-07-06", teamA: "W76", teamB: "W78", city: "New York", venue: "New York Stadium" },
-  { stage: "Round 16", matchNumber: "Match 93", matchDate: "2026-07-06", teamA: "W81", teamB: "W82", city: "Dallas", venue: "Dallas Stadium" },
-  { stage: "Round 16", matchNumber: "Match 95", matchDate: "2026-07-08", teamA: "W86", teamB: "W88", city: "Atlanta", venue: "Atlanta Stadium" },
-  { stage: "Round 16", matchNumber: "Match 96", matchDate: "2026-07-08", teamA: "W85", teamB: "W87", city: "Vancouver", venue: "Vancouver Stadium" },
-  { stage: "Quarter Final", matchNumber: "Match 97", matchDate: "2026-07-10", teamA: "W89", teamB: "W90", city: "Boston", venue: "Boston Stadium" },
-  { stage: "Quarter Final", matchNumber: "Match 98", matchDate: "2026-07-11", teamA: "W93", teamB: "W94", city: "Los Angeles", venue: "Los Angeles Stadium" },
-  { stage: "Quarter Final", matchNumber: "Match 99", matchDate: "2026-07-12", teamA: "W91", teamB: "W92", city: "Miami", venue: "Miami Stadium" },
-  { stage: "Quarter Final", matchNumber: "Match 100", matchDate: "2026-07-12", teamA: "W95", teamB: "W96", city: "Kansas", venue: "Kansas Stadium" },
-  { stage: "Semi Final", matchNumber: "Match 101", matchDate: "2026-07-15", teamA: "W97", teamB: "W98", city: "Dallas", venue: "Dallas Stadium" },
-  { stage: "Semi Final", matchNumber: "Match 102", matchDate: "2026-07-16", teamA: "W99", teamB: "W100", city: "Atlanta", venue: "Atlanta Stadium" },
-  { stage: "Final", matchNumber: "Match 104", matchDate: "2026-07-20", teamA: "W101", teamB: "W102", city: "New York", venue: "New York Stadium" },
-];
+const PUBLIC_SHOWCASE_MATCH_COUNT = 38;
+const PUBLIC_SHOWCASE_TOTAL_TICKETS = 3340;
 
 const TEAM_FLAG_MAP = {
   ALG: "🇩🇿",
@@ -182,27 +145,6 @@ function ticketCategoryLabel(categoryCode) {
 function buildCatalogRows() {
   const groups = new Map();
 
-  MATCH_CATALOG.forEach((match) => {
-    const key = match.matchNumber || [match.matchDate, match.teamA, match.teamB, match.city].join("|");
-    groups.set(key, {
-      key,
-      matchNumber: match.matchNumber || "",
-      matchDate: match.matchDate || "",
-      stage: match.stage || "",
-      city: match.city || "",
-      venue: match.venue || "",
-      teamA: match.teamA || "",
-      teamB: match.teamB || "",
-      label: buildMatchLabel(match.teamA, match.teamB),
-      tickets: [],
-      categoryBreakdown: [
-        { categoryCode: "1", available: 0, total: 0 },
-        { categoryCode: "2", available: 0, total: 0 },
-        { categoryCode: "3", available: 0, total: 0 },
-      ],
-    });
-  });
-
   state.tickets.forEach((ticket) => {
     const key = ticket.matchNumber || [ticket.matchDate, ticket.teamA, ticket.teamB, ticket.city].join("|");
     if (!groups.has(key)) {
@@ -246,6 +188,9 @@ function buildCatalogRows() {
         return naturalTextCompare(ticketSeatLabel(left), ticketSeatLabel(right));
       }),
     }))
+    .filter((row) =>
+      row.tickets.some((ticket) => Number(ticket.totalQuantity || 0) > 0 || Number(ticket.soldQuantity || 0) > 0 || Number(ticket.availableQuantity || 0) > 0)
+    )
     .sort((left, right) => {
       const dateDiff = String(left.matchDate || "").localeCompare(String(right.matchDate || ""));
       if (dateDiff !== 0) return dateDiff;
@@ -334,7 +279,8 @@ function renderPublicTickets() {
     0
   );
 
-  if (publicSummaryLots) publicSummaryLots.textContent = String(rows.length);
+  if (publicSummaryLots) publicSummaryLots.textContent = String(PUBLIC_SHOWCASE_MATCH_COUNT);
+  if (publicSummaryTotal) publicSummaryTotal.textContent = String(PUBLIC_SHOWCASE_TOTAL_TICKETS);
   if (publicSummaryUnits) publicSummaryUnits.textContent = String(availableTickets);
   if (publicListCount) publicListCount.textContent = `${rows.length} тоглолт`;
   if (publicListMeta) publicListMeta.textContent = `Нийт боломжтой билет: ${availableTickets}`;
@@ -353,6 +299,7 @@ function renderPublicTickets() {
         <span>Билет</span>
         <span>Хот</span>
         <span>Шат</span>
+        <span>Суудал</span>
       </div>
       ${rows
         .map((row) => {
@@ -385,6 +332,11 @@ function renderPublicTickets() {
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(stageLabel(row.stage))}</strong>
+                </div>
+                <div class="fifa-match-col fifa-match-col--actions">
+                  <button type="button" class="button-secondary fifa-inline-action" data-action="toggle-match" data-match-key="${escapeHtml(row.key)}">
+                    ${isExpanded ? "Суудал нуух" : "Суудал харах"}
+                  </button>
                 </div>
               </div>
               ${
