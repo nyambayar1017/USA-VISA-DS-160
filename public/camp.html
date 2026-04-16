@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-80" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-81" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -403,8 +403,10 @@
               Status
               <select id="flight-filter-status">
                 <option value="">All statuses</option>
-                <option value="waiting_list">Waiting list</option>
-                <option value="bought">Bought</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="pending">Pending</option>
+                <option value="no_seats">No seats</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </label>
             <label>
@@ -495,15 +497,19 @@
                 <label>
                   Tourist Ticket
                   <select name="touristTicketStatus">
-                    <option value="waiting_list">Waiting list</option>
-                    <option value="bought">Bought</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="pending">Pending</option>
+                    <option value="no_seats">No seats</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
                 </label>
                 <label>
                   Guide Ticket
                   <select name="guideTicketStatus">
-                    <option value="waiting_list">Waiting list</option>
-                    <option value="bought">Bought</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="pending">Pending</option>
+                    <option value="no_seats">No seats</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
                 </label>
                 <label class="full-span">
@@ -793,6 +799,6 @@
 
     <script src="/app-shell.js?v=workspace-64"></script>
     <script src="/camp.js?v=workspace-62"></script>
-    <script src="/reservations-addon.js?v=workspace-8"></script>
+    <script src="/reservations-addon.js?v=workspace-9"></script>
   </body>
 </html>

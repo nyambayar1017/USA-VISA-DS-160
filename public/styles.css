@@ -1341,13 +1341,21 @@ time {
 .reservation-addon-table th,
 .reservation-addon-table td {
   vertical-align: middle;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .reservation-addon-table th,
 .reservation-addon-table td {
   padding: 8px 8px;
+}
+
+.reservation-addon-table td {
+  white-space: nowrap;
+}
+
+.reservation-addon-table th {
+  white-space: normal;
 }
 
 .reservation-addon-table th:nth-child(1),
@@ -1382,6 +1390,7 @@ time {
 .flight-reservation-table th:nth-child(3),
 .flight-reservation-table td:nth-child(3) {
   min-width: 92px;
+  white-space: nowrap;
 }
 
 .flight-reservation-table th:nth-child(4),
@@ -1394,7 +1403,7 @@ time {
 .flight-reservation-table th:nth-child(6),
 .flight-reservation-table td:nth-child(6) {
   min-width: 108px;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .flight-reservation-table th:nth-child(7),
@@ -1413,38 +1422,24 @@ time {
 
 .flight-reservation-table th:nth-child(9),
 .flight-reservation-table td:nth-child(9) {
-  min-width: 92px;
-  text-align: right;
+  min-width: 96px;
+  text-align: center;
   white-space: normal;
 }
 
 .flight-reservation-table th:nth-child(10),
 .flight-reservation-table td:nth-child(10) {
-  min-width: 104px;
-  text-align: right;
+  min-width: 96px;
+  text-align: center;
   white-space: normal;
 }
 
 .flight-reservation-table th:nth-child(11),
 .flight-reservation-table td:nth-child(11),
 .flight-reservation-table th:nth-child(12),
-.flight-reservation-table td:nth-child(12),
-.flight-reservation-table th:nth-child(13),
-.flight-reservation-table td:nth-child(13) {
-  min-width: 86px;
+.flight-reservation-table td:nth-child(12) {
+  min-width: 110px;
   text-align: center;
-  white-space: normal;
-}
-
-.flight-reservation-table th:nth-child(14),
-.flight-reservation-table td:nth-child(14) {
-  min-width: 120px;
-  white-space: normal;
-}
-
-.flight-reservation-table th:nth-child(15),
-.flight-reservation-table td:nth-child(15) {
-  min-width: 86px;
   white-space: normal;
 }
 
@@ -1457,16 +1452,18 @@ time {
 .flight-payment-table th:nth-child(3),
 .flight-payment-table td:nth-child(3) {
   min-width: 92px;
+  white-space: nowrap;
 }
 
 .flight-payment-table th:nth-child(4),
 .flight-payment-table td:nth-child(4) {
-  min-width: 80px;
+  min-width: 104px;
+  text-align: right;
 }
 
 .flight-payment-table th:nth-child(5),
 .flight-payment-table td:nth-child(5) {
-  min-width: 104px;
+  min-width: 112px;
   text-align: right;
 }
 
@@ -1488,27 +1485,12 @@ time {
 .flight-payment-table th:nth-child(10),
 .flight-payment-table td:nth-child(10) {
   min-width: 150px;
+  white-space: normal;
 }
 
 .flight-payment-table th:nth-child(11),
 .flight-payment-table td:nth-child(11) {
   min-width: 78px;
-}
-
-.flight-reservation-table th:nth-child(16),
-.flight-reservation-table td:nth-child(16) {
-  min-width: 86px;
-  white-space: normal;
-}
-
-.flight-reservation-table th:nth-child(17),
-.flight-reservation-table td:nth-child(17) {
-  min-width: 72px;
-}
-
-.flight-reservation-table th:nth-child(18),
-.flight-reservation-table td:nth-child(18) {
-  min-width: 96px;
 }
 
 .transfer-reservation-table th:nth-child(3),

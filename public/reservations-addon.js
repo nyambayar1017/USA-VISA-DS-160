@@ -245,12 +245,8 @@
               <th>Arrival</th>
               <th>Pax</th>
               <th>Staff</th>
-              <th>Ticket Price</th>
-              <th>Total Ticket Price</th>
-              <th>Requested</th>
               <th>Tourist Ticket</th>
               <th>Guide Ticket</th>
-              <th>Notes</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -267,12 +263,8 @@
                     <td>${escapeHtml(`${formatDate(entry.arrivalDate)} ${entry.arrivalTime || ""}`.trim() || "-")}</td>
                     <td class="table-center">${escapeHtml(entry.passengerCount || "-")}</td>
                     <td class="table-center">${escapeHtml(entry.staffCount || "-")}</td>
-                    <td class="table-right">${escapeHtml(formatMoney(entry.ticketPrice))}</td>
-                    <td class="table-right">${escapeHtml(formatMoney(entry.totalTicketPrice || entry.amount))}</td>
-                    <td class="table-center">${escapeHtml(formatStatus(entry.requested || "no"))}</td>
-                    <td><span class="status-pill is-${escapeHtml(entry.touristTicketStatus || "waiting_list")}">${escapeHtml(formatStatus(entry.touristTicketStatus || "waiting_list"))}</span></td>
-                    <td><span class="status-pill is-${escapeHtml(entry.guideTicketStatus || "waiting_list")}">${escapeHtml(formatStatus(entry.guideTicketStatus || "waiting_list"))}</span></td>
-                    <td>${escapeHtml(entry.notes || "-")}</td>
+                    <td><span class="status-pill is-${escapeHtml(entry.touristTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.touristTicketStatus || "pending"))}</span></td>
+                    <td><span class="status-pill is-${escapeHtml(entry.guideTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.guideTicketStatus || "pending"))}</span></td>
                     <td>
                       <div class="trip-row-actions payment-row-actions">
                         <button type="button" class="table-action compact secondary" data-action="edit-flight" data-id="${escapeHtml(entry.id)}">Edit</button>
@@ -304,7 +296,7 @@
               <th>#</th>
               <th>Trip</th>
               <th>Route</th>
-              <th>Airline</th>
+              <th>Ticket Price</th>
               <th>Total Ticket Price</th>
               <th>Payment</th>
               <th>Paid To</th>
@@ -322,7 +314,7 @@
                     <td class="table-center">${index + 1}</td>
                     <td>${escapeHtml(entry.tripName)}</td>
                     <td>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → ") || "-")}</td>
-                    <td>${escapeHtml(entry.airline || "-")}</td>
+                    <td class="table-right">${escapeHtml(formatMoney(entry.ticketPrice))}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.totalTicketPrice || entry.amount))}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus || "unpaid")}">${escapeHtml(formatStatus(entry.paymentStatus || "unpaid"))}</span></td>
                     <td>${escapeHtml(entry.paidTo || "-")}</td>
@@ -431,8 +423,8 @@
     flightForm.elements.ticketPrice.value = "0";
     flightForm.elements.totalTicketPrice.value = "0";
     flightForm.elements.requested.value = "no";
-    flightForm.elements.touristTicketStatus.value = "waiting_list";
-    flightForm.elements.guideTicketStatus.value = "waiting_list";
+    flightForm.elements.touristTicketStatus.value = "pending";
+    flightForm.elements.guideTicketStatus.value = "pending";
     flightStatus.textContent = "";
     refreshTripSelectors();
     ensureDefaultTrip(flightTripSelect);
