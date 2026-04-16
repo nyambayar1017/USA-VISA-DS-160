@@ -498,9 +498,9 @@ function extractSeatSortValue(label) {
   };
 }
 
-function compareSeatSortValue(leftLabel, rightLabel) {
-  const left = extractSeatSortValue(leftLabel);
-  const right = extractSeatSortValue(rightLabel);
+function compareTicketSeatOrder(leftTicket, rightTicket) {
+  const left = extractSeatSortValue(leftTicket?.seatDetails || leftTicket?.seatSection || "");
+  const right = extractSeatSortValue(rightTicket?.seatDetails || rightTicket?.seatSection || "");
   const tierDiff = left.tierOrder - right.tierOrder;
   if (tierDiff !== 0) return tierDiff;
   const blockDiff = naturalTextCompare(left.block, right.block);
@@ -509,6 +509,8 @@ function compareSeatSortValue(leftLabel, rightLabel) {
   if (rowDiff !== 0) return rowDiff;
   const seatDiff = left.seat - right.seat;
   if (seatDiff !== 0) return seatDiff;
+  const sectionDiff = naturalTextCompare(leftTicket?.seatSection, rightTicket?.seatSection);
+  if (sectionDiff !== 0) return sectionDiff;
   return naturalTextCompare(left.raw, right.raw);
 }
 
@@ -1313,7 +1315,7 @@ function groupTicketsByMatch(tickets) {
       const groupTickets = group.tickets.sort((left, right) => {
         const categoryDiff = Number(left.categoryCode || 0) - Number(right.categoryCode || 0);
         if (categoryDiff !== 0) return categoryDiff;
-        const seatDiff = compareSeatSortValue(left.seatDetails, right.seatDetails);
+        const seatDiff = compareTicketSeatOrder(left, right);
         if (seatDiff !== 0) return seatDiff;
         const labelDiff = naturalTextCompare(left.seatDetails, right.seatDetails);
         if (labelDiff !== 0) return labelDiff;
