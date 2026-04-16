@@ -12,7 +12,6 @@
   const flightTripSelect = document.querySelector("#flight-trip-select");
   const transferTripSelect = document.querySelector("#transfer-trip-select");
   const flightFilterTrip = document.querySelector("#flight-filter-trip");
-  const flightFilterScope = document.querySelector("#flight-filter-scope");
   const flightFilterStatus = document.querySelector("#flight-filter-status");
   const flightFilterDate = document.querySelector("#flight-filter-date");
   const transferFilterTrip = document.querySelector("#transfer-filter-trip");
@@ -86,17 +85,6 @@
     ].join("");
   }
 
-  function syncReservationName(formNode, tripId, force = false) {
-    const trip = getTrip(tripId);
-    if (!trip) {
-      return;
-    }
-    const nameNode = formNode.querySelector('[name="reservationName"]');
-    if (nameNode && (force || !nameNode.value.trim())) {
-      nameNode.value = trip.reservationName || trip.tripName || "";
-    }
-  }
-
   function refreshTripSelectors() {
     const currentFlightFilter = flightFilterTrip.value;
     const currentTransferFilter = transferFilterTrip.value;
@@ -142,6 +130,17 @@
     }
   }
 
+  function syncFlightGuide(tripId, force = false) {
+    const trip = getTrip(tripId);
+    const guideNode = flightForm.elements.guideName;
+    if (!trip || !guideNode) {
+      return;
+    }
+    if (force || !String(guideNode.value || "").trim()) {
+      guideNode.value = trip.guideName || "";
+    }
+  }
+
   function ensureDefaultTrip(formNode, tripSelect) {
     if (!trips.length) {
       return;
@@ -149,13 +148,14 @@
     if (!tripSelect.value) {
       tripSelect.value = trips[0].id;
     }
-    syncReservationName(formNode, tripSelect.value, true);
+    if (tripSelect === flightTripSelect) {
+      syncFlightGuide(tripSelect.value, true);
+    }
   }
 
   function getFilteredFlights() {
     return flights
       .filter((entry) => (!flightFilterTrip.value || entry.tripId === flightFilterTrip.value))
-      .filter((entry) => (!flightFilterScope.value || entry.flightScope === flightFilterScope.value))
       .filter((entry) => (!flightFilterStatus.value || entry.status === flightFilterStatus.value))
       .filter((entry) => (!flightFilterDate.value || entry.departureDate === flightFilterDate.value))
       .sort((left, right) => String(left.departureDate || "").localeCompare(String(right.departureDate || "")));
@@ -182,16 +182,13 @@
           <thead>
             <tr>
               <th>Trip</th>
-              <th>Reservation Name</th>
-              <th>Type</th>
               <th>Route</th>
-              <th>Airline / No</th>
+              <th>Airline</th>
+              <th>Guide</th>
               <th>Departure</th>
               <th>Arrival</th>
-              <th>PNR</th>
               <th>Pax</th>
               <th>Status</th>
-              <th>Bought</th>
               <th>Payment</th>
               <th>Amount</th>
               <th>Notes</th>
@@ -204,16 +201,13 @@
                 (entry) => `
                   <tr>
                     <td>${escapeHtml(entry.tripName)}</td>
-                    <td>${escapeHtml(entry.reservationName || entry.tripName)}</td>
-                    <td>${escapeHtml(formatStatus(entry.flightScope))}</td>
                     <td>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → "))}</td>
-                    <td>${escapeHtml([entry.airline, entry.flightNumber].filter(Boolean).join(" / ") || "-")}</td>
+                    <td>${escapeHtml(entry.airline || "-")}</td>
+                    <td>${escapeHtml(entry.guideName || "-")}</td>
                     <td>${escapeHtml(`${formatDate(entry.departureDate)} ${entry.departureTime || ""}`.trim())}</td>
                     <td>${escapeHtml(`${formatDate(entry.arrivalDate)} ${entry.arrivalTime || ""}`.trim() || "-")}</td>
-                    <td>${escapeHtml(entry.bookingReference || "-")}</td>
                     <td>${escapeHtml(entry.passengerCount || "-")}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.status)}">${escapeHtml(formatStatus(entry.status))}</span></td>
-                    <td>${escapeHtml(formatDate(entry.boughtDate))}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
                     <td>${escapeHtml(formatMoney(entry.amount, entry.currency))}</td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
@@ -245,12 +239,10 @@
           <thead>
             <tr>
               <th>Trip</th>
-              <th>Reservation Name</th>
               <th>Transfer Type</th>
               <th>Pickup</th>
               <th>Dropoff</th>
               <th>Date / Time</th>
-              <th>Supplier</th>
               <th>Driver</th>
               <th>Vehicle</th>
               <th>Pax</th>
@@ -267,12 +259,10 @@
                 (entry) => `
                   <tr>
                     <td>${escapeHtml(entry.tripName)}</td>
-                    <td>${escapeHtml(entry.reservationName || entry.tripName)}</td>
                     <td>${escapeHtml(formatStatus(entry.transferType))}</td>
                     <td>${escapeHtml(entry.pickupLocation)}</td>
                     <td>${escapeHtml(entry.dropoffLocation)}</td>
                     <td>${escapeHtml(`${formatDate(entry.serviceDate)} ${entry.serviceTime || ""}`.trim())}</td>
-                    <td>${escapeHtml(entry.supplierName || "-")}</td>
                     <td>${escapeHtml(entry.driverName || "-")}</td>
                     <td>${escapeHtml(entry.vehicleType || "-")}</td>
                     <td>${escapeHtml(entry.passengerCount || "-")}</td>
@@ -370,10 +360,11 @@
     openPanel(transferFormPanel);
   });
 
-  flightTripSelect?.addEventListener("change", () => syncReservationName(flightForm, flightTripSelect.value));
-  transferTripSelect?.addEventListener("change", () => syncReservationName(transferForm, transferTripSelect.value));
+  flightTripSelect?.addEventListener("change", () => {
+    syncFlightGuide(flightTripSelect.value);
+  });
 
-  [flightFilterTrip, flightFilterScope, flightFilterStatus, flightFilterDate].forEach((node) => {
+  [flightFilterTrip, flightFilterStatus, flightFilterDate].forEach((node) => {
     node?.addEventListener("input", renderFlights);
     node?.addEventListener("change", renderFlights);
   });
@@ -393,7 +384,6 @@
       return;
     }
     payload.tripName = trip.tripName;
-    payload.reservationName = payload.reservationName || trip.reservationName || trip.tripName;
     try {
       await fetchJson(editingFlightId ? `/api/flight-reservations/${editingFlightId}` : "/api/flight-reservations", {
         method: "POST",
@@ -418,7 +408,6 @@
       return;
     }
     payload.tripName = trip.tripName;
-    payload.reservationName = payload.reservationName || trip.reservationName || trip.tripName;
     try {
       await fetchJson(editingTransferId ? `/api/transfer-reservations/${editingTransferId}` : "/api/transfer-reservations", {
         method: "POST",

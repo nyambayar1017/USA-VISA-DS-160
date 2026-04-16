@@ -400,14 +400,6 @@
               </select>
             </label>
             <label>
-              Type
-              <select id="flight-filter-scope">
-                <option value="">All types</option>
-                <option value="domestic">Domestic</option>
-                <option value="international">International</option>
-              </select>
-            </label>
-            <label>
               Status
               <select id="flight-filter-status">
                 <option value="">All statuses</option>
@@ -440,17 +432,6 @@
                   <select name="tripId" id="flight-trip-select" required></select>
                 </label>
                 <label>
-                  Reservation Name
-                  <input name="reservationName" required />
-                </label>
-                <label>
-                  Flight Type
-                  <select name="flightScope">
-                    <option value="domestic">Domestic</option>
-                    <option value="international">International</option>
-                  </select>
-                </label>
-                <label>
                   Route Type
                   <select name="routeType">
                     <option value="internal">Internal</option>
@@ -464,8 +445,8 @@
                   <input name="airline" />
                 </label>
                 <label>
-                  Flight Number
-                  <input name="flightNumber" />
+                  Guide
+                  <input name="guideName" />
                 </label>
                 <label>
                   From
@@ -492,10 +473,6 @@
                   <input name="arrivalTime" type="time" />
                 </label>
                 <label>
-                  Booking Ref / PNR
-                  <input name="bookingReference" />
-                </label>
-                <label>
                   Ticket Number
                   <input name="ticketNumber" />
                 </label>
@@ -512,10 +489,6 @@
                     <option value="ticketed">Ticketed</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
-                </label>
-                <label>
-                  Bought Date
-                  <input name="boughtDate" type="date" />
                 </label>
                 <label>
                   Payment Status
@@ -608,10 +581,6 @@
                   <select name="tripId" id="transfer-trip-select" required></select>
                 </label>
                 <label>
-                  Reservation Name
-                  <input name="reservationName" required />
-                </label>
-                <label>
                   Transfer Type
                   <select name="transferType">
                     <option value="airport_hotel">Airport to hotel</option>
@@ -636,10 +605,6 @@
                 <label>
                   Service Time
                   <input name="serviceTime" type="time" />
-                </label>
-                <label>
-                  Supplier
-                  <input name="supplierName" />
                 </label>
                 <label>
                   Driver
@@ -761,6 +726,6 @@
 
     <script src="/app-shell.js?v=workspace-64"></script>
     <script src="/camp.js?v=workspace-61"></script>
-    <script src="/reservations-addon.js?v=workspace-2"></script>
+    <script src="/reservations-addon.js?v=workspace-3"></script>
   </body>
 </html>

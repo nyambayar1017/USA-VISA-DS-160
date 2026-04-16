@@ -4488,6 +4488,7 @@ def build_flight_reservation(payload, actor=None):
         "routeType": normalize_text(payload.get("routeType")).lower() or "internal",
         "airline": normalize_text(payload.get("airline")),
         "flightNumber": normalize_text(payload.get("flightNumber")),
+        "guideName": normalize_text(payload.get("guideName")),
         "fromCity": normalize_text(payload.get("fromCity")),
         "toCity": normalize_text(payload.get("toCity")),
         "departureDate": normalize_text(payload.get("departureDate")),
@@ -4510,7 +4511,7 @@ def build_flight_reservation(payload, actor=None):
 
 
 def validate_flight_reservation(data):
-    required = ["tripId", "tripName", "reservationName", "flightScope", "fromCity", "toCity", "departureDate", "status", "paymentStatus"]
+    required = ["tripId", "tripName", "fromCity", "toCity", "departureDate", "status", "paymentStatus"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -4552,7 +4553,7 @@ def build_transfer_reservation(payload, actor=None):
 
 
 def validate_transfer_reservation(data):
-    required = ["tripId", "tripName", "reservationName", "transferType", "pickupLocation", "dropoffLocation", "serviceDate", "status", "paymentStatus"]
+    required = ["tripId", "tripName", "transferType", "pickupLocation", "dropoffLocation", "serviceDate", "status", "paymentStatus"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -5780,6 +5781,7 @@ def handle_update_flight_reservation(environ, start_response, reservation_id):
             "routeType",
             "airline",
             "flightNumber",
+            "guideName",
             "fromCity",
             "toCity",
             "departureDate",
@@ -5840,7 +5842,6 @@ def handle_update_transfer_reservation(environ, start_response, reservation_id):
             "dropoffLocation",
             "serviceDate",
             "serviceTime",
-            "supplierName",
             "driverName",
             "vehicleType",
             "status",
