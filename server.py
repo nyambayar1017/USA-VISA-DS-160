@@ -35,6 +35,8 @@ FINANCE_FILE = DATA_DIR / "finance_entries.json"
 BOOKINGS_FILE = DATA_DIR / "hotel_bookings.json"
 RESERVATIONS_FILE = DATA_DIR / "reservations.json"
 CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
+FLIGHT_RESERVATIONS_FILE = DATA_DIR / "flight_reservations.json"
+TRANSFER_RESERVATIONS_FILE = DATA_DIR / "transfer_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
 FIFA2026_FILE = DATA_DIR / "fifa2026.json"
@@ -99,6 +101,8 @@ def ensure_data_store():
         BOOKINGS_FILE,
         RESERVATIONS_FILE,
         CAMP_RESERVATIONS_FILE,
+        FLIGHT_RESERVATIONS_FILE,
+        TRANSFER_RESERVATIONS_FILE,
         CAMP_TRIPS_FILE,
         USERS_FILE,
         SESSIONS_FILE,
@@ -289,6 +293,22 @@ def read_camp_reservations():
 
 def write_camp_reservations(records):
     write_json_list(CAMP_RESERVATIONS_FILE, records)
+
+
+def read_flight_reservations():
+    return read_json_list(FLIGHT_RESERVATIONS_FILE)
+
+
+def write_flight_reservations(records):
+    write_json_list(FLIGHT_RESERVATIONS_FILE, records)
+
+
+def read_transfer_reservations():
+    return read_json_list(TRANSFER_RESERVATIONS_FILE)
+
+
+def write_transfer_reservations(records):
+    write_json_list(TRANSFER_RESERVATIONS_FILE, records)
 
 
 def read_camp_trips():
@@ -4457,6 +4477,92 @@ def validate_camp_reservation(data):
     return None
 
 
+def build_flight_reservation(payload, actor=None):
+    return {
+        "id": str(uuid4()),
+        "createdAt": now_mongolia().isoformat(),
+        "tripId": normalize_text(payload.get("tripId")),
+        "tripName": normalize_text(payload.get("tripName")),
+        "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
+        "flightScope": normalize_text(payload.get("flightScope")).lower() or "domestic",
+        "routeType": normalize_text(payload.get("routeType")).lower() or "internal",
+        "airline": normalize_text(payload.get("airline")),
+        "flightNumber": normalize_text(payload.get("flightNumber")),
+        "fromCity": normalize_text(payload.get("fromCity")),
+        "toCity": normalize_text(payload.get("toCity")),
+        "departureDate": normalize_text(payload.get("departureDate")),
+        "departureTime": normalize_text(payload.get("departureTime")),
+        "arrivalDate": normalize_text(payload.get("arrivalDate")),
+        "arrivalTime": normalize_text(payload.get("arrivalTime")),
+        "bookingReference": normalize_text(payload.get("bookingReference")),
+        "ticketNumber": normalize_text(payload.get("ticketNumber")),
+        "passengerCount": parse_int(payload.get("passengerCount")),
+        "status": normalize_text(payload.get("status")).lower() or "to_check",
+        "boughtDate": normalize_text(payload.get("boughtDate")),
+        "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
+        "amount": parse_int(payload.get("amount")),
+        "currency": normalize_text(payload.get("currency")).upper() or "USD",
+        "notes": normalize_text(payload.get("notes")),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
+def validate_flight_reservation(data):
+    required = ["tripId", "tripName", "reservationName", "flightScope", "fromCity", "toCity", "departureDate", "status", "paymentStatus"]
+    missing = [field for field in required if not data.get(field)]
+    if missing:
+        return f"Missing required fields: {', '.join(missing)}"
+    if data.get("passengerCount", 0) <= 0:
+        return "Passenger count must be greater than 0"
+    if not parse_date_input(data.get("departureDate")):
+        return "Departure date must be in YYYY-MM-DD format"
+    arrival_date = normalize_text(data.get("arrivalDate"))
+    if arrival_date and not parse_date_input(arrival_date):
+        return "Arrival date must be in YYYY-MM-DD format"
+    return None
+
+
+def build_transfer_reservation(payload, actor=None):
+    return {
+        "id": str(uuid4()),
+        "createdAt": now_mongolia().isoformat(),
+        "tripId": normalize_text(payload.get("tripId")),
+        "tripName": normalize_text(payload.get("tripName")),
+        "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
+        "transferType": normalize_text(payload.get("transferType")).lower() or "airport_hotel",
+        "pickupLocation": normalize_text(payload.get("pickupLocation")),
+        "dropoffLocation": normalize_text(payload.get("dropoffLocation")),
+        "serviceDate": normalize_text(payload.get("serviceDate")),
+        "serviceTime": normalize_text(payload.get("serviceTime")),
+        "supplierName": normalize_text(payload.get("supplierName")),
+        "driverName": normalize_text(payload.get("driverName")),
+        "vehicleType": normalize_text(payload.get("vehicleType")),
+        "passengerCount": parse_int(payload.get("passengerCount")),
+        "status": normalize_text(payload.get("status")).lower() or "pending",
+        "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
+        "amount": parse_int(payload.get("amount")),
+        "currency": normalize_text(payload.get("currency")).upper() or "USD",
+        "notes": normalize_text(payload.get("notes")),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
+def validate_transfer_reservation(data):
+    required = ["tripId", "tripName", "reservationName", "transferType", "pickupLocation", "dropoffLocation", "serviceDate", "status", "paymentStatus"]
+    missing = [field for field in required if not data.get(field)]
+    if missing:
+        return f"Missing required fields: {', '.join(missing)}"
+    if data.get("passengerCount", 0) <= 0:
+        return "Passenger count must be greater than 0"
+    if not parse_date_input(data.get("serviceDate")):
+        return "Service date must be in YYYY-MM-DD format"
+    return None
+
+
 def camp_summary(records):
     return {
         "total": len(records),
@@ -5384,6 +5490,14 @@ def handle_list_camp_reservations(start_response):
     return json_response(start_response, "200 OK", {"entries": records, "summary": camp_summary(records)})
 
 
+def handle_list_flight_reservations(start_response):
+    return json_response(start_response, "200 OK", {"entries": read_flight_reservations()})
+
+
+def handle_list_transfer_reservations(start_response):
+    return json_response(start_response, "200 OK", {"entries": read_transfer_reservations()})
+
+
 def handle_list_camp_trips(start_response):
     trips = read_camp_trips()
     return json_response(start_response, "200 OK", {"entries": trips})
@@ -5476,8 +5590,12 @@ def handle_delete_camp_trip(environ, start_response, trip_id):
         return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
     trips = [trip for trip in trips if trip["id"] != trip_id]
     reservations = [record for record in read_camp_reservations() if record.get("tripId") != trip_id]
+    flight_reservations = [record for record in read_flight_reservations() if record.get("tripId") != trip_id]
+    transfer_reservations = [record for record in read_transfer_reservations() if record.get("tripId") != trip_id]
     write_camp_trips(trips)
     write_camp_reservations(reservations)
+    write_flight_reservations(flight_reservations)
+    write_transfer_reservations(transfer_reservations)
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": trip_id, "summary": camp_summary(reservations)})
 
 
@@ -5516,6 +5634,52 @@ def handle_create_camp_reservation(environ, start_response):
     records.insert(0, record)
     write_camp_reservations(records)
     return json_response(start_response, "201 Created", {"ok": True, "entry": record, "summary": camp_summary(records)})
+
+
+def handle_create_flight_reservation(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    record = build_flight_reservation(payload, actor)
+    trip = find_camp_trip(record["tripId"])
+    if trip is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Please create or select a trip first"})
+    record["tripName"] = trip["tripName"]
+    record["reservationName"] = record.get("reservationName") or trip.get("reservationName") or trip["tripName"]
+    error = validate_flight_reservation(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    records = read_flight_reservations()
+    records.insert(0, record)
+    write_flight_reservations(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_create_transfer_reservation(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    record = build_transfer_reservation(payload, actor)
+    trip = find_camp_trip(record["tripId"])
+    if trip is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Please create or select a trip first"})
+    record["tripName"] = trip["tripName"]
+    record["reservationName"] = record.get("reservationName") or trip.get("reservationName") or trip["tripName"]
+    error = validate_transfer_reservation(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    records = read_transfer_reservations()
+    records.insert(0, record)
+    write_transfer_reservations(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
 
 
 def handle_update_camp_reservation(environ, start_response, reservation_id):
@@ -5595,6 +5759,119 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
     return json_response(start_response, "404 Not Found", {"error": "Camp reservation not found"})
 
 
+def handle_update_flight_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    records = read_flight_reservations()
+    for index, record in enumerate(records):
+        if record["id"] != reservation_id:
+            continue
+        merged = {**record}
+        for key in [
+            "tripId",
+            "tripName",
+            "reservationName",
+            "flightScope",
+            "routeType",
+            "airline",
+            "flightNumber",
+            "fromCity",
+            "toCity",
+            "departureDate",
+            "departureTime",
+            "arrivalDate",
+            "arrivalTime",
+            "bookingReference",
+            "ticketNumber",
+            "status",
+            "boughtDate",
+            "paymentStatus",
+            "currency",
+            "notes",
+        ]:
+            if key in payload:
+                value = normalize_text(payload.get(key))
+                merged[key] = value.upper() if key == "currency" else value
+        for key in ["passengerCount", "amount"]:
+            if key in payload:
+                merged[key] = parse_int(payload.get(key))
+        if normalize_text(merged.get("tripId")):
+            trip = find_camp_trip(merged.get("tripId"))
+            if trip is None:
+                return json_response(start_response, "400 Bad Request", {"error": "Selected trip was not found"})
+            merged["tripName"] = trip["tripName"]
+            if not normalize_text(merged.get("reservationName")):
+                merged["reservationName"] = trip.get("reservationName") or trip["tripName"]
+        error = validate_flight_reservation(merged)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        merged["updatedAt"] = now_mongolia().isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
+        records[index] = merged
+        write_flight_reservations(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+    return json_response(start_response, "404 Not Found", {"error": "Flight reservation not found"})
+
+
+def handle_update_transfer_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    records = read_transfer_reservations()
+    for index, record in enumerate(records):
+        if record["id"] != reservation_id:
+            continue
+        merged = {**record}
+        for key in [
+            "tripId",
+            "tripName",
+            "reservationName",
+            "transferType",
+            "pickupLocation",
+            "dropoffLocation",
+            "serviceDate",
+            "serviceTime",
+            "supplierName",
+            "driverName",
+            "vehicleType",
+            "status",
+            "paymentStatus",
+            "currency",
+            "notes",
+        ]:
+            if key in payload:
+                value = normalize_text(payload.get(key))
+                merged[key] = value.upper() if key == "currency" else value
+        for key in ["passengerCount", "amount"]:
+            if key in payload:
+                merged[key] = parse_int(payload.get(key))
+        if normalize_text(merged.get("tripId")):
+            trip = find_camp_trip(merged.get("tripId"))
+            if trip is None:
+                return json_response(start_response, "400 Bad Request", {"error": "Selected trip was not found"})
+            merged["tripName"] = trip["tripName"]
+            if not normalize_text(merged.get("reservationName")):
+                merged["reservationName"] = trip.get("reservationName") or trip["tripName"]
+        error = validate_transfer_reservation(merged)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        merged["updatedAt"] = now_mongolia().isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
+        records[index] = merged
+        write_transfer_reservations(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+    return json_response(start_response, "404 Not Found", {"error": "Transfer reservation not found"})
+
+
 def handle_delete_camp_reservation(environ, start_response, reservation_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -5605,6 +5882,30 @@ def handle_delete_camp_reservation(environ, start_response, reservation_id):
     records = [record for record in records if record["id"] != reservation_id]
     write_camp_reservations(records)
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": reservation_id, "summary": camp_summary(records)})
+
+
+def handle_delete_flight_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_flight_reservations()
+    if not any(record["id"] == reservation_id for record in records):
+        return json_response(start_response, "404 Not Found", {"error": "Flight reservation not found"})
+    records = [record for record in records if record["id"] != reservation_id]
+    write_flight_reservations(records)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": reservation_id})
+
+
+def handle_delete_transfer_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_transfer_reservations()
+    if not any(record["id"] == reservation_id for record in records):
+        return json_response(start_response, "404 Not Found", {"error": "Transfer reservation not found"})
+    records = [record for record in records if record["id"] != reservation_id]
+    write_transfer_reservations(records)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": reservation_id})
 
 
 def handle_export_camp_reservations(environ, start_response):
@@ -6275,6 +6576,28 @@ def app(environ, start_response):
             return handle_create_camp_reservation(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/flight-reservations":
+        if method == "GET":
+            if not require_login(environ, start_response):
+                return []
+            return handle_list_flight_reservations(start_response)
+        if method == "POST":
+            if not require_login(environ, start_response):
+                return []
+            return handle_create_flight_reservation(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/transfer-reservations":
+        if method == "GET":
+            if not require_login(environ, start_response):
+                return []
+            return handle_list_transfer_reservations(start_response)
+        if method == "POST":
+            if not require_login(environ, start_response):
+                return []
+            return handle_create_transfer_reservation(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/camp-trips":
         if method == "GET":
             if not require_login(environ, start_response):
@@ -6354,6 +6677,26 @@ def app(environ, start_response):
             return handle_update_camp_reservation(environ, start_response, reservation_id)
         if method == "DELETE" and reservation_id:
             return handle_delete_camp_reservation(environ, start_response, reservation_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/flight-reservations/"):
+        reservation_id = path.replace("/api/flight-reservations/", "", 1).strip("/")
+        if method == "POST" and reservation_id:
+            if not require_login(environ, start_response):
+                return []
+            return handle_update_flight_reservation(environ, start_response, reservation_id)
+        if method == "DELETE" and reservation_id:
+            return handle_delete_flight_reservation(environ, start_response, reservation_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/transfer-reservations/"):
+        reservation_id = path.replace("/api/transfer-reservations/", "", 1).strip("/")
+        if method == "POST" and reservation_id:
+            if not require_login(environ, start_response):
+                return []
+            return handle_update_transfer_reservation(environ, start_response, reservation_id)
+        if method == "DELETE" and reservation_id:
+            return handle_delete_transfer_reservation(environ, start_response, reservation_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/camp-trips/"):

@@ -1330,6 +1330,42 @@ time {
   flex-wrap: wrap;
 }
 
+.reservation-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+}
+
+.reservation-tab {
+  border: 1px solid rgba(37, 58, 119, 0.14);
+  border-radius: 999px;
+  background: rgba(238, 243, 255, 0.74);
+  color: #18355f;
+  font-weight: 700;
+}
+
+.reservation-tab.is-active {
+  background: #17365f;
+  color: #ffffff;
+}
+
+.reservation-panel {
+  display: none;
+}
+
+.reservation-panel.is-active {
+  display: block;
+}
+
+.reservation-subhead {
+  margin-bottom: 18px;
+}
+
+.reservation-filters-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .camp-trip-filters {
   margin-bottom: 20px;
 }
@@ -2462,7 +2498,8 @@ body.modal-open {
 }
 
 .status-pill.is-in_progress,
-.status-pill.is-paid_deposit {
+.status-pill.is-paid_deposit,
+.status-pill.is-deposit {
   background: rgba(74, 140, 214, 0.16);
   color: #1f5fa8;
 }
@@ -2474,8 +2511,15 @@ body.modal-open {
   color: #25643a;
 }
 
+.status-pill.is-unpaid,
+.status-pill.is-to_check {
+  background: rgba(37, 58, 119, 0.12);
+  color: #28467e;
+}
+
 .status-pill.is-cancelled,
-.status-pill.is-rejected {
+.status-pill.is-rejected,
+.status-pill.is-refunded {
   background: rgba(209, 77, 77, 0.14);
   color: #9d2f2f;
 }

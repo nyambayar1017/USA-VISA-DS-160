@@ -725,7 +725,7 @@ function renderTrips() {
                         <button type="button" class="table-action compact secondary" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
                       </div>
                       <div class="trip-action-row">
-                        <button type="button" class="table-action compact" data-action="add-reservation" data-trip-id="${trip.id}">Add Reservation</button>
+                        <button type="button" class="table-action compact" data-action="add-reservation" data-trip-id="${trip.id}">Add Camp</button>
                         <button type="button" class="table-action compact danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
                       </div>
                     </div>
