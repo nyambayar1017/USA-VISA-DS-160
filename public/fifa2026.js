@@ -153,6 +153,7 @@ function buildCatalogRows() {
         matchNumber: ticket.matchNumber || "",
         matchDate: ticket.matchDate || "",
         stage: ticket.stage || "",
+        groupLabel: ticket.groupLabel || "",
         city: ticket.city || "",
         venue: ticket.venue || "",
         teamA: ticket.teamA || "",
@@ -215,6 +216,7 @@ function filteredRows() {
       row.matchNumber,
       row.label,
       row.city,
+      row.groupLabel,
       row.stage,
       row.venue,
       ...row.tickets.map((ticket) => `${ticketCategoryLabel(normalizedCategory(ticket))} ${ticketSeatLabel(ticket)}`),
@@ -223,7 +225,8 @@ function filteredRows() {
 }
 
 function renderTicketTable(row) {
-  if (!row.tickets.length) {
+  const visibleTickets = row.tickets.filter((ticket) => Number(ticket.availableQuantity || 0) > 0);
+  if (!visibleTickets.length) {
     return '<p class="empty">Энэ тоглолтод одоогоор нийтлэгдсэн билет алга байна.</p>';
   }
 
@@ -239,7 +242,7 @@ function renderTicketTable(row) {
         </tr>
       </thead>
       <tbody>
-        ${row.tickets
+        ${visibleTickets
           .map((ticket, index) => {
             const categoryCode = normalizedCategory(ticket);
             const available = Number(ticket.availableQuantity || 0);
@@ -298,6 +301,7 @@ function renderPublicTickets() {
         <span>Тоглолт</span>
         <span>Билет</span>
         <span>Хот</span>
+        <span>Group</span>
         <span>Шат</span>
         <span>Суудал</span>
       </div>
@@ -311,7 +315,7 @@ function renderPublicTickets() {
           const totalAvailable = row.categoryBreakdown.reduce((sum, item) => sum + Number(item.available || 0), 0);
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
-              <div class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(row.key)}" role="button" tabindex="0">
+              <div class="fifa-match-toggle fifa-match-toggle--static">
                 <div class="fifa-match-col fifa-match-col--number">
                   <strong>${isExpanded ? "▾" : "▸"} ${row.number}</strong>
                 </div>
@@ -329,6 +333,9 @@ function renderPublicTickets() {
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(row.city || "-")}</strong>
+                </div>
+                <div class="fifa-match-col fifa-match-col--group">
+                  <strong>${escapeHtml(row.groupLabel || "-")}</strong>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(stageLabel(row.stage))}</strong>
