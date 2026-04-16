@@ -2259,6 +2259,12 @@ body.modal-open {
   min-width: 270px;
 }
 
+.trip-row-actions-inline {
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-width: 0;
+}
+
 .trip-action-row {
   display: grid;
   grid-template-columns: minmax(118px, 1fr) minmax(68px, auto);
@@ -2277,6 +2283,11 @@ body.modal-open {
 
 .trip-row-actions .inline-status-select {
   min-width: 96px;
+}
+
+.trip-row-actions-inline .inline-status-select {
+  min-width: 160px;
+  flex: 1 1 auto;
 }
 
 .trip-row-actions .table-action.compact {
@@ -2343,6 +2354,14 @@ body.modal-open {
 
 .trip-menu-item:hover {
   background: rgba(22, 44, 84, 0.06);
+}
+
+.trip-menu-item.is-danger {
+  color: #9b2f2f;
+}
+
+.trip-menu-item.is-danger:hover {
+  background: rgba(182, 58, 58, 0.08);
 }
 
 .camp-row-actions.horizontal {
