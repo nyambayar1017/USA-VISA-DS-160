@@ -103,6 +103,15 @@ function closePanel(panel) {
   }
 }
 
+function closeOpenTripMenus(exceptMenu = null) {
+  document.querySelectorAll(".trip-menu[open]").forEach((menu) => {
+    if (exceptMenu && menu === exceptMenu) {
+      return;
+    }
+    menu.removeAttribute("open");
+  });
+}
+
 function isTripsPage() {
   return window.location.pathname === "/camp";
 }
@@ -1082,12 +1091,15 @@ function renderReadOnlyRow(entry, index, options = {}) {
       </td>
       <td>${escapeHtml(meals || "-")}</td>
       <td>
-        <div class="camp-row-actions stacked-pills">
-          <button type="button" class="table-action compact secondary" data-action="edit" data-id="${entry.id}">Edit</button>
-          <button type="button" class="table-action compact secondary" data-action="view-pdf" data-id="${entry.id}">View</button>
-          <button type="button" class="table-action compact" data-action="download-pdf" data-id="${entry.id}">PDF</button>
-          <button type="button" class="table-action compact danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
-        </div>
+        <details class="trip-menu row-action-menu">
+          <summary class="trip-menu-trigger" aria-label="Camp reservation actions">⋮</summary>
+          <div class="trip-menu-popover">
+            <button type="button" class="trip-menu-item" data-action="edit" data-id="${entry.id}">Edit</button>
+            <button type="button" class="trip-menu-item" data-action="view-pdf" data-id="${entry.id}">View PDF</button>
+            <button type="button" class="trip-menu-item" data-action="download-pdf" data-id="${entry.id}">Download PDF</button>
+            <button type="button" class="trip-menu-item is-danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
+          </div>
+        </details>
       </td>
     </tr>
   `;
@@ -2143,6 +2155,9 @@ tripList.addEventListener("click", (event) => {
   if (!actionTarget) {
     return;
   }
+  if (actionTarget.closest(".trip-menu")) {
+    closeOpenTripMenus();
+  }
 
   if (actionTarget.dataset.action === "select-trip") {
     if (isTripsPage()) {
@@ -2203,6 +2218,9 @@ function handleCampTableClick(event) {
   const target = event.target.closest("[data-action]");
   if (!target) {
     return;
+  }
+  if (target.closest(".trip-menu")) {
+    closeOpenTripMenus();
   }
 
   const action = target.dataset.action;
@@ -2559,6 +2577,10 @@ document.querySelectorAll("[data-settings-group]").forEach((formNode) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const clickedMenu = event.target.closest(".trip-menu");
+  if (!clickedMenu) {
+    closeOpenTripMenus();
+  }
   const modalAction = event.target.closest("[data-action]");
   if (modalAction?.dataset.action === "hide-reservation-edit" || modalAction?.dataset.action === "hide-payment-edit") {
     closeInlineEditPanels();

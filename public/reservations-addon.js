@@ -172,6 +172,15 @@
     }
   }
 
+  function closeOpenTripMenus(exceptMenu = null) {
+    document.querySelectorAll(".trip-menu[open]").forEach((menu) => {
+      if (exceptMenu && menu === exceptMenu) {
+        return;
+      }
+      menu.removeAttribute("open");
+    });
+  }
+
   function syncFlightTripDefaults(tripId, force = false) {
     const trip = getTrip(tripId);
     const staffNode = flightForm.elements.staffCount;
@@ -283,10 +292,13 @@
                     <td><span class="status-pill is-${escapeHtml(entry.touristTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.touristTicketStatus || "pending"))}</span></td>
                     <td><span class="status-pill is-${escapeHtml(entry.guideTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.guideTicketStatus || "pending"))}</span></td>
                     <td>
-                      <div class="trip-row-actions payment-row-actions">
-                        <button type="button" class="table-action compact secondary" data-action="edit-flight" data-id="${escapeHtml(entry.id)}">Edit</button>
-                        <button type="button" class="table-action compact danger" data-action="delete-flight" data-id="${escapeHtml(entry.id)}">Delete</button>
-                      </div>
+                      <details class="trip-menu row-action-menu">
+                        <summary class="trip-menu-trigger" aria-label="Flight reservation actions">⋮</summary>
+                        <div class="trip-menu-popover">
+                          <button type="button" class="trip-menu-item" data-action="edit-flight" data-id="${escapeHtml(entry.id)}">Edit</button>
+                          <button type="button" class="trip-menu-item is-danger" data-action="delete-flight" data-id="${escapeHtml(entry.id)}">Delete</button>
+                        </div>
+                      </details>
                     </td>
                   </tr>
                 `
@@ -397,10 +409,13 @@
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
                     <td>
-                      <div class="trip-row-actions payment-row-actions">
-                        <button type="button" class="table-action compact secondary" data-action="edit-transfer" data-id="${escapeHtml(entry.id)}">Edit</button>
-                        <button type="button" class="table-action compact danger" data-action="delete-transfer" data-id="${escapeHtml(entry.id)}">Delete</button>
-                      </div>
+                      <details class="trip-menu row-action-menu">
+                        <summary class="trip-menu-trigger" aria-label="Transfer reservation actions">⋮</summary>
+                        <div class="trip-menu-popover">
+                          <button type="button" class="trip-menu-item" data-action="edit-transfer" data-id="${escapeHtml(entry.id)}">Edit</button>
+                          <button type="button" class="trip-menu-item is-danger" data-action="delete-transfer" data-id="${escapeHtml(entry.id)}">Delete</button>
+                        </div>
+                      </details>
                     </td>
                   </tr>
                 `
@@ -621,6 +636,9 @@
     if (!target) {
       return;
     }
+    if (target.closest(".trip-menu")) {
+      closeOpenTripMenus();
+    }
     const entry = flights.find((item) => item.id === target.dataset.id);
     if (!entry) {
       return;
@@ -647,6 +665,9 @@
     if (!target) {
       return;
     }
+    if (target.closest(".trip-menu")) {
+      closeOpenTripMenus();
+    }
     const entry = flights.find((item) => item.id === target.dataset.id);
     if (!entry) {
       return;
@@ -663,6 +684,9 @@
     const target = event.target.closest("[data-action]");
     if (!target) {
       return;
+    }
+    if (target.closest(".trip-menu")) {
+      closeOpenTripMenus();
     }
     const entry = transfers.find((item) => item.id === target.dataset.id);
     if (!entry) {
@@ -686,6 +710,10 @@
   });
 
   document.addEventListener("click", (event) => {
+    const clickedMenu = event.target.closest(".trip-menu");
+    if (!clickedMenu) {
+      closeOpenTripMenus();
+    }
     const target = event.target.closest("[data-action]");
     if (!target) {
       return;
