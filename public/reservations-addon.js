@@ -148,14 +148,14 @@
     }
   }
 
-  function syncFlightGuide(tripId, force = false) {
+  function syncFlightTripDefaults(tripId, force = false) {
     const trip = getTrip(tripId);
-    const guideNode = flightForm.elements.guideName;
-    if (!trip || !guideNode) {
+    const staffNode = flightForm.elements.staffCount;
+    if (!trip || !staffNode) {
       return;
     }
-    if (force || !String(guideNode.value || "").trim()) {
-      guideNode.value = trip.guideName || "";
+    if (force || !String(staffNode.value || "").trim()) {
+      staffNode.value = String(trip.staffCount || 0);
     }
   }
 
@@ -167,14 +167,14 @@
       tripSelect.value = trips[0].id;
     }
     if (tripSelect === flightTripSelect) {
-      syncFlightGuide(tripSelect.value, true);
+      syncFlightTripDefaults(tripSelect.value, true);
     }
   }
 
   function getFilteredFlights() {
     return flights
       .filter((entry) => (!flightFilterTrip.value || entry.tripId === flightFilterTrip.value))
-      .filter((entry) => (!flightFilterStatus.value || entry.status === flightFilterStatus.value))
+      .filter((entry) => (!flightFilterStatus.value || (entry.touristTicketStatus || entry.status) === flightFilterStatus.value))
       .filter((entry) => (!flightFilterDate.value || entry.departureDate === flightFilterDate.value))
       .sort((left, right) => String(left.departureDate || "").localeCompare(String(right.departureDate || "")));
   }
@@ -207,12 +207,15 @@
               <th>Departure</th>
               <th>Arrival</th>
               <th>Pax</th>
-              <th>Guide</th>
+              <th>Staff</th>
+              <th>Ticket Price</th>
+              <th>Total Ticket Price</th>
+              <th>Requested</th>
+              <th>Tourist Ticket</th>
               <th>Guide Ticket</th>
-              <th>Guide Status</th>
-              <th>Status</th>
               <th>Payment</th>
-              <th>Amount</th>
+              <th>Paid To</th>
+              <th>Paid Date</th>
               <th>Notes</th>
               <th>Actions</th>
             </tr>
@@ -229,12 +232,15 @@
                     <td>${escapeHtml(`${formatDate(entry.departureDate)} ${entry.departureTime || ""}`.trim())}</td>
                     <td>${escapeHtml(`${formatDate(entry.arrivalDate)} ${entry.arrivalTime || ""}`.trim() || "-")}</td>
                     <td>${escapeHtml(entry.passengerCount || "-")}</td>
-                    <td>${escapeHtml(entry.guideName || "-")}</td>
-                    <td>${escapeHtml(entry.guideTicket || "-")}</td>
-                    <td><span class="status-pill is-${escapeHtml(entry.guideStatus || "to_check")}">${escapeHtml(formatStatus(entry.guideStatus || "to_check"))}</span></td>
-                    <td><span class="status-pill is-${escapeHtml(entry.status)}">${escapeHtml(formatStatus(entry.status))}</span></td>
+                    <td>${escapeHtml(entry.staffCount || "-")}</td>
+                    <td>${escapeHtml(formatMoney(entry.ticketPrice))}</td>
+                    <td>${escapeHtml(formatMoney(entry.totalTicketPrice || entry.amount))}</td>
+                    <td>${escapeHtml(formatStatus(entry.requested || "no"))}</td>
+                    <td><span class="status-pill is-${escapeHtml(entry.touristTicketStatus || "waiting_list")}">${escapeHtml(formatStatus(entry.touristTicketStatus || "waiting_list"))}</span></td>
+                    <td><span class="status-pill is-${escapeHtml(entry.guideTicketStatus || "waiting_list")}">${escapeHtml(formatStatus(entry.guideTicketStatus || "waiting_list"))}</span></td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
-                    <td>${escapeHtml(formatMoney(entry.amount))}</td>
+                    <td>${escapeHtml(entry.paidTo || "-")}</td>
+                    <td>${escapeHtml(formatDate(entry.paidDate))}</td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
                     <td>
                       <div class="trip-row-actions payment-row-actions">
@@ -269,11 +275,11 @@
               <th>Pickup</th>
               <th>Dropoff</th>
               <th>Date / Time</th>
+              <th>Pax</th>
               <th>Driver</th>
               <th>Vehicle</th>
-              <th>Pax</th>
-              <th>Payment</th>
               <th>Driver Salary</th>
+              <th>Payment</th>
               <th>Notes</th>
               <th>Actions</th>
             </tr>
@@ -289,11 +295,11 @@
                     <td>${escapeHtml(entry.pickupLocation)}</td>
                     <td>${escapeHtml(entry.dropoffLocation)}</td>
                     <td>${escapeHtml(`${formatDate(entry.serviceDate)} ${entry.serviceTime || ""}`.trim())}</td>
+                    <td>${escapeHtml(entry.passengerCount || "-")}</td>
                     <td>${escapeHtml(entry.driverName || "-")}</td>
                     <td>${escapeHtml(entry.vehicleType || "-")}</td>
-                    <td>${escapeHtml(entry.passengerCount || "-")}</td>
-                    <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
                     <td>${escapeHtml(formatMoney(entry.driverSalary || entry.amount))}</td>
+                    <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
                     <td>
                       <div class="trip-row-actions payment-row-actions">
@@ -333,9 +339,12 @@
     editingFlightId = "";
     flightForm.reset();
     flightForm.elements.passengerCount.value = "1";
-    flightForm.elements.amount.value = "0";
-    flightForm.elements.status.value = "to_check";
-    flightForm.elements.guideStatus.value = "to_check";
+    flightForm.elements.staffCount.value = "0";
+    flightForm.elements.ticketPrice.value = "0";
+    flightForm.elements.totalTicketPrice.value = "0";
+    flightForm.elements.requested.value = "no";
+    flightForm.elements.touristTicketStatus.value = "waiting_list";
+    flightForm.elements.guideTicketStatus.value = "waiting_list";
     flightForm.elements.paymentStatus.value = "unpaid";
     flightStatus.textContent = "";
     refreshTripSelectors();
@@ -384,7 +393,7 @@
   });
 
   flightTripSelect?.addEventListener("change", () => {
-    syncFlightGuide(flightTripSelect.value);
+    syncFlightTripDefaults(flightTripSelect.value);
   });
 
   [flightFilterTrip, flightFilterStatus, flightFilterDate].forEach((node) => {

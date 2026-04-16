@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-74" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-75" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -403,11 +403,8 @@
               Status
               <select id="flight-filter-status">
                 <option value="">All statuses</option>
-                <option value="to_check">To check</option>
-                <option value="reserved">Reserved</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="ticketed">Ticketed</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="waiting_list">Waiting list</option>
+                <option value="bought">Bought</option>
               </select>
             </label>
             <label>
@@ -445,24 +442,6 @@
                   <input name="airline" />
                 </label>
                 <label>
-                  Guide
-                  <input name="guideName" />
-                </label>
-                <label>
-                  Guide Ticket
-                  <input name="guideTicket" />
-                </label>
-                <label>
-                  Guide Status
-                  <select name="guideStatus">
-                    <option value="to_check">To check</option>
-                    <option value="reserved">Reserved</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="ticketed">Ticketed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </label>
-                <label>
                   From
                   <input name="fromCity" required />
                 </label>
@@ -495,13 +474,36 @@
                   <input name="passengerCount" type="number" min="1" value="1" required />
                 </label>
                 <label>
-                  Status
-                  <select name="status">
-                    <option value="to_check">To check</option>
-                    <option value="reserved">Reserved</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="ticketed">Ticketed</option>
-                    <option value="cancelled">Cancelled</option>
+                  Staff
+                  <input name="staffCount" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Ticket Price (MNT)
+                  <input name="ticketPrice" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Total Ticket Price (MNT)
+                  <input name="totalTicketPrice" type="number" min="0" value="0" />
+                </label>
+                <label>
+                  Requested
+                  <select name="requested">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+                <label>
+                  Tourist Ticket
+                  <select name="touristTicketStatus">
+                    <option value="waiting_list">Waiting list</option>
+                    <option value="bought">Bought</option>
+                  </select>
+                </label>
+                <label>
+                  Guide Ticket
+                  <select name="guideTicketStatus">
+                    <option value="waiting_list">Waiting list</option>
+                    <option value="bought">Bought</option>
                   </select>
                 </label>
                 <label>
@@ -514,12 +516,16 @@
                   </select>
                 </label>
                 <label>
-                  Amount (MNT)
-                  <input name="amount" type="number" min="0" value="0" />
+                  Paid To
+                  <input name="paidTo" />
+                </label>
+                <label>
+                  Paid Date
+                  <input name="paidDate" type="date" />
                 </label>
                 <label class="full-span">
                   Notes
-                  <textarea name="notes" rows="3"></textarea>
+                    <textarea name="notes" rows="3"></textarea>
                 </label>
                 <div class="actions full-span">
                   <button type="submit">Save flight reservation</button>
@@ -725,6 +731,6 @@
 
     <script src="/app-shell.js?v=workspace-64"></script>
     <script src="/camp.js?v=workspace-61"></script>
-    <script src="/reservations-addon.js?v=workspace-6"></script>
+    <script src="/reservations-addon.js?v=workspace-7"></script>
   </body>
 </html>

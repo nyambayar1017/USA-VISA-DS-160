@@ -4488,22 +4488,27 @@ def build_flight_reservation(payload, actor=None):
         "routeType": normalize_text(payload.get("routeType")).lower() or "internal",
         "airline": normalize_text(payload.get("airline")),
         "flightNumber": normalize_text(payload.get("flightNumber")),
-        "guideName": normalize_text(payload.get("guideName")),
-        "guideTicket": normalize_text(payload.get("guideTicket")),
-        "guideStatus": normalize_text(payload.get("guideStatus")).lower() or "to_check",
         "fromCity": normalize_text(payload.get("fromCity")),
         "toCity": normalize_text(payload.get("toCity")),
         "departureDate": normalize_text(payload.get("departureDate")),
         "departureTime": normalize_text(payload.get("departureTime")),
         "arrivalDate": normalize_text(payload.get("arrivalDate")),
         "arrivalTime": normalize_text(payload.get("arrivalTime")),
+        "staffCount": parse_int(payload.get("staffCount")),
+        "ticketPrice": parse_int(payload.get("ticketPrice")),
+        "totalTicketPrice": parse_int(payload.get("totalTicketPrice") or payload.get("amount")),
+        "requested": normalize_text(payload.get("requested")).lower() or "no",
+        "touristTicketStatus": normalize_text(payload.get("touristTicketStatus") or payload.get("status")).lower() or "waiting_list",
+        "guideTicketStatus": normalize_text(payload.get("guideTicketStatus") or payload.get("guideStatus")).lower() or "waiting_list",
+        "paidTo": normalize_text(payload.get("paidTo")),
+        "paidDate": normalize_text(payload.get("paidDate")),
         "bookingReference": normalize_text(payload.get("bookingReference")),
         "ticketNumber": normalize_text(payload.get("ticketNumber")),
         "passengerCount": parse_int(payload.get("passengerCount")),
         "status": normalize_text(payload.get("status")).lower() or "to_check",
         "boughtDate": normalize_text(payload.get("boughtDate")),
         "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
-        "amount": parse_int(payload.get("amount")),
+        "amount": parse_int(payload.get("totalTicketPrice") or payload.get("amount")),
         "currency": "MNT",
         "notes": normalize_text(payload.get("notes")),
         "createdBy": actor_snapshot(actor),
@@ -4513,7 +4518,7 @@ def build_flight_reservation(payload, actor=None):
 
 
 def validate_flight_reservation(data):
-    required = ["tripId", "tripName", "fromCity", "toCity", "departureDate", "status", "paymentStatus"]
+    required = ["tripId", "tripName", "fromCity", "toCity", "departureDate", "touristTicketStatus", "guideTicketStatus", "paymentStatus"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -5783,15 +5788,17 @@ def handle_update_flight_reservation(environ, start_response, reservation_id):
             "routeType",
             "airline",
             "flightNumber",
-            "guideName",
-            "guideTicket",
-            "guideStatus",
             "fromCity",
             "toCity",
             "departureDate",
             "departureTime",
             "arrivalDate",
             "arrivalTime",
+            "requested",
+            "touristTicketStatus",
+            "guideTicketStatus",
+            "paidTo",
+            "paidDate",
             "bookingReference",
             "ticketNumber",
             "status",
@@ -5803,9 +5810,11 @@ def handle_update_flight_reservation(environ, start_response, reservation_id):
             if key in payload:
                 value = normalize_text(payload.get(key))
                 merged[key] = value.upper() if key == "currency" else value
-        for key in ["passengerCount", "amount"]:
+        for key in ["passengerCount", "staffCount", "ticketPrice", "totalTicketPrice", "amount"]:
             if key in payload:
-                merged[key] = parse_int(payload.get(key))
+                target_key = "totalTicketPrice" if key in {"totalTicketPrice", "amount"} else key
+                merged[target_key] = parse_int(payload.get(key))
+        merged["amount"] = parse_int(merged.get("totalTicketPrice"))
         merged["currency"] = "MNT"
         if normalize_text(merged.get("tripId")):
             trip = find_camp_trip(merged.get("tripId"))
