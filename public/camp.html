@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-79" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-80" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -506,6 +506,64 @@
                     <option value="bought">Bought</option>
                   </select>
                 </label>
+                <label class="full-span">
+                  Notes
+                    <textarea name="notes" rows="3"></textarea>
+                </label>
+                <div class="actions full-span">
+                  <button type="submit">Save flight reservation</button>
+                  <p id="flight-status" class="status"></p>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div id="flight-list" class="submission-list"></div>
+        </section>
+
+        <section class="card" id="flight-payments-section">
+          <div class="section-head">
+            <div>
+              <h2>Flight Payments</h2>
+              <p>Track payment details separately from the flight reservation information.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="flight-payment-toggle-form" class="secondary-button">Add flight payment</button>
+            </div>
+          </div>
+          <div class="camp-filters reservation-filters-grid">
+            <label>
+              Trip Name
+              <select id="flight-payment-filter-trip">
+                <option value="">All trips</option>
+              </select>
+            </label>
+            <label>
+              Payment Status
+              <select id="flight-payment-filter-status">
+                <option value="">All payment statuses</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="deposit">Deposit</option>
+                <option value="paid">Paid</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </label>
+          </div>
+          <div id="flight-payment-form-panel" class="camp-modal is-hidden">
+            <div class="camp-modal-backdrop" data-action="close-flight-payment-modal"></div>
+            <div class="camp-modal-dialog">
+              <div class="camp-modal-header">
+                <div>
+                  <h2>Flight payment</h2>
+                  <p class="camp-modal-copy">Save finance details for the selected flight reservation.</p>
+                </div>
+                <button type="button" class="camp-modal-close" data-action="close-flight-payment-modal" aria-label="Close flight payment window">×</button>
+              </div>
+              <form id="flight-payment-form" class="field-grid">
+                <input type="hidden" name="id" />
+                <label>
+                  Selected Flight
+                  <select name="flightId" id="flight-payment-select" required></select>
+                </label>
                 <label>
                   Payment Status
                   <select name="paymentStatus">
@@ -520,21 +578,25 @@
                   <input name="paidTo" />
                 </label>
                 <label>
+                  Paid From Account
+                  <input name="paidFromAccount" />
+                </label>
+                <label>
                   Paid Date
                   <input name="paidDate" type="date" />
                 </label>
                 <label class="full-span">
-                  Notes
-                    <textarea name="notes" rows="3"></textarea>
+                  Payment Notes
+                  <textarea name="paymentNotes" rows="3"></textarea>
                 </label>
                 <div class="actions full-span">
-                  <button type="submit">Save flight reservation</button>
-                  <p id="flight-status" class="status"></p>
+                  <button type="submit">Save flight payment</button>
+                  <p id="flight-payment-status" class="status"></p>
                 </div>
               </form>
             </div>
           </div>
-          <div id="flight-list" class="submission-list"></div>
+          <div id="flight-payment-list" class="submission-list"></div>
         </section>
 
         <section class="card" id="transfer-reservations-section">
@@ -731,6 +793,6 @@
 
     <script src="/app-shell.js?v=workspace-64"></script>
     <script src="/camp.js?v=workspace-62"></script>
-    <script src="/reservations-addon.js?v=workspace-7"></script>
+    <script src="/reservations-addon.js?v=workspace-8"></script>
   </body>
 </html>

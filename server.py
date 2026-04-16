@@ -4520,14 +4520,16 @@ def build_flight_reservation(payload, actor=None):
         "requested": normalize_text(payload.get("requested")).lower() or "no",
         "touristTicketStatus": normalize_text(payload.get("touristTicketStatus") or payload.get("status")).lower() or "waiting_list",
         "guideTicketStatus": normalize_text(payload.get("guideTicketStatus") or payload.get("guideStatus")).lower() or "waiting_list",
+        "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
         "paidTo": normalize_text(payload.get("paidTo")),
+        "paidFromAccount": normalize_text(payload.get("paidFromAccount")),
         "paidDate": normalize_text(payload.get("paidDate")),
+        "paymentNotes": normalize_text(payload.get("paymentNotes")),
         "bookingReference": normalize_text(payload.get("bookingReference")),
         "ticketNumber": normalize_text(payload.get("ticketNumber")),
         "passengerCount": parse_int(payload.get("passengerCount")),
         "status": normalize_text(payload.get("status")).lower() or "to_check",
         "boughtDate": normalize_text(payload.get("boughtDate")),
-        "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
         "amount": parse_int(payload.get("totalTicketPrice") or payload.get("amount")),
         "currency": "MNT",
         "notes": normalize_text(payload.get("notes")),
@@ -4538,7 +4540,7 @@ def build_flight_reservation(payload, actor=None):
 
 
 def validate_flight_reservation(data):
-    required = ["tripId", "tripName", "fromCity", "toCity", "departureDate", "touristTicketStatus", "guideTicketStatus", "paymentStatus"]
+    required = ["tripId", "tripName", "fromCity", "toCity", "departureDate", "touristTicketStatus", "guideTicketStatus"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -5815,13 +5817,15 @@ def handle_update_flight_reservation(environ, start_response, reservation_id):
             "requested",
             "touristTicketStatus",
             "guideTicketStatus",
+            "paymentStatus",
             "paidTo",
+            "paidFromAccount",
             "paidDate",
+            "paymentNotes",
             "bookingReference",
             "ticketNumber",
             "status",
             "boughtDate",
-            "paymentStatus",
             "currency",
             "notes",
         ]:
