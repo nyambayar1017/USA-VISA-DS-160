@@ -100,13 +100,11 @@ function fillSelectFromOptions(node, options, placeholder) {
 
 function formatDate(value) {
   if (!value) return "-";
+  const normalized = String(value).slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat("mn-MN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return date.toISOString().slice(0, 10);
 }
 
 function naturalTextCompare(left, right) {
@@ -316,7 +314,7 @@ function renderPublicTickets() {
         <span>Тоглолт</span>
         <span>Билет</span>
         <span>Хот</span>
-        <span>Group</span>
+        <span>Хэсэг</span>
         <span>Шат</span>
         <span>Суудал</span>
       </div>
@@ -343,7 +341,7 @@ function renderPublicTickets() {
                   <span class="fifa-table-sub">${escapeHtml(row.venue || "Цэнгэлдэх мэдээлэлгүй")}</span>
                 </div>
                 <div class="fifa-match-col fifa-match-col--availability">
-                  <strong>${escapeHtml(availabilitySummary || "Боломжтой билет алга")}</strong>
+                  <strong>${escapeHtml(availabilitySummary || "Боломжит билет алга")}</strong>
                   <span class="fifa-table-sub">${escapeHtml(String(totalAvailable))} боломжтой билет</span>
                 </div>
                 <div class="fifa-match-col">
