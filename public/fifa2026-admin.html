@@ -396,63 +396,16 @@
               Quantity
               <input name="quantity" type="number" min="1" step="1" value="1" required readonly />
             </label>
-            <label class="full-span">
-              MNT payment breakdown
-              <textarea id="fifa-sale-price-breakdown" rows="3" readonly placeholder="Each chosen match price will appear automatically here"></textarea>
-            </label>
-            <section class="full-span fifa-category-editor fifa-sale-invoice-editor">
-              <div class="fifa-category-head">
-                <h3>Invoice</h3>
-                <p>Set the exchange rate, bank account, and payment schedule lines for this buyer invoice.</p>
-              </div>
-              <div class="manager-form-grid fifa-form-grid">
-                <label>
-                  USD to MNT rate
-                  <input name="invoiceExchangeRate" type="number" min="1" step="1" value="3600" />
-                </label>
-                <label>
-                  Payment account
-                  <select name="invoiceBankAccount">
-                    <option value="state">Төрийн Банк / MN030034 / 3432 7777 9999</option>
-                    <option value="golomt">Голомт Банк / MN80001500 / 3675114666</option>
-                    <option value="lkham-erdene">Лхам-Эрдэнэ / Хувийн данс</option>
-                    <option value="azjargal">Азжаргал / Хувийн данс</option>
-                    <option value="bayaraa">Баяраа / Хувийн данс</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
-                <label class="full-span" id="fifa-sale-other-bank-account-field" hidden>
-                  Other account
-                  <input name="invoiceBankAccountOther" placeholder="Type other bank account here" />
-                </label>
-                <div class="full-span fifa-invoice-schedule-editor" id="fifa-invoice-schedule-editor">
-                  <p class="fifa-seat-help">Payment schedule lines will appear here.</p>
-                </div>
-              </div>
-            </section>
-            <label>
-              Discount (₮)
-              <input name="discountAmountMnt" type="number" min="0" step="1" value="0" />
-            </label>
             <label hidden>
               Price per ticket
               <input name="pricePerTicket" type="number" min="1" step="1" readonly />
             </label>
-            <label>
-              Grand total amount (₮)
-              <input name="totalPriceMnt" type="number" min="0" step="1" readonly />
-            </label>
-            <label>
-              Amount paid (₮)
-              <input name="amountPaidMnt" type="number" min="0" step="1" value="0" />
-            </label>
-            <label class="full-span">
-              Buyer notes
-              <textarea name="buyerNotes" rows="2" placeholder="Special requests, invoice notes, delivery notes"></textarea>
-            </label>
             <input type="hidden" name="discountAmount" value="0" />
+            <input type="hidden" name="discountAmountMnt" value="0" />
             <input type="hidden" name="totalPrice" value="0" />
+            <input type="hidden" name="totalPriceMnt" value="0" />
             <input type="hidden" name="amountPaid" value="0" />
+            <input type="hidden" name="amountPaidMnt" value="0" />
             <input type="hidden" name="paymentStatus" value="unpaid" />
             <input type="hidden" name="paymentMethod" value="state" />
             <input type="hidden" name="saleStatus" value="active" />
@@ -462,6 +415,13 @@
             <input type="hidden" name="buyerEmail" />
             <input type="hidden" name="buyerPassportNumber" />
             <input type="hidden" name="buyerNationality" value="Mongolian" />
+            <input type="hidden" name="buyerNotes" />
+            <input type="hidden" name="invoiceExchangeRate" value="3600" />
+            <input type="hidden" name="invoiceBankAccount" value="state" />
+            <input type="hidden" name="invoiceBankAccountOther" value="" />
+            <div class="full-span fifa-invoice-schedule-editor" id="fifa-invoice-schedule-editor" hidden>
+              <p class="fifa-seat-help">Payment schedule lines will appear here.</p>
+            </div>
             <section class="full-span fifa-category-editor fifa-participant-editor">
               <div class="fifa-category-head">
                 <h3>Passport Information</h3>
