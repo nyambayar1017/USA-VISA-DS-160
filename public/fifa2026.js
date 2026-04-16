@@ -328,7 +328,7 @@ function renderPublicTickets() {
           const totalAvailable = row.categoryBreakdown.reduce((sum, item) => sum + Number(item.available || 0), 0);
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
-              <div class="fifa-match-toggle fifa-match-toggle--static">
+              <div class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(row.key)}" role="button" tabindex="0">
                 <div class="fifa-match-col fifa-match-col--number">
                   <strong>${isExpanded ? "▾" : "▸"} ${row.number}</strong>
                 </div>
