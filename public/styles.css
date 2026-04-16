@@ -1607,7 +1607,7 @@ time {
   z-index: 1;
   width: min(1080px, calc(100vw - 40px));
   max-height: calc(100vh - 32px);
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   margin: auto;
@@ -1850,7 +1850,7 @@ time {
 .camp-modal-dialog form {
   flex: 1 1 auto;
   max-height: none;
-  overflow-y: auto;
+  overflow: visible;
   padding-right: 8px;
   padding-bottom: 14px;
 }

@@ -80,6 +80,7 @@ const TRIP_STATUS_OPTIONS = [
 function openPanel(panel) {
   panel.classList.remove("is-hidden");
   document.body.classList.add("modal-open");
+  panel.scrollTop = 0;
   const dialog = panel.querySelector(".camp-modal-dialog");
   const form = panel.querySelector("form");
   requestAnimationFrame(() => {
