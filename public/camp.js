@@ -40,6 +40,7 @@ const campStays = document.querySelector("#camp-stays");
 const settingsStatus = document.querySelector("#settings-status");
 const campCreatedDate = campForm.querySelector('[name="createdDate"]');
 const MONGOLIA_TIME_ZONE = "Asia/Ulaanbaatar";
+const CAMP_RESERVATIONS_PATH = "/camp-reservations";
 
 let currentTrips = [];
 let currentEntries = [];
@@ -99,6 +100,24 @@ function closePanel(panel) {
   if (tripFormPanel.classList.contains("is-hidden") && campFormPanel.classList.contains("is-hidden")) {
     document.body.classList.remove("modal-open");
   }
+}
+
+function isTripsPage() {
+  return window.location.pathname === "/camp";
+}
+
+function isCampReservationsPage() {
+  return window.location.pathname === CAMP_RESERVATIONS_PATH;
+}
+
+function buildCampReservationsUrl(params = {}) {
+  const url = new URL(CAMP_RESERVATIONS_PATH, window.location.origin);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      url.searchParams.set(key, value);
+    }
+  });
+  return url.toString();
 }
 
 function closeInlineEditPanels() {
@@ -418,20 +437,24 @@ function setActiveTrip(tripId, options = {}) {
   renderActiveTripReservations();
   renderActiveCampReservations();
   renderCampPayments();
-  requestAnimationFrame(() => {
-    activeTripReservations.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
+  if (!options.skipScroll) {
+    requestAnimationFrame(() => {
+      activeTripReservations.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 }
 
-function setActiveCamp(campName) {
+function setActiveCamp(campName, options = {}) {
   activeCampName = campName || "";
   activeCampPanelHidden = false;
   closeInlineEditPanels();
   renderEntries();
   renderActiveCampReservations();
-  requestAnimationFrame(() => {
-    activeCampReservations.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
+  if (!options.skipScroll) {
+    requestAnimationFrame(() => {
+      activeCampReservations.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 }
 
 function getFilteredTrips() {
@@ -940,6 +963,7 @@ function renderActiveCampReservations() {
     <div class="section-head">
       <h2>${escapeHtml(activeCampName)} reservations</h2>
       <div class="camp-toolbar trip-detail-toolbar">
+        <button type="button" class="secondary-button" data-action="download-active-camp-pdf">Download camp PDF</button>
         <button type="button" class="secondary-button" data-action="hide-camp-panel">Hide table</button>
       </div>
     </div>
@@ -1897,6 +1921,10 @@ async function clearPaymentGroup(groupKey) {
 async function exportCurrentReservations() {
   const selectedEntries = getFilteredEntries().filter((entry) => selectedReservationIds.has(entry.id));
   const entries = selectedEntries.length ? selectedEntries : getFilteredEntries();
+  await exportReservationsAsPdf(entries, "camp-reservations.pdf");
+}
+
+async function exportReservationsAsPdf(entries, filename = "camp-reservations.pdf") {
   if (!entries.length) {
     campStatus.textContent = "No reservations to export.";
     return;
@@ -1907,7 +1935,7 @@ async function exportCurrentReservations() {
     const result = await fetchJson(`/api/camp-reservations/export?ids=${encodeURIComponent(ids)}`);
     const link = document.createElement("a");
     link.href = appendDownloadQuery(result.entry.pdfPath);
-    link.download = "camp-reservations.pdf";
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -2062,6 +2090,10 @@ tripList.addEventListener("click", (event) => {
   }
 
   if (actionTarget.dataset.action === "select-trip") {
+    if (isTripsPage()) {
+      window.location.href = buildCampReservationsUrl({ tripId: actionTarget.dataset.tripId });
+      return;
+    }
     setActiveTrip(actionTarget.dataset.tripId);
     activeCampPanelHidden = true;
     closeInlineEditPanels();
@@ -2165,7 +2197,16 @@ function handleCampTableClick(event) {
     return;
   }
   if (action === "select-camp") {
+    if (isTripsPage()) {
+      window.location.href = buildCampReservationsUrl({ campName: target.dataset.campName });
+      return;
+    }
     setActiveCamp(target.dataset.campName);
+    return;
+  }
+  if (action === "download-active-camp-pdf") {
+    const entries = sortByDateAsc(currentEntries.filter((entry) => entry.campName === activeCampName), "checkIn");
+    exportReservationsAsPdf(entries, `${activeCampName || "camp"}-reservations.pdf`);
     return;
   }
   if (action === "edit-payment-group") {
@@ -2506,6 +2547,18 @@ async function init() {
   await loadSettings();
   await loadTrips();
   await loadReservations();
+  if (isCampReservationsPage()) {
+    const params = new URLSearchParams(window.location.search);
+    const tripId = params.get("tripId");
+    const campName = params.get("campName");
+    if (tripId && getTripById(tripId)) {
+      setActiveTrip(tripId, { skipScroll: true });
+      tripStatus.textContent = `Selected trip: ${getTripById(tripId)?.tripName || ""}`;
+    }
+    if (campName) {
+      setActiveCamp(campName, { skipScroll: true });
+    }
+  }
   syncCheckoutFromStay();
 }
 
