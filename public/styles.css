@@ -23,10 +23,21 @@ body {
   min-height: 100vh;
   color: var(--text);
   font-family: "Montserrat", "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 14px;
   background:
     radial-gradient(circle at top left, rgba(37, 58, 119, 0.14), transparent 22%),
     radial-gradient(circle at top right, rgba(234, 106, 79, 0.12), transparent 18%),
     linear-gradient(180deg, var(--bg-deep) 0%, var(--bg) 100%);
+}
+
+input,
+select,
+textarea,
+button,
+table,
+th,
+td {
+  font-family: inherit;
 }
 
 .app-body {
@@ -2341,6 +2352,7 @@ body.modal-open {
 
 .row-action-menu {
   display: inline-block;
+  width: 100%;
 }
 
 .row-action-menu .trip-menu-popover {
@@ -2350,6 +2362,12 @@ body.modal-open {
 .row-action-menu .trip-menu-trigger {
   width: 36px;
   height: 36px;
+}
+
+.row-action-menu[open] .trip-menu-popover,
+.fifa-action-menu[open] .trip-menu-popover {
+  position: static;
+  margin-top: 8px;
 }
 
 .workspace-main .card,
@@ -3367,7 +3385,7 @@ body.modal-open {
 .fifa-match-col strong {
   display: block;
   color: #1f2d50;
-  font-size: 0.72rem;
+  font-size: 0.94rem;
   line-height: 1.18;
 }
 
@@ -3379,7 +3397,7 @@ body.modal-open {
   height: 24px;
   border-radius: 999px;
   background: rgba(32, 53, 111, 0.06);
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   color: var(--brand);
 }
 
@@ -3470,7 +3488,7 @@ body.modal-open {
   border-radius: 0;
   background: transparent;
   color: #66789d;
-  font-size: 0.68rem;
+  font-size: 0.88rem;
   font-weight: 600;
   line-height: 1.15;
   white-space: nowrap;
