@@ -3998,4 +3998,21 @@ body.modal-open {
     padding: 20px;
     border-radius: 24px;
   }
+
+  .fifa-public-panel .fifa-filters {
+    gap: 8px;
+  }
+
+  .fifa-public-panel .fifa-filters label {
+    gap: 4px;
+    font-size: 0.82rem;
+  }
+
+  .fifa-public-panel .fifa-filters input,
+  .fifa-public-panel .fifa-filters select {
+    padding: 8px 12px;
+    min-height: 40px;
+    border-radius: 12px;
+    font-size: 0.92rem;
+  }
 }
