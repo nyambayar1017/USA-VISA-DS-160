@@ -651,6 +651,39 @@ function invoiceDraftForSale(sale) {
   return state.invoiceDrafts[sale.id] || null;
 }
 
+function captureInlineInvoiceDraft(sale) {
+  const existing = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+  const container = saleList?.querySelector(`[data-inline-invoice="${sale.id}"]`);
+  if (!container) return existing;
+  const buyerNameInput = container.querySelector('[data-action="invoice-draft-field"][data-field="buyerName"]');
+  const exchangeRateInput = container.querySelector('[data-action="invoice-draft-field"][data-field="invoiceExchangeRate"]');
+  const bankAccountSelect = container.querySelector('[data-action="invoice-draft-field"][data-field="invoiceBankAccount"]');
+  const descriptions = [...container.querySelectorAll('[data-action="invoice-draft-description"]')].map((node) => node.value);
+  const schedule = [...container.querySelectorAll("[data-inline-invoice-row]")].map((rowNode, index) => {
+    const getValue = (field) => rowNode.querySelector(`[data-field="${field}"]`)?.value || "";
+    const amountMnt = String(getValue("amount") || "").replace(/[^\d]/g, "");
+    const exchangeRate = Math.max(Number(exchangeRateInput?.value || existing.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+    return {
+      title: getValue("title"),
+      created: getValue("created"),
+      due: getValue("due"),
+      status: getValue("status") || "waiting",
+      amount: Math.max(Math.round(Number(amountMnt || 0) / exchangeRate), 0),
+      amountMnt,
+    };
+  });
+  const captured = {
+    ...existing,
+    buyerName: buyerNameInput?.value ?? existing.buyerName,
+    invoiceExchangeRate: Math.max(Number(exchangeRateInput?.value || existing.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1),
+    invoiceBankAccount: bankAccountSelect?.value || existing.invoiceBankAccount || "state",
+    invoiceDescriptions: descriptions.length ? descriptions : existing.invoiceDescriptions,
+    invoiceSchedule: schedule.length ? schedule : existing.invoiceSchedule,
+  };
+  state.invoiceDrafts[sale.id] = captured;
+  return captured;
+}
+
 function saleLikeWithInvoiceDraft(sale) {
   const draft = invoiceDraftForSale(sale);
   if (!draft) return sale;
@@ -1756,7 +1789,7 @@ function renderSales() {
                           </section>
                         `).join("")}
                       </div>
-                      <section class="fifa-sale-inline-invoice">
+                      <section class="fifa-sale-inline-invoice" data-inline-invoice="${escapeHtml(sale.id)}">
                         <div class="fifa-sale-inline-invoice-head">
                           <strong>INVOICE</strong>
                           <div class="fifa-match-stage-actions">
@@ -1845,7 +1878,7 @@ function renderSales() {
                           </div>
                           <div class="fifa-sale-inline-schedule-list">
                             ${invoiceSchedule.map((row, rowIndex) => `
-                              <div class="fifa-sale-inline-schedule-row">
+                              <div class="fifa-sale-inline-schedule-row" data-inline-invoice-row="${rowIndex}">
                                 <div class="fifa-sale-inline-schedule-main">
                                   ${
                                     editingInvoice
@@ -2560,7 +2593,7 @@ saleList?.addEventListener("click", async (event) => {
     return;
   }
   if (target.dataset.action === "add-inline-invoice-line") {
-    const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+    const draft = captureInlineInvoiceDraft(sale);
     const fallbackDate = safeDateInput(sale.soldAt || "") || new Date().toISOString().slice(0, 10);
     draft.invoiceSchedule.push({
       title: `Төлбөр ${draft.invoiceSchedule.length + 1}`,
@@ -2575,7 +2608,7 @@ saleList?.addEventListener("click", async (event) => {
     return;
   }
   if (target.dataset.action === "remove-inline-invoice-line") {
-    const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
+    const draft = captureInlineInvoiceDraft(sale);
     const index = Number(target.dataset.index || -1);
     if (index >= 0) draft.invoiceSchedule.splice(index, 1);
     state.invoiceDrafts[sale.id] = draft;
@@ -2583,7 +2616,7 @@ saleList?.addEventListener("click", async (event) => {
     return;
   }
   if (target.dataset.action === "save-inline-invoice") {
-    const draft = invoiceDraftForSale(sale);
+    const draft = captureInlineInvoiceDraft(sale);
     if (!draft) return;
     try {
       await fetchJson(`/api/fifa2026/sales/${sale.id}`, {
@@ -2645,42 +2678,29 @@ saleList?.addEventListener("input", (event) => {
   if (!saleId || !saleList || !["invoice-draft-field", "invoice-draft-line", "invoice-draft-description"].includes(action)) return;
   const sale = state.sales.find((item) => item.id === saleId);
   if (!sale) return;
-  const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
-  if (action === "invoice-draft-description") {
+  const draft = captureInlineInvoiceDraft(sale);
+  if (action === "invoice-draft-line" && event.target.dataset.field === "amount") {
+    const digitsOnly = String(event.target.value || "").replace(/[^\d]/g, "");
+    event.target.value = digitsOnly;
     const index = Number(event.target.dataset.index || -1);
-    if (index < 0) return;
-    draft.invoiceDescriptions[index] = event.target.value;
-    state.invoiceDrafts[sale.id] = draft;
-    return;
-  }
-  if (action === "invoice-draft-field") {
-    const field = event.target.dataset.field;
-    if (field === "invoiceExchangeRate") {
-      draft.invoiceExchangeRate = Math.max(Number(event.target.value || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
-      draft.invoiceSchedule = (draft.invoiceSchedule || []).map((row) => ({
-        ...row,
-        amountMnt: String(Math.round(Math.max(Number(row.amount || 0), 0) * draft.invoiceExchangeRate)),
-      }));
-      state.invoiceDrafts[sale.id] = draft;
-      renderSales();
-      return;
-    }
-    draft[field] = event.target.value;
-  } else {
-    const index = Number(event.target.dataset.index || -1);
-    const field = event.target.dataset.field;
-    if (index < 0 || !draft.invoiceSchedule[index]) return;
-    if (field === "amount") {
-      const digitsOnly = String(event.target.value || "").replace(/[^\d]/g, "");
+    if (index >= 0 && draft.invoiceSchedule[index]) {
       draft.invoiceSchedule[index].amountMnt = digitsOnly;
-      event.target.value = digitsOnly;
       draft.invoiceSchedule[index].amount = Math.max(
         Math.round(Number(digitsOnly || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
         0
       );
-    } else {
-      draft.invoiceSchedule[index][field] = event.target.value;
     }
+    state.invoiceDrafts[sale.id] = draft;
+    return;
+  }
+  if (action === "invoice-draft-field" && event.target.dataset.field === "invoiceExchangeRate") {
+    draft.invoiceSchedule = (draft.invoiceSchedule || []).map((row) => ({
+      ...row,
+      amountMnt: String(Math.round(Math.max(Number(row.amount || 0), 0) * draft.invoiceExchangeRate)),
+    }));
+    state.invoiceDrafts[sale.id] = draft;
+    renderSales();
+    return;
   }
   state.invoiceDrafts[sale.id] = draft;
 });
@@ -2691,43 +2711,11 @@ saleList?.addEventListener("change", (event) => {
   if (!saleId || !["invoice-draft-field", "invoice-draft-line", "invoice-draft-description"].includes(action)) return;
   const sale = state.sales.find((item) => item.id === saleId);
   if (!sale) return;
-  const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
-  if (action === "invoice-draft-description") {
-    const index = Number(event.target.dataset.index || -1);
-    if (index < 0) return;
-    draft.invoiceDescriptions[index] = event.target.value;
-    state.invoiceDrafts[sale.id] = draft;
-    renderSales();
-    return;
-  }
-  if (action === "invoice-draft-field") {
-    const field = event.target.dataset.field;
-    if (field === "invoiceExchangeRate") {
-      draft.invoiceExchangeRate = Math.max(Number(event.target.value || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
-      draft.invoiceSchedule = (draft.invoiceSchedule || []).map((row) => ({
-        ...row,
-        amountMnt: String(Math.round(Math.max(Number(row.amount || 0), 0) * draft.invoiceExchangeRate)),
-      }));
-    } else {
-      draft[field] = event.target.value;
-    }
-  } else {
-    const index = Number(event.target.dataset.index || -1);
-    const field = event.target.dataset.field;
-    if (index < 0 || !draft.invoiceSchedule[index]) return;
-    if (field === "amount") {
-      const digitsOnly = String(event.target.value || "").replace(/[^\d]/g, "");
-      draft.invoiceSchedule[index].amountMnt = digitsOnly;
-      draft.invoiceSchedule[index].amount = Math.max(
-        Math.round(Number(digitsOnly || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
-        0
-      );
-    } else {
-      draft.invoiceSchedule[index][field] = event.target.value;
-    }
-  }
+  const draft = captureInlineInvoiceDraft(sale);
   state.invoiceDrafts[sale.id] = draft;
-  renderSales();
+  if (action === "invoice-draft-field" && event.target.dataset.field === "invoiceExchangeRate") {
+    renderSales();
+  }
 });
 
 saleBlockList?.addEventListener("click", (event) => {
