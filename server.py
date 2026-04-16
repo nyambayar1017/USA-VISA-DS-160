@@ -5100,11 +5100,7 @@ def handle_get_fifa2026_public(start_response):
     tickets = []
     for ticket in store.get("tickets", []):
         enriched = enrich_fifa_ticket(ticket, sales)
-        is_public_schedule_item = normalize_text(ticket.get("visibility")).lower() == "public"
-        is_placeholder = max(parse_int(ticket.get("totalQuantity")), 0) == 0
-        if normalize_text(ticket.get("status")).lower() == "archived":
-            continue
-        if is_public_schedule_item or is_placeholder:
+        if enriched.get("publicVisible"):
             tickets.append(enriched)
     return json_response(
         start_response,

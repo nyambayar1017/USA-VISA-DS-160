@@ -130,6 +130,11 @@ function buildMatchLabel(teamA, teamB) {
   return `${teamDisplay(left)} vs ${teamDisplay(right)}`;
 }
 
+function publicMatchLabel(ticket) {
+  const liveLabel = buildMatchLabel(ticket.teamA, ticket.teamB);
+  return liveLabel || String(ticket.matchLabel || "").trim();
+}
+
 function stageLabel(stage) {
   return STAGE_LABELS[String(stage || "").trim()] || String(stage || "-");
 }
@@ -158,7 +163,7 @@ function buildCatalogRows() {
         venue: ticket.venue || "",
         teamA: ticket.teamA || "",
         teamB: ticket.teamB || "",
-        label: ticket.matchLabel || buildMatchLabel(ticket.teamA, ticket.teamB),
+        label: publicMatchLabel(ticket),
         tickets: [],
         categoryBreakdown: [
           { categoryCode: "1", available: 0, total: 0 },
@@ -169,7 +174,7 @@ function buildCatalogRows() {
     }
 
     const group = groups.get(key);
-    group.label = group.label || ticket.matchLabel || buildMatchLabel(ticket.teamA, ticket.teamB);
+    group.label = publicMatchLabel(ticket) || group.label;
     group.tickets.push(ticket);
 
     const categoryCode = normalizedCategory(ticket);
