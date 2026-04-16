@@ -478,12 +478,21 @@ function ticketSummaryLabel(ticket) {
 
 function extractSeatSortValue(label) {
   const raw = String(label || "");
+  const tierMatch = raw.match(/(Lower Tier|Middle Tier|Upper Tier)/i);
   const blockMatch = raw.match(/Block\s+([A-Z0-9-]+)/i);
-  const rowMatch = raw.match(/Row\s+(\d+)/i);
+  const rowMatch = raw.match(/Row\s+([A-Z0-9-]+)/i);
   const seatMatch = raw.match(/Seat\s+(\d+)/i);
+  const tier = tierMatch ? String(tierMatch[1]).toLowerCase() : "";
+  const tierOrderMap = {
+    "lower tier": 1,
+    "middle tier": 2,
+    "upper tier": 3,
+  };
   return {
+    tier,
+    tierOrder: tierOrderMap[tier] || Number.MAX_SAFE_INTEGER,
     block: blockMatch ? String(blockMatch[1]).toUpperCase() : "",
-    row: rowMatch ? Number(rowMatch[1]) : Number.MAX_SAFE_INTEGER,
+    row: rowMatch ? String(rowMatch[1]).toUpperCase() : "",
     seat: seatMatch ? Number(seatMatch[1]) : Number.MAX_SAFE_INTEGER,
     raw,
   };
@@ -492,9 +501,11 @@ function extractSeatSortValue(label) {
 function compareSeatSortValue(leftLabel, rightLabel) {
   const left = extractSeatSortValue(leftLabel);
   const right = extractSeatSortValue(rightLabel);
+  const tierDiff = left.tierOrder - right.tierOrder;
+  if (tierDiff !== 0) return tierDiff;
   const blockDiff = naturalTextCompare(left.block, right.block);
   if (blockDiff !== 0) return blockDiff;
-  const rowDiff = left.row - right.row;
+  const rowDiff = naturalTextCompare(left.row, right.row);
   if (rowDiff !== 0) return rowDiff;
   const seatDiff = left.seat - right.seat;
   if (seatDiff !== 0) return seatDiff;
@@ -1679,7 +1690,7 @@ function renderSales() {
               if (matchDiff !== 0) return matchDiff;
               const blockDiff = naturalTextCompare(left.seatSortValue.block, right.seatSortValue.block);
               if (blockDiff !== 0) return blockDiff;
-              const rowDiff = left.seatSortValue.row - right.seatSortValue.row;
+              const rowDiff = naturalTextCompare(left.seatSortValue.row, right.seatSortValue.row);
               if (rowDiff !== 0) return rowDiff;
               const seatDiff = left.seatSortValue.seat - right.seatSortValue.seat;
               if (seatDiff !== 0) return seatDiff;
