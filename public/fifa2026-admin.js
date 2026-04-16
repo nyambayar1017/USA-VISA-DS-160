@@ -2641,11 +2641,9 @@ saleList?.addEventListener("input", (event) => {
         Math.round(Number(event.target.value || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
         0
       );
-      state.invoiceDrafts[sale.id] = draft;
-      renderSales();
-      return;
+    } else {
+      draft.invoiceSchedule[index][field] = event.target.value;
     }
-    draft.invoiceSchedule[index][field] = event.target.value;
   }
   state.invoiceDrafts[sale.id] = draft;
 });
@@ -2658,12 +2656,20 @@ saleList?.addEventListener("change", (event) => {
   if (!sale) return;
   const draft = invoiceDraftForSale(sale) || buildInvoiceDraftFromSale(sale);
   if (action === "invoice-draft-field") {
-    draft[event.target.dataset.field] = event.target.value;
+    const field = event.target.dataset.field;
+    draft[field] = field === "invoiceExchangeRate"
+      ? Math.max(Number(event.target.value || DEFAULT_INVOICE_EXCHANGE_RATE), 1)
+      : event.target.value;
   } else {
     const index = Number(event.target.dataset.index || -1);
     const field = event.target.dataset.field;
     if (index < 0 || !draft.invoiceSchedule[index]) return;
-    draft.invoiceSchedule[index][field] = event.target.value;
+    draft.invoiceSchedule[index][field] = field === "amount"
+      ? Math.max(
+          Math.round(Number(event.target.value || 0) / Math.max(Number(draft.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1)),
+          0
+        )
+      : event.target.value;
   }
   state.invoiceDrafts[sale.id] = draft;
   renderSales();
