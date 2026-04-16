@@ -1585,10 +1585,11 @@ time {
   inset: 0;
   z-index: 80;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 24px;
+  padding: 24px 24px 40px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .camp-modal.is-hidden {
@@ -1606,11 +1607,11 @@ time {
   position: relative;
   z-index: 1;
   width: min(1080px, calc(100vw - 40px));
-  max-height: calc(100vh - 32px);
+  max-height: calc(100vh - 64px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  margin: auto;
+  margin: 8px auto 0;
   padding: 18px 18px 16px;
   border: 1px solid rgba(37, 58, 119, 0.14);
   border-radius: 16px;
