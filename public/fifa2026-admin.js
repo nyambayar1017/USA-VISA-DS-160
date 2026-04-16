@@ -709,7 +709,7 @@ function renderSaleSummary() {
           </label>
           <label>
             Balance
-            <input type="text" value="${escapeHtml(formatMoney(balanceMnt, "MNT"))}" readonly />
+            <input type="text" data-sale-summary-balance value="${escapeHtml(formatMoney(balanceMnt, "MNT"))}" readonly />
           </label>
           <label>
             Paid account
@@ -1030,14 +1030,13 @@ function renderSaleBlocks() {
   saleBlockList.innerHTML = state.saleBlocks
     .map((block, index) => {
       const derivedUnitPrice = Number(block.unitPrice || 0) || (Number(block.quantity || 0) ? Math.round(Number(block.totalPrice || 0) / Number(block.quantity || 1)) : 0);
-      const exchangeRate = currentInvoiceExchangeRate();
       return `
       <div class="fifa-sale-block-item" data-sale-block-index="${index}">
         <div>
           <strong>${escapeHtml(block.matchLabel)}</strong>
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s)</span>
-          <span class="fifa-table-sub">Price ticket: ${escapeHtml(formatMoney(Math.round(derivedUnitPrice * exchangeRate), "MNT"))}</span>
-          <span class="fifa-table-sub">Total for ${escapeHtml(block.matchLabel)}: ${escapeHtml(formatMoney(Math.round(Number(block.totalPrice || 0) * exchangeRate), "MNT"))}</span>
+          <span class="fifa-table-sub">Price ticket: ${escapeHtml(formatMoney(derivedUnitPrice, "USD"))}</span>
+          <span class="fifa-table-sub">Total for ${escapeHtml(block.matchLabel)}: ${escapeHtml(formatMoney(Number(block.totalPrice || 0), "USD"))}</span>
           <div class="fifa-sale-ticket-list">
             ${(block.ticketLabels || []).map((label, ticketIndex) => `<span class="fifa-table-sub"><strong>Ticket ${ticketIndex + 1}</strong> · ${escapeHtml(label)}</span>`).join("")}
           </div>
@@ -2945,7 +2944,12 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) 
   if (field === "amountPaidMnt") {
     saleForm.elements.amountPaidMnt.value = String(Math.max(Number(event.target.value || 0), 0));
     syncSaleTotals();
-    renderSaleSummary();
+    const balanceNode = document.querySelector("[data-sale-summary-balance]");
+    if (balanceNode) {
+      const totalMnt = Math.round(currentSaleTotalUsd() * currentInvoiceExchangeRate());
+      const amountPaidMnt = Math.max(Number(saleForm.elements.amountPaidMnt.value || 0), 0);
+      balanceNode.value = formatMoney(Math.max(totalMnt - amountPaidMnt, 0), "MNT");
+    }
     return;
   }
   if (field === "paidAccount") {
