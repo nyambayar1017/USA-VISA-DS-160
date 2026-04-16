@@ -655,38 +655,70 @@ function renderSaleSummary() {
     return;
   }
   const totalTickets = state.saleBlocks.reduce((sum, block) => sum + Number(block.quantity || 0), 0);
-  const blockTotalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
   const exchangeRate = currentInvoiceExchangeRate();
-  const discountAmount = currentDiscountUsd();
-  const totalPrice = Math.max(blockTotalPrice - discountAmount, 0);
+  const totalPrice = currentSaleTotalUsd();
+  const totalPriceMnt = Math.round(totalPrice * exchangeRate);
+  const amountPaidMnt = Math.max(Number(saleForm?.elements?.amountPaidMnt?.value || 0), 0);
+  const balanceMnt = Math.max(totalPriceMnt - amountPaidMnt, 0);
+  const paidAccount = String(saleForm?.elements?.paymentMethod?.value || saleForm?.elements?.invoiceBankAccountOther?.value || "").trim();
+  const paidDate = safeDateInput(saleForm?.elements?.soldAt?.value || new Date().toISOString().slice(0, 10));
   summaryNode.innerHTML = `
-    <div class="fifa-sale-summary-box">
+    <div class="fifa-sale-summary-box fifa-sale-summary-box--editor">
       <div class="fifa-sale-summary-head">
-        <strong>Payment and invoice summary</strong>
-        <span class="fifa-table-sub">Grand total: ${formatMoney(Math.round(totalPrice * exchangeRate), "MNT")} · ${totalTickets} ticket(s)</span>
+        <strong>Pricing</strong>
       </div>
       <div class="fifa-sale-summary-list">
-        ${state.saleBlocks.map((block) => `
-          <div class="fifa-sale-summary-row">
-            <strong>${escapeHtml(block.matchLabel)}</strong>
-            <span>CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(String(block.quantity || 0))} ticket(s)</span>
-            <span>Price ticket: ${escapeHtml(formatMoney(Math.round(Number(block.unitPrice || 0) * exchangeRate), "MNT"))}</span>
-            <span>Total: ${escapeHtml(formatMoney(Math.round(Number(block.totalPrice || 0) * exchangeRate), "MNT"))}</span>
-          </div>
-        `).join("")}
-        ${discountAmount > 0 ? `
-          <div class="fifa-sale-summary-row fifa-sale-summary-row--discount">
-            <strong>Discount</strong>
-            <span></span>
-            <span></span>
-            <span>-${escapeHtml(formatMoney(Math.round(discountAmount * exchangeRate), "MNT"))}</span>
-          </div>
-        ` : ""}
-        <div class="fifa-sale-summary-row fifa-sale-summary-row--grand-total">
-          <strong>Total for all tickets</strong>
-          <span>${escapeHtml(String(totalTickets))} ticket(s)</span>
-          <span></span>
-          <span>${escapeHtml(formatMoney(Math.round(totalPrice * exchangeRate), "MNT"))}</span>
+        <div class="fifa-sale-summary-editor-grid">
+          <label>
+            Currency rate
+            <input type="number" min="1" step="1" data-sale-summary-field="exchangeRate" value="${escapeHtml(String(exchangeRate))}" />
+          </label>
+          ${state.saleBlocks.map((block, index) => `
+            <div class="fifa-sale-summary-editor-row" data-sale-block-editor="${index}">
+              <strong>${escapeHtml(block.matchLabel)}</strong>
+              <label>
+                Price for chosen match
+                <input type="number" min="0" step="1" data-sale-summary-field="blockPrice" data-index="${index}" value="${escapeHtml(String(Math.round(Number(block.unitPrice || 0) * exchangeRate)))}" />
+              </label>
+              <label>
+                Quantity
+                <input type="number" value="${escapeHtml(String(block.quantity || 0))}" readonly />
+              </label>
+              <label>
+                Total amount
+                <input type="text" value="${escapeHtml(formatMoney(Math.round(Number(block.totalPrice || 0) * exchangeRate), "MNT"))}" readonly />
+              </label>
+            </div>
+          `).join("")}
+          <label class="full-span">
+            Grand total price
+            <input type="text" value="${escapeHtml(formatMoney(totalPriceMnt, "MNT"))}" readonly />
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="fifa-sale-summary-box fifa-sale-summary-box--editor">
+      <div class="fifa-sale-summary-head">
+        <strong>Payment</strong>
+      </div>
+      <div class="fifa-sale-summary-list">
+        <div class="fifa-sale-summary-editor-grid">
+          <label>
+            Paid amount
+            <input type="number" min="0" step="1" data-sale-summary-field="amountPaidMnt" value="${escapeHtml(String(amountPaidMnt))}" />
+          </label>
+          <label>
+            Balance
+            <input type="text" value="${escapeHtml(formatMoney(balanceMnt, "MNT"))}" readonly />
+          </label>
+          <label>
+            Paid account
+            <input type="text" data-sale-summary-field="paidAccount" value="${escapeHtml(paidAccount)}" placeholder="Type bank account name" />
+          </label>
+          <label>
+            Paid date
+            <input type="date" data-sale-summary-field="paidDate" value="${escapeHtml(paidDate)}" />
+          </label>
         </div>
       </div>
     </div>
@@ -2889,6 +2921,43 @@ saleBlockList?.addEventListener("click", (event) => {
   state.pendingSaleSeatIds = [];
   renderSaleSeatPicker();
   renderSaleBlocks();
+});
+
+document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) => {
+  const field = event.target.dataset.saleSummaryField;
+  if (!field || !saleForm) return;
+  if (field === "exchangeRate") {
+    saleForm.elements.invoiceExchangeRate.value = String(Math.max(Number(event.target.value || DEFAULT_INVOICE_EXCHANGE_RATE), 1));
+    syncSalePriceFields();
+    return;
+  }
+  if (field === "blockPrice") {
+    const index = Number(event.target.dataset.index || -1);
+    if (index < 0 || !state.saleBlocks[index]) return;
+    const rate = currentInvoiceExchangeRate();
+    const unitPriceMnt = Math.max(Number(event.target.value || 0), 0);
+    const unitPriceUsd = Math.round(unitPriceMnt / rate);
+    state.saleBlocks[index].unitPrice = unitPriceUsd;
+    state.saleBlocks[index].totalPrice = unitPriceUsd * Math.max(Number(state.saleBlocks[index].quantity || 0), 0);
+    renderSaleBlocks();
+    return;
+  }
+  if (field === "amountPaidMnt") {
+    saleForm.elements.amountPaidMnt.value = String(Math.max(Number(event.target.value || 0), 0));
+    syncSaleTotals();
+    renderSaleSummary();
+    return;
+  }
+  if (field === "paidAccount") {
+    const value = String(event.target.value || "").trim();
+    saleForm.elements.paymentMethod.value = value;
+    saleForm.elements.invoiceBankAccount.value = "other";
+    saleForm.elements.invoiceBankAccountOther.value = value;
+    return;
+  }
+  if (field === "paidDate") {
+    saleForm.elements.soldAt.value = event.target.value;
+  }
 });
 
 saleParticipantList?.addEventListener("input", (event) => {

@@ -3256,6 +3256,47 @@ body.modal-open {
   color: #1f2d50;
 }
 
+.fifa-sale-summary-box--editor {
+  padding: 18px 20px;
+}
+
+.fifa-sale-summary-editor-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.fifa-sale-summary-editor-grid label {
+  display: grid;
+  gap: 8px;
+  color: #6f7ea8;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fifa-sale-summary-editor-row {
+  display: grid;
+  grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+  padding-top: 14px;
+  border-top: 1px solid rgba(32, 53, 111, 0.08);
+}
+
+.fifa-sale-summary-editor-row strong {
+  color: #253776;
+  font-size: 16px;
+}
+
+.fifa-sale-summary-editor-grid .full-span {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 960px) {
+  .fifa-sale-summary-editor-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .fifa-sale-block-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
