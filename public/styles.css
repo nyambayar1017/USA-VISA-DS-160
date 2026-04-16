@@ -2370,6 +2370,11 @@ body.modal-open {
   margin-top: 8px;
 }
 
+.trip-page-menu .trip-menu-popover {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
 .workspace-main .card,
 .manager-table-wrap {
   overflow: visible;
@@ -3506,6 +3511,20 @@ body.modal-open {
 
 .fifa-action-menu .trip-menu-popover {
   min-width: 210px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+}
+
+.fifa-action-menu[open] .trip-menu-popover {
+  position: absolute;
+  margin-top: 0;
+}
+
+.fifa-action-menu .trip-menu-item {
+  font-size: 0.96rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .fifa-action-menu .trip-menu-item {

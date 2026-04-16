@@ -767,7 +767,7 @@ function renderTrips() {
                           .map(([value, label]) => `<option value="${value}" ${trip.status === value ? "selected" : ""}>${label}</option>`)
                           .join("")}
                       </select>
-                      <details class="trip-menu">
+                      <details class="trip-menu trip-page-menu">
                         <summary class="trip-menu-trigger" aria-label="Trip actions">⋮</summary>
                         <div class="trip-menu-popover">
                           <button type="button" class="trip-menu-item" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
