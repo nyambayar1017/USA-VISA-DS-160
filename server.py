@@ -4543,8 +4543,8 @@ def build_transfer_reservation(payload, actor=None):
         "passengerCount": parse_int(payload.get("passengerCount")),
         "status": normalize_text(payload.get("status")).lower() or "pending",
         "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
-        "amount": parse_int(payload.get("amount")),
-        "currency": normalize_text(payload.get("currency")).upper() or "USD",
+        "driverSalary": parse_int(payload.get("driverSalary") or payload.get("amount")),
+        "currency": "MNT",
         "notes": normalize_text(payload.get("notes")),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
@@ -4553,7 +4553,7 @@ def build_transfer_reservation(payload, actor=None):
 
 
 def validate_transfer_reservation(data):
-    required = ["tripId", "tripName", "transferType", "pickupLocation", "dropoffLocation", "serviceDate", "status", "paymentStatus"]
+    required = ["tripId", "tripName", "transferType", "pickupLocation", "dropoffLocation", "serviceDate", "paymentStatus"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -5844,7 +5844,6 @@ def handle_update_transfer_reservation(environ, start_response, reservation_id):
             "serviceTime",
             "driverName",
             "vehicleType",
-            "status",
             "paymentStatus",
             "currency",
             "notes",
@@ -5852,9 +5851,11 @@ def handle_update_transfer_reservation(environ, start_response, reservation_id):
             if key in payload:
                 value = normalize_text(payload.get(key))
                 merged[key] = value.upper() if key == "currency" else value
-        for key in ["passengerCount", "amount"]:
+        for key in ["passengerCount", "amount", "driverSalary"]:
             if key in payload:
-                merged[key] = parse_int(payload.get(key))
+                target_key = "driverSalary" if key in {"amount", "driverSalary"} else key
+                merged[target_key] = parse_int(payload.get(key))
+        merged["currency"] = "MNT"
         if normalize_text(merged.get("tripId")):
             trip = find_camp_trip(merged.get("tripId"))
             if trip is None:

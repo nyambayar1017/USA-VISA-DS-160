@@ -1420,15 +1420,20 @@ time {
 
 .flight-reservation-table th:nth-child(12),
 .flight-reservation-table td:nth-child(12),
-.transfer-reservation-table th:nth-child(13),
-.transfer-reservation-table td:nth-child(13) {
+.transfer-reservation-table th:nth-child(11),
+.transfer-reservation-table td:nth-child(11) {
   width: 160px;
 }
 
 .flight-reservation-table th:nth-child(13),
 .flight-reservation-table td:nth-child(13),
-.transfer-reservation-table th:nth-child(14),
-.transfer-reservation-table td:nth-child(14) {
+.transfer-reservation-table th:nth-child(12),
+.transfer-reservation-table td:nth-child(12) {
+  width: 146px;
+}
+
+.transfer-reservation-table th:nth-child(13),
+.transfer-reservation-table td:nth-child(13) {
   width: 146px;
 }
 

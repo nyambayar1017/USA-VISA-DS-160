@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-72" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-73" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -550,13 +550,11 @@
               </select>
             </label>
             <label>
-              Status
+              Payment Status
               <select id="transfer-filter-status">
-                <option value="">All statuses</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="">All payment statuses</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="paid">Paid</option>
               </select>
             </label>
             <label>
@@ -619,15 +617,6 @@
                   <input name="passengerCount" type="number" min="1" value="1" required />
                 </label>
                 <label>
-                  Status
-                  <select name="status">
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </label>
-                <label>
                   Payment Status
                   <select name="paymentStatus">
                     <option value="unpaid">Unpaid</option>
@@ -635,12 +624,8 @@
                   </select>
                 </label>
                 <label>
-                  Amount
-                  <input name="amount" type="number" min="0" value="0" />
-                </label>
-                <label>
-                  Currency
-                  <input name="currency" value="USD" />
+                  Driver Salary (MNT)
+                  <input name="driverSalary" type="number" min="0" value="0" />
                 </label>
                 <label class="full-span">
                   Notes
@@ -726,6 +711,6 @@
 
     <script src="/app-shell.js?v=workspace-64"></script>
     <script src="/camp.js?v=workspace-61"></script>
-    <script src="/reservations-addon.js?v=workspace-4"></script>
+    <script src="/reservations-addon.js?v=workspace-5"></script>
   </body>
 </html>

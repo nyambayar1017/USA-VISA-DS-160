@@ -40,7 +40,12 @@
   async function fetchJson(url, options) {
     const response = await fetch(url, options);
     const text = await response.text();
-    const data = text ? JSON.parse(text) : {};
+    let data;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(response.ok ? "Server returned an unexpected response." : "Request failed. Please refresh and try again.");
+    }
     if (!response.ok) {
       throw new Error(data.error || "Request failed");
     }
@@ -116,6 +121,14 @@
       if (form) {
         form.scrollTop = 0;
       }
+      requestAnimationFrame(() => {
+        if (dialog) {
+          dialog.scrollTop = 0;
+        }
+        if (form) {
+          form.scrollTop = 0;
+        }
+      });
     });
   }
 
@@ -165,7 +178,7 @@
     return transfers
       .filter((entry) => (!transferFilterTrip.value || entry.tripId === transferFilterTrip.value))
       .filter((entry) => (!transferFilterType.value || entry.transferType === transferFilterType.value))
-      .filter((entry) => (!transferFilterStatus.value || entry.status === transferFilterStatus.value))
+      .filter((entry) => (!transferFilterStatus.value || entry.paymentStatus === transferFilterStatus.value))
       .filter((entry) => (!transferFilterDate.value || entry.serviceDate === transferFilterDate.value))
       .sort((left, right) => String(left.serviceDate || "").localeCompare(String(right.serviceDate || "")));
   }
@@ -249,9 +262,8 @@
               <th>Driver</th>
               <th>Vehicle</th>
               <th>Pax</th>
-              <th>Status</th>
               <th>Payment</th>
-              <th>Amount</th>
+              <th>Driver Salary</th>
               <th>Notes</th>
               <th>Actions</th>
             </tr>
@@ -270,9 +282,8 @@
                     <td>${escapeHtml(entry.driverName || "-")}</td>
                     <td>${escapeHtml(entry.vehicleType || "-")}</td>
                     <td>${escapeHtml(entry.passengerCount || "-")}</td>
-                    <td><span class="status-pill is-${escapeHtml(entry.status)}">${escapeHtml(formatStatus(entry.status))}</span></td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
-                    <td>${escapeHtml(formatMoney(entry.amount, entry.currency))}</td>
+                    <td>${escapeHtml(formatMoney(entry.driverSalary || entry.amount, "MNT"))}</td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
                     <td>
                       <div class="trip-row-actions payment-row-actions">
@@ -325,9 +336,7 @@
     editingTransferId = "";
     transferForm.reset();
     transferForm.elements.passengerCount.value = "1";
-    transferForm.elements.amount.value = "0";
-    transferForm.elements.currency.value = "USD";
-    transferForm.elements.status.value = "pending";
+    transferForm.elements.driverSalary.value = "0";
     transferForm.elements.paymentStatus.value = "unpaid";
     transferStatus.textContent = "";
     refreshTripSelectors();
@@ -412,6 +421,7 @@
       return;
     }
     payload.tripName = trip.tripName;
+    payload.currency = "MNT";
     try {
       await fetchJson(editingTransferId ? `/api/transfer-reservations/${editingTransferId}` : "/api/transfer-reservations", {
         method: "POST",
