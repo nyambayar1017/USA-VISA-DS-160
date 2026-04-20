@@ -4166,7 +4166,7 @@ body.modal-open {
   font-size: 0.56rem;
   line-height: 1.1;
   min-height: auto;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .fifa-public-shell {
@@ -4187,6 +4187,18 @@ body.modal-open {
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 255, 0.95)),
     linear-gradient(120deg, rgba(234, 106, 79, 0.12), rgba(37, 58, 119, 0.1));
   box-shadow: var(--shadow);
+}
+
+.fifa-public-hero .eyebrow,
+.fifa-public-hero h1,
+.fifa-public-summary span,
+.fifa-public-summary strong,
+.fifa-public-panel .fifa-list-meta strong,
+.fifa-public-panel .fifa-match-table-head,
+.fifa-public-panel .fifa-match-col strong,
+.fifa-public-panel .fifa-public-seat-group strong,
+.fifa-public-panel .button-secondary {
+  font-weight: 400;
 }
 
 .fifa-public-summary {
@@ -4211,7 +4223,7 @@ body.modal-open {
   display: block;
   color: var(--muted);
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -4221,6 +4233,7 @@ body.modal-open {
   margin-top: 8px;
   font-size: 2rem;
   color: var(--brand);
+  font-weight: 400;
 }
 
 .fifa-public-panel {
@@ -4253,6 +4266,7 @@ body.modal-open {
 .fifa-public-seat-group strong {
   color: var(--brand);
   font-size: 0.86rem;
+  font-weight: 400;
 }
 
 .fifa-public-seat-group span {
@@ -4279,7 +4293,7 @@ body.modal-open {
 .fifa-public-table th {
   color: var(--brand);
   font-size: 0.8rem;
-  font-weight: 800;
+  font-weight: 400;
   text-transform: uppercase;
   background: rgba(37, 58, 119, 0.06);
 }
