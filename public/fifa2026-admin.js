@@ -1815,18 +1815,8 @@ function renderSales() {
           const editingInvoice = Boolean(invoiceDraftForSale(sale));
           const invoiceSource = saleLikeWithInvoiceDraft(sale);
           const isExpanded = state.expandedSales.has(sale.id);
-          const paymentLabel = sale.paymentStatus === "paid"
-            ? "Paid"
-            : sale.paymentStatus === "overdue"
-              ? "Overdue"
-              : "Pending";
           const saleStatusValue = normalizeSaleStatusValue(sale.saleStatus);
           const saleStatusText = saleStatusLabel(sale.saleStatus);
-          const paymentClass = saleStatusValue === "confirmed"
-            ? "is-paid"
-            : saleStatusValue === "cancelled"
-              ? "is-overdue"
-              : "is-pending";
           const ticketLines = (sale.ticketIds || []).map((ticketId, index) => {
             const ticket = state.tickets.find((item) => item.id === ticketId);
             const participant = sale.participants?.find((p) => p.ticketId === ticketId) || sale.participants?.[index];
@@ -1892,8 +1882,20 @@ function renderSales() {
             : 0;
           const computedBaseTotal = blockTotalPrice || lineTotalPrice || Number(sale.totalPrice || 0);
           const computedTotalPrice = Math.max(Number(sale.totalPrice || 0) || (computedBaseTotal - discountAmount), 0);
-          const computedBalance = Math.max(0, computedTotalPrice - Number(sale.amountPaid || 0));
           const exchangeRate = Math.max(Number(invoiceSource.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+          const totalMnt = Math.max(0, Math.round(computedTotalPrice * exchangeRate));
+          const paidMnt = Math.max(0, Math.round(Number(sale.amountPaid || 0) * exchangeRate));
+          const balanceMnt = Math.max(0, totalMnt - paidMnt);
+          const paymentLabel = paidMnt <= 0
+            ? "Pending"
+            : paidMnt >= totalMnt && totalMnt > 0
+              ? "100% paid"
+              : "In progress";
+          const paymentClass = paidMnt >= totalMnt && totalMnt > 0
+            ? "is-paid"
+            : paidMnt > 0
+              ? "is-pending"
+              : "is-pending";
           const invoiceRows = buildInvoiceRowsForSale(invoiceSource);
           const invoiceSchedule = buildInvoiceScheduleForSale(invoiceSource);
           const invoiceBank = getInvoiceBankAccount(invoiceSource.invoiceBankAccount || "state");
@@ -1911,20 +1913,20 @@ function renderSales() {
                 <div class="fifa-match-col">
                   <strong>${ticketLines.length || sale.quantity} ticket(s)</strong>
                   <div class="fifa-sale-summary-preview">
-                    ${groupedSaleSummaries.map((item) => `<span class="fifa-table-sub">${escapeHtml(item.matchLabel)} · ${item.quantity} ticket(s) · ${escapeHtml(formatMoney(item.total))}</span>`).join("")}
+                    ${groupedSaleSummaries.map((item) => `<span class="fifa-table-sub">${escapeHtml(item.matchLabel)} · ${item.quantity} ticket(s) · ${escapeHtml(formatMoney(Math.round(item.total * exchangeRate), "MNT"))}</span>`).join("")}
                   </div>
                 </div>
                 <div class="fifa-match-col">
-                  <strong>${escapeHtml(formatMoney(computedTotalPrice))}</strong>
-                  <span class="fifa-table-sub">Balance ${escapeHtml(formatMoney(computedBalance))}</span>
+                  <strong>${escapeHtml(formatMoney(totalMnt, "MNT"))}</strong>
+                  <span class="fifa-table-sub">Balance ${escapeHtml(formatMoney(balanceMnt, "MNT"))}</span>
                 </div>
                 <div class="fifa-match-col">
-                  <strong>${escapeHtml(formatMoney(sale.amountPaid))}</strong>
+                  <strong>${escapeHtml(formatMoney(paidMnt, "MNT"))}</strong>
                   <span class="fifa-table-sub">${escapeHtml(formatDate(sale.soldAt))}</span>
                 </div>
                 <div class="fifa-match-col fifa-sale-status-col">
-                  <span class="fifa-pill ${paymentClass}">${saleStatusText}</span>
-                  <span class="fifa-table-sub">${escapeHtml(paymentLabel)}</span>
+                  <span class="fifa-pill ${paymentClass}">${escapeHtml(paymentLabel)}</span>
+                  <span class="fifa-table-sub">Sale: ${escapeHtml(saleStatusText)}</span>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(sale.soldByName || "-")}</strong>
