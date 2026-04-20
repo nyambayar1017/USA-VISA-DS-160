@@ -148,11 +148,13 @@ function stageLabel(stage) {
 }
 
 function ticketSeatLabel(ticket) {
-  return String(ticket.seatDetails || "").trim() || "Суудлын дугаар дараа оноогдоно";
+  const seat = String(ticket.seatDetails || "").trim();
+  if (!seat || /seat will be assigned later/i.test(seat)) return "Суудал хараахан гараагүй байна";
+  return seat;
 }
 
 function ticketCategoryLabel(categoryCode) {
-  return categoryCode ? `CAT ${categoryCode}` : "Ангилал тодорхойгүй";
+  return categoryCode ? `Кат ${categoryCode}` : "Ангилал тодорхойгүй";
 }
 
 function buildCatalogRows() {
@@ -258,10 +260,6 @@ function renderTicketTable(row) {
           .map((ticket, index) => {
             const categoryCode = normalizedCategory(ticket);
             const available = Number(ticket.availableQuantity || 0);
-            const total = Number(ticket.totalQuantity || 0);
-            const noteParts = [];
-            if (ticket.seatSection) noteParts.push(ticket.seatSection);
-            if (ticket.categoryName) noteParts.push(ticket.categoryName);
             return `
               <tr>
                 <td>${index + 1}</td>
@@ -273,7 +271,6 @@ function renderTicketTable(row) {
                 </td>
                 <td>
                   <strong>${escapeHtml(String(available))}</strong>
-                  <span class="fifa-table-sub">Нийт: ${escapeHtml(String(total))}</span>
                 </td>
               </tr>
             `;

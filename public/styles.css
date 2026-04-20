@@ -4167,6 +4167,15 @@ body.modal-open {
   line-height: 1.1;
   min-height: auto;
   font-weight: 400;
+  color: #f0a15d;
+  background: rgba(240, 161, 93, 0.14);
+  border-color: rgba(240, 161, 93, 0.28);
+}
+
+.fifa-public-match-list .fifa-match-col--actions .button-secondary:hover {
+  color: #e58d40;
+  background: rgba(240, 161, 93, 0.2);
+  border-color: rgba(240, 161, 93, 0.34);
 }
 
 .fifa-public-shell {
