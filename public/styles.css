@@ -4506,4 +4506,10 @@ body.modal-open {
   .fifa-public-body .manager-table.fifa-table strong {
     line-height: 1.15;
   }
+
+  .fifa-public-body .manager-table.fifa-table td:nth-child(3) strong {
+    font-size: 0.56rem !important;
+    font-weight: 400 !important;
+    line-height: 1.1;
+  }
 }
