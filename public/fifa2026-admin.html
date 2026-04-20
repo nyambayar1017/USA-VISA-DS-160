@@ -408,7 +408,14 @@
             <input type="hidden" name="amountPaidMnt" value="0" />
             <input type="hidden" name="paymentStatus" value="unpaid" />
             <input type="hidden" name="paymentMethod" value="state" />
-            <input type="hidden" name="saleStatus" value="active" />
+            <label>
+              Status
+              <select name="saleStatus">
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
             <input type="hidden" name="soldAt" />
             <input type="hidden" name="buyerName" />
             <input type="hidden" name="buyerPhone" />
@@ -457,7 +464,8 @@
               Sale status
               <select id="sale-filter-status">
                 <option value="">All</option>
-                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
             </label>

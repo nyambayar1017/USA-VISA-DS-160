@@ -4581,7 +4581,16 @@ def validate_manager_contact(contact):
 
 
 def fifa_active_sales(sales):
-    return [sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() != "cancelled"]
+    return [sale for sale in sales if normalize_fifa_sale_status(sale.get("saleStatus")) != "cancelled"]
+
+
+def normalize_fifa_sale_status(value, fallback="pending"):
+    normalized = normalize_text(value).strip().lower()
+    if normalized == "active":
+        return "confirmed"
+    if normalized in {"pending", "confirmed", "cancelled"}:
+        return normalized
+    return fallback
 
 
 def fifa_ticket_sales(sales, ticket_id, excluded_sale_id=None):
@@ -4674,6 +4683,7 @@ def enrich_fifa_sale(sale, ticket, store=None):
     seat_details = [normalize_text(item.get("seatDetails")) for item in linked_tickets if normalize_text(item.get("seatDetails"))]
     return {
         **sale,
+        "saleStatus": normalize_fifa_sale_status(sale.get("saleStatus")),
         "ticketIds": ticket_ids,
         "quantity": quantity,
         "pricePerTicket": price_per_ticket,
@@ -4723,7 +4733,7 @@ def build_fifa_summary(store):
         "sales": {
             "total": len(sales),
             "active": len(active_sales),
-            "cancelled": len([sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() == "cancelled"]),
+            "cancelled": len([sale for sale in sales if normalize_fifa_sale_status(sale.get("saleStatus")) == "cancelled"]),
             "paid": len(paid_sales),
             "partial": len(partial_sales),
             "unpaid": len(unpaid_sales),
@@ -4884,7 +4894,7 @@ def build_fifa_sale(payload, actor=None):
         "amountPaid": amount_paid,
         "paymentStatus": payment_status,
         "paymentMethod": normalize_text(payload.get("paymentMethod")),
-        "saleStatus": normalize_text(payload.get("saleStatus")).lower() or "active",
+        "saleStatus": normalize_fifa_sale_status(payload.get("saleStatus"), "pending"),
         "soldAt": normalize_text(payload.get("soldAt")) or timestamp,
         "soldBy": actor_snapshot(actor),
         "createdAt": timestamp,
@@ -4917,7 +4927,7 @@ def validate_fifa_sale(sale, ticket, sales, store, excluded_sale_id=None):
             return "Total price must be greater than 0"
     if sale.get("paymentStatus") not in {"unpaid", "partial", "paid", "refunded"}:
         return "Payment status is invalid"
-    if sale.get("saleStatus") not in {"active", "cancelled"}:
+    if normalize_fifa_sale_status(sale.get("saleStatus")) not in {"pending", "confirmed", "cancelled"}:
         return "Sale status is invalid"
     if sale.get("invoiceBankAccount") not in {"state", "golomt", "lkham-erdene", "azjargal", "bayaraa", "other"}:
         return "Invoice bank account is invalid"
@@ -4930,7 +4940,7 @@ def validate_fifa_sale(sale, ticket, sales, store, excluded_sale_id=None):
         return "Sold at must be a valid date or date-time"
     if len(sale.get("participants") or []) < sale.get("quantity", 0):
         return "Add all participants for this buyer"
-    if sale.get("saleStatus") != "cancelled":
+    if normalize_fifa_sale_status(sale.get("saleStatus")) != "cancelled":
         for linked_ticket in linked_tickets:
             available_quantity = fifa_ticket_available_quantity(linked_ticket, sales, excluded_sale_id)
             if available_quantity < 1:

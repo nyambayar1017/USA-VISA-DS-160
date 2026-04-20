@@ -422,6 +422,20 @@ function normalizeStageValue(value) {
   return stage;
 }
 
+function normalizeSaleStatusValue(value) {
+  const status = String(value || "").trim().toLowerCase();
+  if (status === "active") return "confirmed";
+  if (["pending", "confirmed", "cancelled"].includes(status)) return status;
+  return "pending";
+}
+
+function saleStatusLabel(value) {
+  const status = normalizeSaleStatusValue(value);
+  if (status === "confirmed") return "Confirmed";
+  if (status === "cancelled") return "Cancelled";
+  return "Pending";
+}
+
 function populateInventoryFormOptions() {
   if (!ticketForm) return;
   fillSelect(
@@ -1097,7 +1111,7 @@ function resetSaleForm() {
   saleForm.elements.amountPaid.value = "0";
   if (saleForm.elements.amountPaidMnt) saleForm.elements.amountPaidMnt.value = "0";
   if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = "0";
-  saleForm.elements.saleStatus.value = "active";
+  saleForm.elements.saleStatus.value = "pending";
   saleForm.elements.paymentStatus.value = "unpaid";
   saleForm.elements.paymentMethod.value = "state";
   saleForm.elements.buyerTitle.value = "";
@@ -1269,7 +1283,7 @@ function fillSaleForm(sale) {
   if (saleForm.elements.amountPaidMnt) saleForm.elements.amountPaidMnt.value = String(Math.round(Number(sale.amountPaid || 0) * Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE)));
   saleForm.elements.paymentStatus.value = sale.paymentStatus || "unpaid";
   saleForm.elements.paymentMethod.value = sale.paymentMethod || "state";
-  saleForm.elements.saleStatus.value = sale.saleStatus || "active";
+  saleForm.elements.saleStatus.value = normalizeSaleStatusValue(sale.saleStatus);
   saleForm.elements.soldAt.value = String(sale.soldAt || "").slice(0, 10);
   saleForm.elements.buyerTitle.value = sale.buyerTitle || "";
   saleForm.elements.buyerName.value = sale.buyerName || sale.buyerTitle || "";
@@ -1806,9 +1820,11 @@ function renderSales() {
             : sale.paymentStatus === "overdue"
               ? "Overdue"
               : "Pending";
-          const paymentClass = sale.paymentStatus === "paid"
+          const saleStatusValue = normalizeSaleStatusValue(sale.saleStatus);
+          const saleStatusText = saleStatusLabel(sale.saleStatus);
+          const paymentClass = saleStatusValue === "confirmed"
             ? "is-paid"
-            : sale.paymentStatus === "overdue"
+            : saleStatusValue === "cancelled"
               ? "is-overdue"
               : "is-pending";
           const ticketLines = (sale.ticketIds || []).map((ticketId, index) => {
@@ -1907,8 +1923,8 @@ function renderSales() {
                   <span class="fifa-table-sub">${escapeHtml(formatDate(sale.soldAt))}</span>
                 </div>
                 <div class="fifa-match-col fifa-sale-status-col">
-                  <span class="fifa-pill ${paymentClass}">${paymentLabel}</span>
-                  <span class="fifa-table-sub">${escapeHtml(sale.saleStatus)}</span>
+                  <span class="fifa-pill ${paymentClass}">${saleStatusText}</span>
+                  <span class="fifa-table-sub">${escapeHtml(paymentLabel)}</span>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(sale.soldByName || "-")}</strong>
