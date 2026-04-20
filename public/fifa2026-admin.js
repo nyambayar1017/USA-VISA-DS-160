@@ -1815,8 +1815,6 @@ function renderSales() {
           const editingInvoice = Boolean(invoiceDraftForSale(sale));
           const invoiceSource = saleLikeWithInvoiceDraft(sale);
           const isExpanded = state.expandedSales.has(sale.id);
-          const saleStatusValue = normalizeSaleStatusValue(sale.saleStatus);
-          const saleStatusText = saleStatusLabel(sale.saleStatus);
           const ticketLines = (sale.ticketIds || []).map((ticketId, index) => {
             const ticket = state.tickets.find((item) => item.id === ticketId);
             const participant = sale.participants?.find((p) => p.ticketId === ticketId) || sale.participants?.[index];
@@ -1926,7 +1924,6 @@ function renderSales() {
                 </div>
                 <div class="fifa-match-col fifa-sale-status-col">
                   <span class="fifa-pill ${paymentClass}">${escapeHtml(paymentLabel)}</span>
-                  <span class="fifa-table-sub">Sale: ${escapeHtml(saleStatusText)}</span>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(sale.soldByName || "-")}</strong>
