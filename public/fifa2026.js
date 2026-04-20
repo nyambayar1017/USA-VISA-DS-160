@@ -251,7 +251,6 @@ function renderTicketTable(row) {
           <th>Ангилал</th>
           <th>Суудал / Билет</th>
           <th>Үлдэгдэл</th>
-          <th>Тайлбар</th>
         </tr>
       </thead>
       <tbody>
@@ -275,9 +274,6 @@ function renderTicketTable(row) {
                 <td>
                   <strong>${escapeHtml(String(available))}</strong>
                   <span class="fifa-table-sub">Нийт: ${escapeHtml(String(total))}</span>
-                </td>
-                <td>
-                  <span class="fifa-table-sub">${escapeHtml(noteParts.join(" · ") || "Нэмэлт мэдээлэлгүй")}</span>
                 </td>
               </tr>
             `;

@@ -4419,29 +4419,73 @@ body.modal-open {
   }
 
   .fifa-public-shell {
-    padding-inline: 12px;
+    padding-inline: 10px;
   }
 
   .fifa-public-hero,
   .fifa-public-panel {
-    padding: 20px;
-    border-radius: 24px;
+    padding: 14px;
+    border-radius: 20px;
   }
 
   .fifa-public-panel .fifa-filters {
-    gap: 8px;
+    gap: 5px;
   }
 
   .fifa-public-panel .fifa-filters label {
-    gap: 4px;
-    font-size: 0.82rem;
+    gap: 2px;
+    font-size: 0.72rem;
   }
 
   .fifa-public-panel .fifa-filters input,
   .fifa-public-panel .fifa-filters select {
-    padding: 8px 12px;
-    min-height: 40px;
-    border-radius: 12px;
-    font-size: 0.92rem;
+    padding: 6px 10px;
+    min-height: 34px;
+    border-radius: 10px;
+    font-size: 0.76rem;
+  }
+
+  .fifa-public-hero .eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    margin-bottom: 8px;
+  }
+
+  .fifa-public-hero h1 {
+    font-size: 0.9rem;
+    line-height: 1.1;
+  }
+
+  .fifa-public-summary {
+    gap: 8px;
+  }
+
+  .fifa-public-summary article {
+    padding: 12px 14px;
+    border-radius: 18px;
+  }
+
+  .fifa-public-summary span {
+    font-size: 0.68rem;
+  }
+
+  .fifa-public-summary strong {
+    margin-top: 4px;
+    font-size: 0.96rem;
+  }
+
+  .fifa-list-meta {
+    gap: 4px;
+    font-size: 0.72rem;
+  }
+
+  .fifa-public-body .manager-table.fifa-table th {
+    font-size: 0.56rem !important;
+  }
+
+  .fifa-public-body .manager-table.fifa-table td,
+  .fifa-public-body .manager-table.fifa-table strong,
+  .fifa-public-body .manager-table.fifa-table .fifa-table-sub {
+    font-size: 0.62rem !important;
   }
 }
