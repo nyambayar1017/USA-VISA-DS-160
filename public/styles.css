@@ -4318,13 +4318,33 @@ body.modal-open {
   padding: 8px 10px;
   min-height: 38px;
   border-radius: 12px;
-  font-size: 0.86rem;
+  font-size: 0.8rem;
 }
 
 .fifa-public-sub {
   margin-top: 4px;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.fifa-public-body .manager-table.fifa-table th,
+.fifa-public-body .manager-table.fifa-table td,
+.fifa-public-body .manager-table.fifa-table strong,
+.fifa-public-body .manager-table.fifa-table .fifa-table-sub {
+  font-weight: 400;
+}
+
+.fifa-public-body .manager-table.fifa-table th {
+  font-size: 0.74rem;
+}
+
+.fifa-public-body .manager-table.fifa-table td,
+.fifa-public-body .manager-table.fifa-table strong {
+  font-size: 0.78rem;
+}
+
+.fifa-public-body .manager-table.fifa-table .fifa-table-sub {
+  font-size: 0.74rem;
 }
 
 @media (max-width: 1200px) {
