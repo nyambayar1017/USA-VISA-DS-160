@@ -4497,4 +4497,13 @@ body.modal-open {
   .fifa-public-body .manager-table.fifa-table .fifa-table-sub {
     font-size: 0.62rem !important;
   }
+
+  .fifa-public-body .manager-table.fifa-table td,
+  .fifa-public-body .manager-table.fifa-table th {
+    padding: 8px 6px !important;
+  }
+
+  .fifa-public-body .manager-table.fifa-table strong {
+    line-height: 1.15;
+  }
 }

@@ -374,7 +374,7 @@ function toggleMatch(key) {
   if (state.expandedMatches.has(key)) {
     state.expandedMatches.delete(key);
   } else {
-    state.expandedMatches.add(key);
+    state.expandedMatches = new Set([key]);
   }
   renderPublicTickets();
 }
