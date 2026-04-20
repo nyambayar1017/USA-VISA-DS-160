@@ -4422,6 +4422,66 @@ body.modal-open {
     grid-template-columns: 1fr;
   }
 
+  .workspace-main .card {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .workspace-topbar {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .workspace-kicker {
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+  }
+
+  .workspace-topbar h1 {
+    font-size: 0.9rem;
+    line-height: 1.1;
+  }
+
+  .workspace-subtitle {
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+
+  .fifa-filters {
+    gap: 5px;
+  }
+
+  .fifa-filters label {
+    gap: 2px;
+    font-size: 0.72rem;
+  }
+
+  .fifa-filters input,
+  .fifa-filters select,
+  .fifa-form-grid input,
+  .fifa-form-grid select,
+  .fifa-form-grid textarea {
+    padding: 6px 10px;
+    min-height: 34px;
+    border-radius: 10px;
+    font-size: 0.76rem;
+  }
+
+  .fifa-list-meta {
+    gap: 4px;
+    font-size: 0.72rem;
+  }
+
+  .fifa-match-col strong {
+    font-size: 0.8rem;
+  }
+
+  .fifa-match-col--number strong {
+    width: 22px;
+    height: 22px;
+    font-size: 0.72rem;
+  }
+
   .fifa-list-meta {
     flex-direction: column;
     align-items: flex-start;
@@ -4508,8 +4568,13 @@ body.modal-open {
   }
 
   .fifa-public-body .manager-table.fifa-table td:nth-child(3) strong {
-    font-size: 0.56rem !important;
+    font-size: 0.5rem !important;
     font-weight: 400 !important;
-    line-height: 1.1;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+
+  .fifa-public-body .manager-table.fifa-table td:nth-child(2) strong {
+    font-size: 0.5rem !important;
   }
 }
