@@ -186,6 +186,11 @@ function escapeHtml(value) {
 }
 
 function formatMoney(value, currency = "USD") {
+  if ((currency || "USD") === "MNT") {
+    return `${new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0))}₮`;
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency || "USD",
