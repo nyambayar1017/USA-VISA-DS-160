@@ -149,6 +149,7 @@ function closeInlineEditPanels() {
   reservationEditPanel.innerHTML = "";
   paymentEditPanel.classList.add("is-hidden");
   paymentEditPanel.innerHTML = "";
+  document.body.classList.remove("modal-open");
 }
 
 function hideSelectionPanels() {
@@ -1256,6 +1257,7 @@ function renderReservationEditPanel(reservation, options = {}) {
   if (!reservation && !options.isCreate) {
     reservationEditPanel.classList.add("is-hidden");
     reservationEditPanel.innerHTML = "";
+    document.body.classList.remove("modal-open");
     return;
   }
   const isCreate = Boolean(options.isCreate);
@@ -1290,19 +1292,23 @@ function renderReservationEditPanel(reservation, options = {}) {
     reservationData.locationName = getCampLocation(reservationData.campName);
   }
   reservationEditPanel.classList.remove("is-hidden");
+  document.body.classList.add("modal-open");
   reservationEditPanel.innerHTML = `
-    <div class="section-head">
-      <h2>${isCreate ? "New reservation" : "Edit reservation"}</h2>
-      <div class="camp-toolbar trip-detail-toolbar">
-        <button type="button" class="secondary-button" data-action="hide-reservation-edit">Hide</button>
+    <div class="camp-modal-backdrop" data-action="hide-reservation-edit"></div>
+    <div class="camp-modal-dialog camp-modal-dialog-wide">
+      <div class="camp-modal-header">
+        <div>
+          <h2>${isCreate ? "New reservation" : "Edit reservation"}</h2>
+          <p class="camp-modal-copy">${isCreate ? "Fill the reservation details and save." : "Update the reservation details and save."}</p>
+        </div>
+        <button type="button" class="camp-modal-close" data-action="hide-reservation-edit" aria-label="Close reservation window">×</button>
       </div>
-    </div>
-    <form id="${isCreate ? "reservation-create-form" : "reservation-edit-form"}" class="field-grid camp-edit-panel-form">
+      <form id="${isCreate ? "reservation-create-form" : "reservation-edit-form"}" class="field-grid camp-edit-panel-form">
       <input type="hidden" name="id" value="${reservationData.id || ""}" />
       <div class="camp-form-section full-span">
         <div class="camp-form-section-head">
           <h3>Reservation details</h3>
-          <p>${isCreate ? "Fill the reservation details and save." : "Update the reservation details and save."}</p>
+          <p>Main reservation information.</p>
         </div>
         <div class="field-grid field-grid-compact">
           <label>
@@ -1417,7 +1423,8 @@ function renderReservationEditPanel(reservation, options = {}) {
         <button type="button" class="secondary-button" data-action="hide-reservation-edit">Cancel</button>
         <p class="status" id="reservation-edit-status"></p>
       </div>
-    </form>
+      </form>
+    </div>
   `;
   const formNode = reservationEditPanel.querySelector("form");
   if (formNode && !formNode.dataset.boundSubmit) {
@@ -1453,10 +1460,6 @@ function renderReservationEditPanel(reservation, options = {}) {
   syncReservationDraftFromTrip(formNode);
   syncReservationDraftFromCamp(formNode);
   syncInlineEditNights(formNode);
-  reservationEditPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-  requestAnimationFrame(() => {
-    window.scrollTo({ top: Math.max(reservationEditPanel.getBoundingClientRect().top + window.scrollY - 24, 0), behavior: "smooth" });
-  });
 }
 
 function renderPaymentEditPanel(groupKey) {
@@ -1464,6 +1467,7 @@ function renderPaymentEditPanel(groupKey) {
   if (!entries.length) {
     paymentEditPanel.classList.add("is-hidden");
     paymentEditPanel.innerHTML = "";
+    document.body.classList.remove("modal-open");
     return;
   }
   const first = entries[0];
@@ -1483,14 +1487,18 @@ function renderPaymentEditPanel(groupKey) {
     paymentStatus: getGroupPaymentValue(entries, "paymentStatus") || "in_progress",
   };
   paymentEditPanel.classList.remove("is-hidden");
+  document.body.classList.add("modal-open");
   paymentEditPanel.innerHTML = `
-    <div class="section-head">
-      <h2>Edit camp payment</h2>
-      <div class="camp-toolbar trip-detail-toolbar">
-        <button type="button" class="secondary-button" data-action="hide-payment-edit">Hide</button>
+    <div class="camp-modal-backdrop" data-action="hide-payment-edit"></div>
+    <div class="camp-modal-dialog">
+      <div class="camp-modal-header">
+        <div>
+          <h2>Edit camp payment</h2>
+          <p class="camp-modal-copy">Update payment details for this reservation.</p>
+        </div>
+        <button type="button" class="camp-modal-close" data-action="hide-payment-edit" aria-label="Close payment window">×</button>
       </div>
-    </div>
-    <form id="payment-edit-form" class="field-grid">
+      <form id="payment-edit-form" class="field-grid">
       <input type="hidden" name="groupKey" value="${escapeHtml(groupKey)}" />
       <input type="hidden" name="tripId" value="${escapeHtml(group.tripId || "")}" />
       <input type="hidden" name="tripName" value="${escapeHtml(group.tripName || "")}" />
@@ -1527,17 +1535,14 @@ function renderPaymentEditPanel(groupKey) {
         <button type="button" class="secondary-button" data-action="hide-payment-edit">Cancel</button>
         <p class="status" id="payment-edit-status"></p>
       </div>
-    </form>
+      </form>
+    </div>
   `;
   const paymentFormNode = paymentEditPanel.querySelector("form");
   if (paymentFormNode && !paymentFormNode.dataset.boundSubmit) {
     paymentFormNode.dataset.boundSubmit = "true";
     paymentFormNode.addEventListener("submit", handleInlinePaymentSubmit);
   }
-  paymentEditPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-  requestAnimationFrame(() => {
-    window.scrollTo({ top: Math.max(paymentEditPanel.getBoundingClientRect().top + window.scrollY - 24, 0), behavior: "smooth" });
-  });
 }
 
 async function handleInlineReservationSubmit(event) {

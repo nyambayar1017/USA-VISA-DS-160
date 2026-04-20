@@ -1934,12 +1934,14 @@ function renderSales() {
                   <strong>${escapeHtml(sale.soldByName || "-")}</strong>
                 </div>
                 <div class="fifa-match-col fifa-match-col--actions">
-                  <div class="fifa-match-stage-actions">
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="invoice-sale" data-id="${escapeHtml(sale.id)}">Invoice</button>
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="cancel-sale" data-id="${escapeHtml(sale.id)}">Cancel</button>
-                    <button type="button" class="button-secondary fifa-inline-action" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
-                  </div>
+                  <details class="trip-menu fifa-action-menu">
+                    <summary class="trip-menu-trigger" aria-label="Sale actions">⋮</summary>
+                    <div class="trip-menu-popover">
+                      <button type="button" class="trip-menu-item" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
+                      <button type="button" class="trip-menu-item" data-action="invoice-sale" data-id="${escapeHtml(sale.id)}">Invoice</button>
+                      <button type="button" class="trip-menu-item is-danger" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
+                    </div>
+                  </details>
                 </div>
               </div>
               ${

@@ -2367,8 +2367,8 @@ body.modal-open {
 .row-action-menu[open] .trip-menu-popover,
 .fifa-action-menu[open] .trip-menu-popover,
 .trip-page-menu .trip-menu-popover {
-  position: static;
-  margin-top: 8px;
+  position: absolute;
+  margin-top: 0;
 }
 
 .workspace-main .card,
@@ -3507,11 +3507,13 @@ body.modal-open {
 
 .fifa-action-menu .trip-menu-popover {
   min-width: 190px;
+  right: 0;
+  top: calc(100% + 8px);
 }
 
 .fifa-action-menu[open] .trip-menu-popover {
-  position: static;
-  margin-top: 8px;
+  position: absolute;
+  margin-top: 0;
 }
 
 .fifa-action-menu .trip-menu-item {
