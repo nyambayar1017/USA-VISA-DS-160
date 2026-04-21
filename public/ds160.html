@@ -19,11 +19,21 @@
         <div class="sidebar-group">
           <p class="sidebar-label">Backoffice</p>
           <a class="sidebar-link" href="/backoffice">Home</a>
-          <a class="sidebar-link" href="/camp">Camp Reservations</a>
+          <a class="sidebar-link" href="/camp">Trips</a>
+          <a class="sidebar-link" href="/camp-reservations">Camp Reservations</a>
+          <a class="sidebar-link" href="/flight-reservations">Flight Reservations</a>
+          <a class="sidebar-link" href="/transfer-reservations">Transfer Reservations</a>
+          <a class="sidebar-link" href="/fifa2026-admin">FIFA 2026</a>
           <a class="sidebar-link" href="/contracts">Contracts</a>
           <a class="sidebar-link is-active" href="/ds160">DS-160</a>
           <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>
           <a class="sidebar-link" href="/admin">Team / Admin</a>
+        </div>
+        <div class="sidebar-group">
+          <p class="sidebar-label">Modules</p>
+          <a class="sidebar-link" href="/fifa2026-admin">FIFA 2026</a>
+          <a class="sidebar-link" href="/contracts">Contracts</a>
+          <a class="sidebar-link is-disabled" href="#">Finance</a>
         </div>
       </aside>
 
@@ -31,10 +41,10 @@
         <section class="workspace-topbar">
           <div>
             <p class="workspace-kicker">DS-160</p>
-            <h1>Filled forms and client link workflow</h1>
+            <h1>Client Forms And Answers</h1>
             <p class="workspace-subtitle">
-              Review submitted DS-160 forms first, filter them fast, and create
-              new client links only when you need one.
+              Review client submissions, open full answers, and create new DS-160 links
+              only when you need them.
             </p>
           </div>
           <div class="workspace-profile">
@@ -44,41 +54,37 @@
           </div>
         </section>
 
-        <section class="manager-summary-grid">
-          <article class="manager-stat-card">
-            <p class="manager-stat-label">Sent Forms</p>
-            <strong id="ds160-summary-sent">0</strong>
-            <span>Ready links waiting for client action.</span>
-          </article>
-          <article class="manager-stat-card">
-            <p class="manager-stat-label">Submitted</p>
-            <strong id="ds160-summary-submitted">0</strong>
-            <span>Completed client forms your team can review.</span>
-          </article>
-          <article class="manager-stat-card">
-            <p class="manager-stat-label">Managers</p>
-            <strong id="ds160-summary-managers">0</strong>
-            <span>Approved staff who can see all DS-160 records.</span>
-          </article>
-          <article class="manager-stat-card">
-            <p class="manager-stat-label">Total Forms</p>
-            <strong id="ds160-summary-total">0</strong>
-            <span>All sent and submitted DS-160 requests.</span>
-          </article>
-        </section>
-
         <section class="card manager-panel ds160-primary-panel">
           <div class="dashboard-head">
             <div>
               <h2>Filled Forms</h2>
               <p class="workspace-subtitle manager-panel-copy">
-                Filter by client, manager, status, and date. Click a record to
-                see the full preview inside the same workspace.
+                Filter by client, manager, status, and date. Open a record from
+                the actions menu to see the full answers.
               </p>
             </div>
             <div class="ds160-toolbar-actions">
               <button type="button" id="ds160-open-create" class="ds160-create-trigger">Create DS-160</button>
             </div>
+          </div>
+
+          <div class="ds160-inline-summary" aria-label="DS-160 summary">
+            <article class="ds160-inline-stat">
+              <span>Sent</span>
+              <strong id="ds160-summary-sent">0</strong>
+            </article>
+            <article class="ds160-inline-stat">
+              <span>Submitted</span>
+              <strong id="ds160-summary-submitted">0</strong>
+            </article>
+            <article class="ds160-inline-stat">
+              <span>Managers</span>
+              <strong id="ds160-summary-managers">0</strong>
+            </article>
+            <article class="ds160-inline-stat">
+              <span>Total</span>
+              <strong id="ds160-summary-total">0</strong>
+            </article>
           </div>
 
           <div class="manager-filter-row ds160-filter-grid">
