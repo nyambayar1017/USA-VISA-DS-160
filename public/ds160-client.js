@@ -1,12 +1,25 @@
 const form = document.querySelector("#ds160-client-form");
 const statusNode = document.querySelector("#ds160-client-status");
 const summaryNode = document.querySelector("#ds160-client-summary");
+const mobileMenuToggle = document.querySelector("#travelx-mobile-menu-toggle");
+const mobileMenu = document.querySelector("#travelx-mobile-menu");
 
 const MONGOLIAN_DATE_FORMAT = new Intl.DateTimeFormat("mn-MN", {
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
 });
+
+const state = {
+  mobileMenuOpen: false,
+};
+
+function setMobileMenuOpen(isOpen) {
+  state.mobileMenuOpen = Boolean(isOpen);
+  if (mobileMenu) mobileMenu.hidden = !state.mobileMenuOpen;
+  if (mobileMenuToggle) mobileMenuToggle.setAttribute("aria-expanded", state.mobileMenuOpen ? "true" : "false");
+  document.body.classList.toggle("travelx-menu-open", state.mobileMenuOpen);
+}
 
 function normalizeValue(value) {
   if (typeof value !== "string") return value;
@@ -221,6 +234,10 @@ form.addEventListener("submit", async (event) => {
 });
 
 bindConditionalFields();
+mobileMenuToggle?.addEventListener("click", () => setMobileMenuOpen(!state.mobileMenuOpen));
+mobileMenu?.addEventListener("click", (event) => {
+  if (event.target === mobileMenu) setMobileMenuOpen(false);
+});
 loadForm().catch((error) => {
   summaryNode.textContent = error.message;
   statusNode.textContent = error.message;

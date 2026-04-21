@@ -3061,19 +3061,8 @@ body.modal-open {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.ds160-master-detail {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.8fr);
-  gap: 20px;
-  align-items: start;
-}
-
-.ds160-list-panel,
-.ds160-detail-panel {
-  min-width: 0;
-}
-
 .ds160-list-panel {
+  min-width: 0;
   max-height: 980px;
   overflow: auto;
 }
@@ -3103,25 +3092,79 @@ body.modal-open {
   background: rgba(31, 74, 214, 0.08);
 }
 
-.ds160-detail-card {
-  border: 1px solid rgba(23, 39, 86, 0.1);
+.ds160-action-menu {
+  display: inline-block;
 }
 
-.ds160-detail-stack {
+.ds160-action-menu .trip-menu-popover {
+  min-width: 210px;
+}
+
+.ds160-action-menu .trip-menu-item {
+  text-decoration: none;
+}
+
+.ds160-answers-content {
   display: grid;
-  gap: 16px;
-  margin-top: 18px;
+  gap: 18px;
 }
 
-.ds160-detail-stack p {
-  margin: 6px 0 0;
-  color: #30384f;
-  line-height: 1.55;
+.ds160-answer-head h3 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: var(--brand);
 }
 
-.ds160-detail-panel .manager-item-card {
-  position: sticky;
-  top: 0;
+.ds160-answer-head p {
+  margin: 8px 0 0;
+  color: #67718c;
+}
+
+.ds160-answer-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.ds160-answer-section {
+  padding: 20px;
+  border: 1px solid rgba(23, 39, 86, 0.1);
+  border-radius: 22px;
+  background: rgba(247, 249, 255, 0.7);
+}
+
+.ds160-answer-section h4 {
+  margin: 0 0 14px;
+  color: var(--brand);
+  font-size: 1.15rem;
+}
+
+.ds160-answer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ds160-answer-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(23, 39, 86, 0.08);
+}
+
+.ds160-answer-item span {
+  display: block;
+  margin-bottom: 6px;
+  color: #7180a1;
+  font-size: 0.9rem;
+}
+
+.ds160-answer-item strong {
+  display: block;
+  color: #1d2b58;
+  font-size: 1rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .ds160-client-body {
@@ -3134,7 +3177,7 @@ body.modal-open {
 .ds160-client-shell {
   width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 32px 0 56px;
+  padding: 40px 0 56px;
 }
 
 .ds160-client-hero {
@@ -3160,14 +3203,6 @@ body.modal-open {
   .ds160-filter-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-
-  .ds160-master-detail {
-    grid-template-columns: 1fr;
-  }
-
-  .ds160-detail-panel .manager-item-card {
-    position: static;
-  }
 }
 
 @media (max-width: 820px) {
@@ -3181,6 +3216,10 @@ body.modal-open {
 
   .ds160-create-trigger {
     width: 100%;
+  }
+
+  .ds160-answer-grid {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -110,12 +110,7 @@
             </label>
           </div>
 
-          <div class="ds160-master-detail">
-            <div id="ds160-list" class="manager-table-wrap ds160-list-panel"></div>
-            <div id="ds160-detail" class="manager-list ds160-detail-panel">
-              <p class="empty">Choose a DS-160 record from the list to view it here.</p>
-            </div>
-          </div>
+          <div id="ds160-list" class="manager-table-wrap ds160-list-panel"></div>
         </section>
       </main>
     </div>
@@ -170,7 +165,21 @@
       </div>
     </div>
 
+    <div id="ds160-answers-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-ds160-answers"></div>
+      <div class="camp-modal-dialog camp-modal-dialog-wide">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Client Answers</h2>
+            <p class="camp-modal-copy">See all submitted DS-160 answers for this client.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-ds160-answers" aria-label="Close answers window">×</button>
+        </div>
+        <div id="ds160-answers-content" class="ds160-answers-content"></div>
+      </div>
+    </div>
+
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/ds160.js?v=workspace-2"></script>
+    <script src="/ds160.js?v=workspace-3"></script>
   </body>
 </html>

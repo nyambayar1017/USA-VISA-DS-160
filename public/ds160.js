@@ -1,8 +1,9 @@
 const sendForm = document.querySelector("#ds160-send-form");
 const sendStatus = document.querySelector("#ds160-send-status");
 const listNode = document.querySelector("#ds160-list");
-const detailNode = document.querySelector("#ds160-detail");
 const modalNode = document.querySelector("#ds160-create-modal");
+const answersModalNode = document.querySelector("#ds160-answers-modal");
+const answersContentNode = document.querySelector("#ds160-answers-content");
 const openCreateButton = document.querySelector("#ds160-open-create");
 const latestLinkCard = document.querySelector("#ds160-latest-link");
 const shareLinkNode = document.querySelector("#ds160-share-link");
@@ -21,10 +22,204 @@ const summarySent = document.querySelector("#ds160-summary-sent");
 const summarySubmitted = document.querySelector("#ds160-summary-submitted");
 const summaryManagers = document.querySelector("#ds160-summary-managers");
 
+const TEAM_PHONE = "72007722";
+const TEAM_COMPANY = "Дэлхий Трэвел Икс";
+const TEAM_WEBSITE = "www.travelx.mn";
+
+const ANSWER_SECTIONS = [
+  {
+    title: "1. Хувийн үндсэн мэдээлэл",
+    fields: [
+      ["Овог", "surname"],
+      ["Нэр", "givenName"],
+      ["Төрсөн хэлээрх бүтэн нэр", "nativeFullName"],
+      ["Хүйс", "sex"],
+      ["Гэр бүлийн байдал", "maritalStatus"],
+      ["Төрсөн өдөр", "dateOfBirth"],
+      ["Төрсөн хот / сум / дүүрэг", "birthCity"],
+      ["Төрсөн аймаг / муж", "birthProvince"],
+      ["Төрсөн улс", "birthCountry"],
+      ["Иргэншил", "nationality"],
+      ["Бусад нэр хэрэглэж байсан эсэх", "usedOtherNames"],
+      ["Өмнө хэрэглэж байсан нэрс", "otherNamesDetails"],
+      ["Теле кодтой эсэх", "hasTelecode"],
+      ["Теле код", "telecode"],
+    ],
+  },
+  {
+    title: "2. Хаяг болон холбоо барих мэдээлэл",
+    fields: [
+      ["Гэрийн хаяг 1-р мөр", "homeAddressLine1"],
+      ["Гэрийн хаяг 2-р мөр", "homeAddressLine2"],
+      ["Хот / сум / дүүрэг", "homeCity"],
+      ["Аймаг / муж", "homeProvince"],
+      ["Шуудангийн код", "homePostalCode"],
+      ["Улс", "homeCountry"],
+      ["Шуудангийн хаяг ижил эсэх", "mailingSameAsHome"],
+      ["Шуудангийн хаяг", "mailingAddress"],
+      ["Үндсэн утас", "primaryPhone"],
+      ["Нэмэлт утас", "secondaryPhone"],
+      ["Ажлын утас", "workPhone"],
+      ["Өөр утас хэрэглэж байсан эсэх", "usedOtherPhones"],
+      ["Өөр утаснууд", "otherPhoneDetails"],
+      ["Имэйл", "email"],
+      ["Өөр имэйл хэрэглэж байсан эсэх", "usedOtherEmails"],
+      ["Өөр имэйлүүд", "otherEmailDetails"],
+    ],
+  },
+  {
+    title: "3. Паспортын мэдээлэл",
+    fields: [
+      ["Паспортын төрөл", "passportType"],
+      ["Паспортын дугаар", "passportNumber"],
+      ["Паспортын дэвтрийн дугаар байхгүй эсэх", "passportBookNumberNotApplicable"],
+      ["Паспортын дэвтрийн дугаар", "passportBookNumber"],
+      ["Паспорт олгосон улс / байгууллага", "passportIssuingCountry"],
+      ["Паспорт олгосон хот", "passportIssueCity"],
+      ["Паспорт олгосон аймаг / муж", "passportIssueProvince"],
+      ["Паспорт олгосон улс", "passportIssueCountry"],
+      ["Паспорт олгосон өдөр", "passportIssueDate"],
+      ["Паспортын хүчинтэй хугацаа", "passportExpiryDate"],
+      ["Паспорт үрэгдүүлсэн эсэх", "lostPassport"],
+      ["Тайлбар", "lostPassportDetails"],
+    ],
+  },
+  {
+    title: "4. Аяллын мэдээлэл",
+    fields: [
+      ["Аяллын зорилго", "tripPurposeCategory"],
+      ["Дэлгэрэнгүй төрөл", "tripPurposeDetail"],
+      ["Тодорхой төлөвлөгөөтэй эсэх", "hasSpecificTravelPlans"],
+      ["АНУ-д очих өдөр", "intendedArrivalDate"],
+      ["Байх хугацаа", "lengthOfStayValue"],
+      ["Хугацааны нэгж", "lengthOfStayUnit"],
+      ["АНУ-д байрлах хаяг", "usStayAddress"],
+      ["Зардал төлөгч", "tripPayer"],
+      ["Очих муж / хот", "arrivalCity"],
+    ],
+  },
+  {
+    title: "5. Хамт явах хүмүүс",
+    fields: [
+      ["Хамт хүн явах эсэх", "travelingWithOthers"],
+      ["Баг / байгууллагаар явах эсэх", "travelingWithGroup"],
+      ["Хамт явах хүмүүсийн мэдээлэл", "travelCompanions"],
+    ],
+  },
+  {
+    title: "6. Өмнөх АНУ аялал ба виз",
+    fields: [
+      ["АНУ-д очиж байсан эсэх", "beenInUs"],
+      ["АНУ-ын виз авч байсан эсэх", "hadUsVisa"],
+      ["Визээс татгалзаж байсан эсэх", "visaRefused"],
+      ["Цагаачлалын өргөдөл гаргаж байсан эсэх", "immigrantPetitionFiled"],
+      ["Тайлбар", "previousUsTravelDetails"],
+    ],
+  },
+  {
+    title: "7. АНУ дахь холбоо барих хүн / байгууллага",
+    fields: [
+      ["Овог", "usContactSurname"],
+      ["Нэр", "usContactGivenName"],
+      ["Байгууллагын нэр", "usOrganizationName"],
+      ["Хамаарал", "usContactRelationship"],
+      ["Утас", "usContactPhone"],
+      ["Хаяг", "usContactAddress"],
+      ["Имэйл", "usContactEmail"],
+    ],
+  },
+  {
+    title: "8. Гэр бүлийн мэдээлэл",
+    fields: [
+      ["Эцгийн овог", "fatherSurname"],
+      ["Эцгийн нэр", "fatherGivenName"],
+      ["Эцгийн төрсөн өдөр", "fatherDateOfBirth"],
+      ["Эцэг АНУ-д байгаа эсэх", "fatherInUs"],
+      ["Эхийн овог", "motherSurname"],
+      ["Эхийн нэр", "motherGivenName"],
+      ["Эхийн төрсөн өдөр", "motherDateOfBirth"],
+      ["Эх АНУ-д байгаа эсэх", "motherInUs"],
+      ["Ойрын хамаатан байгаа эсэх", "hasImmediateRelativesInUs"],
+      ["Бусад хамаатан байгаа эсэх", "hasOtherRelativesInUs"],
+      ["АНУ дахь төрөл садангийн тайлбар", "relativesInUsDetails"],
+      ["Эхнэр / нөхрийн овог", "spouseSurname"],
+      ["Эхнэр / нөхрийн нэр", "spouseGivenName"],
+      ["Эхнэр / нөхрийн төрсөн өдөр", "spouseDateOfBirth"],
+      ["Иргэншил", "spouseNationality"],
+      ["Төрсөн хот", "spouseBirthCity"],
+      ["Төрсөн улс", "spouseBirthCountry"],
+      ["Хаяг", "spouseAddress"],
+    ],
+  },
+  {
+    title: "9. Ажил, боловсрол, орлого",
+    fields: [
+      ["Үндсэн ажил мэргэжил", "primaryOccupation"],
+      ["Байгууллага / сургуулийн нэр", "presentEmployerOrSchool"],
+      ["Хаяг", "presentEmployerAddress"],
+      ["Эхэлсэн өдөр", "presentEmploymentStartDate"],
+      ["Сарын орлого", "monthlyIncome"],
+      ["Ажлын утас", "presentEmployerPhone"],
+      ["Албан тушаал", "jobTitle"],
+      ["Удирдлагын овог", "supervisorSurname"],
+      ["Удирдлагын нэр", "supervisorGivenName"],
+      ["Ажил үүрэг", "jobDuties"],
+      ["Дээд боловсрол эзэмшсэн эсэх", "attendedHigherEducation"],
+      ["Өмнөх ажил / сургуулийн мэдээлэл", "previousEmploymentOrEducation"],
+    ],
+  },
+  {
+    title: "10. Нийгмийн сүлжээ, хэл, нэмэлт мэдээлэл",
+    fields: [
+      ["Сошиал хаягууд", "socialMediaAccounts"],
+      ["Бусад вэб / апп идэвхтэй эсэх", "hasOtherWebPresence"],
+      ["Бусад вэб / апп мэдээлэл", "otherWebPresenceDetails"],
+      ["Овог, аймаг, ястангийн харьяалал", "belongsToClan"],
+      ["Харьяаллын тайлбар", "clanDetails"],
+      ["Ярьдаг хэлнүүд", "languagesSpoken"],
+      ["Сүүлийн 5 жилд гадаад зорчсон эсэх", "traveledOtherCountriesLastFiveYears"],
+      ["Зорчсон улсууд", "countriesVisitedDetails"],
+      ["Байгууллагад харьяалагддаг эсэх", "belongsToOrganizations"],
+      ["Байгууллагын мэдээлэл", "organizationDetails"],
+      ["Тусгай ур чадвартай эсэх", "hasSpecialSkills"],
+      ["Тусгай ур чадварын тайлбар", "specialSkillsDetails"],
+      ["Цэргийн алба хаасан эсэх", "servedMilitary"],
+      ["Цэргийн анги / нэгж", "militaryUnitName"],
+      ["Зэвсэгт бүлэгтэй холбоотой эсэх", "involvedWithParamilitary"],
+      ["Цэрэг / аюулгүй байдлын тайлбар", "militaryOrSecurityDetails"],
+    ],
+  },
+  {
+    title: "11. Аюулгүй байдал ба суурь шалгалт",
+    fields: [
+      ["Халдварт өвчтэй эсэх", "securityCommunicableDisease"],
+      ["Сэтгэцийн / биеийн эмгэгтэй эсэх", "securityMentalDisorder"],
+      ["Хар тамхи хэрэглэдэг эсэх", "securityDrugAbuse"],
+      ["Баривчлагдаж байсан эсэх", "securityArrested"],
+      ["Хар тамхитай холбоотой зөрчил", "securityControlledSubstances"],
+      ["Биеэ үнэлэлттэй холбоотой эсэх", "securityProstitution"],
+      ["Мөнгө угаах ажиллагаанд оролцсон эсэх", "securityMoneyLaundering"],
+      ["Хүн худалдаалах гэмт хэрэг", "securityHumanTrafficking"],
+      ["Терроризмтай холбоотой эсэх", "securityTerrorism"],
+      ["Хүчирхийлэл / геноцидтай холбоотой эсэх", "securityViolence"],
+      ["Хүний эрхийн ноцтой зөрчилтэй холбоотой эсэх", "securityHumanRights"],
+      ["Визийн залилан", "securityVisaFraud"],
+      ["Депортлуулж байсан эсэх", "securityDeported"],
+      ["Хүүхдийн асрамжийн маргаан", "securityChildCustody"],
+      ["Хууль бусаар санал өгсөн эсэх", "securityIllegalVoting"],
+      ["АНУ-ын иргэншлээс татгалзсан эсэх", "securityRenouncedCitizenship"],
+      ["Нэмэлт тайлбар", "securityBackgroundDetails"],
+    ],
+  },
+  {
+    title: "12. Нэмэлт тайлбар",
+    fields: [["Нэмэлт тэмдэглэл", "notes"]],
+  },
+];
+
 const state = {
   entries: [],
   teamMembers: [],
-  selectedId: "",
   latestLink: "",
   latestEmail: "",
   latestName: "",
@@ -36,6 +231,23 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function splitClientName(entry) {
+  const surname = normalizeText(entry.surname || "");
+  const givenName = normalizeText(entry.givenName || "");
+  if (surname || givenName) {
+    return { surname, givenName };
+  }
+  const parts = normalizeText(entry.clientName || entry.applicantName || "").split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    return { surname: parts[0] || "", givenName: "" };
+  }
+  return { surname: parts[0], givenName: parts.slice(1).join(" ") };
 }
 
 function formatDateTime(value) {
@@ -61,12 +273,16 @@ async function fetchJson(url, options) {
   return data;
 }
 
-function buildMailtoLink(email, name, url) {
+function buildMailtoLink(entry) {
+  const recipientEmail = normalizeText(entry.clientEmail || entry.email);
+  const clientDisplayName = normalizeText(entry.givenName || splitClientName(entry).givenName || entry.clientName || "");
+  const managerName = normalizeText(entry.managerName || "TravelX");
   const subject = encodeURIComponent("TravelX DS-160 form");
+  const cc = encodeURIComponent("info@travelx.mn");
   const body = encodeURIComponent(
-    `Сайн байна уу${name ? ` ${name}` : ""},\n\nТа доорх холбоосоор DS-160 маягтаа бөглөнө үү.\n\n${url}\n\nБаярлалаа.\nTravelX`
+    `Сайн байна уу, ${clientDisplayName || "харилцагч"}.\n\nТа доорх холбоосоор DS-160 маягтаа бөглөнө үү.\n\n${entry.shareUrl || ""}\n\nХүндэтгэсэн,\n${managerName}\nУтас: ${TEAM_PHONE}\n${TEAM_COMPANY}\n${TEAM_WEBSITE}`
   );
-  return email ? `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}` : "#";
+  return recipientEmail ? `mailto:${encodeURIComponent(recipientEmail)}?cc=${cc}&subject=${subject}&body=${body}` : "#";
 }
 
 function setStatus(message, isError = false) {
@@ -86,6 +302,20 @@ function closeModal() {
   document.body.classList.remove("modal-open");
 }
 
+function openAnswersModal() {
+  answersModalNode.classList.remove("is-hidden");
+  answersModalNode.removeAttribute("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeAnswersModal() {
+  answersModalNode.classList.add("is-hidden");
+  answersModalNode.setAttribute("hidden", "");
+  if (modalNode.classList.contains("is-hidden")) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
 function setLatestLink(url, email = "", name = "") {
   state.latestLink = url || "";
   state.latestEmail = email || "";
@@ -103,7 +333,9 @@ function setLatestLink(url, email = "", name = "") {
   shareLinkNode.href = url;
   shareLinkNode.textContent = url;
   if (emailLinkButton) {
-    emailLinkButton.href = buildMailtoLink(email, name, url);
+    emailLinkButton.href = email
+      ? buildMailtoLink({ clientEmail: email, givenName: name, managerName: managerSelect?.value || "", shareUrl: url })
+      : "#";
   }
 }
 
@@ -140,12 +372,14 @@ function filteredEntries() {
 
     if (!query) return true;
     return [
+      entry.surname,
+      entry.givenName,
       entry.clientName,
       entry.clientEmail,
       entry.clientPhone,
+      entry.primaryPhone,
       entry.managerName,
       entry.passportNumber,
-      entry.applicantName,
     ].some((value) => String(value || "").toLowerCase().includes(query));
   });
 }
@@ -176,9 +410,9 @@ function renderManagerOptions() {
     managerSelect.value = currentProfile.fullName;
   }
 
-  const uniqueManagers = Array.from(
-    new Set(state.entries.map((entry) => entry.managerName).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b));
+  const uniqueManagers = Array.from(new Set(state.entries.map((entry) => entry.managerName).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b)
+  );
   const currentValue = managerFilter.value;
   managerFilter.innerHTML = `<option value="">All</option>${uniqueManagers
     .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
@@ -186,145 +420,115 @@ function renderManagerOptions() {
   managerFilter.value = uniqueManagers.includes(currentValue) ? currentValue : "";
 }
 
+function renderAnswers(entry) {
+  if (entry.status !== "submitted") {
+    answersContentNode.innerHTML = `
+      <div class="empty-state">
+        This client has not submitted the DS-160 form yet.
+      </div>
+    `;
+    openAnswersModal();
+    return;
+  }
+
+  const { surname, givenName } = splitClientName(entry);
+  answersContentNode.innerHTML = `
+    <div class="ds160-answer-head">
+      <h3>${escapeHtml([surname, givenName].filter(Boolean).join(" ") || entry.clientName || "-")}</h3>
+      <p>${escapeHtml(entry.clientEmail || "-")} · ${escapeHtml(entry.clientPhone || entry.primaryPhone || "-")}</p>
+    </div>
+    <div class="ds160-answer-sections">
+      ${ANSWER_SECTIONS.map(
+        (section) => `
+          <section class="ds160-answer-section">
+            <h4>${escapeHtml(section.title)}</h4>
+            <div class="ds160-answer-grid">
+              ${section.fields
+                .map(
+                  ([label, key]) => `
+                    <div class="ds160-answer-item">
+                      <span>${escapeHtml(label)}</span>
+                      <strong>${escapeHtml(entry[key] || "-")}</strong>
+                    </div>
+                  `
+                )
+                .join("")}
+            </div>
+          </section>
+        `
+      ).join("")}
+    </div>
+  `;
+  openAnswersModal();
+}
+
 function renderList() {
   const entries = filteredEntries();
   if (!entries.length) {
     listNode.innerHTML = '<p class="empty">No DS-160 forms match these filters yet.</p>';
-    detailNode.innerHTML = '<p class="empty">Choose a DS-160 record from the list to view it here.</p>';
     return;
-  }
-
-  if (!entries.some((entry) => entry.id === state.selectedId)) {
-    state.selectedId = entries[0].id;
   }
 
   listNode.innerHTML = `
     <table class="manager-table ds160-table">
       <thead>
         <tr>
-          <th>Client</th>
-          <th>Manager</th>
-          <th>Status</th>
+          <th>Surname</th>
+          <th>Name</th>
+          <th>Client Email</th>
+          <th>Client Number</th>
           <th>Date</th>
-          <th>Passport</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         ${entries
-          .map(
-            (entry) => `
-              <tr data-open-id="${entry.id}" class="${entry.id === state.selectedId ? "is-selected" : ""}">
-                <td>
-                  <strong>${escapeHtml(entry.clientName || entry.applicantName || "-")}</strong>
-                  <div class="table-subline">${escapeHtml(entry.clientEmail || "-")}</div>
-                </td>
-                <td>${escapeHtml(entry.managerName || "-")}</td>
-                <td><span class="status-pill ${statusClass(entry.status)}">${statusLabel(entry.status)}</span></td>
+          .map((entry) => {
+            const nameParts = splitClientName(entry);
+            return `
+              <tr>
+                <td>${escapeHtml(nameParts.surname || "-")}</td>
+                <td>${escapeHtml(nameParts.givenName || "-")}</td>
+                <td>${escapeHtml(entry.clientEmail || "-")}</td>
+                <td>${escapeHtml(entry.clientPhone || entry.primaryPhone || "-")}</td>
                 <td>${escapeHtml(formatDateTime(entry.submittedAt || entry.createdAt))}</td>
-                <td>${escapeHtml(entry.passportNumber || "-")}</td>
                 <td>
-                  <div class="manager-inline-actions manager-inline-actions-compact">
-                    <button type="button" class="secondary-button" data-copy-link="${escapeHtml(entry.shareUrl || "")}">Copy</button>
-                    <a class="secondary-button" href="${escapeHtml(
-                      buildMailtoLink(entry.clientEmail, entry.clientName || entry.applicantName, entry.shareUrl || "")
-                    )}">Email</a>
-                    <a class="secondary-button" href="${escapeHtml(entry.shareUrl || "#")}" target="_blank" rel="noreferrer">Open</a>
-                  </div>
+                  <details class="trip-menu row-action-menu ds160-action-menu">
+                    <summary class="trip-menu-trigger" aria-label="DS-160 actions">⋮</summary>
+                    <div class="trip-menu-popover">
+                      <button type="button" class="trip-menu-item" data-action="see-answers" data-id="${escapeHtml(entry.id)}">See Answers</button>
+                      <button type="button" class="trip-menu-item" data-action="copy-link" data-link="${escapeHtml(entry.shareUrl || "")}">Copy link</button>
+                      <a class="trip-menu-item" href="${escapeHtml(buildMailtoLink(entry))}">Email client</a>
+                      <a class="trip-menu-item" href="${escapeHtml(entry.shareUrl || "#")}" target="_blank" rel="noreferrer">Open form</a>
+                    </div>
+                  </details>
                 </td>
               </tr>
-            `
-          )
+            `;
+          })
           .join("")}
       </tbody>
     </table>
   `;
 
-  listNode.querySelectorAll("[data-open-id]").forEach((row) => {
-    row.addEventListener("click", (event) => {
-      if (event.target.closest("[data-copy-link], a")) return;
-      state.selectedId = row.dataset.openId;
-      renderList();
-      renderDetail();
-    });
-  });
-
-  listNode.querySelectorAll("[data-copy-link]").forEach((button) => {
+  listNode.querySelectorAll('[data-action="copy-link"]').forEach((button) => {
     button.addEventListener("click", async () => {
-      const link = button.dataset.copyLink;
+      const link = button.dataset.link;
       if (!link) return;
       await navigator.clipboard.writeText(link);
       button.textContent = "Copied";
-      setTimeout(() => {
-        button.textContent = "Copy";
+      window.setTimeout(() => {
+        button.textContent = "Copy link";
       }, 1500);
     });
   });
 
-  renderDetail();
-}
-
-function renderDetail() {
-  const entry = state.entries.find((item) => item.id === state.selectedId);
-  if (!entry) {
-    detailNode.innerHTML = '<p class="empty">Choose a DS-160 record from the list to view it here.</p>';
-    return;
-  }
-
-  detailNode.innerHTML = `
-    <article class="manager-item-card ds160-detail-card">
-      <div class="manager-item-head">
-        <div>
-          <h3>${escapeHtml(entry.clientName || entry.applicantName || "-")}</h3>
-          <p>${escapeHtml(entry.clientEmail || "-")}</p>
-        </div>
-        <div class="manager-badges">
-          <span class="status-pill ${statusClass(entry.status)}">${statusLabel(entry.status)}</span>
-        </div>
-      </div>
-      <div class="manager-meta-grid">
-        <div><span>Manager</span><strong>${escapeHtml(entry.managerName || "-")}</strong></div>
-        <div><span>Phone</span><strong>${escapeHtml(entry.clientPhone || entry.primaryPhone || "-")}</strong></div>
-        <div><span>Passport</span><strong>${escapeHtml(entry.passportNumber || "-")}</strong></div>
-        <div><span>Visa type</span><strong>${escapeHtml(entry.tripPurposeCategory || "-")}</strong></div>
-        <div><span>Created</span><strong>${escapeHtml(formatDateTime(entry.createdAt))}</strong></div>
-        <div><span>Submitted</span><strong>${escapeHtml(formatDateTime(entry.submittedAt || ""))}</strong></div>
-      </div>
-      <div class="ds160-detail-stack">
-        <div>
-          <span class="manager-stat-label">Travel plan</span>
-          <p>${escapeHtml(entry.tripPurposeDetail || entry.usStayAddress || entry.arrivalCity || entry.notes || "-")}</p>
-        </div>
-        <div>
-          <span class="manager-stat-label">Internal note</span>
-          <p>${escapeHtml(entry.internalNotes || "-")}</p>
-        </div>
-        <div>
-          <span class="manager-stat-label">Key answers</span>
-          <p>${escapeHtml(
-            [
-              entry.maritalStatus && `Marital: ${entry.maritalStatus}`,
-              entry.primaryOccupation && `Occupation: ${entry.primaryOccupation}`,
-              entry.languagesSpoken && `Languages: ${entry.languagesSpoken}`,
-            ]
-              .filter(Boolean)
-              .join(" | ") || "-"
-          )}</p>
-        </div>
-      </div>
-      <div class="manager-inline-actions">
-        <button type="button" class="secondary-button" id="ds160-detail-copy">Copy link</button>
-        <a class="secondary-button" href="${escapeHtml(
-          buildMailtoLink(entry.clientEmail, entry.clientName || entry.applicantName, entry.shareUrl || "")
-        )}">Email client</a>
-        <a class="secondary-button" href="${escapeHtml(entry.shareUrl || "#")}" target="_blank" rel="noreferrer">Open form</a>
-      </div>
-    </article>
-  `;
-
-  detailNode.querySelector("#ds160-detail-copy")?.addEventListener("click", async () => {
-    if (!entry.shareUrl) return;
-    await navigator.clipboard.writeText(entry.shareUrl);
+  listNode.querySelectorAll('[data-action="see-answers"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = state.entries.find((item) => item.id === button.dataset.id);
+      if (!entry) return;
+      renderAnswers(entry);
+    });
   });
 }
 
@@ -366,7 +570,6 @@ sendForm.addEventListener("submit", async (event) => {
       await navigator.clipboard.writeText(entry.shareUrl);
     }
     setStatus("DS-160 link created and copied.");
-    state.selectedId = entry.id;
     await loadEntries();
   } catch (error) {
     setStatus(error.message, true);
@@ -397,13 +600,18 @@ openCreateButton?.addEventListener("click", () => {
   }
   setLatestLink("");
   setStatus("");
-  closeModal();
   openModal();
 });
 
 modalNode?.addEventListener("click", (event) => {
   if (event.target.dataset.action === "close-ds160-modal") {
     closeModal();
+  }
+});
+
+answersModalNode?.addEventListener("click", (event) => {
+  if (event.target.dataset.action === "close-ds160-answers") {
+    closeAnswersModal();
   }
 });
 
