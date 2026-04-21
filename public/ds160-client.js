@@ -145,9 +145,11 @@ function setDateSplit(prefix, value) {
 
 function toggleElement(id, visible) {
   const element = document.getElementById(id);
-  if (element) {
-    element.hidden = !visible;
-  }
+  if (!element) return;
+  element.hidden = !visible;
+  element.setAttribute("aria-hidden", visible ? "false" : "true");
+  element.classList.toggle("is-hidden", !visible);
+  element.style.display = visible ? "" : "none";
 }
 
 function syncConditionalFields() {

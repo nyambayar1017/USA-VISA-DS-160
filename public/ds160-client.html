@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-76" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-97" />
   </head>
   <body class="app-body ds160-client-body">
     <header class="travelx-site-header">
@@ -112,8 +112,8 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <label id="previous-surname-field" hidden>Өмнөх овог<input name="previousSurname" /></label>
-                <label id="previous-given-name-field" hidden>Өмнөх нэр<input name="previousGivenName" /></label>
+                <label id="previous-surname-field" class="is-hidden" hidden>Өмнөх овог<input name="previousSurname" /></label>
+                <label id="previous-given-name-field" class="is-hidden" hidden>Өмнөх нэр<input name="previousGivenName" /></label>
                 <label>Теле кодтой эсэх
                   <select name="hasTelecode">
                     <option value="">Сонгох</option>
@@ -121,7 +121,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <label id="telecode-field" hidden>
+                <label id="telecode-field" class="is-hidden" hidden>
                   Теле код
                   <input name="telecode" maxlength="4" />
                   <span class="helper">Ром үсгийн оронд хэрэглэдэг 4 оронтой код байвал бичнэ үү.</span>
@@ -172,7 +172,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <label id="other-nationality-field" hidden>Ямар улсын иргэншил байсан бэ?
+                <label id="other-nationality-field" class="is-hidden" hidden>Ямар улсын иргэншил байсан бэ?
                   <select name="otherNationalityCountry" data-country-select></select>
                 </label>
                 <label>Регистрийн дугаар<input name="registerNumber" required /></label>
@@ -183,7 +183,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <label id="us-ssn-field" hidden>US нийгмийн даатгалын дугаар<input name="usSsn" /></label>
+                <label id="us-ssn-field" class="is-hidden" hidden>US нийгмийн даатгалын дугаар<input name="usSsn" /></label>
                 <label>US татвар төлөгчийн дугаартай эсэх
                   <select name="hasUsTaxId">
                     <option value="">Сонгох</option>
@@ -191,7 +191,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <label id="us-tax-id-field" hidden>US татвар төлөгчийн дугаар<input name="usTaxId" /></label>
+                <label id="us-tax-id-field" class="is-hidden" hidden>US татвар төлөгчийн дугаар<input name="usTaxId" /></label>
               </div>
             </section>
 
@@ -230,7 +230,7 @@
                     <option value="U">ГЭМТ ХЭРГИЙН ХОХИРОГЧ (U)</option>
                   </select>
                 </label>
-                <label id="trip-purpose-detail-field" hidden>Тодруулга
+                <label id="trip-purpose-detail-field" class="is-hidden" hidden>Тодруулга
                   <select name="tripPurposeDetail">
                     <option value="">Сонгох</option>
                     <option value="B1/B2">АЯЛАЛ ЖУУЛЧЛАЛ / БИЗНЕС (B1/B2)</option>
@@ -245,7 +245,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <div id="travel-itinerary-fields" class="full-span conditional-block" hidden>
+                <div id="travel-itinerary-fields" class="full-span conditional-block is-hidden" hidden>
                   <div class="field-grid nested-grid">
                     <div class="full-span field-stack">
                       <span>АНУ-д очих өдөр</span>
@@ -287,7 +287,7 @@
                     <option value="OTHER COMPANY/ORGANIZATION">ӨӨР КОМПАНИ / БАЙГУУЛЛАГА</option>
                   </select>
                 </label>
-                <div id="trip-payer-fields" class="full-span conditional-block" hidden>
+                <div id="trip-payer-fields" class="full-span conditional-block is-hidden" hidden>
                   <div class="field-grid nested-grid">
                     <label>Төлбөр төлж буй хүний овог<input name="tripPayerSurname" /></label>
                     <label>Төлбөр төлж буй хүний нэр<input name="tripPayerGivenName" /></label>
@@ -326,7 +326,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <label id="travel-companions-field" class="full-span" hidden>Хамт явах хүмүүсийн мэдээлэл
+                <label id="travel-companions-field" class="full-span is-hidden" hidden>Хамт явах хүмүүсийн мэдээлэл
                   <textarea name="travelCompanions" rows="5" placeholder="НЭР, ОВОГ, ТАНТАЙ ЯМАР ХОЛБООТОЙ, ХАМТ ЯВАХ ЭСЭХ ЗЭРГИЙГ БИЧНЭ ҮҮ."></textarea>
                 </label>
               </div>
@@ -342,7 +342,7 @@
                 <label>Өмнө нь АНУ-ын виз авч байсан эсэх<select name="hadUsVisa"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
                 <label>АНУ-ын визээс татгалзаж байсан эсэх<select name="visaRefused"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
                 <label>Цагаачлалын өргөдөл таны өмнөөс гаргаж байсан эсэх<select name="immigrantPetitionFiled"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
-                <label id="previous-us-travel-details-field" class="full-span" hidden>Хэрэв дээрх асуултуудад "Тийм" гэж хариулсан бол тайлбар<textarea name="previousUsTravelDetails" rows="5"></textarea></label>
+                <label id="previous-us-travel-details-field" class="full-span is-hidden" hidden>Хэрэв дээрх асуултуудад "Тийм" гэж хариулсан бол тайлбар<textarea name="previousUsTravelDetails" rows="5"></textarea></label>
               </div>
             </section>
 
@@ -359,7 +359,7 @@
                 <label>Шуудангийн код<input name="homePostalCode" /></label>
                 <label>Улс<input name="homeCountry" value="МОНГОЛ УЛС" required /></label>
                 <label>Шуудангийн хаяг гэрийн хаягтай адил эсэх<select name="mailingSameAsHome"><option value="">Сонгох</option><option value="ТИЙМ">Тийм</option><option value="ҮГҮЙ">Үгүй</option></select></label>
-                <label id="mailing-address-field" class="full-span" hidden>Шуудангийн хаяг<textarea name="mailingAddress" rows="3"></textarea></label>
+                <label id="mailing-address-field" class="full-span is-hidden" hidden>Шуудангийн хаяг<textarea name="mailingAddress" rows="3"></textarea></label>
                 <label>Үндсэн утас<input name="primaryPhone" required /></label>
                 <label>Нэмэлт утас<input name="secondaryPhone" /></label>
                 <label>Ажлын утас<input name="workPhone" /></label>
@@ -380,7 +380,7 @@
                 <label>Паспортын төрөл<select name="passportType" required><option value="">Сонгох</option><option>ЭНГИЙН</option><option>АЛБАН</option><option>ДИПЛОМАТ</option><option>БУСАД</option></select></label>
                 <label>Паспортын дугаар<input name="passportNumber" required /></label>
                 <label>Паспортын дэвтрийн дугаар байхгүй эсэх<select name="passportBookNumberNotApplicable"><option value="">Сонгох</option><option value="ТИЙМ">Тийм</option><option value="ҮГҮЙ">Үгүй</option></select></label>
-                <label id="passport-book-number-field" hidden>Паспортын дэвтрийн дугаар<input name="passportBookNumber" /></label>
+                <label id="passport-book-number-field" class="is-hidden" hidden>Паспортын дэвтрийн дугаар<input name="passportBookNumber" /></label>
                 <label>Паспорт олгосон улс / байгууллага<input name="passportIssuingCountry" value="МОНГОЛ УЛС" required /></label>
                 <label>Паспорт олгосон хот<input name="passportIssueCity" /></label>
                 <label>Паспорт олгосон аймаг / муж<input name="passportIssueProvince" /></label>
@@ -503,7 +503,7 @@
                 <label class="full-span">АНУ-ын иргэн хүүхдийн асрамжтай холбоотой маргаанд оролцож байсан эсэх<select name="securityChildCustody"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
                 <label class="full-span">АНУ-д хууль зөрчин санал өгч байсан эсэх<select name="securityIllegalVoting"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
                 <label class="full-span">Татвараас зайлсхийх зорилгоор АНУ-ын иргэншлээс татгалзаж байсан эсэх<select name="securityRenouncedCitizenship"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
-                <label id="security-background-details-field" class="full-span" hidden>Аюулгүй байдал, виз татгалзал, шүүх, цэрэг, хууль эрх зүйн нэмэлт тайлбар<textarea name="securityBackgroundDetails" rows="6"></textarea></label>
+                <label id="security-background-details-field" class="full-span is-hidden" hidden>Аюулгүй байдал, виз татгалзал, шүүх, цэрэг, хууль эрх зүйн нэмэлт тайлбар<textarea name="securityBackgroundDetails" rows="6"></textarea></label>
               </div>
             </section>
 
@@ -526,6 +526,6 @@
       </section>
     </main>
 
-    <script src="/ds160-client.js?v=workspace-3"></script>
+    <script src="/ds160-client.js?v=workspace-4"></script>
   </body>
 </html>

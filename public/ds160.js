@@ -256,6 +256,9 @@ function splitClientName(entry) {
 
 function formatDateTime(value) {
   if (!value) return "-";
+  const normalized = normalizeText(value);
+  const matched = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (matched) return `${matched[1]}-${matched[2]}-${matched[3]}`;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toISOString().slice(0, 10);
@@ -266,12 +269,12 @@ function formatAppointment(dateValue, timeValue) {
   const timePart = normalizeText(timeValue);
   if (!datePart && !timePart) return "-";
   if (!datePart) return timePart;
-  const parsed = new Date(`${datePart}T${timePart || "00:00"}`);
-  if (Number.isNaN(parsed.getTime())) {
-    return [datePart, timePart].filter(Boolean).join(" ");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    return timePart ? `${datePart} ${timePart}` : datePart;
   }
-  const formattedDate = parsed.toISOString().slice(0, 10);
-  return timePart ? `${formattedDate} ${timePart}` : formattedDate;
+  const parsed = new Date(`${datePart}T${timePart || "00:00"}`);
+  if (Number.isNaN(parsed.getTime())) return [datePart, timePart].filter(Boolean).join(" ");
+  return `${parsed.toISOString().slice(0, 10)}${timePart ? ` ${timePart}` : ""}`;
 }
 
 function dateKey(value) {
