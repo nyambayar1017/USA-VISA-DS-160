@@ -3117,7 +3117,7 @@ body.modal-open {
 
 .ds160-table th:last-child,
 .ds160-table td:last-child {
-  width: 84px;
+  width: 140px;
   text-align: center;
 }
 
@@ -3148,14 +3148,33 @@ body.modal-open {
 
 .ds160-action-menu {
   display: inline-block;
+  width: min(220px, 100%);
 }
 
 .ds160-action-menu .trip-menu-popover {
   min-width: 210px;
 }
 
+.ds160-action-menu[open] .trip-menu-popover {
+  position: static;
+  margin-top: 10px;
+  min-width: 100%;
+}
+
 .ds160-action-menu .trip-menu-item {
   text-decoration: none;
+}
+
+.ds160-actions-cell {
+  vertical-align: top;
+}
+
+.trip-menu-item.is-danger {
+  color: #a73a3a;
+}
+
+.trip-menu-item.is-danger:hover {
+  background: rgba(167, 58, 58, 0.08);
 }
 
 .ds160-answers-content {

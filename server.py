@@ -4782,6 +4782,21 @@ def handle_update_ds160(environ, start_response, record_id):
     return json_response(start_response, "404 Not Found", {"error": "DS-160 record not found"})
 
 
+def handle_delete_ds160(environ, start_response, record_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+
+    records = read_ds160_applications()
+    before = len(records)
+    records = [record for record in records if record.get("id") != record_id]
+    if len(records) == before:
+        return json_response(start_response, "404 Not Found", {"error": "DS-160 record not found"})
+
+    write_ds160_applications(records)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": record_id})
+
+
 def handle_create_ds160_invitation(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -6236,6 +6251,8 @@ def app(environ, start_response):
             return handle_get_ds160(environ, start_response, record_id)
         if method in {"PATCH", "PUT"} and record_id:
             return handle_update_ds160(environ, start_response, record_id)
+        if method == "DELETE" and record_id:
+            return handle_delete_ds160(environ, start_response, record_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/finance":

@@ -3,28 +3,31 @@ const sendStatus = document.querySelector("#ds160-send-status");
 const listNode = document.querySelector("#ds160-list");
 const modalNode = document.querySelector("#ds160-create-modal");
 const answersModalNode = document.querySelector("#ds160-answers-modal");
+const appointmentModalNode = document.querySelector("#ds160-appointment-modal");
+const editModalNode = document.querySelector("#ds160-edit-modal");
 const answersContentNode = document.querySelector("#ds160-answers-content");
 const openCreateButton = document.querySelector("#ds160-open-create");
+const appointmentForm = document.querySelector("#ds160-appointment-form");
+const appointmentStatus = document.querySelector("#ds160-appointment-status");
+const editForm = document.querySelector("#ds160-edit-form");
+const editStatus = document.querySelector("#ds160-edit-status");
 const latestLinkCard = document.querySelector("#ds160-latest-link");
 const shareLinkNode = document.querySelector("#ds160-share-link");
 const copyLinkButton = document.querySelector("#ds160-copy-link");
 const emailLinkButton = document.querySelector("#ds160-email-link");
 const openLinkButton = document.querySelector("#ds160-open-link");
 const managerSelect = document.querySelector("#ds160-manager-select");
+const editManagerSelect = document.querySelector("#ds160-edit-manager-select");
 const managerFilter = document.querySelector("#ds160-manager-filter");
 const searchInput = document.querySelector("#ds160-search");
 const statusFilter = document.querySelector("#ds160-status-filter");
 const dateFromInput = document.querySelector("#ds160-date-from");
 const dateToInput = document.querySelector("#ds160-date-to");
 
-const summaryTotal = document.querySelector("#ds160-summary-total");
-const summarySent = document.querySelector("#ds160-summary-sent");
-const summarySubmitted = document.querySelector("#ds160-summary-submitted");
-const summaryManagers = document.querySelector("#ds160-summary-managers");
-
 const TEAM_PHONE = "72007722";
 const TEAM_COMPANY = "Дэлхий Трэвел Икс";
 const TEAM_WEBSITE = "www.travelx.mn";
+const PAGE_SIZE = 15;
 
 const ANSWER_SECTIONS = [
   {
@@ -223,6 +226,7 @@ const state = {
   latestLink: "",
   latestEmail: "",
   latestName: "",
+  currentPage: 1,
 };
 
 function escapeHtml(value) {
@@ -255,6 +259,19 @@ function formatDateTime(value) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString();
+}
+
+function formatAppointment(dateValue, timeValue) {
+  const datePart = normalizeText(dateValue);
+  const timePart = normalizeText(timeValue);
+  if (!datePart && !timePart) return "-";
+  if (!datePart) return timePart;
+  const parsed = new Date(`${datePart}T${timePart || "00:00"}`);
+  if (Number.isNaN(parsed.getTime())) {
+    return [datePart, timePart].filter(Boolean).join(" ");
+  }
+  const formattedDate = parsed.toLocaleDateString();
+  return timePart ? `${formattedDate}, ${timePart}` : formattedDate;
 }
 
 function dateKey(value) {
@@ -311,7 +328,56 @@ function openAnswersModal() {
 function closeAnswersModal() {
   answersModalNode.classList.add("is-hidden");
   answersModalNode.setAttribute("hidden", "");
-  if (modalNode.classList.contains("is-hidden")) {
+  if (modalNode.classList.contains("is-hidden") && appointmentModalNode.classList.contains("is-hidden") && editModalNode.classList.contains("is-hidden")) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+function setAppointmentStatus(message, isError = false) {
+  appointmentStatus.textContent = message;
+  appointmentStatus.dataset.tone = isError ? "error" : "ok";
+}
+
+function openAppointmentModal(entry) {
+  appointmentForm.elements.id.value = entry.id || "";
+  appointmentForm.elements.appointmentDate.value = entry.appointmentDate || "";
+  appointmentForm.elements.appointmentTime.value = entry.appointmentTime || "";
+  setAppointmentStatus("");
+  appointmentModalNode.classList.remove("is-hidden");
+  appointmentModalNode.removeAttribute("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeAppointmentModal() {
+  appointmentModalNode.classList.add("is-hidden");
+  appointmentModalNode.setAttribute("hidden", "");
+  if (modalNode.classList.contains("is-hidden") && answersModalNode.classList.contains("is-hidden") && editModalNode.classList.contains("is-hidden")) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+function setEditStatus(message, isError = false) {
+  editStatus.textContent = message;
+  editStatus.dataset.tone = isError ? "error" : "ok";
+}
+
+function openEditModal(entry) {
+  editForm.elements.id.value = entry.id || "";
+  editForm.elements.clientName.value = entry.clientName || "";
+  editForm.elements.clientEmail.value = entry.clientEmail || "";
+  editForm.elements.clientPhone.value = entry.clientPhone || entry.primaryPhone || "";
+  editForm.elements.managerName.value = entry.managerName || managerSelect.value || "";
+  editForm.elements.internalNotes.value = entry.internalNotes || "";
+  setEditStatus("");
+  editModalNode.classList.remove("is-hidden");
+  editModalNode.removeAttribute("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeEditModal() {
+  editModalNode.classList.add("is-hidden");
+  editModalNode.setAttribute("hidden", "");
+  if (modalNode.classList.contains("is-hidden") && answersModalNode.classList.contains("is-hidden") && appointmentModalNode.classList.contains("is-hidden")) {
     document.body.classList.remove("modal-open");
   }
 }
@@ -385,10 +451,25 @@ function filteredEntries() {
 }
 
 function renderSummary() {
-  summaryTotal.textContent = String(state.entries.length);
-  summarySent.textContent = String(state.entries.filter((entry) => entry.status === "sent").length);
-  summarySubmitted.textContent = String(state.entries.filter((entry) => entry.status === "submitted").length);
-  summaryManagers.textContent = String(state.teamMembers.length);
+  return;
+}
+
+function paginatedEntries(entries) {
+  const pageCount = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  if (state.currentPage > pageCount) state.currentPage = pageCount;
+  if (state.currentPage < 1) state.currentPage = 1;
+  const start = (state.currentPage - 1) * PAGE_SIZE;
+  return {
+    items: entries.slice(start, start + PAGE_SIZE),
+    pageCount,
+    total: entries.length,
+    start: totalOrZero(entries.length) ? start + 1 : 0,
+    end: Math.min(start + PAGE_SIZE, entries.length),
+  };
+}
+
+function totalOrZero(value) {
+  return Number(value) > 0;
 }
 
 function renderManagerOptions() {
@@ -401,6 +482,7 @@ function renderManagerOptions() {
   managerSelect.innerHTML = members
     .map((member) => `<option value="${escapeHtml(member.fullName)}">${escapeHtml(member.fullName)}</option>`)
     .join("");
+  editManagerSelect.innerHTML = managerSelect.innerHTML;
 
   if (
     typeof currentProfile !== "undefined" &&
@@ -408,6 +490,7 @@ function renderManagerOptions() {
     members.some((member) => member.fullName === currentProfile.fullName)
   ) {
     managerSelect.value = currentProfile.fullName;
+    editManagerSelect.value = currentProfile.fullName;
   }
 
   const uniqueManagers = Array.from(new Set(state.entries.map((entry) => entry.managerName).filter(Boolean))).sort((a, b) =>
@@ -469,6 +552,8 @@ function renderList() {
     return;
   }
 
+  const pagination = paginatedEntries(entries);
+
   listNode.innerHTML = `
     <table class="manager-table ds160-table">
       <thead>
@@ -478,11 +563,12 @@ function renderList() {
           <th>Client Email</th>
           <th>Client Number</th>
           <th>Date</th>
+          <th>Appointment</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        ${entries
+        ${pagination.items
           .map((entry) => {
             const nameParts = splitClientName(entry);
             return `
@@ -492,14 +578,18 @@ function renderList() {
                 <td>${escapeHtml(entry.clientEmail || "-")}</td>
                 <td>${escapeHtml(entry.clientPhone || entry.primaryPhone || "-")}</td>
                 <td>${escapeHtml(formatDateTime(entry.submittedAt || entry.createdAt))}</td>
-                <td>
+                <td>${escapeHtml(formatAppointment(entry.appointmentDate, entry.appointmentTime))}</td>
+                <td class="ds160-actions-cell">
                   <details class="trip-menu row-action-menu ds160-action-menu">
                     <summary class="trip-menu-trigger" aria-label="DS-160 actions">⋮</summary>
                     <div class="trip-menu-popover">
                       <button type="button" class="trip-menu-item" data-action="see-answers" data-id="${escapeHtml(entry.id)}">See Answers</button>
                       <button type="button" class="trip-menu-item" data-action="copy-link" data-link="${escapeHtml(entry.shareUrl || "")}">Copy link</button>
+                      <button type="button" class="trip-menu-item" data-action="edit-info" data-id="${escapeHtml(entry.id)}">Edit info</button>
+                      <button type="button" class="trip-menu-item" data-action="set-appointment" data-id="${escapeHtml(entry.id)}">Set appointment</button>
                       <a class="trip-menu-item" href="${escapeHtml(buildMailtoLink(entry))}">Email client</a>
                       <a class="trip-menu-item" href="${escapeHtml(entry.shareUrl || "#")}" target="_blank" rel="noreferrer">Open form</a>
+                      <button type="button" class="trip-menu-item is-danger" data-action="delete-entry" data-id="${escapeHtml(entry.id)}">Delete</button>
                     </div>
                   </details>
                 </td>
@@ -509,6 +599,13 @@ function renderList() {
           .join("")}
       </tbody>
     </table>
+    <div class="table-pagination ds160-pagination">
+      <p>Showing ${pagination.start}-${pagination.end} of ${pagination.total}</p>
+      <div class="pagination-actions">
+        <button type="button" class="secondary-button" data-page-action="prev" ${state.currentPage <= 1 ? "disabled" : ""}>Previous</button>
+        <button type="button" class="secondary-button" data-page-action="next" ${state.currentPage >= pagination.pageCount ? "disabled" : ""}>Next</button>
+      </div>
+    </div>
   `;
 
   listNode.querySelectorAll('[data-action="copy-link"]').forEach((button) => {
@@ -528,6 +625,51 @@ function renderList() {
       const entry = state.entries.find((item) => item.id === button.dataset.id);
       if (!entry) return;
       renderAnswers(entry);
+    });
+  });
+
+  listNode.querySelectorAll('[data-action="set-appointment"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = state.entries.find((item) => item.id === button.dataset.id);
+      if (!entry) return;
+      openAppointmentModal(entry);
+    });
+  });
+
+  listNode.querySelectorAll('[data-action="edit-info"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = state.entries.find((item) => item.id === button.dataset.id);
+      if (!entry) return;
+      openEditModal(entry);
+    });
+  });
+
+  listNode.querySelectorAll('[data-action="delete-entry"]').forEach((button) => {
+    button.addEventListener("click", async () => {
+      const entry = state.entries.find((item) => item.id === button.dataset.id);
+      if (!entry) return;
+      const confirmed = window.confirm(`Delete DS-160 record for ${entry.clientName || entry.clientEmail || "this client"}?`);
+      if (!confirmed) return;
+      try {
+        await fetchJson(`/api/ds160/${encodeURIComponent(entry.id)}`, {
+          method: "DELETE",
+        });
+        await loadEntries();
+      } catch (error) {
+        window.alert(error.message);
+      }
+    });
+  });
+
+  listNode.querySelectorAll("[data-page-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.pageAction === "prev" && state.currentPage > 1) {
+        state.currentPage -= 1;
+      }
+      if (button.dataset.pageAction === "next" && state.currentPage < pagination.pageCount) {
+        state.currentPage += 1;
+      }
+      renderList();
     });
   });
 }
@@ -615,9 +757,98 @@ answersModalNode?.addEventListener("click", (event) => {
   }
 });
 
+appointmentModalNode?.addEventListener("click", (event) => {
+  if (event.target.dataset.action === "close-ds160-appointment") {
+    closeAppointmentModal();
+  }
+});
+
+editModalNode?.addEventListener("click", (event) => {
+  if (event.target.dataset.action === "close-ds160-edit") {
+    closeEditModal();
+  }
+});
+
+appointmentForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(appointmentForm);
+  const payload = Object.fromEntries(formData.entries());
+  const recordId = payload.id;
+  const button = appointmentForm.querySelector('button[type="submit"]');
+  if (!recordId) return;
+
+  button.disabled = true;
+  button.textContent = "Saving...";
+  setAppointmentStatus("Saving appointment...");
+
+  try {
+    await fetchJson(`/api/ds160/${encodeURIComponent(recordId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        appointmentDate: payload.appointmentDate,
+        appointmentTime: payload.appointmentTime,
+      }),
+    });
+    setAppointmentStatus("Appointment saved.");
+    await loadEntries();
+    window.setTimeout(() => {
+      closeAppointmentModal();
+    }, 400);
+  } catch (error) {
+    setAppointmentStatus(error.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save appointment";
+  }
+});
+
+editForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(editForm);
+  const payload = Object.fromEntries(formData.entries());
+  const recordId = payload.id;
+  const button = editForm.querySelector('button[type="submit"]');
+  if (!recordId) return;
+
+  button.disabled = true;
+  button.textContent = "Saving...";
+  setEditStatus("Saving changes...");
+
+  try {
+    await fetchJson(`/api/ds160/${encodeURIComponent(recordId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientName: payload.clientName,
+        clientEmail: payload.clientEmail,
+        clientPhone: payload.clientPhone,
+        managerName: payload.managerName,
+        internalNotes: payload.internalNotes,
+      }),
+    });
+    setEditStatus("Changes saved.");
+    await loadEntries();
+    window.setTimeout(() => {
+      closeEditModal();
+    }, 400);
+  } catch (error) {
+    setEditStatus(error.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save changes";
+  }
+});
+
 [searchInput, statusFilter, managerFilter, dateFromInput, dateToInput].forEach((node) => {
-  node?.addEventListener("input", renderList);
-  node?.addEventListener("change", renderList);
+  node?.addEventListener("input", () => {
+    state.currentPage = 1;
+    renderList();
+  });
+  node?.addEventListener("change", () => {
+    state.currentPage = 1;
+    renderList();
+  });
 });
 
 async function init() {

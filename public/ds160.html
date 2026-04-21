@@ -68,25 +68,6 @@
             </div>
           </div>
 
-          <div class="ds160-inline-summary" aria-label="DS-160 summary">
-            <article class="ds160-inline-stat">
-              <span>Sent</span>
-              <strong id="ds160-summary-sent">0</strong>
-            </article>
-            <article class="ds160-inline-stat">
-              <span>Submitted</span>
-              <strong id="ds160-summary-submitted">0</strong>
-            </article>
-            <article class="ds160-inline-stat">
-              <span>Managers</span>
-              <strong id="ds160-summary-managers">0</strong>
-            </article>
-            <article class="ds160-inline-stat">
-              <span>Total</span>
-              <strong id="ds160-summary-total">0</strong>
-            </article>
-          </div>
-
           <div class="manager-filter-row ds160-filter-grid">
             <label>
               Search
@@ -185,7 +166,77 @@
       </div>
     </div>
 
+    <div id="ds160-appointment-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-ds160-appointment"></div>
+      <div class="camp-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Appointment Date And Time</h2>
+            <p class="camp-modal-copy">Add or update the manual embassy appointment schedule for this client.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-ds160-appointment" aria-label="Close appointment window">×</button>
+        </div>
+
+        <form id="ds160-appointment-form" class="manager-form-grid manager-form-grid-vertical">
+          <input type="hidden" name="id" />
+          <label>
+            Appointment date
+            <input name="appointmentDate" type="date" />
+          </label>
+          <label>
+            Appointment time
+            <input name="appointmentTime" type="time" />
+          </label>
+          <div class="actions">
+            <button type="submit">Save appointment</button>
+            <p id="ds160-appointment-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="ds160-edit-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-ds160-edit"></div>
+      <div class="camp-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Edit DS-160 Info</h2>
+            <p class="camp-modal-copy">Update the client and manager information for this DS-160 record.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-ds160-edit" aria-label="Close edit window">×</button>
+        </div>
+
+        <form id="ds160-edit-form" class="manager-form-grid manager-form-grid-vertical">
+          <input type="hidden" name="id" />
+          <label>
+            Client name
+            <input name="clientName" required />
+          </label>
+          <label>
+            Client email
+            <input name="clientEmail" type="email" required />
+          </label>
+          <label>
+            Client phone
+            <input name="clientPhone" />
+          </label>
+          <label>
+            Manager
+            <select name="managerName" id="ds160-edit-manager-select"></select>
+          </label>
+          <label class="full-span">
+            Internal note
+            <textarea name="internalNotes" rows="3"></textarea>
+          </label>
+          <div class="actions">
+            <button type="submit">Save changes</button>
+            <p id="ds160-edit-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/ds160.js?v=workspace-3"></script>
+    <script src="/ds160.js?v=workspace-4"></script>
   </body>
 </html>
