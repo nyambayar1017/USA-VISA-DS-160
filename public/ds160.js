@@ -258,7 +258,7 @@ function formatDateTime(value) {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString();
+  return parsed.toISOString().slice(0, 10);
 }
 
 function formatAppointment(dateValue, timeValue) {
@@ -270,8 +270,8 @@ function formatAppointment(dateValue, timeValue) {
   if (Number.isNaN(parsed.getTime())) {
     return [datePart, timePart].filter(Boolean).join(" ");
   }
-  const formattedDate = parsed.toLocaleDateString();
-  return timePart ? `${formattedDate}, ${timePart}` : formattedDate;
+  const formattedDate = parsed.toISOString().slice(0, 10);
+  return timePart ? `${formattedDate} ${timePart}` : formattedDate;
 }
 
 function dateKey(value) {

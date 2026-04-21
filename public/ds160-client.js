@@ -369,8 +369,14 @@ async function loadForm() {
     throw new Error(result.error || "Form not found");
   }
   const entry = result.entry || {};
-  summaryNode.textContent = `${entry.clientName || "Client"} • ${entry.clientEmail || "-"} • Менежер: ${entry.managerName || "-"}`;
-  applyPayload(entry.payload || {});
+  summaryNode.textContent = `${entry.clientName || "Харилцагч"} • ${entry.clientEmail || "-"} • Менежер: ${entry.managerName || "-"}`;
+  try {
+    applyPayload(entry.payload || {});
+  } catch (error) {
+    console.error(error);
+    statusNode.textContent = "Өмнөх мэдээллийг бүрэн ачаалж чадсангүй. Шинээр бөглөж болно.";
+    statusNode.dataset.tone = "error";
+  }
   if (!fieldValue("nationality")) setFieldValue("nationality", "MONGOLIA");
   if (!fieldValue("birthCountry")) setFieldValue("birthCountry", "MONGOLIA");
   syncConditionalFields();
@@ -426,10 +432,8 @@ mobileMenu?.addEventListener("click", (event) => {
 });
 
 loadForm().catch((error) => {
+  console.error(error);
   summaryNode.textContent = error.message;
   statusNode.textContent = error.message;
   statusNode.dataset.tone = "error";
-  form.querySelectorAll("input, select, textarea, button").forEach((node) => {
-    node.disabled = true;
-  });
 });

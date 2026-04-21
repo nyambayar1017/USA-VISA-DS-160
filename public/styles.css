@@ -3148,21 +3148,27 @@ body.modal-open {
 
 .ds160-action-menu {
   display: inline-block;
-  width: min(220px, 100%);
+  width: min(180px, 100%);
 }
 
 .ds160-action-menu .trip-menu-popover {
-  min-width: 210px;
+  min-width: 170px;
+  padding: 8px;
+  border-radius: 16px;
 }
 
 .ds160-action-menu[open] .trip-menu-popover {
   position: static;
-  margin-top: 10px;
+  margin-top: 8px;
   min-width: 100%;
 }
 
 .ds160-action-menu .trip-menu-item {
   text-decoration: none;
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
 .ds160-actions-cell {
@@ -3250,7 +3256,7 @@ body.modal-open {
 .ds160-client-shell {
   width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 40px 0 56px;
+  padding: 28px 0 48px;
 }
 
 .ds160-client-hero {
@@ -3263,8 +3269,8 @@ body.modal-open {
 
 .ds160-client-workspace {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }
 
@@ -3272,7 +3278,7 @@ body.modal-open {
   position: sticky;
   top: 120px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   padding: 10px 0 10px 6px;
 }
 
@@ -3287,11 +3293,12 @@ body.modal-open {
 
 .ds160-topic-link {
   display: block;
-  padding: 12px 14px;
-  border-radius: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
   background: rgba(239, 244, 255, 0.82);
   color: var(--brand);
   text-decoration: none;
+  font-size: 0.92rem;
   font-weight: 700;
 }
 
@@ -3315,6 +3322,15 @@ body.modal-open {
   color: #6a7694;
   font-size: 0.88rem;
   font-weight: 700;
+}
+
+.ds160-client-card .section-head h2 {
+  font-size: 1.9rem;
+}
+
+.ds160-client-card .section-head p,
+.ds160-client-card .workspace-subtitle {
+  font-size: 0.98rem;
 }
 
 .field-stack {
