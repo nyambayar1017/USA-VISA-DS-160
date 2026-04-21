@@ -3536,7 +3536,7 @@ body.modal-open {
 .fifa-match-card {
   border: 1px solid rgba(32, 53, 111, 0.07);
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
   background: #ffffff;
   box-shadow: none;
 }
@@ -3709,6 +3709,11 @@ body.modal-open {
   font-size: 0.96rem;
   font-weight: 500;
   white-space: nowrap;
+}
+
+.fifa-match-col--actions {
+  position: relative;
+  z-index: 3;
 }
 
 .fifa-table-sub {

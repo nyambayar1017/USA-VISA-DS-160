@@ -2678,6 +2678,12 @@ ticketList?.addEventListener("click", async (event) => {
     return;
   }
 
+  const actionColumn = event.target.closest(".fifa-match-col--actions");
+  if (actionColumn && !event.target.closest("[data-action]") && !event.target.closest(".trip-menu")) {
+    event.stopPropagation();
+    return;
+  }
+
   const checkbox = event.target.closest('input[type="checkbox"][data-action="select-ticket"]');
   if (checkbox) {
     if (checkbox.checked) state.selectedTickets.add(checkbox.dataset.id);
@@ -2797,6 +2803,12 @@ ticketList?.addEventListener("click", async (event) => {
 saleList?.addEventListener("click", async (event) => {
   const menuTrigger = event.target.closest(".trip-menu summary");
   if (menuTrigger) {
+    event.stopPropagation();
+    return;
+  }
+
+  const actionColumn = event.target.closest(".fifa-match-col--actions");
+  if (actionColumn && !event.target.closest("button[data-action]") && !event.target.closest(".trip-menu")) {
     event.stopPropagation();
     return;
   }
