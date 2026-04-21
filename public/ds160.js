@@ -2,6 +2,8 @@ const sendForm = document.querySelector("#ds160-send-form");
 const sendStatus = document.querySelector("#ds160-send-status");
 const listNode = document.querySelector("#ds160-list");
 const detailNode = document.querySelector("#ds160-detail");
+const modalNode = document.querySelector("#ds160-create-modal");
+const openCreateButton = document.querySelector("#ds160-open-create");
 const latestLinkCard = document.querySelector("#ds160-latest-link");
 const shareLinkNode = document.querySelector("#ds160-share-link");
 const copyLinkButton = document.querySelector("#ds160-copy-link");
@@ -11,6 +13,8 @@ const managerSelect = document.querySelector("#ds160-manager-select");
 const managerFilter = document.querySelector("#ds160-manager-filter");
 const searchInput = document.querySelector("#ds160-search");
 const statusFilter = document.querySelector("#ds160-status-filter");
+const dateFromInput = document.querySelector("#ds160-date-from");
+const dateToInput = document.querySelector("#ds160-date-to");
 
 const summaryTotal = document.querySelector("#ds160-summary-total");
 const summarySent = document.querySelector("#ds160-summary-sent");
@@ -41,6 +45,13 @@ function formatDateTime(value) {
   return parsed.toLocaleString();
 }
 
+function dateKey(value) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
+  return parsed.toISOString().slice(0, 10);
+}
+
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
   const data = await response.json();
@@ -50,17 +61,29 @@ async function fetchJson(url, options) {
   return data;
 }
 
-function setStatus(message, isError = false) {
-  sendStatus.textContent = message;
-  sendStatus.dataset.tone = isError ? "error" : "ok";
-}
-
 function buildMailtoLink(email, name, url) {
   const subject = encodeURIComponent("TravelX DS-160 form");
   const body = encodeURIComponent(
     `Сайн байна уу${name ? ` ${name}` : ""},\n\nТа доорх холбоосоор DS-160 маягтаа бөглөнө үү.\n\n${url}\n\nБаярлалаа.\nTravelX`
   );
   return email ? `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}` : "#";
+}
+
+function setStatus(message, isError = false) {
+  sendStatus.textContent = message;
+  sendStatus.dataset.tone = isError ? "error" : "ok";
+}
+
+function openModal() {
+  modalNode.classList.remove("is-hidden");
+  modalNode.removeAttribute("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeModal() {
+  modalNode.classList.add("is-hidden");
+  modalNode.setAttribute("hidden", "");
+  document.body.classList.remove("modal-open");
 }
 
 function setLatestLink(url, email = "", name = "") {
@@ -85,22 +108,36 @@ function setLatestLink(url, email = "", name = "") {
 }
 
 function statusLabel(status) {
-  if (status === "submitted") return "Submitted";
-  return "Sent";
+  return status === "submitted" ? "Submitted" : "Sent";
 }
 
 function statusClass(status) {
   return status === "submitted" ? "is-confirmed" : "is-pending";
 }
 
+function sortEntries(entries) {
+  return [...entries].sort((a, b) => {
+    const left = b.submittedAt || b.updatedAt || b.createdAt || "";
+    const right = a.submittedAt || a.updatedAt || a.createdAt || "";
+    return String(left).localeCompare(String(right));
+  });
+}
+
 function filteredEntries() {
   const query = String(searchInput.value || "").trim().toLowerCase();
   const status = statusFilter.value;
   const manager = managerFilter.value;
+  const dateFrom = dateFromInput.value;
+  const dateTo = dateToInput.value;
 
-  return state.entries.filter((entry) => {
+  return sortEntries(state.entries).filter((entry) => {
     if (status !== "all" && entry.status !== status) return false;
     if (manager && entry.managerName !== manager) return false;
+
+    const recordDate = dateKey(entry.submittedAt || entry.createdAt);
+    if (dateFrom && recordDate && recordDate < dateFrom) return false;
+    if (dateTo && recordDate && recordDate > dateTo) return false;
+
     if (!query) return true;
     return [
       entry.clientName,
@@ -121,14 +158,21 @@ function renderSummary() {
 }
 
 function renderManagerOptions() {
-  const members = state.teamMembers.length
-    ? state.teamMembers
-    : [{ fullName: currentProfile?.fullName || currentProfile?.email || "Current user" }];
+  const fallbackProfile =
+    typeof currentProfile !== "undefined" && currentProfile
+      ? { fullName: currentProfile.fullName || currentProfile.email || "Current user" }
+      : { fullName: "Current user" };
+  const members = state.teamMembers.length ? state.teamMembers : [fallbackProfile];
 
   managerSelect.innerHTML = members
     .map((member) => `<option value="${escapeHtml(member.fullName)}">${escapeHtml(member.fullName)}</option>`)
     .join("");
-  if (currentProfile?.fullName && members.some((member) => member.fullName === currentProfile.fullName)) {
+
+  if (
+    typeof currentProfile !== "undefined" &&
+    currentProfile?.fullName &&
+    members.some((member) => member.fullName === currentProfile.fullName)
+  ) {
     managerSelect.value = currentProfile.fullName;
   }
 
@@ -161,9 +205,9 @@ function renderList() {
           <th>Client</th>
           <th>Manager</th>
           <th>Status</th>
-          <th>Submitted</th>
+          <th>Date</th>
           <th>Passport</th>
-          <th>Action</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -177,15 +221,15 @@ function renderList() {
                 </td>
                 <td>${escapeHtml(entry.managerName || "-")}</td>
                 <td><span class="status-pill ${statusClass(entry.status)}">${statusLabel(entry.status)}</span></td>
-                <td>${escapeHtml(formatDateTime(entry.submittedAt || entry.updatedAt || entry.createdAt))}</td>
+                <td>${escapeHtml(formatDateTime(entry.submittedAt || entry.createdAt))}</td>
                 <td>${escapeHtml(entry.passportNumber || "-")}</td>
                 <td>
                   <div class="manager-inline-actions manager-inline-actions-compact">
-                    <button type="button" class="secondary-button" data-copy-link="${escapeHtml(entry.shareUrl || "")}">Copy link</button>
-                      <a class="secondary-button" href="${escapeHtml(
-                        buildMailtoLink(entry.clientEmail, entry.clientName || entry.applicantName, entry.shareUrl || "")
-                      )}">Email</a>
-                      <a class="secondary-button" href="${escapeHtml(entry.shareUrl || "#")}" target="_blank" rel="noreferrer">Open</a>
+                    <button type="button" class="secondary-button" data-copy-link="${escapeHtml(entry.shareUrl || "")}">Copy</button>
+                    <a class="secondary-button" href="${escapeHtml(
+                      buildMailtoLink(entry.clientEmail, entry.clientName || entry.applicantName, entry.shareUrl || "")
+                    )}">Email</a>
+                    <a class="secondary-button" href="${escapeHtml(entry.shareUrl || "#")}" target="_blank" rel="noreferrer">Open</a>
                   </div>
                 </td>
               </tr>
@@ -212,7 +256,7 @@ function renderList() {
       await navigator.clipboard.writeText(link);
       button.textContent = "Copied";
       setTimeout(() => {
-        button.textContent = "Copy link";
+        button.textContent = "Copy";
       }, 1500);
     });
   });
@@ -268,8 +312,20 @@ function renderDetail() {
           )}</p>
         </div>
       </div>
+      <div class="manager-inline-actions">
+        <button type="button" class="secondary-button" id="ds160-detail-copy">Copy link</button>
+        <a class="secondary-button" href="${escapeHtml(
+          buildMailtoLink(entry.clientEmail, entry.clientName || entry.applicantName, entry.shareUrl || "")
+        )}">Email client</a>
+        <a class="secondary-button" href="${escapeHtml(entry.shareUrl || "#")}" target="_blank" rel="noreferrer">Open form</a>
+      </div>
     </article>
   `;
+
+  detailNode.querySelector("#ds160-detail-copy")?.addEventListener("click", async () => {
+    if (!entry.shareUrl) return;
+    await navigator.clipboard.writeText(entry.shareUrl);
+  });
 }
 
 async function loadTeamMembers() {
@@ -310,10 +366,7 @@ sendForm.addEventListener("submit", async (event) => {
       await navigator.clipboard.writeText(entry.shareUrl);
     }
     setStatus("DS-160 link created and copied.");
-    sendForm.reset();
-    if (managerSelect.value) {
-      sendForm.elements.managerName.value = managerSelect.value;
-    }
+    state.selectedId = entry.id;
     await loadEntries();
   } catch (error) {
     setStatus(error.message, true);
@@ -337,7 +390,24 @@ openLinkButton?.addEventListener("click", () => {
   window.open(state.latestLink, "_blank", "noopener");
 });
 
-[searchInput, statusFilter, managerFilter].forEach((node) => {
+openCreateButton?.addEventListener("click", () => {
+  sendForm.reset();
+  if (managerSelect.value) {
+    sendForm.elements.managerName.value = managerSelect.value;
+  }
+  setLatestLink("");
+  setStatus("");
+  closeModal();
+  openModal();
+});
+
+modalNode?.addEventListener("click", (event) => {
+  if (event.target.dataset.action === "close-ds160-modal") {
+    closeModal();
+  }
+});
+
+[searchInput, statusFilter, managerFilter, dateFromInput, dateToInput].forEach((node) => {
   node?.addEventListener("input", renderList);
   node?.addEventListener("change", renderList);
 });

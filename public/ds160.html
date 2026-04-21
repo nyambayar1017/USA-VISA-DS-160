@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-71" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-72" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -31,10 +31,10 @@
         <section class="workspace-topbar">
           <div>
             <p class="workspace-kicker">DS-160</p>
-            <h1>Send, track, and review client forms</h1>
+            <h1>Filled forms and client link workflow</h1>
             <p class="workspace-subtitle">
-              Create a shareable DS-160 intake link, send it to the client, and
-              see every submitted form in one place like the contract module.
+              Review submitted DS-160 forms first, filter them fast, and create
+              new client links only when you need one.
             </p>
           </div>
           <div class="workspace-profile">
@@ -48,126 +48,129 @@
           <article class="manager-stat-card">
             <p class="manager-stat-label">Sent Forms</p>
             <strong id="ds160-summary-sent">0</strong>
-            <span>Links already ready to send to clients.</span>
+            <span>Ready links waiting for client action.</span>
           </article>
           <article class="manager-stat-card">
             <p class="manager-stat-label">Submitted</p>
             <strong id="ds160-summary-submitted">0</strong>
-            <span>Client forms completed and ready for staff.</span>
+            <span>Completed client forms your team can review.</span>
           </article>
           <article class="manager-stat-card">
             <p class="manager-stat-label">Managers</p>
             <strong id="ds160-summary-managers">0</strong>
-            <span>Approved staff who can view the filled forms.</span>
+            <span>Approved staff who can see all DS-160 records.</span>
           </article>
           <article class="manager-stat-card">
             <p class="manager-stat-label">Total Forms</p>
             <strong id="ds160-summary-total">0</strong>
-            <span>All DS-160 requests across the team.</span>
+            <span>All sent and submitted DS-160 requests.</span>
           </article>
         </section>
 
-        <section class="manager-dashboard-grid manager-dashboard-grid-triple ds160-layout">
-          <article class="card manager-panel">
-            <div class="dashboard-head">
-              <div>
-                <h2>Send DS-160 Form</h2>
-                <p class="workspace-subtitle manager-panel-copy">
-                  Create a client link first, then share it by message or email.
-                </p>
-              </div>
+        <section class="card manager-panel ds160-primary-panel">
+          <div class="dashboard-head">
+            <div>
+              <h2>Filled Forms</h2>
+              <p class="workspace-subtitle manager-panel-copy">
+                Filter by client, manager, status, and date. Click a record to
+                see the full preview inside the same workspace.
+              </p>
             </div>
-
-            <form id="ds160-send-form" class="manager-form-grid manager-form-grid-vertical">
-              <label>
-                Client name
-                <input name="clientName" required />
-              </label>
-              <label>
-                Client email
-                <input name="clientEmail" type="email" required />
-              </label>
-              <label>
-                Client phone
-                <input name="clientPhone" />
-              </label>
-              <label>
-                Manager
-                <select name="managerName" id="ds160-manager-select"></select>
-              </label>
-              <label class="full-span">
-                Internal note
-                <textarea name="internalNotes" rows="3" placeholder="Trip name, visa type, reminders, or special instructions"></textarea>
-              </label>
-              <div class="actions">
-                <button type="submit">Create and copy link</button>
-                <p id="ds160-send-status" class="status"></p>
-              </div>
-            </form>
-
-            <div id="ds160-latest-link" class="ds160-share-card is-hidden" hidden>
-              <p class="hero-panel-label">Latest share link</p>
-              <a id="ds160-share-link" target="_blank" rel="noreferrer"></a>
-              <div class="manager-inline-actions">
-                <button type="button" id="ds160-copy-link" class="secondary-button">Copy link</button>
-                <a id="ds160-email-link" class="secondary-button" href="#">Email client</a>
-                <button type="button" id="ds160-open-link" class="secondary-button">Open form</button>
-              </div>
+            <div class="ds160-toolbar-actions">
+              <button type="button" id="ds160-open-create" class="ds160-create-trigger">Create DS-160</button>
             </div>
-          </article>
+          </div>
 
-          <article class="card manager-panel">
-            <div class="dashboard-head">
-              <div>
-                <h2>Filled Forms</h2>
-                <p class="workspace-subtitle manager-panel-copy">
-                  Every manager can see the submitted DS-160 records here.
-                </p>
-              </div>
-            </div>
+          <div class="manager-filter-row ds160-filter-grid">
+            <label>
+              Search
+              <input id="ds160-search" type="search" placeholder="Name, email, passport, manager" />
+            </label>
+            <label>
+              Status
+              <select id="ds160-status-filter">
+                <option value="all">All</option>
+                <option value="sent">Sent</option>
+                <option value="submitted">Submitted</option>
+              </select>
+            </label>
+            <label>
+              Manager
+              <select id="ds160-manager-filter">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label>
+              From date
+              <input id="ds160-date-from" type="date" />
+            </label>
+            <label>
+              To date
+              <input id="ds160-date-to" type="date" />
+            </label>
+          </div>
 
-            <div class="manager-filter-row">
-              <label>
-                Search
-                <input id="ds160-search" type="search" placeholder="Client, email, passport, manager" />
-              </label>
-              <label>
-                Status
-                <select id="ds160-status-filter">
-                  <option value="all">All</option>
-                  <option value="sent">Sent</option>
-                  <option value="submitted">Submitted</option>
-                </select>
-              </label>
-              <label>
-                Manager
-                <select id="ds160-manager-filter">
-                  <option value="">All</option>
-                </select>
-              </label>
-            </div>
-
-            <div id="ds160-list" class="manager-table-wrap"></div>
-          </article>
-
-          <article class="card manager-panel">
-            <div class="dashboard-head">
-              <div>
-                <h2>Form Preview</h2>
-                <p class="workspace-subtitle manager-panel-copy">
-                  Click a record to inspect the latest details and answers.
-                </p>
-              </div>
-            </div>
-            <div id="ds160-detail" class="manager-list">
+          <div class="ds160-master-detail">
+            <div id="ds160-list" class="manager-table-wrap ds160-list-panel"></div>
+            <div id="ds160-detail" class="manager-list ds160-detail-panel">
               <p class="empty">Choose a DS-160 record from the list to view it here.</p>
             </div>
-          </article>
+          </div>
         </section>
       </main>
     </div>
 
+    <div id="ds160-create-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-ds160-modal"></div>
+      <div class="camp-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Create DS-160 link</h2>
+            <p class="camp-modal-copy">Create the client form request here, then copy or open the link.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-ds160-modal" aria-label="Close DS-160 window">×</button>
+        </div>
+
+        <form id="ds160-send-form" class="manager-form-grid manager-form-grid-vertical">
+          <label>
+            Client name
+            <input name="clientName" required />
+          </label>
+          <label>
+            Client email
+            <input name="clientEmail" type="email" required />
+          </label>
+          <label>
+            Client phone
+            <input name="clientPhone" />
+          </label>
+          <label>
+            Manager
+            <select name="managerName" id="ds160-manager-select"></select>
+          </label>
+          <label class="full-span">
+            Internal note
+            <textarea name="internalNotes" rows="3" placeholder="Trip name, visa type, reminders, or special instructions"></textarea>
+          </label>
+          <div class="actions">
+            <button type="submit">Create and copy link</button>
+            <p id="ds160-send-status" class="status"></p>
+          </div>
+        </form>
+
+        <div id="ds160-latest-link" class="ds160-share-card is-hidden" hidden>
+          <p class="hero-panel-label">Latest share link</p>
+          <a id="ds160-share-link" target="_blank" rel="noreferrer"></a>
+          <div class="manager-inline-actions">
+            <button type="button" id="ds160-copy-link" class="secondary-button">Copy link</button>
+            <a id="ds160-email-link" class="secondary-button" href="#">Email client</a>
+            <button type="button" id="ds160-open-link" class="secondary-button">Open form</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/ds160.js?v=workspace-1"></script>
+    <script src="/ds160.js?v=workspace-2"></script>
   </body>
 </html>
