@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-73" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-74" />
   </head>
   <body class="app-body ds160-client-body">
     <header class="travelx-site-header">
@@ -77,253 +77,457 @@
           <a class="secondary-button" href="https://www.travelx.mn" target="_blank" rel="noreferrer">TravelX</a>
         </div>
 
-        <form id="ds160-client-form" class="intake-form ds160-client-form">
-          <section class="form-section">
-            <div class="section-head">
-              <h2>1. Хувийн үндсэн мэдээлэл</h2>
-              <p>Паспорт болон иргэний бичиг баримт дээрх мэдээллээ оруулна уу.</p>
-            </div>
-            <div class="field-grid">
-              <label>Овог<input name="surname" required /></label>
-              <label>Нэр<input name="givenName" required /></label>
-              <label class="full-span">Төрсөн хэлээрх бүтэн нэр<input name="nativeFullName" placeholder="Жишээ: БОЛД БАТ" /></label>
-              <label>Хүйс<select name="sex" required><option value="">Сонгох</option><option>Эрэгтэй</option><option>Эмэгтэй</option></select></label>
-              <label>Гэр бүлийн байдал<select name="maritalStatus" required><option value="">Сонгох</option><option>Ганц бие</option><option>Гэрлэсэн</option><option>Салсан</option><option>Бэлэвсэн</option><option>Тусдаа амьдардаг</option></select></label>
-              <label>Төрсөн өдөр<input name="dateOfBirth" type="date" required /></label>
-              <label>Төрсөн хот / сум / дүүрэг<input name="birthCity" required /></label>
-              <label>Төрсөн аймаг / муж<input name="birthProvince" /></label>
-              <label>Төрсөн улс<input name="birthCountry" value="Монгол Улс" required /></label>
-              <label>Иргэншил<input name="nationality" value="Монгол Улс" required /></label>
-              <label>Бусад нэр хэрэглэж байсан эсэх<select name="usedOtherNames"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Хэрэв тийм бол өмнө хэрэглэж байсан нэрс<textarea name="otherNamesDetails" rows="3"></textarea></label>
-              <label>Теле кодтой эсэх<select name="hasTelecode"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>Теле код<input name="telecode" /></label>
-            </div>
-          </section>
+        <div class="ds160-client-workspace">
+            <aside class="ds160-client-nav" aria-label="DS-160 topics">
+            <p class="ds160-client-nav-label">Sections</p>
+            <a class="ds160-topic-link" href="#section-personal">Personal</a>
+            <a class="ds160-topic-link" href="#section-travel">Travel</a>
+            <a class="ds160-topic-link" href="#section-companions">Travel Companions</a>
+            <a class="ds160-topic-link" href="#section-us-travel">Previous U.S. Travel</a>
+            <a class="ds160-topic-link" href="#section-address">Address And Phone</a>
+            <a class="ds160-topic-link" href="#section-passport">Passport</a>
+            <a class="ds160-topic-link" href="#section-contact">U.S. Contact</a>
+              <a class="ds160-topic-link" href="#section-family">Family</a>
+              <a class="ds160-topic-link" href="#section-work">Work / Education</a>
+              <a class="ds160-topic-link" href="#section-social">Social / Languages</a>
+              <a class="ds160-topic-link" href="#section-security">Security And Background</a>
+              <a class="ds160-topic-link" href="#section-notes">Additional Notes</a>
+            </aside>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>2. Хаяг болон холбоо барих мэдээлэл</h2>
-              <p>Өөртэй тань холбогдох мэдээллийг үнэн зөв бичнэ үү.</p>
-            </div>
-            <div class="field-grid">
-              <label class="full-span">Гэрийн хаяг 1-р мөр<input name="homeAddressLine1" required /></label>
-              <label class="full-span">Гэрийн хаяг 2-р мөр<input name="homeAddressLine2" /></label>
-              <label>Хот / сум / дүүрэг<input name="homeCity" required /></label>
-              <label>Аймаг / муж<input name="homeProvince" /></label>
-              <label>Шуудангийн код<input name="homePostalCode" /></label>
-              <label>Улс<input name="homeCountry" value="Монгол Улс" required /></label>
-              <label>Шуудангийн хаяг гэрийн хаягтай адил эсэх<select name="mailingSameAsHome"><option value="">Сонгох</option><option>Тийм</option><option>Үгүй</option></select></label>
-              <label class="full-span">Шуудангийн хаяг<textarea name="mailingAddress" rows="3"></textarea></label>
-              <label>Үндсэн утас<input name="primaryPhone" required /></label>
-              <label>Нэмэлт утас<input name="secondaryPhone" /></label>
-              <label>Ажлын утас<input name="workPhone" /></label>
-              <label>Сүүлийн 5 жилд өөр утас хэрэглэж байсан эсэх<select name="usedOtherPhones"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Өөр хэрэглэж байсан утаснууд<textarea name="otherPhoneDetails" rows="3"></textarea></label>
-              <label class="full-span">Имэйл хаяг<input name="email" type="email" required /></label>
-              <label>Сүүлийн 5 жилд өөр имэйл хэрэглэж байсан эсэх<select name="usedOtherEmails"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Өөр имэйл хаягууд<textarea name="otherEmailDetails" rows="3"></textarea></label>
-            </div>
-          </section>
+          <form id="ds160-client-form" class="intake-form ds160-client-form">
+            <section id="section-personal" class="form-section">
+              <div class="section-head">
+                <div>
+                  <h2>1. Personal</h2>
+                  <p>Паспорт дээр байгаа мэдээллээ яг адилхан оруулна уу.</p>
+                </div>
+                <p class="form-note">Бүх үсэг автоматаар ТОМООР бичигдэнэ.</p>
+              </div>
+              <div class="field-grid">
+                <label>Овог<input name="surname" required /></label>
+                <label>Нэр<input name="givenName" required /></label>
+                <label class="full-span">Крилээр өөрийн нэрийг бичих<input name="nativeFullName" required /></label>
+                <label>Та нэрээ сольж байсан уу?
+                  <select name="usedOtherNames">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label id="previous-surname-field" hidden>Өмнөх овог<input name="previousSurname" /></label>
+                <label id="previous-given-name-field" hidden>Өмнөх нэр<input name="previousGivenName" /></label>
+                <label>Теле кодтой эсэх
+                  <select name="hasTelecode">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label id="telecode-field" hidden>
+                  Теле код
+                  <input name="telecode" maxlength="4" />
+                  <span class="helper">Ром үсгийн оронд хэрэглэдэг 4 оронтой код байвал бичнэ үү.</span>
+                </label>
+                <label>Хүйс
+                  <select name="sex" required>
+                    <option value="">Сонгох</option>
+                    <option value="ЭРЭГТЭЙ">Эрэгтэй</option>
+                    <option value="ЭМЭГТЭЙ">Эмэгтэй</option>
+                  </select>
+                </label>
+                <label>Гэрлэлтийн лавлагаа
+                  <select name="maritalStatus" required>
+                    <option value="">Сонгох</option>
+                    <option value="ГЭРЛЭСЭН">Гэрэлсэн</option>
+                    <option value="ГАНЦ БИЕ">Ганц бие</option>
+                    <option value="САЛСАН">Салсан</option>
+                    <option value="БЭЛЭВСЭН">Бэлэвсэн</option>
+                  </select>
+                </label>
+                <div class="full-span field-stack">
+                  <span>Төрсөн өдөр</span>
+                  <div class="segment-row">
+                    <label class="segment-field">
+                      Өдөр
+                      <select name="birthDay" data-day-select required></select>
+                    </label>
+                    <label class="segment-field">
+                      Сар
+                      <select name="birthMonth" data-month-select required></select>
+                    </label>
+                    <label class="segment-field">
+                      Жил
+                      <select name="birthYear" data-birth-year-select required></select>
+                    </label>
+                  </div>
+                </div>
+                <label>Төрсөн улс
+                  <select name="birthCountry" data-country-select required></select>
+                </label>
+                <label>Одоогийн иргэншил
+                  <select name="nationality" data-country-select required></select>
+                </label>
+                <label>Өөр улсын иргэншилтэй байсан эсэх
+                  <select name="hadOtherNationality">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label id="other-nationality-field" hidden>Ямар улсын иргэншил байсан бэ?
+                  <select name="otherNationalityCountry" data-country-select></select>
+                </label>
+                <label>Регистрийн дугаар<input name="registerNumber" required /></label>
+                <label>US нийгмийн даатгалын дугаартай эсэх
+                  <select name="hasUsSsn">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label id="us-ssn-field" hidden>US нийгмийн даатгалын дугаар<input name="usSsn" /></label>
+                <label>US татвар төлөгчийн дугаартай эсэх
+                  <select name="hasUsTaxId">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label id="us-tax-id-field" hidden>US татвар төлөгчийн дугаар<input name="usTaxId" /></label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>3. Паспортын мэдээлэл</h2>
-              <p>Аялалд ашиглах паспортын мэдээллээ оруулна уу.</p>
-            </div>
-            <div class="field-grid">
-              <label>Паспортын төрөл<select name="passportType" required><option value="">Сонгох</option><option>Энгийн</option><option>Албан</option><option>Дипломат</option><option>Бусад</option></select></label>
-              <label>Паспортын дугаар<input name="passportNumber" required /></label>
-              <label>Паспортын дэвтрийн дугаар байхгүй эсэх<select name="passportBookNumberNotApplicable"><option value="">Сонгох</option><option>Тийм</option><option>Үгүй</option></select></label>
-              <label>Паспортын дэвтрийн дугаар<input name="passportBookNumber" /></label>
-              <label>Паспорт олгосон улс / байгууллага<input name="passportIssuingCountry" value="Монгол Улс" required /></label>
-              <label>Паспорт олгосон хот<input name="passportIssueCity" /></label>
-              <label>Паспорт олгосон аймаг / муж<input name="passportIssueProvince" /></label>
-              <label>Паспорт олгосон улс<input name="passportIssueCountry" value="Монгол Улс" /></label>
-              <label>Паспорт олгосон өдөр<input name="passportIssueDate" type="date" required /></label>
-              <label>Паспортын хүчинтэй хугацаа дуусах өдөр<input name="passportExpiryDate" type="date" required /></label>
-              <label>Паспорт үрэгдүүлж / хулгайд алдсан эсэх<select name="lostPassport"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Хэрэв тийм бол тайлбар<textarea name="lostPassportDetails" rows="3"></textarea></label>
-            </div>
-          </section>
+            <section id="section-travel" class="form-section">
+              <div class="section-head">
+                <h2>2. Travel Information</h2>
+                <p>Аяллын зорилго, маршрутын мэдээлэл, байрлах хаяг, зардал төлөгчийг бөглөнө үү.</p>
+              </div>
+              <div class="field-grid">
+                <label>Аяллын зорилго
+                  <select name="tripPurposeCategory" required>
+                    <option value="">Сонгох</option>
+                    <option value="A">ГАДААДЫН ЗАСГИЙН ГАЗРЫН АЛБАН ХААГЧ (A)</option>
+                    <option value="B">ТҮР БИЗНЕС ЭСВЭЛ АЯЛАЛ ЖУУЛЧЛАЛЫН ЗОЧИН (B)</option>
+                    <option value="C">ДАМЖИН ӨНГӨРӨХ ЗОРЧИГЧ (C)</option>
+                    <option value="CW/E2C">CNMI АЖИЛТАН ЭСВЭЛ ХӨРӨНГӨ ОРУУЛАГЧ (CW/E2C)</option>
+                    <option value="D">БАГИЙН ГИШҮҮН (D)</option>
+                    <option value="E">ГЭРЭЭТ ХУДАЛДААЧ / ХӨРӨНГӨ ОРУУЛАГЧ (E)</option>
+                    <option value="F">АКАДЕМИК ЭСВЭЛ ХЭЛНИЙ ОЮУТАН (F)</option>
+                    <option value="G">ОЛОН УЛСЫН БАЙГУУЛЛАГЫН ТӨЛӨӨЛӨГЧ / АЖИЛТАН (G)</option>
+                    <option value="H">ТҮР АЖИЛТАН (H)</option>
+                    <option value="I">ГАДААД ХЭВЛЭЛ МЭДЭЭЛЛИЙН ТӨЛӨӨЛӨГЧ (I)</option>
+                    <option value="J">СОЛИЛЦООНЫ ХӨТӨЛБӨРТ ОРОЛЦОГЧ (J)</option>
+                    <option value="K">АНУ-ЫН ИРГЭНИЙ СҮЙТ ЗАЛУУ / ХАНЬ ИЖИЛ (K)</option>
+                    <option value="L">КОМПАНИЙН ДОТООД ШИЛЖИЛТ (L)</option>
+                    <option value="M">МЭРГЭЖЛИЙН / NONACADEMIC СУРГАЛТ (M)</option>
+                    <option value="N">БУСАД (N)</option>
+                    <option value="NATO">NATO АЖИЛТАН (NATO)</option>
+                    <option value="O">ОНЦГОЙ ЧАДВАРТАЙ ИРГЭН (O)</option>
+                    <option value="P">ОЛОН УЛСАД ТАНИГДСАН ИРГЭН (P)</option>
+                    <option value="Q">СОЁЛЫН СОЛИЛЦООНЫ ЗОЧИН (Q)</option>
+                    <option value="R">ШАШНЫ АЖИЛТАН (R)</option>
+                    <option value="S">МЭДЭЭЛЭЛ ӨГӨГЧ / ГЭРЧ (S)</option>
+                    <option value="T">ХҮН ХУДАЛДААНЫ ХОХИРОГЧ (T)</option>
+                    <option value="TN/TD">NAFTA МЭРГЭЖИЛТЭН (TN/TD)</option>
+                    <option value="U">ГЭМТ ХЭРГИЙН ХОХИРОГЧ (U)</option>
+                  </select>
+                </label>
+                <label id="trip-purpose-detail-field" hidden>Тодруулга
+                  <select name="tripPurposeDetail">
+                    <option value="">Сонгох</option>
+                    <option value="B1/B2">АЯЛАЛ ЖУУЛЧЛАЛ / БИЗНЕС (B1/B2)</option>
+                    <option value="B1">БИЗНЕС / ХУРАЛ (B1)</option>
+                    <option value="B2">АЯЛАЛ ЖУУЛЧЛАЛ / ЭМЧИЛГЭЭ (B2)</option>
+                  </select>
+                </label>
+                <label>Аяллын маршрутаа гаргасан эсэх
+                  <select name="hasSpecificTravelPlans" required>
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <div id="travel-itinerary-fields" class="full-span conditional-block" hidden>
+                  <div class="field-grid nested-grid">
+                    <div class="full-span field-stack">
+                      <span>АНУ-д очих өдөр</span>
+                      <div class="segment-row">
+                        <label class="segment-field">Өдөр<select name="arrivalDay" data-day-select></select></label>
+                        <label class="segment-field">Сар<select name="arrivalMonth" data-month-select></select></label>
+                        <label class="segment-field">Жил<select name="arrivalYear" data-future-year-select></select></label>
+                      </div>
+                    </div>
+                    <label>Очих нислэг (байвал)<input name="arrivalFlight" /></label>
+                    <label>Очих хот<input name="arrivalCity" /></label>
+                    <div class="full-span field-stack">
+                      <span>АНУ-аас гарах өдөр</span>
+                      <div class="segment-row">
+                        <label class="segment-field">Өдөр<select name="departureDay" data-day-select></select></label>
+                        <label class="segment-field">Сар<select name="departureMonth" data-month-select></select></label>
+                        <label class="segment-field">Жил<select name="departureYear" data-future-year-select></select></label>
+                      </div>
+                    </div>
+                    <label>Буцах нислэг (байвал)<input name="departureFlight" /></label>
+                    <label>Гарах хот<input name="departureCity" /></label>
+                    <label class="full-span">АНУ-д очих газрууд<textarea name="usLocations" rows="3" placeholder="Жишээ: NEW YORK"></textarea></label>
+                    <label class="full-span">Street Address (Line 1)<input name="usStayAddressLine1" /></label>
+                    <label class="full-span">Street Address (Line 2) - optional<input name="usStayAddressLine2" /></label>
+                    <label>City<input name="usStayCity" /></label>
+                    <label>State
+                      <select name="usStayState" data-us-state-select></select>
+                    </label>
+                    <label>ZIP Code (if known)<input name="usStayZip" /></label>
+                  </div>
+                </div>
+                <label>Аяллын төлбөрийг хэн төлөх вэ?
+                  <select name="tripPayer">
+                    <option value="">Сонгох</option>
+                    <option value="SELF">ӨӨРӨӨ</option>
+                    <option value="OTHER PERSON">ӨӨР ХҮН</option>
+                    <option value="PRESENT EMPLOYER">ОДООГИЙН АЖИЛ ОЛГОГЧ</option>
+                    <option value="EMPLOYER IN THE U.S.">АНУ ДАХЬ АЖИЛ ОЛГОГЧ</option>
+                    <option value="OTHER COMPANY/ORGANIZATION">ӨӨР КОМПАНИ / БАЙГУУЛЛАГА</option>
+                  </select>
+                </label>
+                <div id="trip-payer-fields" class="full-span conditional-block" hidden>
+                  <div class="field-grid nested-grid">
+                    <label>Төлбөр төлж буй хүний овог<input name="tripPayerSurname" /></label>
+                    <label>Төлбөр төлж буй хүний нэр<input name="tripPayerGivenName" /></label>
+                    <label>Утас<input name="tripPayerPhone" /></label>
+                    <label>Имэйл<input name="tripPayerEmail" type="email" /></label>
+                    <label>Тантай ямар холбоотой вэ?<input name="tripPayerRelationship" /></label>
+                    <label>Хаяг таныхтай ижил эсэх
+                      <select name="tripPayerSameAddress">
+                        <option value="">Сонгох</option>
+                        <option value="ТИЙМ">Тийм</option>
+                        <option value="ҮГҮЙ">Үгүй</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>4. Аяллын мэдээлэл</h2>
-              <p>АНУ руу хийх аяллын ерөнхий төлөвлөгөөг оруулна уу.</p>
-            </div>
-            <div class="field-grid">
-              <label>АНУ руу явах зорилго<input name="tripPurposeCategory" placeholder="Жишээ: B1/B2, Бизнес, Аялал" required /></label>
-              <label>Дэлгэрэнгүй төрөл<input name="tripPurposeDetail" placeholder="Жишээ: Бизнес/аялал жуулчлал" /></label>
-              <label>Тодорхой аяллын төлөвлөгөөтэй эсэх<select name="hasSpecificTravelPlans" required><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>АНУ-д очих төлөвлөсөн өдөр<input name="intendedArrivalDate" type="date" required /></label>
-              <label>АНУ-д байх хугацаа<input name="lengthOfStayValue" placeholder="Жишээ: 1" /></label>
-              <label>Хугацааны нэгж<select name="lengthOfStayUnit"><option value="">Сонгох</option><option>Өдөр</option><option>7 хоног</option><option>Сар</option><option>Жил</option></select></label>
-              <label class="full-span">АНУ-д байрлах хаяг<textarea name="usStayAddress" rows="4"></textarea></label>
-              <label>Аяллын зардлыг хэн төлөх вэ<input name="tripPayer" placeholder="Жишээ: Өөрөө, компани, хамаатан" /></label>
-              <label>Очих муж / хот<input name="arrivalCity" /></label>
-            </div>
-          </section>
+            <section id="section-companions" class="form-section">
+              <div class="section-head">
+                <h2>3. Travel Companions</h2>
+                <p>Тантай хамт өөр хүн, гэр бүл, найз эсвэл баг явах бол мэдээллээ бичнэ үү.</p>
+              </div>
+              <div class="field-grid">
+                <label>Тантай хамт өөр хүн явах эсэх
+                  <select name="travelingWithOthers">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label>Баг / байгууллагын хүрээнд явах эсэх
+                  <select name="travelingWithGroup">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label id="travel-companions-field" class="full-span" hidden>Хамт явах хүмүүсийн мэдээлэл
+                  <textarea name="travelCompanions" rows="5" placeholder="НЭР, ОВОГ, ТАНТАЙ ЯМАР ХОЛБООТОЙ, ХАМТ ЯВАХ ЭСЭХ ЗЭРГИЙГ БИЧНЭ ҮҮ."></textarea>
+                </label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>5. Хамт явах хүмүүс</h2>
-              <p>Гэр бүл, найз, баг, байгууллагатайгаа хамт явах бол бичнэ үү.</p>
-            </div>
-            <div class="field-grid">
-              <label>Тантай хамт өөр хүн явах эсэх<select name="travelingWithOthers"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>Баг / байгууллагын хүрээнд явах эсэх<select name="travelingWithGroup"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Хамт явах хүмүүсийн мэдээлэл<textarea name="travelCompanions" rows="6" placeholder="Нэр, овог, тантай ямар холбоотой, хамт явах эсэх зэргийг мөр мөрөөр бичнэ үү."></textarea></label>
-            </div>
-          </section>
+            <section id="section-us-travel" class="form-section">
+              <div class="section-head">
+                <h2>4. Previous U.S. Travel</h2>
+                <p>Өмнөх аялал, виз, татгалзалтай холбоотой мэдээлэл.</p>
+              </div>
+              <div class="field-grid">
+                <label>Өмнө нь АНУ-д очиж байсан эсэх<select name="beenInUs"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label>Өмнө нь АНУ-ын виз авч байсан эсэх<select name="hadUsVisa"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label>АНУ-ын визээс татгалзаж байсан эсэх<select name="visaRefused"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label>Цагаачлалын өргөдөл таны өмнөөс гаргаж байсан эсэх<select name="immigrantPetitionFiled"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="previous-us-travel-details-field" class="full-span" hidden>Хэрэв дээрх асуултуудад "Тийм" гэж хариулсан бол тайлбар<textarea name="previousUsTravelDetails" rows="5"></textarea></label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>6. Өмнөх АНУ аялал ба виз</h2>
-              <p>Өмнөх аялал, виз, татгалзалтай холбоотой мэдээлэл.</p>
-            </div>
-            <div class="field-grid">
-              <label>Өмнө нь АНУ-д очиж байсан эсэх<select name="beenInUs"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>Өмнө нь АНУ-ын виз авч байсан эсэх<select name="hadUsVisa"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>АНУ-ын визээс татгалзаж байсан эсэх<select name="visaRefused"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>Цагаачлалын өргөдөл таны өмнөөс гаргаж байсан эсэх<select name="immigrantPetitionFiled"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Хэрэв дээрх асуултуудад "Тийм" гэж хариулсан бол тайлбар<textarea name="previousUsTravelDetails" rows="5"></textarea></label>
-            </div>
-          </section>
+            <section id="section-address" class="form-section">
+              <div class="section-head">
+                <h2>5. Address and Phone</h2>
+                <p>Өөртэй тань холбогдох мэдээллийг үнэн зөв бичнэ үү.</p>
+              </div>
+              <div class="field-grid">
+                <label class="full-span">Гэрийн хаяг 1-р мөр<input name="homeAddressLine1" required /></label>
+                <label class="full-span">Гэрийн хаяг 2-р мөр<input name="homeAddressLine2" /></label>
+                <label>Хот / сум / дүүрэг<input name="homeCity" required /></label>
+                <label>Аймаг / муж<input name="homeProvince" /></label>
+                <label>Шуудангийн код<input name="homePostalCode" /></label>
+                <label>Улс<input name="homeCountry" value="МОНГОЛ УЛС" required /></label>
+                <label>Шуудангийн хаяг гэрийн хаягтай адил эсэх<select name="mailingSameAsHome"><option value="">Сонгох</option><option value="ТИЙМ">Тийм</option><option value="ҮГҮЙ">Үгүй</option></select></label>
+                <label id="mailing-address-field" class="full-span" hidden>Шуудангийн хаяг<textarea name="mailingAddress" rows="3"></textarea></label>
+                <label>Үндсэн утас<input name="primaryPhone" required /></label>
+                <label>Нэмэлт утас<input name="secondaryPhone" /></label>
+                <label>Ажлын утас<input name="workPhone" /></label>
+                <label>Сүүлийн 5 жилд өөр утас хэрэглэж байсан эсэх<select name="usedOtherPhones"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="other-phone-details-field" class="full-span" hidden>Өөр хэрэглэж байсан утаснууд<textarea name="otherPhoneDetails" rows="3"></textarea></label>
+                <label class="full-span">Имэйл хаяг<input name="email" type="email" required /></label>
+                <label>Сүүлийн 5 жилд өөр имэйл хэрэглэж байсан эсэх<select name="usedOtherEmails"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="other-email-details-field" class="full-span" hidden>Өөр имэйл хаягууд<textarea name="otherEmailDetails" rows="3"></textarea></label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>7. АНУ дахь холбоо барих хүн / байгууллага</h2>
-              <p>Мэдэхгүй бол буудал, байгууллага, урьж буй талын мэдээлэл бичиж болно.</p>
-            </div>
-            <div class="field-grid">
-              <label>АНУ дахь холбоо барих хүний овог<input name="usContactSurname" /></label>
-              <label>АНУ дахь холбоо барих хүний нэр<input name="usContactGivenName" /></label>
-              <label class="full-span">Байгууллагын нэр<input name="usOrganizationName" /></label>
-              <label>Тантай ямар холбоотой вэ<input name="usContactRelationship" /></label>
-              <label>Утас<input name="usContactPhone" /></label>
-              <label class="full-span">Хаяг<textarea name="usContactAddress" rows="4"></textarea></label>
-              <label class="full-span">Имэйл<input name="usContactEmail" type="email" /></label>
-            </div>
-          </section>
+            <section id="section-passport" class="form-section">
+              <div class="section-head">
+                <h2>6. Passport</h2>
+                <p>Аялалд ашиглах паспортын мэдээллээ оруулна уу.</p>
+              </div>
+              <div class="field-grid">
+                <label>Паспортын төрөл<select name="passportType" required><option value="">Сонгох</option><option>ЭНГИЙН</option><option>АЛБАН</option><option>ДИПЛОМАТ</option><option>БУСАД</option></select></label>
+                <label>Паспортын дугаар<input name="passportNumber" required /></label>
+                <label>Паспортын дэвтрийн дугаар байхгүй эсэх<select name="passportBookNumberNotApplicable"><option value="">Сонгох</option><option value="ТИЙМ">Тийм</option><option value="ҮГҮЙ">Үгүй</option></select></label>
+                <label id="passport-book-number-field" hidden>Паспортын дэвтрийн дугаар<input name="passportBookNumber" /></label>
+                <label>Паспорт олгосон улс / байгууллага<input name="passportIssuingCountry" value="МОНГОЛ УЛС" required /></label>
+                <label>Паспорт олгосон хот<input name="passportIssueCity" /></label>
+                <label>Паспорт олгосон аймаг / муж<input name="passportIssueProvince" /></label>
+                <label>Паспорт олгосон улс<input name="passportIssueCountry" value="МОНГОЛ УЛС" /></label>
+                <label>Паспорт олгосон өдөр<input name="passportIssueDate" type="date" required /></label>
+                <label>Паспортын хүчинтэй хугацаа дуусах өдөр<input name="passportExpiryDate" type="date" required /></label>
+                <label>Паспорт үрэгдүүлж / хулгайд алдсан эсэх<select name="lostPassport"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="lost-passport-details-field" class="full-span" hidden>Хэрэв тийм бол тайлбар<textarea name="lostPassportDetails" rows="3"></textarea></label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>8. Гэр бүлийн мэдээлэл</h2>
-              <p>Эцэг, эх, хань ижил болон АНУ дахь төрөл садангийн талаар.</p>
-            </div>
-            <div class="field-grid">
-              <label>Эцгийн овог<input name="fatherSurname" /></label>
-              <label>Эцгийн нэр<input name="fatherGivenName" /></label>
-              <label>Эцгийн төрсөн өдөр<input name="fatherDateOfBirth" type="date" /></label>
-              <label>Эцэг АНУ-д байгаа эсэх<select name="fatherInUs"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>Эхийн овог<input name="motherSurname" /></label>
-              <label>Эхийн нэр<input name="motherGivenName" /></label>
-              <label>Эхийн төрсөн өдөр<input name="motherDateOfBirth" type="date" /></label>
-              <label>Эх АНУ-д байгаа эсэх<select name="motherInUs"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>АНУ-д ойрын хамаатан байгаа эсэх<select name="hasImmediateRelativesInUs"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>АНУ-д бусад хамаатан байгаа эсэх<select name="hasOtherRelativesInUs"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">АНУ дахь төрөл садангийн тайлбар<textarea name="relativesInUsDetails" rows="4"></textarea></label>
-              <label>Одоогийн эхнэр / нөхрийн овог<input name="spouseSurname" /></label>
-              <label>Одоогийн эхнэр / нөхрийн нэр<input name="spouseGivenName" /></label>
-              <label>Эхнэр / нөхрийн төрсөн өдөр<input name="spouseDateOfBirth" type="date" /></label>
-              <label>Иргэншил<input name="spouseNationality" /></label>
-              <label>Төрсөн хот<input name="spouseBirthCity" /></label>
-              <label>Төрсөн улс<input name="spouseBirthCountry" /></label>
-              <label class="full-span">Эхнэр / нөхрийн хаяг<textarea name="spouseAddress" rows="3"></textarea></label>
-            </div>
-          </section>
+            <section id="section-contact" class="form-section">
+              <div class="section-head">
+                <h2>7. АНУ дахь холбоо барих хүн / байгууллага</h2>
+                <p>Мэдэхгүй бол буудал, байгууллага, урьж буй талын мэдээлэл бичиж болно.</p>
+              </div>
+              <div class="field-grid">
+                <label>АНУ дахь холбоо барих хүний овог<input name="usContactSurname" /></label>
+                <label>АНУ дахь холбоо барих хүний нэр<input name="usContactGivenName" /></label>
+                <label class="full-span">Байгууллагын нэр<input name="usOrganizationName" /></label>
+                <label>Тантай ямар холбоотой вэ<input name="usContactRelationship" /></label>
+                <label>Утас<input name="usContactPhone" /></label>
+                <label class="full-span">Хаяг<textarea name="usContactAddress" rows="4"></textarea></label>
+                <label class="full-span">Имэйл<input name="usContactEmail" type="email" /></label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>9. Ажил, боловсрол, орлогын мэдээлэл</h2>
-              <p>Одоо эрхэлж буй ажил болон өмнөх туршлагуудыг бичнэ үү.</p>
-            </div>
-            <div class="field-grid">
-              <label>Үндсэн ажил мэргэжил<input name="primaryOccupation" /></label>
-              <label>Байгууллага / сургуулийн нэр<input name="presentEmployerOrSchool" /></label>
-              <label class="full-span">Байгууллага / сургуулийн хаяг<textarea name="presentEmployerAddress" rows="4"></textarea></label>
-              <label>Эхэлсэн өдөр<input name="presentEmploymentStartDate" type="date" /></label>
-              <label>Сарын орлого<input name="monthlyIncome" inputmode="numeric" /></label>
-              <label>Ажлын утас<input name="presentEmployerPhone" /></label>
-              <label>Албан тушаал<input name="jobTitle" /></label>
-              <label>Удирдлагын овог<input name="supervisorSurname" /></label>
-              <label>Удирдлагын нэр<input name="supervisorGivenName" /></label>
-              <label class="full-span">Гүйцэтгэдэг ажил, үүрэг<textarea name="jobDuties" rows="4"></textarea></label>
-              <label>Дунд боловсролоос дээш сургуульд сурч байсан эсэх<select name="attendedHigherEducation"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Өмнөх ажлын туршлага / сургуулийн мэдээлэл<textarea name="previousEmploymentOrEducation" rows="6" placeholder="Байгууллага, хаяг, албан тушаал, удирдлага, ажилласан хугацаа, үүргээ жагсаан бичнэ үү."></textarea></label>
-            </div>
-          </section>
+            <section id="section-family" class="form-section">
+              <div class="section-head">
+                <h2>8. Гэр бүлийн мэдээлэл</h2>
+                <p>Эцэг, эх, хань ижил болон АНУ дахь төрөл садангийн талаар.</p>
+              </div>
+              <div class="field-grid">
+                <label>Эцгийн овог<input name="fatherSurname" /></label>
+                <label>Эцгийн нэр<input name="fatherGivenName" /></label>
+                <label>Эцгийн төрсөн өдөр<input name="fatherDateOfBirth" type="date" /></label>
+                <label>Эцэг АНУ-д байгаа эсэх<select name="fatherInUs"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label>Эхийн овог<input name="motherSurname" /></label>
+                <label>Эхийн нэр<input name="motherGivenName" /></label>
+                <label>Эхийн төрсөн өдөр<input name="motherDateOfBirth" type="date" /></label>
+                <label>Эх АНУ-д байгаа эсэх<select name="motherInUs"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label>АНУ-д ойрын хамаатан байгаа эсэх<select name="hasImmediateRelativesInUs"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label>АНУ-д бусад хамаатан байгаа эсэх<select name="hasOtherRelativesInUs"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="relatives-in-us-details-field" class="full-span" hidden>АНУ дахь төрөл садангийн тайлбар<textarea name="relativesInUsDetails" rows="4"></textarea></label>
+                <label>Одоогийн эхнэр / нөхрийн овог<input name="spouseSurname" /></label>
+                <label>Одоогийн эхнэр / нөхрийн нэр<input name="spouseGivenName" /></label>
+                <label>Эхнэр / нөхрийн төрсөн өдөр<input name="spouseDateOfBirth" type="date" /></label>
+                <label>Иргэншил<input name="spouseNationality" /></label>
+                <label>Төрсөн хот<input name="spouseBirthCity" /></label>
+                <label>Төрсөн улс<input name="spouseBirthCountry" /></label>
+                <label class="full-span">Эхнэр / нөхрийн хаяг<textarea name="spouseAddress" rows="3"></textarea></label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>10. Нийгмийн сүлжээ, хэл, нэмэлт мэдээлэл</h2>
-              <p>Сүүлийн 5 жилийн хэрэглээ, ур чадвар, аяллын түүх.</p>
-            </div>
-            <div class="field-grid">
-              <label class="full-span">Сошиал хаягууд<textarea name="socialMediaAccounts" rows="5" placeholder="Жишээ: Facebook - хэрэглэгчийн нэр, Instagram - хэрэглэгчийн нэр"></textarea></label>
-              <label>Бусад вэбсайт / апп дээр идэвхтэй эсэх<select name="hasOtherWebPresence"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Бусад вэбсайт / апп мэдээлэл<textarea name="otherWebPresenceDetails" rows="3"></textarea></label>
-              <label>Овог, аймаг, ястан / овог аймагт харьяалагддаг эсэх<select name="belongsToClan"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Овог, аймаг, ястангийн тайлбар<textarea name="clanDetails" rows="3"></textarea></label>
-              <label class="full-span">Ярьдаг хэлнүүд<textarea name="languagesSpoken" rows="4" placeholder="Жишээ: Монгол, Англи, Орос"></textarea></label>
-              <label>Сүүлийн 5 жилд гадаад улсуудад зорчсон эсэх<select name="traveledOtherCountriesLastFiveYears"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Зорчсон улсууд<textarea name="countriesVisitedDetails" rows="4"></textarea></label>
-              <label>Мэргэжлийн / нийгмийн / буяны байгууллагад харьяалагддаг эсэх<select name="belongsToOrganizations"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Байгууллагын мэдээлэл<textarea name="organizationDetails" rows="4"></textarea></label>
-              <label>Тусгай ур чадвар / сургалттай эсэх<select name="hasSpecialSkills"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Тусгай ур чадварын тайлбар<textarea name="specialSkillsDetails" rows="4"></textarea></label>
-              <label>Цэргийн алба хааж байсан эсэх<select name="servedMilitary"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label>Цэргийн анги / нэгжийн нэр<input name="militaryUnitName" /></label>
-              <label>Зэвсэгт бүлэг / босогч / хагас цэргийн байгууллагад оролцож байсан эсэх<select name="involvedWithParamilitary"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Цэрэг, аюулгүй байдал, тусгай ур чадварын нэмэлт тайлбар<textarea name="militaryOrSecurityDetails" rows="4"></textarea></label>
-            </div>
-          </section>
+            <section id="section-work" class="form-section">
+              <div class="section-head">
+                <h2>9. Ажил, боловсрол, орлогын мэдээлэл</h2>
+                <p>Одоо эрхэлж буй ажил болон өмнөх туршлагуудыг бичнэ үү.</p>
+              </div>
+              <div class="field-grid">
+                <label>Үндсэн ажил мэргэжил<input name="primaryOccupation" /></label>
+                <label>Байгууллага / сургуулийн нэр<input name="presentEmployerOrSchool" /></label>
+                <label class="full-span">Байгууллага / сургуулийн хаяг<textarea name="presentEmployerAddress" rows="4"></textarea></label>
+                <label>Эхэлсэн өдөр<input name="presentEmploymentStartDate" type="date" /></label>
+                <label>Сарын орлого<input name="monthlyIncome" inputmode="numeric" /></label>
+                <label>Ажлын утас<input name="presentEmployerPhone" /></label>
+                <label>Албан тушаал<input name="jobTitle" /></label>
+                <label>Удирдлагын овог<input name="supervisorSurname" /></label>
+                <label>Удирдлагын нэр<input name="supervisorGivenName" /></label>
+                <label class="full-span">Гүйцэтгэдэг ажил, үүрэг<textarea name="jobDuties" rows="4"></textarea></label>
+                <label>Дунд боловсролоос дээш сургуульд сурч байсан эсэх<select name="attendedHigherEducation"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Өмнөх ажлын туршлага / сургуулийн мэдээлэл<textarea name="previousEmploymentOrEducation" rows="6" placeholder="БАЙГУУЛЛАГА, ХАЯГ, АЛБАН ТУШААЛ, УДИРДЛАГА, АЖИЛЛАСАН ХУГАЦАА, ҮҮРГЭЭ ЖАГСААН БИЧНЭ ҮҮ."></textarea></label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>11. Аюулгүй байдал ба суурь шалгалтын асуултууд</h2>
-              <p>Доорх асуултад "Тийм" гэж хариулсан бол дэлгэрэнгүй тайлбар заавал бичнэ үү.</p>
-            </div>
-            <div class="field-grid security-grid">
-              <label class="full-span">Нийтийн эрүүл мэндэд аюултай халдварт өвчтэй эсэх<select name="securityCommunicableDisease"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Өөртөө эсвэл бусдад аюул учруулж болзошгүй сэтгэцийн эсвэл биеийн эмгэгтэй эсэх<select name="securityMentalDisorder"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Хар тамхи хэрэглэдэг / донтсон эсэх<select name="securityDrugAbuse"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Баривчлагдаж эсвэл ял шийтгүүлж байсан эсэх<select name="securityArrested"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Хар тамхитай холбоотой хууль зөрчиж байсан эсэх<select name="securityControlledSubstances"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Биеэ үнэлэлт / хууль бус бэлгийн үйлчилгээтэй холбоотой байсан эсэх<select name="securityProstitution"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Мөнгө угаах ажиллагаанд оролцож байсан эсэх<select name="securityMoneyLaundering"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Хүн худалдаалах гэмт хэрэгт оролцож байсан эсэх<select name="securityHumanTrafficking"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Террорист үйл ажиллагаа, терроризмын байгууллагад холбоотой эсэх<select name="securityTerrorism"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Геноцид, эрүүдэн шүүх, улс төрийн аллага, хүчирхийлэлтэй холбоотой эсэх<select name="securityViolence"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Хүүхдийн цэрэг элсүүлэх, шашны эрх чөлөө ноцтой зөрчих, албадан үр хөндөлт / үргүйжүүлэлт, албадан эрхтэн шилжүүлэн суулгахтай холбоотой эсэх<select name="securityHumanRights"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Виз, хил нэвтрэх, цагаачлалын ашиг тусыг хууран мэхлэх замаар авахыг оролдож байсан эсэх<select name="securityVisaFraud"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Аль нэг улсаас албадан гаргасан / депортлуулж байсан эсэх<select name="securityDeported"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">АНУ-ын иргэн хүүхдийн асрамжтай холбоотой маргаанд оролцож байсан эсэх<select name="securityChildCustody"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">АНУ-д хууль зөрчин санал өгч байсан эсэх<select name="securityIllegalVoting"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Татвараас зайлсхийх зорилгоор АНУ-ын иргэншлээс татгалзаж байсан эсэх<select name="securityRenouncedCitizenship"><option value="">Сонгох</option><option>Үгүй</option><option>Тийм</option></select></label>
-              <label class="full-span">Аюулгүй байдал, виз татгалзал, шүүх, цэрэг, хууль эрх зүйн нэмэлт тайлбар<textarea name="securityBackgroundDetails" rows="6"></textarea></label>
-            </div>
-          </section>
+            <section id="section-social" class="form-section">
+              <div class="section-head">
+                <h2>10. Нийгмийн сүлжээ, хэл, нэмэлт мэдээлэл</h2>
+                <p>Сүүлийн 5 жилийн хэрэглээ, ур чадвар, аяллын түүх.</p>
+              </div>
+              <div class="field-grid">
+                <label class="full-span">Сошиал хаягууд<textarea name="socialMediaAccounts" rows="5" placeholder="ЖИШЭЭ: FACEBOOK - ХЭРЭГЛЭГЧИЙН НЭР, INSTAGRAM - ХЭРЭГЛЭГЧИЙН НЭР"></textarea></label>
+                <label>Бусад вэбсайт / апп дээр идэвхтэй эсэх<select name="hasOtherWebPresence"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="other-web-presence-field" class="full-span" hidden>Бусад вэбсайт / апп мэдээлэл<textarea name="otherWebPresenceDetails" rows="3"></textarea></label>
+                <label>Овог, аймаг, ястан / овог аймагт харьяалагддаг эсэх<select name="belongsToClan"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="clan-details-field" class="full-span" hidden>Овог, аймаг, ястангийн тайлбар<textarea name="clanDetails" rows="3"></textarea></label>
+                <label class="full-span">Ярьдаг хэлнүүд<textarea name="languagesSpoken" rows="4" placeholder="ЖИШЭЭ: МОНГОЛ, АНГЛИ, ОРОС"></textarea></label>
+                <label>Сүүлийн 5 жилд гадаад улсуудад зорчсон эсэх<select name="traveledOtherCountriesLastFiveYears"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="countries-visited-field" class="full-span" hidden>Зорчсон улсууд<textarea name="countriesVisitedDetails" rows="4"></textarea></label>
+                <label>Мэргэжлийн / нийгмийн / буяны байгууллагад харьяалагддаг эсэх<select name="belongsToOrganizations"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="organization-details-field" class="full-span" hidden>Байгууллагын мэдээлэл<textarea name="organizationDetails" rows="4"></textarea></label>
+                <label>Тусгай ур чадвар / сургалттай эсэх<select name="hasSpecialSkills"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="special-skills-field" class="full-span" hidden>Тусгай ур чадварын тайлбар<textarea name="specialSkillsDetails" rows="4"></textarea></label>
+                <label>Цэргийн алба хааж байсан эсэх<select name="servedMilitary"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="military-unit-field" hidden>Цэргийн анги / нэгжийн нэр<input name="militaryUnitName" /></label>
+                <label>Зэвсэгт бүлэг / босогч / хагас цэргийн байгууллагад оролцож байсан эсэх<select name="involvedWithParamilitary"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="military-security-details-field" class="full-span" hidden>Цэрэг, аюулгүй байдал, тусгай ур чадварын нэмэлт тайлбар<textarea name="militaryOrSecurityDetails" rows="4"></textarea></label>
+              </div>
+            </section>
 
-          <section class="form-section">
-            <div class="section-head">
-              <h2>12. Нэмэлт тайлбар</h2>
-              <p>Дээрх асуултад ороогүй ч виз бөглөхөд чухал мэдээллээ бичнэ үү.</p>
-            </div>
-            <div class="field-grid">
-              <label class="full-span">Нэмэлт тэмдэглэл<textarea name="notes" rows="6"></textarea></label>
-            </div>
-          </section>
+            <section id="section-security" class="form-section">
+              <div class="section-head">
+                <h2>11. Security And Background</h2>
+                <p>Доорх асуултад "Тийм" гэж хариулсан бол дэлгэрэнгүй тайлбар заавал бичнэ үү.</p>
+              </div>
+              <div class="field-grid security-grid">
+                <label class="full-span">Нийтийн эрүүл мэндэд аюултай халдварт өвчтэй эсэх<select name="securityCommunicableDisease"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Өөртөө эсвэл бусдад аюул учруулж болзошгүй сэтгэцийн эсвэл биеийн эмгэгтэй эсэх<select name="securityMentalDisorder"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Хар тамхи хэрэглэдэг / донтсон эсэх<select name="securityDrugAbuse"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Баривчлагдаж эсвэл ял шийтгүүлж байсан эсэх<select name="securityArrested"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Хар тамхитай холбоотой хууль зөрчиж байсан эсэх<select name="securityControlledSubstances"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Биеэ үнэлэлт / хууль бус бэлгийн үйлчилгээтэй холбоотой байсан эсэх<select name="securityProstitution"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Мөнгө угаах ажиллагаанд оролцож байсан эсэх<select name="securityMoneyLaundering"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Хүн худалдаалах гэмт хэрэгт оролцож байсан эсэх<select name="securityHumanTrafficking"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Террорист үйл ажиллагаа, терроризмын байгууллагад холбоотой эсэх<select name="securityTerrorism"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Геноцид, эрүүдэн шүүх, улс төрийн аллага, хүчирхийлэлтэй холбоотой эсэх<select name="securityViolence"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Хүүхдийн цэрэг элсүүлэх, шашны эрх чөлөө ноцтой зөрчих, албадан үр хөндөлт / үргүйжүүлэлт, албадан эрхтэн шилжүүлэн суулгахтай холбоотой эсэх<select name="securityHumanRights"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Виз, хил нэвтрэх, цагаачлалын ашиг тусыг хууран мэхлэх замаар авахыг оролдож байсан эсэх<select name="securityVisaFraud"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Аль нэг улсаас албадан гаргасан / депортлуулж байсан эсэх<select name="securityDeported"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">АНУ-ын иргэн хүүхдийн асрамжтай холбоотой маргаанд оролцож байсан эсэх<select name="securityChildCustody"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">АНУ-д хууль зөрчин санал өгч байсан эсэх<select name="securityIllegalVoting"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label class="full-span">Татвараас зайлсхийх зорилгоор АНУ-ын иргэншлээс татгалзаж байсан эсэх<select name="securityRenouncedCitizenship"><option value="">Сонгох</option><option value="ҮГҮЙ">Үгүй</option><option value="ТИЙМ">Тийм</option></select></label>
+                <label id="security-background-details-field" class="full-span" hidden>Аюулгүй байдал, виз татгалзал, шүүх, цэрэг, хууль эрх зүйн нэмэлт тайлбар<textarea name="securityBackgroundDetails" rows="6"></textarea></label>
+              </div>
+            </section>
 
-          <div class="actions">
-            <button type="submit">Мэдээлэл илгээх</button>
-            <p id="ds160-client-status" class="status"></p>
-          </div>
-        </form>
+            <section id="section-notes" class="form-section">
+              <div class="section-head">
+                <h2>12. Additional Notes</h2>
+                <p>Дээрх асуултад ороогүй ч виз бөглөхөд чухал мэдээллээ бичнэ үү.</p>
+              </div>
+              <div class="field-grid">
+                <label class="full-span">Нэмэлт тэмдэглэл<textarea name="notes" rows="6"></textarea></label>
+              </div>
+            </section>
+
+            <div class="actions">
+              <button type="submit">Мэдээлэл илгээх</button>
+              <p id="ds160-client-status" class="status"></p>
+            </div>
+          </form>
+        </div>
       </section>
     </main>
 
-    <script src="/ds160-client.js?v=workspace-1"></script>
+    <script src="/ds160-client.js?v=workspace-2"></script>
   </body>
 </html>

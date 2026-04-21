@@ -3803,6 +3803,8 @@ def normalize_ds160_record(record):
             "createdAt",
             "updatedAt",
             "submittedAt",
+            "appointmentDate",
+            "appointmentTime",
             "createdBy",
             "updatedBy",
             "payload",
@@ -3835,6 +3837,8 @@ def normalize_ds160_record(record):
         "createdAt": created_at,
         "updatedAt": updated_at,
         "submittedAt": submitted_at,
+        "appointmentDate": normalize_text(record.get("appointmentDate")),
+        "appointmentTime": normalize_text(record.get("appointmentTime")),
         "createdBy": record.get("createdBy") if isinstance(record.get("createdBy"), dict) else {"id": "", "email": "", "name": ""},
         "updatedBy": record.get("updatedBy") if isinstance(record.get("updatedBy"), dict) else {"id": "", "email": "", "name": ""},
         "payload": payload,
@@ -3859,6 +3863,8 @@ def build_ds160_invitation(payload, actor):
             "internalNotes": payload.get("internalNotes"),
             "createdAt": now_iso,
             "updatedAt": now_iso,
+            "appointmentDate": payload.get("appointmentDate"),
+            "appointmentTime": payload.get("appointmentTime"),
             "createdBy": actor_snapshot(actor),
             "updatedBy": actor_snapshot(actor),
             "payload": {},
@@ -3881,6 +3887,8 @@ def build_ds160_application(payload):
             "createdAt": now_iso,
             "updatedAt": now_iso,
             "submittedAt": now_iso,
+            "appointmentDate": payload.get("appointmentDate"),
+            "appointmentTime": payload.get("appointmentTime"),
             "payload": cleaned if (cleaned := clean_ds160_payload(payload)) else {},
         }
     )
@@ -3890,19 +3898,21 @@ def validate_ds160_application(data):
     required = [
         "surname",
         "givenName",
+        "nativeFullName",
         "dateOfBirth",
-        "birthCity",
         "birthCountry",
         "nationality",
+        "registerNumber",
         "email",
         "primaryPhone",
         "passportNumber",
         "passportIssueDate",
         "passportExpiryDate",
         "tripPurposeCategory",
-        "intendedArrivalDate",
     ]
     missing = [field for field in required if not data.get(field)]
+    if normalize_text(data.get("hasSpecificTravelPlans")).upper() == "ТИЙМ" and not data.get("intendedArrivalDate"):
+        missing.append("intendedArrivalDate")
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
     return None
@@ -4741,6 +4751,35 @@ def handle_get_ds160(environ, start_response, record_id):
     if not record:
         return json_response(start_response, "404 Not Found", {"error": "DS-160 record not found"})
     return json_response(start_response, "200 OK", {"entry": record})
+
+
+def handle_update_ds160(environ, start_response, record_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    records = read_ds160_applications()
+    for index, record in enumerate(records):
+        if record.get("id") != record_id:
+            continue
+
+        merged = {**record}
+        for key in ["clientName", "clientEmail", "clientPhone", "managerName", "managerEmail", "managerPhone", "internalNotes", "appointmentDate", "appointmentTime", "status"]:
+            if key in payload:
+                value = normalize_text(payload.get(key))
+                merged[key] = value.lower() if key in {"clientEmail", "managerEmail"} else value
+
+        merged["status"] = normalize_ds160_status(merged.get("status"))
+        merged["updatedAt"] = now_mongolia().isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
+        records[index] = normalize_ds160_record(merged)
+        write_ds160_applications(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": records[index]})
+
+    return json_response(start_response, "404 Not Found", {"error": "DS-160 record not found"})
 
 
 def handle_create_ds160_invitation(environ, start_response):
@@ -6195,6 +6234,8 @@ def app(environ, start_response):
         record_id = path.replace("/api/ds160/", "", 1).strip("/")
         if method == "GET" and record_id:
             return handle_get_ds160(environ, start_response, record_id)
+        if method in {"PATCH", "PUT"} and record_id:
+            return handle_update_ds160(environ, start_response, record_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/finance":
