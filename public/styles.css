@@ -67,7 +67,7 @@ td {
 
 .sidebar-brand {
   display: block;
-  margin: 4px 6px 26px;
+  margin: 8px 6px 34px;
   text-decoration: none;
 }
 
@@ -82,7 +82,7 @@ td {
 }
 
 .sidebar-label {
-  margin: 0 10px 16px;
+  margin: 0 10px 22px;
   color: #8d93a3;
   font-size: 0.9rem;
   font-weight: 700;
@@ -95,7 +95,7 @@ td {
   align-items: center;
   position: relative;
   min-height: 44px;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
   padding: 0 14px 0 42px;
   border-radius: 14px;
   color: #434b5b;
@@ -3188,7 +3188,7 @@ body.modal-open {
 
 .sidebar-tree {
   display: grid;
-  gap: 18px;
+  gap: 28px;
 }
 
 .sidebar-branch {
@@ -3202,9 +3202,9 @@ body.modal-open {
 
 .sidebar-children {
   display: grid;
-  gap: 10px;
-  margin: 6px 0 8px 20px;
-  padding: 8px 0 2px 18px;
+  gap: 14px;
+  margin: 10px 0 12px 20px;
+  padding: 12px 0 4px 18px;
   border-left: 1px solid rgba(32, 53, 111, 0.12);
 }
 
