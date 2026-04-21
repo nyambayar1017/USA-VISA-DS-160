@@ -222,6 +222,25 @@ def list_backup_archives():
     return backups
 
 
+def restore_json_from_latest_backup(filename, normalizer):
+    ensure_data_store()
+    for item in list_backup_archives():
+        archive_path = BACKUP_DIR / item["filename"]
+        if not archive_path.exists():
+            continue
+        try:
+            with zipfile.ZipFile(archive_path, "r") as archive:
+                if filename not in archive.namelist():
+                    continue
+                payload = json.loads(archive.read(filename).decode("utf-8"))
+        except Exception:
+            continue
+        normalized = normalizer(payload)
+        if normalized:
+            return normalized
+    return None
+
+
 def read_json_object(file_path, default):
     ensure_data_store()
     if not file_path.exists():
@@ -441,20 +460,20 @@ def fifa_store_totals(store):
 
 
 def ensure_fifa2026_manual_inventory():
-    if not FIFA2026_RESET_MARKER_FILE.exists():
-        empty_store = {"tickets": [], "sales": []}
-        write_fifa2026_store(empty_store)
-        FIFA2026_RESET_MARKER_FILE.write_text("manual-reset-v3", encoding="utf-8")
-        return empty_store
     current = read_fifa2026_store()
-    tickets = current.get("tickets", [])
-    if tickets and all(
-        "Imported from DTX 2026 WC - Sales Registration.xlsx" in normalize_text(ticket.get("notes"))
-        for ticket in tickets
-    ):
-        empty_store = {"tickets": [], "sales": []}
-        write_fifa2026_store(empty_store)
-        return empty_store
+    if current.get("tickets") or current.get("sales"):
+        return current
+    restored = restore_json_from_latest_backup(
+        FIFA2026_FILE.name,
+        lambda payload: (
+            normalized
+            if (normalized := normalize_fifa2026_store(payload)) and (normalized.get("tickets") or normalized.get("sales"))
+            else None
+        ),
+    )
+    if restored:
+        write_fifa2026_store(restored)
+        return restored
     return current
 
 
@@ -4393,6 +4412,17 @@ def build_fifa_summary(store):
     paid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "paid"]
     unpaid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "unpaid"]
     partial_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "partial"]
+    total_units = sum(max(parse_int(ticket.get("totalQuantity")), 0) for ticket in tickets)
+    sold_units = sum(
+        max(
+            parse_int(sale.get("quantity"))
+            or len([ticket_id for ticket_id in (sale.get("ticketIds") or []) if normalize_text(ticket_id)])
+            or (1 if normalize_text(sale.get("ticketId")) else 0),
+            0,
+        )
+        for sale in active_sales
+    )
+    available_units = max(total_units - sold_units, 0)
     return {
         "tickets": {
             "total": len(tickets),
@@ -4400,8 +4430,8 @@ def build_fifa_summary(store):
             "public": len([ticket for ticket in tickets if normalize_text(ticket.get("visibility")).lower() == "public"]),
             "availableLots": len([ticket for ticket in enriched_tickets if ticket.get("availableQuantity", 0) > 0]),
             "soldOutLots": len([ticket for ticket in enriched_tickets if ticket.get("availableQuantity", 0) <= 0]),
-            "availableUnits": sum(ticket.get("availableQuantity", 0) for ticket in enriched_tickets),
-            "soldUnits": sum(ticket.get("soldQuantity", 0) for ticket in enriched_tickets),
+            "availableUnits": available_units,
+            "soldUnits": sold_units,
         },
         "sales": {
             "total": len(sales),

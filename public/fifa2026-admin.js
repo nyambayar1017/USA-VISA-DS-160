@@ -927,22 +927,26 @@ function renderInvoiceScheduleEditor() {
   if (!invoiceScheduleEditor || !saleForm) return;
   const schedule = activeInvoiceSchedule();
   const totalPrice = saleInvoiceTotal();
+  const exchangeRate = Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE);
   const scheduleTotal = schedule.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  const totalMnt = Math.round(totalPrice * exchangeRate);
+  const scheduleTotalMnt = Math.round(scheduleTotal * exchangeRate);
+  const balanceMnt = Math.max(totalMnt - scheduleTotalMnt, 0);
   invoiceScheduleEditor.innerHTML = `
     <div class="fifa-invoice-schedule-box">
       <div class="fifa-invoice-schedule-head">
-        <strong>Төлбөрийн хуваарь</strong>
+        <strong>Payment schedule</strong>
         <button type="button" class="button-secondary fifa-inline-action" data-action="add-invoice-line">Add line</button>
       </div>
       <div class="fifa-invoice-schedule-list">
         ${schedule.map((line, index) => `
           <div class="fifa-invoice-schedule-row" data-schedule-index="${index}">
             <label>
-              Line title
+              Payment title
               <input type="text" data-schedule-field="title" value="${escapeHtml(line.title)}" />
             </label>
             <label>
-              Invoice date
+              Created date
               <input type="date" data-schedule-field="created" value="${escapeHtml(line.created)}" />
             </label>
             <label>
@@ -959,15 +963,15 @@ function renderInvoiceScheduleEditor() {
             </label>
             <label>
               Amount (₮)
-              <input type="number" min="0" step="1" data-schedule-field="amount" value="${escapeHtml(String(Math.round(Number(line.amount || 0) * Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE))))}" />
+              <input type="number" min="0" step="1" data-schedule-field="amount" value="${escapeHtml(String(Math.round(Number(line.amount || 0) * exchangeRate)))}" />
             </label>
             <button type="button" class="button-secondary fifa-inline-action" data-action="remove-invoice-line" data-index="${index}">Remove</button>
           </div>
         `).join("")}
       </div>
       <div class="fifa-invoice-schedule-footer">
-        <span>Schedule total: ${formatMoney(scheduleTotal * Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE), "MNT")}</span>
-        <span>Invoice total: ${formatMoney(totalPrice * Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE), "MNT")}</span>
+        <span>Total scheduled: ${formatMoney(scheduleTotalMnt, "MNT")}</span>
+        <span>Total balance: ${formatMoney(balanceMnt, "MNT")}</span>
       </div>
     </div>
   `;
@@ -1938,7 +1942,6 @@ function renderSales() {
                     <summary class="trip-menu-trigger" aria-label="Sale actions">⋮</summary>
                     <div class="trip-menu-popover">
                       <button type="button" class="trip-menu-item" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
-                      <button type="button" class="trip-menu-item" data-action="invoice-sale" data-id="${escapeHtml(sale.id)}">Invoice</button>
                       <button type="button" class="trip-menu-item is-danger" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
                     </div>
                   </details>
@@ -1984,130 +1987,26 @@ function renderSales() {
                           </section>
                         `).join("")}
                       </div>
-                      <section class="fifa-sale-inline-invoice" data-inline-invoice="${escapeHtml(sale.id)}">
+                      <section class="fifa-sale-inline-invoice">
                         <div class="fifa-sale-inline-invoice-head">
-                          <strong>INVOICE</strong>
-                          <div class="fifa-match-stage-actions">
-                            ${
-                              editingInvoice
-                                ? `
-                                  <button type="button" class="button-secondary fifa-inline-action" data-action="save-inline-invoice" data-id="${escapeHtml(sale.id)}">Save</button>
-                                  <button type="button" class="button-secondary fifa-inline-action" data-action="cancel-inline-invoice" data-id="${escapeHtml(sale.id)}">Cancel</button>
-                                `
-                                : `<button type="button" class="button-secondary fifa-inline-action" data-action="edit-inline-invoice" data-id="${escapeHtml(sale.id)}">Edit invoice</button>`
-                            }
-                            <button type="button" class="button-secondary fifa-inline-action" data-action="invoice-sale" data-id="${escapeHtml(sale.id)}">Open invoice</button>
-                          </div>
+                          <strong>PAYMENT SCHEDULE</strong>
                         </div>
-                        <div class="fifa-sale-inline-invoice-meta">
-                          <span>
-                            <strong>Төлөгч:</strong>
-                            ${
-                              editingInvoice
-                                ? `<input type="text" class="fifa-inline-invoice-input" data-action="invoice-draft-field" data-id="${escapeHtml(sale.id)}" data-field="buyerName" value="${escapeHtml(invoiceSource.buyerName || "")}" />`
-                                : escapeHtml(invoiceSource.buyerName || invoiceSource.buyerTitle || "-")
-                            }
-                          </span>
-                          <span>
-                            <strong>Ханш:</strong>
-                            ${
-                              editingInvoice
-                                ? `1 USD = <input type="number" min="1" step="1" class="fifa-inline-invoice-input fifa-inline-invoice-input--small" data-action="invoice-draft-field" data-id="${escapeHtml(sale.id)}" data-field="invoiceExchangeRate" value="${escapeHtml(String(exchangeRate))}" /> ₮`
-                                : `1 USD = ${escapeHtml(formatMoney(exchangeRate, "MNT"))}`
-                            }
-                          </span>
-                          <span>
-                            <strong>Данс:</strong>
-                            ${
-                              editingInvoice
-                                ? `
-                                  <select class="fifa-inline-invoice-input" data-action="invoice-draft-field" data-id="${escapeHtml(sale.id)}" data-field="invoiceBankAccount">
-                                    <option value="state"${invoiceSource.invoiceBankAccount === "state" ? " selected" : ""}>Төрийн Банк MN030034 3432 7777 9999</option>
-                                    <option value="golomt"${invoiceSource.invoiceBankAccount === "golomt" ? " selected" : ""}>Голомт Банк MN80001500 3675114666</option>
-                                  </select>
-                                `
-                                : `${escapeHtml(invoiceBank.bankName)} ${escapeHtml(invoiceBank.prefix)} ${escapeHtml(invoiceBank.accountNumber)}`
-                            }
-                          </span>
-                        </div>
-                        <table class="manager-table fifa-table fifa-nested-table fifa-sale-invoice-table">
-                          <thead>
-                            <tr>
-                              <th>№</th>
-                              <th>Утга</th>
-                              <th>Тоо ширхэг</th>
-                              <th>Нэгжийн үнэ</th>
-                              <th>Нийт үнэ</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            ${invoiceRows.map((row) => `
-                              <tr>
-                                <td>${row.index}</td>
-                                <td>
-                                  ${
-                                    editingInvoice
-                                      ? `<input type="text" class="fifa-inline-invoice-input fifa-inline-invoice-input--wide" data-action="invoice-draft-description" data-id="${escapeHtml(sale.id)}" data-index="${row.index - 1}" value="${escapeHtml(row.description.replace(/^Match\s+/i, "Тоглолт "))}${row.categoryCode ? ` · Кат ${escapeHtml(row.categoryCode)}` : ""}" />`
-                                      : `${escapeHtml(row.description.replace(/^Match\s+/i, "Тоглолт "))}${row.categoryCode ? ` · Кат ${escapeHtml(row.categoryCode)}` : ""}`
-                                  }
-                                </td>
-                                <td>${row.quantity || ""}</td>
-                                <td>${row.isDiscount ? "" : escapeHtml(formatMoney(Number(row.unitPrice || 0) * exchangeRate, "MNT"))}</td>
-                                <td>${escapeHtml(formatMoney(Number(row.totalPrice || 0) * exchangeRate, "MNT"))}</td>
-                              </tr>
-                            `).join("")}
-                            <tr class="fifa-sale-summary-row--grand-total">
-                              <td colspan="4">Нийт үнэ</td>
-                              <td>${escapeHtml(formatMoney(computedTotalPrice * exchangeRate, "MNT"))}</td>
-                            </tr>
-                          </tbody>
-                        </table>
                         <div class="fifa-sale-inline-schedule">
-                          <div class="fifa-sale-inline-schedule-head">
-                            <strong>Төлбөрийн хуваарь</strong>
-                            ${
-                              editingInvoice
-                                ? `<button type="button" class="button-secondary fifa-inline-action" data-action="add-inline-invoice-line" data-id="${escapeHtml(sale.id)}">Add line</button>`
-                                : ""
-                            }
-                          </div>
                           <div class="fifa-sale-inline-schedule-list">
-                            ${invoiceSchedule.map((row, rowIndex) => `
-                              <div class="fifa-sale-inline-schedule-row" data-inline-invoice-row="${rowIndex}">
+                            ${invoiceSchedule.map((row) => `
+                              <div class="fifa-sale-inline-schedule-row">
                                 <div class="fifa-sale-inline-schedule-main">
-                                  ${
-                                    editingInvoice
-                                      ? `
-                                        <input type="text" class="fifa-inline-invoice-input" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="title" value="${escapeHtml(row.title)}" />
-                                        <div class="fifa-sale-inline-schedule-dates">
-                                          <label>Нэхэмжилсэн огноо <input type="date" class="fifa-inline-invoice-input" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="created" value="${escapeHtml(safeDateInput(row.created))}" /></label>
-                                          <label>${escapeHtml(row.status === "paid" ? "Төлсөн огноо" : "Эцсийн хугацаа")} <input type="date" class="fifa-inline-invoice-input" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="due" value="${escapeHtml(safeDateInput(row.due))}" /></label>
-                                        </div>
-                                      `
-                                      : `
-                                        <strong>${escapeHtml(row.title)}</strong>
-                                        <span class="fifa-table-sub">Нэхэмжилсэн огноо ${escapeHtml(row.created || "-")} · ${escapeHtml(row.due || "-")}</span>
-                                      `
-                                  }
+                                  <strong>${escapeHtml(row.title)}</strong>
+                                  <span class="fifa-table-sub">Created ${escapeHtml(row.created || "-")} · Due / paid ${escapeHtml(row.due || "-")}</span>
                                 </div>
-                                ${
-                                  editingInvoice
-                                    ? `
-                                      <select class="fifa-inline-invoice-input" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="status">
-                                        <option value="paid"${row.status === "paid" ? " selected" : ""}>Төлөгдсөн</option>
-                                        <option value="waiting"${row.status === "waiting" ? " selected" : ""}>Хүлээгдэж буй</option>
-                                        <option value="overdue"${row.status === "overdue" ? " selected" : ""}>Хугацаа хэтэрсэн</option>
-                                      </select>
-                                    `
-                                    : `<span class="fifa-pill is-${escapeHtml(row.statusMeta.className)}">${escapeHtml(row.statusMeta.label)}</span>`
-                                }
-                                ${
-                                  editingInvoice
-                                    ? `<div class="fifa-sale-inline-schedule-actions"><input type="text" inputmode="numeric" class="fifa-inline-invoice-input fifa-inline-invoice-input--amount" data-action="invoice-draft-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}" data-field="amount" value="${escapeHtml(String(row.amountMnt ?? Math.round(Number(row.amount || 0) * exchangeRate)))}" /><button type="button" class="button-secondary fifa-inline-action" data-action="remove-inline-invoice-line" data-id="${escapeHtml(sale.id)}" data-index="${rowIndex}">Remove</button></div>`
-                                    : `<strong>${escapeHtml(formatMoney(Number(row.amount || 0) * exchangeRate, "MNT"))}</strong>`
-                                }
+                                <span class="fifa-pill is-${escapeHtml(row.statusMeta.className)}">${escapeHtml(row.statusMeta.label)}</span>
+                                <strong>${escapeHtml(formatMoney(Number(row.amount || 0) * exchangeRate, "MNT"))}</strong>
                               </div>
                             `).join("")}
+                          </div>
+                          <div class="fifa-invoice-schedule-footer">
+                            <span>Total scheduled: ${escapeHtml(formatMoney(invoiceSchedule.reduce((sum, row) => sum + Number(row.amount || 0), 0) * exchangeRate, "MNT"))}</span>
+                            <span>Total balance: ${escapeHtml(formatMoney(Math.max((computedTotalPrice * exchangeRate) - (invoiceSchedule.reduce((sum, row) => sum + Number(row.amount || 0), 0) * exchangeRate), 0), "MNT"))}</span>
                           </div>
                         </div>
                       </section>
