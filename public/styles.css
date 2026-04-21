@@ -3034,6 +3034,83 @@ body.modal-open {
   color: #9d2f2f;
 }
 
+.ds160-layout {
+  align-items: start;
+}
+
+.ds160-share-card {
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(23, 39, 86, 0.12);
+  background: linear-gradient(180deg, rgba(247, 249, 255, 0.95), rgba(239, 244, 255, 0.9));
+}
+
+.ds160-share-card a {
+  display: block;
+  margin: 8px 0 14px;
+  color: #1b2a6b;
+  word-break: break-all;
+}
+
+.ds160-table .table-subline {
+  margin-top: 4px;
+  color: #6a738c;
+  font-size: 12px;
+}
+
+.ds160-table tbody tr.is-selected {
+  background: rgba(31, 74, 214, 0.08);
+}
+
+.ds160-detail-card {
+  border: 1px solid rgba(23, 39, 86, 0.1);
+}
+
+.ds160-detail-stack {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.ds160-detail-stack p {
+  margin: 6px 0 0;
+  color: #30384f;
+  line-height: 1.55;
+}
+
+.ds160-client-body {
+  background:
+    radial-gradient(circle at top left, rgba(255, 211, 95, 0.32), transparent 26%),
+    radial-gradient(circle at top right, rgba(31, 74, 214, 0.12), transparent 24%),
+    linear-gradient(180deg, #f4f7ff 0%, #eef2f9 100%);
+}
+
+.ds160-client-shell {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+}
+
+.ds160-client-hero {
+  margin-bottom: 24px;
+}
+
+.ds160-client-card {
+  overflow: hidden;
+}
+
+.ds160-client-form {
+  padding: 0;
+  margin-top: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ds160-client-form::before {
+  display: none;
+}
+
 .table-pagination {
   display: flex;
   justify-content: space-between;
