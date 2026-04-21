@@ -1666,9 +1666,9 @@ time {
   inset: 0;
   z-index: 80;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 24px 24px 40px;
+  padding: 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1688,11 +1688,11 @@ time {
   position: relative;
   z-index: 1;
   width: min(1080px, calc(100vw - 40px));
-  max-height: calc(100vh - 64px);
+  max-height: calc(100vh - 48px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  margin: 8px auto 0;
+  margin: 0 auto;
   padding: 18px 18px 16px;
   border: 1px solid rgba(37, 58, 119, 0.14);
   border-radius: 16px;
@@ -2341,7 +2341,7 @@ body.modal-open {
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
-  z-index: 20;
+  z-index: 120;
   min-width: 220px;
   padding: 10px;
   border: 1px solid rgba(32, 53, 111, 0.12);
@@ -2374,6 +2374,10 @@ body.modal-open {
 .workspace-main .card,
 .manager-table-wrap {
   overflow: visible;
+}
+
+.reservation-inline-modal {
+  z-index: 90;
 }
 
 .trip-menu-item {

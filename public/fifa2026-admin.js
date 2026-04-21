@@ -2672,6 +2672,12 @@ document.addEventListener("click", (event) => {
 });
 
 ticketList?.addEventListener("click", async (event) => {
+  const menuTrigger = event.target.closest(".trip-menu summary");
+  if (menuTrigger) {
+    event.stopPropagation();
+    return;
+  }
+
   const checkbox = event.target.closest('input[type="checkbox"][data-action="select-ticket"]');
   if (checkbox) {
     if (checkbox.checked) state.selectedTickets.add(checkbox.dataset.id);
@@ -2682,7 +2688,7 @@ ticketList?.addEventListener("click", async (event) => {
 
   const target = event.target.closest("[data-action]");
   if (target?.closest(".trip-menu")) {
-    closeOpenTripMenus();
+    event.stopPropagation();
   }
   if (target?.dataset.action === "toggle-match") {
     const matchKey = target.dataset.matchKey || "";
@@ -2789,9 +2795,15 @@ ticketList?.addEventListener("click", async (event) => {
 });
 
 saleList?.addEventListener("click", async (event) => {
+  const menuTrigger = event.target.closest(".trip-menu summary");
+  if (menuTrigger) {
+    event.stopPropagation();
+    return;
+  }
+
   const target = event.target.closest("button[data-action]");
   const toggle = event.target.closest('[data-action="toggle-sale"]');
-  if (toggle && !target) {
+  if (toggle && !target && !event.target.closest(".trip-menu")) {
     const saleId = toggle.dataset.id || "";
     if (state.expandedSales.has(saleId)) {
       state.expandedSales.delete(saleId);
@@ -2803,6 +2815,9 @@ saleList?.addEventListener("click", async (event) => {
     return;
   }
   if (!target) return;
+  if (target.closest(".trip-menu")) {
+    event.stopPropagation();
+  }
   const saleId = target.dataset.id;
   const sale = state.sales.find((item) => item.id === saleId);
   if (!sale) return;
