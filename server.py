@@ -5413,6 +5413,14 @@ def app(environ, start_response):
             return text_response(start_response, "403 Forbidden", "Admin access required")
         return file_response(start_response, PUBLIC_DIR / "admin.html")
 
+    if path == "/fifa2026-admin":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "fifa2026-admin.html")
+
+    if path == "/fifa2026":
+        return file_response(start_response, PUBLIC_DIR / "fifa2026.html")
+
     if path.startswith("/generated/"):
         safe_path = (GENERATED_DIR / unquote(path.replace("/generated/", "", 1))).resolve()
         if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
