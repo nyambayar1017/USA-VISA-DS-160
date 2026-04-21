@@ -35,8 +35,12 @@ FINANCE_FILE = DATA_DIR / "finance_entries.json"
 BOOKINGS_FILE = DATA_DIR / "hotel_bookings.json"
 RESERVATIONS_FILE = DATA_DIR / "reservations.json"
 CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
+FLIGHT_RESERVATIONS_FILE = DATA_DIR / "flight_reservations.json"
+TRANSFER_RESERVATIONS_FILE = DATA_DIR / "transfer_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
+FIFA2026_FILE = DATA_DIR / "fifa2026.json"
+FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
@@ -77,6 +81,7 @@ DEFAULT_LANGUAGES = [
 ]
 RESERVATION_TYPE_LABELS = {
     "camp": "Баазын захиалга",
+    "tent": "Майхны захиалга",
     "hotel": "Буудлын захиалга",
     "herder": "Малчин айлын захиалга",
 }
@@ -96,6 +101,8 @@ def ensure_data_store():
         BOOKINGS_FILE,
         RESERVATIONS_FILE,
         CAMP_RESERVATIONS_FILE,
+        FLIGHT_RESERVATIONS_FILE,
+        TRANSFER_RESERVATIONS_FILE,
         CAMP_TRIPS_FILE,
         USERS_FILE,
         SESSIONS_FILE,
@@ -120,6 +127,11 @@ def ensure_data_store():
             ),
             encoding="utf-8",
         )
+    if not FIFA2026_FILE.exists():
+        FIFA2026_FILE.write_text(
+            json.dumps(default_fifa2026_data(), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
     bootstrap_admin_user()
 
 
@@ -141,8 +153,11 @@ def list_backup_sources():
         BOOKINGS_FILE,
         RESERVATIONS_FILE,
         CAMP_RESERVATIONS_FILE,
+        FLIGHT_RESERVATIONS_FILE,
+        TRANSFER_RESERVATIONS_FILE,
         CAMP_TRIPS_FILE,
         CAMP_SETTINGS_FILE,
+        FIFA2026_FILE,
         MANAGER_DASHBOARD_FILE,
         USERS_FILE,
         SESSIONS_FILE,
@@ -288,6 +303,22 @@ def write_camp_reservations(records):
     write_json_list(CAMP_RESERVATIONS_FILE, records)
 
 
+def read_flight_reservations():
+    return read_json_list(FLIGHT_RESERVATIONS_FILE)
+
+
+def write_flight_reservations(records):
+    write_json_list(FLIGHT_RESERVATIONS_FILE, records)
+
+
+def read_transfer_reservations():
+    return read_json_list(TRANSFER_RESERVATIONS_FILE)
+
+
+def write_transfer_reservations(records):
+    write_json_list(TRANSFER_RESERVATIONS_FILE, records)
+
+
 def read_camp_trips():
     return read_json_list(CAMP_TRIPS_FILE)
 
@@ -367,6 +398,64 @@ def read_camp_settings():
 
 def write_camp_settings(payload):
     write_json_object(CAMP_SETTINGS_FILE, payload)
+
+
+def default_fifa2026_data():
+    return {"tickets": [], "sales": []}
+
+
+def normalize_fifa2026_store(payload):
+    default_payload = default_fifa2026_data()
+    if not isinstance(payload, dict):
+        return default_payload
+    tickets = payload.get("tickets") if isinstance(payload.get("tickets"), list) else default_payload["tickets"]
+    sales = payload.get("sales") if isinstance(payload.get("sales"), list) else []
+    return {
+        "tickets": tickets,
+        "sales": sales,
+    }
+
+
+def read_fifa2026_store():
+    payload = read_json_object(FIFA2026_FILE, default_fifa2026_data())
+    return normalize_fifa2026_store(payload)
+
+
+def write_fifa2026_store(payload):
+    write_json_object(FIFA2026_FILE, normalize_fifa2026_store(payload))
+
+
+def reset_fifa2026_store_from_seed():
+    payload = normalize_fifa2026_store(default_fifa2026_data())
+    write_fifa2026_store(payload)
+    return payload
+
+
+def fifa_store_totals(store):
+    tickets = store.get("tickets", [])
+    return {
+        "lots": len(tickets),
+        "matches": len({normalize_text(ticket.get("matchNumber")) for ticket in tickets if normalize_text(ticket.get("matchNumber"))}),
+        "quantity": sum(max(parse_int(ticket.get("totalQuantity")), 0) for ticket in tickets),
+    }
+
+
+def ensure_fifa2026_manual_inventory():
+    if not FIFA2026_RESET_MARKER_FILE.exists():
+        empty_store = {"tickets": [], "sales": []}
+        write_fifa2026_store(empty_store)
+        FIFA2026_RESET_MARKER_FILE.write_text("manual-reset-v3", encoding="utf-8")
+        return empty_store
+    current = read_fifa2026_store()
+    tickets = current.get("tickets", [])
+    if tickets and all(
+        "Imported from DTX 2026 WC - Sales Registration.xlsx" in normalize_text(ticket.get("notes"))
+        for ticket in tickets
+    ):
+        empty_store = {"tickets": [], "sales": []}
+        write_fifa2026_store(empty_store)
+        return empty_store
+    return current
 
 
 def json_response(start_response, status, payload, extra_headers=None):
@@ -4164,6 +4253,364 @@ def validate_manager_contact(contact):
     return None
 
 
+def fifa_active_sales(sales):
+    return [sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() != "cancelled"]
+
+
+def fifa_ticket_sales(sales, ticket_id, excluded_sale_id=None):
+    return [
+        sale
+        for sale in fifa_active_sales(sales)
+        if sale.get("id") != excluded_sale_id
+        and (
+            sale.get("ticketId") == ticket_id
+            or ticket_id in (sale.get("ticketIds") or [])
+        )
+    ]
+
+
+def fifa_sale_quantity_for_ticket(sale, ticket_id):
+    ticket_ids = [normalize_text(value) for value in (sale.get("ticketIds") or []) if normalize_text(value)]
+    primary_ticket_id = normalize_text(sale.get("ticketId"))
+    if ticket_ids:
+        return 1 if ticket_id in ticket_ids else 0
+    if primary_ticket_id == ticket_id:
+        return max(parse_int(sale.get("quantity")), 0)
+    return 0
+
+
+def fifa_ticket_available_quantity(ticket, sales, excluded_sale_id=None):
+    sold_quantity = sum(
+        fifa_sale_quantity_for_ticket(sale, ticket.get("id"))
+        for sale in fifa_ticket_sales(sales, ticket.get("id"), excluded_sale_id)
+    )
+    return max(parse_int(ticket.get("totalQuantity")) - sold_quantity, 0)
+
+
+def find_fifa_ticket(store, ticket_id):
+    for ticket in store.get("tickets", []):
+        if ticket.get("id") == ticket_id:
+            return ticket
+    return None
+
+
+def enrich_fifa_ticket(ticket, sales):
+    sold_quantity = sum(
+        fifa_sale_quantity_for_ticket(sale, ticket.get("id"))
+        for sale in fifa_ticket_sales(sales, ticket.get("id"))
+    )
+    total_quantity = max(parse_int(ticket.get("totalQuantity")), 0)
+    available_quantity = max(total_quantity - sold_quantity, 0)
+    public_visible = (
+        normalize_text(ticket.get("visibility")).lower() == "public"
+        and normalize_text(ticket.get("status")).lower() == "active"
+        and available_quantity > 0
+    )
+    return {
+        **ticket,
+        "totalQuantity": total_quantity,
+        "soldQuantity": sold_quantity,
+        "availableQuantity": available_quantity,
+        "publicVisible": public_visible,
+        "soldOut": available_quantity <= 0,
+    }
+
+
+def enrich_fifa_sale(sale, ticket, store=None):
+    ticket_ids = sale.get("ticketIds") or ([sale.get("ticketId")] if sale.get("ticketId") else [])
+    linked_tickets = [find_fifa_ticket(store or {"tickets": []}, ticket_id) for ticket_id in ticket_ids]
+    linked_tickets = [item for item in linked_tickets if item]
+    quantity = max(parse_int(sale.get("quantity")) or len(ticket_ids), 0)
+    price_per_ticket = max(parse_int(sale.get("pricePerTicket")), 0)
+    discount_amount = max(parse_int(sale.get("discountAmount")), 0)
+    block_total_price = sum(max(parse_int(block.get("totalPrice")), 0) for block in (sale.get("ticketBlocks") or []))
+    total_price = max(parse_int(sale.get("totalPrice")) or max(block_total_price - discount_amount, 0) or (quantity * price_per_ticket), 0)
+    amount_paid = max(parse_int(sale.get("amountPaid")), 0)
+    invoice_exchange_rate = max(parse_int(sale.get("invoiceExchangeRate")) or 3600, 1)
+    buyer_name = normalize_text(sale.get("buyerName"))
+    sold_by = sale.get("soldBy") or {}
+    sold_by_email = normalize_text(sold_by.get("email")).lower()
+    sold_by_user = find_user_by_email(sold_by_email) if sold_by_email else None
+    sold_by_name = (
+        normalize_text(sold_by.get("fullName"))
+        or normalize_text(sold_by_user.get("fullName") if sold_by_user else "")
+        or normalize_text(sold_by_user.get("name") if sold_by_user else "")
+        or sold_by_email
+    )
+    ticket_labels = [
+        f"{normalize_text(item.get('matchNumber'))} · {normalize_text(item.get('matchLabel'))}".strip(" ·")
+        for item in linked_tickets
+        if normalize_text(item.get("matchNumber")) or normalize_text(item.get("matchLabel"))
+    ]
+    cities = [normalize_text(item.get("city")) for item in linked_tickets if normalize_text(item.get("city"))]
+    stages = [normalize_text(item.get("stage")) for item in linked_tickets if normalize_text(item.get("stage"))]
+    seat_details = [normalize_text(item.get("seatDetails")) for item in linked_tickets if normalize_text(item.get("seatDetails"))]
+    return {
+        **sale,
+        "ticketIds": ticket_ids,
+        "quantity": quantity,
+        "pricePerTicket": price_per_ticket,
+        "discountAmount": discount_amount,
+        "invoiceExchangeRate": invoice_exchange_rate,
+        "invoiceBankAccount": normalize_text(sale.get("invoiceBankAccount")) or "state",
+        "invoiceDescriptions": sale.get("invoiceDescriptions") or [],
+        "invoiceSchedule": sale.get("invoiceSchedule") or [],
+        "totalPrice": total_price,
+        "amountPaid": amount_paid,
+        "balanceDue": max(total_price - amount_paid, 0),
+        "isPaid": amount_paid >= total_price and total_price > 0,
+        "buyerName": buyer_name,
+        "buyerEmail": normalize_text(sale.get("buyerEmail")).lower(),
+        "ticket": enrich_fifa_ticket(ticket, []) if ticket else None,
+        "ticketLabel": normalize_text(sale.get("buyerTitle")) or ", ".join(dict.fromkeys(ticket_labels)),
+        "city": ", ".join(dict.fromkeys(cities)),
+        "stage": ", ".join(dict.fromkeys(stages)),
+        "seatDetails": " | ".join(seat_details),
+        "buyerTitle": normalize_text(sale.get("buyerTitle")),
+        "ticketBlocks": sale.get("ticketBlocks") or [],
+        "participants": sale.get("participants") or [],
+        "soldByName": sold_by_name,
+    }
+
+
+def build_fifa_summary(store):
+    tickets = store.get("tickets", [])
+    sales = store.get("sales", [])
+    enriched_tickets = [enrich_fifa_ticket(ticket, sales) for ticket in tickets]
+    active_sales = fifa_active_sales(sales)
+    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales]
+    public_tickets = [ticket for ticket in enriched_tickets if ticket.get("publicVisible")]
+    paid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "paid"]
+    unpaid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "unpaid"]
+    partial_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "partial"]
+    return {
+        "tickets": {
+            "total": len(tickets),
+            "matches": len({normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel")) for ticket in tickets}),
+            "public": len([ticket for ticket in tickets if normalize_text(ticket.get("visibility")).lower() == "public"]),
+            "availableLots": len([ticket for ticket in enriched_tickets if ticket.get("availableQuantity", 0) > 0]),
+            "soldOutLots": len([ticket for ticket in enriched_tickets if ticket.get("availableQuantity", 0) <= 0]),
+            "availableUnits": sum(ticket.get("availableQuantity", 0) for ticket in enriched_tickets),
+            "soldUnits": sum(ticket.get("soldQuantity", 0) for ticket in enriched_tickets),
+        },
+        "sales": {
+            "total": len(sales),
+            "active": len(active_sales),
+            "cancelled": len([sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() == "cancelled"]),
+            "paid": len(paid_sales),
+            "partial": len(partial_sales),
+            "unpaid": len(unpaid_sales),
+            "revenue": sum(max(parse_int(sale.get("totalPrice")), 0) for sale in active_sales),
+            "collected": sum(max(parse_int(sale.get("amountPaid")), 0) for sale in active_sales),
+        },
+        "public": {
+            "visibleLots": len(public_tickets),
+            "visibleUnits": sum(ticket.get("availableQuantity", 0) for ticket in public_tickets),
+        },
+        "filters": {
+            "stages": sorted({normalize_text(ticket.get("stage")) for ticket in tickets if normalize_text(ticket.get("stage"))}),
+            "cities": sorted({normalize_text(ticket.get("city")) for ticket in tickets if normalize_text(ticket.get("city"))}),
+            "categories": sorted({normalize_text(ticket.get("categoryCode")) for ticket in tickets if normalize_text(ticket.get("categoryCode"))}),
+            "matches": sorted({
+                f"{normalize_text(ticket.get('matchNumber'))} · {normalize_text(ticket.get('matchLabel'))}".strip(" ·")
+                for ticket in tickets
+                if normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
+            }),
+            "soldBy": sorted({sale.get("soldByName") for sale in enriched_sales if sale.get("soldByName")}),
+        },
+    }
+
+
+def build_fifa_ticket(payload):
+    timestamp = now_mongolia().isoformat()
+    return {
+        "id": str(uuid4()),
+        "stage": normalize_text(payload.get("stage")),
+        "groupLabel": normalize_text(payload.get("groupLabel")),
+        "matchNumber": normalize_text(payload.get("matchNumber")),
+        "matchLabel": normalize_text(payload.get("matchLabel")),
+        "matchDate": normalize_text(payload.get("matchDate")),
+        "teamA": normalize_text(payload.get("teamA")),
+        "teamB": normalize_text(payload.get("teamB")),
+        "city": normalize_text(payload.get("city")),
+        "venue": normalize_text(payload.get("venue")),
+        "categoryCode": normalize_text(payload.get("categoryCode")) or "1",
+        "categoryName": normalize_text(payload.get("categoryName")),
+        "seatSection": normalize_text(payload.get("seatSection")),
+        "seatDetails": normalize_text(payload.get("seatDetails")),
+        "seatAssignedLater": bool(payload.get("seatAssignedLater")),
+        "price": max(parse_int(payload.get("price")), 0),
+        "currency": normalize_text(payload.get("currency")) or "USD",
+        "totalQuantity": max(parse_int(payload.get("totalQuantity")) or 1, 1),
+        "visibility": normalize_text(payload.get("visibility")).lower() or "public",
+        "status": normalize_text(payload.get("status")).lower() or "active",
+        "notes": normalize_text(payload.get("notes")),
+        "createdAt": timestamp,
+        "updatedAt": timestamp,
+    }
+
+
+def validate_fifa_ticket(ticket):
+    if len(ticket.get("matchLabel", "")) < 2:
+        return "Match label must be at least 2 characters"
+    if not ticket.get("matchDate") or not parse_date_input(ticket.get("matchDate")):
+        return "Match date must be in YYYY-MM-DD format"
+    if len(ticket.get("city", "")) < 2:
+        return "City is required"
+    if ticket.get("price", 0) <= 0:
+        return "Price must be greater than 0"
+    if ticket.get("totalQuantity", 0) <= 0:
+        return "Quantity must be greater than 0"
+    if ticket.get("categoryCode") not in {"1", "2", "3"}:
+        return "Category must be 1, 2, or 3"
+    if ticket.get("visibility") not in {"public", "private"}:
+        return "Visibility must be public or private"
+    if ticket.get("status") not in {"active", "hidden", "archived"}:
+        return "Status must be active, hidden, or archived"
+    return None
+
+
+def build_fifa_sale(payload, actor=None):
+    ticket_ids = [normalize_text(value) for value in (payload.get("ticketIds") or []) if normalize_text(value)]
+    if not ticket_ids and normalize_text(payload.get("ticketId")):
+        ticket_ids = [normalize_text(payload.get("ticketId"))]
+    ticket_blocks = payload.get("ticketBlocks") if isinstance(payload.get("ticketBlocks"), list) else []
+    participants = payload.get("participants") if isinstance(payload.get("participants"), list) else []
+    quantity = max(parse_int(payload.get("quantity")) or len(ticket_ids) or 1, 1)
+    normalized_blocks = []
+    for block in ticket_blocks:
+        if not isinstance(block, dict):
+            continue
+        normalized_block = {
+            "matchNumber": normalize_text(block.get("matchNumber")),
+            "matchLabel": normalize_text(block.get("matchLabel")),
+            "categoryCode": normalize_text(block.get("categoryCode")),
+            "quantity": max(parse_int(block.get("quantity")), 0),
+            "unitPrice": max(parse_int(block.get("unitPrice")), 0),
+            "totalPrice": max(parse_int(block.get("totalPrice")), 0),
+            "seatPreview": normalize_text(block.get("seatPreview")),
+            "ticketLabels": [normalize_text(item) for item in (block.get("ticketLabels") or []) if normalize_text(item)],
+            "ticketIds": [normalize_text(item) for item in (block.get("ticketIds") or []) if normalize_text(item)],
+        }
+        if normalized_block["quantity"] <= 0 and normalized_block["ticketIds"]:
+            normalized_block["quantity"] = len(normalized_block["ticketIds"])
+        if normalized_block["totalPrice"] <= 0 and normalized_block["quantity"] > 0 and normalized_block["unitPrice"] > 0:
+            normalized_block["totalPrice"] = normalized_block["quantity"] * normalized_block["unitPrice"]
+        normalized_blocks.append(normalized_block)
+    ticket_blocks = normalized_blocks
+    block_total_price = sum(max(parse_int(block.get("totalPrice")), 0) for block in ticket_blocks)
+    unique_unit_prices = {max(parse_int(block.get("unitPrice")), 0) for block in ticket_blocks if max(parse_int(block.get("unitPrice")), 0) > 0}
+    price_per_ticket = max(parse_int(payload.get("pricePerTicket")), 0)
+    if not price_per_ticket and len(unique_unit_prices) == 1:
+        price_per_ticket = next(iter(unique_unit_prices))
+    discount_amount = max(parse_int(payload.get("discountAmount")), 0)
+    invoice_exchange_rate = max(parse_int(payload.get("invoiceExchangeRate")) or 3600, 1)
+    invoice_bank_account = normalize_text(payload.get("invoiceBankAccount")) or "state"
+    invoice_bank_account_other = normalize_text(payload.get("invoiceBankAccountOther"))
+    invoice_schedule = []
+    invoice_descriptions = [normalize_text(item) for item in (payload.get("invoiceDescriptions") or []) if normalize_text(item)]
+    for row in payload.get("invoiceSchedule") or []:
+        if not isinstance(row, dict):
+            continue
+        invoice_schedule.append(
+            {
+                "title": normalize_text(row.get("title")),
+                "created": normalize_text(row.get("created")),
+                "due": normalize_text(row.get("due")),
+                "status": normalize_text(row.get("status")).lower() or "waiting",
+                "amount": max(parse_int(row.get("amount")), 0),
+            }
+        )
+    total_price = max(parse_int(payload.get("totalPrice")) or max(block_total_price - discount_amount, 0) or (quantity * price_per_ticket), 0)
+    amount_paid = max(parse_int(payload.get("amountPaid")), 0)
+    payment_status = normalize_text(payload.get("paymentStatus")).lower()
+    if not payment_status:
+        if total_price and amount_paid >= total_price:
+            payment_status = "paid"
+        elif amount_paid > 0:
+            payment_status = "partial"
+        else:
+            payment_status = "unpaid"
+    timestamp = now_mongolia().isoformat()
+    return {
+        "id": str(uuid4()),
+        "ticketId": ticket_ids[0] if ticket_ids else "",
+        "ticketIds": ticket_ids,
+        "ticketBlocks": ticket_blocks,
+        "participants": participants,
+        "quantity": quantity,
+        "buyerTitle": normalize_text(payload.get("buyerTitle")),
+        "buyerName": normalize_text(payload.get("buyerName")),
+        "buyerPhone": normalize_text(payload.get("buyerPhone")),
+        "buyerEmail": normalize_text(payload.get("buyerEmail")).lower(),
+        "buyerPassportNumber": normalize_text(payload.get("buyerPassportNumber")),
+        "buyerNationality": normalize_text(payload.get("buyerNationality")),
+        "buyerNotes": normalize_text(payload.get("buyerNotes")),
+        "pricePerTicket": price_per_ticket,
+        "discountAmount": discount_amount,
+        "invoiceExchangeRate": invoice_exchange_rate,
+        "invoiceBankAccount": invoice_bank_account,
+        "invoiceBankAccountOther": invoice_bank_account_other,
+        "invoiceDescriptions": invoice_descriptions,
+        "invoiceSchedule": invoice_schedule,
+        "totalPrice": total_price,
+        "amountPaid": amount_paid,
+        "paymentStatus": payment_status,
+        "paymentMethod": normalize_text(payload.get("paymentMethod")),
+        "saleStatus": normalize_text(payload.get("saleStatus")).lower() or "active",
+        "soldAt": normalize_text(payload.get("soldAt")) or timestamp,
+        "soldBy": actor_snapshot(actor),
+        "createdAt": timestamp,
+        "updatedAt": timestamp,
+    }
+
+
+def validate_fifa_sale(sale, ticket, sales, store, excluded_sale_id=None):
+    ticket_ids = sale.get("ticketIds") or ([sale.get("ticketId")] if sale.get("ticketId") else [])
+    if not ticket_ids:
+        return "Choose at least one ticket"
+    linked_tickets = [find_fifa_ticket(store, ticket_id) for ticket_id in ticket_ids]
+    if any(not item for item in linked_tickets):
+        return "One or more tickets were not found"
+    if any(item.get("status") == "archived" for item in linked_tickets if item):
+        return "Archived tickets cannot be sold"
+    if len(sale.get("buyerName", "")) < 2:
+        return "Buyer name must be at least 2 characters"
+    if sale.get("quantity", 0) != len(ticket_ids):
+        return "Selected ticket count and quantity must match"
+    ticket_blocks = sale.get("ticketBlocks") or []
+    if not ticket_blocks and sale.get("pricePerTicket", 0) <= 0:
+        return "Sale price must be greater than 0"
+    if ticket_blocks:
+        if any(max(parse_int(block.get("unitPrice")), 0) <= 0 for block in ticket_blocks):
+            return "Each match block must have a valid price per ticket"
+        if any(max(parse_int(block.get("totalPrice")), 0) <= 0 for block in ticket_blocks):
+            return "Each match block must have a valid total price"
+        if sum(max(parse_int(block.get("totalPrice")), 0) for block in ticket_blocks) <= 0:
+            return "Total price must be greater than 0"
+    if sale.get("paymentStatus") not in {"unpaid", "partial", "paid", "refunded"}:
+        return "Payment status is invalid"
+    if sale.get("saleStatus") not in {"active", "cancelled"}:
+        return "Sale status is invalid"
+    if sale.get("invoiceBankAccount") not in {"state", "golomt", "lkham-erdene", "azjargal", "bayaraa", "other"}:
+        return "Invoice bank account is invalid"
+    for row in sale.get("invoiceSchedule") or []:
+        if normalize_text(row.get("status")).lower() not in {"paid", "waiting", "overdue"}:
+            return "Invoice schedule status is invalid"
+    if sale.get("buyerEmail") and "@" not in sale.get("buyerEmail", ""):
+        return "Buyer email must be valid"
+    if sale.get("soldAt") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?", sale.get("soldAt")) and not parse_date_input(sale.get("soldAt")[:10]):
+        return "Sold at must be a valid date or date-time"
+    if len(sale.get("participants") or []) < sale.get("quantity", 0):
+        return "Add all participants for this buyer"
+    if sale.get("saleStatus") != "cancelled":
+        for linked_ticket in linked_tickets:
+            available_quantity = fifa_ticket_available_quantity(linked_ticket, sales, excluded_sale_id)
+            if available_quantity < 1:
+                return f"Ticket {linked_ticket.get('seatDetails') or linked_ticket.get('id')} is no longer available"
+    return None
+
+
 def update_manager_item(records, item_id, payload, builder, validator):
     for index, item in enumerate(records):
         if item.get("id") != item_id:
@@ -4483,6 +4930,193 @@ def handle_list_camp_reservations(start_response):
     return json_response(start_response, "200 OK", {"entries": records, "summary": camp_summary(records)})
 
 
+def handle_get_fifa2026_dashboard(start_response):
+    store = ensure_fifa2026_manual_inventory()
+    sales = store.get("sales", [])
+    tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
+    enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales]
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "tickets": tickets,
+            "sales": enriched_sales,
+            "summary": build_fifa_summary(store),
+        },
+    )
+
+
+def handle_get_fifa2026_public(start_response):
+    store = ensure_fifa2026_manual_inventory()
+    sales = store.get("sales", [])
+    tickets = []
+    for ticket in store.get("tickets", []):
+        enriched = enrich_fifa_ticket(ticket, sales)
+        if enriched.get("publicVisible"):
+            tickets.append(enriched)
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "tickets": tickets,
+            "summary": {
+                **build_fifa_summary(store).get("public", {}),
+                "matchCount": len(
+                    {
+                        normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
+                        for ticket in tickets
+                        if normalize_text(ticket.get("matchNumber")) or normalize_text(ticket.get("matchLabel"))
+                    }
+                ),
+            },
+        },
+    )
+
+
+def handle_reset_fifa2026_from_seed(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    store = reset_fifa2026_store_from_seed()
+    sales = store.get("sales", [])
+    tickets = [enrich_fifa_ticket(ticket, sales) for ticket in store.get("tickets", [])]
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "ok": True,
+            "tickets": tickets,
+            "sales": [],
+            "summary": build_fifa_summary(store),
+        },
+    )
+
+
+def handle_create_fifa_ticket(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    ticket = build_fifa_ticket(payload)
+    error = validate_fifa_ticket(ticket)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    store = read_fifa2026_store()
+    store["tickets"].insert(0, ticket)
+    write_fifa2026_store(store)
+    return json_response(start_response, "201 Created", {"ok": True, "ticket": ticket, "summary": build_fifa_summary(store)})
+
+
+def handle_update_fifa_ticket(environ, start_response, ticket_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    store = read_fifa2026_store()
+    for index, item in enumerate(store.get("tickets", [])):
+        if item.get("id") != ticket_id:
+            continue
+        updated = build_fifa_ticket({**item, **payload})
+        updated["id"] = ticket_id
+        updated["createdAt"] = item.get("createdAt") or updated.get("createdAt")
+        updated["updatedAt"] = now_mongolia().isoformat()
+        error = validate_fifa_ticket(updated)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        active_sales_quantity = sum(
+            fifa_sale_quantity_for_ticket(sale, ticket_id)
+            for sale in fifa_ticket_sales(store.get("sales", []), ticket_id)
+        )
+        if updated.get("totalQuantity", 0) < active_sales_quantity:
+            return json_response(
+                start_response,
+                "400 Bad Request",
+                {"error": f"Quantity cannot be less than already sold units ({active_sales_quantity})"},
+            )
+        store["tickets"][index] = updated
+        write_fifa2026_store(store)
+        return json_response(start_response, "200 OK", {"ok": True, "ticket": updated, "summary": build_fifa_summary(store)})
+    return json_response(start_response, "404 Not Found", {"error": "Ticket not found"})
+
+
+def handle_delete_fifa_ticket(environ, start_response, ticket_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    store = read_fifa2026_store()
+    if fifa_ticket_sales(store.get("sales", []), ticket_id):
+        return json_response(start_response, "400 Bad Request", {"error": "Cancel active sales before deleting this ticket lot"})
+    before = len(store.get("tickets", []))
+    store["tickets"] = [ticket for ticket in store.get("tickets", []) if ticket.get("id") != ticket_id]
+    if len(store["tickets"]) == before:
+        return json_response(start_response, "404 Not Found", {"error": "Ticket not found"})
+    write_fifa2026_store(store)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": ticket_id, "summary": build_fifa_summary(store)})
+
+
+def handle_create_fifa_sale(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    store = read_fifa2026_store()
+    sale = build_fifa_sale(payload, actor)
+    ticket = find_fifa_ticket(store, sale.get("ticketId"))
+    error = validate_fifa_sale(sale, ticket, store.get("sales", []), store)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    store["sales"].insert(0, sale)
+    write_fifa2026_store(store)
+    return json_response(start_response, "201 Created", {"ok": True, "sale": enrich_fifa_sale(sale, ticket, store), "summary": build_fifa_summary(store)})
+
+
+def handle_update_fifa_sale(environ, start_response, sale_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    store = read_fifa2026_store()
+    for index, item in enumerate(store.get("sales", [])):
+        if item.get("id") != sale_id:
+            continue
+        merged_payload = {**item, **payload}
+        sale = build_fifa_sale(merged_payload, actor)
+        sale["id"] = sale_id
+        sale["createdAt"] = item.get("createdAt") or sale.get("createdAt")
+        sale["soldBy"] = item.get("soldBy") or actor_snapshot(actor)
+        sale["soldAt"] = normalize_text(payload.get("soldAt")) or item.get("soldAt") or sale.get("soldAt")
+        sale["updatedAt"] = now_mongolia().isoformat()
+        ticket = find_fifa_ticket(store, sale.get("ticketId"))
+        error = validate_fifa_sale(sale, ticket, store.get("sales", []), store, excluded_sale_id=sale_id)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        store["sales"][index] = sale
+        write_fifa2026_store(store)
+        return json_response(start_response, "200 OK", {"ok": True, "sale": enrich_fifa_sale(sale, ticket, store), "summary": build_fifa_summary(store)})
+    return json_response(start_response, "404 Not Found", {"error": "Sale not found"})
+
+
+def handle_delete_fifa_sale(environ, start_response, sale_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    store = read_fifa2026_store()
+    before = len(store.get("sales", []))
+    store["sales"] = [sale for sale in store.get("sales", []) if sale.get("id") != sale_id]
+    if len(store["sales"]) == before:
+        return json_response(start_response, "404 Not Found", {"error": "Sale not found"})
+    write_fifa2026_store(store)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": sale_id, "summary": build_fifa_summary(store)})
+
+
 def handle_list_camp_trips(start_response):
     trips = read_camp_trips()
     return json_response(start_response, "200 OK", {"entries": trips})
@@ -4575,8 +5209,12 @@ def handle_delete_camp_trip(environ, start_response, trip_id):
         return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
     trips = [trip for trip in trips if trip["id"] != trip_id]
     reservations = [record for record in read_camp_reservations() if record.get("tripId") != trip_id]
+    flight_reservations = [record for record in read_flight_reservations() if record.get("tripId") != trip_id]
+    transfer_reservations = [record for record in read_transfer_reservations() if record.get("tripId") != trip_id]
     write_camp_trips(trips)
     write_camp_reservations(reservations)
+    write_flight_reservations(flight_reservations)
+    write_transfer_reservations(transfer_reservations)
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": trip_id, "summary": camp_summary(reservations)})
 
 
@@ -4615,6 +5253,154 @@ def handle_create_camp_reservation(environ, start_response):
     records.insert(0, record)
     write_camp_reservations(records)
     return json_response(start_response, "201 Created", {"ok": True, "entry": record, "summary": camp_summary(records)})
+
+
+def handle_create_flight_reservation(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    record = build_flight_reservation(payload, actor)
+    trip = find_camp_trip(record["tripId"])
+    if trip is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Please create or select a trip first"})
+    record["tripName"] = trip["tripName"]
+    record["reservationName"] = record.get("reservationName") or trip.get("reservationName") or trip["tripName"]
+    error = validate_flight_reservation(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    records = read_flight_reservations()
+    records.insert(0, record)
+    write_flight_reservations(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_create_transfer_reservation(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    record = build_transfer_reservation(payload, actor)
+    trip = find_camp_trip(record["tripId"])
+    if trip is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Please create or select a trip first"})
+    record["tripName"] = trip["tripName"]
+    record["reservationName"] = record.get("reservationName") or trip.get("reservationName") or trip["tripName"]
+    error = validate_transfer_reservation(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    records = read_transfer_reservations()
+    records.insert(0, record)
+    write_transfer_reservations(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_list_flight_reservations(start_response):
+    return json_response(start_response, "200 OK", {"entries": read_flight_reservations()})
+
+
+def handle_list_transfer_reservations(start_response):
+    return json_response(start_response, "200 OK", {"entries": read_transfer_reservations()})
+
+
+def build_flight_reservation(payload, actor=None):
+    return {
+        "id": str(uuid4()),
+        "createdAt": now_mongolia().isoformat(),
+        "tripId": normalize_text(payload.get("tripId")),
+        "tripName": normalize_text(payload.get("tripName")),
+        "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
+        "flightScope": normalize_text(payload.get("flightScope")).lower() or "domestic",
+        "routeType": normalize_text(payload.get("routeType")).lower() or "internal",
+        "airline": normalize_text(payload.get("airline")),
+        "flightNumber": normalize_text(payload.get("flightNumber")),
+        "fromCity": normalize_text(payload.get("fromCity")),
+        "toCity": normalize_text(payload.get("toCity")),
+        "departureDate": normalize_text(payload.get("departureDate")),
+        "departureTime": normalize_text(payload.get("departureTime")),
+        "arrivalDate": normalize_text(payload.get("arrivalDate")),
+        "arrivalTime": normalize_text(payload.get("arrivalTime")),
+        "staffCount": parse_int(payload.get("staffCount")),
+        "ticketPrice": parse_int(payload.get("ticketPrice")),
+        "totalTicketPrice": parse_int(payload.get("totalTicketPrice") or payload.get("amount")),
+        "requested": normalize_text(payload.get("requested")).lower() or "no",
+        "touristTicketStatus": normalize_text(payload.get("touristTicketStatus") or payload.get("status")).lower() or "waiting_list",
+        "guideTicketStatus": normalize_text(payload.get("guideTicketStatus") or payload.get("guideStatus")).lower() or "waiting_list",
+        "paidTo": normalize_text(payload.get("paidTo")),
+        "paidDate": normalize_text(payload.get("paidDate")),
+        "bookingReference": normalize_text(payload.get("bookingReference")),
+        "ticketNumber": normalize_text(payload.get("ticketNumber")),
+        "passengerCount": parse_int(payload.get("passengerCount")),
+        "status": normalize_text(payload.get("status")).lower() or "to_check",
+        "boughtDate": normalize_text(payload.get("boughtDate")),
+        "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
+        "amount": parse_int(payload.get("totalTicketPrice") or payload.get("amount")),
+        "currency": "MNT",
+        "notes": normalize_text(payload.get("notes")),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
+def validate_flight_reservation(data):
+    required = ["tripId", "tripName", "fromCity", "toCity", "departureDate", "touristTicketStatus", "guideTicketStatus", "paymentStatus"]
+    missing = [field for field in required if not data.get(field)]
+    if missing:
+        return f"Missing required fields: {', '.join(missing)}"
+    if data.get("passengerCount", 0) <= 0:
+        return "Passenger count must be greater than 0"
+    if not parse_date_input(data.get("departureDate")):
+        return "Departure date must be in YYYY-MM-DD format"
+    arrival_date = normalize_text(data.get("arrivalDate"))
+    if arrival_date and not parse_date_input(arrival_date):
+        return "Arrival date must be in YYYY-MM-DD format"
+    return None
+
+
+def build_transfer_reservation(payload, actor=None):
+    return {
+        "id": str(uuid4()),
+        "createdAt": now_mongolia().isoformat(),
+        "tripId": normalize_text(payload.get("tripId")),
+        "tripName": normalize_text(payload.get("tripName")),
+        "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
+        "transferType": normalize_text(payload.get("transferType")).lower() or "airport_hotel",
+        "pickupLocation": normalize_text(payload.get("pickupLocation")),
+        "dropoffLocation": normalize_text(payload.get("dropoffLocation")),
+        "serviceDate": normalize_text(payload.get("serviceDate")),
+        "serviceTime": normalize_text(payload.get("serviceTime")),
+        "supplierName": normalize_text(payload.get("supplierName")),
+        "driverName": normalize_text(payload.get("driverName")),
+        "vehicleType": normalize_text(payload.get("vehicleType")),
+        "passengerCount": parse_int(payload.get("passengerCount")),
+        "status": normalize_text(payload.get("status")).lower() or "pending",
+        "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
+        "driverSalary": parse_int(payload.get("driverSalary") or payload.get("amount")),
+        "currency": "MNT",
+        "notes": normalize_text(payload.get("notes")),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
+def validate_transfer_reservation(data):
+    required = ["tripId", "tripName", "transferType", "pickupLocation", "dropoffLocation", "serviceDate", "paymentStatus"]
+    missing = [field for field in required if not data.get(field)]
+    if missing:
+        return f"Missing required fields: {', '.join(missing)}"
+    if data.get("passengerCount", 0) <= 0:
+        return "Passenger count must be greater than 0"
+    if not parse_date_input(data.get("serviceDate")):
+        return "Service date must be in YYYY-MM-DD format"
+    return None
 
 
 def handle_update_camp_reservation(environ, start_response, reservation_id):
@@ -4694,6 +5480,127 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
     return json_response(start_response, "404 Not Found", {"error": "Camp reservation not found"})
 
 
+def handle_update_flight_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    records = read_flight_reservations()
+    for index, record in enumerate(records):
+        if record["id"] != reservation_id:
+            continue
+        merged = {**record}
+        for key in [
+            "tripId",
+            "tripName",
+            "reservationName",
+            "flightScope",
+            "routeType",
+            "airline",
+            "flightNumber",
+            "fromCity",
+            "toCity",
+            "departureDate",
+            "departureTime",
+            "arrivalDate",
+            "arrivalTime",
+            "requested",
+            "touristTicketStatus",
+            "guideTicketStatus",
+            "paidTo",
+            "paidDate",
+            "bookingReference",
+            "ticketNumber",
+            "status",
+            "boughtDate",
+            "paymentStatus",
+            "currency",
+            "notes",
+        ]:
+            if key in payload:
+                value = normalize_text(payload.get(key))
+                merged[key] = value.upper() if key == "currency" else value
+        for key in ["passengerCount", "staffCount", "ticketPrice", "totalTicketPrice", "amount"]:
+            if key in payload:
+                target_key = "totalTicketPrice" if key in {"totalTicketPrice", "amount"} else key
+                merged[target_key] = parse_int(payload.get(key))
+        merged["amount"] = parse_int(merged.get("totalTicketPrice"))
+        merged["currency"] = "MNT"
+        if normalize_text(merged.get("tripId")):
+            trip = find_camp_trip(merged.get("tripId"))
+            if trip is None:
+                return json_response(start_response, "400 Bad Request", {"error": "Selected trip was not found"})
+            merged["tripName"] = trip["tripName"]
+            if not normalize_text(merged.get("reservationName")):
+                merged["reservationName"] = trip.get("reservationName") or trip["tripName"]
+        error = validate_flight_reservation(merged)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        merged["updatedAt"] = now_mongolia().isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
+        records[index] = merged
+        write_flight_reservations(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+    return json_response(start_response, "404 Not Found", {"error": "Flight reservation not found"})
+
+
+def handle_update_transfer_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    records = read_transfer_reservations()
+    for index, record in enumerate(records):
+        if record["id"] != reservation_id:
+            continue
+        merged = {**record}
+        for key in [
+            "tripId",
+            "tripName",
+            "reservationName",
+            "transferType",
+            "pickupLocation",
+            "dropoffLocation",
+            "serviceDate",
+            "serviceTime",
+            "driverName",
+            "vehicleType",
+            "paymentStatus",
+            "currency",
+            "notes",
+        ]:
+            if key in payload:
+                value = normalize_text(payload.get(key))
+                merged[key] = value.upper() if key == "currency" else value
+        for key in ["passengerCount", "amount", "driverSalary"]:
+            if key in payload:
+                target_key = "driverSalary" if key in {"amount", "driverSalary"} else key
+                merged[target_key] = parse_int(payload.get(key))
+        merged["currency"] = "MNT"
+        if normalize_text(merged.get("tripId")):
+            trip = find_camp_trip(merged.get("tripId"))
+            if trip is None:
+                return json_response(start_response, "400 Bad Request", {"error": "Selected trip was not found"})
+            merged["tripName"] = trip["tripName"]
+            if not normalize_text(merged.get("reservationName")):
+                merged["reservationName"] = trip.get("reservationName") or trip["tripName"]
+        error = validate_transfer_reservation(merged)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        merged["updatedAt"] = now_mongolia().isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
+        records[index] = merged
+        write_transfer_reservations(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+    return json_response(start_response, "404 Not Found", {"error": "Transfer reservation not found"})
+
+
 def handle_delete_camp_reservation(environ, start_response, reservation_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -4704,6 +5611,30 @@ def handle_delete_camp_reservation(environ, start_response, reservation_id):
     records = [record for record in records if record["id"] != reservation_id]
     write_camp_reservations(records)
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": reservation_id, "summary": camp_summary(records)})
+
+
+def handle_delete_flight_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_flight_reservations()
+    if not any(record["id"] == reservation_id for record in records):
+        return json_response(start_response, "404 Not Found", {"error": "Flight reservation not found"})
+    records = [record for record in records if record["id"] != reservation_id]
+    write_flight_reservations(records)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": reservation_id})
+
+
+def handle_delete_transfer_reservation(environ, start_response, reservation_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_transfer_reservations()
+    if not any(record["id"] == reservation_id for record in records):
+        return json_response(start_response, "404 Not Found", {"error": "Transfer reservation not found"})
+    records = [record for record in records if record["id"] != reservation_id]
+    write_transfer_reservations(records)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": reservation_id})
 
 
 def handle_export_camp_reservations(environ, start_response):
@@ -5310,6 +6241,28 @@ def app(environ, start_response):
             return handle_create_camp_reservation(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/flight-reservations":
+        if method == "GET":
+            if not require_login(environ, start_response):
+                return []
+            return handle_list_flight_reservations(start_response)
+        if method == "POST":
+            if not require_login(environ, start_response):
+                return []
+            return handle_create_flight_reservation(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/transfer-reservations":
+        if method == "GET":
+            if not require_login(environ, start_response):
+                return []
+            return handle_list_transfer_reservations(start_response)
+        if method == "POST":
+            if not require_login(environ, start_response):
+                return []
+            return handle_create_transfer_reservation(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/camp-trips":
         if method == "GET":
             if not require_login(environ, start_response):
@@ -5330,6 +6283,49 @@ def app(environ, start_response):
             return handle_update_camp_settings(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/fifa2026":
+        if method == "GET":
+            if not require_login(environ, start_response):
+                return []
+            return handle_get_fifa2026_dashboard(start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/fifa2026/public":
+        if method == "GET":
+            return handle_get_fifa2026_public(start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/fifa2026/reset-from-seed":
+        if method == "POST":
+            return handle_reset_fifa2026_from_seed(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/fifa2026/tickets":
+        if method == "POST":
+            return handle_create_fifa_ticket(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/fifa2026/sales":
+        if method == "POST":
+            return handle_create_fifa_sale(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/fifa2026/tickets/"):
+        ticket_id = path.replace("/api/fifa2026/tickets/", "", 1).strip("/")
+        if method == "POST" and ticket_id:
+            return handle_update_fifa_ticket(environ, start_response, ticket_id)
+        if method == "DELETE" and ticket_id:
+            return handle_delete_fifa_ticket(environ, start_response, ticket_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/fifa2026/sales/"):
+        sale_id = path.replace("/api/fifa2026/sales/", "", 1).strip("/")
+        if method == "POST" and sale_id:
+            return handle_update_fifa_sale(environ, start_response, sale_id)
+        if method == "DELETE" and sale_id:
+            return handle_delete_fifa_sale(environ, start_response, sale_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/camp-reservations/export":
         if method == "GET":
             return handle_export_camp_reservations(environ, start_response)
@@ -5346,6 +6342,26 @@ def app(environ, start_response):
             return handle_update_camp_reservation(environ, start_response, reservation_id)
         if method == "DELETE" and reservation_id:
             return handle_delete_camp_reservation(environ, start_response, reservation_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/flight-reservations/"):
+        reservation_id = path.replace("/api/flight-reservations/", "", 1).strip("/")
+        if method == "POST" and reservation_id:
+            if not require_login(environ, start_response):
+                return []
+            return handle_update_flight_reservation(environ, start_response, reservation_id)
+        if method == "DELETE" and reservation_id:
+            return handle_delete_flight_reservation(environ, start_response, reservation_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/transfer-reservations/"):
+        reservation_id = path.replace("/api/transfer-reservations/", "", 1).strip("/")
+        if method == "POST" and reservation_id:
+            if not require_login(environ, start_response):
+                return []
+            return handle_update_transfer_reservation(environ, start_response, reservation_id)
+        if method == "DELETE" and reservation_id:
+            return handle_delete_transfer_reservation(environ, start_response, reservation_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/camp-trips/"):
@@ -5404,6 +6420,26 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "camp.html")
+
+    if path == "/camp-reservations":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "camp-reservations.html")
+
+    if path == "/flight-reservations":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "flight-reservations.html")
+
+    if path == "/transfer-reservations":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "transfer-reservations.html")
+
+    if path == "/trip-detail":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "trip-detail.html")
 
     if path == "/admin":
         user = current_user(environ)
