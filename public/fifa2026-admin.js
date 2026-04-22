@@ -276,6 +276,12 @@ function formatMntInputValue(value) {
   return `${Number(digitsOnly).toLocaleString("en-US")}₮`;
 }
 
+function formatNumberInputValue(value) {
+  const digitsOnly = String(value ?? "").replace(/[^\d]/g, "");
+  if (!digitsOnly) return "";
+  return Number(digitsOnly).toLocaleString("en-US");
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -1083,7 +1089,7 @@ function activeInvoiceSchedule(saleLike = null) {
 function syncInvoiceScheduleRemainder() {
   if (!state.invoiceScheduleTouched || !state.invoiceSchedule.length || !saleForm) return;
   const exchangeRate = currentInvoiceExchangeRate();
-  const totalMnt = Math.round(saleInvoiceTotal() * exchangeRate);
+  const totalMnt = currentSaleTotalMnt();
   if (state.invoiceSchedule.length === 1) {
     return;
   }
@@ -1101,7 +1107,7 @@ function refreshInvoiceScheduleFooter() {
   const schedule = activeInvoiceSchedule();
   const exchangeRate = Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE);
   const scheduleTotalMnt = schedule.reduce((sum, line) => sum + scheduleLineAmountMnt(line, exchangeRate), 0);
-  const totalMnt = Math.round(saleInvoiceTotal() * exchangeRate);
+  const totalMnt = currentSaleTotalMnt();
   const balanceMnt = Math.max(totalMnt - scheduleTotalMnt, 0);
   const totalNode = invoiceScheduleEditor.querySelector("[data-schedule-total]");
   const balanceNode = invoiceScheduleEditor.querySelector("[data-schedule-balance]");
@@ -1115,10 +1121,9 @@ function refreshInvoiceScheduleFooter() {
 function renderInvoiceScheduleEditor() {
   if (!invoiceScheduleEditor || !saleForm) return;
   const schedule = activeInvoiceSchedule();
-  const totalPrice = saleInvoiceTotal();
   const exchangeRate = Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE);
   const scheduleTotalMnt = schedule.reduce((sum, line) => sum + scheduleLineAmountMnt(line, exchangeRate), 0);
-  const totalMnt = Math.round(totalPrice * exchangeRate);
+  const totalMnt = currentSaleTotalMnt();
   const balanceMnt = Math.max(totalMnt - scheduleTotalMnt, 0);
   invoiceScheduleEditor.innerHTML = `
     <div class="fifa-invoice-schedule-box">
@@ -1160,7 +1165,7 @@ function renderInvoiceScheduleEditor() {
             </label>
             <label>
               Amount (₮)
-              <input type="text" inputmode="numeric" pattern="[0-9]*" data-schedule-field="amount" value="${escapeHtml(String(scheduleLineAmountMnt(line, exchangeRate)))}" />
+              <input type="text" inputmode="numeric" pattern="[0-9]*" data-schedule-field="amount" value="${escapeHtml(formatNumberInputValue(scheduleLineAmountMnt(line, exchangeRate)))}" />
             </label>
             <button type="button" class="button-secondary fifa-inline-action" data-action="remove-invoice-line" data-index="${index}">Remove</button>
           </div>
@@ -3278,7 +3283,7 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
         `[data-schedule-index="${lastIndex}"] [data-schedule-field="amount"]`,
       );
       if (remainderInput) {
-        remainderInput.value = String(scheduleLineAmountMnt(state.invoiceSchedule[lastIndex], rate));
+        remainderInput.value = formatNumberInputValue(scheduleLineAmountMnt(state.invoiceSchedule[lastIndex], rate));
       }
     }
     refreshInvoiceScheduleFooter();
@@ -3289,7 +3294,16 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
   syncSaleTotals();
 });
 
+invoiceScheduleEditor?.addEventListener("focusin", (event) => {
+  if (event.target.dataset.scheduleField !== "amount") return;
+  event.target.value = String(event.target.value || "").replace(/[^\d]/g, "");
+});
+
 invoiceScheduleEditor?.addEventListener("change", (event) => {
+  if (event.target.matches("[data-schedule-field='amount']")) {
+    event.target.value = formatNumberInputValue(event.target.value);
+    return;
+  }
   if (event.target.matches("[data-schedule-field='status'], [data-schedule-field='bankAccount']")) {
     const row = event.target.closest("[data-schedule-index]");
     const index = Number(row?.dataset.scheduleIndex || -1);
