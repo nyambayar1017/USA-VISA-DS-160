@@ -22,6 +22,7 @@ const PUBLIC_SHOWCASE_MATCH_COUNT = 38;
 const PUBLIC_SHOWCASE_TOTAL_TICKETS = 3340;
 const PUBLIC_PAGE_SIZE = 15;
 const ENGLAND_FLAG = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
+const SCOTLAND_FLAG = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}";
 
 const TEAM_FLAG_MAP = {
   ALG: "🇩🇿",
@@ -77,7 +78,7 @@ const state = {
 const GROUP_STAGE_TABLES = [
   { group: "A", teams: [["🇲🇽", "Mexico"], ["🇿🇦", "South Africa"], ["🇰🇷", "Korea Republic"], ["🇨🇿", "Czechia"]] },
   { group: "B", teams: [["🇨🇦", "Canada"], ["🇧🇦", "Bosnia-Herzegovina"], ["🇶🇦", "Qatar"], ["🇨🇭", "Switzerland"]] },
-  { group: "C", teams: [["🇧🇷", "Brazil"], ["🇲🇦", "Morocco"], ["🇭🇹", "Haiti"], ["🏴", "Scotland"]] },
+  { group: "C", teams: [["🇧🇷", "Brazil"], ["🇲🇦", "Morocco"], ["🇭🇹", "Haiti"], [SCOTLAND_FLAG, "Scotland"]] },
   { group: "D", teams: [["🇺🇸", "USA"], ["🇵🇾", "Paraguay"], ["🇦🇺", "Australia"], ["🇹🇷", "Türkiye"]] },
   { group: "E", teams: [["🇩🇪", "Germany"], ["🇨🇼", "Curaçao"], ["🇨🇮", "Côte d'Ivoire"], ["🇪🇨", "Ecuador"]] },
   { group: "F", teams: [["🇳🇱", "Netherlands"], ["🇯🇵", "Japan"], ["🇸🇪", "Sweden"], ["🇹🇳", "Tunisia"]] },
