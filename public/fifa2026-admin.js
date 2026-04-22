@@ -270,6 +270,12 @@ function formatMoney(value, currency = "USD") {
   }).format(Number(value || 0));
 }
 
+function formatMntInputValue(value) {
+  const digitsOnly = String(value ?? "").replace(/[^\d]/g, "");
+  if (!digitsOnly) return "";
+  return `${Number(digitsOnly).toLocaleString("en-US")}₮`;
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -863,7 +869,7 @@ function renderSaleSummary() {
               <strong>${escapeHtml(block.matchLabel)}</strong>
               <label>
                 Price for chosen match
-                <input type="text" inputmode="numeric" pattern="[0-9]*" data-sale-summary-field="blockPrice" data-index="${index}" value="${escapeHtml(String(saleBlockUnitPriceMnt(block, exchangeRate)))}" />
+                <input type="text" inputmode="numeric" pattern="[0-9]*" data-sale-summary-field="blockPrice" data-index="${index}" value="${escapeHtml(formatMntInputValue(saleBlockUnitPriceMnt(block, exchangeRate)))}" />
               </label>
               <label>
                 Quantity
@@ -1090,6 +1096,22 @@ function syncInvoiceScheduleRemainder() {
   state.invoiceSchedule[lastIndex].amount = Number((remainingMnt / exchangeRate).toFixed(6));
 }
 
+function refreshInvoiceScheduleFooter() {
+  if (!invoiceScheduleEditor || !saleForm) return;
+  const schedule = activeInvoiceSchedule();
+  const exchangeRate = Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE);
+  const scheduleTotalMnt = schedule.reduce((sum, line) => sum + scheduleLineAmountMnt(line, exchangeRate), 0);
+  const totalMnt = Math.round(saleInvoiceTotal() * exchangeRate);
+  const balanceMnt = Math.max(totalMnt - scheduleTotalMnt, 0);
+  const totalNode = invoiceScheduleEditor.querySelector("[data-schedule-total]");
+  const balanceNode = invoiceScheduleEditor.querySelector("[data-schedule-balance]");
+  if (totalNode) totalNode.textContent = `Total scheduled: ${formatMoney(scheduleTotalMnt, "MNT")}`;
+  if (balanceNode) {
+    balanceNode.textContent = `Total balance: ${formatMoney(balanceMnt, "MNT")}`;
+    balanceNode.classList.toggle("is-due", balanceMnt > 0);
+  }
+}
+
 function renderInvoiceScheduleEditor() {
   if (!invoiceScheduleEditor || !saleForm) return;
   const schedule = activeInvoiceSchedule();
@@ -1138,15 +1160,15 @@ function renderInvoiceScheduleEditor() {
             </label>
             <label>
               Amount (₮)
-              <input type="number" min="0" step="1" data-schedule-field="amount" value="${escapeHtml(String(scheduleLineAmountMnt(line, exchangeRate)))}" />
+              <input type="text" inputmode="numeric" pattern="[0-9]*" data-schedule-field="amount" value="${escapeHtml(String(scheduleLineAmountMnt(line, exchangeRate)))}" />
             </label>
             <button type="button" class="button-secondary fifa-inline-action" data-action="remove-invoice-line" data-index="${index}">Remove</button>
           </div>
         `).join("")}
       </div>
       <div class="fifa-invoice-schedule-footer">
-        <span>Total scheduled: ${formatMoney(scheduleTotalMnt, "MNT")}</span>
-        <span class="fifa-balance-total${balanceMnt > 0 ? " is-due" : ""}">Total balance: ${formatMoney(balanceMnt, "MNT")}</span>
+        <span data-schedule-total>Total scheduled: ${formatMoney(scheduleTotalMnt, "MNT")}</span>
+        <span data-schedule-balance class="fifa-balance-total${balanceMnt > 0 ? " is-due" : ""}">Total balance: ${formatMoney(balanceMnt, "MNT")}</span>
       </div>
     </div>
   `;
@@ -3173,9 +3195,6 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) 
     const rate = currentInvoiceExchangeRate();
     const digitsOnly = String(event.target.value || "").replace(/[^\d]/g, "");
     const unitPriceMnt = Math.max(Number(digitsOnly || 0), 0);
-    if (String(event.target.value || "") !== digitsOnly) {
-      event.target.value = digitsOnly;
-    }
     const quantity = Math.max(Number(state.saleBlocks[index].quantity || 0), 0);
     const unitPriceUsd = Number((unitPriceMnt / rate).toFixed(2));
     state.saleBlocks[index].manualUnitPriceMnt = unitPriceMnt;
@@ -3192,6 +3211,11 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) 
     renderInvoiceScheduleEditor();
     return;
   }
+});
+
+document.querySelector("#fifa-sale-summary")?.addEventListener("focusin", (event) => {
+  if (event.target.dataset.saleSummaryField !== "blockPrice") return;
+  event.target.value = String(event.target.value || "").replace(/[^\d]/g, "");
 });
 
 document.querySelector("#fifa-sale-summary")?.addEventListener("change", (event) => {
@@ -3248,7 +3272,16 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
     state.invoiceSchedule[index].amount = Number((Math.max(Number(digitsOnly || 0), 0) / rate).toFixed(6));
     syncInvoiceScheduleRemainder();
     syncSaleTotals();
-    renderInvoiceScheduleEditor();
+    const lastIndex = state.invoiceSchedule.length - 1;
+    if (state.invoiceSchedule.length > 1 && index !== lastIndex) {
+      const remainderInput = invoiceScheduleEditor?.querySelector(
+        `[data-schedule-index="${lastIndex}"] [data-schedule-field="amount"]`,
+      );
+      if (remainderInput) {
+        remainderInput.value = String(scheduleLineAmountMnt(state.invoiceSchedule[lastIndex], rate));
+      }
+    }
+    refreshInvoiceScheduleFooter();
     return;
   } else {
     state.invoiceSchedule[index][field] = event.target.value;
