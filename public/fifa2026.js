@@ -434,9 +434,9 @@ function renderGroupStageTables() {
 function renderKnockoutBracket() {
   if (!publicBracket) return;
   publicBracket.innerHTML = `
-    <div class="fifa-knockout-grid">
-      ${KNOCKOUT_BRACKET_COLUMNS.map((column) => `
-        <section class="fifa-knockout-round${column.featured ? " is-featured" : ""}">
+    <div class="fifa-knockout-grid fifa-knockout-grid--public">
+      ${KNOCKOUT_BRACKET_COLUMNS.map((column, index) => `
+        <section class="fifa-knockout-round${column.featured ? " is-featured" : ""}" data-round-index="${index}">
           <div class="fifa-knockout-round__head">${escapeHtml(column.title)}</div>
           <div class="fifa-knockout-round__matches">
             ${column.matches.map((match) => `
