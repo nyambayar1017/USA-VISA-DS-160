@@ -87,7 +87,18 @@
             </div>
           </div>
 
-          <form id="fifa-ticket-form" class="manager-form-grid fifa-form-grid fifa-ticket-form-panel" data-open="false">
+          <div id="fifa-ticket-form-modal" class="camp-modal is-hidden fifa-form-modal" aria-hidden="true" hidden>
+            <div class="camp-modal-backdrop" data-action="close-fifa-ticket-modal"></div>
+            <div class="camp-modal-dialog camp-modal-dialog-wide fifa-form-modal-dialog">
+              <div class="camp-modal-header">
+                <div class="camp-modal-copy">
+                  <h2>Add Match</h2>
+                  <p>Set up a FIFA match, categories, and seats in one clean manager popup.</p>
+                </div>
+                <button type="button" class="camp-modal-close" data-action="close-fifa-ticket-modal" aria-label="Close">×</button>
+              </div>
+
+          <form id="fifa-ticket-form" class="manager-form-grid fifa-form-grid fifa-ticket-form-panel" data-open="false" hidden>
             <input type="hidden" name="id" />
             <label>
               Stage
@@ -281,12 +292,14 @@
                 </label>
               </div>
             </section>
-            <div class="actions full-span">
+          <div class="actions full-span">
               <button id="fifa-ticket-submit" type="submit">Save categories</button>
               <button id="fifa-ticket-cancel" type="button" class="button-secondary">Hide</button>
               <p id="fifa-ticket-status" class="status"></p>
             </div>
           </form>
+            </div>
+          </div>
 
           <div id="fifa-ticket-inventory-view">
           <div class="camp-filters fifa-filters">
@@ -356,7 +369,18 @@
             </div>
           </div>
 
-          <form id="fifa-sale-form" class="manager-form-grid fifa-form-grid fifa-collapsible-panel" data-open="false">
+          <div id="fifa-sale-form-modal" class="camp-modal is-hidden fifa-form-modal" aria-hidden="true" hidden>
+            <div class="camp-modal-backdrop" data-action="close-fifa-sale-modal"></div>
+            <div class="camp-modal-dialog camp-modal-dialog-wide fifa-form-modal-dialog">
+              <div class="camp-modal-header">
+                <div class="camp-modal-copy">
+                  <h2>Add Buyer</h2>
+                  <p>Register the buyer, adjust chosen match prices in MNT when needed, and complete the payment details in one popup.</p>
+                </div>
+                <button type="button" class="camp-modal-close" data-action="close-fifa-sale-modal" aria-label="Close">×</button>
+              </div>
+
+          <form id="fifa-sale-form" class="manager-form-grid fifa-form-grid fifa-collapsible-panel" data-open="false" hidden>
             <input type="hidden" name="id" />
             <label class="full-span">
               Buyer title
@@ -445,12 +469,14 @@
                 <p class="fifa-seat-help">Travelers will appear from the selected tickets.</p>
               </div>
             </section>
-          <div class="actions full-span">
+            <div class="actions full-span">
               <button id="fifa-sale-submit" type="submit">Register sale</button>
               <button id="fifa-sale-cancel" type="button" class="button-secondary">Hide</button>
               <p id="fifa-sale-status" class="status"></p>
             </div>
           </form>
+            </div>
+          </div>
 
           <div class="camp-filters fifa-filters">
             <label>
