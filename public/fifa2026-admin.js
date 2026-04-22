@@ -2025,6 +2025,7 @@ function renderSales() {
                   <details class="trip-menu fifa-action-menu">
                     <summary class="trip-menu-trigger" aria-label="Sale actions">⋮</summary>
                     <div class="trip-menu-popover">
+                      <button type="button" class="trip-menu-item" data-action="view-sale" data-id="${escapeHtml(sale.id)}">View</button>
                       <button type="button" class="trip-menu-item" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
                       <button type="button" class="trip-menu-item is-danger" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
                     </div>
@@ -2905,6 +2906,17 @@ saleList?.addEventListener("click", async (event) => {
   }
   if (target.dataset.action === "invoice-sale") {
     openSaleInvoice(saleLikeWithInvoiceDraft(sale));
+    return;
+  }
+  if (target.dataset.action === "view-sale") {
+    state.expandedSales.clear();
+    state.expandedSales.add(saleId);
+    renderSales();
+    requestAnimationFrame(() => {
+      saleList
+        ?.querySelector(`.fifa-match-toggle[data-id="${CSS.escape(saleId)}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     return;
   }
   if (target.dataset.action === "cancel-sale") {
