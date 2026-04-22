@@ -910,46 +910,14 @@ function renderInvoiceScheduleEditor() {
   const totalPrice = saleInvoiceTotal();
   const exchangeRate = Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE);
   const scheduleTotal = schedule.reduce((sum, line) => sum + Number(line.amount || 0), 0);
-  const paidTotal = schedule
-    .filter((line) => String(line.status || "").trim().toLowerCase() === "paid")
-    .reduce((sum, line) => sum + Number(line.amount || 0), 0);
   const totalMnt = Math.round(totalPrice * exchangeRate);
   const scheduleTotalMnt = Math.round(scheduleTotal * exchangeRate);
-  const paidTotalMnt = Math.round(paidTotal * exchangeRate);
   const balanceMnt = Math.max(totalMnt - scheduleTotalMnt, 0);
-  const paymentStatus = paidTotal <= 0
-    ? "Pending"
-    : paidTotal >= totalPrice && totalPrice > 0
-      ? "100% paid"
-      : "In progress";
-  const saleStatus = normalizeSaleStatusValue(saleForm.elements.saleStatus?.value || "pending");
   invoiceScheduleEditor.innerHTML = `
     <div class="fifa-invoice-schedule-box">
       <div class="fifa-invoice-schedule-head">
         <strong>Payment schedule</strong>
         <button type="button" class="button-secondary fifa-inline-action" data-action="add-invoice-line">Add line</button>
-      </div>
-      <div class="fifa-sale-schedule-topline">
-        <label class="fifa-sale-schedule-status-picker">
-          Status
-          <select data-schedule-meta="saleStatus">
-            <option value="pending"${saleStatus === "pending" ? " selected" : ""}>Pending</option>
-            <option value="confirmed"${saleStatus === "confirmed" ? " selected" : ""}>Confirmed</option>
-            <option value="cancelled"${saleStatus === "cancelled" ? " selected" : ""}>Cancelled</option>
-          </select>
-        </label>
-        <div class="fifa-sale-schedule-stat">
-          <span>Paid amount</span>
-          <strong>${escapeHtml(formatMoney(paidTotalMnt, "MNT"))}</strong>
-        </div>
-        <div class="fifa-sale-schedule-stat">
-          <span>Balance</span>
-          <strong>${escapeHtml(formatMoney(balanceMnt, "MNT"))}</strong>
-        </div>
-        <div class="fifa-sale-schedule-stat">
-          <span>Payment status</span>
-          <strong>${escapeHtml(paymentStatus)}</strong>
-        </div>
       </div>
       <div class="fifa-invoice-schedule-list">
         ${schedule.map((line, index) => `
@@ -3005,10 +2973,6 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
 });
 
 invoiceScheduleEditor?.addEventListener("change", (event) => {
-  if (event.target.matches("[data-schedule-meta='saleStatus']")) {
-    saleForm.elements.saleStatus.value = normalizeSaleStatusValue(event.target.value || "pending");
-    return;
-  }
   if (event.target.matches("[data-schedule-field='status']")) {
     const row = event.target.closest("[data-schedule-index]");
     const index = Number(row?.dataset.scheduleIndex || -1);

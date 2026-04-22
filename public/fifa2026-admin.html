@@ -406,6 +406,14 @@
               Quantity
               <input name="quantity" type="number" min="1" step="1" value="1" required readonly />
             </label>
+            <label>
+              Status
+              <select name="saleStatus">
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
             <input name="pricePerTicket" type="hidden" value="" />
             <input type="hidden" name="discountAmount" value="0" />
             <input type="hidden" name="discountAmountMnt" value="0" />
@@ -415,7 +423,6 @@
             <input type="hidden" name="amountPaidMnt" value="0" />
             <input type="hidden" name="paymentStatus" value="unpaid" />
             <input type="hidden" name="paymentMethod" value="state" />
-            <input type="hidden" name="saleStatus" value="pending" />
             <input type="hidden" name="soldAt" />
             <input type="hidden" name="buyerName" />
             <input type="hidden" name="buyerPhone" />
