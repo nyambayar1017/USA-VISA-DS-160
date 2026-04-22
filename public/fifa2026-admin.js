@@ -1079,9 +1079,6 @@ function syncInvoiceScheduleRemainder() {
   const exchangeRate = currentInvoiceExchangeRate();
   const totalMnt = Math.round(saleInvoiceTotal() * exchangeRate);
   if (state.invoiceSchedule.length === 1) {
-    const line = state.invoiceSchedule[0];
-    line.amountMnt = String(totalMnt);
-    line.amount = Number((totalMnt / exchangeRate).toFixed(6));
     return;
   }
   const lastIndex = state.invoiceSchedule.length - 1;
