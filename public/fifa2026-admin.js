@@ -434,6 +434,8 @@ function setTicketFormVisible(isVisible) {
     ticketFormModal?.classList.remove("is-hidden");
     ticketFormModal?.setAttribute("aria-hidden", "false");
     if (ticketFormModal) ticketFormModal.hidden = false;
+    ticketFormModal?.querySelector(".camp-modal-dialog")?.scrollTo({ top: 0 });
+    requestAnimationFrame(() => ticketForm.elements.stage?.focus?.());
   } else {
     ticketForm.dataset.open = "false";
     ticketForm.hidden = true;
@@ -452,6 +454,8 @@ function setSaleFormVisible(isVisible) {
     saleFormModal?.classList.remove("is-hidden");
     saleFormModal?.setAttribute("aria-hidden", "false");
     if (saleFormModal) saleFormModal.hidden = false;
+    saleFormModal?.querySelector(".camp-modal-dialog")?.scrollTo({ top: 0 });
+    requestAnimationFrame(() => saleForm.elements.buyerTitle?.focus?.());
   } else {
     saleForm.dataset.open = "false";
     saleForm.hidden = true;

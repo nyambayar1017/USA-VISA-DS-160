@@ -3623,28 +3623,30 @@ body.modal-open {
 
 .fifa-form-modal {
   align-items: center;
+  justify-content: center;
   padding: 24px;
   z-index: 420;
 }
 
 .fifa-form-modal .camp-modal-backdrop {
-  background: rgba(7, 11, 22, 0.62);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(3px);
 }
 
 .fifa-form-modal-dialog {
-  width: min(860px, calc(100vw - 48px));
-  max-height: calc(100vh - 64px);
-  padding: 14px 16px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(26, 41, 83, 0.14);
-  box-shadow: 0 28px 64px rgba(8, 15, 34, 0.34);
+  width: min(720px, calc(100vw - 40px));
+  max-height: min(780px, calc(100vh - 40px));
+  padding: 0;
+  border-radius: 18px;
+  border: 1px solid rgba(22, 35, 74, 0.12);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.28);
   background: #ffffff;
+  overflow: hidden;
 }
 
 .fifa-form-modal .camp-modal-header {
-  margin-bottom: 14px;
-  padding: 2px 2px 12px;
+  margin-bottom: 0;
+  padding: 18px 18px 14px;
   border-bottom: 1px solid rgba(32, 53, 111, 0.08);
 }
 
@@ -3652,20 +3654,21 @@ body.modal-open {
   margin: 0;
   color: #7a88a5;
   font-size: 0.92rem;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .fifa-form-modal .camp-modal-copy h2 {
   margin: 0 0 4px;
   color: #1f3168;
-  font-size: 1.8rem;
+  font-size: 1.15rem;
+  line-height: 1.2;
 }
 
 .fifa-form-modal .camp-modal-close {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(32, 53, 111, 0.05);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(32, 53, 111, 0.04);
 }
 
 .fifa-form-modal .camp-modal-close:hover {
@@ -3674,8 +3677,12 @@ body.modal-open {
 
 .fifa-form-modal .fifa-ticket-form-panel,
 .fifa-form-modal .fifa-collapsible-panel {
-  gap: 16px;
-  padding-right: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px 18px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .fifa-form-modal .actions {
@@ -3684,15 +3691,58 @@ body.modal-open {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 4px;
-  padding: 14px 2px 2px;
+  margin-top: 0;
+  padding: 14px 18px 18px;
   border-top: 1px solid rgba(32, 53, 111, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), #fff 36%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), #fff 42%);
+  grid-column: 1 / -1;
 }
 
 .fifa-form-modal .actions .status {
   margin-right: auto;
   align-self: center;
+}
+
+.fifa-form-modal .fifa-form-grid,
+.fifa-form-modal .manager-form-grid.fifa-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fifa-form-modal .full-span,
+.fifa-form-modal .fifa-category-editor,
+.fifa-form-modal .fifa-sale-block-editor,
+.fifa-form-modal .fifa-participant-editor,
+.fifa-form-modal .fifa-invoice-schedule-editor {
+  grid-column: 1 / -1;
+}
+
+.fifa-form-modal .fifa-category-editor {
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f7f9ff;
+}
+
+.fifa-form-modal .fifa-category-head {
+  gap: 4px;
+}
+
+.fifa-form-modal .fifa-category-head h3 {
+  font-size: 1rem;
+}
+
+.fifa-form-modal .fifa-category-head p {
+  font-size: 0.83rem;
+  line-height: 1.4;
+}
+
+.fifa-form-modal .fifa-ticket-rows,
+.fifa-form-modal .fifa-sale-seat-picker,
+.fifa-form-modal .fifa-sale-block-list,
+.fifa-form-modal .fifa-sale-summary,
+.fifa-form-modal .fifa-invoice-schedule-editor {
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .fifa-collapsible-panel[data-open="false"] {
@@ -4938,15 +4988,20 @@ body.modal-open {
 
 @media (max-width: 640px) {
   .fifa-form-modal {
-    align-items: flex-start;
     padding: 12px;
   }
 
   .fifa-form-modal-dialog {
-    width: min(100vw - 24px, 980px);
+    width: calc(100vw - 24px);
     max-height: calc(100vh - 24px);
-    padding: 16px 14px 14px;
     border-radius: 16px;
+  }
+
+  .fifa-form-modal .fifa-ticket-form-panel,
+  .fifa-form-modal .fifa-collapsible-panel,
+  .fifa-form-modal .fifa-form-grid,
+  .fifa-form-modal .manager-form-grid.fifa-form-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .travelx-site-header {
