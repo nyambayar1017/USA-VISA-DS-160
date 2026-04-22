@@ -319,6 +319,27 @@ function saleBlockTotalPriceMnt(block, exchangeRate = currentInvoiceExchangeRate
   return saleBlockUnitPriceMnt(block, exchangeRate) * Math.max(Number(block?.quantity || 0), 0);
 }
 
+function normalizeSaleBlockForEditor(block, exchangeRate = currentInvoiceExchangeRate()) {
+  const quantity = Math.max(Number(block?.quantity || 0), 0);
+  const totalUsd = Math.max(Number(block?.totalPrice || 0), 0);
+  const unitUsd = Math.max(Number(block?.unitPrice || 0), 0);
+  const derivedBlockTotalMnt = Math.round(totalUsd * exchangeRate);
+  const derivedUnitPriceMnt = quantity
+    ? Math.round(derivedBlockTotalMnt / quantity)
+    : Math.round(unitUsd * exchangeRate);
+  const manualUnitPriceMnt = block?.manualUnitPriceMnt != null && block?.manualUnitPriceMnt !== ""
+    ? Math.max(Number(block.manualUnitPriceMnt || 0), 0)
+    : null;
+  const manualBlockTotalMnt = manualUnitPriceMnt != null ? Math.round(manualUnitPriceMnt * quantity) : null;
+  const useManualValue = manualUnitPriceMnt != null && Math.abs((manualBlockTotalMnt || 0) - derivedBlockTotalMnt) <= Math.max(quantity, 1);
+  return {
+    ...block,
+    quantity,
+    unitPrice: quantity ? Number((totalUsd / quantity).toFixed(6)) : unitUsd,
+    manualUnitPriceMnt: useManualValue ? manualUnitPriceMnt : derivedUnitPriceMnt,
+  };
+}
+
 function currentSaleTotalMnt() {
   const exchangeRate = currentInvoiceExchangeRate();
   const blockTotalMnt = state.saleBlocks.reduce((sum, block) => sum + saleBlockTotalPriceMnt(block, exchangeRate), 0);
@@ -1476,7 +1497,7 @@ function fillSaleForm(sale, options = {}) {
   saleForm.elements.buyerPassportNumber.value = sale.buyerPassportNumber || "";
   saleForm.elements.buyerNationality.value = sale.buyerNationality || "";
   saleForm.elements.buyerNotes.value = sale.buyerNotes || "";
-  state.saleBlocks = (sale.ticketBlocks || []).map((block) => ({
+  state.saleBlocks = (sale.ticketBlocks || []).map((block) => normalizeSaleBlockForEditor({
     matchNumber: block.matchNumber || "",
     matchLabel: block.matchLabel || "",
     categoryCode: String(block.categoryCode || ""),
@@ -1487,7 +1508,7 @@ function fillSaleForm(sale, options = {}) {
     seatPreview: block.seatPreview || "",
     ticketLabels: block.ticketLabels || [],
     ticketIds: [...(block.ticketIds || [])],
-  }));
+  }, Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE)));
   if (!state.saleBlocks.length && sale.ticketId) {
     const ticket = state.tickets.find((item) => item.id === sale.ticketId);
     if (ticket) {
