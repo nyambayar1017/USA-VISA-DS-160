@@ -3641,17 +3641,18 @@ body.modal-open {
   border: 1px solid rgba(22, 35, 74, 0.12);
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.28);
   background: #ffffff;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #fifa-ticket-form-modal .fifa-form-modal-dialog {
-  width: min(780px, calc(100vw - 40px));
-  max-height: min(820px, calc(100vh - 40px));
+  width: min(860px, calc(100vw - 40px));
+  max-height: min(88vh, calc(100vh - 32px));
 }
 
 #fifa-sale-form-modal .fifa-form-modal-dialog {
-  width: min(980px, calc(100vw - 40px));
-  max-height: min(860px, calc(100vh - 40px));
+  width: min(1120px, calc(100vw - 40px));
+  max-height: min(90vh, calc(100vh - 32px));
 }
 
 .fifa-form-modal .camp-modal-header {
@@ -3691,8 +3692,6 @@ body.modal-open {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   padding: 16px 18px 18px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .fifa-form-modal .actions {
@@ -3751,8 +3750,8 @@ body.modal-open {
 .fifa-form-modal .fifa-sale-block-list,
 .fifa-form-modal .fifa-sale-summary,
 .fifa-form-modal .fifa-invoice-schedule-editor {
-  max-height: 220px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .fifa-form-modal label {
