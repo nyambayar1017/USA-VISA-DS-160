@@ -85,29 +85,33 @@ function closeOpenTripMenus(exceptMenu = null) {
 function ensureFifaFormModal({ modalId, form, title, description, closeAction }) {
   if (!form) return null;
   let modal = document.querySelector(`#${modalId}`);
-  if (modal) return modal;
-
-  modal = document.createElement("div");
-  modal.id = modalId;
-  modal.className = "camp-modal is-hidden fifa-form-modal";
-  modal.setAttribute("aria-hidden", "true");
-  modal.hidden = true;
-  modal.innerHTML = `
-    <div class="camp-modal-backdrop" data-action="${closeAction}"></div>
-    <div class="camp-modal-dialog camp-modal-dialog-wide fifa-form-modal-dialog">
-      <div class="camp-modal-header">
-        <div class="camp-modal-copy">
-          <h2>${escapeHtml(title)}</h2>
-          <p>${escapeHtml(description)}</p>
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = modalId;
+    modal.className = "camp-modal is-hidden fifa-form-modal";
+    modal.setAttribute("aria-hidden", "true");
+    modal.hidden = true;
+    modal.innerHTML = `
+      <div class="camp-modal-backdrop" data-action="${closeAction}"></div>
+      <div class="camp-modal-dialog fifa-form-modal-dialog">
+        <div class="camp-modal-header">
+          <div class="camp-modal-copy">
+            <h2>${escapeHtml(title)}</h2>
+            <p>${escapeHtml(description)}</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="${closeAction}" aria-label="Close">×</button>
         </div>
-        <button type="button" class="camp-modal-close" data-action="${closeAction}" aria-label="Close">×</button>
       </div>
-    </div>
-  `;
+    `;
+  }
 
-  modal.querySelector(".camp-modal-dialog")?.appendChild(form);
-  const panel = form.closest(".fifa-panel");
-  (panel || document.body).appendChild(modal);
+  const dialog = modal.querySelector(".camp-modal-dialog");
+  if (dialog && form.parentElement !== dialog) {
+    dialog.appendChild(form);
+  }
+  if (modal.parentElement !== document.body) {
+    document.body.appendChild(modal);
+  }
   form.hidden = true;
   return modal;
 }
