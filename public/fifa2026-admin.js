@@ -975,8 +975,9 @@ function normalizedInvoiceSchedule(lines) {
       due: safeDateInput(line?.due || line?.dueDate || ""),
       status: ["paid", "waiting", "overdue"].includes(String(line?.status || "").trim()) ? String(line.status).trim() : "waiting",
       amount: Math.max(Number(line?.amount || 0), 0),
+      amountMnt: String(line?.amountMnt || "").replace(/[^\d]/g, ""),
     }))
-    .filter((line) => line.title || line.amount > 0);
+    .filter((line) => line.title || line.amount > 0 || line.amountMnt);
 }
 
 function activeInvoiceSchedule(saleLike = null) {
@@ -1035,7 +1036,7 @@ function renderInvoiceScheduleEditor() {
             </label>
             <label>
               Amount (₮)
-              <input type="number" min="0" step="1" data-schedule-field="amount" value="${escapeHtml(String(Math.round(Number(line.amount || 0) * exchangeRate)))}" />
+              <input type="number" min="0" step="1" data-schedule-field="amount" value="${escapeHtml(String(line.amountMnt || Math.round(Number(line.amount || 0) * exchangeRate)))}" />
             </label>
             <button type="button" class="button-secondary fifa-inline-action" data-action="remove-invoice-line" data-index="${index}">Remove</button>
           </div>
@@ -2634,7 +2635,18 @@ saleForm?.elements?.soldAt?.addEventListener("input", () => {
 });
 saleForm?.elements?.invoiceExchangeRate?.addEventListener("input", () => {
   syncSalePriceFields();
+  if (state.invoiceScheduleTouched) {
+    const rate = currentInvoiceExchangeRate();
+    state.invoiceSchedule = normalizedInvoiceSchedule(state.invoiceSchedule).map((line) => {
+      if (!line.amountMnt) return line;
+      return {
+        ...line,
+        amount: Math.max(Math.round(Number(line.amountMnt || 0) / rate), 0),
+      };
+    });
+  }
   if (!state.invoiceScheduleTouched) renderInvoiceScheduleEditor();
+  else renderInvoiceScheduleEditor();
 });
 saleForm?.elements?.invoiceBankAccount?.addEventListener("change", () => {
   toggleOtherBankAccountField();
@@ -3089,7 +3101,12 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
   state.invoiceSchedule = normalizedInvoiceSchedule(schedule);
   if (!state.invoiceSchedule[index]) return;
   if (field === "amount") {
-    state.invoiceSchedule[index].amount = Math.max(Math.round(Number(event.target.value || 0) / rate), 0);
+    const digitsOnly = String(event.target.value || "").replace(/[^\d]/g, "");
+    if (String(event.target.value || "") !== digitsOnly) {
+      event.target.value = digitsOnly;
+    }
+    state.invoiceSchedule[index].amountMnt = digitsOnly;
+    state.invoiceSchedule[index].amount = Math.max(Math.round(Number(digitsOnly || 0) / rate), 0);
   } else {
     state.invoiceSchedule[index][field] = event.target.value;
   }
@@ -3124,6 +3141,7 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
       due: soldAt,
       status: "waiting",
       amount: 0,
+      amountMnt: "0",
     });
     syncSaleTotals();
     renderInvoiceScheduleEditor();
