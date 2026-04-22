@@ -224,8 +224,10 @@ function currentDiscountUsd() {
 }
 
 function currentAmountPaidUsd() {
-  const amountPaidMnt = Math.max(Number(saleForm?.elements?.amountPaidMnt?.value || 0), 0);
-  return Math.round(amountPaidMnt / currentInvoiceExchangeRate());
+  const paidFromSchedule = activeInvoiceSchedule()
+    .filter((line) => String(line.status || "").trim().toLowerCase() === "paid")
+    .reduce((sum, line) => sum + Math.max(Number(line.amount || 0), 0), 0);
+  return Math.round(paidFromSchedule);
 }
 
 function currentSaleTotalUsd() {
@@ -694,12 +696,9 @@ function renderSaleSummary() {
   const exchangeRate = currentInvoiceExchangeRate();
   const totalPrice = currentSaleTotalUsd();
   const totalPriceMnt = Math.round(totalPrice * exchangeRate);
-  const amountPaidMnt = Math.max(Number(saleForm?.elements?.amountPaidMnt?.value || 0), 0);
+  const amountPaidMnt = Math.round(currentAmountPaidUsd() * exchangeRate);
   const balanceMnt = Math.max(totalPriceMnt - amountPaidMnt, 0);
   const paymentStatus = paymentStatusLabel(saleForm?.elements?.paymentStatus?.value || "");
-  const saleStatus = normalizeSaleStatusValue(saleForm?.elements?.saleStatus?.value || "");
-  const paidAccount = String(saleForm?.elements?.paymentMethod?.value || saleForm?.elements?.invoiceBankAccountOther?.value || "").trim();
-  const paidDate = safeDateInput(saleForm?.elements?.soldAt?.value || new Date().toISOString().slice(0, 10));
   summaryNode.innerHTML = `
     <div class="fifa-sale-summary-box fifa-sale-summary-box--editor">
       <div class="fifa-sale-summary-head">
@@ -732,42 +731,17 @@ function renderSaleSummary() {
             Grand total price
             <input type="text" value="${escapeHtml(formatMoney(totalPriceMnt, "MNT"))}" readonly />
           </label>
-        </div>
-      </div>
-    </div>
-    <div class="fifa-sale-summary-box fifa-sale-summary-box--editor">
-      <div class="fifa-sale-summary-head">
-        <strong>Payment</strong>
-      </div>
-      <div class="fifa-sale-summary-list">
-        <div class="fifa-sale-summary-editor-grid">
           <label>
             Paid amount
-            <input type="number" min="0" step="1" data-sale-summary-field="amountPaidMnt" value="${escapeHtml(String(amountPaidMnt))}" />
+            <input type="text" value="${escapeHtml(formatMoney(amountPaidMnt, "MNT"))}" readonly />
           </label>
           <label>
             Balance
             <input type="text" data-sale-summary-balance value="${escapeHtml(formatMoney(balanceMnt, "MNT"))}" readonly />
           </label>
           <label>
-            Paid account
-            <input type="text" data-sale-summary-field="paidAccount" value="${escapeHtml(paidAccount)}" placeholder="Type bank account name" />
-          </label>
-          <label>
-            Paid date
-            <input type="date" data-sale-summary-field="paidDate" value="${escapeHtml(paidDate)}" />
-          </label>
-          <label>
             Payment status
             <input type="text" value="${escapeHtml(paymentStatus)}" readonly />
-          </label>
-          <label>
-            Sale status
-            <select data-sale-summary-field="saleStatus">
-              <option value="pending"${saleStatus === "pending" ? " selected" : ""}>Pending</option>
-              <option value="confirmed"${saleStatus === "confirmed" ? " selected" : ""}>Confirmed</option>
-              <option value="cancelled"${saleStatus === "cancelled" ? " selected" : ""}>Cancelled</option>
-            </select>
           </label>
         </div>
       </div>
@@ -951,9 +925,18 @@ function renderInvoiceScheduleEditor() {
   const totalPrice = saleInvoiceTotal();
   const exchangeRate = Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE);
   const scheduleTotal = schedule.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  const paidTotal = schedule
+    .filter((line) => String(line.status || "").trim().toLowerCase() === "paid")
+    .reduce((sum, line) => sum + Number(line.amount || 0), 0);
   const totalMnt = Math.round(totalPrice * exchangeRate);
   const scheduleTotalMnt = Math.round(scheduleTotal * exchangeRate);
+  const paidTotalMnt = Math.round(paidTotal * exchangeRate);
   const balanceMnt = Math.max(totalMnt - scheduleTotalMnt, 0);
+  const paymentStatus = paidTotal <= 0
+    ? "Pending"
+    : paidTotal >= totalPrice && totalPrice > 0
+      ? "100% paid"
+      : "In progress";
   invoiceScheduleEditor.innerHTML = `
     <div class="fifa-invoice-schedule-box">
       <div class="fifa-invoice-schedule-head">
@@ -993,6 +976,8 @@ function renderInvoiceScheduleEditor() {
       </div>
       <div class="fifa-invoice-schedule-footer">
         <span>Total scheduled: ${formatMoney(scheduleTotalMnt, "MNT")}</span>
+        <span>Total paid: ${formatMoney(paidTotalMnt, "MNT")}</span>
+        <span>Status: ${paymentStatus}</span>
         <span>Total balance: ${formatMoney(balanceMnt, "MNT")}</span>
       </div>
     </div>
@@ -2938,33 +2923,28 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) 
     const unitPriceUsd = Math.round(unitPriceMnt / rate);
     state.saleBlocks[index].unitPrice = unitPriceUsd;
     state.saleBlocks[index].totalPrice = unitPriceUsd * Math.max(Number(state.saleBlocks[index].quantity || 0), 0);
-    renderSaleBlocks();
-    return;
-  }
-  if (field === "amountPaidMnt") {
-    saleForm.elements.amountPaidMnt.value = String(Math.max(Number(event.target.value || 0), 0));
-    syncSaleTotals();
-    const balanceNode = document.querySelector("[data-sale-summary-balance]");
-    if (balanceNode) {
-      const totalMnt = Math.round(currentSaleTotalUsd() * currentInvoiceExchangeRate());
-      const amountPaidMnt = Math.max(Number(saleForm.elements.amountPaidMnt.value || 0), 0);
-      balanceNode.value = formatMoney(Math.max(totalMnt - amountPaidMnt, 0), "MNT");
+    const rowNode = event.target.closest("[data-sale-block-editor]");
+    const totalField = rowNode?.querySelector("label:last-child input");
+    if (totalField) {
+      totalField.value = formatMoney(Math.round(Number(state.saleBlocks[index].totalPrice || 0) * rate), "MNT");
+    }
+    saleForm.elements.totalPrice.value = String(currentSaleTotalUsd());
+    if (saleForm.elements.totalPriceMnt) {
+      saleForm.elements.totalPriceMnt.value = String(Math.round(currentSaleTotalUsd() * rate));
+    }
+    const grandTotalField = document.querySelector("#fifa-sale-summary .full-span input");
+    if (grandTotalField) {
+      grandTotalField.value = formatMoney(Math.round(currentSaleTotalUsd() * rate), "MNT");
     }
     return;
   }
-  if (field === "paidAccount") {
-    const value = String(event.target.value || "").trim();
-    saleForm.elements.paymentMethod.value = value;
-    saleForm.elements.invoiceBankAccount.value = "other";
-    saleForm.elements.invoiceBankAccountOther.value = value;
-    return;
-  }
-  if (field === "paidDate") {
-    saleForm.elements.soldAt.value = event.target.value;
-    return;
-  }
-  if (field === "saleStatus") {
-    saleForm.elements.saleStatus.value = normalizeSaleStatusValue(event.target.value);
+});
+
+document.querySelector("#fifa-sale-summary")?.addEventListener("change", (event) => {
+  const field = event.target.dataset.saleSummaryField;
+  if (!field || !saleForm) return;
+  if (field === "blockPrice" || field === "exchangeRate") {
+    syncSalePriceFields();
   }
 });
 
@@ -3006,10 +2986,11 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
   if (!state.invoiceSchedule[index]) return;
   if (field === "amount") {
     state.invoiceSchedule[index].amount = Math.max(Math.round(Number(event.target.value || 0) / rate), 0);
-    renderInvoiceScheduleEditor();
   } else {
     state.invoiceSchedule[index][field] = event.target.value;
   }
+  syncSaleTotals();
+  renderSaleSummary();
 });
 
 invoiceScheduleEditor?.addEventListener("change", (event) => {
@@ -3022,6 +3003,8 @@ invoiceScheduleEditor?.addEventListener("change", (event) => {
     state.invoiceSchedule = normalizedInvoiceSchedule(schedule);
     if (!state.invoiceSchedule[index]) return;
     state.invoiceSchedule[index].status = event.target.value;
+    syncSaleTotals();
+    renderSaleSummary();
     renderInvoiceScheduleEditor();
   }
 });
@@ -3040,6 +3023,8 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
       status: "waiting",
       amount: 0,
     });
+    syncSaleTotals();
+    renderSaleSummary();
     renderInvoiceScheduleEditor();
     return;
   }
@@ -3050,6 +3035,8 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
     state.invoiceScheduleTouched = true;
     state.invoiceSchedule = normalizedInvoiceSchedule(current);
     if (index >= 0) state.invoiceSchedule.splice(index, 1);
+    syncSaleTotals();
+    renderSaleSummary();
     renderInvoiceScheduleEditor();
   }
 });
