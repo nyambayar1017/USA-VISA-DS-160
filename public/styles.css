@@ -4097,11 +4097,14 @@ body.modal-open {
   min-width: 190px;
   right: 0;
   top: calc(100% + 8px);
+  bottom: auto;
 }
 
 .fifa-action-menu[open] .trip-menu-popover {
   position: absolute;
   margin-top: 0;
+  top: calc(100% + 8px);
+  bottom: auto;
 }
 
 .fifa-action-menu .trip-menu-item {
