@@ -3644,6 +3644,16 @@ body.modal-open {
   overflow: hidden;
 }
 
+#fifa-ticket-form-modal .fifa-form-modal-dialog {
+  width: min(780px, calc(100vw - 40px));
+  max-height: min(820px, calc(100vh - 40px));
+}
+
+#fifa-sale-form-modal .fifa-form-modal-dialog {
+  width: min(980px, calc(100vw - 40px));
+  max-height: min(860px, calc(100vh - 40px));
+}
+
 .fifa-form-modal .camp-modal-header {
   margin-bottom: 0;
   padding: 18px 18px 14px;
