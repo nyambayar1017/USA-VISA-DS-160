@@ -4085,7 +4085,8 @@ body.modal-open {
   padding: 14px 16px;
   border: 1px solid rgba(32, 53, 111, 0.12);
   border-radius: 16px;
-  background: #fff;
+  background: linear-gradient(180deg, rgba(245, 248, 255, 0.95), #fff);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
 }
 
 .fifa-sale-block-item strong {
@@ -4093,10 +4094,24 @@ body.modal-open {
   color: #1f2d50;
 }
 
+.fifa-sale-block-body {
+  display: grid;
+  gap: 6px;
+}
+
+.fifa-sale-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .fifa-sale-ticket-list {
   display: grid;
   gap: 4px;
   margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(32, 53, 111, 0.12);
 }
 
 .fifa-sale-ticket-list .fifa-table-sub strong {
@@ -4110,13 +4125,20 @@ body.modal-open {
   padding: 14px 16px;
   border: 1px solid rgba(32, 53, 111, 0.12);
   border-radius: 16px;
-  background: #fff;
+  background: linear-gradient(180deg, rgba(251, 252, 255, 0.96), #fff);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85);
 }
 
 .fifa-sale-participant-card h4 {
   margin: 0;
   color: var(--brand);
   font-size: 0.94rem;
+}
+
+.fifa-sale-status-col {
+  display: grid;
+  gap: 4px;
+  align-content: start;
 }
 
 .fifa-nested-table .checkbox-col {

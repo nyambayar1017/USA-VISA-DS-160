@@ -1077,8 +1077,11 @@ function renderSaleBlocks() {
       const derivedUnitPrice = Number(block.unitPrice || 0) || (Number(block.quantity || 0) ? Math.round(Number(block.totalPrice || 0) / Number(block.quantity || 1)) : 0);
       return `
       <div class="fifa-sale-block-item" data-sale-block-index="${index}">
-        <div>
-          <strong>${escapeHtml(block.matchLabel)}</strong>
+        <div class="fifa-sale-block-body">
+          <div class="fifa-sale-block-head">
+            <strong>${escapeHtml(block.matchLabel)}</strong>
+            <span class="fifa-pill">${escapeHtml(`CAT ${block.categoryCode}`)}</span>
+          </div>
           <span class="fifa-table-sub">CAT ${escapeHtml(block.categoryCode)} · ${escapeHtml(block.quantity)} ticket(s)</span>
           <span class="fifa-table-sub">Price ticket: ${escapeHtml(formatMoney(derivedUnitPrice, "USD"))}</span>
           <span class="fifa-table-sub">Total for ${escapeHtml(block.matchLabel)}: ${escapeHtml(formatMoney(Number(block.totalPrice || 0), "USD"))}</span>
@@ -1906,6 +1909,13 @@ function renderSales() {
           const totalMnt = Math.max(0, Math.round(computedTotalPrice * exchangeRate));
           const paidMnt = Math.max(0, Math.round(Number(sale.amountPaid || 0) * exchangeRate));
           const balanceMnt = Math.max(0, totalMnt - paidMnt);
+          const saleStatus = normalizeSaleStatusValue(sale.saleStatus);
+          const saleStatusClass = saleStatus === "confirmed"
+            ? "is-paid"
+            : saleStatus === "cancelled"
+              ? "is-cancelled"
+              : "is-pending";
+          const saleStatusText = saleStatusLabel(sale.saleStatus);
           const paymentLabel = paidMnt <= 0
             ? "Pending"
             : paidMnt >= totalMnt && totalMnt > 0
@@ -1945,7 +1955,8 @@ function renderSales() {
                   <span class="fifa-table-sub">${escapeHtml(formatDate(sale.soldAt))}</span>
                 </div>
                 <div class="fifa-match-col fifa-sale-status-col">
-                  <span class="fifa-pill ${paymentClass}">${escapeHtml(paymentLabel)}</span>
+                  <span class="fifa-pill ${saleStatusClass}">${escapeHtml(saleStatusText)}</span>
+                  <span class="fifa-table-sub">Payment: ${escapeHtml(paymentLabel)}</span>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(sale.soldByName || "-")}</strong>
