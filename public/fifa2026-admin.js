@@ -384,12 +384,16 @@ function setTicketFormVisible(isVisible) {
   if (!ticketForm) return;
   if (isVisible) {
     ticketForm.dataset.open = "true";
+    ticketForm.hidden = false;
     ticketFormModal?.classList.remove("is-hidden");
     ticketFormModal?.setAttribute("aria-hidden", "false");
+    if (ticketFormModal) ticketFormModal.hidden = false;
   } else {
     ticketForm.dataset.open = "false";
+    ticketForm.hidden = true;
     ticketFormModal?.classList.add("is-hidden");
     ticketFormModal?.setAttribute("aria-hidden", "true");
+    if (ticketFormModal) ticketFormModal.hidden = true;
   }
   syncFifaModalOpenState();
 }
@@ -398,12 +402,16 @@ function setSaleFormVisible(isVisible) {
   if (!saleForm) return;
   if (isVisible) {
     saleForm.dataset.open = "true";
+    saleForm.hidden = false;
     saleFormModal?.classList.remove("is-hidden");
     saleFormModal?.setAttribute("aria-hidden", "false");
+    if (saleFormModal) saleFormModal.hidden = false;
   } else {
     saleForm.dataset.open = "false";
+    saleForm.hidden = true;
     saleFormModal?.classList.add("is-hidden");
     saleFormModal?.setAttribute("aria-hidden", "true");
+    if (saleFormModal) saleFormModal.hidden = true;
   }
   syncFifaModalOpenState();
 }
@@ -1282,7 +1290,6 @@ function fillTicketForm(ticket) {
   setNodeText(document.querySelector("#fifa-ticket-submit"), "Update categories");
   setStatus(ticketStatusNode, "Editing match categories.");
   setTicketFormVisible(true);
-  ticketForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function fillSaleForm(sale) {
@@ -1368,7 +1375,6 @@ function fillSaleForm(sale) {
   setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
   setStatus(saleStatusNode, "Editing sale.");
   setSaleFormVisible(true);
-  saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function startSaleForTicket(ticketId) {
@@ -1395,7 +1401,6 @@ function startSaleForTicket(ticketId) {
   saleForm.elements.totalPrice.value = ticket.price || "";
   renderInvoiceScheduleEditor();
   setSaleFormVisible(true);
-  saleForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function syncSaleTotals() {
