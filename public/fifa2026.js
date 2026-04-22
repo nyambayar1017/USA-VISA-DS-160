@@ -4,6 +4,8 @@ const publicSummaryTotal = document.querySelector("#public-summary-total");
 const publicSummaryUnits = document.querySelector("#public-summary-units");
 const publicListCount = document.querySelector("#public-list-count");
 const publicListMeta = document.querySelector("#public-list-meta");
+const publicGroups = document.querySelector("#fifa-public-groups");
+const publicBracket = document.querySelector("#fifa-public-bracket");
 const mobileMenuToggle = document.querySelector("#travelx-mobile-menu-toggle");
 const mobileMenu = document.querySelector("#travelx-mobile-menu");
 
@@ -18,6 +20,7 @@ const filters = {
 
 const PUBLIC_SHOWCASE_MATCH_COUNT = 38;
 const PUBLIC_SHOWCASE_TOTAL_TICKETS = 3340;
+const PUBLIC_PAGE_SIZE = 15;
 
 const TEAM_FLAG_MAP = {
   ALG: "🇩🇿",
@@ -67,7 +70,104 @@ const state = {
   tickets: [],
   expandedMatches: new Set(),
   mobileMenuOpen: false,
+  publicPage: 1,
 };
+
+const GROUP_STAGE_TABLES = [
+  { group: "A", teams: [["🇲🇽", "Mexico"], ["🇿🇦", "South Africa"], ["🇰🇷", "Korea Republic"], ["🇨🇿", "Czechia"]] },
+  { group: "B", teams: [["🇨🇦", "Canada"], ["🇧🇦", "Bosnia-Herzegovina"], ["🇶🇦", "Qatar"], ["🇨🇭", "Switzerland"]] },
+  { group: "C", teams: [["🇧🇷", "Brazil"], ["🇲🇦", "Morocco"], ["🇭🇹", "Haiti"], ["🏴", "Scotland"]] },
+  { group: "D", teams: [["🇺🇸", "USA"], ["🇵🇾", "Paraguay"], ["🇦🇺", "Australia"], ["🇹🇷", "Türkiye"]] },
+  { group: "E", teams: [["🇩🇪", "Germany"], ["🇨🇼", "Curaçao"], ["🇨🇮", "Côte d'Ivoire"], ["🇪🇨", "Ecuador"]] },
+  { group: "F", teams: [["🇳🇱", "Netherlands"], ["🇯🇵", "Japan"], ["🇸🇪", "Sweden"], ["🇹🇳", "Tunisia"]] },
+  { group: "G", teams: [["🇧🇪", "Belgium"], ["🇪🇬", "Egypt"], ["🇮🇷", "IR Iran"], ["🇳🇿", "New Zealand"]] },
+  { group: "H", teams: [["🇪🇸", "Spain"], ["🇨🇻", "Cabo Verde"], ["🇸🇦", "Saudi Arabia"], ["🇺🇾", "Uruguay"]] },
+  { group: "I", teams: [["🇫🇷", "France"], ["🇸🇳", "Senegal"], ["🇮🇶", "Iraq"], ["🇳🇴", "Norway"]] },
+  { group: "J", teams: [["🇦🇷", "Argentina"], ["🇩🇿", "Algeria"], ["🇦🇹", "Austria"], ["🇯🇴", "Jordan"]] },
+  { group: "K", teams: [["🇵🇹", "Portugal"], ["🇨🇩", "Congo DR"], ["🇺🇿", "Uzbekistan"], ["🇨🇴", "Colombia"]] },
+  { group: "L", teams: [["🏴", "England"], ["🇭🇷", "Croatia"], ["🇬🇭", "Ghana"], ["🇵🇦", "Panama"]] },
+];
+
+const KNOCKOUT_BRACKET_COLUMNS = [
+  {
+    title: "Round of 32",
+    matches: [
+      ["M74", "1E", "3ABCDF"],
+      ["M77", "1I", "3CDFGH"],
+      ["M73", "2A", "2B"],
+      ["M75", "1F", "2C"],
+      ["M83", "2K", "2L"],
+      ["M84", "1H", "2J"],
+      ["M81", "1D", "3BEFIJ"],
+      ["M82", "1G", "3AEHIJ"],
+    ],
+  },
+  {
+    title: "Round of 16",
+    matches: [
+      ["M89", "W74", "W77"],
+      ["M90", "W73", "W75"],
+      ["M93", "W83", "W84"],
+      ["M94", "W81", "W82"],
+    ],
+  },
+  {
+    title: "Quarter-final",
+    matches: [
+      ["M97", "W89", "W90"],
+      ["M98", "W93", "W94"],
+    ],
+  },
+  {
+    title: "Semi-final",
+    matches: [
+      ["M101", "W97", "W98"],
+    ],
+  },
+  {
+    title: "Final",
+    featured: true,
+    matches: [
+      ["M104", "W101", "W102"],
+      ["M103", "RU101", "RU102", "Play-off for third place"],
+    ],
+  },
+  {
+    title: "Semi-final",
+    matches: [
+      ["M102", "W99", "W100"],
+    ],
+  },
+  {
+    title: "Quarter-final",
+    matches: [
+      ["M99", "W91", "W92"],
+      ["M100", "W95", "W96"],
+    ],
+  },
+  {
+    title: "Round of 16",
+    matches: [
+      ["M91", "W76", "W78"],
+      ["M92", "W79", "W80"],
+      ["M95", "W86", "W88"],
+      ["M96", "W85", "W87"],
+    ],
+  },
+  {
+    title: "Round of 32",
+    matches: [
+      ["M76", "1C", "2F"],
+      ["M78", "2E", "2I"],
+      ["M79", "1A", "3CEFHI"],
+      ["M80", "1L", "3EHIJK"],
+      ["M86", "1J", "2H"],
+      ["M88", "2D", "2G"],
+      ["M85", "1B", "3EFGIJ"],
+      ["M87", "1K", "3DEIJL"],
+    ],
+  },
+];
 
 function setMobileMenuOpen(isOpen) {
   state.mobileMenuOpen = Boolean(isOpen);
@@ -96,6 +196,19 @@ function fillSelectFromOptions(node, options, placeholder) {
   node.innerHTML = [`<option value="">${placeholder}</option>`]
     .concat(options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`))
     .join("");
+}
+
+function paginateItems(items, page, pageSize = PUBLIC_PAGE_SIZE) {
+  const totalPages = Math.max(Math.ceil(items.length / pageSize), 1);
+  const currentPage = Math.min(Math.max(Number(page || 1), 1), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  return {
+    items: items.slice(start, start + pageSize),
+    currentPage,
+    totalPages,
+    startIndex: start,
+    totalItems: items.length,
+  };
 }
 
 function formatDate(value) {
@@ -281,8 +394,68 @@ function renderTicketTable(row) {
   `;
 }
 
+function renderPublicPagination(pagination) {
+  if (pagination.totalItems <= PUBLIC_PAGE_SIZE) return "";
+  const start = pagination.startIndex + 1;
+  const end = pagination.startIndex + pagination.items.length;
+  return `
+    <div class="table-pagination fifa-public-pagination">
+      <p>Showing ${start}-${end} of ${pagination.totalItems} matches</p>
+      <div class="pagination-actions">
+        <button type="button" class="button-secondary" data-action="paginate-public" data-page="${pagination.currentPage - 1}" ${pagination.currentPage <= 1 ? "disabled" : ""}>Previous</button>
+        <button type="button" class="button-secondary" data-action="paginate-public" data-page="${pagination.currentPage + 1}" ${pagination.currentPage >= pagination.totalPages ? "disabled" : ""}>Next</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderGroupStageTables() {
+  if (!publicGroups) return;
+  publicGroups.innerHTML = GROUP_STAGE_TABLES.map((group) => `
+    <article class="fifa-group-card">
+      <div class="fifa-group-card__head">
+        <h3>Group ${escapeHtml(group.group)}</h3>
+      </div>
+      <ol class="fifa-group-card__list">
+        ${group.teams.map(([flag, name], index) => `
+          <li>
+            <span class="fifa-group-rank">${index + 1}</span>
+            <span class="fifa-group-team-flag">${escapeHtml(flag)}</span>
+            <span class="fifa-group-team-name">${escapeHtml(name)}</span>
+          </li>
+        `).join("")}
+      </ol>
+    </article>
+  `).join("");
+}
+
+function renderKnockoutBracket() {
+  if (!publicBracket) return;
+  publicBracket.innerHTML = `
+    <div class="fifa-knockout-grid">
+      ${KNOCKOUT_BRACKET_COLUMNS.map((column) => `
+        <section class="fifa-knockout-round${column.featured ? " is-featured" : ""}">
+          <div class="fifa-knockout-round__head">${escapeHtml(column.title)}</div>
+          <div class="fifa-knockout-round__matches">
+            ${column.matches.map((match) => `
+              <article class="fifa-knockout-match${column.featured ? " is-featured" : ""}">
+                ${match[3] ? `<p class="fifa-knockout-match__label">${escapeHtml(match[3])}</p>` : ""}
+                <strong>${escapeHtml(match[0])}</strong>
+                <span>${escapeHtml(match[1])}</span>
+                <span>${escapeHtml(match[2])}</span>
+              </article>
+            `).join("")}
+          </div>
+        </section>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderPublicTickets() {
   const rows = filteredRows();
+  const pagination = paginateItems(rows, state.publicPage);
+  state.publicPage = pagination.currentPage;
   const availableTickets = rows.reduce(
     (sum, row) => sum + row.categoryBreakdown.reduce((categorySum, item) => categorySum + Number(item.available || 0), 0),
     0
@@ -292,7 +465,9 @@ function renderPublicTickets() {
   if (publicSummaryTotal) publicSummaryTotal.textContent = String(PUBLIC_SHOWCASE_TOTAL_TICKETS);
   if (publicSummaryUnits) publicSummaryUnits.textContent = String(availableTickets);
   if (publicListCount) publicListCount.textContent = `${rows.length} тоглолт`;
-  if (publicListMeta) publicListMeta.textContent = `Нийт боломжтой билет: ${availableTickets}`;
+  if (publicListMeta) publicListMeta.textContent = rows.length > PUBLIC_PAGE_SIZE
+    ? `Нийт боломжтой билет: ${availableTickets} · Page ${pagination.currentPage} of ${pagination.totalPages}`
+    : `Нийт боломжтой билет: ${availableTickets}`;
 
   if (!rows.length) {
     publicList.innerHTML = '<p class="empty">Шүүлтүүрт тохирох тоглолт олдсонгүй.</p>';
@@ -311,7 +486,7 @@ function renderPublicTickets() {
         <span>Шат</span>
         <span>Суудал</span>
       </div>
-      ${rows
+      ${pagination.items
         .map((row) => {
           const isExpanded = state.expandedMatches.has(row.key);
           const availabilitySummary = row.categoryBreakdown
@@ -366,6 +541,7 @@ function renderPublicTickets() {
         })
         .join("")}
     </div>
+    ${renderPublicPagination(pagination)}
   `;
 }
 
@@ -402,11 +578,23 @@ async function fetchPublicTickets() {
 }
 
 Object.values(filters).forEach((node) => {
-  node?.addEventListener("input", renderPublicTickets);
-  node?.addEventListener("change", renderPublicTickets);
+  node?.addEventListener("input", () => {
+    state.publicPage = 1;
+    renderPublicTickets();
+  });
+  node?.addEventListener("change", () => {
+    state.publicPage = 1;
+    renderPublicTickets();
+  });
 });
 
 publicList?.addEventListener("click", (event) => {
+  const pageButton = event.target.closest('[data-action="paginate-public"]');
+  if (pageButton) {
+    state.publicPage = Math.max(Number(pageButton.dataset.page || 1), 1);
+    renderPublicTickets();
+    return;
+  }
   const toggle = event.target.closest('[data-action="toggle-match"]');
   if (!toggle) return;
   toggleMatch(toggle.dataset.matchKey || "");
@@ -443,3 +631,6 @@ window.addEventListener("resize", () => {
 fetchPublicTickets().catch((error) => {
   publicList.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
 });
+
+renderGroupStageTables();
+renderKnockoutBracket();

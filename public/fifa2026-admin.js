@@ -34,6 +34,8 @@ const summaryNodes = {
 
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
+const saleCountNode = document.querySelector("#fifa-sale-count");
+const saleMetaNode = document.querySelector("#fifa-sale-meta");
 const ticketFormToggleButton = document.querySelector("#fifa-show-ticket-form");
 let ticketFormModal = document.querySelector("#fifa-ticket-form-modal");
 const ticketInventoryView = document.querySelector("#fifa-ticket-inventory-view");
@@ -73,6 +75,7 @@ const BANK_ACCOUNT_ALIASES = {
   azjargal: "azaa",
   "lkham-erdene": "lkhamaa",
 };
+const FIFA_PAGE_SIZE = 15;
 const NATIONALITY_OPTIONS = [
   "Mongolian",
   "Japanese",
@@ -214,6 +217,8 @@ const state = {
   invoiceScheduleTouched: false,
   invoiceDrafts: {},
   saleFormReadOnly: false,
+  ticketPage: 1,
+  salePage: 1,
 };
 
 function setNodeText(node, value) {
@@ -231,6 +236,34 @@ function clearStatus(node) {
   if (!node) return;
   node.textContent = "";
   delete node.dataset.tone;
+}
+
+function paginateItems(items, page, pageSize = FIFA_PAGE_SIZE) {
+  const totalPages = Math.max(Math.ceil(items.length / pageSize), 1);
+  const currentPage = Math.min(Math.max(Number(page || 1), 1), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  return {
+    items: items.slice(start, start + pageSize),
+    currentPage,
+    totalPages,
+    startIndex: start,
+    totalItems: items.length,
+  };
+}
+
+function renderPagination(kind, pagination, itemLabel) {
+  if (pagination.totalItems <= FIFA_PAGE_SIZE) return "";
+  const start = pagination.startIndex + 1;
+  const end = pagination.startIndex + pagination.items.length;
+  return `
+    <div class="table-pagination fifa-table-pagination">
+      <p>Showing ${start}-${end} of ${pagination.totalItems} ${itemLabel}</p>
+      <div class="pagination-actions">
+        <button type="button" class="button-secondary" data-action="paginate-${kind}" data-page="${pagination.currentPage - 1}" ${pagination.currentPage <= 1 ? "disabled" : ""}>Previous</button>
+        <button type="button" class="button-secondary" data-action="paginate-${kind}" data-page="${pagination.currentPage + 1}" ${pagination.currentPage >= pagination.totalPages ? "disabled" : ""}>Next</button>
+      </div>
+    </div>
+  `;
 }
 
 function safeDateInput(value) {
@@ -1800,10 +1833,10 @@ function filteredSales() {
 
 function renderTickets() {
   const groups = buildTicketGroups();
+  const pagination = paginateItems(groups, state.ticketPage);
+  state.ticketPage = pagination.currentPage;
   if (ticketCountNode) ticketCountNode.textContent = `${groups.length} matches`;
-  if (ticketMetaNode) {
-    ticketMetaNode.textContent = "";
-  }
+  if (ticketMetaNode) ticketMetaNode.textContent = groups.length > FIFA_PAGE_SIZE ? `Page ${pagination.currentPage} of ${pagination.totalPages}` : "";
   if (!ticketList) return;
   if (!groups.length) {
     ticketList.innerHTML = '<p class="empty">No saved matches yet.</p>';
@@ -1821,8 +1854,9 @@ function renderTickets() {
         <span>Stage</span>
         <span>Actions</span>
       </div>
-      ${groups
+      ${pagination.items
         .map((group, index) => {
+          const displayIndex = pagination.startIndex + index + 1;
           const isExpanded = state.expandedMatches.has(group.key);
           const availabilitySummary = group.categoryBreakdown
             .map(
@@ -1845,7 +1879,7 @@ function renderTickets() {
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}" role="button" tabindex="0">
                 <div class="fifa-match-col fifa-match-col--number">
-                  <strong>${isExpanded ? "▾" : "▸"} ${index + 1}</strong>
+                  <strong>${isExpanded ? "▾" : "▸"} ${displayIndex}</strong>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(formatDate(group.matchDate))}</strong>
@@ -1965,6 +1999,7 @@ function renderTickets() {
         })
         .join("")}
     </div>
+    ${renderPagination("tickets", pagination, "matches")}
   `;
 }
 
@@ -2037,6 +2072,10 @@ function buildInvoiceScheduleForSale(sale) {
 
 function renderSales() {
   const sales = filteredSales();
+  const pagination = paginateItems(sales, state.salePage);
+  state.salePage = pagination.currentPage;
+  if (saleCountNode) saleCountNode.textContent = `${sales.length} buyers`;
+  if (saleMetaNode) saleMetaNode.textContent = sales.length > FIFA_PAGE_SIZE ? `Page ${pagination.currentPage} of ${pagination.totalPages}` : "";
   if (!sales.length) {
     if (saleList) saleList.innerHTML = '<p class="empty">No sales match these filters yet.</p>';
     return;
@@ -2055,8 +2094,9 @@ function renderSales() {
         <span>Manager</span>
         <span>Actions</span>
       </div>
-      ${sales
+      ${pagination.items
         .map((sale, saleIndex) => {
+          const displayIndex = pagination.startIndex + saleIndex + 1;
           const editingInvoice = Boolean(invoiceDraftForSale(sale));
           const invoiceSource = saleLikeWithInvoiceDraft(sale);
           const isExpanded = state.expandedSales.has(sale.id);
@@ -2156,7 +2196,7 @@ function renderSales() {
             <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle fifa-sale-toggle" data-action="toggle-sale" data-id="${escapeHtml(sale.id)}" role="button" tabindex="0">
                 <div class="fifa-match-col fifa-match-col--number">
-                  <strong>${isExpanded ? "▾" : "▸"} ${saleIndex + 1}</strong>
+                  <strong>${isExpanded ? "▾" : "▸"} ${displayIndex}</strong>
                 </div>
                 <div class="fifa-match-col fifa-match-col--teams">
                   <strong>${escapeHtml(sale.buyerTitle || sale.buyerName || "-")}</strong>
@@ -2273,6 +2313,7 @@ function renderSales() {
         })
         .join("")}
     </div>
+    ${renderPagination("sales", pagination, "buyers")}
   `;
 }
 
@@ -2841,12 +2882,24 @@ document.querySelector("#fifa-sale-add-block")?.addEventListener("click", () => 
 });
 
 Object.values(ticketFilters).forEach((node) => {
-  node?.addEventListener("input", renderTickets);
-  node?.addEventListener("change", renderTickets);
+  node?.addEventListener("input", () => {
+    state.ticketPage = 1;
+    renderTickets();
+  });
+  node?.addEventListener("change", () => {
+    state.ticketPage = 1;
+    renderTickets();
+  });
 });
 Object.values(saleFilters).forEach((node) => {
-  node?.addEventListener("input", renderSales);
-  node?.addEventListener("change", renderSales);
+  node?.addEventListener("input", () => {
+    state.salePage = 1;
+    renderSales();
+  });
+  node?.addEventListener("change", () => {
+    state.salePage = 1;
+    renderSales();
+  });
 });
 
 document.addEventListener("click", (event) => {
@@ -2857,6 +2910,12 @@ document.addEventListener("click", (event) => {
 });
 
 ticketList?.addEventListener("click", async (event) => {
+  const pageButton = event.target.closest('button[data-action="paginate-tickets"]');
+  if (pageButton) {
+    state.ticketPage = Math.max(Number(pageButton.dataset.page || 1), 1);
+    renderTickets();
+    return;
+  }
   const menuTrigger = event.target.closest(".trip-menu summary");
   if (menuTrigger) {
     event.stopPropagation();
@@ -2986,6 +3045,12 @@ ticketList?.addEventListener("click", async (event) => {
 });
 
 saleList?.addEventListener("click", async (event) => {
+  const pageButton = event.target.closest('button[data-action="paginate-sales"]');
+  if (pageButton) {
+    state.salePage = Math.max(Number(pageButton.dataset.page || 1), 1);
+    renderSales();
+    return;
+  }
   const menuTrigger = event.target.closest(".trip-menu summary");
   if (menuTrigger) {
     event.stopPropagation();
