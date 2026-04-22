@@ -304,8 +304,7 @@ function currentAmountPaidUsd() {
 }
 
 function currentSaleTotalUsd() {
-  const blockTotalUsd = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
-  return Math.max(blockTotalUsd - currentDiscountUsd(), 0);
+  return Number((currentSaleTotalMnt() / currentInvoiceExchangeRate()).toFixed(6));
 }
 
 function saleBlockUnitPriceMnt(block, exchangeRate = currentInvoiceExchangeRate()) {
@@ -1081,10 +1080,8 @@ function syncInvoiceScheduleRemainder() {
   const totalMnt = Math.round(saleInvoiceTotal() * exchangeRate);
   if (state.invoiceSchedule.length === 1) {
     const line = state.invoiceSchedule[0];
-    if (!line.amountMnt) {
-      line.amountMnt = String(totalMnt);
-      line.amount = Number((totalMnt / exchangeRate).toFixed(6));
-    }
+    line.amountMnt = String(totalMnt);
+    line.amount = Number((totalMnt / exchangeRate).toFixed(6));
     return;
   }
   const lastIndex = state.invoiceSchedule.length - 1;
@@ -3192,6 +3189,9 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) 
     if (totalField) totalField.value = formatMoney(saleBlockTotalPriceMnt(state.saleBlocks[index], rate), "MNT");
     saleForm.elements.totalPrice.value = String(currentSaleTotalUsd());
     if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = String(currentSaleTotalMnt());
+    const summaryTotalField = document.querySelector("#fifa-sale-summary .full-span input[readonly]");
+    if (summaryTotalField) summaryTotalField.value = formatMoney(currentSaleTotalMnt(), "MNT");
+    syncInvoiceScheduleRemainder();
     renderInvoiceScheduleEditor();
     return;
   }
@@ -3202,6 +3202,7 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("change", (event)
   if (!field || !saleForm) return;
   if (field === "blockPrice" || field === "exchangeRate") {
     syncSalePriceFields();
+    renderSaleSummary();
   }
 });
 
