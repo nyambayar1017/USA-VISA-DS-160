@@ -296,10 +296,11 @@ function currentDiscountUsd() {
 }
 
 function currentAmountPaidUsd() {
-  const paidFromSchedule = activeInvoiceSchedule()
+  const rate = currentInvoiceExchangeRate();
+  const paidFromScheduleMnt = activeInvoiceSchedule()
     .filter((line) => String(line.status || "").trim().toLowerCase() === "paid")
-    .reduce((sum, line) => sum + Math.max(Number(line.amount || 0), 0), 0);
-  return Math.round(paidFromSchedule);
+    .reduce((sum, line) => sum + scheduleLineAmountMnt(line, rate), 0);
+  return Number((paidFromScheduleMnt / rate).toFixed(6));
 }
 
 function currentSaleTotalUsd() {
@@ -901,7 +902,9 @@ function buildInvoiceDraftFromSale(sale) {
       due: safeDateInput(row.due || ""),
       status: row.status || "waiting",
       amount: Math.max(Number(row.amount || 0), 0),
-      amountMnt: String(Math.round(Math.max(Number(row.amount || 0), 0) * exchangeRate)),
+      amountMnt: String(scheduleLineAmountMnt(row, exchangeRate)),
+      bankAccount: BANK_ACCOUNT_ALIASES[row.bankAccount] || row.bankAccount || sale.invoiceBankAccount || "state",
+      bankAccountOther: row.bankAccountOther || "",
     })),
   };
 }
@@ -928,8 +931,10 @@ function captureInlineInvoiceDraft(sale) {
       created: getValue("created"),
       due: getValue("due"),
       status: getValue("status") || "waiting",
-      amount: Math.max(Math.round(Number(amountMnt || 0) / exchangeRate), 0),
+      amount: Number((Math.max(Number(amountMnt || 0), 0) / exchangeRate).toFixed(6)),
       amountMnt,
+      bankAccount: BANK_ACCOUNT_ALIASES[getValue("bankAccount")] || getValue("bankAccount") || existing.invoiceBankAccount || "state",
+      bankAccountOther: getValue("bankAccountOther"),
     };
   });
   const captured = {
@@ -970,6 +975,12 @@ function saleInvoiceTotal(saleLike = null) {
   return Math.max(subtotal - discountAmount, 0);
 }
 
+function scheduleLineAmountMnt(line, exchangeRate = currentInvoiceExchangeRate()) {
+  const amountMnt = String(line?.amountMnt || "").replace(/[^\d]/g, "");
+  if (amountMnt) return Math.max(Number(amountMnt || 0), 0);
+  return Math.max(Math.round(Number(line?.amount || 0) * exchangeRate), 0);
+}
+
 function defaultInvoiceSchedule(totalPrice, amountPaid, soldAtValue = "") {
   const soldAt = safeDateInput(soldAtValue) || new Date().toISOString().slice(0, 10);
   const paidAmount = Math.max(Number(amountPaid || 0), 0);
@@ -983,6 +994,8 @@ function defaultInvoiceSchedule(totalPrice, amountPaid, soldAtValue = "") {
       due: soldAt,
       status: "paid",
       amount: paidAmount,
+      bankAccount: "state",
+      bankAccountOther: "",
     });
   }
   if (balance > 0) {
@@ -992,6 +1005,8 @@ function defaultInvoiceSchedule(totalPrice, amountPaid, soldAtValue = "") {
       due: soldAt,
       status: paidAmount > 0 ? "waiting" : "waiting",
       amount: balance,
+      bankAccount: "state",
+      bankAccountOther: "",
     });
   }
   if (!lines.length) {
@@ -1001,6 +1016,8 @@ function defaultInvoiceSchedule(totalPrice, amountPaid, soldAtValue = "") {
       due: soldAt,
       status: "waiting",
       amount: total,
+      bankAccount: "state",
+      bankAccountOther: "",
     });
   }
   return lines;
@@ -1015,6 +1032,8 @@ function normalizedInvoiceSchedule(lines) {
       status: ["paid", "waiting", "overdue"].includes(String(line?.status || "").trim()) ? String(line.status).trim() : "waiting",
       amount: Math.max(Number(line?.amount || 0), 0),
       amountMnt: String(line?.amountMnt || "").replace(/[^\d]/g, ""),
+      bankAccount: BANK_ACCOUNT_ALIASES[String(line?.bankAccount || "").trim()] || String(line?.bankAccount || "").trim() || "state",
+      bankAccountOther: String(line?.bankAccountOther || "").trim(),
     }))
     .filter((line) => line.title || line.amount > 0 || line.amountMnt);
 }
@@ -1035,34 +1054,40 @@ function activeInvoiceSchedule(saleLike = null) {
   return defaultInvoiceSchedule(saleInvoiceTotal(), Number(saleForm?.elements?.amountPaid?.value || 0), saleForm?.elements?.soldAt?.value || "");
 }
 
+function syncInvoiceScheduleRemainder() {
+  if (!state.invoiceScheduleTouched || !state.invoiceSchedule.length || !saleForm) return;
+  const exchangeRate = currentInvoiceExchangeRate();
+  const totalMnt = Math.round(saleInvoiceTotal() * exchangeRate);
+  if (state.invoiceSchedule.length === 1) {
+    const line = state.invoiceSchedule[0];
+    if (!line.amountMnt) {
+      line.amountMnt = String(totalMnt);
+      line.amount = Number((totalMnt / exchangeRate).toFixed(6));
+    }
+    return;
+  }
+  const lastIndex = state.invoiceSchedule.length - 1;
+  const otherTotalMnt = state.invoiceSchedule
+    .slice(0, lastIndex)
+    .reduce((sum, line) => sum + scheduleLineAmountMnt(line, exchangeRate), 0);
+  const remainingMnt = Math.max(totalMnt - otherTotalMnt, 0);
+  state.invoiceSchedule[lastIndex].amountMnt = String(remainingMnt);
+  state.invoiceSchedule[lastIndex].amount = Number((remainingMnt / exchangeRate).toFixed(6));
+}
+
 function renderInvoiceScheduleEditor() {
   if (!invoiceScheduleEditor || !saleForm) return;
   const schedule = activeInvoiceSchedule();
   const totalPrice = saleInvoiceTotal();
   const exchangeRate = Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE);
-  const selectedBankAccount = BANK_ACCOUNT_ALIASES[saleForm.elements.invoiceBankAccount?.value] || saleForm.elements.invoiceBankAccount?.value || "state";
-  const otherBankAccount = saleForm.elements.invoiceBankAccountOther?.value || "";
-  const scheduleTotal = schedule.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  const scheduleTotalMnt = schedule.reduce((sum, line) => sum + scheduleLineAmountMnt(line, exchangeRate), 0);
   const totalMnt = Math.round(totalPrice * exchangeRate);
-  const scheduleTotalMnt = Math.round(scheduleTotal * exchangeRate);
   const balanceMnt = Math.max(totalMnt - scheduleTotalMnt, 0);
   invoiceScheduleEditor.innerHTML = `
     <div class="fifa-invoice-schedule-box">
       <div class="fifa-invoice-schedule-head">
         <strong>Payment schedule</strong>
         <button type="button" class="button-secondary fifa-inline-action" data-action="add-invoice-line">Add line</button>
-      </div>
-      <div class="manager-form-grid fifa-form-grid fifa-invoice-bank-grid">
-        <label>
-          Received bank account
-          <select data-schedule-bank-account>
-            ${BANK_ACCOUNT_OPTIONS.map(([value, label]) => `<option value="${escapeHtml(value)}"${selectedBankAccount === value ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}
-          </select>
-        </label>
-        <label id="fifa-sale-other-bank-account-field"${selectedBankAccount === "other" ? "" : " hidden"}>
-          Other account
-          <input type="text" data-schedule-bank-account-other value="${escapeHtml(otherBankAccount)}" placeholder="Type bank account name" />
-        </label>
       </div>
       <div class="fifa-invoice-schedule-list">
         ${schedule.map((line, index) => `
@@ -1088,8 +1113,17 @@ function renderInvoiceScheduleEditor() {
               </select>
             </label>
             <label>
+              Received bank account
+              <select data-schedule-field="bankAccount">
+                ${BANK_ACCOUNT_OPTIONS.map(([value, label]) => `<option value="${escapeHtml(value)}"${(line.bankAccount || "state") === value ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+              </select>
+              ${(line.bankAccount || "state") === "other"
+                ? `<input type="text" data-schedule-field="bankAccountOther" value="${escapeHtml(line.bankAccountOther || "")}" placeholder="Type bank account name" class="fifa-schedule-other-account" />`
+                : ""}
+            </label>
+            <label>
               Amount (₮)
-              <input type="number" min="0" step="1" data-schedule-field="amount" value="${escapeHtml(String(line.amountMnt || Math.round(Number(line.amount || 0) * exchangeRate)))}" />
+              <input type="number" min="0" step="1" data-schedule-field="amount" value="${escapeHtml(String(scheduleLineAmountMnt(line, exchangeRate)))}" />
             </label>
             <button type="button" class="button-secondary fifa-inline-action" data-action="remove-invoice-line" data-index="${index}">Remove</button>
           </div>
@@ -1097,7 +1131,7 @@ function renderInvoiceScheduleEditor() {
       </div>
       <div class="fifa-invoice-schedule-footer">
         <span>Total scheduled: ${formatMoney(scheduleTotalMnt, "MNT")}</span>
-        <span>Total balance: ${formatMoney(balanceMnt, "MNT")}</span>
+        <span class="fifa-balance-total${balanceMnt > 0 ? " is-due" : ""}">Total balance: ${formatMoney(balanceMnt, "MNT")}</span>
       </div>
     </div>
   `;
@@ -1489,6 +1523,7 @@ function fillSaleForm(sale, options = {}) {
   }));
   state.invoiceSchedule = normalizedInvoiceSchedule(sale.invoiceSchedule || []);
   state.invoiceScheduleTouched = Boolean(state.invoiceSchedule.length);
+  syncInvoiceScheduleRemainder();
   renderSaleBlocks();
   renderInvoiceScheduleEditor();
   renderParticipants();
@@ -1528,6 +1563,7 @@ function startSaleForTicket(ticketId) {
   renderSaleBlocks();
   saleForm.elements.pricePerTicket.value = ticket.price || "";
   saleForm.elements.totalPrice.value = ticket.price || "";
+  syncInvoiceScheduleRemainder();
   renderInvoiceScheduleEditor();
   setSaleFormVisible(true);
 }
@@ -1538,6 +1574,8 @@ function syncSaleTotals() {
   const quantity = Number(saleForm.elements.quantity.value || 0);
   const discountAmount = currentDiscountUsd();
   const computedTotalUsd = state.saleBlocks.length ? currentSaleTotalUsd() : 0;
+  const schedule = activeInvoiceSchedule();
+  const leadScheduleLine = schedule[0] || null;
   saleForm.elements.totalPrice.value = computedTotalUsd ? String(computedTotalUsd) : "";
   if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = computedTotalUsd ? String(Math.round(computedTotalUsd * exchangeRate)) : "";
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = String(discountAmount);
@@ -1545,7 +1583,11 @@ function syncSaleTotals() {
   const totalPrice = Number(saleForm.elements.totalPrice.value || 0);
   const amountPaid = Number(saleForm.elements.amountPaid.value || 0);
   saleForm.elements.paymentStatus.value = totalPrice > 0 && amountPaid >= totalPrice ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
-  saleForm.elements.paymentMethod.value = saleForm.elements.invoiceBankAccount?.value || "state";
+  if (leadScheduleLine) {
+    saleForm.elements.invoiceBankAccount.value = leadScheduleLine.bankAccount || "state";
+    saleForm.elements.invoiceBankAccountOther.value = leadScheduleLine.bankAccountOther || "";
+  }
+  saleForm.elements.paymentMethod.value = leadScheduleLine?.bankAccount || saleForm.elements.invoiceBankAccount?.value || "state";
   saleForm.elements.soldAt.value = saleForm.elements.soldAt.value || new Date().toISOString().slice(0, 10);
   const buyerTitle = String(saleForm.elements.buyerTitle?.value || "").trim();
   saleForm.elements.buyerName.value = state.participants.map(combinedParticipantName).find(Boolean) || buyerTitle;
@@ -1967,6 +2009,7 @@ function renderSales() {
         <span>Total</span>
         <span>Paid</span>
         <span>Status</span>
+        <span>Payment status</span>
         <span>Manager</span>
         <span>Actions</span>
       </div>
@@ -2041,8 +2084,13 @@ function renderSales() {
           const computedBaseTotal = blockTotalPrice || lineTotalPrice || Number(sale.totalPrice || 0);
           const computedTotalPrice = Math.max(Number(sale.totalPrice || 0) || (computedBaseTotal - discountAmount), 0);
           const exchangeRate = Math.max(Number(invoiceSource.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE), 1);
+          const invoiceRows = buildInvoiceRowsForSale(invoiceSource);
+          const invoiceSchedule = buildInvoiceScheduleForSale(invoiceSource);
           const totalMnt = Math.max(0, Math.round(computedTotalPrice * exchangeRate));
-          const paidMnt = Math.max(0, Math.round(Number(sale.amountPaid || 0) * exchangeRate));
+          const paidMnt = Math.max(0, invoiceSchedule.reduce((sum, row) => {
+            if (String(row.status || "").trim().toLowerCase() !== "paid") return sum;
+            return sum + scheduleLineAmountMnt(row, exchangeRate);
+          }, 0));
           const balanceMnt = Math.max(0, totalMnt - paidMnt);
           const saleStatus = normalizeSaleStatusValue(sale.saleStatus);
           const saleStatusClass = saleStatus === "confirmed"
@@ -2061,8 +2109,6 @@ function renderSales() {
             : paidMnt > 0
               ? "is-pending"
               : "is-pending";
-          const invoiceRows = buildInvoiceRowsForSale(invoiceSource);
-          const invoiceSchedule = buildInvoiceScheduleForSale(invoiceSource);
           const invoiceBank = getInvoiceBankAccount(invoiceSource.invoiceBankAccount || "state");
           return `
             <article class="fifa-match-card fifa-sale-card ${isExpanded ? "is-open" : ""}">
@@ -2083,7 +2129,7 @@ function renderSales() {
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(formatMoney(totalMnt, "MNT"))}</strong>
-                  <span class="fifa-table-sub">Balance ${escapeHtml(formatMoney(balanceMnt, "MNT"))}</span>
+                  <span class="fifa-table-sub fifa-balance-pill${balanceMnt > 0 ? " is-due" : ""}">Balance ${escapeHtml(formatMoney(balanceMnt, "MNT"))}</span>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(formatMoney(paidMnt, "MNT"))}</strong>
@@ -2091,7 +2137,9 @@ function renderSales() {
                 </div>
                 <div class="fifa-match-col fifa-sale-status-col">
                   <span class="fifa-pill ${saleStatusClass}">${escapeHtml(saleStatusText)}</span>
-                  <span class="fifa-table-sub">Payment: ${escapeHtml(paymentLabel)}</span>
+                </div>
+                <div class="fifa-match-col fifa-sale-status-col">
+                  <span class="fifa-pill ${paymentClass}">${escapeHtml(paymentLabel)}</span>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(sale.soldByName || "-")}</strong>
@@ -2650,7 +2698,10 @@ if (saleForm) {
       created: line.created,
       due: line.due,
       status: line.status,
-      amount: Math.round(Number(line.amount || 0)),
+      amount: Number((scheduleLineAmountMnt(line) / currentInvoiceExchangeRate()).toFixed(6)),
+      amountMnt: scheduleLineAmountMnt(line),
+      bankAccount: BANK_ACCOUNT_ALIASES[line.bankAccount] || line.bankAccount || "state",
+      bankAccountOther: line.bankAccountOther || "",
     }));
     if (!payload.ticketIds.length) {
       setStatus(saleStatusNode, "Add at least one ticket block first.", true);
@@ -2713,12 +2764,12 @@ saleForm?.elements?.invoiceExchangeRate?.addEventListener("input", () => {
   if (state.invoiceScheduleTouched) {
     const rate = currentInvoiceExchangeRate();
     state.invoiceSchedule = normalizedInvoiceSchedule(state.invoiceSchedule).map((line) => {
-      if (!line.amountMnt) return line;
       return {
         ...line,
-        amount: Math.max(Math.round(Number(line.amountMnt || 0) / rate), 0),
+        amount: Number((scheduleLineAmountMnt(line, rate) / rate).toFixed(6)),
       };
     });
+    syncInvoiceScheduleRemainder();
   }
   if (!state.invoiceScheduleTouched) renderInvoiceScheduleEditor();
   else renderInvoiceScheduleEditor();
@@ -3158,11 +3209,6 @@ saleParticipantList?.addEventListener("change", (event) => {
 toggleOtherBankAccountField();
 
 invoiceScheduleEditor?.addEventListener("input", (event) => {
-  if (event.target.matches("[data-schedule-bank-account-other]")) {
-    saleForm.elements.invoiceBankAccountOther.value = event.target.value;
-    syncSaleTotals();
-    return;
-  }
   const row = event.target.closest("[data-schedule-index]");
   if (!row) return;
   const index = Number(row.dataset.scheduleIndex || -1);
@@ -3180,7 +3226,11 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
       event.target.value = digitsOnly;
     }
     state.invoiceSchedule[index].amountMnt = digitsOnly;
-    state.invoiceSchedule[index].amount = Math.max(Math.round(Number(digitsOnly || 0) / rate), 0);
+    state.invoiceSchedule[index].amount = Number((Math.max(Number(digitsOnly || 0), 0) / rate).toFixed(6));
+    syncInvoiceScheduleRemainder();
+    syncSaleTotals();
+    renderInvoiceScheduleEditor();
+    return;
   } else {
     state.invoiceSchedule[index][field] = event.target.value;
   }
@@ -3188,18 +3238,7 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
 });
 
 invoiceScheduleEditor?.addEventListener("change", (event) => {
-  if (event.target.matches("[data-schedule-bank-account]")) {
-    saleForm.elements.invoiceBankAccount.value = event.target.value;
-    if (event.target.value !== "other") {
-      saleForm.elements.invoiceBankAccountOther.value = "";
-    }
-    toggleOtherBankAccountField();
-    syncSaleTotals();
-    renderInvoiceScheduleEditor();
-    applySaleFormReadOnlyState();
-    return;
-  }
-  if (event.target.matches("[data-schedule-field='status']")) {
+  if (event.target.matches("[data-schedule-field='status'], [data-schedule-field='bankAccount']")) {
     const row = event.target.closest("[data-schedule-index]");
     const index = Number(row?.dataset.scheduleIndex || -1);
     const schedule = activeInvoiceSchedule();
@@ -3207,9 +3246,14 @@ invoiceScheduleEditor?.addEventListener("change", (event) => {
     state.invoiceScheduleTouched = true;
     state.invoiceSchedule = normalizedInvoiceSchedule(schedule);
     if (!state.invoiceSchedule[index]) return;
-    state.invoiceSchedule[index].status = event.target.value;
+    state.invoiceSchedule[index][event.target.dataset.scheduleField] = event.target.value;
+    if (event.target.dataset.scheduleField === "bankAccount" && event.target.value !== "other") {
+      state.invoiceSchedule[index].bankAccountOther = "";
+    }
+    syncInvoiceScheduleRemainder();
     syncSaleTotals();
     renderInvoiceScheduleEditor();
+    applySaleFormReadOnlyState();
   }
 });
 
@@ -3227,7 +3271,10 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
       status: "waiting",
       amount: 0,
       amountMnt: "0",
+      bankAccount: "state",
+      bankAccountOther: "",
     });
+    syncInvoiceScheduleRemainder();
     syncSaleTotals();
     renderInvoiceScheduleEditor();
     return;
@@ -3239,6 +3286,7 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
     state.invoiceScheduleTouched = true;
     state.invoiceSchedule = normalizedInvoiceSchedule(current);
     if (index >= 0) state.invoiceSchedule.splice(index, 1);
+    syncInvoiceScheduleRemainder();
     syncSaleTotals();
     renderInvoiceScheduleEditor();
   }

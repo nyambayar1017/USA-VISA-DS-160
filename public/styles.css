@@ -4485,7 +4485,7 @@ body.modal-open {
 }
 
 .fifa-form-modal .fifa-invoice-schedule-row {
-  grid-template-columns: minmax(150px, 1.1fr) repeat(4, minmax(96px, 1fr)) auto;
+  grid-template-columns: minmax(130px, 1fr) repeat(3, minmax(96px, 0.95fr)) minmax(170px, 1.15fr) minmax(120px, 0.9fr) auto;
   gap: 8px;
   padding-top: 8px;
 }
@@ -4502,6 +4502,19 @@ body.modal-open {
   color: #51627f;
   font-size: 0.86rem;
   font-weight: 700;
+}
+
+.fifa-balance-total {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.fifa-balance-total.is-due {
+  color: #b88210;
+}
+
+.fifa-schedule-other-account {
+  margin-top: 8px;
 }
 
 .fifa-form-readonly input:disabled,
@@ -4525,7 +4538,7 @@ body.modal-open {
 }
 
 .fifa-sale-card .fifa-match-toggle {
-  grid-template-columns: 72px minmax(240px, 1.25fr) minmax(180px, 0.95fr) 120px 140px 140px 170px 220px;
+  grid-template-columns: 72px minmax(240px, 1.25fr) minmax(180px, 0.95fr) 120px 140px 120px 150px 170px 220px;
 }
 
 .fifa-sale-status-col {
@@ -4536,7 +4549,12 @@ body.modal-open {
 }
 
 .fifa-sales-table-head {
-  grid-template-columns: 72px minmax(240px, 1.25fr) minmax(180px, 0.95fr) 120px 140px 140px 170px 220px;
+  grid-template-columns: 72px minmax(240px, 1.25fr) minmax(180px, 0.95fr) 120px 140px 120px 150px 170px 220px;
+}
+
+.fifa-balance-pill.is-due {
+  color: #b88210;
+  font-weight: 800;
 }
 
 .fifa-sale-card .fifa-match-col--number {
