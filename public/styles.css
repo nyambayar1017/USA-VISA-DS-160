@@ -4993,11 +4993,13 @@ body.modal-open {
 .fifa-public-section-head h2 {
   margin: 4px 0 0;
   color: var(--brand);
+  font-size: 2rem;
 }
 
 .fifa-public-section-head p {
   margin: 0;
   color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .fifa-public-table-wrap {
@@ -5027,14 +5029,15 @@ body.modal-open {
 }
 
 .fifa-group-card__head {
-  padding: 22px 24px 16px;
+  padding: 14px 16px 12px;
   border-bottom: 1px solid rgba(32, 53, 111, 0.08);
 }
 
 .fifa-group-card__head h3 {
   margin: 0;
   color: #172754;
-  font-size: 1.7rem;
+  font-size: 1.02rem;
+  font-weight: 700;
 }
 
 .fifa-group-card__list {
@@ -5045,12 +5048,12 @@ body.modal-open {
 
 .fifa-group-card__list li {
   display: grid;
-  grid-template-columns: 32px 36px 1fr;
+  grid-template-columns: 22px 26px 1fr;
   align-items: center;
-  gap: 10px;
-  padding: 18px 20px;
+  gap: 8px;
+  padding: 12px 16px;
   border-top: 1px solid rgba(32, 53, 111, 0.08);
-  font-size: 1.02rem;
+  font-size: 0.86rem;
 }
 
 .fifa-group-rank {
@@ -5059,7 +5062,7 @@ body.modal-open {
 }
 
 .fifa-group-team-flag {
-  font-size: 1.45rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
@@ -5076,19 +5079,21 @@ body.modal-open {
 .fifa-knockout-grid {
   display: grid;
   grid-template-columns: repeat(9, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
   align-items: start;
+  max-width: 1160px;
+  margin: 0 auto;
 }
 
 .fifa-knockout-round {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .fifa-knockout-round__head {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.64rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -5097,46 +5102,46 @@ body.modal-open {
 
 .fifa-knockout-round__matches {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .fifa-knockout-match {
-  padding: 9px 10px;
+  padding: 6px 7px;
   border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 14px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,247,255,0.95));
-  box-shadow: 0 8px 18px rgba(24, 39, 75, 0.05);
+  box-shadow: 0 6px 14px rgba(24, 39, 75, 0.04);
 }
 
 .fifa-knockout-match strong {
   display: block;
-  margin-bottom: 7px;
+  margin-bottom: 5px;
   color: #172754;
-  font-size: 0.8rem;
+  font-size: 0.62rem;
   line-height: 1.2;
   text-align: center;
 }
 
 .fifa-knockout-match span {
   display: block;
-  padding: 7px 8px;
+  padding: 5px 6px;
   border: 1px solid rgba(32, 53, 111, 0.08);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   color: #22345c;
-  font-size: 0.78rem;
+  font-size: 0.6rem;
   line-height: 1.15;
   text-align: center;
 }
 
 .fifa-knockout-match span + span {
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .fifa-knockout-match__label {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   color: #e26c45;
-  font-size: 0.68rem;
+  font-size: 0.54rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -5153,7 +5158,11 @@ body.modal-open {
 }
 
 .fifa-knockout-round.is-featured .fifa-knockout-match {
-  padding: 10px 11px;
+  padding: 7px 8px;
+}
+
+.fifa-admin-stage-panel {
+  margin-top: 22px;
 }
 
 .fifa-public-seat-grid {

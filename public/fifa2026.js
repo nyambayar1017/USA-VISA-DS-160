@@ -21,6 +21,7 @@ const filters = {
 const PUBLIC_SHOWCASE_MATCH_COUNT = 38;
 const PUBLIC_SHOWCASE_TOTAL_TICKETS = 3340;
 const PUBLIC_PAGE_SIZE = 15;
+const ENGLAND_FLAG = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
 
 const TEAM_FLAG_MAP = {
   ALG: "🇩🇿",
@@ -34,7 +35,7 @@ const TEAM_FLAG_MAP = {
   CRO: "🇭🇷",
   CUR: "🇨🇼",
   EGY: "🇪🇬",
-  ENG: "🏴",
+  ENG: ENGLAND_FLAG,
   FRA: "🇫🇷",
   GER: "🇩🇪",
   GHA: "🇬🇭",
@@ -85,7 +86,7 @@ const GROUP_STAGE_TABLES = [
   { group: "I", teams: [["🇫🇷", "France"], ["🇸🇳", "Senegal"], ["🇮🇶", "Iraq"], ["🇳🇴", "Norway"]] },
   { group: "J", teams: [["🇦🇷", "Argentina"], ["🇩🇿", "Algeria"], ["🇦🇹", "Austria"], ["🇯🇴", "Jordan"]] },
   { group: "K", teams: [["🇵🇹", "Portugal"], ["🇨🇩", "Congo DR"], ["🇺🇿", "Uzbekistan"], ["🇨🇴", "Colombia"]] },
-  { group: "L", teams: [["🏴", "England"], ["🇭🇷", "Croatia"], ["🇬🇭", "Ghana"], ["🇵🇦", "Panama"]] },
+  { group: "L", teams: [[ENGLAND_FLAG, "England"], ["🇭🇷", "Croatia"], ["🇬🇭", "Ghana"], ["🇵🇦", "Panama"]] },
 ];
 
 const KNOCKOUT_BRACKET_COLUMNS = [

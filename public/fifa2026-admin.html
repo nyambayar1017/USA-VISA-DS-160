@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-106" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-107" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -531,10 +531,32 @@
 
           <div id="fifa-sale-list" class="manager-table-wrap"></div>
         </section>
+
+        <section class="card fifa-panel fifa-public-stage-panel fifa-admin-stage-panel" id="tournament-section">
+          <div class="fifa-public-section-head">
+            <div>
+              <p class="eyebrow">Tournament Map</p>
+              <h2>Group Stage</h2>
+            </div>
+            <p>12 хэсгийн бүрэлдэхүүн болон хасагдах шатны таамаглал нэг дор.</p>
+          </div>
+          <div id="fifa-admin-groups" class="fifa-public-groups-grid"></div>
+        </section>
+
+        <section class="card fifa-panel fifa-public-stage-panel fifa-admin-stage-panel">
+          <div class="fifa-public-section-head">
+            <div>
+              <p class="eyebrow">Road To The Final</p>
+              <h2>Knockout Bracket</h2>
+            </div>
+            <p>Round of 32-оос эхлээд шигшээ тоглолт хүртэлх замнал.</p>
+          </div>
+          <div id="fifa-admin-bracket" class="fifa-public-bracket-wrap"></div>
+        </section>
       </main>
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/fifa2026-admin.js?v=workspace-fifa-66"></script>
+    <script src="/fifa2026-admin.js?v=workspace-fifa-67"></script>
   </body>
 </html>

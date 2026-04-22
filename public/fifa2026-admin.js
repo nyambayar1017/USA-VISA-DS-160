@@ -49,12 +49,15 @@ const saleBlockQuantityInput = document.querySelector("#fifa-sale-block-quantity
 const saleSeatPicker = document.querySelector("#fifa-sale-seat-picker");
 const salePriceBreakdown = document.querySelector("#fifa-sale-price-breakdown");
 const invoiceScheduleEditor = document.querySelector("#fifa-invoice-schedule-editor");
+const adminGroupsNode = document.querySelector("#fifa-admin-groups");
+const adminBracketNode = document.querySelector("#fifa-admin-bracket");
 const ticketRowContainers = {
   "1": document.querySelector('[data-ticket-rows="1"]'),
   "2": document.querySelector('[data-ticket-rows="2"]'),
   "3": document.querySelector('[data-ticket-rows="3"]'),
 };
 const DEFAULT_INVOICE_EXCHANGE_RATE = 3600;
+const ENGLAND_FLAG = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
 const BANK_ACCOUNTS = {
   state: { label: "DTX - State Bank", bankName: "DTX - State Bank", prefix: "MN030034", accountNumber: "3432 7777 9999" },
   golomt: { label: "DTX - Golomt Bank", bankName: "DTX - Golomt Bank", prefix: "MN80001500", accountNumber: "3675114666" },
@@ -266,6 +269,49 @@ function renderPagination(kind, pagination, itemLabel) {
   `;
 }
 
+function renderTournamentGroups(node) {
+  if (!node) return;
+  node.innerHTML = GROUP_STAGE_TABLES.map((group) => `
+    <article class="fifa-group-card">
+      <div class="fifa-group-card__head">
+        <h3>Group ${escapeHtml(group.group)}</h3>
+      </div>
+      <ol class="fifa-group-card__list">
+        ${group.teams.map(([flag, name], index) => `
+          <li>
+            <span class="fifa-group-rank">${index + 1}</span>
+            <span class="fifa-group-team-flag">${escapeHtml(flag)}</span>
+            <span class="fifa-group-team-name">${escapeHtml(name)}</span>
+          </li>
+        `).join("")}
+      </ol>
+    </article>
+  `).join("");
+}
+
+function renderTournamentBracket(node) {
+  if (!node) return;
+  node.innerHTML = `
+    <div class="fifa-knockout-grid">
+      ${KNOCKOUT_BRACKET_COLUMNS.map((column) => `
+        <section class="fifa-knockout-round${column.featured ? " is-featured" : ""}">
+          <div class="fifa-knockout-round__head">${escapeHtml(column.title)}</div>
+          <div class="fifa-knockout-round__matches">
+            ${column.matches.map((match) => `
+              <article class="fifa-knockout-match${column.featured ? " is-featured" : ""}">
+                ${match[3] ? `<p class="fifa-knockout-match__label">${escapeHtml(match[3])}</p>` : ""}
+                <strong>${escapeHtml(match[0])}</strong>
+                <span>${escapeHtml(match[1])}</span>
+                <span>${escapeHtml(match[2])}</span>
+              </article>
+            `).join("")}
+          </div>
+        </section>
+      `).join("")}
+    </div>
+  `;
+}
+
 function safeDateInput(value) {
   const raw = String(value || "").trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
@@ -425,7 +471,7 @@ const TEAM_FLAG_MAP = {
   CRO: "🇭🇷",
   CUR: "🇨🇼",
   EGY: "🇪🇬",
-  ENG: "🏴",
+  ENG: ENGLAND_FLAG,
   FRA: "🇫🇷",
   GER: "🇩🇪",
   GHA: "🇬🇭",
@@ -450,6 +496,33 @@ const TEAM_FLAG_MAP = {
 const TEAM_NAME_MAP = {
   COD: "DR Congo",
 };
+
+const GROUP_STAGE_TABLES = [
+  { group: "A", teams: [["🇲🇽", "Mexico"], ["🇿🇦", "South Africa"], ["🇰🇷", "Korea Republic"], ["🇨🇿", "Czechia"]] },
+  { group: "B", teams: [["🇨🇦", "Canada"], ["🇧🇦", "Bosnia-Herzegovina"], ["🇶🇦", "Qatar"], ["🇨🇭", "Switzerland"]] },
+  { group: "C", teams: [["🇧🇷", "Brazil"], ["🇲🇦", "Morocco"], ["🇭🇹", "Haiti"], ["🏴", "Scotland"]] },
+  { group: "D", teams: [["🇺🇸", "USA"], ["🇵🇾", "Paraguay"], ["🇦🇺", "Australia"], ["🇹🇷", "Türkiye"]] },
+  { group: "E", teams: [["🇩🇪", "Germany"], ["🇨🇼", "Curaçao"], ["🇨🇮", "Côte d'Ivoire"], ["🇪🇨", "Ecuador"]] },
+  { group: "F", teams: [["🇳🇱", "Netherlands"], ["🇯🇵", "Japan"], ["🇸🇪", "Sweden"], ["🇹🇳", "Tunisia"]] },
+  { group: "G", teams: [["🇧🇪", "Belgium"], ["🇪🇬", "Egypt"], ["🇮🇷", "IR Iran"], ["🇳🇿", "New Zealand"]] },
+  { group: "H", teams: [["🇪🇸", "Spain"], ["🇨🇻", "Cabo Verde"], ["🇸🇦", "Saudi Arabia"], ["🇺🇾", "Uruguay"]] },
+  { group: "I", teams: [["🇫🇷", "France"], ["🇸🇳", "Senegal"], ["🇮🇶", "Iraq"], ["🇳🇴", "Norway"]] },
+  { group: "J", teams: [["🇦🇷", "Argentina"], ["🇩🇿", "Algeria"], ["🇦🇹", "Austria"], ["🇯🇴", "Jordan"]] },
+  { group: "K", teams: [["🇵🇹", "Portugal"], ["🇨🇩", "Congo DR"], ["🇺🇿", "Uzbekistan"], ["🇨🇴", "Colombia"]] },
+  { group: "L", teams: [[ENGLAND_FLAG, "England"], ["🇭🇷", "Croatia"], ["🇬🇭", "Ghana"], ["🇵🇦", "Panama"]] },
+];
+
+const KNOCKOUT_BRACKET_COLUMNS = [
+  { title: "Round of 32", matches: [["M74", "1E", "3ABCDF"], ["M77", "1I", "3CDFGH"], ["M73", "2A", "2B"], ["M75", "1F", "2C"], ["M83", "2K", "2L"], ["M84", "1H", "2J"], ["M81", "1D", "3BEFIJ"], ["M82", "1G", "3AEHIJ"]] },
+  { title: "Round of 16", matches: [["M89", "W74", "W77"], ["M90", "W73", "W75"], ["M93", "W83", "W84"], ["M94", "W81", "W82"]] },
+  { title: "Quarter-final", matches: [["M97", "W89", "W90"], ["M98", "W93", "W94"]] },
+  { title: "Semi-final", matches: [["M101", "W97", "W98"]] },
+  { title: "Final", featured: true, matches: [["M104", "W101", "W102"], ["M103", "RU101", "RU102", "Play-off for third place"]] },
+  { title: "Semi-final", matches: [["M102", "W99", "W100"]] },
+  { title: "Quarter-final", matches: [["M99", "W91", "W92"], ["M100", "W95", "W96"]] },
+  { title: "Round of 16", matches: [["M91", "W76", "W78"], ["M92", "W79", "W80"], ["M95", "W86", "W88"], ["M96", "W85", "W87"]] },
+  { title: "Round of 32", matches: [["M76", "1C", "2F"], ["M78", "2E", "2I"], ["M79", "1A", "3CEFHI"], ["M80", "1L", "3EHIJK"], ["M86", "1J", "2H"], ["M88", "2D", "2G"], ["M85", "1B", "3EFGIJ"], ["M87", "1K", "3DEIJL"]] },
+];
 
 function teamDisplay(code) {
   const teamCode = String(code || "").trim().toUpperCase();
@@ -3425,6 +3498,8 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
 
 resetTicketForm();
 resetSaleForm();
+renderTournamentGroups(adminGroupsNode);
+renderTournamentBracket(adminBracketNode);
 loadDashboard().catch((error) => {
   setStatus(ticketStatusNode, error.message, true);
   setStatus(saleStatusNode, error.message, true);
