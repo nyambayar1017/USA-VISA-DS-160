@@ -35,8 +35,10 @@ const summaryNodes = {
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
 const ticketFormToggleButton = document.querySelector("#fifa-show-ticket-form");
+const ticketFormModal = document.querySelector("#fifa-ticket-form-modal");
 const ticketInventoryView = document.querySelector("#fifa-ticket-inventory-view");
 const saleFormToggleButton = document.querySelector("#fifa-show-sale-form");
+const saleFormModal = document.querySelector("#fifa-sale-form-modal");
 const saleBlockList = document.querySelector("#fifa-sale-block-list");
 const saleParticipantList = document.querySelector("#fifa-sale-participant-list");
 const saleMatchSelect = document.querySelector("#fifa-sale-match-select");
@@ -78,6 +80,13 @@ function closeOpenTripMenus(exceptMenu = null) {
     }
     menu.removeAttribute("open");
   });
+}
+
+function syncFifaModalOpenState() {
+  const hasOpenModal = [ticketFormModal, saleFormModal].some(
+    (node) => node && !node.classList.contains("is-hidden")
+  );
+  document.body.classList.toggle("modal-open", hasOpenModal);
 }
 
 const MATCH_CATALOG = [
@@ -235,6 +244,24 @@ function currentSaleTotalUsd() {
   return Math.max(blockTotalUsd - currentDiscountUsd(), 0);
 }
 
+function saleBlockUnitPriceMnt(block, exchangeRate = currentInvoiceExchangeRate()) {
+  if (block && block.manualUnitPriceMnt != null && block.manualUnitPriceMnt !== "") {
+    return Math.max(Number(block.manualUnitPriceMnt || 0), 0);
+  }
+  return Math.round(Number(block?.unitPrice || 0) * exchangeRate);
+}
+
+function saleBlockTotalPriceMnt(block, exchangeRate = currentInvoiceExchangeRate()) {
+  return saleBlockUnitPriceMnt(block, exchangeRate) * Math.max(Number(block?.quantity || 0), 0);
+}
+
+function currentSaleTotalMnt() {
+  const exchangeRate = currentInvoiceExchangeRate();
+  const blockTotalMnt = state.saleBlocks.reduce((sum, block) => sum + saleBlockTotalPriceMnt(block, exchangeRate), 0);
+  const discountMnt = Math.max(Number(saleForm?.elements?.discountAmountMnt?.value || 0), 0);
+  return Math.max(blockTotalMnt - discountMnt, 0);
+}
+
 function combinedParticipantName(participant) {
   const givenName = String(participant?.givenName || "").trim();
   const surname = String(participant?.surname || "").trim();
@@ -357,24 +384,28 @@ function setTicketFormVisible(isVisible) {
   if (!ticketForm) return;
   if (isVisible) {
     ticketForm.dataset.open = "true";
-    ticketFormToggleButton?.setAttribute("hidden", "");
-    ticketInventoryView?.setAttribute("hidden", "");
+    ticketFormModal?.classList.remove("is-hidden");
+    ticketFormModal?.setAttribute("aria-hidden", "false");
   } else {
     ticketForm.dataset.open = "false";
-    ticketFormToggleButton?.removeAttribute("hidden");
-    ticketInventoryView?.removeAttribute("hidden");
+    ticketFormModal?.classList.add("is-hidden");
+    ticketFormModal?.setAttribute("aria-hidden", "true");
   }
+  syncFifaModalOpenState();
 }
 
 function setSaleFormVisible(isVisible) {
   if (!saleForm) return;
   if (isVisible) {
     saleForm.dataset.open = "true";
-    saleFormToggleButton?.setAttribute("hidden", "");
+    saleFormModal?.classList.remove("is-hidden");
+    saleFormModal?.setAttribute("aria-hidden", "false");
   } else {
     saleForm.dataset.open = "false";
-    saleFormToggleButton?.removeAttribute("hidden");
+    saleFormModal?.classList.add("is-hidden");
+    saleFormModal?.setAttribute("aria-hidden", "true");
   }
+  syncFifaModalOpenState();
 }
 
 function renderCategoryTicketRows(categoryCode, ticketRows = []) {
@@ -643,10 +674,10 @@ function syncSaleTicketInputs() {
 function syncSalePriceFields() {
   if (!saleForm) return;
   const totalTickets = selectedSaleTicketIds().length;
-  const blockTotalPrice = state.saleBlocks.reduce((sum, block) => sum + Number(block.totalPrice || 0), 0);
   const exchangeRate = currentInvoiceExchangeRate();
   const discountAmount = currentDiscountUsd();
-  const totalPrice = Math.max(blockTotalPrice - discountAmount, 0);
+  const totalPrice = currentSaleTotalUsd();
+  const totalPriceMnt = currentSaleTotalMnt();
   const unitPrices = [...new Set(state.saleBlocks.map((block) => Number(block.unitPrice || 0)).filter(Boolean))];
   saleForm.elements.quantity.value = String(totalTickets || 0);
   if (saleForm.elements.pricePerTicket) {
@@ -654,21 +685,21 @@ function syncSalePriceFields() {
   }
   if (salePriceBreakdown) {
     const lines = state.saleBlocks.flatMap((block, index) => {
-      const unitPriceMnt = Math.round(Number(block.unitPrice || 0) * exchangeRate);
-      const totalPriceMnt = Math.round(Number(block.totalPrice || 0) * exchangeRate);
+      const unitPriceMnt = saleBlockUnitPriceMnt(block, exchangeRate);
+      const blockTotalMnt = saleBlockTotalPriceMnt(block, exchangeRate);
       return [
         `${index + 1}. ${block.matchLabel}`,
         `Price ticket: ${formatMoney(unitPriceMnt, "MNT")}`,
         `Quantity: ${String(block.quantity || 0)}`,
-        `Total price: ${formatMoney(totalPriceMnt, "MNT")}`,
+        `Total price: ${formatMoney(blockTotalMnt, "MNT")}`,
       ];
     });
     if (discountAmount > 0) lines.push(`Discount: -${formatMoney(Math.round(discountAmount * exchangeRate), "MNT")}`);
-    lines.push(`Grand total amount: ${formatMoney(Math.round(totalPrice * exchangeRate), "MNT")}`);
+    lines.push(`Grand total amount: ${formatMoney(totalPriceMnt, "MNT")}`);
     salePriceBreakdown.value = lines.join("\n");
   }
   saleForm.elements.totalPrice.value = totalPrice ? String(totalPrice) : "";
-  if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = totalPrice ? String(Math.round(totalPrice * exchangeRate)) : "";
+  if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = totalPriceMnt ? String(totalPriceMnt) : "";
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = String(discountAmount);
   syncSaleTotals();
   renderInvoiceScheduleEditor();
@@ -692,10 +723,8 @@ function renderSaleSummary() {
     summaryNode.innerHTML = "";
     return;
   }
-  const totalTickets = state.saleBlocks.reduce((sum, block) => sum + Number(block.quantity || 0), 0);
   const exchangeRate = currentInvoiceExchangeRate();
-  const totalPrice = currentSaleTotalUsd();
-  const totalPriceMnt = Math.round(totalPrice * exchangeRate);
+  const totalPriceMnt = currentSaleTotalMnt();
   summaryNode.innerHTML = `
     <div class="fifa-sale-summary-box fifa-sale-summary-box--editor">
       <div class="fifa-sale-summary-head">
@@ -712,7 +741,7 @@ function renderSaleSummary() {
               <strong>${escapeHtml(block.matchLabel)}</strong>
               <label>
                 Price for chosen match
-                <input type="number" min="0" step="1" data-sale-summary-field="blockPrice" data-index="${index}" value="${escapeHtml(String(Math.round(Number(block.unitPrice || 0) * exchangeRate)))}" />
+                <input type="text" inputmode="numeric" pattern="[0-9]*" data-sale-summary-field="blockPrice" data-index="${index}" value="${escapeHtml(String(saleBlockUnitPriceMnt(block, exchangeRate)))}" />
               </label>
               <label>
                 Quantity
@@ -720,7 +749,7 @@ function renderSaleSummary() {
               </label>
               <label>
                 Total amount
-                <input type="text" value="${escapeHtml(formatMoney(Math.round(Number(block.totalPrice || 0) * exchangeRate), "MNT"))}" readonly />
+                <input type="text" value="${escapeHtml(formatMoney(saleBlockTotalPriceMnt(block, exchangeRate), "MNT"))}" readonly />
               </label>
             </div>
           `).join("")}
@@ -1292,6 +1321,7 @@ function fillSaleForm(sale) {
     quantity: Number(block.quantity || 0),
     unitPrice: Number(block.unitPrice || 0),
     totalPrice: Number(block.totalPrice || 0),
+    manualUnitPriceMnt: block.manualUnitPriceMnt != null ? Number(block.manualUnitPriceMnt) : null,
     seatPreview: block.seatPreview || "",
     ticketLabels: block.ticketLabels || [],
     ticketIds: [...(block.ticketIds || [])],
@@ -1306,6 +1336,7 @@ function fillSaleForm(sale) {
         quantity: Number(sale.quantity || 1),
         unitPrice: Number(ticket.price || 0),
         totalPrice: Number(sale.totalPrice || ticket.price || 0),
+        manualUnitPriceMnt: null,
         seatPreview: ticket.seatDetails || "",
         ticketLabels: (sale.ticketIds?.length ? sale.ticketIds : [sale.ticketId])
           .map((ticketId) => state.tickets.find((item) => item.id === ticketId))
@@ -1352,6 +1383,7 @@ function startSaleForTicket(ticketId) {
     quantity: 1,
     unitPrice: Number(ticket.price || 0),
     totalPrice: Number(ticket.price || 0),
+    manualUnitPriceMnt: null,
     seatPreview: ticket.seatDetails || "",
     ticketLabels: [ticketSummaryLabel(ticket)],
     ticketIds: [ticket.id],
@@ -1414,6 +1446,7 @@ function createSaleBlockFromSelection() {
     quantity,
     unitPrice: leadTicket ? Number(leadTicket.price || 0) : 0,
     totalPrice: chosen.reduce((sum, ticket) => sum + Number(ticket.price || 0), 0),
+    manualUnitPriceMnt: null,
     seatPreview: chosen.map((ticket) => ticket.seatDetails || "Seat will be assigned later").join(" | "),
     ticketLabels: chosen.map((ticket) => ticketSummaryLabel(ticket)),
     ticketIds: chosen.map((ticket) => ticket.id),
@@ -2457,6 +2490,7 @@ if (saleForm) {
       quantity: block.quantity,
       unitPrice: block.unitPrice,
       totalPrice: block.totalPrice,
+      manualUnitPriceMnt: block.manualUnitPriceMnt,
       seatPreview: block.seatPreview,
       ticketLabels: [...(block.ticketLabels || [])],
       ticketIds: [...(block.ticketIds || [])],
@@ -2506,12 +2540,16 @@ if (saleForm) {
 document.querySelector("#fifa-ticket-cancel")?.addEventListener("click", resetTicketForm);
 ticketFormToggleButton?.addEventListener("click", () => {
   setTicketFormVisible(true);
-  ticketForm?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSaleForm);
 saleFormToggleButton?.addEventListener("click", () => {
   setSaleFormVisible(true);
-  saleForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+document.querySelectorAll('[data-action="close-fifa-ticket-modal"]').forEach((node) => {
+  node.addEventListener("click", resetTicketForm);
+});
+document.querySelectorAll('[data-action="close-fifa-sale-modal"]').forEach((node) => {
+  node.addEventListener("click", resetSaleForm);
 });
 saleForm?.elements?.buyerTitle?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
@@ -2905,15 +2943,21 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) 
     const index = Number(event.target.dataset.index || -1);
     if (index < 0 || !state.saleBlocks[index]) return;
     const rate = currentInvoiceExchangeRate();
-    const unitPriceMnt = Math.max(Number(event.target.value || 0), 0);
-    const unitPriceUsd = Math.round(unitPriceMnt / rate);
+    const digitsOnly = String(event.target.value || "").replace(/[^\d]/g, "");
+    const unitPriceMnt = Math.max(Number(digitsOnly || 0), 0);
+    if (String(event.target.value || "") !== digitsOnly) {
+      event.target.value = digitsOnly;
+    }
+    const quantity = Math.max(Number(state.saleBlocks[index].quantity || 0), 0);
+    const unitPriceUsd = Number((unitPriceMnt / rate).toFixed(2));
+    state.saleBlocks[index].manualUnitPriceMnt = unitPriceMnt;
     state.saleBlocks[index].unitPrice = unitPriceUsd;
-    state.saleBlocks[index].totalPrice = unitPriceUsd * Math.max(Number(state.saleBlocks[index].quantity || 0), 0);
+    state.saleBlocks[index].totalPrice = Number((unitPriceUsd * quantity).toFixed(2));
     const rowNode = event.target.closest("[data-sale-block-editor]");
     const totalField = rowNode?.querySelector("label:last-child input");
-    if (totalField) totalField.value = formatMoney(Math.round(Number(state.saleBlocks[index].totalPrice || 0) * rate), "MNT");
+    if (totalField) totalField.value = formatMoney(saleBlockTotalPriceMnt(state.saleBlocks[index], rate), "MNT");
     saleForm.elements.totalPrice.value = String(currentSaleTotalUsd());
-    if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = String(Math.round(currentSaleTotalUsd() * rate));
+    if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = String(currentSaleTotalMnt());
     renderInvoiceScheduleEditor();
     return;
   }
@@ -2969,7 +3013,6 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
     state.invoiceSchedule[index][field] = event.target.value;
   }
   syncSaleTotals();
-  renderSaleSummary();
 });
 
 invoiceScheduleEditor?.addEventListener("change", (event) => {
@@ -2983,7 +3026,6 @@ invoiceScheduleEditor?.addEventListener("change", (event) => {
     if (!state.invoiceSchedule[index]) return;
     state.invoiceSchedule[index].status = event.target.value;
     syncSaleTotals();
-    renderSaleSummary();
     renderInvoiceScheduleEditor();
   }
 });
@@ -3003,7 +3045,6 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
       amount: 0,
     });
     syncSaleTotals();
-    renderSaleSummary();
     renderInvoiceScheduleEditor();
     return;
   }
@@ -3015,7 +3056,6 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
     state.invoiceSchedule = normalizedInvoiceSchedule(current);
     if (index >= 0) state.invoiceSchedule.splice(index, 1);
     syncSaleTotals();
-    renderSaleSummary();
     renderInvoiceScheduleEditor();
   }
 });
