@@ -4597,7 +4597,11 @@ def build_fifa_sale(payload, actor=None):
         "amountPaid": amount_paid,
         "paymentStatus": payment_status,
         "paymentMethod": normalize_text(payload.get("paymentMethod")),
-        "saleStatus": normalize_text(payload.get("saleStatus")).lower() or "active",
+        "saleStatus": (
+            "confirmed"
+            if normalize_text(payload.get("saleStatus")).lower() == "active"
+            else normalize_text(payload.get("saleStatus")).lower() or "pending"
+        ),
         "soldAt": normalize_text(payload.get("soldAt")) or timestamp,
         "soldBy": actor_snapshot(actor),
         "createdAt": timestamp,
@@ -4630,7 +4634,7 @@ def validate_fifa_sale(sale, ticket, sales, store, excluded_sale_id=None):
             return "Total price must be greater than 0"
     if sale.get("paymentStatus") not in {"unpaid", "partial", "paid", "refunded"}:
         return "Payment status is invalid"
-    if sale.get("saleStatus") not in {"active", "cancelled"}:
+    if sale.get("saleStatus") not in {"pending", "confirmed", "cancelled", "active"}:
         return "Sale status is invalid"
     if sale.get("invoiceBankAccount") not in {"state", "golomt", "lkham-erdene", "azjargal", "bayaraa", "other"}:
         return "Invoice bank account is invalid"

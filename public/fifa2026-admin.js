@@ -441,6 +441,14 @@ function saleStatusLabel(value) {
   return "Pending";
 }
 
+function paymentStatusLabel(value) {
+  const status = String(value || "").trim().toLowerCase();
+  if (status === "paid") return "100% paid";
+  if (status === "partial") return "In progress";
+  if (status === "refunded") return "Refunded";
+  return "Pending";
+}
+
 function populateInventoryFormOptions() {
   if (!ticketForm) return;
   fillSelect(
@@ -688,6 +696,8 @@ function renderSaleSummary() {
   const totalPriceMnt = Math.round(totalPrice * exchangeRate);
   const amountPaidMnt = Math.max(Number(saleForm?.elements?.amountPaidMnt?.value || 0), 0);
   const balanceMnt = Math.max(totalPriceMnt - amountPaidMnt, 0);
+  const paymentStatus = paymentStatusLabel(saleForm?.elements?.paymentStatus?.value || "");
+  const saleStatus = normalizeSaleStatusValue(saleForm?.elements?.saleStatus?.value || "");
   const paidAccount = String(saleForm?.elements?.paymentMethod?.value || saleForm?.elements?.invoiceBankAccountOther?.value || "").trim();
   const paidDate = safeDateInput(saleForm?.elements?.soldAt?.value || new Date().toISOString().slice(0, 10));
   summaryNode.innerHTML = `
@@ -746,6 +756,18 @@ function renderSaleSummary() {
           <label>
             Paid date
             <input type="date" data-sale-summary-field="paidDate" value="${escapeHtml(paidDate)}" />
+          </label>
+          <label>
+            Payment status
+            <input type="text" value="${escapeHtml(paymentStatus)}" readonly />
+          </label>
+          <label>
+            Sale status
+            <select data-sale-summary-field="saleStatus">
+              <option value="pending"${saleStatus === "pending" ? " selected" : ""}>Pending</option>
+              <option value="confirmed"${saleStatus === "confirmed" ? " selected" : ""}>Confirmed</option>
+              <option value="cancelled"${saleStatus === "cancelled" ? " selected" : ""}>Cancelled</option>
+            </select>
           </label>
         </div>
       </div>
@@ -1990,6 +2012,10 @@ function renderSales() {
                       <section class="fifa-sale-inline-invoice">
                         <div class="fifa-sale-inline-invoice-head">
                           <strong>PAYMENT SCHEDULE</strong>
+                          <div class="fifa-sale-inline-actions">
+                            <button type="button" class="button-secondary fifa-inline-action" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>
+                            <button type="button" class="button-secondary fifa-inline-action" data-action="delete-sale" data-id="${escapeHtml(sale.id)}">Delete</button>
+                          </div>
                         </div>
                         <div class="fifa-sale-inline-schedule">
                           <div class="fifa-sale-inline-schedule-list">
@@ -2935,6 +2961,10 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) 
   }
   if (field === "paidDate") {
     saleForm.elements.soldAt.value = event.target.value;
+    return;
+  }
+  if (field === "saleStatus") {
+    saleForm.elements.saleStatus.value = normalizeSaleStatusValue(event.target.value);
   }
 });
 
