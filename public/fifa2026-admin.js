@@ -696,9 +696,6 @@ function renderSaleSummary() {
   const exchangeRate = currentInvoiceExchangeRate();
   const totalPrice = currentSaleTotalUsd();
   const totalPriceMnt = Math.round(totalPrice * exchangeRate);
-  const amountPaidMnt = Math.round(currentAmountPaidUsd() * exchangeRate);
-  const balanceMnt = Math.max(totalPriceMnt - amountPaidMnt, 0);
-  const paymentStatus = paymentStatusLabel(saleForm?.elements?.paymentStatus?.value || "");
   summaryNode.innerHTML = `
     <div class="fifa-sale-summary-box fifa-sale-summary-box--editor">
       <div class="fifa-sale-summary-head">
@@ -730,18 +727,6 @@ function renderSaleSummary() {
           <label class="full-span">
             Grand total price
             <input type="text" value="${escapeHtml(formatMoney(totalPriceMnt, "MNT"))}" readonly />
-          </label>
-          <label>
-            Paid amount
-            <input type="text" value="${escapeHtml(formatMoney(amountPaidMnt, "MNT"))}" readonly />
-          </label>
-          <label>
-            Balance
-            <input type="text" data-sale-summary-balance value="${escapeHtml(formatMoney(balanceMnt, "MNT"))}" readonly />
-          </label>
-          <label>
-            Payment status
-            <input type="text" value="${escapeHtml(paymentStatus)}" readonly />
           </label>
         </div>
       </div>
@@ -937,11 +922,34 @@ function renderInvoiceScheduleEditor() {
     : paidTotal >= totalPrice && totalPrice > 0
       ? "100% paid"
       : "In progress";
+  const saleStatus = normalizeSaleStatusValue(saleForm.elements.saleStatus?.value || "pending");
   invoiceScheduleEditor.innerHTML = `
     <div class="fifa-invoice-schedule-box">
       <div class="fifa-invoice-schedule-head">
         <strong>Payment schedule</strong>
         <button type="button" class="button-secondary fifa-inline-action" data-action="add-invoice-line">Add line</button>
+      </div>
+      <div class="fifa-sale-summary-editor-grid fifa-sale-schedule-meta">
+        <label>
+          Sale status
+          <select data-schedule-meta="saleStatus">
+            <option value="pending"${saleStatus === "pending" ? " selected" : ""}>Pending</option>
+            <option value="confirmed"${saleStatus === "confirmed" ? " selected" : ""}>Confirmed</option>
+            <option value="cancelled"${saleStatus === "cancelled" ? " selected" : ""}>Cancelled</option>
+          </select>
+        </label>
+        <label>
+          Paid amount
+          <input type="text" value="${escapeHtml(formatMoney(paidTotalMnt, "MNT"))}" readonly />
+        </label>
+        <label>
+          Balance
+          <input type="text" value="${escapeHtml(formatMoney(balanceMnt, "MNT"))}" readonly />
+        </label>
+        <label>
+          Payment status
+          <input type="text" value="${escapeHtml(paymentStatus)}" readonly />
+        </label>
       </div>
       <div class="fifa-invoice-schedule-list">
         ${schedule.map((line, index) => `
@@ -976,8 +984,6 @@ function renderInvoiceScheduleEditor() {
       </div>
       <div class="fifa-invoice-schedule-footer">
         <span>Total scheduled: ${formatMoney(scheduleTotalMnt, "MNT")}</span>
-        <span>Total paid: ${formatMoney(paidTotalMnt, "MNT")}</span>
-        <span>Status: ${paymentStatus}</span>
         <span>Total balance: ${formatMoney(balanceMnt, "MNT")}</span>
       </div>
     </div>
@@ -2459,6 +2465,7 @@ if (saleForm) {
     payload.totalPrice = String(currentSaleTotalUsd());
     payload.amountPaid = String(currentAmountPaidUsd());
     payload.paymentMethod = payload.invoiceBankAccount || "state";
+    payload.saleStatus = normalizeSaleStatusValue(payload.saleStatus || saleForm.elements.saleStatus.value || "pending");
     payload.buyerName = String(state.participants.map(combinedParticipantName).find(Boolean) || payload.buyerTitle || "").trim();
     payload.buyerNationality = state.participants[0]?.nationality || "Mongolian";
     payload.buyerPassportNumber = state.participants[0]?.passportNumber || "";
@@ -2994,6 +3001,10 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
 });
 
 invoiceScheduleEditor?.addEventListener("change", (event) => {
+  if (event.target.matches("[data-schedule-meta='saleStatus']")) {
+    saleForm.elements.saleStatus.value = normalizeSaleStatusValue(event.target.value || "pending");
+    return;
+  }
   if (event.target.matches("[data-schedule-field='status']")) {
     const row = event.target.closest("[data-schedule-index]");
     const index = Number(row?.dataset.scheduleIndex || -1);
