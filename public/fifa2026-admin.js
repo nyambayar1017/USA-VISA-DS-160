@@ -2551,6 +2551,16 @@ document.querySelectorAll('[data-action="close-fifa-ticket-modal"]').forEach((no
 document.querySelectorAll('[data-action="close-fifa-sale-modal"]').forEach((node) => {
   node.addEventListener("click", resetSaleForm);
 });
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (saleFormModal && !saleFormModal.classList.contains("is-hidden")) {
+    resetSaleForm();
+    return;
+  }
+  if (ticketFormModal && !ticketFormModal.classList.contains("is-hidden")) {
+    resetTicketForm();
+  }
+});
 saleForm?.elements?.buyerTitle?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);

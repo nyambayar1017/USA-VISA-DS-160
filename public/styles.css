@@ -3621,6 +3621,45 @@ body.modal-open {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.fifa-form-modal {
+  align-items: center;
+  padding: 24px;
+}
+
+.fifa-form-modal .camp-modal-backdrop {
+  background: rgba(7, 11, 22, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.fifa-form-modal-dialog {
+  width: min(980px, calc(100vw - 40px));
+  max-height: calc(100vh - 56px);
+  padding: 22px 24px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(26, 41, 83, 0.18);
+  box-shadow: 0 24px 56px rgba(8, 15, 34, 0.3);
+}
+
+.fifa-form-modal .camp-modal-header {
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(32, 53, 111, 0.1);
+}
+
+.fifa-form-modal .camp-modal-copy {
+  margin: 8px 0 0;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.fifa-form-modal .camp-modal-close {
+  background: rgba(32, 53, 111, 0.08);
+}
+
+.fifa-form-modal .camp-modal-close:hover {
+  background: rgba(32, 53, 111, 0.16);
+}
+
 .fifa-collapsible-panel[data-open="false"] {
   display: none;
 }
@@ -4863,6 +4902,18 @@ body.modal-open {
 }
 
 @media (max-width: 640px) {
+  .fifa-form-modal {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .fifa-form-modal-dialog {
+    width: min(100vw - 24px, 980px);
+    max-height: calc(100vh - 24px);
+    padding: 16px 14px 14px;
+    border-radius: 16px;
+  }
+
   .travelx-site-header {
     background: rgba(57, 33, 23, 0.48);
   }
