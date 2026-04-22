@@ -35,10 +35,10 @@ const summaryNodes = {
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
 const ticketFormToggleButton = document.querySelector("#fifa-show-ticket-form");
-const ticketFormModal = document.querySelector("#fifa-ticket-form-modal");
+let ticketFormModal = document.querySelector("#fifa-ticket-form-modal");
 const ticketInventoryView = document.querySelector("#fifa-ticket-inventory-view");
 const saleFormToggleButton = document.querySelector("#fifa-show-sale-form");
-const saleFormModal = document.querySelector("#fifa-sale-form-modal");
+let saleFormModal = document.querySelector("#fifa-sale-form-modal");
 const saleBlockList = document.querySelector("#fifa-sale-block-list");
 const saleParticipantList = document.querySelector("#fifa-sale-participant-list");
 const saleMatchSelect = document.querySelector("#fifa-sale-match-select");
@@ -81,6 +81,52 @@ function closeOpenTripMenus(exceptMenu = null) {
     menu.removeAttribute("open");
   });
 }
+
+function ensureFifaFormModal({ modalId, form, title, description, closeAction }) {
+  if (!form) return null;
+  let modal = document.querySelector(`#${modalId}`);
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = modalId;
+  modal.className = "camp-modal is-hidden fifa-form-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="camp-modal-backdrop" data-action="${closeAction}"></div>
+    <div class="camp-modal-dialog camp-modal-dialog-wide fifa-form-modal-dialog">
+      <div class="camp-modal-header">
+        <div class="camp-modal-copy">
+          <h2>${escapeHtml(title)}</h2>
+          <p>${escapeHtml(description)}</p>
+        </div>
+        <button type="button" class="camp-modal-close" data-action="${closeAction}" aria-label="Close">×</button>
+      </div>
+    </div>
+  `;
+
+  modal.querySelector(".camp-modal-dialog")?.appendChild(form);
+  const panel = form.closest(".fifa-panel");
+  (panel || document.body).appendChild(modal);
+  form.hidden = true;
+  return modal;
+}
+
+ticketFormModal = ensureFifaFormModal({
+  modalId: "fifa-ticket-form-modal",
+  form: ticketForm,
+  title: "Add Match",
+  description: "Set up a FIFA match, categories, and seats in one clean manager popup.",
+  closeAction: "close-fifa-ticket-modal",
+});
+
+saleFormModal = ensureFifaFormModal({
+  modalId: "fifa-sale-form-modal",
+  form: saleForm,
+  title: "Add Buyer",
+  description: "Register the buyer, adjust chosen match prices in MNT when needed, and complete the payment details in one popup.",
+  closeAction: "close-fifa-sale-modal",
+});
 
 function syncFifaModalOpenState() {
   const hasOpenModal = [ticketFormModal, saleFormModal].some(
