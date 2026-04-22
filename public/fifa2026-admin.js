@@ -35,10 +35,8 @@ const summaryNodes = {
 const ticketCountNode = document.querySelector("#fifa-ticket-count");
 const ticketMetaNode = document.querySelector("#fifa-ticket-meta");
 const ticketFormToggleButton = document.querySelector("#fifa-show-ticket-form");
-const ticketFormModal = document.querySelector("#fifa-ticket-form-modal");
 const ticketInventoryView = document.querySelector("#fifa-ticket-inventory-view");
 const saleFormToggleButton = document.querySelector("#fifa-show-sale-form");
-const saleFormModal = document.querySelector("#fifa-sale-form-modal");
 const saleBlockList = document.querySelector("#fifa-sale-block-list");
 const saleParticipantList = document.querySelector("#fifa-sale-participant-list");
 const saleMatchSelect = document.querySelector("#fifa-sale-match-select");
@@ -73,15 +71,6 @@ const NATIONALITY_OPTIONS = [
   "Other",
 ];
 
-function hoistFifaModalsToBody() {
-  [ticketFormModal, saleFormModal].forEach((modal) => {
-    if (!modal || modal.parentElement === document.body) {
-      return;
-    }
-    document.body.appendChild(modal);
-  });
-}
-
 function closeOpenTripMenus(exceptMenu = null) {
   document.querySelectorAll(".trip-menu[open]").forEach((menu) => {
     if (exceptMenu && menu === exceptMenu) {
@@ -89,13 +78,6 @@ function closeOpenTripMenus(exceptMenu = null) {
     }
     menu.removeAttribute("open");
   });
-}
-
-function syncFifaModalOpenState() {
-  const hasOpenModal = [ticketFormModal, saleFormModal].some(
-    (node) => node && !node.classList.contains("is-hidden")
-  );
-  document.body.classList.toggle("modal-open", hasOpenModal);
 }
 
 const MATCH_CATALOG = [
@@ -393,36 +375,24 @@ function setTicketFormVisible(isVisible) {
   if (!ticketForm) return;
   if (isVisible) {
     ticketForm.dataset.open = "true";
-    ticketForm.hidden = false;
-    ticketFormModal?.classList.remove("is-hidden");
-    ticketFormModal?.setAttribute("aria-hidden", "false");
-    if (ticketFormModal) ticketFormModal.hidden = false;
+    ticketFormToggleButton?.setAttribute("hidden", "");
+    ticketInventoryView?.setAttribute("hidden", "");
   } else {
     ticketForm.dataset.open = "false";
-    ticketForm.hidden = true;
-    ticketFormModal?.classList.add("is-hidden");
-    ticketFormModal?.setAttribute("aria-hidden", "true");
-    if (ticketFormModal) ticketFormModal.hidden = true;
+    ticketFormToggleButton?.removeAttribute("hidden");
+    ticketInventoryView?.removeAttribute("hidden");
   }
-  syncFifaModalOpenState();
 }
 
 function setSaleFormVisible(isVisible) {
   if (!saleForm) return;
   if (isVisible) {
     saleForm.dataset.open = "true";
-    saleForm.hidden = false;
-    saleFormModal?.classList.remove("is-hidden");
-    saleFormModal?.setAttribute("aria-hidden", "false");
-    if (saleFormModal) saleFormModal.hidden = false;
+    saleFormToggleButton?.setAttribute("hidden", "");
   } else {
     saleForm.dataset.open = "false";
-    saleForm.hidden = true;
-    saleFormModal?.classList.add("is-hidden");
-    saleFormModal?.setAttribute("aria-hidden", "true");
-    if (saleFormModal) saleFormModal.hidden = true;
+    saleFormToggleButton?.removeAttribute("hidden");
   }
-  syncFifaModalOpenState();
 }
 
 function renderCategoryTicketRows(categoryCode, ticketRows = []) {
@@ -2559,22 +2529,6 @@ document.querySelector("#fifa-sale-cancel")?.addEventListener("click", resetSale
 saleFormToggleButton?.addEventListener("click", () => {
   setSaleFormVisible(true);
 });
-document.querySelectorAll('[data-action="close-fifa-ticket-modal"]').forEach((node) => {
-  node.addEventListener("click", resetTicketForm);
-});
-document.querySelectorAll('[data-action="close-fifa-sale-modal"]').forEach((node) => {
-  node.addEventListener("click", resetSaleForm);
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  if (saleFormModal && !saleFormModal.classList.contains("is-hidden")) {
-    resetSaleForm();
-    return;
-  }
-  if (ticketFormModal && !ticketFormModal.classList.contains("is-hidden")) {
-    resetTicketForm();
-  }
-});
 saleForm?.elements?.buyerTitle?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.quantity?.addEventListener("input", syncSaleTotals);
 saleForm?.elements?.pricePerTicket?.addEventListener("input", syncSaleTotals);
@@ -3086,7 +3040,6 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
 
 resetTicketForm();
 resetSaleForm();
-hoistFifaModalsToBody();
 loadDashboard().catch((error) => {
   setStatus(ticketStatusNode, error.message, true);
   setStatus(saleStatusNode, error.message, true);
