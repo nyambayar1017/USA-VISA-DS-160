@@ -73,6 +73,15 @@ const NATIONALITY_OPTIONS = [
   "Other",
 ];
 
+function hoistFifaModalsToBody() {
+  [ticketFormModal, saleFormModal].forEach((modal) => {
+    if (!modal || modal.parentElement === document.body) {
+      return;
+    }
+    document.body.appendChild(modal);
+  });
+}
+
 function closeOpenTripMenus(exceptMenu = null) {
   document.querySelectorAll(".trip-menu[open]").forEach((menu) => {
     if (exceptMenu && menu === exceptMenu) {
@@ -3077,6 +3086,7 @@ invoiceScheduleEditor?.addEventListener("click", (event) => {
 
 resetTicketForm();
 resetSaleForm();
+hoistFifaModalsToBody();
 loadDashboard().catch((error) => {
   setStatus(ticketStatusNode, error.message, true);
   setStatus(saleStatusNode, error.message, true);

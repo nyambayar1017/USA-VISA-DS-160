@@ -1668,7 +1668,7 @@ time {
 .camp-modal {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 400;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -3624,6 +3624,7 @@ body.modal-open {
 .fifa-form-modal {
   align-items: center;
   padding: 24px;
+  z-index: 420;
 }
 
 .fifa-form-modal .camp-modal-backdrop {
