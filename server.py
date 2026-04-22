@@ -4286,10 +4286,14 @@ def fifa_active_sales(sales):
     return [sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() != "cancelled"]
 
 
+def fifa_committed_sales(sales):
+    return [sale for sale in sales if normalize_text(sale.get("saleStatus")).lower() == "confirmed"]
+
+
 def fifa_ticket_sales(sales, ticket_id, excluded_sale_id=None):
     return [
         sale
-        for sale in fifa_active_sales(sales)
+        for sale in fifa_committed_sales(sales)
         if sale.get("id") != excluded_sale_id
         and (
             sale.get("ticketId") == ticket_id
@@ -4407,6 +4411,7 @@ def build_fifa_summary(store):
     sales = store.get("sales", [])
     enriched_tickets = [enrich_fifa_ticket(ticket, sales) for ticket in tickets]
     active_sales = fifa_active_sales(sales)
+    committed_sales = fifa_committed_sales(sales)
     enriched_sales = [enrich_fifa_sale(sale, find_fifa_ticket(store, sale.get("ticketId")), store) for sale in sales]
     public_tickets = [ticket for ticket in enriched_tickets if ticket.get("publicVisible")]
     paid_sales = [sale for sale in active_sales if normalize_text(sale.get("paymentStatus")).lower() == "paid"]
@@ -4420,7 +4425,7 @@ def build_fifa_summary(store):
             or (1 if normalize_text(sale.get("ticketId")) else 0),
             0,
         )
-        for sale in active_sales
+        for sale in committed_sales
     )
     available_units = max(total_units - sold_units, 0)
     return {

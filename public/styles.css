@@ -3745,6 +3745,23 @@ body.modal-open {
   overflow-y: auto;
 }
 
+.fifa-form-modal label {
+  gap: 6px;
+  font-size: 0.86rem;
+}
+
+.fifa-form-modal input,
+.fifa-form-modal select,
+.fifa-form-modal textarea {
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 0.92rem;
+}
+
+.fifa-form-modal textarea {
+  min-height: 44px;
+}
+
 .fifa-collapsible-panel[data-open="false"] {
   display: none;
 }
@@ -4195,6 +4212,35 @@ body.modal-open {
   grid-column: 1 / -1;
 }
 
+.fifa-form-modal .fifa-sale-summary-box {
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.fifa-form-modal .fifa-sale-summary-box--editor {
+  padding: 14px;
+}
+
+.fifa-form-modal .fifa-sale-summary-editor-grid {
+  gap: 10px;
+}
+
+.fifa-form-modal .fifa-sale-summary-editor-grid label {
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.fifa-form-modal .fifa-sale-summary-editor-row {
+  grid-template-columns: minmax(160px, 1.15fr) repeat(3, minmax(0, 0.9fr));
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.fifa-form-modal .fifa-sale-summary-editor-row strong {
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
 @media (max-width: 960px) {
   .fifa-sale-summary-editor-row {
     grid-template-columns: 1fr;
@@ -4257,6 +4303,16 @@ body.modal-open {
   margin: 0;
   color: var(--brand);
   font-size: 0.94rem;
+}
+
+.fifa-form-modal .fifa-sale-participant-card {
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.fifa-form-modal .fifa-sale-participant-card h4 {
+  font-size: 0.9rem;
 }
 
 .fifa-sale-status-col {
@@ -4399,6 +4455,26 @@ body.modal-open {
   align-items: end;
   padding-top: 10px;
   border-top: 1px solid rgba(32, 53, 111, 0.08);
+}
+
+.fifa-form-modal .fifa-invoice-schedule-box {
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.fifa-form-modal .fifa-invoice-schedule-head strong {
+  font-size: 0.98rem;
+}
+
+.fifa-form-modal .fifa-invoice-schedule-row {
+  grid-template-columns: minmax(150px, 1.1fr) repeat(4, minmax(96px, 1fr)) auto;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.fifa-form-modal .fifa-invoice-schedule-footer {
+  font-size: 0.8rem;
 }
 
 .fifa-invoice-schedule-footer {
