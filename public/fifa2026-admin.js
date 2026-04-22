@@ -929,27 +929,27 @@ function renderInvoiceScheduleEditor() {
         <strong>Payment schedule</strong>
         <button type="button" class="button-secondary fifa-inline-action" data-action="add-invoice-line">Add line</button>
       </div>
-      <div class="fifa-sale-summary-editor-grid fifa-sale-schedule-meta">
-        <label>
-          Sale status
+      <div class="fifa-sale-schedule-topline">
+        <label class="fifa-sale-schedule-status-picker">
+          Status
           <select data-schedule-meta="saleStatus">
             <option value="pending"${saleStatus === "pending" ? " selected" : ""}>Pending</option>
             <option value="confirmed"${saleStatus === "confirmed" ? " selected" : ""}>Confirmed</option>
             <option value="cancelled"${saleStatus === "cancelled" ? " selected" : ""}>Cancelled</option>
           </select>
         </label>
-        <label>
-          Paid amount
-          <input type="text" value="${escapeHtml(formatMoney(paidTotalMnt, "MNT"))}" readonly />
-        </label>
-        <label>
-          Balance
-          <input type="text" value="${escapeHtml(formatMoney(balanceMnt, "MNT"))}" readonly />
-        </label>
-        <label>
-          Payment status
-          <input type="text" value="${escapeHtml(paymentStatus)}" readonly />
-        </label>
+        <div class="fifa-sale-schedule-stat">
+          <span>Paid amount</span>
+          <strong>${escapeHtml(formatMoney(paidTotalMnt, "MNT"))}</strong>
+        </div>
+        <div class="fifa-sale-schedule-stat">
+          <span>Balance</span>
+          <strong>${escapeHtml(formatMoney(balanceMnt, "MNT"))}</strong>
+        </div>
+        <div class="fifa-sale-schedule-stat">
+          <span>Payment status</span>
+          <strong>${escapeHtml(paymentStatus)}</strong>
+        </div>
       </div>
       <div class="fifa-invoice-schedule-list">
         ${schedule.map((line, index) => `
@@ -2943,17 +2943,10 @@ document.querySelector("#fifa-sale-summary")?.addEventListener("input", (event) 
     state.saleBlocks[index].totalPrice = unitPriceUsd * Math.max(Number(state.saleBlocks[index].quantity || 0), 0);
     const rowNode = event.target.closest("[data-sale-block-editor]");
     const totalField = rowNode?.querySelector("label:last-child input");
-    if (totalField) {
-      totalField.value = formatMoney(Math.round(Number(state.saleBlocks[index].totalPrice || 0) * rate), "MNT");
-    }
+    if (totalField) totalField.value = formatMoney(Math.round(Number(state.saleBlocks[index].totalPrice || 0) * rate), "MNT");
     saleForm.elements.totalPrice.value = String(currentSaleTotalUsd());
-    if (saleForm.elements.totalPriceMnt) {
-      saleForm.elements.totalPriceMnt.value = String(Math.round(currentSaleTotalUsd() * rate));
-    }
-    const grandTotalField = document.querySelector("#fifa-sale-summary .full-span input");
-    if (grandTotalField) {
-      grandTotalField.value = formatMoney(Math.round(currentSaleTotalUsd() * rate), "MNT");
-    }
+    if (saleForm.elements.totalPriceMnt) saleForm.elements.totalPriceMnt.value = String(Math.round(currentSaleTotalUsd() * rate));
+    renderInvoiceScheduleEditor();
     return;
   }
 });
