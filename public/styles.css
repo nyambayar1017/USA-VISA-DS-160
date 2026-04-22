@@ -5069,70 +5069,78 @@ body.modal-open {
 }
 
 .fifa-public-bracket-wrap {
-  overflow-x: auto;
-  padding-bottom: 8px;
+  overflow: visible;
+  padding-bottom: 0;
 }
 
 .fifa-knockout-grid {
   display: grid;
-  grid-template-columns: repeat(9, minmax(180px, 1fr));
-  gap: 18px;
-  min-width: 1760px;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+  align-items: start;
 }
 
 .fifa-knockout-round {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .fifa-knockout-round__head {
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  text-align: center;
 }
 
 .fifa-knockout-round__matches {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .fifa-knockout-match {
-  padding: 14px 16px;
+  padding: 9px 10px;
   border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 18px;
+  border-radius: 14px;
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,247,255,0.95));
-  box-shadow: 0 10px 24px rgba(24, 39, 75, 0.06);
+  box-shadow: 0 8px 18px rgba(24, 39, 75, 0.05);
 }
 
 .fifa-knockout-match strong {
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 7px;
   color: #172754;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .fifa-knockout-match span {
   display: block;
-  padding: 10px 12px;
+  padding: 7px 8px;
   border: 1px solid rgba(32, 53, 111, 0.08);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
   color: #22345c;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  text-align: center;
 }
 
 .fifa-knockout-match span + span {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .fifa-knockout-match__label {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   color: #e26c45;
-  font-size: 0.82rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  text-align: center;
 }
 
 .fifa-knockout-round.is-featured .fifa-knockout-round__head {
@@ -5142,6 +5150,10 @@ body.modal-open {
 .fifa-knockout-match.is-featured {
   border-color: rgba(226, 108, 69, 0.28);
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,245,240,0.98));
+}
+
+.fifa-knockout-round.is-featured .fifa-knockout-match {
+  padding: 10px 11px;
 }
 
 .fifa-public-seat-grid {
