@@ -4479,6 +4479,11 @@ body.modal-open {
   font-size: 0.98rem;
 }
 
+.fifa-invoice-bank-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
 .fifa-form-modal .fifa-invoice-schedule-row {
   grid-template-columns: minmax(150px, 1.1fr) repeat(4, minmax(96px, 1fr)) auto;
   gap: 8px;
@@ -4497,6 +4502,16 @@ body.modal-open {
   color: #51627f;
   font-size: 0.86rem;
   font-weight: 700;
+}
+
+.fifa-form-readonly input:disabled,
+.fifa-form-readonly select:disabled,
+.fifa-form-readonly textarea:disabled {
+  opacity: 1;
+  color: #23386d;
+  -webkit-text-fill-color: #23386d;
+  background: rgba(246, 248, 253, 0.95);
+  cursor: default;
 }
 
 .fifa-sale-nested-table {

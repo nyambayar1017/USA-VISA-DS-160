@@ -54,12 +54,24 @@ const ticketRowContainers = {
 };
 const DEFAULT_INVOICE_EXCHANGE_RATE = 3600;
 const BANK_ACCOUNTS = {
-  state: { bankName: "Төрийн Банк", prefix: "MN030034", accountNumber: "3432 7777 9999" },
-  golomt: { bankName: "Голомт Банк", prefix: "MN80001500", accountNumber: "3675114666" },
-  "lkham-erdene": { bankName: "Лхам-Эрдэнэ", prefix: "Хувийн данс", accountNumber: "" },
-  azjargal: { bankName: "Азжаргал", prefix: "Хувийн данс", accountNumber: "" },
-  bayaraa: { bankName: "Баяраа", prefix: "Хувийн данс", accountNumber: "" },
-  other: { bankName: "Other", prefix: "", accountNumber: "" },
+  state: { label: "DTX - State Bank", bankName: "DTX - State Bank", prefix: "MN030034", accountNumber: "3432 7777 9999" },
+  golomt: { label: "DTX - Golomt Bank", bankName: "DTX - Golomt Bank", prefix: "MN80001500", accountNumber: "3675114666" },
+  bayaraa: { label: "Bayaraa private account", bankName: "Bayaraa private account", prefix: "", accountNumber: "" },
+  azaa: { label: "Azaa private account", bankName: "Azaa private account", prefix: "", accountNumber: "" },
+  lkhamaa: { label: "Lkhamaa private account", bankName: "Lkhamaa private account", prefix: "", accountNumber: "" },
+  other: { label: "Other", bankName: "Other", prefix: "", accountNumber: "" },
+};
+const BANK_ACCOUNT_OPTIONS = [
+  ["state", "DTX - State Bank"],
+  ["golomt", "DTX - Golomt Bank"],
+  ["bayaraa", "Bayaraa private account"],
+  ["azaa", "Azaa private account"],
+  ["lkhamaa", "Lkhamaa private account"],
+  ["other", "Other"],
+];
+const BANK_ACCOUNT_ALIASES = {
+  azjargal: "azaa",
+  "lkham-erdene": "lkhamaa",
 };
 const NATIONALITY_OPTIONS = [
   "Mongolian",
@@ -201,6 +213,7 @@ const state = {
   invoiceSchedule: [],
   invoiceScheduleTouched: false,
   invoiceDrafts: {},
+  saleFormReadOnly: false,
 };
 
 function setNodeText(node, value) {
@@ -468,6 +481,32 @@ function setSaleFormVisible(isVisible) {
     if (saleFormModal) saleFormModal.hidden = true;
   }
   syncFifaModalOpenState();
+}
+
+function setSaleFormModalCopy(title, description) {
+  const titleNode = saleFormModal?.querySelector(".camp-modal-copy h2");
+  const descriptionNode = saleFormModal?.querySelector(".camp-modal-copy p");
+  if (titleNode) titleNode.textContent = title;
+  if (descriptionNode) descriptionNode.textContent = description;
+}
+
+function applySaleFormReadOnlyState() {
+  if (!saleForm) return;
+  const isReadOnly = Boolean(state.saleFormReadOnly);
+  saleForm.classList.toggle("fifa-form-readonly", isReadOnly);
+  const submitButton = document.querySelector("#fifa-sale-submit");
+  const cancelButton = document.querySelector("#fifa-sale-cancel");
+  if (submitButton) submitButton.hidden = isReadOnly;
+  if (cancelButton) cancelButton.textContent = isReadOnly ? "Close" : "Hide";
+
+  saleForm.querySelectorAll("input, select, textarea, button").forEach((node) => {
+    if (node.type === "hidden") return;
+    if (node.id === "fifa-sale-cancel" || node.id === "fifa-sale-submit") {
+      node.disabled = false;
+      return;
+    }
+    node.disabled = isReadOnly;
+  });
 }
 
 function renderCategoryTicketRows(categoryCode, ticketRows = []) {
@@ -827,13 +866,13 @@ function renderSaleSummary() {
 
 function getInvoiceBankAccount(key) {
   if (typeof key === "object" && key) return key;
-  return BANK_ACCOUNTS[key] || BANK_ACCOUNTS.state;
+  return BANK_ACCOUNTS[BANK_ACCOUNT_ALIASES[key] || key] || BANK_ACCOUNTS.state;
 }
 
 function invoiceBankAccountLabel(bankKey, otherValue = "") {
   if (bankKey === "other") return String(otherValue || "").trim() || "Other";
   const account = getInvoiceBankAccount(bankKey);
-  return [account.bankName, account.prefix, account.accountNumber].filter(Boolean).join(" ");
+  return [account.label || account.bankName, account.prefix, account.accountNumber].filter(Boolean).join(" ");
 }
 
 function toggleOtherBankAccountField() {
@@ -1001,6 +1040,8 @@ function renderInvoiceScheduleEditor() {
   const schedule = activeInvoiceSchedule();
   const totalPrice = saleInvoiceTotal();
   const exchangeRate = Number(saleForm.elements.invoiceExchangeRate?.value || DEFAULT_INVOICE_EXCHANGE_RATE);
+  const selectedBankAccount = BANK_ACCOUNT_ALIASES[saleForm.elements.invoiceBankAccount?.value] || saleForm.elements.invoiceBankAccount?.value || "state";
+  const otherBankAccount = saleForm.elements.invoiceBankAccountOther?.value || "";
   const scheduleTotal = schedule.reduce((sum, line) => sum + Number(line.amount || 0), 0);
   const totalMnt = Math.round(totalPrice * exchangeRate);
   const scheduleTotalMnt = Math.round(scheduleTotal * exchangeRate);
@@ -1010,6 +1051,18 @@ function renderInvoiceScheduleEditor() {
       <div class="fifa-invoice-schedule-head">
         <strong>Payment schedule</strong>
         <button type="button" class="button-secondary fifa-inline-action" data-action="add-invoice-line">Add line</button>
+      </div>
+      <div class="manager-form-grid fifa-form-grid fifa-invoice-bank-grid">
+        <label>
+          Received bank account
+          <select data-schedule-bank-account>
+            ${BANK_ACCOUNT_OPTIONS.map(([value, label]) => `<option value="${escapeHtml(value)}"${selectedBankAccount === value ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+        </label>
+        <label id="fifa-sale-other-bank-account-field"${selectedBankAccount === "other" ? "" : " hidden"}>
+          Other account
+          <input type="text" data-schedule-bank-account-other value="${escapeHtml(otherBankAccount)}" placeholder="Type bank account name" />
+        </label>
       </div>
       <div class="fifa-invoice-schedule-list">
         ${schedule.map((line, index) => `
@@ -1076,6 +1129,10 @@ function renderParticipants() {
             <input type="text" data-participant-field="passportNumber" value="${escapeHtml(participant.passportNumber || "")}" />
           </label>
           <label>
+            Email
+            <input type="email" data-participant-field="email" value="${escapeHtml(participant.email || "")}" />
+          </label>
+          <label>
             Nationality
             <select data-participant-field="nationality">
               ${nationalityOptions.replace(`value="${escapeHtml(participant.nationality || "Mongolian")}"`, `value="${escapeHtml(participant.nationality || "Mongolian")}" selected`)}
@@ -1113,6 +1170,7 @@ function syncParticipantsFromBlocks() {
       givenName: existing.givenName || existing.name || "",
       surname: existing.surname || "",
       passportNumber: existing.passportNumber || "",
+      email: existing.email || "",
       nationality: existing.nationality || "Mongolian",
       birthDate: existing.birthDate || "",
       passportExpiryDate: existing.passportExpiryDate || "",
@@ -1188,6 +1246,7 @@ function resetTicketForm() {
 
 function resetSaleForm() {
   if (!saleForm) return;
+  state.saleFormReadOnly = false;
   saleForm.reset();
   saleForm.elements.id.value = "";
   saleForm.elements.ticketId.value = "";
@@ -1222,7 +1281,12 @@ function resetSaleForm() {
   if (saleForm.elements.soldAt) saleForm.elements.soldAt.value = new Date().toISOString().slice(0, 10);
   if (salePriceBreakdown) salePriceBreakdown.value = "";
   renderInvoiceScheduleEditor();
+  setSaleFormModalCopy(
+    "Add Buyer",
+    "Register the buyer, adjust chosen match prices in MNT when needed, and complete the payment details in one popup."
+  );
   setNodeText(document.querySelector("#fifa-sale-submit"), "Register sale");
+  applySaleFormReadOnlyState();
   clearStatus(saleStatusNode);
   setSaleFormVisible(false);
 }
@@ -1347,9 +1411,11 @@ function fillTicketForm(ticket) {
   setTicketFormVisible(true);
 }
 
-function fillSaleForm(sale) {
+function fillSaleForm(sale, options = {}) {
   if (!saleForm) return;
+  const isReadOnly = Boolean(options.readOnly);
   resetSaleForm();
+  state.saleFormReadOnly = isReadOnly;
   saleForm.elements.id.value = sale.id;
   saleForm.elements.ticketId.value = sale.ticketId || "";
   if (saleTicketIdsInput) saleTicketIdsInput.value = (sale.ticketIds || []).join(",");
@@ -1358,7 +1424,7 @@ function fillSaleForm(sale) {
   if (saleForm.elements.discountAmount) saleForm.elements.discountAmount.value = sale.discountAmount || 0;
   if (saleForm.elements.discountAmountMnt) saleForm.elements.discountAmountMnt.value = String(Math.round(Number(sale.discountAmount || 0) * Number(sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE)));
   if (saleForm.elements.invoiceExchangeRate) saleForm.elements.invoiceExchangeRate.value = sale.invoiceExchangeRate || DEFAULT_INVOICE_EXCHANGE_RATE;
-  if (saleForm.elements.invoiceBankAccount) saleForm.elements.invoiceBankAccount.value = sale.invoiceBankAccount || "state";
+  if (saleForm.elements.invoiceBankAccount) saleForm.elements.invoiceBankAccount.value = BANK_ACCOUNT_ALIASES[sale.invoiceBankAccount] || sale.invoiceBankAccount || "state";
   if (saleForm.elements.invoiceBankAccountOther) saleForm.elements.invoiceBankAccountOther.value = sale.invoiceBankAccountOther || "";
   toggleOtherBankAccountField();
   saleForm.elements.totalPrice.value = sale.totalPrice || "";
@@ -1415,6 +1481,7 @@ function fillSaleForm(sale) {
     givenName: participant.givenName || participant.name || "",
     surname: participant.surname || "",
     passportNumber: participant.passportNumber || "",
+    email: participant.email || "",
     nationality: participant.nationality || "Mongolian",
     birthDate: participant.birthDate || "",
     passportExpiryDate: participant.passportExpiryDate || "",
@@ -1427,8 +1494,15 @@ function fillSaleForm(sale) {
   renderParticipants();
   renderSaleSeatPicker();
   state.editingSaleId = sale.id;
+  setSaleFormModalCopy(
+    isReadOnly ? "View Buyer" : "Edit Buyer",
+    isReadOnly
+      ? "Review the buyer, payment schedule, bank account, and passport details in one popup."
+      : "Update the buyer, chosen match prices, payment details, and traveler information in one popup."
+  );
   setNodeText(document.querySelector("#fifa-sale-submit"), "Update sale");
-  setStatus(saleStatusNode, "Editing sale.");
+  applySaleFormReadOnlyState();
+  setStatus(saleStatusNode, isReadOnly ? "Viewing sale." : "Editing sale.");
   setSaleFormVisible(true);
 }
 
@@ -1479,7 +1553,7 @@ function syncSaleTotals() {
   saleForm.elements.buyerPassportNumber.value = leadParticipant.passportNumber || "";
   saleForm.elements.buyerNationality.value = leadParticipant.nationality || "Mongolian";
   saleForm.elements.buyerPhone.value = "";
-  saleForm.elements.buyerEmail.value = "";
+  saleForm.elements.buyerEmail.value = leadParticipant.email || "";
 }
 
 function createSaleBlockFromSelection() {
@@ -2564,12 +2638,13 @@ if (saleForm) {
         givenName: String(participant.givenName || participant.name || "").trim(),
         surname: String(participant.surname || "").trim(),
         passportNumber: String(participant.passportNumber || "").trim(),
+        email: String(participant.email || "").trim(),
         nationality: String(participant.nationality || "Mongolian").trim(),
         birthDate: safeDateInput(participant.birthDate || ""),
         passportExpiryDate: safeDateInput(participant.passportExpiryDate || ""),
         notes: String(participant.notes || "").trim(),
       }))
-      .filter((participant) => participant.ticketId || participant.name || participant.passportNumber || participant.nationality || participant.notes || participant.birthDate || participant.passportExpiryDate);
+      .filter((participant) => participant.ticketId || participant.name || participant.passportNumber || participant.email || participant.nationality || participant.notes || participant.birthDate || participant.passportExpiryDate);
     payload.invoiceSchedule = activeInvoiceSchedule().map((line) => ({
       title: line.title,
       created: line.created,
@@ -2652,6 +2727,7 @@ saleForm?.elements?.invoiceBankAccount?.addEventListener("change", () => {
   toggleOtherBankAccountField();
   syncSaleTotals();
 });
+saleForm?.elements?.invoiceBankAccountOther?.addEventListener("input", syncSaleTotals);
 saleMatchSelect?.addEventListener("change", () => refreshSaleCategoryOptions());
 saleCategorySelect?.addEventListener("change", () => renderSaleSeatPicker());
 saleSeatPicker?.addEventListener("change", () => {
@@ -2851,7 +2927,7 @@ saleList?.addEventListener("click", async (event) => {
   if (!sale) return;
 
   if (target.dataset.action === "edit-sale") {
-    fillSaleForm(sale);
+    fillSaleForm(sale, { readOnly: false });
     return;
   }
   if (target.dataset.action === "edit-inline-invoice") {
@@ -2921,14 +2997,7 @@ saleList?.addEventListener("click", async (event) => {
     return;
   }
   if (target.dataset.action === "view-sale") {
-    state.expandedSales.clear();
-    state.expandedSales.add(saleId);
-    renderSales();
-    requestAnimationFrame(() => {
-      saleList
-        ?.querySelector(`.fifa-match-toggle[data-id="${CSS.escape(saleId)}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    fillSaleForm(sale, { readOnly: true });
     return;
   }
   if (target.dataset.action === "cancel-sale") {
@@ -3089,6 +3158,11 @@ saleParticipantList?.addEventListener("change", (event) => {
 toggleOtherBankAccountField();
 
 invoiceScheduleEditor?.addEventListener("input", (event) => {
+  if (event.target.matches("[data-schedule-bank-account-other]")) {
+    saleForm.elements.invoiceBankAccountOther.value = event.target.value;
+    syncSaleTotals();
+    return;
+  }
   const row = event.target.closest("[data-schedule-index]");
   if (!row) return;
   const index = Number(row.dataset.scheduleIndex || -1);
@@ -3114,6 +3188,17 @@ invoiceScheduleEditor?.addEventListener("input", (event) => {
 });
 
 invoiceScheduleEditor?.addEventListener("change", (event) => {
+  if (event.target.matches("[data-schedule-bank-account]")) {
+    saleForm.elements.invoiceBankAccount.value = event.target.value;
+    if (event.target.value !== "other") {
+      saleForm.elements.invoiceBankAccountOther.value = "";
+    }
+    toggleOtherBankAccountField();
+    syncSaleTotals();
+    renderInvoiceScheduleEditor();
+    applySaleFormReadOnlyState();
+    return;
+  }
   if (event.target.matches("[data-schedule-field='status']")) {
     const row = event.target.closest("[data-schedule-index]");
     const index = Number(row?.dataset.scheduleIndex || -1);
