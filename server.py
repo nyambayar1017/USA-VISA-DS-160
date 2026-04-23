@@ -1697,6 +1697,33 @@ def extract_contract_blocks(data):
                 subsection_index = 0
                 blocks.append({"type": "heading", "text": numbered_heading})
             elif current_section is not None:
+                inline_subsections = list(
+                    re.finditer(
+                        rf"({re.escape(current_section)}\.(\d+)\.\s*)(.*?)(?=(?:\s+{re.escape(current_section)}\.\d+\.)|$)",
+                        text,
+                    )
+                )
+                if inline_subsections:
+                    lead_text = text[:inline_subsections[0].start()].strip()
+                    if lead_text:
+                        subsection_index += 1
+                        blocks.append(
+                            {
+                                "type": "numbered-paragraph",
+                                "number": f"{current_section}.{subsection_index}.",
+                                "text": lead_text,
+                            }
+                        )
+                    for match in inline_subsections:
+                        subsection_index = max(subsection_index, int(match.group(2)))
+                        blocks.append(
+                            {
+                                "type": "numbered-paragraph",
+                                "number": f"{current_section}.{match.group(2)}.",
+                                "text": match.group(3).strip(),
+                            }
+                        )
+                    continue
                 split_lines = [line.strip() for line in re.split(r"\n+", text) if line.strip()]
                 explicit_subsections = [
                     line for line in split_lines[1:]
@@ -3106,16 +3133,16 @@ def build_invoice_html(record, asset_mode="web"):
       .accountant-stamp {{
         position: absolute;
         left: 8px;
-        bottom: 28px;
-        width: 138px;
+        bottom: 18px;
+        width: 128px;
         z-index: 1;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 102px;
-        bottom: 38px;
-        width: 108px;
+        left: 96px;
+        bottom: 30px;
+        width: 98px;
         z-index: 2;
       }}
       .signature-name {{
