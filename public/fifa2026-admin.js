@@ -306,8 +306,10 @@ function renderTournamentBracket(node) {
                   <strong>${escapeHtml(match[0])}</strong>
                   <span class="fifa-knockout-match__date">${escapeHtml(KNOCKOUT_MATCH_META[match[0]]?.date || "")}</span>
                 </div>
-                <span>${escapeHtml(match[1])}</span>
-                <span>${escapeHtml(match[2])}</span>
+                <div class="fifa-knockout-match__body">
+                  <span>${escapeHtml(match[1])}</span>
+                  <span>${escapeHtml(match[2])}</span>
+                </div>
               </article>
             `).join("")}
           </div>
