@@ -3227,54 +3227,6 @@ def build_invoice_html(record, asset_mode="web"):
         .toolbar, .save-notice {{
           display: none;
         }}
-        body {{
-          background: #fff;
-          font-size: 13px;
-        }}
-        .page {{
-          width: auto;
-          margin: 0;
-          border: none;
-          border-radius: 0;
-          box-shadow: none;
-          padding: 0;
-        }}
-        .invoice-number {{
-          font-size: 20px;
-        }}
-        .company-block p,
-        .customer-block p,
-        .meta-note,
-        .section-title,
-        th,
-        td,
-        .payment-main,
-        .payment-amount,
-        .meta-value,
-        .meta-label,
-        .bank-grid,
-        .signature-label,
-        .signature-name,
-        .signature-role {{
-          font-size: 13px;
-        }}
-        .company-name {{
-          font-size: 14px;
-        }}
-        .invoice-logo {{
-          width: 154px;
-        }}
-        .payment-status {{
-          min-width: 82px;
-          min-height: 30px;
-          padding: 5px 11px;
-          font-size: 12px;
-        }}
-        .payment-card {{
-          min-height: 78px;
-          padding: 16px 18px;
-          gap: 12px;
-        }}
       }}
       @media (max-width: 980px) {{
         body {{
