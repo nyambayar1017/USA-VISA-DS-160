@@ -1117,7 +1117,6 @@ function renderReadOnlyRow(entry, index, options = {}) {
       </td>
       <td>${escapeHtml(meals || "-")}</td>
       <td class="camp-row-actions compact">
-        <button type="button" class="table-action compact secondary" data-action="view-pdf" data-id="${entry.id}">View</button>
         <details class="trip-menu row-action-menu">
           <summary class="trip-menu-trigger" aria-label="Camp reservation actions">⋮</summary>
           <div class="trip-menu-popover">
