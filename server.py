@@ -3527,22 +3527,6 @@ def camp_reservation_meals_mn(record):
     ) or "Хоолгүй"
 
 
-def camp_room_type_mn(value):
-    room_type = normalize_text(value)
-    translations = {
-        "twin room": "Твин өрөө",
-        "double room": "Давхар өрөө",
-        "single room": "Ганц өрөө",
-        "standard ger": "Стандарт гэр",
-        "standart ger": "Стандарт гэр",
-        "standard double ger": "Стандарт давхар гэр",
-        "standart double ger": "Стандарт давхар гэр",
-        "luxury twin ger with bathroom": "00 душтэй люкс твин гэр",
-        "luxury ger with bathroom": "00 душтэй люкс гэр",
-    }
-    return translations.get(room_type.lower(), room_type or "-")
-
-
 def build_camp_document_html(record, pdf_href):
     meals = camp_reservation_meals_mn(record)
     reservation_title = camp_reservation_title(record)
@@ -3756,7 +3740,7 @@ def build_camp_document_html(record, pdf_href):
             <td>{format_pdf_date(record['checkOut'])}</td>
             <td>{record['nights']}</td>
             <td>{record['gerCount']}</td>
-            <td>{html.escape(camp_room_type_mn(record['roomType']))}</td>
+            <td>{html.escape(record['roomType'])}</td>
             <td>{html.escape(meals)}</td>
           </tr>
         </tbody>
@@ -3814,7 +3798,7 @@ def build_camp_bundle_document_html(records, pdf_href):
             <td>{format_pdf_date(record['checkOut'])}</td>
             <td>{record['nights']}</td>
             <td>{record['gerCount']}</td>
-            <td>{html.escape(camp_room_type_mn(record['roomType']))}</td>
+            <td>{html.escape(record['roomType'])}</td>
             <td>{html.escape(camp_reservation_meals_mn(record))}</td>
           </tr>
         """
@@ -4201,7 +4185,7 @@ def save_camp_reservations_bundle(records):
                 p(format_iso_date(record["checkOut"])),
                 p(record["nights"]),
                 p(record["gerCount"]),
-                p(camp_room_type_mn(record["roomType"]), "td_left"),
+                p(record["roomType"], "td_left"),
                 p(camp_reservation_meals_mn(record), "td_left"),
             ])
 
