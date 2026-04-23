@@ -3200,7 +3200,7 @@ def build_invoice_html(record, asset_mode="web"):
         position: relative;
         z-index: 3;
         min-height: 18px;
-        margin-bottom: 122px;
+        margin-bottom: 112px;
         color: #64748b;
         font-size: 13px;
         font-weight: 600;
@@ -3211,26 +3211,30 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .accountant-stamp {{
         position: absolute;
-        left: 0;
-        bottom: 52px;
-        width: 208px;
+        left: 2px;
+        bottom: 36px;
+        width: 218px;
         z-index: 1;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 92px;
-        bottom: 48px;
-        width: 308px;
+        left: 104px;
+        bottom: 22px;
+        width: 290px;
         z-index: 2;
       }}
       .signature-name {{
+        position: relative;
+        z-index: 4;
         margin-top: 14px;
         font-size: 13px;
         font-weight: 700;
         color: #27272a;
       }}
       .signature-role {{
+        position: relative;
+        z-index: 4;
         color: #27272a;
         font-size: 13px;
       }}
