@@ -451,6 +451,7 @@ const initContractForm = () => {
   const durationInput = form.querySelector("input[name='tripDuration']");
   const travelerInput = form.querySelector("input[name='travelerCount']");
   const totalPriceInput = form.querySelector("input[name='totalPrice']");
+  const depositPercentageInput = form.querySelector("select[name='depositPercentage']");
   const depositAmountInput = form.querySelector("input[name='depositAmount']");
   const balanceAmountDisplayInput = form.querySelector("input[name='balanceAmountDisplay']");
   const depositDueDateInput = form.querySelector("input[name='depositDueDate']");
@@ -612,6 +613,28 @@ const initContractForm = () => {
     }
     const balanceAmount = Math.max(total - depositAmount, 0);
     if (balanceAmountDisplayInput) balanceAmountDisplayInput.value = formatMoney(balanceAmount);
+    if (depositPercentageInput) {
+      if (total <= 0 || depositAmount <= 0) {
+        depositPercentageInput.value = "manual";
+      } else {
+        const ratio = Math.round((depositAmount / total) * 100);
+        const allowed = ["10", "20", "30", "40", "50"];
+        depositPercentageInput.value = allowed.includes(String(ratio)) ? String(ratio) : "manual";
+      }
+    }
+  };
+
+  const updateDepositFromPercentage = () => {
+    if (!depositPercentageInput || !depositAmountInput || !totalPriceInput) return;
+    if (depositPercentageInput.value === "manual") {
+      updateTotalPrice();
+      return;
+    }
+    const total = normalizeNumber(totalPriceInput.value);
+    const percentage = normalizeNumber(depositPercentageInput.value);
+    const depositAmount = Math.round((total * percentage) / 100);
+    depositAmountInput.value = String(depositAmount);
+    updateTotalPrice();
   };
 
   const syncCountStepToForm = () => {
@@ -652,6 +675,7 @@ const initContractForm = () => {
   tripEndInput?.addEventListener("change", updateDuration);
   contractDateInput?.addEventListener("change", updateDepositDueDate);
   depositAmountInput?.addEventListener("input", updateTotalPrice);
+  depositPercentageInput?.addEventListener("change", updateDepositFromPercentage);
   balanceDuePresetInput?.addEventListener("change", updateBalanceDueDate);
   visibleCountInputs.forEach((input) =>
     input.addEventListener("input", () => {
@@ -716,6 +740,13 @@ const initContractForm = () => {
     form.elements.managerSignaturePath.value = data.managerSignaturePath || "";
     form.elements.managerSelect.value = getCreatorName(contract) || "";
     if (depositAmountInput) depositAmountInput.value = String(normalizeNumber(data.depositAmount || 0));
+    if (depositPercentageInput) {
+      const total = normalizeNumber(data.totalPrice || 0);
+      const deposit = normalizeNumber(data.depositAmount || 0);
+      const ratio = total > 0 ? Math.round((deposit / total) * 100) : 0;
+      const allowed = ["10", "20", "30", "40", "50"];
+      depositPercentageInput.value = allowed.includes(String(ratio)) ? String(ratio) : "manual";
+    }
     if (balanceDuePresetInput && data.tripStartDate && data.balanceDueDate) {
       const startDate = parseDate(data.tripStartDate);
       const balanceDate = parseDate(data.balanceDueDate);
@@ -728,7 +759,7 @@ const initContractForm = () => {
     syncCountStepToForm();
     updateTravelerCount();
     updatePriceVisibility();
-    updateTotalPrice();
+  updateTotalPrice();
   };
 
   window.openContractEditor = openEditorWithData;

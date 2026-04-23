@@ -1801,11 +1801,12 @@ def build_contract_body_html(data):
 
     def format_contract_text_html(text):
         escaped = html.escape(text)
-        return re.sub(
+        highlighted = re.sub(
             r"(\d{1,3}(?:,\d{3})+(?:\s*төгрөг(?:ийг|ийн|өөр|өөс|төгрөг)?)?)",
             r"<strong>\1</strong>",
             escaped,
         )
+        return highlighted.replace("\n", "<br />")
 
     parts = []
     for block in blocks:
@@ -2466,38 +2467,83 @@ def normalize_invoice_bank_account(value, fallback="state"):
     return fallback
 
 
-def build_invoice_payment_rows(data, created_at=None, signed_at=None):
+def build_invoice_payment_rows(record):
+    data = record.get("data") or {}
+    created_at = record.get("createdAt")
+    signed_at = record.get("signedAt")
     today = now_mongolia().date()
     issue_date = format_iso_date_display(data.get("contractDate") or created_at)
     signed_date = format_iso_date_display(signed_at or created_at or data.get("contractDate"))
     balance_due = parse_date_safe(data.get("balanceDueDate"))
     balance_amount = parse_int(data.get("balanceAmount"))
+    invoice_meta = record.get("invoiceMeta") if isinstance(record.get("invoiceMeta"), dict) else {}
+    payment_meta = invoice_meta.get("payments") if isinstance(invoice_meta.get("payments"), dict) else {}
+    payment_meta = payment_meta if isinstance(payment_meta, dict) else {}
+
+    custom_rows = []
+    if isinstance(payment_meta.get("rows"), list):
+        for row in payment_meta.get("rows"):
+            if not isinstance(row, dict):
+                continue
+            amount = parse_int(row.get("amount"))
+            title = normalize_text(row.get("title"))
+            if not title or amount <= 0:
+                continue
+            status_key = normalize_invoice_status(row.get("status"), fallback="waiting")
+            custom_rows.append(
+                {
+                    "key": normalize_text(row.get("key")) or f"payment-{len(custom_rows) + 1}",
+                    "title": title,
+                    "created": format_iso_date_display(row.get("created")),
+                    "secondaryLabel": normalize_text(row.get("secondaryLabel")) or "Эцсийн хугацаа",
+                    "secondaryValue": format_iso_date_display(row.get("secondaryValue")),
+                    "statusKey": status_key,
+                    "status": INVOICE_STATUS_META[status_key]["label"],
+                    "statusClass": INVOICE_STATUS_META[status_key]["className"],
+                    "amount": amount,
+                }
+            )
+    if custom_rows:
+        return custom_rows
 
     rows = []
     deposit_amount = parse_int(data.get("depositAmount"))
     if deposit_amount > 0:
+        deposit_status = normalize_invoice_status(
+            (payment_meta.get("deposit") or {}).get("status"),
+            fallback="paid",
+        )
         rows.append(
             {
-                "title": "Урьдчилгаа төлбөр",
+                "key": "deposit",
+                "title": "Урьдчилгаа",
                 "created": issue_date,
-                "secondaryLabel": "Төлсөн огноо",
-                "secondaryValue": signed_date,
-                "status": "Төлөгдсөн",
-                "statusClass": "paid",
+                "secondaryLabel": "Төлсөн огноо" if deposit_status == "paid" else "Эцсийн хугацаа",
+                "secondaryValue": signed_date if deposit_status == "paid" else format_iso_date_display(data.get("depositDueDate")),
+                "statusKey": deposit_status,
+                "status": INVOICE_STATUS_META[deposit_status]["label"],
+                "statusClass": INVOICE_STATUS_META[deposit_status]["className"],
                 "amount": deposit_amount,
             }
         )
 
     if balance_amount > 0:
         overdue = bool(balance_due and balance_due < today)
+        default_balance_status = "overdue" if overdue else "waiting"
+        balance_status = normalize_invoice_status(
+            (payment_meta.get("balance") or {}).get("status"),
+            fallback=default_balance_status,
+        )
         rows.append(
             {
-                "title": "Үлдэгдэл төлбөр",
+                "key": "balance",
+                "title": "Аяллын үлдэгдэл",
                 "created": issue_date,
                 "secondaryLabel": "Эцсийн хугацаа",
                 "secondaryValue": format_iso_date_display(data.get("balanceDueDate")),
-                "status": "Хугацаа хэтэрсэн" if overdue else "Хүлээгдэж буй",
-                "statusClass": "overdue" if overdue else "waiting",
+                "statusKey": balance_status,
+                "status": INVOICE_STATUS_META[balance_status]["label"],
+                "statusClass": INVOICE_STATUS_META[balance_status]["className"],
                 "amount": balance_amount,
             }
         )
@@ -2506,14 +2552,25 @@ def build_invoice_payment_rows(data, created_at=None, signed_at=None):
 
 def build_invoice_html(record, asset_mode="web"):
     data = record.get("data") or {}
+    invoice_meta = record.get("invoiceMeta") if isinstance(record.get("invoiceMeta"), dict) else {}
+    bank_account_key = normalize_invoice_bank_account(invoice_meta.get("bankAccountKey"))
+    bank_account = INVOICE_BANK_ACCOUNTS[bank_account_key]
     invoice_number = html.escape(f"{normalize_text(data.get('contractSerial')) or record.get('id', '')}-1")
     tourist_name = normalize_person_name(
         f"{normalize_text(data.get('touristLastName'))} {normalize_text(data.get('touristFirstName'))}"
     ).strip()
     customer_name = html.escape(tourist_name.upper() or "CLIENT")
-    items = build_invoice_line_items(data)
-    payment_rows = build_invoice_payment_rows(data, created_at=record.get("createdAt"), signed_at=record.get("signedAt"))
+    items = normalize_invoice_line_items(record)
+    payment_rows = build_invoice_payment_rows(record)
     total_amount = sum(item["totalPrice"] for item in items)
+    status_options_markup = "".join(
+        f'<option value="{status_key}">{html.escape(status_meta["label"])}</option>'
+        for status_key, status_meta in INVOICE_STATUS_META.items()
+    )
+    bank_options_markup = "".join(
+        f'<option value="{account_key}"{" selected" if account_key == bank_account_key else ""}>{html.escape(account["bankName"])} / {html.escape(account["prefix"])} / {html.escape(account["accountNumber"])}</option>'
+        for account_key, account in INVOICE_BANK_ACCOUNTS.items()
+    )
 
     def asset_src(filename):
         if asset_mode == "file":
@@ -2521,37 +2578,198 @@ def build_invoice_html(record, asset_mode="web"):
         return f"/assets/{filename}"
 
     download_href = "" if asset_mode == "file" else f"/api/contracts/{record.get('id')}/invoice?mode=download"
+    toolbar_markup = ""
+    script_markup = ""
+    notice_markup = ""
+    if asset_mode != "file":
+        toolbar_markup = f"""
+    <div class="toolbar">
+      <button type="button" class="toolbar-button is-active" data-invoice-mode="view">View</button>
+      <button type="button" class="toolbar-button" data-invoice-mode="edit">Edit</button>
+      <button type="button" class="toolbar-button toolbar-save" data-save-invoice hidden>Save</button>
+      <a href="{html.escape(download_href)}">PDF Татах</a>
+    </div>"""
+        notice_markup = '<div class="save-notice" data-save-notice hidden>Saved successfully</div>'
+        script_markup = f"""
+    <script>
+      (() => {{
+        const statusMeta = {json.dumps(INVOICE_STATUS_META, ensure_ascii=False)};
+        const bankAccountMeta = {json.dumps(INVOICE_BANK_ACCOUNTS, ensure_ascii=False)};
+        const modeButtons = Array.from(document.querySelectorAll("[data-invoice-mode]"));
+        const saveButton = document.querySelector("[data-save-invoice]");
+        const itemRowsBody = document.querySelector("[data-invoice-items-body]");
+        const paymentStack = document.querySelector("[data-payment-stack]");
+        const bankSelect = document.querySelector("[data-bank-account-select]");
+        const bankName = document.querySelector("[data-bank-name]");
+        const bankPrefix = document.querySelector("[data-bank-prefix]");
+        const bankNumber = document.querySelector("[data-bank-number]");
+        const notice = document.querySelector("[data-save-notice]");
+        const setMode = (mode) => {{
+          document.body.classList.toggle("is-editing", mode === "edit");
+          modeButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.invoiceMode === mode));
+          if (saveButton) saveButton.hidden = mode !== "edit";
+        }};
+        const formatMoney = (value) => new Intl.NumberFormat("en-US").format(Number(value || 0)) + " ₮";
+        const syncItems = () => {{
+          let total = 0;
+          Array.from(itemRowsBody?.querySelectorAll("tr[data-item-key]") || []).forEach((row, index) => {{
+            const descriptionInput = row.querySelector('[data-item-field="description"]');
+            const quantityInput = row.querySelector('[data-item-field="quantity"]');
+            const unitInput = row.querySelector('[data-item-field="unitPrice"]');
+            const totalInput = row.querySelector('[data-item-field="totalPrice"]');
+            const quantity = Number(quantityInput?.value || 0);
+            const unitPrice = Number(unitInput?.value || 0);
+            const lineTotal = quantity * unitPrice;
+            if (totalInput) totalInput.value = String(lineTotal);
+            total += lineTotal;
+            row.querySelector("[data-item-index]").textContent = index + 1;
+            row.querySelector('[data-view-field="description"]').textContent = descriptionInput?.value || "";
+            row.querySelector('[data-view-field="quantity"]').textContent = quantity || 0;
+            row.querySelector('[data-view-field="unitPrice"]').textContent = formatMoney(unitPrice);
+            row.querySelector('[data-view-field="totalPrice"]').textContent = formatMoney(lineTotal);
+          }});
+          const totalCell = document.querySelector("[data-invoice-total]");
+          if (totalCell) totalCell.textContent = formatMoney(total);
+        }};
+        const syncPayments = () => {{
+          Array.from(paymentStack?.querySelectorAll("[data-payment-key]") || []).forEach((card) => {{
+            const titleInput = card.querySelector('[data-payment-field="title"]');
+            const createdInput = card.querySelector('[data-payment-field="created"]');
+            const secondaryLabelInput = card.querySelector('[data-payment-field="secondaryLabel"]');
+            const secondaryValueInput = card.querySelector('[data-payment-field="secondaryValue"]');
+            const amountInput = card.querySelector('[data-payment-field="amount"]');
+            const select = card.querySelector("[data-status-select]");
+            const badge = card.querySelector("[data-status-badge]");
+            const meta = statusMeta[select?.value || "waiting"] || statusMeta.waiting;
+            card.querySelector('[data-view-field="payment-title"]').textContent = titleInput?.value || "";
+            card.querySelector('[data-view-field="created"]').textContent = createdInput?.value || "-";
+            card.querySelector('[data-view-field="secondary-label"]').textContent = secondaryLabelInput?.value || "Эцсийн хугацаа";
+            card.querySelector('[data-view-field="secondary-value"]').textContent = secondaryValueInput?.value || "-";
+            card.querySelector('[data-view-field="amount"]').textContent = formatMoney(amountInput?.value || 0);
+            if (badge) {{
+              badge.textContent = meta.label;
+              badge.className = "payment-status payment-status-view " + meta.className;
+            }}
+          }});
+        }};
+        const syncBank = () => {{
+          if (!bankSelect) return;
+          const meta = bankAccountMeta[bankSelect.value] || bankAccountMeta.state;
+          if (bankName) bankName.textContent = meta.bankName;
+          if (bankPrefix) bankPrefix.textContent = meta.prefix;
+          if (bankNumber) bankNumber.textContent = meta.accountNumber;
+        }};
+        itemRowsBody?.addEventListener("input", syncItems);
+        paymentStack?.addEventListener("input", syncPayments);
+        paymentStack?.addEventListener("change", syncPayments);
+        bankSelect?.addEventListener("change", syncBank);
+        modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.invoiceMode || "view")));
+        saveButton?.addEventListener("click", async () => {{
+          saveButton.disabled = true;
+          saveButton.textContent = "Saving...";
+          try {{
+            const items = Array.from(itemRowsBody?.querySelectorAll("tr[data-item-key]") || []).map((row) => ({{
+              key: row.dataset.itemKey || "",
+              description: row.querySelector('[data-item-field="description"]')?.value || "",
+              quantity: Number(row.querySelector('[data-item-field="quantity"]')?.value || 0),
+              unitPrice: Number(row.querySelector('[data-item-field="unitPrice"]')?.value || 0),
+              totalPrice: Number(row.querySelector('[data-item-field="totalPrice"]')?.value || 0),
+            }}));
+            const payments = Array.from(paymentStack?.querySelectorAll("[data-payment-key]") || []).map((card) => ({{
+              key: card.dataset.paymentKey || "",
+              title: card.querySelector('[data-payment-field="title"]')?.value || "",
+              created: card.querySelector('[data-payment-field="created"]')?.value || "",
+              secondaryLabel: card.querySelector('[data-payment-field="secondaryLabel"]')?.value || "",
+              secondaryValue: card.querySelector('[data-payment-field="secondaryValue"]')?.value || "",
+              status: card.querySelector('[data-status-select]')?.value || "waiting",
+              amount: Number(card.querySelector('[data-payment-field="amount"]')?.value || 0),
+            }}));
+            const response = await fetch("/api/contracts/{record.get('id')}/invoice", {{
+              method: "POST",
+              headers: {{ "Content-Type": "application/json" }},
+              credentials: "same-origin",
+              body: JSON.stringify({{
+                items,
+                payments,
+                bankAccountKey: bankSelect?.value || "state",
+              }}),
+            }});
+            const payload = await response.json().catch(() => ({{}}));
+            if (!response.ok) throw new Error(payload.error || "Could not save invoice.");
+            syncItems();
+            syncPayments();
+            syncBank();
+            setMode("view");
+            if (notice) {{
+              notice.hidden = false;
+              setTimeout(() => notice.hidden = true, 2200);
+            }}
+          }} catch (error) {{
+            window.alert(error.message || "Could not save invoice.");
+          }} finally {{
+            saveButton.disabled = false;
+            saveButton.textContent = "Save";
+          }}
+        }});
+        syncItems();
+        syncPayments();
+        syncBank();
+        setMode("view");
+      }})();
+    </script>"""
+
     items_markup = "".join(
         f"""
-          <tr>
-            <td>{index}</td>
-            <td>{html.escape(item['description'])}</td>
-            <td>{item['quantity']}</td>
-            <td>{format_money(item['unitPrice'])} ₮</td>
-            <td>{format_money(item['totalPrice'])} ₮</td>
+          <tr data-item-key="{html.escape(item['key'])}">
+            <td data-item-index>{index}</td>
+            <td>
+              <span class="invoice-view-text" data-view-field="description">{html.escape(item['description'])}</span>
+              <input class="invoice-edit-input" data-item-field="description" value="{html.escape(item['description'])}" />
+            </td>
+            <td>
+              <span class="invoice-view-text" data-view-field="quantity">{item['quantity']}</span>
+              <input class="invoice-edit-input" data-item-field="quantity" type="number" min="1" value="{item['quantity']}" />
+            </td>
+            <td>
+              <span class="invoice-view-text" data-view-field="unitPrice">{format_money(item['unitPrice'])} ₮</span>
+              <input class="invoice-edit-input" data-item-field="unitPrice" type="number" min="0" value="{item['unitPrice']}" />
+            </td>
+            <td>
+              <span class="invoice-view-text" data-view-field="totalPrice">{format_money(item['totalPrice'])} ₮</span>
+              <input class="invoice-edit-input" data-item-field="totalPrice" type="number" min="0" value="{item['totalPrice']}" readonly />
+            </td>
           </tr>
         """
         for index, item in enumerate(items, start=1)
     )
+
     payment_markup = "".join(
         f"""
-          <div class="payment-card">
+          <div class="payment-card" data-payment-key="{html.escape(row['key'])}">
             <div class="payment-main">
-              <strong>{html.escape(row['title'])}</strong>
+              <span class="invoice-view-text" data-view-field="payment-title">{html.escape(row['title'])}</span>
+              <input class="invoice-edit-input" data-payment-field="title" value="{html.escape(row['title'])}" />
             </div>
             <div class="payment-meta">
               <span class="meta-label">Нэхэмжилсэн огноо</span>
-              <strong>{html.escape(row['created'])}</strong>
+              <span class="meta-value invoice-view-text" data-view-field="created">{html.escape(row['created'])}</span>
+              <input class="invoice-edit-input" data-payment-field="created" type="date" value="{html.escape(normalize_text(row['created']))}" />
             </div>
             <div class="payment-meta">
-              <span class="meta-label">{html.escape(row['secondaryLabel'])}</span>
-              <strong>{html.escape(row['secondaryValue'])}</strong>
+              <span class="meta-label invoice-view-text" data-view-field="secondary-label">{html.escape(row['secondaryLabel'])}</span>
+              <input class="invoice-edit-input" data-payment-field="secondaryLabel" value="{html.escape(row['secondaryLabel'])}" />
+              <span class="meta-value invoice-view-text" data-view-field="secondary-value">{html.escape(row['secondaryValue'])}</span>
+              <input class="invoice-edit-input" data-payment-field="secondaryValue" type="date" value="{html.escape(normalize_text(row['secondaryValue']))}" />
             </div>
             <div class="payment-meta">
               <span class="meta-label">Төлөв</span>
-              <span class="payment-status {row['statusClass']}">{html.escape(row['status'])}</span>
+              <span class="payment-status payment-status-view {row['statusClass']}" data-status-badge>{html.escape(row['status'])}</span>
+              <select class="payment-status-select" data-status-select>{status_options_markup}</select>
             </div>
-            <div class="payment-amount">{format_money(row['amount'])} ₮</div>
+            <div class="payment-amount">
+              <span class="invoice-view-text" data-view-field="amount">{format_money(row['amount'])} ₮</span>
+              <input class="invoice-edit-input" data-payment-field="amount" type="number" min="0" value="{row['amount']}" />
+            </div>
           </div>
         """
         for row in payment_rows
@@ -2589,7 +2807,8 @@ def build_invoice_html(record, asset_mode="web"):
         border-bottom: 1px solid rgba(34, 40, 58, 0.08);
         backdrop-filter: blur(10px);
       }}
-      .toolbar a {{
+      .toolbar a,
+      .toolbar-button {{
         padding: 12px 18px;
         border: none;
         border-radius: 999px;
@@ -2597,6 +2816,30 @@ def build_invoice_html(record, asset_mode="web"):
         color: #fff;
         text-decoration: none;
         font: 700 14px/1.2 Inter, system-ui, sans-serif;
+        cursor: pointer;
+      }}
+      .toolbar-button {{
+        background: #e9edf8;
+        color: #2a3c78;
+      }}
+      .toolbar-button.is-active {{
+        background: #253776;
+        color: #fff;
+      }}
+      .toolbar-save {{
+        background: #157347;
+        color: #fff;
+      }}
+      .save-notice {{
+        position: fixed;
+        right: 18px;
+        top: 18px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: #1f8550;
+        color: #fff;
+        font: 600 13px/1.2 Inter, system-ui, sans-serif;
+        z-index: 20;
       }}
       .page {{
         width: min(210mm, calc(100vw - 24px));
@@ -2699,7 +2942,7 @@ def build_invoice_html(record, asset_mode="web"):
         border-radius: 12px;
         background: #fff;
       }}
-      .payment-main strong,
+      .payment-main,
       .payment-amount {{
         font-size: 13px;
         font-weight: 600;
@@ -2744,6 +2987,29 @@ def build_invoice_html(record, asset_mode="web"):
         background: #eef2fb;
         color: #506189;
       }}
+      .invoice-edit-input,
+      .payment-status-select,
+      .bank-account-select {{
+        display: none;
+        width: 100%;
+        min-height: 34px;
+        padding: 7px 10px;
+        border: 1px solid #cfd7eb;
+        border-radius: 10px;
+        background: #fff;
+        color: #2b3148;
+        font: 500 13px/1.2 Inter, system-ui, sans-serif;
+      }}
+      body.is-editing .invoice-edit-input,
+      body.is-editing .payment-status-select,
+      body.is-editing .bank-account-select {{
+        display: block;
+      }}
+      body.is-editing .invoice-view-text,
+      body.is-editing .payment-status-view,
+      body.is-editing .bank-view {{
+        display: none;
+      }}
       .bank-section {{
         margin-top: 16px;
         padding-bottom: 16px;
@@ -2767,10 +3033,11 @@ def build_invoice_html(record, asset_mode="web"):
       .signature-card {{
         position: relative;
         min-height: 124px;
-        padding-top: 22px;
+        padding-top: 10px;
       }}
       .signature-label {{
-        margin-bottom: 54px;
+        min-height: 18px;
+        margin-bottom: 58px;
         color: #8d95aa;
         font-size: 12px;
       }}
@@ -2779,16 +3046,18 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .accountant-stamp {{
         position: absolute;
-        left: 6px;
-        bottom: 22px;
-        width: 136px;
+        left: 8px;
+        bottom: 34px;
+        width: 150px;
+        z-index: 2;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 92px;
-        bottom: 22px;
+        left: 110px;
+        bottom: 28px;
         width: 118px;
+        z-index: 1;
       }}
       .signature-name {{
         margin-top: 10px;
@@ -2801,7 +3070,7 @@ def build_invoice_html(record, asset_mode="web"):
         font-size: 13px;
       }}
       @media print {{
-        .toolbar {{
+        .toolbar, .save-notice {{
           display: none;
         }}
         .page {{
@@ -2830,9 +3099,8 @@ def build_invoice_html(record, asset_mode="web"):
     </style>
   </head>
   <body>
-    <div class="toolbar">
-      <a href="{html.escape(download_href)}">PDF Татах</a>
-    </div>
+    {toolbar_markup}
+    {notice_markup}
     <div class="page">
       <p class="invoice-number">Нэхэмжлэх #{invoice_number}</p>
       <div class="header-grid">
@@ -2864,30 +3132,31 @@ def build_invoice_html(record, asset_mode="web"):
             <th>Нийт үнэ</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody data-invoice-items-body>
           {items_markup}
           <tr class="total-row">
             <td colspan="4">Нийт үнэ</td>
-            <td>{format_money(total_amount)} ₮</td>
+            <td data-invoice-total>{format_money(total_amount)} ₮</td>
           </tr>
         </tbody>
       </table>
       <p class="section-title">Төлбөрийн хуваарь</p>
-      <div class="payment-stack">
+      <div class="payment-stack" data-payment-stack>
         {payment_markup}
       </div>
       <div class="bank-section">
         <p class="section-title">Дансны мэдээлэл</p>
-        <div class="bank-grid">
+        <select class="bank-account-select" data-bank-account-select>{bank_options_markup}</select>
+        <div class="bank-grid bank-view">
           <span>Дэлхий Трэвел Икс</span>
-          <span>Төрийн Банк</span>
-          <span>MN030034</span>
-          <strong>3432 7777 9999</strong>
+          <span data-bank-name>{html.escape(bank_account['bankName'])}</span>
+          <span data-bank-prefix>{html.escape(bank_account['prefix'])}</span>
+          <strong data-bank-number>{html.escape(bank_account['accountNumber'])}</strong>
         </div>
       </div>
       <div class="signature-grid">
         <div class="signature-card">
-          <div class="signature-label">Дэлхий Трэвел Икс ХХК</div>
+          <div class="signature-label">&nbsp;</div>
           <div class="signature-line"></div>
           <img class="accountant-stamp" src="{asset_src('invoice-finance-stamp.png')}" alt="Finance stamp" />
           <img class="accountant-signature" src="{asset_src('invoice-finance-signature.png')}" alt="Accountant signature" />
@@ -2901,6 +3170,7 @@ def build_invoice_html(record, asset_mode="web"):
         </div>
       </div>
     </div>
+    {script_markup}
   </body>
 </html>"""
 
@@ -2970,6 +3240,7 @@ def save_contract_files(data):
         "pdfPath": None,
         "invoiceViewPath": None,
         "invoicePath": None,
+        "invoiceMeta": {"payments": {}, "bankAccountKey": "state"},
     }
     return record
 
@@ -6100,6 +6371,88 @@ def handle_contract_invoice_document(environ, start_response, contract_id):
     return file_response(start_response, safe_path)
 
 
+def handle_update_contract_invoice(environ, start_response, contract_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+
+    contracts = read_contracts()
+    for idx, contract in enumerate(contracts):
+        if contract.get("id") != contract_id:
+            continue
+
+        items_payload = payload.get("items")
+        payments_payload = payload.get("payments")
+        if not isinstance(items_payload, list):
+            return json_response(start_response, "400 Bad Request", {"error": "Items payload is invalid"})
+        if not isinstance(payments_payload, list):
+            return json_response(start_response, "400 Bad Request", {"error": "Payments payload is invalid"})
+
+        normalized_items = []
+        for item in items_payload:
+            if not isinstance(item, dict):
+                continue
+            description = normalize_text(item.get("description"))
+            quantity = parse_int(item.get("quantity"))
+            unit_price = parse_int(item.get("unitPrice"))
+            total_price = parse_int(item.get("totalPrice")) or quantity * unit_price
+            if not description or quantity <= 0:
+                continue
+            normalized_items.append(
+                {
+                    "key": normalize_text(item.get("key")) or f"item-{len(normalized_items) + 1}",
+                    "description": description,
+                    "quantity": quantity,
+                    "unitPrice": unit_price,
+                    "totalPrice": total_price,
+                }
+            )
+        if not normalized_items:
+            return json_response(start_response, "400 Bad Request", {"error": "At least one invoice item is required"})
+
+        normalized_payments = []
+        for payment in payments_payload:
+            if not isinstance(payment, dict):
+                continue
+            title = normalize_text(payment.get("title"))
+            amount = parse_int(payment.get("amount"))
+            if not title or amount <= 0:
+                continue
+            status = normalize_invoice_status(payment.get("status"))
+            normalized_payments.append(
+                {
+                    "key": normalize_text(payment.get("key")) or f"payment-{len(normalized_payments) + 1}",
+                    "title": title,
+                    "created": normalize_text(payment.get("created")),
+                    "secondaryLabel": normalize_text(payment.get("secondaryLabel")) or "Эцсийн хугацаа",
+                    "secondaryValue": normalize_text(payment.get("secondaryValue")),
+                    "status": status,
+                    "amount": amount,
+                }
+            )
+        if not normalized_payments:
+            return json_response(start_response, "400 Bad Request", {"error": "At least one payment row is required"})
+
+        invoice_meta = contract.get("invoiceMeta") if isinstance(contract.get("invoiceMeta"), dict) else {}
+        invoice_meta["lineItems"] = normalized_items
+        invoice_meta["payments"] = {"rows": normalized_payments}
+        invoice_meta["bankAccountKey"] = normalize_invoice_bank_account(
+            payload.get("bankAccountKey"),
+            fallback=normalize_invoice_bank_account(invoice_meta.get("bankAccountKey")),
+        )
+        contract["invoiceMeta"] = invoice_meta
+        contract["updatedBy"] = actor_snapshot(actor)
+        contract["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        contracts[idx] = contract
+        write_contracts(contracts)
+        return json_response(start_response, "200 OK", {"ok": True, "contract": contract})
+
+    return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+
+
 def app(environ, start_response):
     ensure_data_store()
 
@@ -6274,6 +6627,8 @@ def app(environ, start_response):
             contract_id = tail.replace("/invoice", "", 1).strip("/")
             if method == "GET":
                 return handle_contract_invoice_document(environ, start_response, contract_id)
+            if method == "POST":
+                return handle_update_contract_invoice(environ, start_response, contract_id)
             return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
         contract_id = tail
         if method == "GET":
