@@ -1379,17 +1379,17 @@ def build_contract_data(payload):
 
     parts = []
     if adult_count:
-        parts.append(f"{adult_count} том хүний {data['adultPrice']} төгрөг")
+        parts.append(f"1 том хүний {data['adultPrice']} төгрөг")
     if child_count:
-        parts.append(f"{child_count} хүүхдийн {data['childPrice']} төгрөг")
+        parts.append(f"1 хүүхдийн {data['childPrice']} төгрөг")
     if infant_count:
-        parts.append(f"{infant_count} нярай хүүхдийн {data['infantPrice']} төгрөг")
+        parts.append(f"1 нярай хүүхдийн {data['infantPrice']} төгрөг")
     if ticket_only_count:
-        parts.append(f"{ticket_only_count} зочин зөвхөн билеттэй {data['ticketOnlyPrice']} төгрөг")
+        parts.append(f"1 зочин зөвхөн билеттэй {data['ticketOnlyPrice']} төгрөг")
     if land_only_count:
-        parts.append(f"{land_only_count} зочин газрын үйлчилгээтэй {data['landOnlyPrice']} төгрөг")
+        parts.append(f"1 зочин газрын үйлчилгээтэй {data['landOnlyPrice']} төгрөг")
     if custom_count:
-        parts.append(f"{custom_count} зочин {data['customPriceLabel']} {data['customPrice']} төгрөг")
+        parts.append(f"1 зочин {data['customPriceLabel']} {data['customPrice']} төгрөг")
     price_breakdown = ", ".join(part for part in parts if part)
     data["priceBreakdown"] = price_breakdown or ""
     data["paymentParagraph"] = (
@@ -1697,6 +1697,32 @@ def extract_contract_blocks(data):
                 subsection_index = 0
                 blocks.append({"type": "heading", "text": numbered_heading})
             elif current_section is not None:
+                nested_subsection_match = re.match(
+                    rf"^(?P<prefix>.*?)(?:\s+)?{re.escape(current_section)}\.(?P<outer>\d+)\.(?P<inner>\d+)\.\s*(?P<rest>.*)$",
+                    text,
+                )
+                if nested_subsection_match:
+                    prefix = nested_subsection_match.group("prefix").strip()
+                    outer = nested_subsection_match.group("outer")
+                    inner = nested_subsection_match.group("inner")
+                    rest = nested_subsection_match.group("rest").strip()
+                    subsection_index = max(subsection_index, int(outer))
+                    if prefix:
+                        blocks.append(
+                            {
+                                "type": "numbered-paragraph",
+                                "number": f"{current_section}.{outer}.",
+                                "text": prefix,
+                            }
+                        )
+                    blocks.append(
+                        {
+                            "type": "numbered-paragraph",
+                            "number": f"{current_section}.{outer}.{inner}.",
+                            "text": rest,
+                        }
+                    )
+                    continue
                 inline_subsections = list(
                     re.finditer(
                         rf"({re.escape(current_section)}\.(\d+)\.\s*)(.*?)(?=(?:\s+{re.escape(current_section)}\.\d+\.)|$)",
@@ -3080,18 +3106,20 @@ def build_invoice_html(record, asset_mode="web"):
         display: none;
       }}
       body.is-editing .payment-card {{
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        align-items: start;
+        grid-template-columns: 1.2fr repeat(3, minmax(0, 0.9fr)) minmax(160px, 0.95fr);
+        align-items: end;
       }}
       body.is-editing .payment-main {{
-        grid-column: 1 / -1;
+        grid-column: auto;
       }}
       body.is-editing .payment-meta,
       body.is-editing .payment-amount {{
+        display: grid;
+        gap: 6px;
         min-width: 0;
       }}
       body.is-editing .payment-amount {{
-        text-align: left;
+        text-align: right;
       }}
       .bank-section {{
         margin-top: 16px;
@@ -3115,14 +3143,14 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .signature-card {{
         position: relative;
-        min-height: 124px;
+        min-height: 154px;
         padding-top: 10px;
       }}
       .signature-label {{
         position: relative;
         z-index: 3;
         min-height: 18px;
-        margin-bottom: 58px;
+        margin-bottom: 76px;
         color: #8d95aa;
         font-size: 12px;
         background: #fff;
@@ -3132,17 +3160,17 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .accountant-stamp {{
         position: absolute;
-        left: 8px;
-        bottom: 18px;
-        width: 128px;
+        left: 4px;
+        bottom: 46px;
+        width: 148px;
         z-index: 1;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 96px;
-        bottom: 30px;
-        width: 98px;
+        left: 100px;
+        bottom: 64px;
+        width: 132px;
         z-index: 2;
       }}
       .signature-name {{
