@@ -79,7 +79,24 @@ const TRIP_STATUS_OPTIONS = [
   ["cancelled", "Cancelled"],
 ];
 
+function hoistModalPanelsToBody(panels) {
+  panels.forEach((panel) => {
+    if (!panel || panel.parentElement === document.body) {
+      return;
+    }
+    document.body.appendChild(panel);
+  });
+}
+
+hoistModalPanelsToBody([tripFormPanel, campFormPanel, reservationEditPanel, paymentEditPanel]);
+
 function openPanel(panel) {
+  if (!panel) {
+    return;
+  }
+  if (panel.parentElement !== document.body) {
+    document.body.appendChild(panel);
+  }
   panel.classList.remove("is-hidden");
   document.body.classList.add("modal-open");
   panel.scrollTop = 0;
@@ -97,8 +114,11 @@ function openPanel(panel) {
 }
 
 function closePanel(panel) {
+  if (!panel) {
+    return;
+  }
   panel.classList.add("is-hidden");
-  if (tripFormPanel.classList.contains("is-hidden") && campFormPanel.classList.contains("is-hidden")) {
+  if (document.querySelectorAll(".camp-modal:not(.is-hidden)").length === 0) {
     document.body.classList.remove("modal-open");
   }
 }

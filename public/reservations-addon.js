@@ -39,6 +39,17 @@
   let editingTransferId = "";
   let editingFlightPaymentId = "";
 
+  function hoistModalPanelsToBody(panels) {
+    panels.forEach((panel) => {
+      if (!panel || panel.parentElement === document.body) {
+        return;
+      }
+      document.body.appendChild(panel);
+    });
+  }
+
+  hoistModalPanelsToBody([flightFormPanel, transferFormPanel, flightPaymentFormPanel]);
+
   function escapeHtml(value) {
     return String(value || "")
       .replaceAll("&", "&amp;")
@@ -148,6 +159,12 @@
   }
 
   function openPanel(panel) {
+    if (!panel) {
+      return;
+    }
+    if (panel.parentElement !== document.body) {
+      document.body.appendChild(panel);
+    }
     panel.classList.remove("is-hidden");
     document.body.classList.add("modal-open");
     const dialog = panel.querySelector(".camp-modal-dialog");
@@ -166,6 +183,9 @@
   }
 
   function closePanel(panel) {
+    if (!panel) {
+      return;
+    }
     panel.classList.add("is-hidden");
     if (document.querySelectorAll(".camp-modal:not(.is-hidden)").length === 0) {
       document.body.classList.remove("modal-open");

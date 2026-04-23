@@ -302,6 +302,10 @@ const initContractForm = () => {
 
   if (!panel || !toggle || !countSetup || !continueButton || !form) return;
 
+  if (panel.parentElement !== document.body) {
+    document.body.appendChild(panel);
+  }
+
   const setSectionHidden = (element, hidden) => {
     if (!element) return;
     element.classList.toggle("is-hidden", hidden);
