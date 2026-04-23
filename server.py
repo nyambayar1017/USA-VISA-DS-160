@@ -4031,7 +4031,8 @@ def save_camp_reservation_document(record):
         pdf.showPage()
         pdf.save()
         pdf_ready = True
-    except Exception:
+    except Exception as exc:
+        print(f"Camp reservation PDF generation failed: {exc}", flush=True)
         pdf_href = f"/generated/{html_filename}"
 
     return {
@@ -4058,16 +4059,14 @@ def save_camp_reservations_bundle(records):
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.units import mm
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.pdfgen import canvas
-        from reportlab.platypus import Table, TableStyle
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-        pdf = canvas.Canvas(str(pdf_path), pagesize=landscape(A4))
-        width, height = landscape(A4)
         font_name = "Helvetica"
         bold_font_name = "Helvetica-Bold"
-
         for candidate in [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/dejavu/DejaVuSans.ttf",
@@ -4085,93 +4084,222 @@ def save_camp_reservations_bundle(records):
 
         reservation_title = camp_reservation_title(first)
         manager_name = first.get("staffAssignment") or STEPPE_MANAGER
+        trip_by_id = {trip.get("id"): trip for trip in read_camp_trips()}
 
-        pdf.setFillColor(colors.HexColor("#1d2f86"))
-        pdf.setFont(bold_font_name, 18)
-        pdf.drawString(40, height - 40, "UNLOCK STEPPE MONGOLIA")
-        pdf.setFillColor(colors.HexColor("#1d2f86"))
-        pdf.setFont(bold_font_name, 15)
-        pdf.drawString(width - 360, height - 36, STEPPE_COMPANY_NAME)
-        pdf.setFillColor(colors.black)
-        pdf.setFont(font_name, 12)
-        pdf.drawRightString(width - 40, height - 58, STEPPE_CITY)
-        pdf.drawRightString(width - 40, height - 76, format_pdf_date(first["createdDate"]))
+        def trip_day_label(record):
+            trip = trip_by_id.get(record.get("tripId")) or {}
+            start_date = normalize_text(trip.get("startDate"))
+            check_in = normalize_text(record.get("checkIn"))
+            if not start_date or not check_in:
+                return "-"
+            try:
+                start = datetime.strptime(start_date, "%Y-%m-%d").date()
+                check = datetime.strptime(check_in, "%Y-%m-%d").date()
+            except ValueError:
+                return "-"
+            start_day = (check - start).days + 1
+            if start_day <= 0:
+                return "-"
+            stay_count = max(int(record.get("nights") or 1), 1)
+            if stay_count == 1:
+                return f"Day {start_day}"
+            return f"Day {start_day},{start_day + stay_count - 1}"
 
-        text = pdf.beginText(40, height - 92)
-        text.setFont(font_name, 10)
-        for line in STEPPE_ADDRESS_LINES:
-            text.textLine(line)
-        text.textLine(f"Утас: {STEPPE_PHONES}")
-        text.textLine(f"И-мэйл: {STEPPE_EMAIL}")
-        pdf.drawText(text)
+        styles = {
+            "brand": ParagraphStyle(
+                "CampBrand",
+                fontName=bold_font_name,
+                fontSize=18,
+                leading=22,
+                textColor=colors.HexColor("#1d2f86"),
+                spaceAfter=2,
+            ),
+            "company": ParagraphStyle(
+                "CampCompany",
+                fontName=bold_font_name,
+                fontSize=13,
+                leading=16,
+                alignment=2,
+                textColor=colors.HexColor("#1d2f86"),
+            ),
+            "meta": ParagraphStyle("CampMeta", fontName=font_name, fontSize=9, leading=12),
+            "meta_right": ParagraphStyle("CampMetaRight", fontName=font_name, fontSize=9, leading=12, alignment=2),
+            "title": ParagraphStyle("CampTitle", fontName=bold_font_name, fontSize=16, leading=20, alignment=1, spaceAfter=4),
+            "subtitle": ParagraphStyle("CampSubtitle", fontName=bold_font_name, fontSize=13, leading=17, alignment=1, spaceAfter=10),
+            "summary": ParagraphStyle("CampSummary", fontName=font_name, fontSize=9, leading=12),
+            "th": ParagraphStyle("CampHeaderCell", fontName=bold_font_name, fontSize=7.5, leading=9, alignment=1),
+            "td": ParagraphStyle("CampBodyCell", fontName=font_name, fontSize=7.5, leading=9, alignment=1),
+            "td_left": ParagraphStyle("CampBodyCellLeft", fontName=font_name, fontSize=7.5, leading=9, alignment=0),
+            "footer": ParagraphStyle("CampFooter", fontName=font_name, fontSize=9, leading=12),
+        }
 
-        pdf.setFont(bold_font_name, 16)
-        pdf.drawCentredString(width / 2, height - 160, f"Аяллын нэр: {first.get('reservationName') or first['tripName']}")
-        pdf.drawCentredString(width / 2, height - 190, f"{reservation_title} - “{first['campName']}”")
+        def p(value, style="td"):
+            return Paragraph(html.escape(str(value or "-")).replace("\n", "<br/>"), styles[style])
+
+        page_width, _ = landscape(A4)
+        margin = 10 * mm
+        usable_width = page_width - (margin * 2)
+        doc = SimpleDocTemplate(
+            str(pdf_path),
+            pagesize=landscape(A4),
+            rightMargin=margin,
+            leftMargin=margin,
+            topMargin=10 * mm,
+            bottomMargin=9 * mm,
+            title=f"{first['campName']} reservations",
+        )
+
+        story = []
+        header_table = Table(
+            [[
+                Paragraph("UNLOCK STEPPE MONGOLIA", styles["brand"]),
+                Paragraph(f"{html.escape(STEPPE_COMPANY_NAME)}<br/>{html.escape(STEPPE_CITY)}<br/>{format_pdf_date(now_mongolia().date().isoformat())}", styles["company"]),
+            ], [
+                Paragraph(
+                    "<br/>".join(html.escape(line) for line in STEPPE_ADDRESS_LINES)
+                    + f"<br/>Утас: {html.escape(STEPPE_PHONES)}<br/>И-мэйл: {html.escape(STEPPE_EMAIL)}",
+                    styles["meta"],
+                ),
+                Paragraph(f"Generated: {format_pdf_date(now_mongolia().date().isoformat())}<br/>Records: {len(records)}", styles["meta_right"]),
+            ]],
+            colWidths=[usable_width * 0.48, usable_width * 0.52],
+        )
+        header_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.extend([
+            header_table,
+            Spacer(1, 10),
+            Paragraph(f"Аяллын нэр: {html.escape(first.get('reservationName') or first['tripName'])}", styles["title"]),
+            Paragraph(f"{html.escape(reservation_title)} - “{html.escape(first['campName'])}”", styles["subtitle"]),
+        ])
+
+        summary = Table(
+            [[
+                p(f"Camp: {first['campName']}", "summary"),
+                p(f"Location: {first.get('locationName') or '-'}", "summary"),
+                p(f"Reservations: {len(records)}", "summary"),
+                p(f"Manager: {manager_name}", "summary"),
+            ]],
+            colWidths=[usable_width * 0.26, usable_width * 0.28, usable_width * 0.18, usable_width * 0.28],
+        )
+        summary.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f3f6fb")),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#c8d4e6")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#d7e0ec")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.extend([summary, Spacer(1, 9)])
 
         table_rows = [[
-            "#",
-            "Аяллын нэр",
-            "Жуулчны\nтоо",
-            "Ажилчдын\nтоо",
-            "Ирэх\nөдөр",
-            "Явах\nөдөр",
-            "Хоногийн\nтоо",
-            "Гэрийн\nтоо",
-            "Өрөөний\nтөрөл",
-            "Хоол",
+            p("#", "th"),
+            p("Trip", "th"),
+            p("Reservation", "th"),
+            p("Day", "th"),
+            p("Pax", "th"),
+            p("Staff", "th"),
+            p("Check-in", "th"),
+            p("Check-out", "th"),
+            p("Nights", "th"),
+            p("Gers", "th"),
+            p("Room", "th"),
+            p("Meals", "th"),
         ]]
         for index, record in enumerate(records, start=1):
             table_rows.append([
-                str(index),
-                record.get("reservationName") or record["tripName"],
-                str(record["clientCount"]),
-                str(record["staffCount"]),
-                format_iso_date(record["checkIn"]),
-                format_iso_date(record["checkOut"]),
-                str(record["nights"]),
-                str(record["gerCount"]),
-                record["roomType"],
-                camp_reservation_meals(record),
+                p(index),
+                p(record["tripName"], "td_left"),
+                p(record.get("reservationName") or record["tripName"], "td_left"),
+                p(trip_day_label(record)),
+                p(record["clientCount"]),
+                p(record["staffCount"]),
+                p(format_iso_date(record["checkIn"])),
+                p(format_iso_date(record["checkOut"])),
+                p(record["nights"]),
+                p(record["gerCount"]),
+                p(record["roomType"], "td_left"),
+                p(camp_reservation_meals(record), "td_left"),
             ])
 
+        col_widths = [
+            usable_width * 0.032,
+            usable_width * 0.13,
+            usable_width * 0.115,
+            usable_width * 0.055,
+            usable_width * 0.04,
+            usable_width * 0.045,
+            usable_width * 0.08,
+            usable_width * 0.08,
+            usable_width * 0.042,
+            usable_width * 0.042,
+            usable_width * 0.17,
+            usable_width * 0.151,
+        ]
         table = Table(
             table_rows,
-            colWidths=[28, 124, 58, 58, 68, 68, 58, 58, 118, 90],
+            colWidths=col_widths,
             repeatRows=1,
         )
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("FONTNAME", (0, 0), (-1, 0), bold_font_name),
-            ("FONTNAME", (0, 1), (-1, -1), font_name),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#1f2937")),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("LEADING", (0, 0), (-1, -1), 12),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
         ]))
-        table.wrapOn(pdf, width - 80, height)
-        table_height = min(340, 30 + 26 * len(table_rows))
-        table.drawOn(pdf, 40, height - 220 - table_height)
+        story.append(table)
 
-        note_lines = [f"{index}. {record['tripName']}: {record.get('notes') or '-'}" for index, record in enumerate(records, start=1)]
-        note_text = pdf.beginText(40, 120)
-        note_text.setFont(font_name, 10)
-        note_text.textLine("Нэмэлт тэмдэглэл:")
-        for line in note_lines[:6]:
-            note_text.textLine(line)
-        pdf.drawText(note_text)
+        note_rows = [
+            [p("#", "th"), p("Trip", "th"), p("Notes", "th")]
+        ]
+        for index, record in enumerate(records, start=1):
+            note_rows.append([
+                p(index),
+                p(record.get("reservationName") or record["tripName"], "td_left"),
+                p(record.get("notes") or "-", "td_left"),
+            ])
+        note_table = Table(
+            note_rows,
+            colWidths=[usable_width * 0.04, usable_width * 0.22, usable_width * 0.74],
+            repeatRows=1,
+        )
+        note_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#64748b")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ]))
+        story.extend([
+            Spacer(1, 10),
+            Paragraph("Нэмэлт тэмдэглэл", styles["subtitle"]),
+            note_table,
+            Spacer(1, 10),
+            Paragraph(
+                f"<b>Захиалгын менежер:</b> {html.escape(manager_name)} &nbsp;&nbsp; "
+                f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)} &nbsp;&nbsp; "
+                f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
+                styles["footer"],
+            ),
+        ])
 
-        pdf.setFont(bold_font_name, 12)
-        pdf.drawString(width - 320, 110, f"Захиалгын менежер: {manager_name}")
-        pdf.setFont(font_name, 12)
-        pdf.drawString(width - 320, 84, f"Харилцах утас : {STEPPE_CONTACT_PHONES}")
-        pdf.drawString(width - 320, 60, f"Цахим шуудан : {STEPPE_EMAIL}")
-
-        pdf.showPage()
-        pdf.save()
+        doc.build(story)
         pdf_ready = True
-    except Exception:
+    except Exception as exc:
+        print(f"Camp bundle PDF generation failed: {exc}", flush=True)
         pdf_href = f"/generated/{html_filename}"
 
     return {
