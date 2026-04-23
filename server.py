@@ -2655,14 +2655,17 @@ def build_invoice_html(record, asset_mode="web"):
     items = normalize_invoice_line_items(record)
     payment_rows = build_invoice_payment_rows(record)
     total_amount = sum(item["totalPrice"] for item in items)
-    status_options_markup = "".join(
-        f'<option value="{status_key}">{html.escape(status_meta["label"])}</option>'
-        for status_key, status_meta in INVOICE_STATUS_META.items()
-    )
     bank_options_markup = "".join(
         f'<option value="{account_key}"{" selected" if account_key == bank_account_key else ""}>{html.escape(account["bankName"])} / {html.escape(account["prefix"])} / {html.escape(account["accountNumber"])}</option>'
         for account_key, account in INVOICE_BANK_ACCOUNTS.items()
     )
+
+    def status_options_for(current_key):
+        current = normalize_invoice_status(current_key)
+        return "".join(
+            f'<option value="{status_key}"{" selected" if status_key == current else ""}>{html.escape(status_meta["label"])}</option>'
+            for status_key, status_meta in INVOICE_STATUS_META.items()
+        )
 
     def asset_src(filename):
         if asset_mode == "file":
@@ -2856,7 +2859,7 @@ def build_invoice_html(record, asset_mode="web"):
             <div class="payment-meta">
               <span class="meta-label">Төлөв</span>
               <span class="payment-status payment-status-view {row['statusClass']}" data-status-badge>{html.escape(row['status'])}</span>
-              <select class="payment-status-select" data-status-select>{status_options_markup}</select>
+              <select class="payment-status-select" data-status-select>{status_options_for(row['statusKey'])}</select>
             </div>
             <div class="payment-amount">
               <span class="invoice-view-text" data-view-field="amount">{format_money(row['amount'])} ₮</span>
@@ -2882,10 +2885,10 @@ def build_invoice_html(record, asset_mode="web"):
       * {{ box-sizing: border-box; }}
       body {{
         margin: 0;
-        background: #f3f5fb;
-        color: #22283a;
+        background: #ffffff;
+        color: #27272a;
         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px;
+        font-size: 22px;
       }}
       .toolbar {{
         position: sticky;
@@ -2893,25 +2896,27 @@ def build_invoice_html(record, asset_mode="web"):
         z-index: 10;
         display: flex;
         justify-content: center;
-        gap: 12px;
-        padding: 16px;
+        gap: 22px;
+        padding: 28px 16px;
         background: rgba(255, 255, 255, 0.96);
-        border-bottom: 1px solid rgba(34, 40, 58, 0.08);
+        border-bottom: 1px solid #eef1f7;
         backdrop-filter: blur(10px);
       }}
       .toolbar a,
       .toolbar-button {{
-        padding: 12px 18px;
+        min-width: 112px;
+        min-height: 64px;
+        padding: 16px 28px;
         border: none;
         border-radius: 999px;
         background: #253776;
         color: #fff;
         text-decoration: none;
-        font: 700 14px/1.2 Inter, system-ui, sans-serif;
+        font: 800 24px/1.2 Inter, system-ui, sans-serif;
         cursor: pointer;
       }}
       .toolbar-button {{
-        background: #e9edf8;
+        background: #e9eef8;
         color: #2a3c78;
       }}
       .toolbar-button.is-active {{
@@ -2934,81 +2939,92 @@ def build_invoice_html(record, asset_mode="web"):
         z-index: 20;
       }}
       .page {{
-        width: min(210mm, calc(100vw - 24px));
-        margin: 20px auto 40px;
-        padding: 20px 18px 22px;
+        width: min(1440px, calc(100vw - 92px));
+        margin: 24px auto 48px;
+        padding: 44px;
         background: #fff;
-        border: 1px solid #e6e8ef;
-        border-radius: 10px;
-        box-shadow: 0 12px 36px rgba(34, 40, 58, 0.06);
+        border: 1px solid #dce3ef;
+        border-radius: 14px;
+        box-shadow: none;
       }}
       .invoice-number {{
-        margin: 0 0 16px;
-        color: #3b4257;
-        font-size: 16px;
+        margin: 0 0 30px;
+        color: #27272a;
+        font-size: 34px;
+        line-height: 1.15;
         font-weight: 500;
       }}
       .header-grid {{
         display: grid;
-        grid-template-columns: 1.1fr 1fr;
-        gap: 18px;
+        grid-template-columns: 1fr 1fr;
+        gap: 46px;
         align-items: start;
+        margin-bottom: 46px;
       }}
       .invoice-logo {{
-        width: 132px;
+        width: 286px;
         max-width: 100%;
         display: block;
-        margin-bottom: 6px;
+        margin-bottom: 22px;
       }}
       .company-name {{
-        margin: 0 0 4px;
-        font-size: 14px;
+        margin: 0 0 20px;
+        font-size: 23px;
+        line-height: 1.25;
         font-weight: 700;
-        color: #2a3150;
+        color: #27272a;
       }}
       .company-block p,
       .customer-block p,
       .meta-note {{
         margin: 0;
-        font-size: 13px;
-        line-height: 1.35;
+        font-size: 22px;
+        line-height: 1.38;
       }}
       .meta-note {{
         text-align: right;
-        color: #535b74;
+        color: #27272a;
       }}
       .customer-block {{
-        padding-top: 44px;
+        padding-top: 136px;
       }}
       .customer-block .label {{
         display: block;
-        margin-bottom: 4px;
-        color: #6f7791;
-        font-size: 12px;
+        margin-bottom: 8px;
+        color: #64748b;
+        font-size: 22px;
+        font-weight: 600;
       }}
       .section-title {{
-        margin: 18px 0 10px;
-        color: #7f889d;
-        font-size: 13px;
-        font-weight: 500;
+        margin: 0 0 18px;
+        color: #64748b;
+        font-size: 22px;
+        font-weight: 600;
       }}
-      table {{
+      .invoice-items-table {{
         width: 100%;
-        border-collapse: collapse;
-        overflow: hidden;
+        border-collapse: separate;
+        border-spacing: 0;
         border-radius: 12px;
-        border: 1px solid #e7e9f1;
+        border: 1px solid #cfd8e6;
+        overflow: hidden;
+        margin-bottom: 44px;
       }}
       th, td {{
-        padding: 9px 10px;
-        border-bottom: 1px solid #eceef5;
+        padding: 17px 16px;
+        border-bottom: 1px solid #cfd8e6;
         text-align: left;
-        font-size: 13px;
+        font-size: 22px;
+        line-height: 1.25;
       }}
       th {{
         background: #fbfcfe;
-        color: #4d566f;
+        color: #27272a;
         font-weight: 700;
+      }}
+      th:first-child,
+      td:first-child {{
+        width: 82px;
       }}
       td:last-child,
       th:last-child,
@@ -3018,27 +3034,31 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .total-row td {{
         font-weight: 700;
-        background: #fdfdfd;
+        background: #fff;
+        border-bottom: 0;
       }}
       .payment-stack {{
         display: grid;
-        gap: 12px;
+        gap: 28px;
+        margin-bottom: 44px;
       }}
       .payment-card {{
         display: grid;
-        grid-template-columns: 1.2fr repeat(3, minmax(0, 0.9fr)) minmax(140px, 0.9fr);
-        gap: 12px;
+        grid-template-columns: 1.35fr 0.92fr 0.92fr 0.82fr 0.92fr;
+        gap: 26px;
         align-items: center;
-        padding: 13px 14px;
-        border: 1px solid #e7e9f1;
+        min-height: 128px;
+        padding: 28px 30px;
+        border: 1px solid #cfd8e6;
         border-radius: 12px;
         background: #fff;
       }}
       .payment-main,
       .payment-amount {{
-        font-size: 13px;
+        min-width: 0;
+        font-size: 22px;
         font-weight: 600;
-        color: #2b3148;
+        color: #27272a;
       }}
       .payment-amount {{
         text-align: right;
@@ -3049,22 +3069,25 @@ def build_invoice_html(record, asset_mode="web"):
         gap: 4px;
       }}
       .meta-value {{
-        font-size: 13px;
+        font-size: 22px;
         font-weight: 600;
-        color: #2b3148;
+        color: #27272a;
       }}
       .meta-label {{
-        color: #8b93a9;
-        font-size: 12px;
+        color: #64748b;
+        font-size: 22px;
+        font-weight: 600;
       }}
       .payment-status {{
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 30px;
-        padding: 5px 11px;
+        width: fit-content;
+        min-width: 134px;
+        min-height: 48px;
+        padding: 9px 20px;
         border-radius: 999px;
-        font-size: 12px;
+        font-size: 21px;
         font-weight: 700;
       }}
       .payment-status.paid {{
@@ -3076,21 +3099,22 @@ def build_invoice_html(record, asset_mode="web"):
         color: #c44747;
       }}
       .payment-status.waiting {{
-        background: #eef2fb;
-        color: #506189;
+        background: #fff5bd;
+        color: #8a4b12;
       }}
       .invoice-edit-input,
       .payment-status-select,
       .bank-account-select {{
         display: none;
         width: 100%;
-        min-height: 34px;
-        padding: 7px 10px;
-        border: 1px solid #cfd7eb;
-        border-radius: 10px;
+        min-width: 0;
+        min-height: 58px;
+        padding: 12px 18px;
+        border: 1px solid #cbd6ee;
+        border-radius: 14px;
         background: #fff;
-        color: #2b3148;
-        font: 500 13px/1.2 Inter, system-ui, sans-serif;
+        color: #1f2937;
+        font: 600 22px/1.2 Inter, system-ui, sans-serif;
       }}
       .invoice-edit-input[type="date"] {{
         min-width: 0;
@@ -3106,8 +3130,9 @@ def build_invoice_html(record, asset_mode="web"):
         display: none;
       }}
       body.is-editing .payment-card {{
-        grid-template-columns: 1.2fr repeat(3, minmax(0, 0.9fr)) minmax(160px, 0.95fr);
+        grid-template-columns: minmax(210px, 1.25fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(160px, 0.9fr) minmax(190px, 1fr);
         align-items: end;
+        gap: 20px;
       }}
       body.is-editing .payment-main {{
         grid-column: auto;
@@ -3122,70 +3147,86 @@ def build_invoice_html(record, asset_mode="web"):
         text-align: right;
       }}
       .bank-section {{
-        margin-top: 16px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid #eceef5;
+        margin-top: 0;
+        padding-bottom: 54px;
+        border-bottom: 1px solid #d9e0ea;
       }}
       .bank-grid {{
+        display: grid;
+        gap: 8px;
+        font-size: 22px;
+        line-height: 1.35;
+        color: #27272a;
+      }}
+      .bank-line {{
         display: flex;
-        gap: 10px;
         flex-wrap: wrap;
+        gap: 28px;
         align-items: baseline;
-        font-size: 13px;
-        color: #2d344c;
+      }}
+      .bank-prefix {{
+        color: #64748b;
+      }}
+      .bank-account-number {{
+        font-weight: 800;
       }}
       .signature-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 24px;
-        margin-top: 18px;
-        align-items: end;
+        gap: 58px;
+        margin-top: 48px;
+        align-items: start;
       }}
       .signature-card {{
         position: relative;
-        min-height: 154px;
-        padding-top: 10px;
+        min-height: 232px;
+        padding-top: 0;
       }}
       .signature-label {{
         position: relative;
         z-index: 3;
-        min-height: 18px;
-        margin-bottom: 76px;
-        color: #8d95aa;
-        font-size: 12px;
+        min-height: 30px;
+        margin-bottom: 128px;
+        color: #64748b;
+        font-size: 22px;
+        font-weight: 600;
         background: #fff;
       }}
       .signature-line {{
-        border-bottom: 1px dashed #ccd3e5;
+        border-bottom: 2px dashed #d5ddec;
       }}
       .accountant-stamp {{
         position: absolute;
-        left: 4px;
-        bottom: 46px;
-        width: 148px;
+        left: 26px;
+        bottom: 48px;
+        width: 272px;
         z-index: 1;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 100px;
-        bottom: 64px;
-        width: 132px;
+        left: 236px;
+        bottom: 42px;
+        width: 188px;
         z-index: 2;
       }}
       .signature-name {{
-        margin-top: 10px;
-        font-size: 13px;
+        margin-top: 20px;
+        font-size: 22px;
         font-weight: 700;
-        color: #2c3247;
+        color: #27272a;
       }}
       .signature-role {{
-        color: #2c3247;
-        font-size: 13px;
+        color: #27272a;
+        font-size: 22px;
       }}
       @media print {{
         .toolbar, .save-notice {{
           display: none;
+        }}
+        body {{
+          background: #fff;
+          font-size: 13px;
         }}
         .page {{
           width: auto;
@@ -3193,23 +3234,130 @@ def build_invoice_html(record, asset_mode="web"):
           border: none;
           border-radius: 0;
           box-shadow: none;
+          padding: 0;
+        }}
+        .invoice-number {{
+          font-size: 20px;
+        }}
+        .company-block p,
+        .customer-block p,
+        .meta-note,
+        .section-title,
+        th,
+        td,
+        .payment-main,
+        .payment-amount,
+        .meta-value,
+        .meta-label,
+        .bank-grid,
+        .signature-label,
+        .signature-name,
+        .signature-role {{
+          font-size: 13px;
+        }}
+        .company-name {{
+          font-size: 14px;
+        }}
+        .invoice-logo {{
+          width: 154px;
+        }}
+        .payment-status {{
+          min-width: 82px;
+          min-height: 30px;
+          padding: 5px 11px;
+          font-size: 12px;
+        }}
+        .payment-card {{
+          min-height: 78px;
+          padding: 16px 18px;
+          gap: 12px;
+        }}
+        .signature-card {{
+          min-height: 154px;
+        }}
+        .signature-label {{
+          margin-bottom: 76px;
+        }}
+        .accountant-stamp {{
+          left: 4px;
+          bottom: 46px;
+          width: 148px;
+        }}
+        .accountant-signature {{
+          left: 100px;
+          bottom: 64px;
+          width: 132px;
         }}
       }}
-      @media (max-width: 820px) {{
+      @media (max-width: 980px) {{
+        body {{
+          font-size: 16px;
+        }}
+        .toolbar {{
+          gap: 10px;
+          padding: 14px 10px;
+          flex-wrap: wrap;
+        }}
+        .toolbar a,
+        .toolbar-button {{
+          min-width: 82px;
+          min-height: 46px;
+          padding: 10px 16px;
+          font-size: 16px;
+        }}
+        .page {{
+          width: calc(100vw - 24px);
+          margin: 12px auto 24px;
+          padding: 22px;
+        }}
         .header-grid,
         .signature-grid {{
           grid-template-columns: 1fr;
         }}
+        .invoice-number {{
+          font-size: 24px;
+        }}
+        .invoice-logo {{
+          width: 220px;
+        }}
         .customer-block {{
           padding-top: 0;
         }}
+        .company-block p,
+        .customer-block p,
+        .meta-note,
+        .section-title,
+        th,
+        td,
+        .payment-main,
+        .payment-amount,
+        .meta-value,
+        .meta-label,
+        .bank-grid,
+        .signature-label,
+        .signature-name,
+        .signature-role {{
+          font-size: 16px;
+        }}
+        .meta-note {{
+          text-align: left;
+        }}
+        .invoice-items-table {{
+          display: block;
+          overflow-x: auto;
+        }}
         .payment-card {{
           grid-template-columns: 1fr;
+          min-height: auto;
+          padding: 18px;
         }}
         body.is-editing .payment-card {{
           grid-template-columns: 1fr;
         }}
         .payment-amount {{
+          text-align: left;
+        }}
+        body.is-editing .payment-amount {{
           text-align: left;
         }}
       }}
@@ -3239,7 +3387,7 @@ def build_invoice_html(record, asset_mode="web"):
         </div>
       </div>
       <p class="section-title">Үнийн мэдээлэл</p>
-      <table>
+      <table class="invoice-items-table">
         <thead>
           <tr>
             <th>№</th>
@@ -3265,10 +3413,12 @@ def build_invoice_html(record, asset_mode="web"):
         <p class="section-title">Дансны мэдээлэл</p>
         <select class="bank-account-select" data-bank-account-select>{bank_options_markup}</select>
         <div class="bank-grid bank-view">
-          <span>Дэлхий Трэвел Икс</span>
-          <span data-bank-name>{html.escape(bank_account['bankName'])}</span>
-          <span data-bank-prefix>{html.escape(bank_account['prefix'])}</span>
-          <strong data-bank-number>{html.escape(bank_account['accountNumber'])}</strong>
+          <div>Дэлхий Трэвел Икс</div>
+          <div class="bank-line">
+            <span data-bank-name>{html.escape(bank_account['bankName'])}</span>
+            <span class="bank-prefix" data-bank-prefix>{html.escape(bank_account['prefix'])}</span>
+            <strong class="bank-account-number" data-bank-number>{html.escape(bank_account['accountNumber'])}</strong>
+          </div>
         </div>
       </div>
       <div class="signature-grid">
