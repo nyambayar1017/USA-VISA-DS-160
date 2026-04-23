@@ -581,6 +581,12 @@ const initContractForm = () => {
     return Number(value).toLocaleString("en-US");
   };
 
+  const allowedDepositPercentages = ["10", "20", "30", "40", "50"];
+
+  const setBalanceAmount = (amount) => {
+    if (balanceAmountDisplayInput) balanceAmountDisplayInput.value = formatMoney(Math.max(amount, 0));
+  };
+
   const updateTotalPrice = () => {
     if (!totalPriceInput) return;
     const adultCount = normalizeNumber(countInputs.adult?.value);
@@ -606,20 +612,36 @@ const initContractForm = () => {
       customCount * customPrice;
 
     totalPriceInput.value = formatMoney(total);
+
     let depositAmount = normalizeNumber(depositAmountInput?.value || 0);
+    const percentageMode = depositPercentageInput?.value || "manual";
+    if (
+      depositPercentageInput &&
+      percentageMode !== "manual" &&
+      document.activeElement !== depositAmountInput
+    ) {
+      depositAmount = Math.round((total * normalizeNumber(percentageMode)) / 100);
+      if (depositAmountInput) depositAmountInput.value = String(depositAmount);
+    }
     if (depositAmount > total) {
       depositAmount = total;
       if (depositAmountInput) depositAmountInput.value = String(total);
     }
     const balanceAmount = Math.max(total - depositAmount, 0);
-    if (balanceAmountDisplayInput) balanceAmountDisplayInput.value = formatMoney(balanceAmount);
+    setBalanceAmount(balanceAmount);
     if (depositPercentageInput) {
-      if (total <= 0 || depositAmount <= 0) {
+      if (document.activeElement === depositAmountInput) {
+        if (total <= 0 || depositAmount <= 0) {
+          depositPercentageInput.value = "manual";
+        } else {
+          const ratio = Math.round((depositAmount / total) * 100);
+          depositPercentageInput.value = allowedDepositPercentages.includes(String(ratio)) ? String(ratio) : "manual";
+        }
+      } else if (total <= 0 || depositAmount <= 0) {
         depositPercentageInput.value = "manual";
-      } else {
+      } else if (percentageMode === "manual") {
         const ratio = Math.round((depositAmount / total) * 100);
-        const allowed = ["10", "20", "30", "40", "50"];
-        depositPercentageInput.value = allowed.includes(String(ratio)) ? String(ratio) : "manual";
+        depositPercentageInput.value = allowedDepositPercentages.includes(String(ratio)) ? String(ratio) : "manual";
       }
     }
   };
@@ -634,6 +656,7 @@ const initContractForm = () => {
     const percentage = normalizeNumber(depositPercentageInput.value);
     const depositAmount = Math.round((total * percentage) / 100);
     depositAmountInput.value = String(depositAmount);
+    setBalanceAmount(total - depositAmount);
     updateTotalPrice();
   };
 
@@ -744,8 +767,7 @@ const initContractForm = () => {
       const total = normalizeNumber(data.totalPrice || 0);
       const deposit = normalizeNumber(data.depositAmount || 0);
       const ratio = total > 0 ? Math.round((deposit / total) * 100) : 0;
-      const allowed = ["10", "20", "30", "40", "50"];
-      depositPercentageInput.value = allowed.includes(String(ratio)) ? String(ratio) : "manual";
+      depositPercentageInput.value = allowedDepositPercentages.includes(String(ratio)) ? String(ratio) : "manual";
     }
     if (balanceDuePresetInput && data.tripStartDate && data.balanceDueDate) {
       const startDate = parseDate(data.tripStartDate);

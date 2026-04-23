@@ -1570,7 +1570,7 @@ def replace_template_paragraphs(root, data):
         "Энэхүү гэрээгээр аялагчийн төлбөр нь 3 том хүний 3,990,000 төгрөг, 1 хүүхдийн 3,390,000  төгрөг, 1 хүний онгоц ороогүй дүн 2,590,000 төгрөг,  нийт 5 аялагчийн аяллын төлбөр 17,450,000 төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.":
             data["paymentParagraph"],
         "Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1.Аяллын урьдчилгаа төлбөр болох 8,725,000 төгрөгийг 2026 оны 03-р сарын":
-            f" Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1. Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_due_date_ordinal(data['depositDueDate'])} дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай дансанд хийснээр аялал баталгаажна.",
+            f"Аяллын төлбөр дараах байдлаар хийгдэнэ.\n5.3.1. Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_due_date_ordinal(data['depositDueDate'])} дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN030034343277779999 дугаартай дансанд хийснээр аялал баталгаажна.",
         "13 -ий дотор “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны":
             "",
         "MN030034343277779999 дугаартай дансанд хийснээр аялал баталгаажна.":
@@ -1697,6 +1697,34 @@ def extract_contract_blocks(data):
                 subsection_index = 0
                 blocks.append({"type": "heading", "text": numbered_heading})
             elif current_section is not None:
+                split_lines = [line.strip() for line in re.split(r"\n+", text) if line.strip()]
+                explicit_subsections = [
+                    line for line in split_lines[1:]
+                    if re.match(rf"^{re.escape(current_section)}\.\d+\.\s*", line)
+                ]
+                if split_lines and explicit_subsections:
+                    subsection_index += 1
+                    blocks.append(
+                        {
+                            "type": "numbered-paragraph",
+                            "number": f"{current_section}.{subsection_index}.",
+                            "text": split_lines[0],
+                        }
+                    )
+                    for line in split_lines[1:]:
+                        match = re.match(rf"^{re.escape(current_section)}\.(\d+)\.\s*(.*)$", line)
+                        if match:
+                            subsection_index = max(subsection_index, int(match.group(1)))
+                            blocks.append(
+                                {
+                                    "type": "numbered-paragraph",
+                                    "number": f"{current_section}.{match.group(1)}.",
+                                    "text": match.group(2).strip(),
+                                }
+                            )
+                        else:
+                            blocks.append({"type": "paragraph", "text": line})
+                    continue
                 subsection_index += 1
                 blocks.append(
                     {
@@ -2467,6 +2495,17 @@ def normalize_invoice_bank_account(value, fallback="state"):
     return fallback
 
 
+def format_invoice_input_date(value):
+    normalized = normalize_text(value).replace(".", "-")
+    parsed = parse_date_safe(normalized)
+    if parsed:
+        return parsed.isoformat()
+    match = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", normalized)
+    if match:
+        return normalized
+    return ""
+
+
 def build_invoice_payment_rows(record):
     data = record.get("data") or {}
     created_at = record.get("createdAt")
@@ -2753,13 +2792,13 @@ def build_invoice_html(record, asset_mode="web"):
             <div class="payment-meta">
               <span class="meta-label">Нэхэмжилсэн огноо</span>
               <span class="meta-value invoice-view-text" data-view-field="created">{html.escape(row['created'])}</span>
-              <input class="invoice-edit-input" data-payment-field="created" type="date" value="{html.escape(normalize_text(row['created']))}" />
+              <input class="invoice-edit-input" data-payment-field="created" type="date" value="{html.escape(format_invoice_input_date(row['created']))}" />
             </div>
             <div class="payment-meta">
               <span class="meta-label invoice-view-text" data-view-field="secondary-label">{html.escape(row['secondaryLabel'])}</span>
               <input class="invoice-edit-input" data-payment-field="secondaryLabel" value="{html.escape(row['secondaryLabel'])}" />
               <span class="meta-value invoice-view-text" data-view-field="secondary-value">{html.escape(row['secondaryValue'])}</span>
-              <input class="invoice-edit-input" data-payment-field="secondaryValue" type="date" value="{html.escape(normalize_text(row['secondaryValue']))}" />
+              <input class="invoice-edit-input" data-payment-field="secondaryValue" type="date" value="{html.escape(format_invoice_input_date(row['secondaryValue']))}" />
             </div>
             <div class="payment-meta">
               <span class="meta-label">Төлөв</span>
@@ -2934,7 +2973,7 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .payment-card {{
         display: grid;
-        grid-template-columns: 1.3fr repeat(3, minmax(110px, 0.8fr)) auto;
+        grid-template-columns: 1.2fr repeat(3, minmax(0, 0.9fr)) minmax(140px, 0.9fr);
         gap: 12px;
         align-items: center;
         padding: 13px 14px;
@@ -3000,6 +3039,9 @@ def build_invoice_html(record, asset_mode="web"):
         color: #2b3148;
         font: 500 13px/1.2 Inter, system-ui, sans-serif;
       }}
+      .invoice-edit-input[type="date"] {{
+        min-width: 0;
+      }}
       body.is-editing .invoice-edit-input,
       body.is-editing .payment-status-select,
       body.is-editing .bank-account-select {{
@@ -3009,6 +3051,20 @@ def build_invoice_html(record, asset_mode="web"):
       body.is-editing .payment-status-view,
       body.is-editing .bank-view {{
         display: none;
+      }}
+      body.is-editing .payment-card {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+      }}
+      body.is-editing .payment-main {{
+        grid-column: 1 / -1;
+      }}
+      body.is-editing .payment-meta,
+      body.is-editing .payment-amount {{
+        min-width: 0;
+      }}
+      body.is-editing .payment-amount {{
+        text-align: left;
       }}
       .bank-section {{
         margin-top: 16px;
@@ -3036,10 +3092,13 @@ def build_invoice_html(record, asset_mode="web"):
         padding-top: 10px;
       }}
       .signature-label {{
+        position: relative;
+        z-index: 3;
         min-height: 18px;
         margin-bottom: 58px;
         color: #8d95aa;
         font-size: 12px;
+        background: #fff;
       }}
       .signature-line {{
         border-bottom: 1px dashed #ccd3e5;
@@ -3047,17 +3106,17 @@ def build_invoice_html(record, asset_mode="web"):
       .accountant-stamp {{
         position: absolute;
         left: 8px;
-        bottom: 34px;
-        width: 150px;
-        z-index: 2;
+        bottom: 28px;
+        width: 138px;
+        z-index: 1;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 110px;
-        bottom: 28px;
-        width: 118px;
-        z-index: 1;
+        left: 102px;
+        bottom: 38px;
+        width: 108px;
+        z-index: 2;
       }}
       .signature-name {{
         margin-top: 10px;
@@ -3090,6 +3149,9 @@ def build_invoice_html(record, asset_mode="web"):
           padding-top: 0;
         }}
         .payment-card {{
+          grid-template-columns: 1fr;
+        }}
+        body.is-editing .payment-card {{
           grid-template-columns: 1fr;
         }}
         .payment-amount {{
@@ -3156,7 +3218,7 @@ def build_invoice_html(record, asset_mode="web"):
       </div>
       <div class="signature-grid">
         <div class="signature-card">
-          <div class="signature-label">&nbsp;</div>
+          <div class="signature-label">Дэлхий Трэвел Икс ХХК</div>
           <div class="signature-line"></div>
           <img class="accountant-stamp" src="{asset_src('invoice-finance-stamp.png')}" alt="Finance stamp" />
           <img class="accountant-signature" src="{asset_src('invoice-finance-signature.png')}" alt="Accountant signature" />
