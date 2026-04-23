@@ -3219,8 +3219,8 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .accountant-signature {{
         position: absolute;
-        left: 96px;
-        bottom: 34px;
+        left: 150px;
+        bottom: 22px;
         width: 290px;
         z-index: 2;
       }}
