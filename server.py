@@ -3711,7 +3711,9 @@ def build_camp_bundle_document_html(records, pdf_href):
     first = records[0]
     reservation_title = camp_reservation_title(first)
     manager_name = first.get("staffAssignment") or STEPPE_MANAGER
-    unit_label = "Өрөөний тоо" if all(normalize_text(record.get("reservationType")).lower() == "hotel" for record in records) else "Гэрийн тоо"
+    is_hotel_bundle = all(normalize_text(record.get("reservationType")).lower() == "hotel" for record in records)
+    place_label = "Hotel" if is_hotel_bundle else "Camp"
+    unit_label = "Rooms" if is_hotel_bundle else "Gers"
     row_markup = "".join(
         f"""
           <tr>
@@ -3844,12 +3846,6 @@ def build_camp_bundle_document_html(records, pdf_href):
       .status-box p {{
         margin: 0 0 8px;
       }}
-      .signature-line {{
-        margin-top: 18px;
-        padding-top: 14px;
-        border-top: 1px solid #1f2937;
-        font-weight: 700;
-      }}
     </style>
   </head>
   <body>
@@ -3892,7 +3888,7 @@ def build_camp_bundle_document_html(records, pdf_href):
             <th>Явах өдөр</th>
             <th>Хоногийн тоо</th>
             <th>{unit_label}</th>
-            <th>Өрөөний төрөл</th>
+            <th>Room type</th>
             <th>Хоол</th>
           </tr>
         </thead>
@@ -3904,7 +3900,6 @@ def build_camp_bundle_document_html(records, pdf_href):
           <p><strong>Захиалгын менежер:</strong> {html.escape(manager_name)}</p>
           <p><strong>Харилцах утас:</strong> {html.escape(STEPPE_CONTACT_PHONES)}</p>
           <p><strong>Цахим шуудан:</strong> {html.escape(STEPPE_EMAIL)}</p>
-          <p class="signature-line">Гарын үсэг: __________________________</p>
         </div>
       </div>
     </div>
@@ -4084,7 +4079,9 @@ def save_camp_reservations_bundle(records):
 
         reservation_title = camp_reservation_title(first)
         manager_name = first.get("staffAssignment") or STEPPE_MANAGER
-        unit_label = "Rooms" if all(normalize_text(record.get("reservationType")).lower() == "hotel" for record in records) else "Gers"
+        is_hotel_bundle = all(normalize_text(record.get("reservationType")).lower() == "hotel" for record in records)
+        place_label = "Hotel" if is_hotel_bundle else "Camp"
+        unit_label = "Rooms" if is_hotel_bundle else "Gers"
 
         styles = {
             "brand": ParagraphStyle(
@@ -4158,7 +4155,7 @@ def save_camp_reservations_bundle(records):
 
         summary = Table(
             [[
-                p(f"Camp: {first['campName']}", "summary"),
+                p(f"{place_label}: {first['campName']}", "summary"),
                 p(f"Location: {first.get('locationName') or '-'}", "summary"),
                 p(f"Reservations: {len(records)}", "summary"),
                 p(f"Manager: {manager_name}", "summary"),
@@ -4186,7 +4183,7 @@ def save_camp_reservations_bundle(records):
             p("Check-out", "th"),
             p("Nights", "th"),
             p(unit_label, "th"),
-            p("Room", "th"),
+            p("Room type", "th"),
             p("Meals", "th"),
         ]]
         for index, record in enumerate(records, start=1):
@@ -4234,26 +4231,11 @@ def save_camp_reservations_bundle(records):
         story.append(table)
         story.extend([
             Spacer(1, 10),
-            Table(
-                [[
-                    Paragraph(
-                        f"<b>Захиалгын менежер:</b> {html.escape(manager_name)}<br/>"
-                        f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)}<br/>"
-                        f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
-                        styles["footer"],
-                    ),
-                    Paragraph("<b>Гарын үсэг:</b><br/><br/>__________________________", styles["footer"]),
-                ]],
-                colWidths=[usable_width * 0.58, usable_width * 0.42],
-                style=TableStyle([
-                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f8fb")),
-                    ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#d7e0ec")),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                ]),
+            Paragraph(
+                f"<b>Захиалгын менежер:</b> {html.escape(manager_name)} &nbsp;&nbsp; "
+                f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)} &nbsp;&nbsp; "
+                f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
+                styles["footer"],
             ),
         ])
 

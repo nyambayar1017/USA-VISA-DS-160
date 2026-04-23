@@ -458,6 +458,14 @@ function getReservationUnitLabel(reservationType = "") {
   return reservationType === "hotel" ? "Number of Rooms" : "Number of Gers";
 }
 
+function getReservationCampLabel(reservationType = "") {
+  return reservationType === "hotel" ? "Hotel" : "Camp";
+}
+
+function getReservationRoomChoiceLabel(reservationType = "") {
+  return reservationType === "hotel" ? "Room type" : "Ger / Room choice";
+}
+
 function updateReservationUnitLabels(formNode) {
   if (!formNode) {
     return;
@@ -465,6 +473,12 @@ function updateReservationUnitLabels(formNode) {
   const reservationType = formNode.elements?.reservationType?.value || "";
   formNode.querySelectorAll('[data-role="ger-count-label"]').forEach((node) => {
     node.textContent = getReservationUnitLabel(reservationType);
+  });
+  formNode.querySelectorAll('[data-role="camp-name-label"]').forEach((node) => {
+    node.textContent = getReservationCampLabel(reservationType);
+  });
+  formNode.querySelectorAll('[data-role="room-choice-label"]').forEach((node) => {
+    node.textContent = getReservationRoomChoiceLabel(reservationType);
   });
 }
 
@@ -1393,7 +1407,7 @@ function renderReservationEditPanel(reservation, options = {}) {
             <input name="createdDate" type="date" value="${escapeHtml(reservationData.createdDate || "")}" />
           </label>
           <label>
-            Camp
+            <span data-role="camp-name-label">Camp</span>
             <select name="campName" required>
               ${renderCampSelectOptions(reservationData.campName)}
             </select>
@@ -1444,7 +1458,7 @@ function renderReservationEditPanel(reservation, options = {}) {
             <input name="gerCount" type="number" min="1" value="${Number(reservationData.gerCount || 1)}" required />
           </label>
           <label>
-            Ger / Room choice
+            <span data-role="room-choice-label">Ger / Room choice</span>
             <select name="roomType" required>
               ${renderGenericSelectOptions(campSettings.roomChoices, "Choose room type", reservationData.roomType || "")}
             </select>
