@@ -3759,6 +3759,91 @@ body.modal-open {
   min-height: 44px;
 }
 
+.workspace-form-modal .camp-modal-backdrop {
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(3px);
+}
+
+.workspace-form-modal-dialog {
+  width: min(860px, calc(100vw - 40px));
+  max-height: min(88vh, calc(100vh - 32px));
+  padding: 0;
+  border-radius: 18px;
+  border: 1px solid rgba(22, 35, 74, 0.12);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.28);
+  background: #ffffff;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.workspace-form-modal-dialog-wide {
+  width: min(1120px, calc(100vw - 40px));
+  max-height: min(90vh, calc(100vh - 32px));
+}
+
+.workspace-form-modal .camp-modal-header {
+  margin-bottom: 0;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(32, 53, 111, 0.08);
+}
+
+.workspace-form-modal .camp-modal-copy {
+  margin: 0;
+  color: #7a88a5;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.workspace-form-modal .camp-modal-header h2 {
+  margin: 0 0 4px;
+  color: #1f3168;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.workspace-form-modal .camp-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(32, 53, 111, 0.04);
+}
+
+.workspace-form-modal .camp-modal-close:hover {
+  background: rgba(32, 53, 111, 0.12);
+}
+
+.workspace-form-modal form,
+.workspace-form-modal #contract-count-setup {
+  padding: 16px 18px 18px;
+}
+
+.workspace-form-modal .actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 0;
+  padding: 14px 18px 18px;
+  border-top: 1px solid rgba(32, 53, 111, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), #fff 42%);
+}
+
+.workspace-form-modal label {
+  gap: 6px;
+  font-size: 0.86rem;
+}
+
+.workspace-form-modal input,
+.workspace-form-modal select,
+.workspace-form-modal textarea {
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 0.92rem;
+}
+
+.workspace-form-modal textarea {
+  min-height: 44px;
+}
+
 .fifa-collapsible-panel[data-open="false"] {
   display: none;
 }
