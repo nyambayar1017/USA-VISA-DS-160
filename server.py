@@ -1398,10 +1398,10 @@ def build_contract_data(payload):
         else f"Энэхүү гэрээгээр аялагчийн төлбөр нь нийт {data['travelerCount']} хүний {data['totalPrice']} төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно."
     )
     data["depositParagraph"] = (
-        f"Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1.Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_balance_due_date(data['depositDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN03 0034 3432 7777 9999 дансанд хийснээр аялал баталгаажна."
+        f"Аяллын төлбөр дараах байдлаар хийгдэнэ.\n5.3.1. Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_balance_due_date(data['depositDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN03 0034 3432 7777 9999 дансанд хийснээр аялал баталгаажна."
     )
     data["balanceParagraph"] = (
-        f"5.3.2 Аяллын үлдэгдэл төлбөр болох {data['balanceAmount']} төгрөгийг {format_balance_due_date(data['balanceDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN03 0034 3432 7777 9999 дансанд хийнэ."
+        f"5.3.2. Аяллын үлдэгдэл төлбөр болох {data['balanceAmount']} төгрөгийг {format_balance_due_date(data['balanceDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN03 0034 3432 7777 9999 дансанд хийнэ."
     )
     return data
 
@@ -6064,9 +6064,6 @@ def handle_contract_invoice_document(environ, start_response, contract_id):
             break
     if not contract:
         return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
-    if contract.get("status") != "signed":
-        return json_response(start_response, "409 Conflict", {"error": "Invoice is available only for signed contracts"})
-
     if mode == "download":
         try:
             invoice_path = save_invoice_pdf(contract)

@@ -451,7 +451,6 @@ const initContractForm = () => {
   const durationInput = form.querySelector("input[name='tripDuration']");
   const travelerInput = form.querySelector("input[name='travelerCount']");
   const totalPriceInput = form.querySelector("input[name='totalPrice']");
-  const depositPercentInput = form.querySelector("select[name='depositPercent']");
   const depositAmountInput = form.querySelector("input[name='depositAmount']");
   const balanceAmountDisplayInput = form.querySelector("input[name='balanceAmountDisplay']");
   const depositDueDateInput = form.querySelector("input[name='depositDueDate']");
@@ -606,10 +605,12 @@ const initContractForm = () => {
       customCount * customPrice;
 
     totalPriceInput.value = formatMoney(total);
-    const depositPercent = normalizeNumber(depositPercentInput?.value || 0);
-    const depositAmount = Math.round((total * depositPercent) / 100);
+    let depositAmount = normalizeNumber(depositAmountInput?.value || 0);
+    if (depositAmount > total) {
+      depositAmount = total;
+      if (depositAmountInput) depositAmountInput.value = String(total);
+    }
     const balanceAmount = Math.max(total - depositAmount, 0);
-    if (depositAmountInput) depositAmountInput.value = formatMoney(depositAmount);
     if (balanceAmountDisplayInput) balanceAmountDisplayInput.value = formatMoney(balanceAmount);
   };
 
@@ -650,7 +651,7 @@ const initContractForm = () => {
   });
   tripEndInput?.addEventListener("change", updateDuration);
   contractDateInput?.addEventListener("change", updateDepositDueDate);
-  depositPercentInput?.addEventListener("change", updateTotalPrice);
+  depositAmountInput?.addEventListener("input", updateTotalPrice);
   balanceDuePresetInput?.addEventListener("change", updateBalanceDueDate);
   visibleCountInputs.forEach((input) =>
     input.addEventListener("input", () => {
@@ -714,13 +715,7 @@ const initContractForm = () => {
     if (setupCounts.custom) setupCounts.custom.value = data.customCount || 0;
     form.elements.managerSignaturePath.value = data.managerSignaturePath || "";
     form.elements.managerSelect.value = getCreatorName(contract) || "";
-    if (depositPercentInput) {
-      const totalRaw = normalizeNumber(data.totalPrice || 0);
-      const depositRaw = normalizeNumber(data.depositAmount || 0);
-      const derivedPercent = totalRaw > 0 ? Math.round((depositRaw / totalRaw) * 100) : 30;
-      const allowed = ["10", "20", "30", "40", "50", "100"];
-      depositPercentInput.value = allowed.includes(String(derivedPercent)) ? String(derivedPercent) : "30";
-    }
+    if (depositAmountInput) depositAmountInput.value = String(normalizeNumber(data.depositAmount || 0));
     if (balanceDuePresetInput && data.tripStartDate && data.balanceDueDate) {
       const startDate = parseDate(data.tripStartDate);
       const balanceDate = parseDate(data.balanceDueDate);
