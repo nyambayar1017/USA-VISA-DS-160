@@ -3518,7 +3518,7 @@ def camp_reservation_meals_mn(record):
         [
             meal
             for meal in [
-                record.get("breakfast") == "Yes" and "Өглөөний хоол",
+                record.get("breakfast") == "Yes" and "Өглөөний цай",
                 record.get("lunch") == "Yes" and "Өдрийн хоол",
                 record.get("dinner") == "Yes" and "Оройн хоол",
             ]
