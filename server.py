@@ -2881,16 +2881,38 @@ def build_invoice_html(record, asset_mode="web"):
       @font-face {{
         font-family: "InvoiceSans";
         src: url("{asset_src('fonts/invoice-sans-regular.ttf')}") format("truetype");
-        font-weight: 400 600;
+        font-weight: 400;
         font-style: normal;
-        font-display: swap;
+      }}
+      @font-face {{
+        font-family: "InvoiceSans";
+        src: url("{asset_src('fonts/invoice-sans-regular.ttf')}") format("truetype");
+        font-weight: 500;
+        font-style: normal;
       }}
       @font-face {{
         font-family: "InvoiceSans";
         src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
-        font-weight: 700 900;
+        font-weight: 600;
         font-style: normal;
-        font-display: swap;
+      }}
+      @font-face {{
+        font-family: "InvoiceSans";
+        src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+      }}
+      @font-face {{
+        font-family: "InvoiceSans";
+        src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
+        font-weight: 800;
+        font-style: normal;
+      }}
+      @font-face {{
+        font-family: "InvoiceSans";
+        src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
+        font-weight: 900;
+        font-style: normal;
       }}
       @page {{
         size: 768px 1020px;
