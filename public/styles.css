@@ -1554,58 +1554,98 @@ time {
   min-width: 78px;
 }
 
-.transfer-reservation-table th:nth-child(3),
-.transfer-reservation-table td:nth-child(3) {
-  min-width: 140px;
+.transfer-reservation-table {
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
+}
+
+.transfer-reservation-table th,
+.transfer-reservation-table td {
+  padding-inline: 10px;
+}
+
+.transfer-col-index {
+  width: 44px;
+}
+
+.transfer-col-trip {
+  width: 210px;
+}
+
+.transfer-col-type {
+  width: 108px;
+}
+
+.transfer-col-pickup,
+.transfer-col-dropoff {
+  width: 82px;
+}
+
+.transfer-col-date {
+  width: 124px;
+}
+
+.transfer-col-pax {
+  width: 54px;
+}
+
+.transfer-col-driver {
+  width: 150px;
+}
+
+.transfer-col-vehicle {
+  width: 108px;
+}
+
+.transfer-col-salary {
+  width: 132px;
+}
+
+.transfer-col-payment {
+  width: 100px;
+}
+
+.transfer-col-notes {
+  width: 150px;
+}
+
+.transfer-col-actions {
+  width: 70px;
 }
 
 .transfer-reservation-table th:nth-child(4),
 .transfer-reservation-table td:nth-child(4),
 .transfer-reservation-table th:nth-child(5),
-.transfer-reservation-table td:nth-child(5) {
-  min-width: 90px;
+.transfer-reservation-table td:nth-child(5),
+.transfer-reservation-table th:nth-child(7),
+.transfer-reservation-table td:nth-child(7),
+.transfer-reservation-table th:nth-child(13),
+.transfer-reservation-table td:nth-child(13) {
+  text-align: center;
 }
 
 .transfer-reservation-table th:nth-child(6),
-.transfer-reservation-table td:nth-child(6) {
-  min-width: 120px;
+.transfer-reservation-table td:nth-child(6),
+.transfer-reservation-table th:nth-child(10),
+.transfer-reservation-table td:nth-child(10),
+.transfer-reservation-table th:nth-child(11),
+.transfer-reservation-table td:nth-child(11) {
   white-space: nowrap;
-}
-
-.transfer-reservation-table th:nth-child(7),
-.transfer-reservation-table td:nth-child(7),
-.transfer-reservation-table th:nth-child(8),
-.transfer-reservation-table td:nth-child(8) {
-  min-width: 80px;
-}
-
-.transfer-reservation-table th:nth-child(9),
-.transfer-reservation-table td:nth-child(9) {
-  min-width: 90px;
 }
 
 .transfer-reservation-table th:nth-child(10),
 .transfer-reservation-table td:nth-child(10) {
-  min-width: 110px;
   text-align: right;
-  white-space: nowrap;
 }
 
-.transfer-reservation-table th:nth-child(11),
-.transfer-reservation-table td:nth-child(11) {
-  min-width: 96px;
-  text-align: center;
-  white-space: nowrap;
-}
-
+.transfer-reservation-table th:nth-child(8),
+.transfer-reservation-table td:nth-child(8),
 .transfer-reservation-table th:nth-child(12),
 .transfer-reservation-table td:nth-child(12) {
-  min-width: 110px;
-}
-
-.transfer-reservation-table th:nth-child(13),
-.transfer-reservation-table td:nth-child(13) {
-  min-width: 120px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .reservation-addon-table .status-pill {

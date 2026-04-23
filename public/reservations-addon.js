@@ -394,6 +394,21 @@
     transferList.innerHTML = `
       <div class="camp-table-wrap">
         <table class="camp-table reservation-addon-table transfer-reservation-table">
+          <colgroup>
+            <col class="transfer-col-index" />
+            <col class="transfer-col-trip" />
+            <col class="transfer-col-type" />
+            <col class="transfer-col-pickup" />
+            <col class="transfer-col-dropoff" />
+            <col class="transfer-col-date" />
+            <col class="transfer-col-pax" />
+            <col class="transfer-col-driver" />
+            <col class="transfer-col-vehicle" />
+            <col class="transfer-col-salary" />
+            <col class="transfer-col-payment" />
+            <col class="transfer-col-notes" />
+            <col class="transfer-col-actions" />
+          </colgroup>
           <thead>
             <tr>
               <th>#</th>
