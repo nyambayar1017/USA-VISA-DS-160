@@ -3716,7 +3716,6 @@ def build_camp_bundle_document_html(records, pdf_href):
         f"""
           <tr>
             <td>{index + 1}</td>
-            <td>{html.escape(record.get('tripName') or '-')}</td>
             <td>{html.escape(record.get('reservationName') or record['tripName'])}</td>
             <td>{record['clientCount']}</td>
             <td>{record['staffCount']}</td>
@@ -3845,6 +3844,12 @@ def build_camp_bundle_document_html(records, pdf_href):
       .status-box p {{
         margin: 0 0 8px;
       }}
+      .signature-line {{
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid #1f2937;
+        font-weight: 700;
+      }}
     </style>
   </head>
   <body>
@@ -3880,7 +3885,6 @@ def build_camp_bundle_document_html(records, pdf_href):
         <thead>
           <tr>
             <th>#</th>
-            <th>Аяллын нэр</th>
             <th>Захиалга</th>
             <th>Жуулчны тоо</th>
             <th>Ажилчдын тоо</th>
@@ -3900,6 +3904,7 @@ def build_camp_bundle_document_html(records, pdf_href):
           <p><strong>Захиалгын менежер:</strong> {html.escape(manager_name)}</p>
           <p><strong>Харилцах утас:</strong> {html.escape(STEPPE_CONTACT_PHONES)}</p>
           <p><strong>Цахим шуудан:</strong> {html.escape(STEPPE_EMAIL)}</p>
+          <p class="signature-line">Гарын үсэг: __________________________</p>
         </div>
       </div>
     </div>
@@ -4174,7 +4179,6 @@ def save_camp_reservations_bundle(records):
 
         table_rows = [[
             p("#", "th"),
-            p("Trip", "th"),
             p("Reservation", "th"),
             p("Pax", "th"),
             p("Staff", "th"),
@@ -4188,7 +4192,6 @@ def save_camp_reservations_bundle(records):
         for index, record in enumerate(records, start=1):
             table_rows.append([
                 p(index),
-                p(record["tripName"], "td_left"),
                 p(record.get("reservationName") or record["tripName"], "td_left"),
                 p(record["clientCount"]),
                 p(record["staffCount"]),
@@ -4201,17 +4204,16 @@ def save_camp_reservations_bundle(records):
             ])
 
         col_widths = [
-            usable_width * 0.032,
-            usable_width * 0.15,
-            usable_width * 0.125,
-            usable_width * 0.04,
+            usable_width * 0.035,
+            usable_width * 0.18,
             usable_width * 0.045,
-            usable_width * 0.085,
-            usable_width * 0.085,
-            usable_width * 0.045,
-            usable_width * 0.042,
-            usable_width * 0.20,
-            usable_width * 0.151,
+            usable_width * 0.05,
+            usable_width * 0.095,
+            usable_width * 0.095,
+            usable_width * 0.05,
+            usable_width * 0.05,
+            usable_width * 0.22,
+            usable_width * 0.18,
         ]
         table = Table(
             table_rows,
@@ -4232,11 +4234,26 @@ def save_camp_reservations_bundle(records):
         story.append(table)
         story.extend([
             Spacer(1, 10),
-            Paragraph(
-                f"<b>Захиалгын менежер:</b> {html.escape(manager_name)} &nbsp;&nbsp; "
-                f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)} &nbsp;&nbsp; "
-                f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
-                styles["footer"],
+            Table(
+                [[
+                    Paragraph(
+                        f"<b>Захиалгын менежер:</b> {html.escape(manager_name)}<br/>"
+                        f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)}<br/>"
+                        f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
+                        styles["footer"],
+                    ),
+                    Paragraph("<b>Гарын үсэг:</b><br/><br/>__________________________", styles["footer"]),
+                ]],
+                colWidths=[usable_width * 0.58, usable_width * 0.42],
+                style=TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f8fb")),
+                    ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#d7e0ec")),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ]),
             ),
         ])
 
