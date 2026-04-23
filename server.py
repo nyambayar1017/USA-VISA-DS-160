@@ -2869,15 +2869,11 @@ def build_invoice_html(record, asset_mode="web"):
         """
         for row in payment_rows
     )
-
-    return f"""<!DOCTYPE html>
-<html lang="mn">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Нэхэмжлэх</title>
-    <link rel="icon" type="image/png" href="{asset_src('favicon-dtx-x.png')}" />
-    <style>
+    invoice_font_faces = ""
+    invoice_font_stack = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    if asset_mode == "file":
+        invoice_font_stack = '"InvoiceSans", Arial, sans-serif'
+        invoice_font_faces = f"""
       @font-face {{
         font-family: "InvoiceSans";
         src: url("{asset_src('fonts/invoice-sans-regular.ttf')}") format("truetype");
@@ -2913,9 +2909,19 @@ def build_invoice_html(record, asset_mode="web"):
         src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
         font-weight: 900;
         font-style: normal;
-      }}
+      }}"""
+
+    return f"""<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Нэхэмжлэх</title>
+    <link rel="icon" type="image/png" href="{asset_src('favicon-dtx-x.png')}" />
+    <style>
+{invoice_font_faces}
       @page {{
-        size: 768px 1020px;
+        size: 768px 1180px;
         margin: 0;
       }}
       * {{ box-sizing: border-box; }}
@@ -2923,7 +2929,7 @@ def build_invoice_html(record, asset_mode="web"):
         margin: 0;
         background: #ffffff;
         color: #27272a;
-        font-family: "InvoiceSans", Arial, sans-serif;
+        font-family: {invoice_font_stack};
         font-size: 13px;
       }}
       .toolbar {{
@@ -2948,7 +2954,7 @@ def build_invoice_html(record, asset_mode="web"):
         background: #253776;
         color: #fff;
         text-decoration: none;
-        font: 800 16px/1.2 "InvoiceSans", Arial, sans-serif;
+        font: 800 16px/1.2 {invoice_font_stack};
         cursor: pointer;
       }}
       .toolbar-button {{
@@ -2971,7 +2977,7 @@ def build_invoice_html(record, asset_mode="web"):
         border-radius: 10px;
         background: #1f8550;
         color: #fff;
-        font: 600 13px/1.2 "InvoiceSans", Arial, sans-serif;
+        font: 600 13px/1.2 {invoice_font_stack};
         z-index: 20;
       }}
       .page {{
@@ -3150,7 +3156,7 @@ def build_invoice_html(record, asset_mode="web"):
         border-radius: 10px;
         background: #fff;
         color: #1f2937;
-        font: 600 13px/1.2 "InvoiceSans", Arial, sans-serif;
+        font: 600 13px/1.2 {invoice_font_stack};
       }}
       .invoice-edit-input[type="date"] {{
         min-width: 0;
