@@ -2300,10 +2300,12 @@ body.modal-open {
 
 .trip-menu {
   position: relative;
+  display: inline-block;
 }
 
 .trip-menu summary {
   list-style: none;
+  cursor: pointer;
 }
 
 .trip-menu summary::-webkit-details-marker {
@@ -2332,9 +2334,10 @@ body.modal-open {
 .trip-menu-popover {
   position: absolute;
   right: 0;
-  top: calc(100% + 8px);
+  top: auto;
+  bottom: calc(100% + 8px);
   z-index: 120;
-  min-width: 220px;
+  min-width: 180px;
   padding: 10px;
   border: 1px solid rgba(32, 53, 111, 0.12);
   border-radius: 18px;
@@ -2344,7 +2347,7 @@ body.modal-open {
 
 .row-action-menu {
   display: inline-block;
-  width: 100%;
+  width: auto;
 }
 
 .row-action-menu .trip-menu-popover {
@@ -2358,11 +2361,14 @@ body.modal-open {
 
 .row-action-menu[open] .trip-menu-popover,
 .fifa-action-menu[open] .trip-menu-popover,
+.ds160-action-menu[open] .trip-menu-popover,
 .trip-page-menu .trip-menu-popover {
   position: absolute;
   margin-top: 0;
   top: auto;
   bottom: calc(100% + 8px);
+  right: 0;
+  left: auto;
 }
 
 .workspace-main .card,
@@ -2377,6 +2383,7 @@ body.modal-open {
 .trip-menu-item {
   display: block;
   width: 100%;
+  min-height: 38px;
   padding: 12px 14px;
   border: none;
   border-radius: 12px;
@@ -2384,6 +2391,7 @@ body.modal-open {
   color: #1b2540;
   text-align: left;
   font: inherit;
+  font-size: 0.92rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -3140,28 +3148,15 @@ body.modal-open {
 
 .ds160-action-menu {
   display: inline-block;
-  width: min(164px, 100%);
+  width: auto;
 }
 
 .ds160-action-menu .trip-menu-popover {
-  min-width: 156px;
-  padding: 6px;
-  border-radius: 14px;
-  box-shadow: 0 14px 34px rgba(23, 39, 83, 0.14);
-}
-
-.ds160-action-menu[open] .trip-menu-popover {
-  position: static;
-  margin-top: 6px;
-  min-width: 100%;
+  min-width: 180px;
 }
 
 .ds160-action-menu .trip-menu-item {
   text-decoration: none;
-  min-height: 32px;
-  padding: 7px 10px;
-  font-size: 0.77rem;
-  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -4161,27 +4156,24 @@ body.modal-open {
 }
 
 .fifa-action-menu .trip-menu-trigger {
-  width: 42px;
-  height: 42px;
-  font-size: 1.45rem;
+  width: 38px;
+  height: 38px;
+  font-size: 1.3rem;
 }
 
 .fifa-action-menu .trip-menu-popover {
-  min-width: 190px;
-  right: 0;
-  top: calc(100% + 8px);
-  bottom: auto;
+  min-width: 180px;
 }
 
 .fifa-action-menu[open] .trip-menu-popover {
   position: absolute;
   margin-top: 0;
-  top: calc(100% + 8px);
-  bottom: auto;
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 
 .fifa-action-menu .trip-menu-item {
-  font-size: 0.96rem;
+  font-size: 0.92rem;
   font-weight: 500;
   white-space: nowrap;
 }
