@@ -470,10 +470,10 @@ function renderKnockoutBracket() {
             ${column.matches.map((match) => `
               <article class="fifa-knockout-match${column.featured ? " is-featured" : ""}">
                 ${match[3] ? `<p class="fifa-knockout-match__label">${escapeHtml(match[3])}</p>` : ""}
+                ${column.title === "Final" && match[0] === "M104" ? `<p class="fifa-knockout-match__label fifa-knockout-match__label--final">🏆 Final</p>` : ""}
                 <div class="fifa-knockout-match__meta">
                   <strong>${escapeHtml(match[0])}</strong>
                   <span class="fifa-knockout-match__date">${escapeHtml(KNOCKOUT_MATCH_META[match[0]]?.date || "")}</span>
-                  <span class="fifa-knockout-match__time">${escapeHtml(KNOCKOUT_MATCH_META[match[0]]?.time || "")}</span>
                 </div>
                 <span>${escapeHtml(match[1])}</span>
                 <span>${escapeHtml(match[2])}</span>

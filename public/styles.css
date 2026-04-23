@@ -5180,25 +5180,17 @@ body.modal-open {
 
 .fifa-knockout-match__meta {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 6px;
   margin-bottom: 6px;
 }
 
-.fifa-knockout-match__date,
-.fifa-knockout-match__time {
+.fifa-knockout-match__date {
   color: #6e7c97;
   font-size: 0.56rem;
   line-height: 1;
-}
-
-.fifa-knockout-match__date {
   text-align: left;
-}
-
-.fifa-knockout-match__time {
-  text-align: right;
 }
 
 .fifa-knockout-match span {
@@ -5225,6 +5217,10 @@ body.modal-open {
   text-transform: uppercase;
   letter-spacing: 0.02em;
   text-align: center;
+}
+
+.fifa-knockout-match__label--final {
+  margin-bottom: 8px;
 }
 
 .fifa-knockout-round.is-featured .fifa-knockout-round__head {
@@ -5802,15 +5798,7 @@ body.modal-open {
     display: none;
   }
 
-  .fifa-knockout-match__meta {
-    grid-template-columns: auto 1fr;
-  }
-
   .fifa-knockout-match__date {
-    display: none;
-  }
-
-  .fifa-knockout-match__time {
     text-align: left;
   }
 }
