@@ -3517,7 +3517,9 @@ def build_camp_document_html(record, pdf_href):
     meals = camp_reservation_meals(record)
     reservation_title = camp_reservation_title(record)
     manager_name = record.get("staffAssignment") or STEPPE_MANAGER
-    unit_label = "Өрөөний тоо" if is_hotel_reservation(record) else "Гэрийн тоо"
+    is_hotel = is_hotel_reservation(record)
+    unit_label = "Өрөөний тоо" if is_hotel else "Гэрийн тоо"
+    room_type_label = "Өрөөний төрөл" if is_hotel else "Гэрийн төрөл"
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -3634,6 +3636,10 @@ def build_camp_document_html(record, pdf_href):
         margin: 0 0 8px;
       }}
       @media print {{
+        @page {{
+          size: A4 landscape;
+          margin: 0;
+        }}
         body {{
           background: #fff;
         }}
@@ -3641,8 +3647,28 @@ def build_camp_document_html(record, pdf_href):
           display: none;
         }}
         .page {{
-          margin: 0 auto;
+          width: auto;
+          min-height: 100vh;
+          margin: 0;
+          padding: 34px 40px 40px;
           box-shadow: none;
+          box-sizing: border-box;
+        }}
+        .logo {{
+          font-size: 24px;
+        }}
+        .brand-sub {{
+          font-size: 13px;
+        }}
+        .center-title {{
+          margin: 28px 0 22px;
+        }}
+        th, td {{
+          padding: 8px 7px;
+          font-size: 13px;
+        }}
+        .footer {{
+          margin-top: 34px;
         }}
       }}
     </style>
@@ -3688,7 +3714,7 @@ def build_camp_document_html(record, pdf_href):
             <th>Явах өдөр</th>
             <th>Хоногийн тоо</th>
             <th>{unit_label}</th>
-            <th>Өрөөний төрөл</th>
+            <th>{room_type_label}</th>
             <th>Хоол</th>
           </tr>
         </thead>
@@ -3732,8 +3758,21 @@ def build_camp_bundle_document_html(records, pdf_href):
     reservation_title = camp_reservation_title(first)
     manager_name = first.get("staffAssignment") or STEPPE_MANAGER
     is_hotel_bundle = is_hotel_reservation(first)
-    place_label = "Hotel" if is_hotel_bundle else "Camp"
-    unit_label = "Room" if is_hotel_bundle else "Gers"
+    place_label = "Hotel" if is_hotel_bundle else "Бааз"
+    location_label = "Location" if is_hotel_bundle else "Байршил"
+    reservations_label = "Reservations" if is_hotel_bundle else "Захиалга"
+    manager_label = "Manager" if is_hotel_bundle else "Менежер"
+    unit_label = "Room" if is_hotel_bundle else "Гэр"
+    room_type_label = "Room type" if is_hotel_bundle else "Гэрийн төрөл"
+    common_labels = {
+        "reservation": "Reservation" if is_hotel_bundle else "Захиалга",
+        "pax": "Pax" if is_hotel_bundle else "Жуулчин",
+        "staff": "Staff" if is_hotel_bundle else "Ажилчид",
+        "check_in": "Check-in" if is_hotel_bundle else "Ирэх өдөр",
+        "check_out": "Check-out" if is_hotel_bundle else "Явах өдөр",
+        "nights": "Nights" if is_hotel_bundle else "Хоног",
+        "meals": "Meals" if is_hotel_bundle else "Хоол",
+    }
     row_markup = "".join(
         f"""
           <tr>
@@ -3854,7 +3893,7 @@ def build_camp_bundle_document_html(records, pdf_href):
       }}
       .footer {{
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr minmax(360px, 48%);
         gap: 24px;
         margin-top: 54px;
       }}
@@ -3901,15 +3940,15 @@ def build_camp_bundle_document_html(records, pdf_href):
         <thead>
           <tr>
             <th>#</th>
-            <th>Захиалга</th>
-            <th>Жуулчны тоо</th>
-            <th>Ажилчдын тоо</th>
-            <th>Ирэх өдөр</th>
-            <th>Явах өдөр</th>
-            <th>Хоногийн тоо</th>
+            <th>{common_labels["reservation"]}</th>
+            <th>{common_labels["pax"]}</th>
+            <th>{common_labels["staff"]}</th>
+            <th>{common_labels["check_in"]}</th>
+            <th>{common_labels["check_out"]}</th>
+            <th>{common_labels["nights"]}</th>
             <th>{unit_label}</th>
-            <th>Room type</th>
-            <th>Хоол</th>
+            <th>{room_type_label}</th>
+            <th>{common_labels["meals"]}</th>
           </tr>
         </thead>
         <tbody>{row_markup}</tbody>
@@ -4003,8 +4042,21 @@ def save_camp_reservations_bundle(records):
         reservation_title = camp_reservation_title(first)
         manager_name = first.get("staffAssignment") or STEPPE_MANAGER
         is_hotel_bundle = is_hotel_reservation(first)
-        place_label = "Hotel" if is_hotel_bundle else "Camp"
-        unit_label = "Room" if is_hotel_bundle else "Gers"
+        place_label = "Hotel" if is_hotel_bundle else "Бааз"
+        location_label = "Location" if is_hotel_bundle else "Байршил"
+        reservations_label = "Reservations" if is_hotel_bundle else "Захиалга"
+        manager_label = "Manager" if is_hotel_bundle else "Менежер"
+        unit_label = "Room" if is_hotel_bundle else "Гэр"
+        room_type_label = "Room type" if is_hotel_bundle else "Гэрийн төрөл"
+        common_labels = {
+            "reservation": "Reservation" if is_hotel_bundle else "Захиалга",
+            "pax": "Pax" if is_hotel_bundle else "Жуулчин",
+            "staff": "Staff" if is_hotel_bundle else "Ажилчид",
+            "check_in": "Check-in" if is_hotel_bundle else "Ирэх өдөр",
+            "check_out": "Check-out" if is_hotel_bundle else "Явах өдөр",
+            "nights": "Nights" if is_hotel_bundle else "Хоног",
+            "meals": "Meals" if is_hotel_bundle else "Хоол",
+        }
 
         styles = {
             "brand": ParagraphStyle(
@@ -4061,7 +4113,7 @@ def save_camp_reservations_bundle(records):
                     + f"<br/>Утас: {html.escape(STEPPE_PHONES)}<br/>И-мэйл: {html.escape(STEPPE_EMAIL)}",
                     styles["meta"],
                 ),
-                Paragraph(f"Generated: {format_pdf_date(now_mongolia().date().isoformat())}<br/>Records: {len(records)}", styles["meta_right"]),
+                Paragraph("", styles["meta_right"]),
             ]],
             colWidths=[usable_width * 0.48, usable_width * 0.52],
         )
@@ -4079,9 +4131,9 @@ def save_camp_reservations_bundle(records):
         summary = Table(
             [[
                 p(f"{place_label}: {first['campName']}", "summary"),
-                p(f"Location: {first.get('locationName') or '-'}", "summary"),
-                p(f"Reservations: {len(records)}", "summary"),
-                p(f"Manager: {manager_name}", "summary"),
+                p(f"{location_label}: {first.get('locationName') or '-'}", "summary"),
+                p(f"{reservations_label}: {len(records)}", "summary"),
+                p(f"{manager_label}: {manager_name}", "summary"),
             ]],
             colWidths=[usable_width * 0.26, usable_width * 0.28, usable_width * 0.18, usable_width * 0.28],
         )
@@ -4099,15 +4151,15 @@ def save_camp_reservations_bundle(records):
 
         table_rows = [[
             p("#", "th"),
-            p("Reservation", "th"),
-            p("Pax", "th"),
-            p("Staff", "th"),
-            p("Check-in", "th"),
-            p("Check-out", "th"),
-            p("Nights", "th"),
+            p(common_labels["reservation"], "th"),
+            p(common_labels["pax"], "th"),
+            p(common_labels["staff"], "th"),
+            p(common_labels["check_in"], "th"),
+            p(common_labels["check_out"], "th"),
+            p(common_labels["nights"], "th"),
             p(unit_label, "th"),
-            p("Room type", "th"),
-            p("Meals", "th"),
+            p(room_type_label, "th"),
+            p(common_labels["meals"], "th"),
         ]]
         for index, record in enumerate(records, start=1):
             table_rows.append([
@@ -4152,29 +4204,38 @@ def save_camp_reservations_bundle(records):
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
         ]))
         story.append(table)
-        story.extend([
-            Spacer(1, 10),
-            Table(
-                [[
-                    Paragraph(
-                        f"<b>Захиалгын менежер:</b> {html.escape(manager_name)}<br/>"
-                        f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)}<br/>"
-                        f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
-                        styles["footer"],
-                    ),
-                ]],
-                colWidths=[usable_width * 0.5],
-                style=TableStyle([
-                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f8fb")),
-                    ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#d7e0ec")),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                ]),
-            ),
-        ])
+        contact_box = Table(
+            [[
+                Paragraph(
+                    f"<b>Захиалгын менежер:</b> {html.escape(manager_name)}<br/>"
+                    f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)}<br/>"
+                    f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
+                    styles["footer"],
+                ),
+            ]],
+            colWidths=[usable_width * 0.48],
+            style=TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f8fb")),
+                ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#d7e0ec")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]),
+        )
+        footer_row = Table(
+            [["", contact_box]],
+            colWidths=[usable_width * 0.52, usable_width * 0.48],
+            style=TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]),
+        )
+        story.extend([Spacer(1, 10), footer_row])
 
         doc.build(story)
         pdf_ready = True
