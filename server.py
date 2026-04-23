@@ -2879,7 +2879,7 @@ def build_invoice_html(record, asset_mode="web"):
     <link rel="icon" type="image/png" href="{asset_src('favicon-dtx-x.png')}" />
     <style>
       @page {{
-        size: A4;
+        size: 768px 1020px;
         margin: 0;
       }}
       * {{ box-sizing: border-box; }}
