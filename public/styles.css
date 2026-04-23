@@ -5105,10 +5105,8 @@ body.modal-open {
   --knockout-label-size: 0.72rem;
   --knockout-pill-padding-y: 9px;
   --knockout-pill-padding-x: 12px;
-  --knockout-round16-offset: 66px;
-  --knockout-quarter-offset: 176px;
-  --knockout-semi-offset: 318px;
-  --knockout-final-offset: 192px;
+  --knockout-row-size: 52px;
+  --knockout-row-gap: 10px;
   display: grid;
   grid-template-columns: repeat(9, minmax(0, 1fr));
   gap: var(--knockout-column-gap);
@@ -5133,10 +5131,8 @@ body.modal-open {
   --knockout-label-size: 0.76rem;
   --knockout-pill-padding-y: 10px;
   --knockout-pill-padding-x: 13px;
-  --knockout-round16-offset: 78px;
-  --knockout-quarter-offset: 198px;
-  --knockout-semi-offset: 356px;
-  --knockout-final-offset: 216px;
+  --knockout-row-size: 58px;
+  --knockout-row-gap: 12px;
   max-width: 1640px;
 }
 
@@ -5157,7 +5153,9 @@ body.modal-open {
 
 .fifa-knockout-round__matches {
   display: grid;
-  gap: var(--knockout-match-gap);
+  gap: var(--knockout-row-gap);
+  grid-template-rows: repeat(16, var(--knockout-row-size));
+  align-items: stretch;
 }
 
 .fifa-knockout-match {
@@ -5217,67 +5215,102 @@ body.modal-open {
   padding: 10px;
 }
 
-.fifa-knockout-round[data-round-index="1"],
-.fifa-knockout-round[data-round-index="7"] {
-  padding-top: var(--knockout-round16-offset);
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match,
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match {
+  grid-row: span 2;
 }
 
-.fifa-knockout-round[data-round-index="2"],
-.fifa-knockout-round[data-round-index="6"] {
-  padding-top: var(--knockout-quarter-offset);
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match:nth-child(1),
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match:nth-child(1) {
+  grid-row-start: 1;
 }
 
-.fifa-knockout-round[data-round-index="3"],
-.fifa-knockout-round[data-round-index="5"] {
-  padding-top: var(--knockout-semi-offset);
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match:nth-child(2),
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match:nth-child(2) {
+  grid-row-start: 3;
 }
 
-.fifa-knockout-round[data-round-index="4"] {
-  padding-top: var(--knockout-final-offset);
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match:nth-child(3),
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match:nth-child(3) {
+  grid-row-start: 5;
 }
 
-.fifa-knockout-round[data-round-index="1"] .fifa-knockout-round__matches,
-.fifa-knockout-round[data-round-index="7"] .fifa-knockout-round__matches {
-  gap: calc(var(--knockout-match-gap) * 1.55);
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match:nth-child(4),
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match:nth-child(4) {
+  grid-row-start: 7;
 }
 
-.fifa-knockout-round[data-round-index="2"] .fifa-knockout-round__matches,
-.fifa-knockout-round[data-round-index="6"] .fifa-knockout-round__matches {
-  gap: calc(var(--knockout-match-gap) * 2.8);
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match:nth-child(5),
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match:nth-child(5) {
+  grid-row-start: 9;
 }
 
-.fifa-knockout-round[data-round-index="3"] .fifa-knockout-round__matches,
-.fifa-knockout-round[data-round-index="5"] .fifa-knockout-round__matches {
-  gap: calc(var(--knockout-match-gap) * 4.1);
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match:nth-child(6),
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match:nth-child(6) {
+  grid-row-start: 11;
 }
 
-.fifa-knockout-round[data-round-index="4"] .fifa-knockout-round__matches {
-  gap: 18px;
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match:nth-child(7),
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match:nth-child(7) {
+  grid-row-start: 13;
+}
+
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match:nth-child(8),
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match:nth-child(8) {
+  grid-row-start: 15;
+}
+
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-match,
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-match {
+  grid-row: span 2;
+}
+
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-match:nth-child(1),
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-match:nth-child(1) {
+  grid-row-start: 2;
 }
 
 .fifa-knockout-round[data-round-index="1"] .fifa-knockout-match:nth-child(2),
 .fifa-knockout-round[data-round-index="7"] .fifa-knockout-match:nth-child(2) {
-  margin-top: 12px;
+  grid-row-start: 6;
 }
 
 .fifa-knockout-round[data-round-index="1"] .fifa-knockout-match:nth-child(3),
 .fifa-knockout-round[data-round-index="7"] .fifa-knockout-match:nth-child(3) {
-  margin-top: 34px;
+  grid-row-start: 10;
 }
 
 .fifa-knockout-round[data-round-index="1"] .fifa-knockout-match:nth-child(4),
 .fifa-knockout-round[data-round-index="7"] .fifa-knockout-match:nth-child(4) {
-  margin-top: 56px;
+  grid-row-start: 14;
+}
+
+.fifa-knockout-round[data-round-index="2"] .fifa-knockout-match,
+.fifa-knockout-round[data-round-index="6"] .fifa-knockout-match {
+  grid-row: span 2;
+}
+
+.fifa-knockout-round[data-round-index="2"] .fifa-knockout-match:nth-child(1),
+.fifa-knockout-round[data-round-index="6"] .fifa-knockout-match:nth-child(1) {
+  grid-row-start: 4;
 }
 
 .fifa-knockout-round[data-round-index="2"] .fifa-knockout-match:nth-child(2),
 .fifa-knockout-round[data-round-index="6"] .fifa-knockout-match:nth-child(2) {
-  margin-top: 48px;
+  grid-row-start: 12;
 }
 
-.fifa-knockout-round[data-round-index="3"] .fifa-knockout-match:nth-child(1),
-.fifa-knockout-round[data-round-index="5"] .fifa-knockout-match:nth-child(1) {
-  margin-top: 24px;
+.fifa-knockout-round[data-round-index="3"] .fifa-knockout-match,
+.fifa-knockout-round[data-round-index="5"] .fifa-knockout-match {
+  grid-row: 8 / span 2;
+}
+
+.fifa-knockout-round[data-round-index="4"] .fifa-knockout-match:first-child {
+  grid-row: 5 / span 2;
+}
+
+.fifa-knockout-round[data-round-index="4"] .fifa-knockout-match:last-child {
+  grid-row: 10 / span 3;
 }
 
 .fifa-admin-stage-panel {
