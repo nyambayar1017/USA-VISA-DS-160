@@ -1120,6 +1120,7 @@ function renderReadOnlyRow(entry, index, options = {}) {
           <summary class="trip-menu-trigger" aria-label="Camp reservation actions">⋮</summary>
           <div class="trip-menu-popover">
             <button type="button" class="trip-menu-item" data-action="edit" data-id="${entry.id}">Edit</button>
+            <button type="button" class="trip-menu-item" data-action="view-pdf" data-id="${entry.id}">View</button>
             <button type="button" class="trip-menu-item" data-action="download-pdf" data-id="${entry.id}">Download PDF</button>
             <button type="button" class="trip-menu-item is-danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
           </div>
