@@ -68,6 +68,8 @@ let currentTripPage = 1;
 let currentPaymentPage = 1;
 let selectedReservationIds = new Set();
 let activeTripDayFilter = "";
+let activeCampDateFrom = "";
+let activeCampDateTo = "";
 let activeTripPanelHidden = false;
 let activeCampPanelHidden = false;
 const PAGE_SIZE = 15;
@@ -452,6 +454,38 @@ function getTripDayLabel(entry) {
   return `Day ${startDay},${endDay}`;
 }
 
+function getReservationUnitLabel(reservationType = "") {
+  return reservationType === "hotel" ? "Number of Rooms" : "Number of Gers";
+}
+
+function updateReservationUnitLabels(formNode) {
+  if (!formNode) {
+    return;
+  }
+  const reservationType = formNode.elements?.reservationType?.value || "";
+  formNode.querySelectorAll('[data-role="ger-count-label"]').forEach((node) => {
+    node.textContent = getReservationUnitLabel(reservationType);
+  });
+}
+
+function getActiveCampEntries() {
+  return sortByDateAsc(
+    currentEntries.filter((entry) => {
+      if (entry.campName !== activeCampName) {
+        return false;
+      }
+      if (activeCampDateFrom && entry.checkIn < activeCampDateFrom) {
+        return false;
+      }
+      if (activeCampDateTo && entry.checkIn > activeCampDateTo) {
+        return false;
+      }
+      return true;
+    }),
+    "checkIn"
+  );
+}
+
 function syncCheckoutFromStay() {
   const stay = normalizeStayFields(campCheckin.value, campStays.value, "");
   campStays.value = stay.nights;
@@ -489,6 +523,8 @@ function setActiveTrip(tripId, options = {}) {
 
 function setActiveCamp(campName, options = {}) {
   activeCampName = campName || "";
+  activeCampDateFrom = "";
+  activeCampDateTo = "";
   activeCampPanelHidden = false;
   closeInlineEditPanels();
   renderEntries();
@@ -1040,21 +1076,31 @@ function renderActiveCampReservations() {
     activeCampReservations.innerHTML = "";
     return;
   }
-  const entries = sortByDateAsc(currentEntries.filter((entry) => entry.campName === activeCampName), "checkIn");
-  if (!entries.length) {
+  const campEntries = sortByDateAsc(currentEntries.filter((entry) => entry.campName === activeCampName), "checkIn");
+  if (!campEntries.length) {
     activeCampReservations.classList.add("is-hidden");
     activeCampReservations.innerHTML = "";
     return;
   }
+  const entries = getActiveCampEntries();
   activeCampReservations.classList.remove("is-hidden");
   activeCampReservations.innerHTML = `
     <div class="section-head">
       <h2>${escapeHtml(activeCampName)} reservations</h2>
       <div class="camp-toolbar trip-detail-toolbar">
+        <label class="trip-day-filter-label">
+          <span>Check-in from</span>
+          <input type="date" value="${escapeHtml(activeCampDateFrom)}" data-action="active-camp-date-from" />
+        </label>
+        <label class="trip-day-filter-label">
+          <span>Check-in to</span>
+          <input type="date" value="${escapeHtml(activeCampDateTo)}" data-action="active-camp-date-to" />
+        </label>
         <button type="button" class="secondary-button" data-action="download-active-camp-pdf">Download camp PDF</button>
         <button type="button" class="secondary-button" data-action="hide-camp-panel">Hide table</button>
       </div>
     </div>
+    ${entries.length ? "" : `<p class="empty">No reservations found for this date filter.</p>`}
     <div class="camp-table-wrap">
       <table class="camp-table camp-table-detail">
         <thead>
@@ -1394,7 +1440,7 @@ function renderReservationEditPanel(reservation, options = {}) {
             </select>
           </label>
           <label>
-            Number of Gers
+            <span data-role="ger-count-label">Number of Gers</span>
             <input name="gerCount" type="number" min="1" value="${Number(reservationData.gerCount || 1)}" required />
           </label>
           <label>
@@ -1469,6 +1515,10 @@ function renderReservationEditPanel(reservation, options = {}) {
         syncReservationDraftFromCamp(formNode);
         return;
       }
+      if (target.getAttribute("name") === "reservationType") {
+        updateReservationUnitLabels(formNode);
+        return;
+      }
       if (target.getAttribute("name") === "checkIn" || target.getAttribute("name") === "nights") {
         syncInlineEditCheckout(formNode);
         return;
@@ -1480,6 +1530,7 @@ function renderReservationEditPanel(reservation, options = {}) {
   }
   syncReservationDraftFromTrip(formNode);
   syncReservationDraftFromCamp(formNode);
+  updateReservationUnitLabels(formNode);
   syncInlineEditNights(formNode);
 }
 
@@ -2091,6 +2142,10 @@ document.addEventListener("change", (event) => {
     syncReservationDraftFromCamp(form);
     return;
   }
+  if (form && target.getAttribute("name") === "reservationType") {
+    updateReservationUnitLabels(form);
+    return;
+  }
   if (form && (target.getAttribute("name") === "checkIn" || target.getAttribute("name") === "nights")) {
     syncInlineEditCheckout(form);
     return;
@@ -2157,6 +2212,7 @@ campForm.addEventListener("submit", async (event) => {
     campForm.querySelector('[name="gerCount"]').value = "1";
     campForm.querySelector('[name="nights"]').value = "1";
     campForm.querySelector('[name="status"]').value = "pending";
+    updateReservationUnitLabels(campForm);
     reservationTripSelect.value = selectedTrip.id;
     editingReservationId = "";
     syncCheckoutFromStay();
@@ -2317,7 +2373,7 @@ function handleCampTableClick(event) {
     return;
   }
   if (action === "download-active-camp-pdf") {
-    const entries = sortByDateAsc(currentEntries.filter((entry) => entry.campName === activeCampName), "checkIn");
+    const entries = getActiveCampEntries();
     exportReservationsAsPdf(entries, `${activeCampName || "camp"}-reservations.pdf`);
     return;
   }
@@ -2433,6 +2489,16 @@ function handleCampTableChange(event) {
     renderActiveTripReservations();
     return;
   }
+  if (node.dataset.action === "active-camp-date-from") {
+    activeCampDateFrom = node.value;
+    renderActiveCampReservations();
+    return;
+  }
+  if (node.dataset.action === "active-camp-date-to") {
+    activeCampDateTo = node.value;
+    renderActiveCampReservations();
+    return;
+  }
   const id = node.dataset.id;
   if (!id) {
     return;
@@ -2464,6 +2530,8 @@ activeTripReservations.addEventListener("click", handleCampTableClick);
 activeTripReservations.addEventListener("input", handleCampTableInput);
 activeTripReservations.addEventListener("change", handleCampTableChange);
 activeCampReservations.addEventListener("click", handleCampTableClick);
+activeCampReservations.addEventListener("input", handleCampTableChange);
+activeCampReservations.addEventListener("change", handleCampTableChange);
 reservationEditPanel.addEventListener("click", handleCampTableClick);
 reservationEditPanel.addEventListener("input", handleCampTableInput);
 reservationEditPanel.addEventListener("change", handleCampTableChange);
@@ -2515,6 +2583,7 @@ campCheckin.addEventListener("input", syncCheckoutFromStay);
 campStays.addEventListener("input", syncCheckoutFromStay);
 campStays.addEventListener("change", syncCheckoutFromStay);
 campCheckout.addEventListener("change", syncStayFromCheckout);
+campForm.elements.reservationType?.addEventListener("change", () => updateReservationUnitLabels(campForm));
 reservationTripSelect.addEventListener("change", () => {
   const trip = getTripById(reservationTripSelect.value);
   if (!trip) {
@@ -2676,6 +2745,7 @@ async function init() {
     }
   }
   syncCheckoutFromStay();
+  updateReservationUnitLabels(campForm);
 }
 
 init();

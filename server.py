@@ -3711,14 +3711,12 @@ def build_camp_bundle_document_html(records, pdf_href):
     first = records[0]
     reservation_title = camp_reservation_title(first)
     manager_name = first.get("staffAssignment") or STEPPE_MANAGER
-    note_lines = [
-        f"{index + 1}. {record.get('reservationName') or record.get('tripName') or '-'}: {record.get('notes') or '-'}"
-        for index, record in enumerate(records)
-    ]
+    unit_label = "Өрөөний тоо" if all(normalize_text(record.get("reservationType")).lower() == "hotel" for record in records) else "Гэрийн тоо"
     row_markup = "".join(
         f"""
           <tr>
             <td>{index + 1}</td>
+            <td>{html.escape(record.get('tripName') or '-')}</td>
             <td>{html.escape(record.get('reservationName') or record['tripName'])}</td>
             <td>{record['clientCount']}</td>
             <td>{record['staffCount']}</td>
@@ -3876,7 +3874,6 @@ def build_camp_bundle_document_html(records, pdf_href):
         </div>
       </div>
       <div class="center-title">
-        <h2>Аяллын нэр: {html.escape(first.get('reservationName') or first['tripName'])}</h2>
         <p>{reservation_title} - “{html.escape(first['campName'])}”</p>
       </div>
       <table>
@@ -3884,21 +3881,19 @@ def build_camp_bundle_document_html(records, pdf_href):
           <tr>
             <th>#</th>
             <th>Аяллын нэр</th>
+            <th>Захиалга</th>
             <th>Жуулчны тоо</th>
             <th>Ажилчдын тоо</th>
             <th>Ирэх өдөр</th>
             <th>Явах өдөр</th>
             <th>Хоногийн тоо</th>
-            <th>Гэрийн тоо</th>
+            <th>{unit_label}</th>
             <th>Өрөөний төрөл</th>
             <th>Хоол</th>
           </tr>
         </thead>
         <tbody>{row_markup}</tbody>
       </table>
-      <div style="margin-top: 18px; font-size: 18px; line-height: 1.7;">
-        <strong>Нэмэлт тэмдэглэл:</strong><br/>{'<br/>'.join(html.escape(line) for line in note_lines)}
-      </div>
       <div class="footer">
         <div></div>
         <div class="status-box">
@@ -4084,26 +4079,7 @@ def save_camp_reservations_bundle(records):
 
         reservation_title = camp_reservation_title(first)
         manager_name = first.get("staffAssignment") or STEPPE_MANAGER
-        trip_by_id = {trip.get("id"): trip for trip in read_camp_trips()}
-
-        def trip_day_label(record):
-            trip = trip_by_id.get(record.get("tripId")) or {}
-            start_date = normalize_text(trip.get("startDate"))
-            check_in = normalize_text(record.get("checkIn"))
-            if not start_date or not check_in:
-                return "-"
-            try:
-                start = datetime.strptime(start_date, "%Y-%m-%d").date()
-                check = datetime.strptime(check_in, "%Y-%m-%d").date()
-            except ValueError:
-                return "-"
-            start_day = (check - start).days + 1
-            if start_day <= 0:
-                return "-"
-            stay_count = max(int(record.get("nights") or 1), 1)
-            if stay_count == 1:
-                return f"Day {start_day}"
-            return f"Day {start_day},{start_day + stay_count - 1}"
+        unit_label = "Rooms" if all(normalize_text(record.get("reservationType")).lower() == "hotel" for record in records) else "Gers"
 
         styles = {
             "brand": ParagraphStyle(
@@ -4172,7 +4148,6 @@ def save_camp_reservations_bundle(records):
         story.extend([
             header_table,
             Spacer(1, 10),
-            Paragraph(f"Аяллын нэр: {html.escape(first.get('reservationName') or first['tripName'])}", styles["title"]),
             Paragraph(f"{html.escape(reservation_title)} - “{html.escape(first['campName'])}”", styles["subtitle"]),
         ])
 
@@ -4201,13 +4176,12 @@ def save_camp_reservations_bundle(records):
             p("#", "th"),
             p("Trip", "th"),
             p("Reservation", "th"),
-            p("Day", "th"),
             p("Pax", "th"),
             p("Staff", "th"),
             p("Check-in", "th"),
             p("Check-out", "th"),
             p("Nights", "th"),
-            p("Gers", "th"),
+            p(unit_label, "th"),
             p("Room", "th"),
             p("Meals", "th"),
         ]]
@@ -4216,7 +4190,6 @@ def save_camp_reservations_bundle(records):
                 p(index),
                 p(record["tripName"], "td_left"),
                 p(record.get("reservationName") or record["tripName"], "td_left"),
-                p(trip_day_label(record)),
                 p(record["clientCount"]),
                 p(record["staffCount"]),
                 p(format_iso_date(record["checkIn"])),
@@ -4229,16 +4202,15 @@ def save_camp_reservations_bundle(records):
 
         col_widths = [
             usable_width * 0.032,
-            usable_width * 0.13,
-            usable_width * 0.115,
-            usable_width * 0.055,
+            usable_width * 0.15,
+            usable_width * 0.125,
             usable_width * 0.04,
             usable_width * 0.045,
-            usable_width * 0.08,
-            usable_width * 0.08,
+            usable_width * 0.085,
+            usable_width * 0.085,
+            usable_width * 0.045,
             usable_width * 0.042,
-            usable_width * 0.042,
-            usable_width * 0.17,
+            usable_width * 0.20,
             usable_width * 0.151,
         ]
         table = Table(
@@ -4258,35 +4230,7 @@ def save_camp_reservations_bundle(records):
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
         ]))
         story.append(table)
-
-        note_rows = [
-            [p("#", "th"), p("Trip", "th"), p("Notes", "th")]
-        ]
-        for index, record in enumerate(records, start=1):
-            note_rows.append([
-                p(index),
-                p(record.get("reservationName") or record["tripName"], "td_left"),
-                p(record.get("notes") or "-", "td_left"),
-            ])
-        note_table = Table(
-            note_rows,
-            colWidths=[usable_width * 0.04, usable_width * 0.22, usable_width * 0.74],
-            repeatRows=1,
-        )
-        note_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
-            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#64748b")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-        ]))
         story.extend([
-            Spacer(1, 10),
-            Paragraph("Нэмэлт тэмдэглэл", styles["subtitle"]),
-            note_table,
             Spacer(1, 10),
             Paragraph(
                 f"<b>Захиалгын менежер:</b> {html.escape(manager_name)} &nbsp;&nbsp; "
