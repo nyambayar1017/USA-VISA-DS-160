@@ -2869,45 +2869,12 @@ def build_invoice_html(record, asset_mode="web"):
         """
         for row in payment_rows
     )
-    invoice_font_faces = ""
-    invoice_font_stack = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    if asset_mode == "file":
-        invoice_font_stack = '"InvoiceSans", Arial, sans-serif'
-        invoice_font_faces = f"""
+    invoice_font_stack = '"Nunito", Arial, sans-serif'
+    invoice_font_faces = f"""
       @font-face {{
-        font-family: "InvoiceSans";
-        src: url("{asset_src('fonts/invoice-sans-regular.ttf')}") format("truetype");
-        font-weight: 400;
-        font-style: normal;
-      }}
-      @font-face {{
-        font-family: "InvoiceSans";
-        src: url("{asset_src('fonts/invoice-sans-regular.ttf')}") format("truetype");
-        font-weight: 500;
-        font-style: normal;
-      }}
-      @font-face {{
-        font-family: "InvoiceSans";
-        src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
-        font-weight: 600;
-        font-style: normal;
-      }}
-      @font-face {{
-        font-family: "InvoiceSans";
-        src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
-        font-weight: 700;
-        font-style: normal;
-      }}
-      @font-face {{
-        font-family: "InvoiceSans";
-        src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
-        font-weight: 800;
-        font-style: normal;
-      }}
-      @font-face {{
-        font-family: "InvoiceSans";
-        src: url("{asset_src('fonts/invoice-sans-bold.ttf')}") format("truetype");
-        font-weight: 900;
+        font-family: "Nunito";
+        src: url("{asset_src('fonts/nunito-variable.ttf')}") format("truetype");
+        font-weight: 200 1000;
         font-style: normal;
       }}"""
 
