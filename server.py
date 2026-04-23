@@ -3513,8 +3513,38 @@ def camp_reservation_meals(record):
     ) or "No meal"
 
 
+def camp_reservation_meals_mn(record):
+    return " / ".join(
+        [
+            meal
+            for meal in [
+                record.get("breakfast") == "Yes" and "Өглөөний хоол",
+                record.get("lunch") == "Yes" and "Өдрийн хоол",
+                record.get("dinner") == "Yes" and "Оройн хоол",
+            ]
+            if meal
+        ]
+    ) or "Хоолгүй"
+
+
+def camp_room_type_mn(value):
+    room_type = normalize_text(value)
+    translations = {
+        "twin room": "Твин өрөө",
+        "double room": "Давхар өрөө",
+        "single room": "Ганц өрөө",
+        "standard ger": "Стандарт гэр",
+        "standart ger": "Стандарт гэр",
+        "standard double ger": "Стандарт давхар гэр",
+        "standart double ger": "Стандарт давхар гэр",
+        "luxury twin ger with bathroom": "00 душтэй люкс твин гэр",
+        "luxury ger with bathroom": "00 душтэй люкс гэр",
+    }
+    return translations.get(room_type.lower(), room_type or "-")
+
+
 def build_camp_document_html(record, pdf_href):
-    meals = camp_reservation_meals(record)
+    meals = camp_reservation_meals_mn(record)
     reservation_title = camp_reservation_title(record)
     manager_name = record.get("staffAssignment") or STEPPE_MANAGER
     is_hotel = is_hotel_reservation(record)
@@ -3726,7 +3756,7 @@ def build_camp_document_html(record, pdf_href):
             <td>{format_pdf_date(record['checkOut'])}</td>
             <td>{record['nights']}</td>
             <td>{record['gerCount']}</td>
-            <td>{html.escape(record['roomType'])}</td>
+            <td>{html.escape(camp_room_type_mn(record['roomType']))}</td>
             <td>{html.escape(meals)}</td>
           </tr>
         </tbody>
@@ -3758,20 +3788,20 @@ def build_camp_bundle_document_html(records, pdf_href):
     reservation_title = camp_reservation_title(first)
     manager_name = first.get("staffAssignment") or STEPPE_MANAGER
     is_hotel_bundle = is_hotel_reservation(first)
-    place_label = "Hotel" if is_hotel_bundle else "Бааз"
-    location_label = "Location" if is_hotel_bundle else "Байршил"
-    reservations_label = "Reservations" if is_hotel_bundle else "Захиалга"
-    manager_label = "Manager" if is_hotel_bundle else "Менежер"
-    unit_label = "Room" if is_hotel_bundle else "Гэр"
-    room_type_label = "Room type" if is_hotel_bundle else "Гэрийн төрөл"
+    place_label = "Буудал" if is_hotel_bundle else "Бааз"
+    location_label = "Байршил"
+    reservations_label = "Захиалга"
+    manager_label = "Менежер"
+    unit_label = "Өрөө" if is_hotel_bundle else "Гэр"
+    room_type_label = "Өрөөний төрөл" if is_hotel_bundle else "Гэрийн төрөл"
     common_labels = {
-        "reservation": "Reservation" if is_hotel_bundle else "Захиалга",
-        "pax": "Pax" if is_hotel_bundle else "Жуулчин",
-        "staff": "Staff" if is_hotel_bundle else "Ажилчид",
-        "check_in": "Check-in" if is_hotel_bundle else "Ирэх өдөр",
-        "check_out": "Check-out" if is_hotel_bundle else "Явах өдөр",
-        "nights": "Nights" if is_hotel_bundle else "Хоног",
-        "meals": "Meals" if is_hotel_bundle else "Хоол",
+        "reservation": "Захиалга",
+        "pax": "Жуулчин",
+        "staff": "Ажилчид",
+        "check_in": "Ирэх өдөр",
+        "check_out": "Явах өдөр",
+        "nights": "Хоног",
+        "meals": "Хоол",
     }
     row_markup = "".join(
         f"""
@@ -3784,8 +3814,8 @@ def build_camp_bundle_document_html(records, pdf_href):
             <td>{format_pdf_date(record['checkOut'])}</td>
             <td>{record['nights']}</td>
             <td>{record['gerCount']}</td>
-            <td>{html.escape(record['roomType'])}</td>
-            <td>{html.escape(camp_reservation_meals(record))}</td>
+            <td>{html.escape(camp_room_type_mn(record['roomType']))}</td>
+            <td>{html.escape(camp_reservation_meals_mn(record))}</td>
           </tr>
         """
         for index, record in enumerate(records)
@@ -4042,20 +4072,20 @@ def save_camp_reservations_bundle(records):
         reservation_title = camp_reservation_title(first)
         manager_name = first.get("staffAssignment") or STEPPE_MANAGER
         is_hotel_bundle = is_hotel_reservation(first)
-        place_label = "Hotel" if is_hotel_bundle else "Бааз"
-        location_label = "Location" if is_hotel_bundle else "Байршил"
-        reservations_label = "Reservations" if is_hotel_bundle else "Захиалга"
-        manager_label = "Manager" if is_hotel_bundle else "Менежер"
-        unit_label = "Room" if is_hotel_bundle else "Гэр"
-        room_type_label = "Room type" if is_hotel_bundle else "Гэрийн төрөл"
+        place_label = "Буудал" if is_hotel_bundle else "Бааз"
+        location_label = "Байршил"
+        reservations_label = "Захиалга"
+        manager_label = "Менежер"
+        unit_label = "Өрөө" if is_hotel_bundle else "Гэр"
+        room_type_label = "Өрөөний төрөл" if is_hotel_bundle else "Гэрийн төрөл"
         common_labels = {
-            "reservation": "Reservation" if is_hotel_bundle else "Захиалга",
-            "pax": "Pax" if is_hotel_bundle else "Жуулчин",
-            "staff": "Staff" if is_hotel_bundle else "Ажилчид",
-            "check_in": "Check-in" if is_hotel_bundle else "Ирэх өдөр",
-            "check_out": "Check-out" if is_hotel_bundle else "Явах өдөр",
-            "nights": "Nights" if is_hotel_bundle else "Хоног",
-            "meals": "Meals" if is_hotel_bundle else "Хоол",
+            "reservation": "Захиалга",
+            "pax": "Жуулчин",
+            "staff": "Ажилчид",
+            "check_in": "Ирэх өдөр",
+            "check_out": "Явах өдөр",
+            "nights": "Хоног",
+            "meals": "Хоол",
         }
 
         styles = {
@@ -4171,8 +4201,8 @@ def save_camp_reservations_bundle(records):
                 p(format_iso_date(record["checkOut"])),
                 p(record["nights"]),
                 p(record["gerCount"]),
-                p(record["roomType"], "td_left"),
-                p(camp_reservation_meals(record), "td_left"),
+                p(camp_room_type_mn(record["roomType"]), "td_left"),
+                p(camp_reservation_meals_mn(record), "td_left"),
             ])
 
         col_widths = [
