@@ -301,7 +301,11 @@ function renderTournamentBracket(node) {
             ${column.matches.map((match) => `
               <article class="fifa-knockout-match${column.featured ? " is-featured" : ""}">
                 ${match[3] ? `<p class="fifa-knockout-match__label">${escapeHtml(match[3])}</p>` : ""}
-                <strong>${escapeHtml(match[0])}</strong>
+                <div class="fifa-knockout-match__meta">
+                  <strong>${escapeHtml(match[0])}</strong>
+                  <span class="fifa-knockout-match__date">${escapeHtml(KNOCKOUT_MATCH_META[match[0]]?.date || "")}</span>
+                  <span class="fifa-knockout-match__time">${escapeHtml(KNOCKOUT_MATCH_META[match[0]]?.time || "")}</span>
+                </div>
                 <span>${escapeHtml(match[1])}</span>
                 <span>${escapeHtml(match[2])}</span>
               </article>
@@ -524,6 +528,41 @@ const KNOCKOUT_BRACKET_COLUMNS = [
   { title: "Round of 16", matches: [["M91", "W76", "W78"], ["M92", "W79", "W80"], ["M95", "W86", "W88"], ["M96", "W85", "W87"]] },
   { title: "Round of 32", matches: [["M76", "1C", "2F"], ["M78", "2E", "2I"], ["M79", "1A", "3CEFHI"], ["M80", "1L", "3EHIJK"], ["M86", "1J", "2H"], ["M88", "2D", "2G"], ["M85", "1B", "3EFGIJ"], ["M87", "1K", "3DEIJL"]] },
 ];
+
+const KNOCKOUT_MATCH_META = {
+  M73: { date: "06/29/2026", time: "03:00" },
+  M74: { date: "06/30/2026", time: "04:30" },
+  M75: { date: "06/30/2026", time: "09:00" },
+  M76: { date: "06/30/2026", time: "01:00" },
+  M77: { date: "07/01/2026", time: "05:00" },
+  M78: { date: "07/01/2026", time: "01:00" },
+  M79: { date: "07/01/2026", time: "09:00" },
+  M80: { date: "07/02/2026", time: "00:00" },
+  M81: { date: "07/02/2026", time: "08:00" },
+  M82: { date: "07/02/2026", time: "04:00" },
+  M83: { date: "07/03/2026", time: "07:00" },
+  M84: { date: "07/03/2026", time: "03:00" },
+  M85: { date: "07/03/2026", time: "11:00" },
+  M86: { date: "07/04/2026", time: "06:00" },
+  M87: { date: "07/04/2026", time: "09:30" },
+  M88: { date: "07/04/2026", time: "02:00" },
+  M89: { date: "07/05/2026", time: "05:00" },
+  M90: { date: "07/05/2026", time: "01:00" },
+  M91: { date: "07/06/2026", time: "04:00" },
+  M92: { date: "07/06/2026", time: "08:00" },
+  M93: { date: "07/07/2026", time: "03:00" },
+  M94: { date: "07/07/2026", time: "08:00" },
+  M95: { date: "07/08/2026", time: "00:00" },
+  M96: { date: "07/08/2026", time: "04:00" },
+  M97: { date: "07/10/2026", time: "04:00" },
+  M98: { date: "07/11/2026", time: "03:00" },
+  M99: { date: "07/12/2026", time: "05:00" },
+  M100: { date: "07/12/2026", time: "09:00" },
+  M101: { date: "07/15/2026", time: "03:00" },
+  M102: { date: "07/16/2026", time: "03:00" },
+  M103: { date: "07/19/2026", time: "05:00" },
+  M104: { date: "07/20/2026", time: "03:00" },
+};
 
 function teamDisplay(code) {
   const teamCode = String(code || "").trim().toUpperCase();
