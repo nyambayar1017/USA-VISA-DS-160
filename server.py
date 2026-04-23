@@ -3053,8 +3053,8 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .payment-card {{
         display: grid;
-        grid-template-columns: 1.35fr 0.92fr 0.92fr 0.82fr 0.92fr;
-        gap: 12px;
+        grid-template-columns: 1.35fr 1.08fr 1.08fr 0.9fr 0.92fr;
+        gap: 10px;
         align-items: center;
         min-height: 74px;
         padding: 16px 18px;
@@ -3076,6 +3076,7 @@ def build_invoice_html(record, asset_mode="web"):
       .payment-meta {{
         display: grid;
         gap: 4px;
+        min-width: 0;
       }}
       .meta-value {{
         font-size: 13px;
@@ -3086,6 +3087,7 @@ def build_invoice_html(record, asset_mode="web"):
         color: #64748b;
         font-size: 13px;
         font-weight: 600;
+        white-space: nowrap;
       }}
       .payment-status {{
         display: inline-flex;
@@ -3191,14 +3193,14 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .signature-card {{
         position: relative;
-        min-height: 174px;
+        min-height: 218px;
         padding-top: 0;
       }}
       .signature-label {{
         position: relative;
         z-index: 3;
         min-height: 18px;
-        margin-bottom: 90px;
+        margin-bottom: 122px;
         color: #64748b;
         font-size: 13px;
         font-weight: 600;
@@ -3209,17 +3211,17 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .accountant-stamp {{
         position: absolute;
-        left: 12px;
-        bottom: 50px;
-        width: 168px;
+        left: 0;
+        bottom: 52px;
+        width: 208px;
         z-index: 1;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 94px;
+        left: 92px;
         bottom: 48px;
-        width: 154px;
+        width: 308px;
         z-index: 2;
       }}
       .signature-name {{
