@@ -2880,7 +2880,7 @@ def build_invoice_html(record, asset_mode="web"):
     <style>
       @page {{
         size: A4;
-        margin: 18mm;
+        margin: 0;
       }}
       * {{ box-sizing: border-box; }}
       body {{
@@ -3392,7 +3392,7 @@ def save_invoice_pdf(record):
 
     html_string = build_invoice_html(record, asset_mode="file")
     try:
-        HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
+        HTML(string=html_string, base_url=str(BASE_DIR), media_type="screen").write_pdf(str(pdf_path))
     except Exception as exc:
         raise RuntimeError(f"HTML PDF generation failed: {exc}") from exc
     return f"/generated/{pdf_filename}"
