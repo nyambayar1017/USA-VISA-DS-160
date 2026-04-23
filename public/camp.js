@@ -791,6 +791,7 @@ function renderTrips() {
                       <details class="trip-menu trip-page-menu">
                         <summary class="trip-menu-trigger" aria-label="Trip actions">⋮</summary>
                         <div class="trip-menu-popover">
+                          <button type="button" class="trip-menu-item" data-action="select-trip" data-trip-id="${trip.id}">View</button>
                           <button type="button" class="trip-menu-item" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
                           <button type="button" class="trip-menu-item" data-action="add-reservation" data-trip-id="${trip.id}">Add Camp</button>
                           <button type="button" class="trip-menu-item is-danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
