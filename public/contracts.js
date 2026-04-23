@@ -325,6 +325,7 @@ const initContractForm = () => {
   const closePanel = () => {
     panel.classList.add("is-hidden");
     panel.setAttribute("hidden", "");
+    document.body.classList.remove("modal-open");
     editingContractId = null;
     if (formTitle) formTitle.textContent = "Contract details";
     if (formSubmitButton) formSubmitButton.textContent = "Save contract";
@@ -334,6 +335,7 @@ const initContractForm = () => {
   toggle.addEventListener("click", () => {
     panel.classList.remove("is-hidden");
     panel.removeAttribute("hidden");
+    document.body.classList.add("modal-open");
     const dateInput = form.querySelector("input[name='contractDate']");
     if (dateInput && !dateInput.value) {
       dateInput.value = new Date().toISOString().split("T")[0];
@@ -690,6 +692,7 @@ const initContractForm = () => {
     editingContractId = contract.id;
     panel.classList.remove("is-hidden");
     panel.removeAttribute("hidden");
+    document.body.classList.add("modal-open");
     openStepTwo();
     if (formTitle) formTitle.textContent = "Edit contract";
     if (formSubmitButton) formSubmitButton.textContent = "Update contract";

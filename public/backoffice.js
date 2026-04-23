@@ -1,5 +1,9 @@
 const taskForm = document.querySelector("#task-form");
 const contactForm = document.querySelector("#contact-form");
+const taskFormPanel = document.querySelector("#task-form-panel");
+const contactFormPanel = document.querySelector("#contact-form-panel");
+const taskToggleForm = document.querySelector("#task-toggle-form");
+const contactToggleForm = document.querySelector("#contact-toggle-form");
 const taskManagerSelect = document.querySelector("#task-manager-select");
 const taskSubmitButton = document.querySelector("#task-submit-button");
 const contactSubmitButton = document.querySelector("#contact-submit-button");
@@ -164,6 +168,36 @@ function resetContactForm() {
   clearStatus(contactStatusNode);
 }
 
+function syncBodyModalState() {
+  const hasOpenPanel = [taskFormPanel, contactFormPanel].some(
+    (panel) => panel && !panel.classList.contains("is-hidden")
+  );
+  document.body.classList.toggle("modal-open", hasOpenPanel);
+}
+
+function openPanel(panel) {
+  if (!panel) {
+    return;
+  }
+  panel.classList.remove("is-hidden");
+  panel.removeAttribute("hidden");
+  syncBodyModalState();
+  panel.scrollTop = 0;
+  const dialog = panel.querySelector(".camp-modal-dialog");
+  if (dialog) {
+    dialog.scrollTop = 0;
+  }
+}
+
+function closePanel(panel) {
+  if (!panel) {
+    return;
+  }
+  panel.classList.add("is-hidden");
+  panel.setAttribute("hidden", "");
+  syncBodyModalState();
+}
+
 function startTaskEdit(taskId) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) {
@@ -178,6 +212,7 @@ function startTaskEdit(taskId) {
   taskForm.elements.note.value = task.note || "";
   taskSubmitButton.textContent = "Update task";
   setStatus(taskStatusNode, "Editing task.");
+  openPanel(taskFormPanel);
 }
 
 function startContactEdit(contactId) {
@@ -195,6 +230,7 @@ function startContactEdit(contactId) {
   contactForm.elements.note.value = contact.note || "";
   contactSubmitButton.textContent = "Update contact";
   setStatus(contactStatusNode, "Editing contact.");
+  openPanel(contactFormPanel);
 }
 
 function filteredTasks() {
@@ -389,8 +425,10 @@ async function submitForm(form, url, statusNode, onSuccess) {
     onSuccess();
     setStatus(statusNode, "Saved.");
     await loadDashboard();
+    return true;
   } catch (error) {
     setStatus(statusNode, error.message, true);
+    return false;
   }
 }
 
@@ -398,14 +436,20 @@ taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const taskId = taskForm.elements.id.value;
   const url = taskId ? `/api/manager-dashboard/tasks/${taskId}` : "/api/manager-dashboard/tasks";
-  await submitForm(taskForm, url, taskStatusNode, resetTaskForm);
+  const saved = await submitForm(taskForm, url, taskStatusNode, resetTaskForm);
+  if (saved) {
+    closePanel(taskFormPanel);
+  }
 });
 
 contactForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const contactId = contactForm.elements.id.value;
   const url = contactId ? `/api/manager-dashboard/contacts/${contactId}` : "/api/manager-dashboard/contacts";
-  await submitForm(contactForm, url, contactStatusNode, resetContactForm);
+  const saved = await submitForm(contactForm, url, contactStatusNode, resetContactForm);
+  if (saved) {
+    closePanel(contactFormPanel);
+  }
 });
 
 taskList.addEventListener("click", async (event) => {
@@ -480,8 +524,38 @@ contactList.addEventListener("click", async (event) => {
   }
 });
 
-taskCancelButton.addEventListener("click", resetTaskForm);
-contactCancelButton.addEventListener("click", resetContactForm);
+taskCancelButton.addEventListener("click", () => {
+  resetTaskForm();
+  closePanel(taskFormPanel);
+});
+contactCancelButton.addEventListener("click", () => {
+  resetContactForm();
+  closePanel(contactFormPanel);
+});
+
+taskToggleForm?.addEventListener("click", () => {
+  resetTaskForm();
+  openPanel(taskFormPanel);
+});
+
+contactToggleForm?.addEventListener("click", () => {
+  resetContactForm();
+  openPanel(contactFormPanel);
+});
+
+[taskFormPanel, contactFormPanel].forEach((panel) => {
+  panel?.addEventListener("click", (event) => {
+    const action = event.target.dataset.action;
+    if (action === "close-task-modal") {
+      resetTaskForm();
+      closePanel(taskFormPanel);
+    }
+    if (action === "close-contact-modal") {
+      resetContactForm();
+      closePanel(contactFormPanel);
+    }
+  });
+});
 
 Object.values(filters).forEach((node) => {
   node.addEventListener("input", renderAll);

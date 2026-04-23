@@ -94,42 +94,10 @@
                   filters.
                 </p>
               </div>
-            </div>
-
-            <form id="task-form" class="manager-form-grid manager-form-grid-vertical">
-              <input type="hidden" name="id" />
-              <label>
-                Task title
-                <input name="title" required />
-              </label>
-              <label>
-                Manager
-                <select name="owner" id="task-manager-select" required>
-                  <option value="">Choose registered manager</option>
-                </select>
-              </label>
-              <label>
-                Priority
-                <select name="priority">
-                  <option value="high">High</option>
-                  <option value="medium" selected>Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </label>
-              <label>
-                Due date
-                <input name="dueDate" type="date" />
-              </label>
-              <label class="full-span">
-                Note
-                <textarea name="note" rows="2"></textarea>
-              </label>
-              <div class="actions">
-                <button id="task-submit-button" type="submit">Add task</button>
-                <button id="task-cancel-button" type="button" class="button-secondary">Cancel</button>
-                <p id="task-status" class="status"></p>
+              <div class="camp-toolbar">
+                <button type="button" id="task-toggle-form">Add Task</button>
               </div>
-            </form>
+            </div>
 
             <div class="manager-filter-row">
               <label>
@@ -168,8 +136,99 @@
                   partners with filters.
                 </p>
               </div>
+              <div class="camp-toolbar">
+                <button type="button" id="contact-toggle-form">Add Contact</button>
+              </div>
             </div>
 
+            <div class="manager-filter-row">
+              <label>
+                Search
+                <input id="contact-search" type="search" placeholder="Search name or phone" />
+              </label>
+              <label>
+                Type
+                <select id="contact-type-filter">
+                  <option value="all">All</option>
+                  <option value="client">Client</option>
+                  <option value="staff">Staff</option>
+                  <option value="partner">Partner</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+              </label>
+              <label>
+                Status
+                <select id="contact-status-filter">
+                  <option value="all">All</option>
+                  <option value="priority">Priority</option>
+                  <option value="warm">Warm</option>
+                  <option value="new">New</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="contact-list" class="manager-table-wrap"></div>
+          </article>
+        </section>
+
+        <div id="task-form-panel" class="camp-modal is-hidden" hidden>
+          <div class="camp-modal-backdrop" data-action="close-task-modal"></div>
+          <div class="camp-modal-dialog home-manager-modal">
+            <div class="camp-modal-header">
+              <div>
+                <h2>Task details</h2>
+                <p class="camp-modal-copy">Add a new task or update an existing one from the same popup pattern.</p>
+              </div>
+              <button type="button" class="camp-modal-close" data-action="close-task-modal" aria-label="Close task window">×</button>
+            </div>
+            <form id="task-form" class="manager-form-grid manager-form-grid-vertical">
+              <input type="hidden" name="id" />
+              <label>
+                Task title
+                <input name="title" required />
+              </label>
+              <label>
+                Manager
+                <select name="owner" id="task-manager-select" required>
+                  <option value="">Choose registered manager</option>
+                </select>
+              </label>
+              <label>
+                Priority
+                <select name="priority">
+                  <option value="high">High</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+              <label>
+                Due date
+                <input name="dueDate" type="date" />
+              </label>
+              <label class="full-span">
+                Note
+                <textarea name="note" rows="2"></textarea>
+              </label>
+              <div class="actions">
+                <button id="task-submit-button" type="submit">Add task</button>
+                <button id="task-cancel-button" type="button" class="button-secondary">Cancel</button>
+                <p id="task-status" class="status"></p>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="contact-form-panel" class="camp-modal is-hidden" hidden>
+          <div class="camp-modal-backdrop" data-action="close-contact-modal"></div>
+          <div class="camp-modal-dialog home-manager-modal">
+            <div class="camp-modal-header">
+              <div>
+                <h2>Contact details</h2>
+                <p class="camp-modal-copy">Save important phone numbers in the same popup style used across the workspace.</p>
+              </div>
+              <button type="button" class="camp-modal-close" data-action="close-contact-modal" aria-label="Close contact window">×</button>
+            </div>
             <form id="contact-form" class="manager-form-grid manager-form-grid-vertical">
               <input type="hidden" name="id" />
               <label>
@@ -212,41 +271,12 @@
                 <p id="contact-status" class="status"></p>
               </div>
             </form>
-
-            <div class="manager-filter-row">
-              <label>
-                Search
-                <input id="contact-search" type="search" placeholder="Search name or phone" />
-              </label>
-              <label>
-                Type
-                <select id="contact-type-filter">
-                  <option value="all">All</option>
-                  <option value="client">Client</option>
-                  <option value="staff">Staff</option>
-                  <option value="partner">Partner</option>
-                  <option value="vendor">Vendor</option>
-                </select>
-              </label>
-              <label>
-                Status
-                <select id="contact-status-filter">
-                  <option value="all">All</option>
-                  <option value="priority">Priority</option>
-                  <option value="warm">Warm</option>
-                  <option value="new">New</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </label>
-            </div>
-
-            <div id="contact-list" class="manager-table-wrap"></div>
-          </article>
-        </section>
+          </div>
+        </div>
 
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/backoffice.js?v=workspace-59"></script>
+    <script src="/backoffice.js?v=workspace-60"></script>
   </body>
 </html>

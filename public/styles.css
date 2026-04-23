@@ -1122,6 +1122,10 @@ time {
   margin-top: 20px;
 }
 
+.home-manager-modal {
+  width: min(760px, calc(100vw - 40px));
+}
+
 .manager-form-grid-vertical {
   grid-template-columns: 1fr;
 }
@@ -1710,22 +1714,6 @@ time {
 
 .contract-modal {
   width: min(980px, calc(100vw - 40px));
-}
-
-.contract-dropdown {
-  margin-top: 16px;
-  border: 1px solid rgba(37, 58, 119, 0.14);
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 18px 46px rgba(20, 37, 85, 0.12);
-}
-
-.contract-dropdown-inner {
-  padding: 18px;
-}
-
-.contract-dropdown .contract-grid {
-  max-height: none;
 }
 
 .contract-grid label {
