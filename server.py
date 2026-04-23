@@ -2888,7 +2888,7 @@ def build_invoice_html(record, asset_mode="web"):
         background: #ffffff;
         color: #27272a;
         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 22px;
+        font-size: 13px;
       }}
       .toolbar {{
         position: sticky;
@@ -2896,23 +2896,23 @@ def build_invoice_html(record, asset_mode="web"):
         z-index: 10;
         display: flex;
         justify-content: center;
-        gap: 22px;
-        padding: 28px 16px;
+        gap: 14px;
+        padding: 18px 16px;
         background: rgba(255, 255, 255, 0.96);
         border-bottom: 1px solid #eef1f7;
         backdrop-filter: blur(10px);
       }}
       .toolbar a,
       .toolbar-button {{
-        min-width: 112px;
-        min-height: 64px;
-        padding: 16px 28px;
+        min-width: 86px;
+        min-height: 46px;
+        padding: 11px 18px;
         border: none;
         border-radius: 999px;
         background: #253776;
         color: #fff;
         text-decoration: none;
-        font: 800 24px/1.2 Inter, system-ui, sans-serif;
+        font: 800 16px/1.2 Inter, system-ui, sans-serif;
         cursor: pointer;
       }}
       .toolbar-button {{
@@ -2939,37 +2939,37 @@ def build_invoice_html(record, asset_mode="web"):
         z-index: 20;
       }}
       .page {{
-        width: min(1440px, calc(100vw - 92px));
-        margin: 24px auto 48px;
-        padding: 44px;
+        width: min(720px, calc(100vw - 48px));
+        margin: 20px auto 40px;
+        padding: 20px;
         background: #fff;
         border: 1px solid #dce3ef;
         border-radius: 14px;
         box-shadow: none;
       }}
       .invoice-number {{
-        margin: 0 0 30px;
+        margin: 0 0 18px;
         color: #27272a;
-        font-size: 34px;
+        font-size: 18px;
         line-height: 1.15;
         font-weight: 500;
       }}
       .header-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 46px;
+        gap: 20px;
         align-items: start;
-        margin-bottom: 46px;
+        margin-bottom: 28px;
       }}
       .invoice-logo {{
-        width: 286px;
+        width: 154px;
         max-width: 100%;
         display: block;
-        margin-bottom: 22px;
+        margin-bottom: 10px;
       }}
       .company-name {{
-        margin: 0 0 20px;
-        font-size: 23px;
+        margin: 0 0 12px;
+        font-size: 14px;
         line-height: 1.25;
         font-weight: 700;
         color: #27272a;
@@ -2978,7 +2978,7 @@ def build_invoice_html(record, asset_mode="web"):
       .customer-block p,
       .meta-note {{
         margin: 0;
-        font-size: 22px;
+        font-size: 13px;
         line-height: 1.38;
       }}
       .meta-note {{
@@ -2986,19 +2986,19 @@ def build_invoice_html(record, asset_mode="web"):
         color: #27272a;
       }}
       .customer-block {{
-        padding-top: 136px;
+        padding-top: 80px;
       }}
       .customer-block .label {{
         display: block;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
         color: #64748b;
-        font-size: 22px;
+        font-size: 13px;
         font-weight: 600;
       }}
       .section-title {{
-        margin: 0 0 18px;
+        margin: 0 0 10px;
         color: #64748b;
-        font-size: 22px;
+        font-size: 13px;
         font-weight: 600;
       }}
       .invoice-items-table {{
@@ -3008,13 +3008,13 @@ def build_invoice_html(record, asset_mode="web"):
         border-radius: 12px;
         border: 1px solid #cfd8e6;
         overflow: hidden;
-        margin-bottom: 44px;
+        margin-bottom: 28px;
       }}
       th, td {{
-        padding: 17px 16px;
+        padding: 10px 12px;
         border-bottom: 1px solid #cfd8e6;
         text-align: left;
-        font-size: 22px;
+        font-size: 13px;
         line-height: 1.25;
       }}
       th {{
@@ -3024,7 +3024,7 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       th:first-child,
       td:first-child {{
-        width: 82px;
+        width: 46px;
       }}
       td:last-child,
       th:last-child,
@@ -3039,16 +3039,16 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .payment-stack {{
         display: grid;
-        gap: 28px;
-        margin-bottom: 44px;
+        gap: 16px;
+        margin-bottom: 28px;
       }}
       .payment-card {{
         display: grid;
         grid-template-columns: 1.35fr 0.92fr 0.92fr 0.82fr 0.92fr;
-        gap: 26px;
+        gap: 12px;
         align-items: center;
-        min-height: 128px;
-        padding: 28px 30px;
+        min-height: 74px;
+        padding: 16px 18px;
         border: 1px solid #cfd8e6;
         border-radius: 12px;
         background: #fff;
@@ -3056,7 +3056,7 @@ def build_invoice_html(record, asset_mode="web"):
       .payment-main,
       .payment-amount {{
         min-width: 0;
-        font-size: 22px;
+        font-size: 13px;
         font-weight: 600;
         color: #27272a;
       }}
@@ -3069,13 +3069,13 @@ def build_invoice_html(record, asset_mode="web"):
         gap: 4px;
       }}
       .meta-value {{
-        font-size: 22px;
+        font-size: 13px;
         font-weight: 600;
         color: #27272a;
       }}
       .meta-label {{
         color: #64748b;
-        font-size: 22px;
+        font-size: 13px;
         font-weight: 600;
       }}
       .payment-status {{
@@ -3083,11 +3083,11 @@ def build_invoice_html(record, asset_mode="web"):
         align-items: center;
         justify-content: center;
         width: fit-content;
-        min-width: 134px;
-        min-height: 48px;
-        padding: 9px 20px;
+        min-width: 82px;
+        min-height: 30px;
+        padding: 5px 11px;
         border-radius: 999px;
-        font-size: 21px;
+        font-size: 12px;
         font-weight: 700;
       }}
       .payment-status.paid {{
@@ -3108,13 +3108,13 @@ def build_invoice_html(record, asset_mode="web"):
         display: none;
         width: 100%;
         min-width: 0;
-        min-height: 58px;
-        padding: 12px 18px;
+        min-height: 38px;
+        padding: 8px 10px;
         border: 1px solid #cbd6ee;
-        border-radius: 14px;
+        border-radius: 10px;
         background: #fff;
         color: #1f2937;
-        font: 600 22px/1.2 Inter, system-ui, sans-serif;
+        font: 600 13px/1.2 Inter, system-ui, sans-serif;
       }}
       .invoice-edit-input[type="date"] {{
         min-width: 0;
@@ -3129,10 +3129,13 @@ def build_invoice_html(record, asset_mode="web"):
       body.is-editing .bank-view {{
         display: none;
       }}
+      body.is-editing .page {{
+        width: min(1120px, calc(100vw - 48px));
+      }}
       body.is-editing .payment-card {{
-        grid-template-columns: minmax(210px, 1.25fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(160px, 0.9fr) minmax(190px, 1fr);
+        grid-template-columns: minmax(210px, 1.25fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(170px, 1fr);
         align-items: end;
-        gap: 20px;
+        gap: 12px;
       }}
       body.is-editing .payment-main {{
         grid-column: auto;
@@ -3148,20 +3151,20 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .bank-section {{
         margin-top: 0;
-        padding-bottom: 54px;
+        padding-bottom: 28px;
         border-bottom: 1px solid #d9e0ea;
       }}
       .bank-grid {{
         display: grid;
-        gap: 8px;
-        font-size: 22px;
+        gap: 4px;
+        font-size: 13px;
         line-height: 1.35;
         color: #27272a;
       }}
       .bank-line {{
         display: flex;
         flex-wrap: wrap;
-        gap: 28px;
+        gap: 18px;
         align-items: baseline;
       }}
       .bank-prefix {{
@@ -3173,52 +3176,52 @@ def build_invoice_html(record, asset_mode="web"):
       .signature-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 58px;
-        margin-top: 48px;
+        gap: 28px;
+        margin-top: 24px;
         align-items: start;
       }}
       .signature-card {{
         position: relative;
-        min-height: 232px;
+        min-height: 154px;
         padding-top: 0;
       }}
       .signature-label {{
         position: relative;
         z-index: 3;
-        min-height: 30px;
-        margin-bottom: 128px;
+        min-height: 18px;
+        margin-bottom: 76px;
         color: #64748b;
-        font-size: 22px;
+        font-size: 13px;
         font-weight: 600;
         background: #fff;
       }}
       .signature-line {{
-        border-bottom: 2px dashed #d5ddec;
+        border-bottom: 1px dashed #d5ddec;
       }}
       .accountant-stamp {{
         position: absolute;
-        left: 26px;
-        bottom: 48px;
-        width: 272px;
+        left: 10px;
+        bottom: 42px;
+        width: 168px;
         z-index: 1;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 236px;
-        bottom: 42px;
-        width: 188px;
+        left: 118px;
+        bottom: 36px;
+        width: 142px;
         z-index: 2;
       }}
       .signature-name {{
-        margin-top: 20px;
-        font-size: 22px;
+        margin-top: 10px;
+        font-size: 13px;
         font-weight: 700;
         color: #27272a;
       }}
       .signature-role {{
         color: #27272a;
-        font-size: 22px;
+        font-size: 13px;
       }}
       @media print {{
         .toolbar, .save-notice {{
