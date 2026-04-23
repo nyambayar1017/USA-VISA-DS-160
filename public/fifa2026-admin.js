@@ -59,6 +59,22 @@ const ticketRowContainers = {
 const DEFAULT_INVOICE_EXCHANGE_RATE = 3600;
 const ENGLAND_FLAG = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
 const SCOTLAND_FLAG = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}";
+const STADIUM_IMAGE_MAP = {
+  "Mexico City": { title: "MEXICO CITY - Estadio Azteca Stadium", file: "MEXICO CITY - Estadio Azteca Stadium.png" },
+  "Los Angeles": { title: "LOS ANGELES - SoFi Stadium", file: "LOS ANGELES - SoFi Stadium.png" },
+  Vancouver: { title: "VANCOUVER - BC Place Stadium", file: "VANCOUVER - BC Place Stadium.png" },
+  "New York": { title: "NEW YORK NEW JERSEY - MetLife Stadium", file: "NEW YORK NEW JERSEY - MetLife Stadium.png" },
+  Houston: { title: "HOUSTON - NRG Stadium", file: "HOUSTON - NRG Stadium.png" },
+  Dallas: { title: "DALLAS - AT&T Stadium", file: "DALLAS - AT&T Stadium.png" },
+  Seattle: { title: "SEATTLE - Lumen Field Stadium", file: "SEATTLE - Lumen Field Stadium.png" },
+  Kansas: { title: "KANSAS CITY - ARROWHEAD Stadium", file: "KANSAS CITY - ARROWHEAD Stadium.png" },
+  "San Francisco": { title: "SAN FRANCISCO BAY AREA - Levi's Stadium", file: "SAN FRANCISCO BAY AREA - Levi's Stadium.png" },
+  Guadalajara: { title: "GUADALAJARA - Akron Stadium", file: "GUADALAJARA - Akron Stadium.png" },
+  Boston: { title: "BOSTON - Gillette Stadium", file: "BOSTON - Gillette Stadium.png" },
+  Miami: { title: "MIAMI - Hard Rock Stadium", file: "MIAMI - Hard Rock Stadium.png" },
+  Philadelphia: { title: "PHILADELPHIA - Lincoln Financial Field Stadium", file: "PHILADELPHIA - Lincoln Financial Field Stadium.png" },
+  Atlanta: { title: "ATLANTA - Mercedes-Benz Stadium", file: "ATLANTA - Mercedes-Benz Stadium.png" },
+};
 const BANK_ACCOUNTS = {
   state: { label: "DTX - State Bank", bankName: "DTX - State Bank", prefix: "MN030034", accountNumber: "3432 7777 9999" },
   golomt: { label: "DTX - Golomt Bank", bankName: "DTX - Golomt Bank", prefix: "MN80001500", accountNumber: "3675114666" },
@@ -152,10 +168,61 @@ saleFormModal = ensureFifaFormModal({
 });
 
 function syncFifaModalOpenState() {
-  const hasOpenModal = [ticketFormModal, saleFormModal].some(
+  const hasOpenModal = [ticketFormModal, saleFormModal, stadiumModal].some(
     (node) => node && !node.classList.contains("is-hidden")
   );
   document.body.classList.toggle("modal-open", hasOpenModal);
+}
+
+function ensureStadiumModal() {
+  let modal = document.querySelector("#fifa-stadium-modal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "fifa-stadium-modal";
+  modal.className = "camp-modal is-hidden fifa-form-modal fifa-stadium-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="camp-modal-backdrop" data-action="close-stadium-modal"></div>
+    <div class="camp-modal-dialog fifa-form-modal-dialog fifa-stadium-modal-dialog">
+      <div class="camp-modal-header">
+        <div class="camp-modal-copy">
+          <h2 id="fifa-stadium-modal-title">Stadium image</h2>
+          <p>View the stadium seating map in the same fullscreen popup.</p>
+        </div>
+        <button type="button" class="camp-modal-close" data-action="close-stadium-modal" aria-label="Close">×</button>
+      </div>
+      <div class="fifa-stadium-modal-body">
+        <img id="fifa-stadium-modal-image" src="" alt="" />
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+const stadiumModal = ensureStadiumModal();
+const stadiumModalTitle = stadiumModal.querySelector("#fifa-stadium-modal-title");
+const stadiumModalImage = stadiumModal.querySelector("#fifa-stadium-modal-image");
+
+function closeStadiumModal() {
+  stadiumModal.classList.add("is-hidden");
+  stadiumModal.hidden = true;
+  stadiumModal.setAttribute("aria-hidden", "true");
+  syncFifaModalOpenState();
+}
+
+function openStadiumModal(location) {
+  const stadium = STADIUM_IMAGE_MAP[location];
+  if (!stadium) return;
+  stadiumModalTitle.textContent = stadium.title;
+  stadiumModalImage.src = `/stadiums/${encodeURIComponent(stadium.file)}`;
+  stadiumModalImage.alt = stadium.title;
+  stadiumModal.classList.remove("is-hidden");
+  stadiumModal.hidden = false;
+  stadiumModal.setAttribute("aria-hidden", "false");
+  syncFifaModalOpenState();
+  stadiumModal.querySelector(".camp-modal-dialog")?.scrollTo({ top: 0 });
 }
 
 const MATCH_CATALOG = [
@@ -2044,6 +2111,7 @@ function renderTickets() {
                                   <th class="checkbox-col">Mark</th>
                                   <th>Category</th>
                                   <th>Seat / Ticket Number</th>
+                                  <th>Stadium</th>
                                   <th>Price</th>
                                   <th>Qty</th>
                                   <th>Visibility</th>
@@ -2072,6 +2140,16 @@ function renderTickets() {
                                         <td>
                                           <strong>${escapeHtml(ticket.seatDetails || "-")}</strong>
                                           <span class="fifa-table-sub">${escapeHtml(ticket.seatSection || "")}</span>
+                                        </td>
+                                        <td>
+                                          <button
+                                            type="button"
+                                            class="button-secondary fifa-inline-action fifa-stadium-button"
+                                            data-action="open-stadium-image"
+                                            data-stadium-location="${escapeHtml(ticket.city || group.city || "")}"
+                                          >
+                                            ${escapeHtml(ticket.venue || group.venue || ticket.city || group.city || "Stadium")}
+                                          </button>
                                         </td>
                                         <td>${escapeHtml(formatMoney(ticket.price, ticket.currency))}</td>
                                         <td>
@@ -2938,6 +3016,10 @@ document.querySelectorAll('[data-action="close-fifa-sale-modal"]').forEach((node
 });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if (!stadiumModal.classList.contains("is-hidden")) {
+    closeStadiumModal();
+    return;
+  }
   if (saleFormModal && !saleFormModal.classList.contains("is-hidden")) {
     resetSaleForm();
     return;
@@ -3071,6 +3153,15 @@ ticketList?.addEventListener("click", async (event) => {
   }
   if (target?.dataset.action === "toggle-match-menu") {
     event.stopPropagation();
+    return;
+  }
+  if (target?.dataset.action === "open-stadium-image") {
+    event.stopPropagation();
+    openStadiumModal(target.dataset.stadiumLocation || "");
+    return;
+  }
+  if (target?.dataset.action === "close-stadium-modal") {
+    closeStadiumModal();
     return;
   }
   if (target?.dataset.action === "add-ticket-match") {

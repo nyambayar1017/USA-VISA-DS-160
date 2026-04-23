@@ -23,6 +23,22 @@ const PUBLIC_SHOWCASE_TOTAL_TICKETS = 3340;
 const PUBLIC_PAGE_SIZE = 15;
 const ENGLAND_FLAG = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
 const SCOTLAND_FLAG = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}";
+const STADIUM_IMAGE_MAP = {
+  "Mexico City": { title: "MEXICO CITY - Estadio Azteca Stadium", file: "MEXICO CITY - Estadio Azteca Stadium.png" },
+  "Los Angeles": { title: "LOS ANGELES - SoFi Stadium", file: "LOS ANGELES - SoFi Stadium.png" },
+  Vancouver: { title: "VANCOUVER - BC Place Stadium", file: "VANCOUVER - BC Place Stadium.png" },
+  "New York": { title: "NEW YORK NEW JERSEY - MetLife Stadium", file: "NEW YORK NEW JERSEY - MetLife Stadium.png" },
+  Houston: { title: "HOUSTON - NRG Stadium", file: "HOUSTON - NRG Stadium.png" },
+  Dallas: { title: "DALLAS - AT&T Stadium", file: "DALLAS - AT&T Stadium.png" },
+  Seattle: { title: "SEATTLE - Lumen Field Stadium", file: "SEATTLE - Lumen Field Stadium.png" },
+  Kansas: { title: "KANSAS CITY - ARROWHEAD Stadium", file: "KANSAS CITY - ARROWHEAD Stadium.png" },
+  "San Francisco": { title: "SAN FRANCISCO BAY AREA - Levi's Stadium", file: "SAN FRANCISCO BAY AREA - Levi's Stadium.png" },
+  Guadalajara: { title: "GUADALAJARA - Akron Stadium", file: "GUADALAJARA - Akron Stadium.png" },
+  Boston: { title: "BOSTON - Gillette Stadium", file: "BOSTON - Gillette Stadium.png" },
+  Miami: { title: "MIAMI - Hard Rock Stadium", file: "MIAMI - Hard Rock Stadium.png" },
+  Philadelphia: { title: "PHILADELPHIA - Lincoln Financial Field Stadium", file: "PHILADELPHIA - Lincoln Financial Field Stadium.png" },
+  Atlanta: { title: "ATLANTA - Mercedes-Benz Stadium", file: "ATLANTA - Mercedes-Benz Stadium.png" },
+};
 
 const TEAM_FLAG_MAP = {
   ALG: "🇩🇿",
@@ -74,6 +90,62 @@ const state = {
   mobileMenuOpen: false,
   publicPage: 1,
 };
+
+function ensureStadiumModal() {
+  let modal = document.querySelector("#fifa-stadium-modal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "fifa-stadium-modal";
+  modal.className = "camp-modal is-hidden fifa-form-modal fifa-stadium-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="camp-modal-backdrop" data-action="close-stadium-modal"></div>
+    <div class="camp-modal-dialog fifa-form-modal-dialog fifa-stadium-modal-dialog">
+      <div class="camp-modal-header">
+        <div class="camp-modal-copy">
+          <h2 id="fifa-stadium-modal-title">Стадион зураг</h2>
+          <p>Суудлын байршлын зургийг бүтэн дэлгэцээр харах боломжтой.</p>
+        </div>
+        <button type="button" class="camp-modal-close" data-action="close-stadium-modal" aria-label="Close">×</button>
+      </div>
+      <div class="fifa-stadium-modal-body">
+        <img id="fifa-stadium-modal-image" src="" alt="" />
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+const stadiumModal = ensureStadiumModal();
+const stadiumModalTitle = stadiumModal.querySelector("#fifa-stadium-modal-title");
+const stadiumModalImage = stadiumModal.querySelector("#fifa-stadium-modal-image");
+stadiumModal.addEventListener("click", (event) => {
+  if (event.target.closest('[data-action="close-stadium-modal"]')) {
+    closeStadiumModal();
+  }
+});
+
+function closeStadiumModal() {
+  stadiumModal.classList.add("is-hidden");
+  stadiumModal.hidden = true;
+  stadiumModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
+function openStadiumModal(location) {
+  const stadium = STADIUM_IMAGE_MAP[location];
+  if (!stadium) return;
+  stadiumModalTitle.textContent = stadium.title;
+  stadiumModalImage.src = `/stadiums/${encodeURIComponent(stadium.file)}`;
+  stadiumModalImage.alt = stadium.title;
+  stadiumModal.classList.remove("is-hidden");
+  stadiumModal.hidden = false;
+  stadiumModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  stadiumModal.querySelector(".camp-modal-dialog")?.scrollTo({ top: 0 });
+}
 
 const GROUP_STAGE_TABLES = [
   { group: "A", teams: [["🇲🇽", "Mexico"], ["🇿🇦", "South Africa"], ["🇰🇷", "Korea Republic"], ["🇨🇿", "Czechia"]] },
@@ -402,6 +474,7 @@ function renderTicketTable(row) {
           <th>#</th>
           <th>Ангилал</th>
           <th>Суудал / Билет</th>
+          <th>Стадион</th>
         </tr>
       </thead>
       <tbody>
@@ -416,6 +489,16 @@ function renderTicketTable(row) {
                 </td>
                 <td>
                   <strong>${escapeHtml(ticketSeatLabel(ticket))}</strong>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    class="button-secondary fifa-inline-action fifa-stadium-button"
+                    data-action="open-stadium-image"
+                    data-stadium-location="${escapeHtml(ticket.city || row.city || "")}"
+                  >
+                    ${escapeHtml(ticket.venue || row.venue || ticket.city || row.city || "Стадион")}
+                  </button>
                 </td>
               </tr>
             `;
@@ -631,6 +714,11 @@ publicList?.addEventListener("click", (event) => {
     renderPublicTickets();
     return;
   }
+  const stadiumButton = event.target.closest('[data-action="open-stadium-image"]');
+  if (stadiumButton) {
+    openStadiumModal(stadiumButton.dataset.stadiumLocation || "");
+    return;
+  }
   const toggle = event.target.closest('[data-action="toggle-match"]');
   if (!toggle) return;
   toggleMatch(toggle.dataset.matchKey || "");
@@ -661,6 +749,12 @@ mobileMenu?.addEventListener("click", (event) => {
 window.addEventListener("resize", () => {
   if (window.innerWidth > 980 && state.mobileMenuOpen) {
     setMobileMenuOpen(false);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !stadiumModal.classList.contains("is-hidden")) {
+    closeStadiumModal();
   }
 });
 
