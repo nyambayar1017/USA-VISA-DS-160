@@ -3182,14 +3182,14 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .signature-card {{
         position: relative;
-        min-height: 154px;
+        min-height: 174px;
         padding-top: 0;
       }}
       .signature-label {{
         position: relative;
         z-index: 3;
         min-height: 18px;
-        margin-bottom: 76px;
+        margin-bottom: 90px;
         color: #64748b;
         font-size: 13px;
         font-weight: 600;
@@ -3200,21 +3200,21 @@ def build_invoice_html(record, asset_mode="web"):
       }}
       .accountant-stamp {{
         position: absolute;
-        left: 10px;
-        bottom: 42px;
+        left: 12px;
+        bottom: 50px;
         width: 168px;
         z-index: 1;
         opacity: 0.98;
       }}
       .accountant-signature {{
         position: absolute;
-        left: 118px;
-        bottom: 36px;
-        width: 142px;
+        left: 94px;
+        bottom: 48px;
+        width: 154px;
         z-index: 2;
       }}
       .signature-name {{
-        margin-top: 10px;
+        margin-top: 14px;
         font-size: 13px;
         font-weight: 700;
         color: #27272a;
@@ -3274,22 +3274,6 @@ def build_invoice_html(record, asset_mode="web"):
           min-height: 78px;
           padding: 16px 18px;
           gap: 12px;
-        }}
-        .signature-card {{
-          min-height: 154px;
-        }}
-        .signature-label {{
-          margin-bottom: 76px;
-        }}
-        .accountant-stamp {{
-          left: 4px;
-          bottom: 46px;
-          width: 148px;
-        }}
-        .accountant-signature {{
-          left: 100px;
-          bottom: 64px;
-          width: 132px;
         }}
       }}
       @media (max-width: 980px) {{
