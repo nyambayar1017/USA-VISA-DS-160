@@ -51,6 +51,7 @@ const TEAM_FLAG_MAP = {
   COD: "🇨🇩",
   CRO: "🇭🇷",
   CUR: "🇨🇼",
+  CZE: "🇨🇿",
   EGY: "🇪🇬",
   ENG: ENGLAND_FLAG,
   FRA: "🇫🇷",
@@ -343,6 +344,21 @@ function normalizedCategory(ticket) {
   if (["1", "2", "3"].includes(code)) return code;
   const digits = code.replace(/\D+/g, "");
   return ["1", "2", "3"].includes(digits) ? digits : "";
+}
+
+function normalizeTicketMatchData(ticket) {
+  if (!ticket || typeof ticket !== "object") return ticket;
+  const matchNumber = String(ticket.matchNumber || "").trim().toLowerCase();
+  const teamA = String(ticket.teamA || "").trim().toUpperCase();
+  const teamB = String(ticket.teamB || "").trim().toUpperCase();
+  if (matchNumber === "match 53" && teamA === "MEX" && ["FIFA", "CZECH", "CZECHIA", ""].includes(teamB)) {
+    return {
+      ...ticket,
+      teamB: "CZE",
+      matchLabel: !ticket.matchLabel || String(ticket.matchLabel).toUpperCase().includes("FIFA") ? "MEX vs CZE" : ticket.matchLabel,
+    };
+  }
+  return ticket;
 }
 
 function teamDisplay(code) {
@@ -680,7 +696,7 @@ async function fetchPublicTickets() {
   if (!response.ok) {
     throw new Error(data.error || "Тасалбарын мэдээлэл ачаалж чадсангүй");
   }
-  state.tickets = data.tickets || [];
+  state.tickets = (data.tickets || []).map(normalizeTicketMatchData);
   const rows = buildCatalogRows();
   fillSelectFromOptions(
     filters.stage,

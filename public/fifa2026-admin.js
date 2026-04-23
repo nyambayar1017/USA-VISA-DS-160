@@ -544,6 +544,7 @@ const TEAM_FLAG_MAP = {
   COD: "🇨🇩",
   CRO: "🇭🇷",
   CUR: "🇨🇼",
+  CZE: "🇨🇿",
   EGY: "🇪🇬",
   ENG: ENGLAND_FLAG,
   FRA: "🇫🇷",
@@ -638,6 +639,21 @@ function teamDisplay(code) {
   if (!teamCode) return "";
   const flag = TEAM_FLAG_MAP[teamCode];
   return flag ? `${flag} ${teamCode}` : teamCode;
+}
+
+function normalizeTicketMatchData(ticket) {
+  if (!ticket || typeof ticket !== "object") return ticket;
+  const matchNumber = String(ticket.matchNumber || "").trim().toLowerCase();
+  const teamA = String(ticket.teamA || "").trim().toUpperCase();
+  const teamB = String(ticket.teamB || "").trim().toUpperCase();
+  if (matchNumber === "match 53" && teamA === "MEX" && ["FIFA", "CZECH", "CZECHIA", ""].includes(teamB)) {
+    return {
+      ...ticket,
+      teamB: "CZE",
+      matchLabel: !ticket.matchLabel || String(ticket.matchLabel).toUpperCase().includes("FIFA") ? "MEX vs CZE" : ticket.matchLabel,
+    };
+  }
+  return ticket;
 }
 
 function teamOptionLabel(code) {
@@ -2813,7 +2829,7 @@ function openSaleInvoice(sale) {
 
 async function loadDashboard() {
   const data = await fetchJson("/api/fifa2026");
-  state.tickets = data.tickets || [];
+  state.tickets = (data.tickets || []).map(normalizeTicketMatchData);
   state.sales = data.sales || [];
   state.summary = data.summary || null;
   updateSummary();

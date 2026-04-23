@@ -4733,7 +4733,22 @@ def find_fifa_ticket(store, ticket_id):
     return None
 
 
+def normalize_fifa_ticket_match_data(ticket):
+    if not isinstance(ticket, dict):
+        return ticket
+    match_number = normalize_text(ticket.get("matchNumber")).lower()
+    team_a = normalize_text(ticket.get("teamA")).upper()
+    team_b = normalize_text(ticket.get("teamB")).upper()
+    if match_number == "match 53" and team_a == "MEX" and team_b in {"FIFA", "CZECH", "CZECHIA", ""}:
+        ticket = {**ticket, "teamB": "CZE"}
+        current_label = normalize_text(ticket.get("matchLabel"))
+        if not current_label or "FIFA" in current_label.upper():
+            ticket["matchLabel"] = "MEX vs CZE"
+    return ticket
+
+
 def enrich_fifa_ticket(ticket, sales):
+    ticket = normalize_fifa_ticket_match_data(ticket)
     sold_quantity = sum(
         fifa_sale_quantity_for_ticket(sale, ticket.get("id"))
         for sale in fifa_ticket_sales(sales, ticket.get("id"))
