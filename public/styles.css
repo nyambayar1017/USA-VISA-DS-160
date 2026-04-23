@@ -5105,10 +5105,10 @@ body.modal-open {
   --knockout-label-size: 0.72rem;
   --knockout-pill-padding-y: 9px;
   --knockout-pill-padding-x: 12px;
-  --knockout-round16-offset: 48px;
-  --knockout-quarter-offset: 122px;
-  --knockout-semi-offset: 222px;
-  --knockout-final-offset: 116px;
+  --knockout-round16-offset: 66px;
+  --knockout-quarter-offset: 176px;
+  --knockout-semi-offset: 318px;
+  --knockout-final-offset: 192px;
   display: grid;
   grid-template-columns: repeat(9, minmax(0, 1fr));
   gap: var(--knockout-column-gap);
@@ -5133,10 +5133,10 @@ body.modal-open {
   --knockout-label-size: 0.76rem;
   --knockout-pill-padding-y: 10px;
   --knockout-pill-padding-x: 13px;
-  --knockout-round16-offset: 58px;
-  --knockout-quarter-offset: 144px;
-  --knockout-semi-offset: 258px;
-  --knockout-final-offset: 134px;
+  --knockout-round16-offset: 78px;
+  --knockout-quarter-offset: 198px;
+  --knockout-semi-offset: 356px;
+  --knockout-final-offset: 216px;
   max-width: 1640px;
 }
 
@@ -5238,21 +5238,46 @@ body.modal-open {
 
 .fifa-knockout-round[data-round-index="1"] .fifa-knockout-round__matches,
 .fifa-knockout-round[data-round-index="7"] .fifa-knockout-round__matches {
-  gap: calc(var(--knockout-match-gap) * 1.85);
+  gap: calc(var(--knockout-match-gap) * 1.55);
 }
 
 .fifa-knockout-round[data-round-index="2"] .fifa-knockout-round__matches,
 .fifa-knockout-round[data-round-index="6"] .fifa-knockout-round__matches {
-  gap: calc(var(--knockout-match-gap) * 3.25);
+  gap: calc(var(--knockout-match-gap) * 2.8);
 }
 
 .fifa-knockout-round[data-round-index="3"] .fifa-knockout-round__matches,
 .fifa-knockout-round[data-round-index="5"] .fifa-knockout-round__matches {
-  gap: calc(var(--knockout-match-gap) * 4.5);
+  gap: calc(var(--knockout-match-gap) * 4.1);
 }
 
 .fifa-knockout-round[data-round-index="4"] .fifa-knockout-round__matches {
   gap: 18px;
+}
+
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-match:nth-child(2),
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-match:nth-child(2) {
+  margin-top: 12px;
+}
+
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-match:nth-child(3),
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-match:nth-child(3) {
+  margin-top: 34px;
+}
+
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-match:nth-child(4),
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-match:nth-child(4) {
+  margin-top: 56px;
+}
+
+.fifa-knockout-round[data-round-index="2"] .fifa-knockout-match:nth-child(2),
+.fifa-knockout-round[data-round-index="6"] .fifa-knockout-match:nth-child(2) {
+  margin-top: 48px;
+}
+
+.fifa-knockout-round[data-round-index="3"] .fifa-knockout-match:nth-child(1),
+.fifa-knockout-round[data-round-index="5"] .fifa-knockout-match:nth-child(1) {
+  margin-top: 24px;
 }
 
 .fifa-admin-stage-panel {
