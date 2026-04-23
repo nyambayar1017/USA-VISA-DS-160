@@ -5156,9 +5156,11 @@ body.modal-open {
   gap: var(--knockout-row-gap);
   grid-template-rows: repeat(16, var(--knockout-row-size));
   align-items: stretch;
+  position: relative;
 }
 
 .fifa-knockout-match {
+  position: relative;
   padding: 8px;
   border: 1px solid rgba(32, 53, 111, 0.08);
   border-radius: var(--knockout-card-radius);
@@ -5313,6 +5315,69 @@ body.modal-open {
   grid-row: 10 / span 3;
 }
 
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match::after,
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-match::after,
+.fifa-knockout-round[data-round-index="2"] .fifa-knockout-match::after,
+.fifa-knockout-round[data-round-index="3"] .fifa-knockout-match::after,
+.fifa-knockout-round[data-round-index="5"] .fifa-knockout-match::before,
+.fifa-knockout-round[data-round-index="6"] .fifa-knockout-match::before,
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-match::before,
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: calc(var(--knockout-column-gap) / 2);
+  border-top: 1px solid rgba(32, 53, 111, 0.16);
+}
+
+.fifa-knockout-round[data-round-index="0"] .fifa-knockout-match::after,
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-match::after,
+.fifa-knockout-round[data-round-index="2"] .fifa-knockout-match::after,
+.fifa-knockout-round[data-round-index="3"] .fifa-knockout-match::after {
+  right: calc(var(--knockout-column-gap) / -2);
+}
+
+.fifa-knockout-round[data-round-index="5"] .fifa-knockout-match::before,
+.fifa-knockout-round[data-round-index="6"] .fifa-knockout-match::before,
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-match::before,
+.fifa-knockout-round[data-round-index="8"] .fifa-knockout-match::before {
+  left: calc(var(--knockout-column-gap) / -2);
+}
+
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-round__matches::before,
+.fifa-knockout-round[data-round-index="2"] .fifa-knockout-round__matches::before,
+.fifa-knockout-round[data-round-index="6"] .fifa-knockout-round__matches::before,
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-round__matches::before {
+  content: "";
+  position: absolute;
+  width: 1px;
+  background: rgba(32, 53, 111, 0.16);
+}
+
+.fifa-knockout-round[data-round-index="1"] .fifa-knockout-round__matches::before {
+  left: calc(var(--knockout-column-gap) / -2);
+  top: calc(var(--knockout-row-size) * 1.5 + var(--knockout-row-gap));
+  height: calc(var(--knockout-row-size) * 11.2);
+}
+
+.fifa-knockout-round[data-round-index="2"] .fifa-knockout-round__matches::before {
+  left: calc(var(--knockout-column-gap) / -2);
+  top: calc(var(--knockout-row-size) * 4.8);
+  height: calc(var(--knockout-row-size) * 8.1);
+}
+
+.fifa-knockout-round[data-round-index="7"] .fifa-knockout-round__matches::before {
+  right: calc(var(--knockout-column-gap) / -2);
+  top: calc(var(--knockout-row-size) * 1.5 + var(--knockout-row-gap));
+  height: calc(var(--knockout-row-size) * 11.2);
+}
+
+.fifa-knockout-round[data-round-index="6"] .fifa-knockout-round__matches::before {
+  right: calc(var(--knockout-column-gap) / -2);
+  top: calc(var(--knockout-row-size) * 4.8);
+  height: calc(var(--knockout-row-size) * 8.1);
+}
+
 .fifa-admin-stage-panel {
   margin-top: 22px;
 }
@@ -5333,13 +5398,13 @@ body.modal-open {
 
 .fifa-public-seat-group strong {
   color: var(--brand);
-  font-size: 0.86rem;
+  font-size: 0.78rem;
   font-weight: 400 !important;
 }
 
 .fifa-public-seat-group span {
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   line-height: 1.5;
 }
 
@@ -5408,11 +5473,11 @@ body.modal-open {
 
 .fifa-public-body .manager-table.fifa-table td,
 .fifa-public-body .manager-table.fifa-table strong {
-  font-size: 0.72rem !important;
+  font-size: 0.78rem !important;
 }
 
 .fifa-public-body .manager-table.fifa-table .fifa-table-sub {
-  font-size: 0.68rem !important;
+  font-size: 0.78rem !important;
 }
 
 @media (max-width: 1200px) {
@@ -5618,7 +5683,7 @@ body.modal-open {
 
   .fifa-public-hero,
   .fifa-public-panel {
-    padding: 14px;
+    padding: 12px;
     border-radius: 20px;
   }
 
@@ -5627,15 +5692,15 @@ body.modal-open {
   }
 
   .fifa-public-panel .fifa-filters label {
-    gap: 2px;
+    gap: 1px;
     font-size: 0.72rem;
   }
 
   .fifa-public-panel .fifa-filters input,
   .fifa-public-panel .fifa-filters select {
-    padding: 6px 10px;
-    min-height: 34px;
-    border-radius: 10px;
+    padding: 4px 10px;
+    min-height: 28px;
+    border-radius: 8px;
     font-size: 0.76rem;
   }
 
@@ -5655,17 +5720,22 @@ body.modal-open {
   }
 
   .fifa-public-summary article {
-    padding: 12px 14px;
-    border-radius: 18px;
+    padding: 8px 12px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .fifa-public-summary span {
     font-size: 0.68rem;
+    margin: 0;
   }
 
   .fifa-public-summary strong {
-    margin-top: 4px;
+    margin-top: 0;
     font-size: 0.96rem;
+    line-height: 1;
   }
 
   .fifa-list-meta {
@@ -5693,13 +5763,19 @@ body.modal-open {
   }
 
   .fifa-public-body .manager-table.fifa-table td:nth-child(3) strong {
-    font-size: 0.5rem !important;
+    font-size: 0.62rem !important;
     font-weight: 400 !important;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
+    line-height: 1.15;
+    letter-spacing: 0;
   }
 
   .fifa-public-body .manager-table.fifa-table td:nth-child(2) strong {
-    font-size: 0.5rem !important;
+    font-size: 0.62rem !important;
+  }
+
+  .fifa-knockout-round__matches::before,
+  .fifa-knockout-match::before,
+  .fifa-knockout-match::after {
+    display: none;
   }
 }

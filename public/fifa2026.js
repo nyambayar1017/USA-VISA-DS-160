@@ -367,14 +367,12 @@ function renderTicketTable(row) {
           <th>#</th>
           <th>Ангилал</th>
           <th>Суудал / Билет</th>
-          <th>Үлдэгдэл</th>
         </tr>
       </thead>
       <tbody>
         ${visibleTickets
           .map((ticket, index) => {
             const categoryCode = normalizedCategory(ticket);
-            const available = Number(ticket.availableQuantity || 0);
             return `
               <tr>
                 <td>${index + 1}</td>
@@ -383,9 +381,6 @@ function renderTicketTable(row) {
                 </td>
                 <td>
                   <strong>${escapeHtml(ticketSeatLabel(ticket))}</strong>
-                </td>
-                <td>
-                  <strong>${escapeHtml(String(available))}</strong>
                 </td>
               </tr>
             `;
@@ -398,14 +393,12 @@ function renderTicketTable(row) {
 
 function renderPublicPagination(pagination) {
   if (pagination.totalItems <= PUBLIC_PAGE_SIZE) return "";
-  const start = pagination.startIndex + 1;
-  const end = pagination.startIndex + pagination.items.length;
   return `
     <div class="table-pagination fifa-public-pagination">
-      <p>Showing ${start}-${end} of ${pagination.totalItems} matches</p>
+      <p>Хуудас ${pagination.currentPage}/${pagination.totalPages}</p>
       <div class="pagination-actions">
-        <button type="button" class="button-secondary" data-action="paginate-public" data-page="${pagination.currentPage - 1}" ${pagination.currentPage <= 1 ? "disabled" : ""}>Previous</button>
-        <button type="button" class="button-secondary" data-action="paginate-public" data-page="${pagination.currentPage + 1}" ${pagination.currentPage >= pagination.totalPages ? "disabled" : ""}>Next</button>
+        <button type="button" class="button-secondary" data-action="paginate-public" data-page="${pagination.currentPage - 1}" ${pagination.currentPage <= 1 ? "disabled" : ""}>Өмнөх</button>
+        <button type="button" class="button-secondary" data-action="paginate-public" data-page="${pagination.currentPage + 1}" ${pagination.currentPage >= pagination.totalPages ? "disabled" : ""}>Дараах</button>
       </div>
     </div>
   `;
@@ -468,7 +461,7 @@ function renderPublicTickets() {
   if (publicSummaryUnits) publicSummaryUnits.textContent = String(availableTickets);
   if (publicListCount) publicListCount.textContent = `${rows.length} тоглолт`;
   if (publicListMeta) publicListMeta.textContent = rows.length > PUBLIC_PAGE_SIZE
-    ? `Нийт боломжтой билет: ${availableTickets} · Page ${pagination.currentPage} of ${pagination.totalPages}`
+    ? `Нийт боломжтой билет: ${availableTickets} · Хуудас ${pagination.currentPage}/${pagination.totalPages}`
     : `Нийт боломжтой билет: ${availableTickets}`;
 
   if (!rows.length) {
