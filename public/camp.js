@@ -33,6 +33,7 @@ const filterReservedDate = document.querySelector("#filter-reserved-date");
 const filterStatus = document.querySelector("#filter-status");
 const paymentFilterTripName = document.querySelector("#payment-filter-trip-name");
 const paymentFilterCampName = document.querySelector("#payment-filter-camp-name");
+const campViewPdf = document.querySelector("#camp-view-pdf");
 const campExportPdf = document.querySelector("#camp-export-pdf");
 const campCheckin = document.querySelector("#camp-checkin");
 const campCheckout = document.querySelector("#camp-checkout");
@@ -1110,6 +1111,7 @@ function renderActiveCampReservations() {
           <span>Check-in to</span>
           <input type="date" value="${escapeHtml(activeCampDateTo)}" data-action="active-camp-date-to" />
         </label>
+        <button type="button" class="secondary-button" data-action="view-active-camp-pdf">View camp PDF</button>
         <button type="button" class="secondary-button" data-action="download-active-camp-pdf">Download camp PDF</button>
         <button type="button" class="secondary-button" data-action="hide-camp-panel">Hide table</button>
       </div>
@@ -2089,7 +2091,13 @@ async function exportCurrentReservations() {
   await exportReservationsAsPdf(entries, "camp-reservations.pdf");
 }
 
-async function exportReservationsAsPdf(entries, filename = "camp-reservations.pdf") {
+async function viewCurrentReservations() {
+  const selectedEntries = getFilteredEntries().filter((entry) => selectedReservationIds.has(entry.id));
+  const entries = selectedEntries.length ? selectedEntries : getFilteredEntries();
+  await exportReservationsAsPdf(entries, "camp-reservations.pdf", "view");
+}
+
+async function exportReservationsAsPdf(entries, filename = "camp-reservations.pdf", mode = "download") {
   if (!entries.length) {
     campStatus.textContent = "No reservations to export.";
     return;
@@ -2098,6 +2106,11 @@ async function exportReservationsAsPdf(entries, filename = "camp-reservations.pd
   try {
     const ids = entries.map((entry) => entry.id).join(",");
     const result = await fetchJson(`/api/camp-reservations/export?ids=${encodeURIComponent(ids)}`);
+    if (mode === "view") {
+      window.open(result.entry.pdfViewPath || result.entry.pdfPath, "_blank", "noopener,noreferrer");
+      campStatus.textContent = "PDF preview ready.";
+      return;
+    }
     const link = document.createElement("a");
     link.href = appendDownloadQuery(result.entry.pdfPath);
     link.download = filename;
@@ -2386,6 +2399,11 @@ function handleCampTableClick(event) {
     setActiveCamp(target.dataset.campName);
     return;
   }
+  if (action === "view-active-camp-pdf") {
+    const entries = getActiveCampEntries();
+    exportReservationsAsPdf(entries, `${activeCampName || "camp"}-reservations.pdf`, "view");
+    return;
+  }
   if (action === "download-active-camp-pdf") {
     const entries = getActiveCampEntries();
     exportReservationsAsPdf(entries, `${activeCampName || "camp"}-reservations.pdf`);
@@ -2654,6 +2672,7 @@ document.addEventListener("change", (event) => {
   }
 });
 campNameSelect?.addEventListener("change", () => applyCampLocationToForm(campForm));
+campViewPdf?.addEventListener("click", viewCurrentReservations);
 campExportPdf?.addEventListener("click", exportCurrentReservations);
 
 document.querySelectorAll("[data-settings-group]").forEach((formNode) => {

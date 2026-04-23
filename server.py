@@ -3492,6 +3492,13 @@ def camp_reservation_title(record):
     return RESERVATION_TYPE_LABELS.get(reservation_type, RESERVATION_TYPE_LABELS["camp"])
 
 
+def is_hotel_reservation(record):
+    reservation_type = normalize_text(record.get("reservationType")).lower()
+    camp_name = normalize_text(record.get("campName")).lower()
+    title = camp_reservation_title(record)
+    return reservation_type == "hotel" or "hotel" in camp_name or title == RESERVATION_TYPE_LABELS["hotel"]
+
+
 def camp_reservation_meals(record):
     return " / ".join(
         [
@@ -3510,6 +3517,7 @@ def build_camp_document_html(record, pdf_href):
     meals = camp_reservation_meals(record)
     reservation_title = camp_reservation_title(record)
     manager_name = record.get("staffAssignment") or STEPPE_MANAGER
+    unit_label = "Өрөөний тоо" if is_hotel_reservation(record) else "Гэрийн тоо"
     return f"""<!DOCTYPE html>
 <html lang="mn">
   <head>
@@ -3625,6 +3633,18 @@ def build_camp_document_html(record, pdf_href):
       .status-box p {{
         margin: 0 0 8px;
       }}
+      @media print {{
+        body {{
+          background: #fff;
+        }}
+        .toolbar {{
+          display: none;
+        }}
+        .page {{
+          margin: 0 auto;
+          box-shadow: none;
+        }}
+      }}
     </style>
   </head>
   <body>
@@ -3667,7 +3687,7 @@ def build_camp_document_html(record, pdf_href):
             <th>Ирэх өдөр</th>
             <th>Явах өдөр</th>
             <th>Хоногийн тоо</th>
-            <th>Гэрийн тоо</th>
+            <th>{unit_label}</th>
             <th>Өрөөний төрөл</th>
             <th>Хоол</th>
           </tr>
@@ -3711,9 +3731,9 @@ def build_camp_bundle_document_html(records, pdf_href):
     first = records[0]
     reservation_title = camp_reservation_title(first)
     manager_name = first.get("staffAssignment") or STEPPE_MANAGER
-    is_hotel_bundle = all(normalize_text(record.get("reservationType")).lower() == "hotel" for record in records)
+    is_hotel_bundle = is_hotel_reservation(first)
     place_label = "Hotel" if is_hotel_bundle else "Camp"
-    unit_label = "Rooms" if is_hotel_bundle else "Gers"
+    unit_label = "Room" if is_hotel_bundle else "Gers"
     row_markup = "".join(
         f"""
           <tr>
@@ -3924,107 +3944,10 @@ def save_camp_reservation_document(record):
     pdf_ready = False
 
     try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.pdfgen import canvas
-        from reportlab.platypus import Table, TableStyle
+        from weasyprint import HTML
 
-        pdf = canvas.Canvas(str(pdf_path), pagesize=landscape(A4))
-        width, height = landscape(A4)
-        font_name = "Helvetica"
-        bold_font_name = "Helvetica-Bold"
-
-        for candidate in [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            "/Library/Fonts/Arial Unicode.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        ]:
-            if Path(candidate).exists():
-                pdfmetrics.registerFont(TTFont("TravelXUnicode", candidate))
-                font_name = "TravelXUnicode"
-                bold_font_name = "TravelXUnicode"
-                break
-
-        reservation_title = camp_reservation_title(record)
-        manager_name = record.get("staffAssignment") or STEPPE_MANAGER
-        meals = camp_reservation_meals(record)
-
-        def draw_logo(x, y):
-            pdf.setFillColor(colors.HexColor("#1d2f86"))
-            pdf.setFont(bold_font_name, 18)
-            pdf.drawString(x, y - 16, "UNLOCK STEPPE MONGOLIA")
-
-        draw_logo(40, height - 40)
-        pdf.setFillColor(colors.HexColor("#1d2f86"))
-        pdf.setFont(bold_font_name, 15)
-        pdf.drawString(width - 360, height - 36, STEPPE_COMPANY_NAME)
-        pdf.setFillColor(colors.black)
-        pdf.setFont(font_name, 12)
-        pdf.drawRightString(width - 40, height - 58, STEPPE_CITY)
-        pdf.drawRightString(width - 40, height - 76, format_pdf_date(record["createdDate"]))
-
-        text = pdf.beginText(40, height - 92)
-        text.setFont(font_name, 10)
-        for line in STEPPE_ADDRESS_LINES:
-            text.textLine(line)
-        text.textLine(f"Утас: {STEPPE_PHONES}")
-        text.textLine(f"И-мэйл: {STEPPE_EMAIL}")
-        pdf.drawText(text)
-
-        pdf.setFont(bold_font_name, 16)
-        pdf.drawCentredString(width / 2, height - 160, f"Аяллын нэр: {record.get('reservationName') or record['tripName']}")
-        pdf.drawCentredString(width / 2, height - 190, f"{reservation_title} - “{record['campName']}”")
-
-        table = Table(
-            [[
-                "Жуулчны\nтоо",
-                "Ажилчдын\nтоо",
-                "Ирэх\nөдөр",
-                "Явах\nөдөр",
-                "Хоногийн\nтоо",
-                "Гэрийн\nтоо",
-                "Өрөөний\nтөрөл",
-                "Хоолны\nтөрөл",
-            ], [
-                str(record["clientCount"]),
-                str(record["staffCount"]),
-                format_iso_date(record["checkIn"]),
-                format_iso_date(record["checkOut"]),
-                str(record["nights"]),
-                str(record["gerCount"]),
-                record["roomType"],
-                meals,
-            ]],
-            colWidths=[68, 68, 74, 74, 62, 62, 150, 118],
-        )
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d8e4f2")),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("FONTNAME", (0, 0), (-1, 0), bold_font_name),
-            ("FONTNAME", (0, 1), (-1, -1), font_name),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("LEADING", (0, 0), (-1, -1), 13),
-        ]))
-        table.wrapOn(pdf, width - 80, height)
-        table.drawOn(pdf, 40, height - 320)
-
-        pdf.setFont(bold_font_name, 12)
-        pdf.drawString(40, 120, f"Нэмэлт тэмдэглэл: {record['notes'] or '-'}")
-        pdf.drawString(width - 320, 110, f"Захиалгын менежер: {manager_name}")
-        pdf.setFont(font_name, 12)
-        pdf.drawString(width - 320, 84, f"Харилцах утас : {STEPPE_CONTACT_PHONES}")
-        pdf.drawString(width - 320, 60, f"Цахим шуудан : {STEPPE_EMAIL}")
-
-        pdf.showPage()
-        pdf.save()
+        html_string = build_camp_document_html(record, pdf_href)
+        HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
         pdf_ready = True
     except Exception as exc:
         print(f"Camp reservation PDF generation failed: {exc}", flush=True)
@@ -4079,9 +4002,9 @@ def save_camp_reservations_bundle(records):
 
         reservation_title = camp_reservation_title(first)
         manager_name = first.get("staffAssignment") or STEPPE_MANAGER
-        is_hotel_bundle = all(normalize_text(record.get("reservationType")).lower() == "hotel" for record in records)
+        is_hotel_bundle = is_hotel_reservation(first)
         place_label = "Hotel" if is_hotel_bundle else "Camp"
-        unit_label = "Rooms" if is_hotel_bundle else "Gers"
+        unit_label = "Room" if is_hotel_bundle else "Gers"
 
         styles = {
             "brand": ParagraphStyle(
@@ -4231,11 +4154,25 @@ def save_camp_reservations_bundle(records):
         story.append(table)
         story.extend([
             Spacer(1, 10),
-            Paragraph(
-                f"<b>Захиалгын менежер:</b> {html.escape(manager_name)} &nbsp;&nbsp; "
-                f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)} &nbsp;&nbsp; "
-                f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
-                styles["footer"],
+            Table(
+                [[
+                    Paragraph(
+                        f"<b>Захиалгын менежер:</b> {html.escape(manager_name)}<br/>"
+                        f"<b>Харилцах утас:</b> {html.escape(STEPPE_CONTACT_PHONES)}<br/>"
+                        f"<b>Цахим шуудан:</b> {html.escape(STEPPE_EMAIL)}",
+                        styles["footer"],
+                    ),
+                ]],
+                colWidths=[usable_width * 0.5],
+                style=TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f8fb")),
+                    ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#d7e0ec")),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ]),
             ),
         ])
 
