@@ -397,6 +397,18 @@ function ensureProfileControls() {
   profileCard.appendChild(actions);
 }
 
+function findClippingAncestor(el) {
+  let node = el.parentElement;
+  while (node && node !== document.body && node !== document.documentElement) {
+    const style = getComputedStyle(node);
+    if (/(auto|scroll|hidden|clip)/.test(style.overflowX + " " + style.overflowY)) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 document.addEventListener(
   "toggle",
   (event) => {
@@ -413,7 +425,14 @@ document.addEventListener(
     const summary = details.querySelector("summary");
     if (!summary) return;
     const triggerRect = summary.getBoundingClientRect();
-    if (triggerRect.bottom > window.innerHeight / 2) {
+    const clipAncestor = findClippingAncestor(details);
+    const clipBottom = clipAncestor
+      ? Math.min(window.innerHeight, clipAncestor.getBoundingClientRect().bottom)
+      : window.innerHeight;
+    const items = popover.querySelectorAll("button, a, .trip-menu-item");
+    const estimatedPopHeight = Math.max(180, items.length * 44 + 24);
+    const spaceBelow = clipBottom - triggerRect.bottom;
+    if (spaceBelow < estimatedPopHeight + 16) {
       popover.style.top = "auto";
       popover.style.bottom = "calc(100% + 8px)";
       details.classList.add("is-upward");
