@@ -40,12 +40,16 @@ const campCheckout = document.querySelector("#camp-checkout");
 const campStays = document.querySelector("#camp-stays");
 const settingsStatus = document.querySelector("#settings-status");
 const campCreatedDate = campForm.querySelector('[name="createdDate"]');
+const tripTabBar = document.getElementById("trip-tab-bar");
+const docFilterTabsEl = document.getElementById("doc-filter-tabs");
 const MONGOLIA_TIME_ZONE = "Asia/Ulaanbaatar";
 const CAMP_RESERVATIONS_PATH = "/camp-reservations";
 const TRIP_DETAIL_PATH = "/trip-detail";
+const TRIP_TAB_PANEL_IDS = ["reservations-section", "flight-reservations-section", "flight-payments-section", "transfer-reservations-section", "documents-section"];
 
 let currentTrips = [];
 let currentEntries = [];
+let activeDocFilter = "all";
 let campSettings = {
   campNames: [],
   locationNames: [],
@@ -513,6 +517,17 @@ function syncStayFromCheckout() {
   campCheckout.value = stay.checkOut;
 }
 
+function setActiveTab(tabId) {
+  if (!tripTabBar) return;
+  tripTabBar.querySelectorAll(".trip-tab").forEach(function(btn) {
+    btn.classList.toggle("is-active", btn.dataset.tab === tabId);
+  });
+  TRIP_TAB_PANEL_IDS.forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("is-hidden", id !== tabId);
+  });
+}
+
 function setActiveTrip(tripId, options = {}) {
   activeTripId = tripId || "";
   activeTripDayFilter = "";
@@ -529,10 +544,20 @@ function setActiveTrip(tripId, options = {}) {
   renderActiveTripReservations();
   renderActiveCampReservations();
   renderCampPayments();
-  if (isTripDetailPage() && activeTripId) loadTripDocuments(activeTripId);
+  if (isTripDetailPage() && activeTripId) {
+    if (tripTabBar) {
+      tripTabBar.classList.remove("is-hidden");
+      setActiveTab("reservations-section");
+    }
+    loadTripDocuments(activeTripId);
+  }
   if (!options.skipScroll) {
     requestAnimationFrame(() => {
-      activeTripReservations.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (tripTabBar && !tripTabBar.classList.contains("is-hidden")) {
+        tripTabBar.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (activeTripReservations) {
+        activeTripReservations.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     });
   }
 }
@@ -2789,14 +2814,60 @@ function docViewUrl(doc, tripId) {
 
 const DOC_CATEGORY_ORDER = ["Invoices", "Flight Tickets", "Passports & Visas", "Hotel Vouchers", "Contracts", "Other"];
 
+function renderDocFilterCounts(docs) {
+  if (!docFilterTabsEl) return;
+  const counts = { all: docs.length };
+  docs.forEach(function(doc) {
+    const cat = doc.category || "Other";
+    counts[cat] = (counts[cat] || 0) + 1;
+  });
+  docFilterTabsEl.querySelectorAll(".doc-filter-tab").forEach(function(btn) {
+    const filter = btn.dataset.filter;
+    const count = counts[filter] || 0;
+    const label = filter === "all" ? "All" : filter;
+    btn.textContent = count > 0 ? label + " (" + count + ")" : label;
+    btn.classList.toggle("is-active", filter === activeDocFilter);
+  });
+}
+
+function renderDocItem(doc, tripId) {
+  const icon = docFileIcon(doc.mimeType || "", doc.originalName);
+  const size = docFormatSize(doc.size || 0);
+  const uploadedAt = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "";
+  const uploader = doc.uploadedBy ? (doc.uploadedBy.name || doc.uploadedBy.email || "") : "";
+  const viewUrl = docViewUrl(doc, tripId);
+  const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
+  return (
+    '<div class="doc-item">' +
+      '<div class="doc-icon">' + icon + '</div>' +
+      '<div class="doc-meta">' +
+        '<div class="doc-name" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</div>' +
+        '<div class="doc-info">' + escapeHtml(size) + (uploadedAt ? ' · ' + uploadedAt : '') + (uploader ? ' · ' + escapeHtml(uploader) : '') + '</div>' +
+      '</div>' +
+      '<div class="doc-actions">' +
+        '<a class="secondary-button" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">View</a>' +
+        '<a class="secondary-button" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
+        '<button class="secondary-button" data-doc-rename="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Rename</button>' +
+        '<button class="secondary-button danger-button" data-doc-delete="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Delete</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
 function renderTripDocuments(docs, tripId) {
   if (!docList) return;
-  if (!docs || !docs.length) {
-    docList.innerHTML = '<p class="muted" style="padding:8px 0">No documents uploaded yet.</p>';
+  renderDocFilterCounts(docs || []);
+  const filtered = activeDocFilter === "all" ? (docs || []) : (docs || []).filter(function(d) { return (d.category || "Other") === activeDocFilter; });
+  if (!filtered.length) {
+    docList.innerHTML = '<p class="muted" style="padding:8px 0">' + (activeDocFilter === "all" ? "No documents uploaded yet." : 'No documents in "' + escapeHtml(activeDocFilter) + '".') + '</p>';
+    return;
+  }
+  if (activeDocFilter !== "all") {
+    docList.innerHTML = filtered.map(function(doc) { return renderDocItem(doc, tripId); }).join("");
     return;
   }
   const groups = {};
-  docs.forEach(function(doc) {
+  filtered.forEach(function(doc) {
     const cat = doc.category || "Other";
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(doc);
@@ -2808,28 +2879,7 @@ function renderTripDocuments(docs, tripId) {
     if (!group || !group.length) return;
     html += '<div class="doc-group">';
     html += '<div class="doc-group-header">' + escapeHtml(cat) + ' <span class="doc-group-count">(' + group.length + ')</span></div>';
-    group.forEach(function(doc) {
-      const icon = docFileIcon(doc.mimeType || "", doc.originalName);
-      const size = docFormatSize(doc.size || 0);
-      const uploadedAt = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "";
-      const uploader = doc.uploadedBy ? (doc.uploadedBy.name || doc.uploadedBy.email || "") : "";
-      const viewUrl = docViewUrl(doc, tripId);
-      const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
-      html += (
-        '<div class="doc-item">' +
-          '<div class="doc-icon">' + icon + '</div>' +
-          '<div class="doc-meta">' +
-            '<div class="doc-name" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</div>' +
-            '<div class="doc-info">' + escapeHtml(size) + (uploadedAt ? ' · ' + uploadedAt : '') + (uploader ? ' · ' + escapeHtml(uploader) : '') + '</div>' +
-          '</div>' +
-          '<div class="doc-actions">' +
-            '<a class="secondary-button" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">View</a>' +
-            '<a class="secondary-button" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
-            '<button class="secondary-button danger-button" data-doc-delete="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Delete</button>' +
-          '</div>' +
-        '</div>'
-      );
-    });
+    group.forEach(function(doc) { html += renderDocItem(doc, tripId); });
     html += '</div>';
   });
   docList.innerHTML = html;
@@ -2883,25 +2933,71 @@ if (docDropZone && isTripDetailPage()) {
   }
   if (docList) {
     docList.addEventListener("click", async (e) => {
-      const btn = e.target.closest("[data-doc-delete]");
-      if (!btn) return;
-      const docId = btn.dataset.docDelete;
-      const docName = btn.dataset.docName || "this file";
-      if (!window.confirm('Delete "' + docName + '"?')) return;
-      try {
-        const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/" + docId, { method: "DELETE" });
-        if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Delete failed"); }
-        await loadTripDocuments(activeTripId);
-      } catch (err) {
-        alert("Could not delete: " + err.message);
+      const deleteBtn = e.target.closest("[data-doc-delete]");
+      if (deleteBtn) {
+        const docId = deleteBtn.dataset.docDelete;
+        const docName = deleteBtn.dataset.docName || "this file";
+        if (!window.confirm('Delete "' + docName + '"?')) return;
+        try {
+          const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/" + docId, { method: "DELETE" });
+          if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Delete failed"); }
+          await loadTripDocuments(activeTripId);
+        } catch (err) {
+          alert("Could not delete: " + err.message);
+        }
+        return;
+      }
+      const renameBtn = e.target.closest("[data-doc-rename]");
+      if (renameBtn) {
+        const docId = renameBtn.dataset.docRename;
+        const currentName = renameBtn.dataset.docName || "";
+        const newName = window.prompt("New file name:", currentName);
+        if (!newName || newName.trim() === currentName.trim()) return;
+        try {
+          const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/" + docId, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: newName.trim() }),
+          });
+          if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Rename failed"); }
+          await loadTripDocuments(activeTripId);
+        } catch (err) {
+          alert("Could not rename: " + err.message);
+        }
       }
     });
   }
 }
 
+if (tripTabBar && isTripDetailPage()) {
+  tripTabBar.addEventListener("click", function(e) {
+    const tab = e.target.closest(".trip-tab");
+    if (!tab) return;
+    setActiveTab(tab.dataset.tab);
+    if (tab.dataset.tab === "documents-section" && activeTripId) {
+      loadTripDocuments(activeTripId);
+    }
+  });
+}
+
+if (docFilterTabsEl && isTripDetailPage()) {
+  docFilterTabsEl.addEventListener("click", function(e) {
+    const tab = e.target.closest(".doc-filter-tab");
+    if (!tab) return;
+    activeDocFilter = tab.dataset.filter;
+    if (activeTripId) loadTripDocuments(activeTripId);
+  });
+}
+
 // ── End Trip Documents ──────────────────────────────────────────────────────
 
 async function init() {
+  if (isTripDetailPage()) {
+    TRIP_TAB_PANEL_IDS.forEach(function(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add("is-hidden");
+    });
+  }
   campCreatedDate.value = getMongoliaToday();
   await loadSettings();
   await loadTrips();

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-103" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-104" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -187,6 +187,14 @@
         <section class="card" id="trip-summary-section">
           <div id="active-trip" class="is-hidden"></div>
         </section>
+
+        <nav class="trip-tab-bar is-hidden" id="trip-tab-bar">
+          <button class="trip-tab" data-tab="reservations-section">Camp Reservations</button>
+          <button class="trip-tab" data-tab="flight-reservations-section">Flight Reservations</button>
+          <button class="trip-tab" data-tab="flight-payments-section">Flight Payments</button>
+          <button class="trip-tab" data-tab="transfer-reservations-section">Transfer Reservations</button>
+          <button class="trip-tab" data-tab="documents-section">Documents</button>
+        </nav>
 
         <section class="card" id="reservations-section">
           <div class="section-head">
@@ -764,27 +772,39 @@
             </div>
           </div>
 
-          <div class="doc-category-row">
-            <label for="doc-category">Category:</label>
-            <select id="doc-category" class="doc-category-select">
-              <option value="Other">Other</option>
-              <option value="Invoices">Invoices</option>
-              <option value="Flight Tickets">Flight Tickets</option>
-              <option value="Passports &amp; Visas">Passports &amp; Visas</option>
-              <option value="Hotel Vouchers">Hotel Vouchers</option>
-              <option value="Contracts">Contracts</option>
-            </select>
+          <div class="doc-upload-row">
+            <div class="doc-category-row">
+              <label for="doc-category">Category:</label>
+              <select id="doc-category" class="doc-category-select">
+                <option value="Other">Other</option>
+                <option value="Invoices">Invoices</option>
+                <option value="Flight Tickets">Flight Tickets</option>
+                <option value="Passports &amp; Visas">Passports &amp; Visas</option>
+                <option value="Hotel Vouchers">Hotel Vouchers</option>
+                <option value="Contracts">Contracts</option>
+              </select>
+            </div>
+
+            <div id="doc-drop-zone" class="doc-drop-zone">
+              <input type="file" id="doc-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt" style="display:none" />
+              <div class="doc-drop-inner" id="doc-drop-inner">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p>Drop files here or <label for="doc-file-input" class="doc-browse-btn">browse</label></p>
+                <p class="doc-hint">PDF, Word, Excel, JPG, PNG — max 10 MB per file</p>
+              </div>
+              <p id="doc-upload-status" class="status"></p>
+            </div>
           </div>
 
-          <div id="doc-drop-zone" class="doc-drop-zone">
-            <input type="file" id="doc-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt" style="display:none" />
-            <div class="doc-drop-inner" id="doc-drop-inner">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <p>Drop files here or <label for="doc-file-input" class="doc-browse-btn">browse</label></p>
-              <p class="doc-hint">PDF, Word, Excel, JPG, PNG — max 10 MB per file</p>
-            </div>
-            <p id="doc-upload-status" class="status"></p>
-          </div>
+          <nav class="doc-filter-tabs" id="doc-filter-tabs">
+            <button class="doc-filter-tab is-active" data-filter="all">All</button>
+            <button class="doc-filter-tab" data-filter="Invoices">Invoices</button>
+            <button class="doc-filter-tab" data-filter="Flight Tickets">Flight Tickets</button>
+            <button class="doc-filter-tab" data-filter="Passports &amp; Visas">Passports &amp; Visas</button>
+            <button class="doc-filter-tab" data-filter="Hotel Vouchers">Hotel Vouchers</button>
+            <button class="doc-filter-tab" data-filter="Contracts">Contracts</button>
+            <button class="doc-filter-tab" data-filter="Other">Other</button>
+          </nav>
 
           <div id="doc-list" class="doc-list"></div>
         </section>
@@ -858,7 +878,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/camp.js?v=workspace-84"></script>
+    <script src="/camp.js?v=workspace-85"></script>
     <script src="/reservations-addon.js?v=workspace-13"></script>
   </body>
 </html>

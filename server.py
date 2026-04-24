@@ -6037,6 +6037,33 @@ def handle_delete_trip_document(environ, start_response, trip_id, doc_id):
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": doc_id})
 
 
+def handle_rename_trip_document(environ, start_response, trip_id, doc_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    trips = read_camp_trips()
+    trip_index = next((i for i, t in enumerate(trips) if t["id"] == trip_id), None)
+    if trip_index is None:
+        return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
+    trip = trips[trip_index]
+    documents = list(trip.get("documents") or [])
+    doc_index = next((i for i, d in enumerate(documents) if d["id"] == doc_id), None)
+    if doc_index is None:
+        return json_response(start_response, "404 Not Found", {"error": "Document not found"})
+    try:
+        body = environ["wsgi.input"].read(int(environ.get("CONTENT_LENGTH") or "0"))
+        data = json.loads(body)
+    except Exception:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid JSON"})
+    new_name = (data.get("name") or "").strip()
+    if not new_name:
+        return json_response(start_response, "400 Bad Request", {"error": "Name cannot be empty"})
+    documents[doc_index] = {**documents[doc_index], "originalName": new_name}
+    trips[trip_index] = {**trip, "documents": documents}
+    write_camp_trips(trips)
+    return json_response(start_response, "200 OK", {"ok": True, "document": documents[doc_index]})
+
+
 def handle_delete_camp_trip(environ, start_response, trip_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -7292,10 +7319,13 @@ def app(environ, start_response):
         if tail.endswith("/documents") and method == "POST":
             trip_id = tail[: -len("/documents")]
             return handle_upload_trip_document(environ, start_response, trip_id)
-        # /api/camp-trips/{id}/documents/{doc_id}  — delete
+        # /api/camp-trips/{id}/documents/{doc_id}  — delete or rename
         if "/documents/" in tail and method == "DELETE":
             trip_id, doc_id = tail.split("/documents/", 1)
             return handle_delete_trip_document(environ, start_response, trip_id, doc_id)
+        if "/documents/" in tail and method == "PATCH":
+            trip_id, doc_id = tail.split("/documents/", 1)
+            return handle_rename_trip_document(environ, start_response, trip_id, doc_id)
         trip_id = tail
         if method == "POST" and trip_id:
             return handle_update_camp_trip(environ, start_response, trip_id)
