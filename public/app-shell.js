@@ -397,6 +397,28 @@ function ensureProfileControls() {
   profileCard.appendChild(actions);
 }
 
+document.addEventListener(
+  "toggle",
+  (event) => {
+    const details = event.target;
+    if (!details.matches || !details.matches("details.trip-menu")) return;
+    if (!details.open) {
+      details.classList.remove("is-upward");
+      return;
+    }
+    const popover = details.querySelector(".trip-menu-popover");
+    if (!popover) return;
+    details.classList.remove("is-upward");
+    requestAnimationFrame(() => {
+      const rect = popover.getBoundingClientRect();
+      if (rect.bottom > window.innerHeight - 8) {
+        details.classList.add("is-upward");
+      }
+    });
+  },
+  true,
+);
+
 async function loadProfile() {
   if (!ensureWorkspaceOrRedirect()) return;
   if (!profileNameNode || !profileEmailNode) {
