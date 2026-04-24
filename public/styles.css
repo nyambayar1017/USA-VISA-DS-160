@@ -6062,36 +6062,40 @@ body.modal-open {
 /* ── Trip section tab bar ─────────────────────────────────────────────── */
 .trip-tab-bar {
   display: flex;
-  gap: 0;
-  border-bottom: 2px solid var(--border, #d0d7e8);
-  margin-bottom: 4px;
+  gap: 6px;
+  padding: 5px;
+  background: rgba(37, 58, 119, 0.07);
+  border-radius: 999px;
+  margin-bottom: 20px;
   overflow-x: auto;
   scrollbar-width: none;
+  flex-wrap: nowrap;
 }
 .trip-tab-bar::-webkit-scrollbar { display: none; }
 .trip-tab {
   background: none;
   border: none;
-  border-bottom: 3px solid transparent;
-  padding: 14px 22px;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 11px 26px;
+  font-size: 15px;
+  font-weight: 600;
   color: #6b7280;
   cursor: pointer;
   white-space: nowrap;
-  position: relative;
-  bottom: -2px;
-  transition: color 0.15s, border-color 0.15s;
+  border-radius: 999px;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
   font-family: inherit;
+  letter-spacing: 0.01em;
 }
 .trip-tab.is-active {
-  color: #111827;
+  background: var(--accent, #ea6a4f);
+  color: #fff;
   font-weight: 700;
-  border-bottom-color: #e5634d;
+  box-shadow: 0 3px 12px rgba(234, 106, 79, 0.35);
+  transform: translateY(-1px);
 }
 .trip-tab:hover:not(.is-active) {
+  background: rgba(0, 0, 0, 0.06);
   color: #374151;
-  background: rgba(0,0,0,0.03);
 }
 
 /* ── Document filter tabs ────────────────────────────────────────────── */
