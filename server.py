@@ -4372,7 +4372,20 @@ def save_camp_reservations_bundle(records):
 def clean_ds160_payload(payload):
     cleaned = {}
     for key, value in (payload or {}).items():
-        cleaned[key] = normalize_text(value)
+        if isinstance(value, list):
+            cleaned_list = []
+            for item in value:
+                if isinstance(item, dict):
+                    cleaned_list.append({k: normalize_text(v) for k, v in item.items()})
+                else:
+                    cleaned_list.append(normalize_text(item))
+            cleaned[key] = cleaned_list
+        elif isinstance(value, dict):
+            cleaned[key] = {k: normalize_text(v) for k, v in value.items()}
+        elif key == "photo" and isinstance(value, str) and value.startswith("data:"):
+            cleaned[key] = value
+        else:
+            cleaned[key] = normalize_text(value)
     return cleaned
 
 

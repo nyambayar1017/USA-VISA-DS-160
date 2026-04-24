@@ -6166,3 +6166,92 @@ body.modal-open {
   color: #374151;
   background: rgba(0,0,0,0.03);
 }
+
+/* ======= DS-160 client form: repeatable rows, NA checkboxes, helpers ======= */
+.ds160-client-form .repeat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.ds160-client-form .repeat-row {
+  position: relative;
+  padding: 14px 14px 14px 14px;
+  border: 1px dashed var(--border, #d0d7e8);
+  border-radius: 10px;
+  background: #fafbff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ds160-client-form .repeat-row + .repeat-row { margin-top: 0; }
+.ds160-client-form .repeat-row .nested-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 640px) {
+  .ds160-client-form .repeat-row .nested-grid { grid-template-columns: 1fr; }
+}
+.ds160-client-form .button-tertiary {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.ds160-client-form .button-tertiary:hover { color: #7f1d1d; }
+.ds160-client-form .button-secondary {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--brand, #253a77);
+  color: var(--brand, #253a77);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ds160-client-form .button-secondary:hover {
+  background: var(--brand, #253a77);
+  color: #fff;
+}
+.ds160-client-form .checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.ds160-client-form .checkbox-field input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand, #253a77);
+  cursor: pointer;
+}
+.ds160-client-form input.is-na,
+.ds160-client-form select.is-na,
+.ds160-client-form textarea.is-na {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+.ds160-client-form .helper {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 6px;
+}
+.ds160-client-form .conditional-block {
+  padding: 14px;
+  border-left: 3px solid var(--accent, #ea6a4f);
+  background: #fff7f5;
+  border-radius: 0 10px 10px 0;
+  margin: 6px 0 10px;
+}
+.ds160-client-form .security-grid label.full-span { margin-bottom: 6px; }
+.ds160-client-form #photo-preview-wrap { margin-top: 8px; }
+.ds160-client-form #photo-preview { display: block; }
