@@ -402,7 +402,11 @@ document.addEventListener(
   (event) => {
     const details = event.target;
     if (!details.matches || !details.matches("details.trip-menu")) return;
+    const popover = details.querySelector(".trip-menu-popover");
+    if (!popover) return;
     if (!details.open) {
+      popover.style.top = "";
+      popover.style.bottom = "";
       details.classList.remove("is-upward");
       return;
     }
@@ -410,8 +414,12 @@ document.addEventListener(
     if (!summary) return;
     const triggerRect = summary.getBoundingClientRect();
     if (triggerRect.bottom > window.innerHeight / 2) {
+      popover.style.top = "auto";
+      popover.style.bottom = "calc(100% + 8px)";
       details.classList.add("is-upward");
     } else {
+      popover.style.top = "";
+      popover.style.bottom = "";
       details.classList.remove("is-upward");
     }
   },
