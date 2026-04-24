@@ -435,15 +435,15 @@ document.addEventListener(
     const summary = details.querySelector("summary");
     if (!summary) return;
     const triggerRect = summary.getBoundingClientRect();
+    const popRect = popover.getBoundingClientRect();
+    const popHeight = popRect.height || Math.max(180, popover.querySelectorAll("button, a, .trip-menu-item").length * 44 + 24);
+    const popWidth = popRect.width || 220;
     const clipAncestor = findClippingAncestor(details);
     const clipRect = clipAncestor?.getBoundingClientRect();
     const clipTop = clipRect ? Math.max(0, clipRect.top) : 0;
     const clipBottom = clipRect ? Math.min(window.innerHeight, clipRect.bottom) : window.innerHeight;
-    const items = popover.querySelectorAll("button, a, .trip-menu-item");
-    const estimatedPopHeight = Math.max(180, items.length * 44 + 24);
-    const estimatedPopWidth = 200;
-    const fitsBelowClip = clipBottom - triggerRect.bottom >= estimatedPopHeight + 16;
-    const fitsAboveClip = triggerRect.top - clipTop >= estimatedPopHeight + 16;
+    const fitsBelowClip = clipBottom - triggerRect.bottom >= popHeight + 16;
+    const fitsAboveClip = triggerRect.top - clipTop >= popHeight + 16;
 
     resetPopoverInlineStyle(popover);
     details.classList.remove("is-upward");
@@ -458,10 +458,11 @@ document.addEventListener(
       return;
     }
     const viewSpaceBelow = window.innerHeight - triggerRect.bottom;
-    const fixedUpward = viewSpaceBelow < estimatedPopHeight + 16 && triggerRect.top > estimatedPopHeight + 16;
+    const fixedUpward = viewSpaceBelow < popHeight + 16 && triggerRect.top > popHeight + 16;
+    const clampedLeft = Math.max(8, Math.min(window.innerWidth - popWidth - 8, triggerRect.right - popWidth));
     popover.style.position = "fixed";
     popover.style.zIndex = "1000";
-    popover.style.left = `${Math.max(8, triggerRect.right - estimatedPopWidth)}px`;
+    popover.style.left = `${clampedLeft}px`;
     popover.style.right = "auto";
     if (fixedUpward) {
       popover.style.bottom = `${Math.max(8, window.innerHeight - triggerRect.top + 8)}px`;
