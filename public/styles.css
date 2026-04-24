@@ -6229,25 +6229,40 @@ body.modal-open {
   user-select: none;
 }
 .ds160-client-form .na-option input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
   box-sizing: border-box !important;
-  width: 14px !important;
-  height: 14px !important;
-  min-width: 14px !important;
-  max-width: 14px !important;
-  min-height: 14px !important;
-  max-height: 14px !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+  min-height: 16px !important;
+  max-height: 16px !important;
   padding: 0 !important;
   margin: 0 !important;
-  border: 1px solid rgba(37, 58, 119, 0.36) !important;
+  border: 2px solid #253a77 !important;
   border-radius: 3px !important;
   background: #fff !important;
-  accent-color: var(--brand, #253a77);
   cursor: pointer;
   flex-shrink: 0;
   flex-grow: 0;
-  appearance: auto !important;
-  -webkit-appearance: checkbox !important;
+  position: relative;
   vertical-align: middle;
+}
+.ds160-client-form .na-option input[type="checkbox"]:checked {
+  background: #253a77 !important;
+  border-color: #253a77 !important;
+}
+.ds160-client-form .na-option input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: -1px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 .ds160-client-form input.is-na,
 .ds160-client-form select.is-na,
