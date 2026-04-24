@@ -5998,6 +5998,14 @@ body.modal-open {
   border: 1px solid var(--border, #d0d7e8);
   border-radius: 8px;
 }
+.doc-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9ca3af;
+  flex-shrink: 0;
+  width: 22px;
+  text-align: right;
+}
 .doc-icon {
   font-size: 22px;
   flex-shrink: 0;

@@ -1076,6 +1076,7 @@ function renderActiveTripReservations() {
       <table class="camp-table camp-table-detail">
         <thead>
           <tr>
+            <th>#</th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
@@ -1101,8 +1102,8 @@ function renderActiveTripReservations() {
           ${entries
             .map((entry, index) =>
               editingReservationId === entry.id
-                ? renderEditableRow(entry, index)
-                : renderReadOnlyRow(entry, index)
+                ? renderEditableRow(entry, index, { showIndex: true })
+                : renderReadOnlyRow(entry, index, { showIndex: true })
             )
             .join("")}
         </tbody>
@@ -1147,6 +1148,7 @@ function renderActiveCampReservations() {
       <table class="camp-table camp-table-detail">
         <thead>
           <tr>
+            <th>#</th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Day</th>
@@ -1169,7 +1171,7 @@ function renderActiveCampReservations() {
           </tr>
         </thead>
         <tbody>
-          ${entries.map((entry, index) => renderReadOnlyRow(entry, index, { includeCheckbox: false })).join("")}
+          ${entries.map((entry, index) => renderReadOnlyRow(entry, index, { includeCheckbox: false, showIndex: true })).join("")}
         </tbody>
       </table>
     </div>
@@ -2830,7 +2832,7 @@ function renderDocFilterCounts(docs) {
   });
 }
 
-function renderDocItem(doc, tripId) {
+function renderDocItem(doc, tripId, num) {
   const icon = docFileIcon(doc.mimeType || "", doc.originalName);
   const size = docFormatSize(doc.size || 0);
   const uploadedAt = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "";
@@ -2839,6 +2841,7 @@ function renderDocItem(doc, tripId) {
   const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
   return (
     '<div class="doc-item">' +
+      '<div class="doc-num">' + num + '</div>' +
       '<div class="doc-icon">' + icon + '</div>' +
       '<div class="doc-meta">' +
         '<div class="doc-name" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</div>' +
@@ -2863,7 +2866,7 @@ function renderTripDocuments(docs, tripId) {
     return;
   }
   if (activeDocFilter !== "all") {
-    docList.innerHTML = filtered.map(function(doc) { return renderDocItem(doc, tripId); }).join("");
+    docList.innerHTML = filtered.map(function(doc, i) { return renderDocItem(doc, tripId, i + 1); }).join("");
     return;
   }
   const groups = {};
@@ -2874,12 +2877,13 @@ function renderTripDocuments(docs, tripId) {
   });
   const allCats = DOC_CATEGORY_ORDER.concat(Object.keys(groups).filter(function(c) { return DOC_CATEGORY_ORDER.indexOf(c) === -1; }));
   let html = "";
+  let globalNum = 1;
   allCats.forEach(function(cat) {
     const group = groups[cat];
     if (!group || !group.length) return;
     html += '<div class="doc-group">';
     html += '<div class="doc-group-header">' + escapeHtml(cat) + ' <span class="doc-group-count">(' + group.length + ')</span></div>';
-    group.forEach(function(doc) { html += renderDocItem(doc, tripId); });
+    group.forEach(function(doc) { html += renderDocItem(doc, tripId, globalNum++); });
     html += '</div>';
   });
   docList.innerHTML = html;
