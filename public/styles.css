@@ -6157,9 +6157,12 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   font-family: inherit;
 }
 .doc-filter-tab.is-active {
-  color: var(--accent, #ea6a4f);
+  background: var(--accent, #ea6a4f);
+  color: #fff;
   font-weight: 700;
-  border-bottom-color: var(--accent, #ea6a4f);
+  border-radius: 999px;
+  border-bottom-color: transparent;
+  box-shadow: 0 3px 12px rgba(234, 106, 79, 0.35);
 }
 .doc-filter-tab:hover:not(.is-active) {
   color: #374151;
