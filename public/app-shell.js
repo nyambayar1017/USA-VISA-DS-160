@@ -3,14 +3,14 @@ const COMPANIES = {
   DTX: {
     name: "Delkhii Travel X",
     short: "DTX",
-    logoFull: "/assets/dtx-logo-blue-yellow.png",
-    logoSquare: "/assets/dtx-logo-blue-yellow.png",
+    logoBrand: "/assets/dtx-logo-blue-yellow.png",
+    logoIcon: "/assets/favicon-dtx-x.png",
   },
   USM: {
     name: "Unlock Steppe Mongolia",
     short: "USM",
-    logoFull: "/assets/usm-logo.png",
-    logoSquare: "/assets/usm-logo-square.png",
+    logoBrand: "/assets/usm-logo-horizontal.png",
+    logoIcon: "/assets/usm-logo-square.png",
   },
 };
 const DTX_ONLY_PAGES = new Set(["ds160", "fifa"]);
@@ -74,7 +74,7 @@ function renderSidebar(user) {
 
   sidebar.innerHTML = `
     <a class="sidebar-brand" href="/backoffice" aria-label="${company.name}">
-      <img src="${company.logoSquare}" alt="${company.name}" />
+      <img src="${company.logoBrand}" alt="${company.name}" />
     </a>
     <p class="sidebar-workspace-label">${company.name}</p>
     <div class="sidebar-group">
@@ -92,7 +92,7 @@ function renderSidebar(user) {
     <div class="sidebar-switch">
       <p class="sidebar-label">Switch workspace</p>
       <button type="button" class="sidebar-switch-button" data-switch="${otherKey}" aria-label="Switch to ${other.name}">
-        <img src="${other.logoSquare}" alt="${other.name}" />
+        <img src="${other.logoIcon}" alt="${other.name}" />
         <span>${other.name}</span>
       </button>
     </div>
