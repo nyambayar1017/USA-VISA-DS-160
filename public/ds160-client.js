@@ -305,7 +305,7 @@ function applyRepeatData(targetName, rows) {
 
 const REPEAT_TARGETS = [
   "otherName","otherNat","companion","prevVisit","otherPhone","otherEmail",
-  "social","otherWeb","lostPassport","immRelative","otherRelative",
+  "social","otherWeb","lostPassport","immRelative",
   "prevEmp","education","language","country","org","military"
 ];
 
@@ -338,7 +338,7 @@ function syncConditionalFields() {
   toggleElement("companions-root", withOthers);
   const asGroup = fieldValue("travelingAsGroup");
   toggleElement("group-name-field", withOthers && asGroup === "ТИЙМ");
-  toggleElement("companions-individual-block", withOthers && asGroup === "ҮГҮЙ");
+  toggleElement("companions-individual-block", withOthers);
 
   const beenInUs = fieldValue("beenInUs") === "ТИЙМ";
   toggleElement("previous-visits-block", beenInUs);
@@ -355,7 +355,15 @@ function syncConditionalFields() {
   toggleElement("lost-passport-block", fieldValue("lostPassport") === "ТИЙМ");
 
   toggleElement("immediate-relatives-block", fieldValue("hasImmediateRelativesInUs") === "ТИЙМ");
-  toggleElement("other-relatives-block", fieldValue("hasOtherRelativesInUs") === "ТИЙМ");
+
+  const hasContactPerson = fieldValue("hasUsContactPerson") === "ТИЙМ";
+  const hasContactOrg = fieldValue("hasUsContactOrg") === "ТИЙМ";
+  toggleElement("us-contact-person-fields", hasContactPerson);
+  toggleElement("us-contact-org-fields", hasContactOrg);
+  toggleElement("us-contact-address-block", hasContactPerson || hasContactOrg);
+
+  toggleElement("visa-refused-explain-field", fieldValue("visaRefused") === "ТИЙМ");
+  toggleElement("immigrant-petition-explain-field", fieldValue("immigrantPetitionFiled") === "ТИЙМ");
 
   // Spouse section visibility
   const maritalSpouseNeeded = ["ГЭРЛЭСЭН","ИРГЭНИЙ ХАМТРАЛ","ХУУЛИЙН САЛАЛТ","САЛСАН","БЭЛЭВСЭН"].includes(fieldValue("maritalStatus"));
@@ -401,7 +409,7 @@ const CONDITIONAL_TRIGGERS = [
   "beenInUs","hasUsDriverLicense","hadUsVisa",
   "mailingSameAsHome","usedOtherPhones","usedOtherEmails","usesSocialMedia","hasOtherWebPresence",
   "passportType","lostPassport",
-  "hasImmediateRelativesInUs","hasOtherRelativesInUs",
+  "hasImmediateRelativesInUs","hasUsContactPerson","hasUsContactOrg","visaRefused","immigrantPetitionFiled",
   "spouseAddressType",
   "primaryOccupation","wasPreviouslyEmployed","attendedHigherEducation",
   "belongsToClan","traveledOtherCountriesLastFiveYears","belongsToOrganizations",

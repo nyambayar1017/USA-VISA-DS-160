@@ -518,12 +518,28 @@ function renderAnswers(entry) {
   }
 
   const { surname, givenName } = splitClientName(entry);
+  const fullName = [surname, givenName].filter(Boolean).join(" ") || entry.clientName || "applicant";
+  const photo = entry.photo || entry.payload?.photo || "";
+  const photoHtml = typeof photo === "string" && photo.startsWith("data:image/")
+    ? `
+        <section class="ds160-answer-section">
+          <h4>Photo</h4>
+          <div class="ds160-answer-photo">
+            <img src="${photo}" alt="DS-160 photo" style="max-width: 280px; border-radius: 8px; border: 1px solid var(--border,#d0d7e8);" />
+            <div style="margin-top: 10px;">
+              <a href="${photo}" download="ds160-photo-${encodeURIComponent(fullName)}.jpg" class="button-secondary" style="display:inline-block;padding:8px 14px;border-radius:8px;text-decoration:none;background:#253a77;color:#fff;font-weight:600;">Download photo</a>
+            </div>
+          </div>
+        </section>
+      `
+    : "";
   answersContentNode.innerHTML = `
     <div class="ds160-answer-head">
-      <h3>${escapeHtml([surname, givenName].filter(Boolean).join(" ") || entry.clientName || "-")}</h3>
+      <h3>${escapeHtml(fullName)}</h3>
       <p>${escapeHtml(entry.clientEmail || "-")} · ${escapeHtml(entry.clientPhone || entry.primaryPhone || "-")}</p>
     </div>
     <div class="ds160-answer-sections">
+      ${photoHtml}
       ${ANSWER_SECTIONS.map(
         (section) => `
           <section class="ds160-answer-section">

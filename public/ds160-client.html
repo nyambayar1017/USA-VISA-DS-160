@@ -183,8 +183,8 @@
                     <label class="segment-field">Жил<select name="birthYear" data-birth-year-select required></select></label>
                   </div>
                 </div>
-                <label>Төрсөн хот<input name="birthCity" required /></label>
-                <label>Төрсөн аймаг / сум<input name="birthProvince" /><span class="na-option"><input type="checkbox" data-na-for="birthProvince" /> Хамаарахгүй</span></label>
+                <label>Төрсөн хот / аймаг<input name="birthCity" required /></label>
+                <label>Төрсөн дүүрэг / сум<input name="birthProvince" /></label>
                 <label>Төрсөн улс
                   <select name="birthCountry" data-country-select required></select>
                 </label>
@@ -246,7 +246,7 @@
                   Байнга оршин суудаг улс
                   <select name="permanentResidentCountry" data-country-select></select>
                 </label>
-                <label>Регистрийн дугаар<input name="registerNumber" /><span class="na-option"><input type="checkbox" data-na-for="registerNumber" /> Хамаарахгүй</span></label>
+                <label>Регистрийн дугаар<input name="registerNumber" /></label>
                 <label>АНУ-ын нийгмийн даатгалын дугаартай юу? (U.S. SSN)
                   <select name="hasUsSsn">
                     <option value="">Сонгох</option>
@@ -376,8 +376,8 @@
                   <div class="field-grid nested-grid">
                     <label class="full-span">Гудамжны хаяг (1-р мөр)<input name="usStayAddressLine1" /></label>
                     <label class="full-span">Гудамжны хаяг (2-р мөр) — заавал биш<input name="usStayAddressLine2" /></label>
-                    <label>Хот<input name="usStayCity" /></label>
-                    <label>Муж<select name="usStayState" data-us-state-select></select></label>
+                    <label>Хот / Аймаг<input name="usStayCity" /></label>
+                    <label>Муж / State<select name="usStayState" data-us-state-select></select></label>
                     <label>ZIP код<input name="usStayZip" /></label>
                   </div>
                 </div>
@@ -517,17 +517,22 @@
                   <template data-repeat-template="prevVisit">
                     <div class="repeat-row" data-repeat-row="prevVisit">
                       <div class="field-grid nested-grid">
-                        <label>АНУ-д очсон огноо<input data-repeat-field="arrivedDate" type="date" /></label>
-                        <label>Хэд хоног / хугацаагаар байсан (тоо)<input data-repeat-field="lengthNumber" inputmode="numeric" /></label>
-                        <label>Хугацааны нэгж
-                          <select data-repeat-field="lengthUnit">
-                            <option value="">Сонгох</option>
-                            <option value="DAYS">Хоног (Days)</option>
-                            <option value="WEEKS">Долоо хоног (Weeks)</option>
-                            <option value="MONTHS">Сар (Months)</option>
-                            <option value="YEARS">Жил (Years)</option>
-                          </select>
-                        </label>
+                        <label class="full-span">АНУ-д очсон огноо<input data-repeat-field="arrivedDate" type="date" /></label>
+                        <div class="full-span field-stack">
+                          <span>Хэр удаан байсан бэ?</span>
+                          <div class="segment-row">
+                            <label class="segment-field">Хэмжээ<input data-repeat-field="lengthNumber" inputmode="numeric" placeholder="Жишээ: 14" /></label>
+                            <label class="segment-field">Нэгж
+                              <select data-repeat-field="lengthUnit">
+                                <option value="">Сонгох</option>
+                                <option value="DAYS">Хоног (Days)</option>
+                                <option value="WEEKS">Долоо хоног (Weeks)</option>
+                                <option value="MONTHS">Сар (Months)</option>
+                                <option value="YEARS">Жил (Years)</option>
+                              </select>
+                            </label>
+                          </div>
+                        </div>
                       </div>
                       <button type="button" class="button-tertiary" data-action="remove-repeat">Устгах</button>
                     </div>
@@ -541,7 +546,7 @@
                   </label>
                   <div id="us-driver-license-fields" class="full-span conditional-block is-hidden" hidden>
                     <div class="field-grid nested-grid">
-                      <label>Жолооны үнэмлэхийн дугаар<input name="usDriverLicenseNumber" /><span class="na-option"><input type="checkbox" data-na-for="usDriverLicenseNumber" /> Хамаарахгүй</span></label>
+                      <label>Жолооны үнэмлэхийн дугаар<input name="usDriverLicenseNumber" /></label>
                       <label>Жолооны үнэмлэх олгосон муж
                         <select name="usDriverLicenseState" data-us-state-select></select>
                       </label>
@@ -558,7 +563,7 @@
                 <div id="previous-visa-fields" class="full-span conditional-block is-hidden" hidden>
                   <div class="field-grid nested-grid">
                     <label>Сүүлийн АНУ-ын виз олгосон огноо<input name="lastVisaIssuedDate" type="date" /></label>
-                    <label>Визний дугаар<input name="lastVisaNumber" /><span class="na-option"><input type="checkbox" data-na-for="lastVisaNumber" /> Хамаарахгүй</span></label>
+                    <label>Визний дугаар<input name="lastVisaNumber" /></label>
                     <label>Та өмнөхтэй ижил төрлийн виз мэдүүлж байна уу?
                       <select name="sameVisaType">
                         <option value="">Сонгох</option>
@@ -603,12 +608,18 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
+                <label id="visa-refused-explain-field" class="full-span is-hidden" hidden>Тайлбар (Explain)
+                  <textarea name="visaRefusedExplain" rows="3"></textarea>
+                </label>
                 <label>АНУ-ын Иргэншил ба Цагаачлалын Албанд (USCIS) таны нэр дээр цагаачлалын өргөдөл хэн нэгэн гаргаж байсан уу?
                   <select name="immigrantPetitionFiled">
                     <option value="">Сонгох</option>
                     <option value="ҮГҮЙ">Үгүй</option>
                     <option value="ТИЙМ">Тийм</option>
                   </select>
+                </label>
+                <label id="immigrant-petition-explain-field" class="full-span is-hidden" hidden>Тайлбар (Explain)
+                  <textarea name="immigrantPetitionExplain" rows="3"></textarea>
                 </label>
               </div>
             </section>
@@ -624,9 +635,9 @@
               <div class="field-grid">
                 <label class="full-span">Гэрийн хаяг (Мөр 1)<input name="homeAddressLine1" required /></label>
                 <label class="full-span">Гэрийн хаяг (Мөр 2) — заавал биш<input name="homeAddressLine2" /></label>
-                <label>Хот<input name="homeCity" required /></label>
-                <label>Муж / Аймаг<input name="homeProvince" /><span class="na-option"><input type="checkbox" data-na-for="homeProvince" /> Хамаарахгүй</span></label>
-                <label>Шуудангийн код / ZIP код<input name="homePostalCode" /><span class="na-option"><input type="checkbox" data-na-for="homePostalCode" /> Хамаарахгүй</span></label>
+                <label>Хот / Аймаг<input name="homeCity" required /></label>
+                <label>Дүүрэг / Сум<input name="homeProvince" /></label>
+                <label>Шуудангийн код / ZIP код<input name="homePostalCode" /></label>
                 <label>Улс / Бүс нутаг
                   <select name="homeCountry" data-country-select required></select>
                 </label>
@@ -642,16 +653,16 @@
                   <div class="field-grid nested-grid">
                     <label class="full-span">Гудамжны хаяг (Мөр 1)<input name="mailingAddressLine1" /></label>
                     <label class="full-span">Гудамжны хаяг (Мөр 2) — заавал биш<input name="mailingAddressLine2" /></label>
-                    <label>Хот<input name="mailingCity" /></label>
-                    <label>Муж / Аймаг<input name="mailingProvince" /><span class="na-option"><input type="checkbox" data-na-for="mailingProvince" /> Хамаарахгүй</span></label>
-                    <label>Шуудангийн код / ZIP код<input name="mailingPostalCode" /><span class="na-option"><input type="checkbox" data-na-for="mailingPostalCode" /> Хамаарахгүй</span></label>
+                    <label>Хот / Аймаг<input name="mailingCity" /></label>
+                    <label>Дүүрэг / Сум<input name="mailingProvince" /></label>
+                    <label>Шуудангийн код / ZIP код<input name="mailingPostalCode" /></label>
                     <label>Улс / Бүс нутаг<select name="mailingCountry" data-country-select></select></label>
                   </div>
                 </div>
 
-                <label>Үндсэн утасны дугаар<input name="primaryPhone" required /></label>
-                <label>Нэмэлт утасны дугаар<input name="secondaryPhone" /><span class="na-option"><input type="checkbox" data-na-for="secondaryPhone" /> Хамаарахгүй</span></label>
-                <label>Ажлын утасны дугаар<input name="workPhone" /><span class="na-option"><input type="checkbox" data-na-for="workPhone" /> Хамаарахгүй</span></label>
+                <label>Утасны дугаар<input name="primaryPhone" required /></label>
+                <label>Нэмэлт утасны дугаар<input name="secondaryPhone" /></label>
+                <label>Ажлын утасны дугаар<input name="workPhone" /></label>
 
                 <label>Сүүлийн 5 жилийн хугацаанд өөр утасны дугаар ашиглаж байсан уу?
                   <select name="usedOtherPhones">
@@ -789,22 +800,20 @@
                 </label>
                 <label id="passport-type-other-field" class="is-hidden" hidden>Бусад тайлбар<input name="passportTypeOther" /></label>
                 <label>Паспортын дугаар<input name="passportNumber" required /></label>
-                <label>Паспортын дотоод дугаар<input name="passportBookNumber" /><span class="na-option"><input type="checkbox" data-na-for="passportBookNumber" /> Хамаарахгүй</span></label>
                 <label>Паспорт олгосон улс / байгууллага
                   <select name="passportIssuingCountry" data-country-select required></select>
                 </label>
                 <div class="full-span field-stack">
                   <span>Паспорт хаана олгогдсон бэ?</span>
                   <div class="field-grid nested-grid">
-                    <label>Хот<input name="passportIssueCity" /></label>
-                    <label>Муж / Аймаг<input name="passportIssueProvince" /><span class="na-option"><input type="checkbox" data-na-for="passportIssueProvince" /> Хамаарахгүй</span></label>
+                    <label>Хот / Аймаг<input name="passportIssueCity" /></label>
                     <label>Улс / Бүс нутаг
                       <select name="passportIssueCountry" data-country-select></select>
                     </label>
                   </div>
                 </div>
                 <label>Олгосон огноо<input name="passportIssueDate" type="date" required /></label>
-                <label>Дуусах огноо<input name="passportExpiryDate" type="date" required /><span class="na-option"><input type="checkbox" data-na-for="passportExpiryDate" /> Хамаарахгүй</span></label>
+                <label>Дуусах огноо<input name="passportExpiryDate" type="date" required /></label>
                 <label>Та өмнө нь паспортоо гээж байсан эсвэл хулгайд алдсан уу?
                   <select name="lostPassport">
                     <option value="">Сонгох</option>
@@ -821,7 +830,7 @@
                   <template data-repeat-template="lostPassport">
                     <div class="repeat-row" data-repeat-row="lostPassport">
                       <div class="field-grid nested-grid">
-                        <label>Паспортын дугаар<input data-repeat-field="number" /><span class="na-option"><input type="checkbox" data-repeat-na-for="number" /> Хамаарахгүй</span></label>
+                        <label>Паспортын дугаар<input data-repeat-field="number" /></label>
                         <label>Паспорт олгосон улс<select data-repeat-field="country" data-country-select></select></label>
                         <label class="full-span">Тайлбар<textarea data-repeat-field="explain" rows="2"></textarea></label>
                       </div>
@@ -841,27 +850,51 @@
                 <p>Хүн ба/эсвэл байгууллагын мэдээллийг бөглөнө үү.</p>
               </div>
               <div class="field-grid">
-                <label>Овог<input name="usContactSurname" /><span class="na-option"><input type="checkbox" data-na-for="usContactSurname" /> Мэдэхгүй</span></label>
-                <label>Нэр<input name="usContactGivenName" /><span class="na-option"><input type="checkbox" data-na-for="usContactGivenName" /> Мэдэхгүй</span></label>
-                <label class="full-span">Байгууллагын нэр<input name="usOrganizationName" /><span class="na-option"><input type="checkbox" data-na-for="usOrganizationName" /> Мэдэхгүй</span></label>
-                <label>Тантай ямар холбоотой вэ?
-                  <select name="usContactRelationship">
+                <label>АНУ-д танай холбоо барих хүн байгаа юу?
+                  <select name="hasUsContactPerson">
                     <option value="">Сонгох</option>
-                    <option value="FRIEND">Найз</option>
-                    <option value="RELATIVE">Хамаатан</option>
-                    <option value="EMPLOYER">Ажил олгогч</option>
-                    <option value="SCHOOL OFFICIAL">Сургуулийн төлөөлөгч</option>
-                    <option value="OTHER">Бусад</option>
-                    <option value="NONE">Холбоогүй</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <label class="full-span">Гудамжны хаяг<input name="usContactAddressLine1" /></label>
-                <label class="full-span">Нэмэлт хаяг (заавал биш)<input name="usContactAddressLine2" /></label>
-                <label>Хот<input name="usContactCity" /></label>
-                <label>Муж<select name="usContactState" data-us-state-select></select></label>
-                <label>Шуудангийн код<input name="usContactZip" /><span class="na-option"><input type="checkbox" data-na-for="usContactZip" /> Хамаарахгүй</span></label>
-                <label>Утасны дугаар<input name="usContactPhone" /></label>
-                <label>И-мэйл хаяг<input name="usContactEmail" type="email" /><span class="na-option"><input type="checkbox" data-na-for="usContactEmail" /> Хамаарахгүй</span></label>
+                <div id="us-contact-person-fields" class="full-span conditional-block is-hidden" hidden>
+                  <div class="field-grid nested-grid">
+                    <label>Овог<input name="usContactSurname" /></label>
+                    <label>Нэр<input name="usContactGivenName" /></label>
+                  </div>
+                </div>
+                <label>АНУ-д танай холбоо барих байгууллага байгаа юу?
+                  <select name="hasUsContactOrg">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <div id="us-contact-org-fields" class="full-span conditional-block is-hidden" hidden>
+                  <label class="full-span">Байгууллагын нэр<input name="usOrganizationName" /></label>
+                </div>
+                <div id="us-contact-address-block" class="full-span conditional-block is-hidden" hidden>
+                  <div class="field-grid nested-grid">
+                    <label class="full-span">Тантай ямар холбоотой вэ?
+                      <select name="usContactRelationship">
+                        <option value="">Сонгох</option>
+                        <option value="FRIEND">Найз</option>
+                        <option value="RELATIVE">Хамаатан</option>
+                        <option value="EMPLOYER">Ажил олгогч</option>
+                        <option value="SCHOOL OFFICIAL">Сургуулийн төлөөлөгч</option>
+                        <option value="OTHER">Бусад</option>
+                        <option value="NONE">Холбоогүй</option>
+                      </select>
+                    </label>
+                    <label class="full-span">Гудамжны хаяг<input name="usContactAddressLine1" /></label>
+                    <label class="full-span">Нэмэлт хаяг (заавал биш)<input name="usContactAddressLine2" /></label>
+                    <label>Хот / Аймаг<input name="usContactCity" /></label>
+                    <label>Муж / State<select name="usContactState" data-us-state-select></select></label>
+                    <label>Шуудангийн код<input name="usContactZip" /></label>
+                    <label>Утасны дугаар<input name="usContactPhone" /></label>
+                    <label>И-мэйл хаяг<input name="usContactEmail" type="email" /></label>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -877,9 +910,9 @@
                 <div class="full-span field-stack">
                   <span>Эцгийн мэдээлэл</span>
                   <div class="field-grid nested-grid">
-                    <label>Эцгийн овог<input name="fatherSurname" /><span class="na-option"><input type="checkbox" data-na-for="fatherSurname" /> Мэдэхгүй</span></label>
-                    <label>Эцгийн нэр<input name="fatherGivenName" /><span class="na-option"><input type="checkbox" data-na-for="fatherGivenName" /> Мэдэхгүй</span></label>
-                    <label>Эцгийн төрсөн өдөр<input name="fatherDateOfBirth" type="date" /><span class="na-option"><input type="checkbox" data-na-for="fatherDateOfBirth" /> Мэдэхгүй</span></label>
+                    <label>Эцгийн овог<input name="fatherSurname" /></label>
+                    <label>Эцгийн нэр<input name="fatherGivenName" /></label>
+                    <label>Эцгийн төрсөн өдөр<input name="fatherDateOfBirth" type="date" /></label>
                     <label>Эцгийн статус
                       <select name="fatherStatus">
                         <option value="">Сонгох</option>
@@ -895,9 +928,9 @@
                 <div class="full-span field-stack">
                   <span>Эхийн мэдээлэл</span>
                   <div class="field-grid nested-grid">
-                    <label>Эхийн овог<input name="motherSurname" /><span class="na-option"><input type="checkbox" data-na-for="motherSurname" /> Мэдэхгүй</span></label>
-                    <label>Эхийн нэр<input name="motherGivenName" /><span class="na-option"><input type="checkbox" data-na-for="motherGivenName" /> Мэдэхгүй</span></label>
-                    <label>Эхийн төрсөн өдөр<input name="motherDateOfBirth" type="date" /><span class="na-option"><input type="checkbox" data-na-for="motherDateOfBirth" /> Мэдэхгүй</span></label>
+                    <label>Эхийн овог<input name="motherSurname" /></label>
+                    <label>Эхийн нэр<input name="motherGivenName" /></label>
+                    <label>Эхийн төрсөн өдөр<input name="motherDateOfBirth" type="date" /></label>
                     <label>Эхийн статус
                       <select name="motherStatus">
                         <option value="">Сонгох</option>
@@ -911,7 +944,7 @@
                   </div>
                 </div>
 
-                <label>Танд АНУ-д эцэг эхээс бусад ойрын төрөл садан байгаа юу? (эхнэр/нөхөр, сүйт залуу, хүүхэд, ах/эгч/дүү)
+                <label>Танд АНУ-д эцэг эхээс өөр ойрын төрөл садан байгаа юу? (эхнэр/нөхөр, сүйт залуу, хүүхэд, ах/эгч/дүү)
                   <select name="hasImmediateRelativesInUs">
                     <option value="">Сонгох</option>
                     <option value="ҮГҮЙ">Үгүй</option>
@@ -952,44 +985,6 @@
                   </template>
                 </div>
 
-                <label>Танд АНУ-д өөр төрөл садан байгаа юу? (авга / нагац, үеэл, бусад)
-                  <select name="hasOtherRelativesInUs">
-                    <option value="">Сонгох</option>
-                    <option value="ҮГҮЙ">Үгүй</option>
-                    <option value="ТИЙМ">Тийм</option>
-                  </select>
-                </label>
-                <div id="other-relatives-block" class="full-span conditional-block is-hidden" hidden>
-                  <div class="repeat-container" data-repeat="otherRelative" data-max="10">
-                    <div data-repeat-body></div>
-                    <button type="button" class="button-secondary" data-action="add-repeat" data-repeat-target="otherRelative">+ Төрөл садан нэмэх</button>
-                  </div>
-                  <template data-repeat-template="otherRelative">
-                    <div class="repeat-row" data-repeat-row="otherRelative">
-                      <div class="field-grid nested-grid">
-                        <label>Нэр (Full Name)<input data-repeat-field="fullName" /></label>
-                        <label>Холбоо / Хамаарал
-                          <select data-repeat-field="relationship">
-                            <option value="">Сонгох</option>
-                            <option value="AUNT/UNCLE">Авга / нагац</option>
-                            <option value="COUSIN">Үеэл</option>
-                            <option value="OTHER">Бусад хамаатан</option>
-                          </select>
-                        </label>
-                        <label>Тухайн хүний АНУ дахь статус
-                          <select data-repeat-field="status">
-                            <option value="">Сонгох</option>
-                            <option value="US CITIZEN">АНУ-ын иргэн</option>
-                            <option value="US LPR">Байнгын оршин суугч (LPR)</option>
-                            <option value="NONIMMIGRANT">Түр визтэй</option>
-                            <option value="OTHER">Бусад / Мэдэхгүй</option>
-                          </select>
-                        </label>
-                      </div>
-                      <button type="button" class="button-tertiary" data-action="remove-repeat">Устгах</button>
-                    </div>
-                  </template>
-                </div>
               </div>
             </section>
 
@@ -1004,9 +999,9 @@
               <div class="field-grid">
                 <label>Эхнэр / нөхрийн овог<input name="spouseSurname" /></label>
                 <label>Эхнэр / нөхрийн нэр<input name="spouseGivenName" /></label>
-                <label>Төрсөн өдөр<input name="spouseDateOfBirth" type="date" /><span class="na-option"><input type="checkbox" data-na-for="spouseDateOfBirth" /> Мэдэхгүй</span></label>
+                <label>Төрсөн өдөр<input name="spouseDateOfBirth" type="date" /></label>
                 <label>Иргэншил<select name="spouseNationality" data-country-select></select></label>
-                <label>Төрсөн хот<input name="spouseBirthCity" /><span class="na-option"><input type="checkbox" data-na-for="spouseBirthCity" /> Мэдэхгүй</span></label>
+                <label>Төрсөн хот<input name="spouseBirthCity" /></label>
                 <label>Төрсөн улс<select name="spouseBirthCountry" data-country-select></select></label>
                 <label>Гэрлэсэн огноо<input name="spouseMarriageDate" type="date" /></label>
                 <label id="spouse-marriage-end-field" class="is-hidden" hidden>Салсан / дууссан огноо<input name="spouseMarriageEndDate" type="date" /></label>
@@ -1024,8 +1019,8 @@
                   <div class="field-grid nested-grid">
                     <label class="full-span">Гудамжны хаяг (Мөр 1)<input name="spouseAddressLine1" /></label>
                     <label class="full-span">Гудамжны хаяг (Мөр 2)<input name="spouseAddressLine2" /></label>
-                    <label>Хот<input name="spouseAddressCity" /></label>
-                    <label>Муж / Аймаг<input name="spouseAddressProvince" /></label>
+                    <label>Хот / Аймаг<input name="spouseAddressCity" /></label>
+                    <label>Дүүрэг / Сум<input name="spouseAddressProvince" /></label>
                     <label>Шуудангийн код<input name="spouseAddressPostalCode" /></label>
                     <label>Улс<select name="spouseAddressCountry" data-country-select></select></label>
                   </div>
@@ -1073,16 +1068,16 @@
                 <label>Одоогийн ажил олгогч / сургуулийн нэр<input name="presentEmployerOrSchool" /></label>
                 <label class="full-span">Хаяг (Мөр 1)<input name="presentEmployerAddressLine1" /></label>
                 <label class="full-span">Хаяг (Мөр 2)<input name="presentEmployerAddressLine2" /></label>
-                <label>Хот<input name="presentEmployerCity" /></label>
-                <label>Аймаг / муж<input name="presentEmployerProvince" /><span class="na-option"><input type="checkbox" data-na-for="presentEmployerProvince" /> Хамаарахгүй</span></label>
-                <label>Шуудангийн код<input name="presentEmployerPostalCode" /><span class="na-option"><input type="checkbox" data-na-for="presentEmployerPostalCode" /> Хамаарахгүй</span></label>
+                <label>Хот / Аймаг<input name="presentEmployerCity" /></label>
+                <label>Дүүрэг / Сум<input name="presentEmployerProvince" /></label>
+                <label>Шуудангийн код<input name="presentEmployerPostalCode" /></label>
                 <label>Улс
                   <select name="presentEmployerCountry" data-country-select></select>
                 </label>
                 <label>Байгууллагын утас<input name="presentEmployerPhone" /></label>
                 <label>Ажилд орсон огноо<input name="presentEmploymentStartDate" type="date" /></label>
-                <label>Сарын орлого (орон нутгийн валютаар)<input name="monthlyIncome" inputmode="numeric" /><span class="na-option"><input type="checkbox" data-na-for="monthlyIncome" /> Хамаарахгүй</span></label>
-                <label class="full-span">Юу хийдэг вэ? (Describe Your Duties)<textarea name="jobDuties" rows="4"></textarea></label>
+                <label>Сарын орлого (төгрөгөөр)<input name="monthlyIncome" inputmode="numeric" /></label>
+                <label class="full-span">Ажил дээрээ юу хийдэг вэ? Бичээрэй.<textarea name="jobDuties" rows="4"></textarea></label>
               </div>
             </section>
 
@@ -1113,17 +1108,17 @@
                         <label class="full-span">Байгууллагын нэр<input data-repeat-field="employerName" /></label>
                         <label class="full-span">Байгууллагын хаяг (Мөр 1)<input data-repeat-field="addressLine1" /></label>
                         <label class="full-span">Байгууллагын хаяг (Мөр 2)<input data-repeat-field="addressLine2" /></label>
-                        <label>Хот<input data-repeat-field="city" /></label>
-                        <label>Аймаг / хот<input data-repeat-field="province" /></label>
+                        <label>Хот / Аймаг<input data-repeat-field="city" /></label>
+                        <label>Дүүрэг / Сум<input data-repeat-field="province" /></label>
                         <label>Шуудангийн код<input data-repeat-field="postalCode" /></label>
                         <label>Улс<select data-repeat-field="country" data-country-select></select></label>
                         <label>Байгууллагын утас<input data-repeat-field="phone" /></label>
                         <label>Албан тушаал<input data-repeat-field="jobTitle" /></label>
-                        <label>Удирдлагын овог<input data-repeat-field="supervisorSurname" /><span class="na-option"><input type="checkbox" data-repeat-na-for="supervisorSurname" /> Мэдэхгүй</span></label>
-                        <label>Удирдлагын нэр<input data-repeat-field="supervisorGivenName" /><span class="na-option"><input type="checkbox" data-repeat-na-for="supervisorGivenName" /> Мэдэхгүй</span></label>
+                        <label>Удирдлагын овог<input data-repeat-field="supervisorSurname" /></label>
+                        <label>Удирдлагын нэр<input data-repeat-field="supervisorGivenName" /></label>
                         <label>Ажилд орсон огноо<input data-repeat-field="startDate" type="date" /></label>
                         <label>Ажлаас гарсан огноо<input data-repeat-field="endDate" type="date" /></label>
-                        <label class="full-span">Юу хийдэг байсан бэ?<textarea data-repeat-field="duties" rows="3"></textarea></label>
+                        <label class="full-span">Ажил дээрээ юу хийж байсан бэ? Бичээрэй.<textarea data-repeat-field="duties" rows="3"></textarea></label>
                       </div>
                       <button type="button" class="button-tertiary" data-action="remove-repeat">Устгах</button>
                     </div>
@@ -1159,8 +1154,8 @@
                         <label class="full-span">Сургуулийн нэр<input data-repeat-field="institutionName" /></label>
                         <label class="full-span">Сургуулийн хаяг (Мөр 1)<input data-repeat-field="addressLine1" /></label>
                         <label class="full-span">Сургуулийн хаяг (Мөр 2)<input data-repeat-field="addressLine2" /></label>
-                        <label>Хот<input data-repeat-field="city" /></label>
-                        <label>Аймаг / хот<input data-repeat-field="province" /></label>
+                        <label>Хот / Аймаг<input data-repeat-field="city" /></label>
+                        <label>Дүүрэг / Сум<input data-repeat-field="province" /></label>
                         <label>Шуудангийн код<input data-repeat-field="postalCode" /></label>
                         <label>Улс<select data-repeat-field="country" data-country-select></select></label>
                         <label>Ямар чиглэлээр сурсан бэ?<input data-repeat-field="courseOfStudy" /></label>
@@ -1597,6 +1592,6 @@
       </section>
     </main>
 
-    <script src="/ds160-client.js?v=workspace-7"></script>
+    <script src="/ds160-client.js?v=workspace-8"></script>
   </body>
 </html>
