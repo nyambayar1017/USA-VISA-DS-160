@@ -302,7 +302,7 @@
                 (entry, index) => `
                   <tr>
                     <td class="table-center">${index + 1}</td>
-                    <td>${escapeHtml(entry.tripName)}</td>
+                    <td><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
                     <td>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → ") || "-")}</td>
                     <td>${escapeHtml(entry.airline || "-")}</td>
                     <td>${escapeHtml(`${formatDate(entry.departureDate)} ${entry.departureTime || ""}`.trim())}</td>
@@ -361,7 +361,7 @@
                 (entry, index) => `
                   <tr>
                     <td class="table-center">${index + 1}</td>
-                    <td>${escapeHtml(entry.tripName)}</td>
+                    <td><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
                     <td>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → ") || "-")}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.ticketPrice))}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.totalTicketPrice || entry.amount))}</td>
@@ -432,7 +432,7 @@
                 (entry, index) => `
                   <tr>
                     <td class="table-center">${index + 1}</td>
-                    <td>${escapeHtml(entry.tripName)}</td>
+                    <td><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
                     <td>${escapeHtml(formatStatus(entry.transferType))}</td>
                     <td>${escapeHtml(entry.pickupLocation)}</td>
                     <td>${escapeHtml(entry.dropoffLocation)}</td>

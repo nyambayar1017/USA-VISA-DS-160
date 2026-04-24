@@ -845,7 +845,7 @@ function renderTrips() {
                 <tr class="${activeTripId === trip.id ? "is-trip-active" : ""}">
                   <td>${startIndex + index + 1}</td>
                   <td class="table-primary-cell">
-                    <button type="button" class="table-link compact secondary trip-select-link" data-action="select-trip" data-trip-id="${trip.id}">${escapeHtml(trip.tripName)}</button>
+                    <button type="button" class="trip-name-link" data-action="select-trip" data-trip-id="${trip.id}">${escapeHtml(trip.tripName)}</button>
                   </td>
                   <td>${escapeHtml(trip.reservationName || trip.tripName)}</td>
                   <td>${formatDate(trip.startDate)}</td>
@@ -1186,7 +1186,7 @@ function renderReadOnlyRow(entry, index, options = {}) {
   return `
     <tr class="${statusClass(entry)}">
       ${rowNumber}
-      <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
+      <td class="table-primary-cell table-nowrap"><a href="${buildTripDetailUrl(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
       <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(entry.campName)}">${escapeHtml(entry.campName)}</button></td>
@@ -1226,7 +1226,7 @@ function renderEditableRow(entry, index, options = {}) {
   return `
     <tr class="is-editing ${statusClass(entry)}">
       ${rowNumber}
-      <td class="table-primary-cell table-nowrap">${escapeHtml(entry.tripName)}</td>
+      <td class="table-primary-cell table-nowrap"><a href="${buildTripDetailUrl(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
       <td class="table-nowrap">${escapeHtml(entry.reservationName || entry.tripName)}</td>
       <td class="table-nowrap">${getTripDayLabel(entry)}</td>
       <td>
@@ -2300,16 +2300,8 @@ tripList.addEventListener("click", (event) => {
     closeOpenTripMenus();
   }
 
-  if (actionTarget.dataset.action === "select-trip") {
-    if (isTripsPage()) {
-      window.location.href = buildTripDetailUrl(actionTarget.dataset.tripId);
-      return;
-    }
-    setActiveTrip(actionTarget.dataset.tripId);
-    activeCampPanelHidden = true;
-    closeInlineEditPanels();
-    renderActiveCampReservations();
-    tripStatus.textContent = `Selected trip: ${getTripById(actionTarget.dataset.tripId)?.tripName || ""}`;
+  if (actionTarget.dataset.action === "select-trip" || actionTarget.dataset.action === "goto-trip") {
+    window.location.href = buildTripDetailUrl(actionTarget.dataset.tripId);
     return;
   }
 
