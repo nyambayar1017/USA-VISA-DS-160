@@ -528,7 +528,7 @@ def file_response(start_response, file_path, extra_headers=None):
 def generated_download_headers(file_path):
     if file_path.suffix.lower() != ".pdf":
         return None
-    return [("Content-Disposition", f'attachment; filename="{file_path.name}"')]
+    return [("Content-Disposition", f'inline; filename="{file_path.name}"')]
 
 
 def collect_json(environ):
