@@ -845,7 +845,7 @@ function renderTrips() {
                 <tr class="${activeTripId === trip.id ? "is-trip-active" : ""}">
                   <td>${startIndex + index + 1}</td>
                   <td class="table-primary-cell">
-                    <button type="button" class="trip-name-link" data-action="select-trip" data-trip-id="${trip.id}">${escapeHtml(trip.tripName)}</button>
+                    <a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link">${escapeHtml(trip.tripName)}</a>
                   </td>
                   <td>${escapeHtml(trip.reservationName || trip.tripName)}</td>
                   <td>${formatDate(trip.startDate)}</td>
