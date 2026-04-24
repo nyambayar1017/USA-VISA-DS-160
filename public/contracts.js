@@ -176,7 +176,7 @@ const renderContractsTable = (contracts) => {
                       <a class="secondary-button" href="/api/contracts/${entry.id}/document?mode=view" target="_blank">View</a>
                       <button class="secondary-button" data-edit-id="${entry.id}" ${signed ? "disabled" : ""}>Edit</button>
                       <a class="secondary-button" href="${entry.docxPath}" download>Word</a>
-                      ${pdfReady ? `<a class="secondary-button ${signed ? "success-button" : ""}" href="/api/contracts/${entry.id}/document?mode=download" target="_blank" rel="noreferrer">${signed ? "Signed PDF" : "PDF"}</a>` : `<span class="muted">PDF pending</span>`}
+                      ${pdfReady ? `<a class="secondary-button ${signed ? "success-button" : ""}" href="/pdf-viewer?src=${encodeURIComponent(`/api/contracts/${entry.id}/document?mode=download`)}&title=${encodeURIComponent(data.contractSerial || "Contract")}" target="_blank" rel="noreferrer">${signed ? "Signed PDF" : "PDF"}</a>` : `<span class="muted">PDF pending</span>`}
                       <a class="secondary-button" href="/api/contracts/${entry.id}/invoice?mode=view" target="_blank">Invoice</a>
                       <button class="secondary-button" data-copy-link="${shareLink}">Copy link</button>
                       <button class="secondary-button danger-button" data-delete-id="${entry.id}">Delete</button>
@@ -944,7 +944,9 @@ const initContractSignPage = async () => {
       });
       statusEl.textContent = "Гарын үсэг амжилттай хадгалагдлаа.";
       if (result.contract?.pdfPath) {
-        downloadEl.innerHTML = `<a class="secondary-button success-button" href="${result.contract.pdfPath}" target="_blank" rel="noreferrer">PDF Татах</a>`;
+        const pdfSrc = encodeURIComponent(result.contract.pdfPath);
+        const pdfTitle = encodeURIComponent(result.contract.data?.contractSerial || "Contract");
+        downloadEl.innerHTML = `<a class="secondary-button success-button" href="/pdf-viewer?src=${pdfSrc}&title=${pdfTitle}" target="_blank" rel="noreferrer">PDF Татах</a>`;
       }
     } catch (error) {
       statusEl.textContent = error.message || "Could not confirm signature and generate PDF.";

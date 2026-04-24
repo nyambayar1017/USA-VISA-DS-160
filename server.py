@@ -7193,6 +7193,11 @@ def app(environ, start_response):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "contracts.html")
 
+    if path == "/pdf-viewer":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "pdf-viewer.html")
+
     if path.startswith("/contract/"):
         contract_id = path.replace("/contract/", "", 1).strip("/")
         if contract_id:

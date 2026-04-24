@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Viewer</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: #404040;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        overflow: hidden;
+      }
+
+      /* ── Toolbar ── */
+      .toolbar {
+        background: #2d2d2d;
+        color: #f0f0f0;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 16px;
+        height: 44px;
+        flex-shrink: 0;
+        border-bottom: 1px solid #1a1a1a;
+      }
+
+      .toolbar-title {
+        font-size: 14px;
+        font-weight: 500;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .toolbar-nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+      }
+
+      .tb-btn {
+        background: none;
+        border: none;
+        color: #f0f0f0;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 16px;
+        line-height: 1;
+        transition: background 0.15s;
+      }
+      .tb-btn:hover { background: rgba(255, 255, 255, 0.12); }
+      .tb-btn:disabled { opacity: 0.35; cursor: default; }
+
+      #page-info {
+        min-width: 60px;
+        text-align: center;
+        font-size: 13px;
+        color: #ccc;
+      }
+
+      .zoom-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      #zoom-pct {
+        min-width: 44px;
+        text-align: center;
+        font-size: 13px;
+        color: #ccc;
+      }
+
+      .tb-download {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #f0f0f0;
+        padding: 5px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s;
+        white-space: nowrap;
+      }
+      .tb-download:hover { background: rgba(255, 255, 255, 0.18); }
+
+      /* ── Body ── */
+      .viewer-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      /* ── Sidebar ── */
+      .sidebar {
+        width: 180px;
+        background: #2d2d2d;
+        overflow-y: auto;
+        padding: 12px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex-shrink: 0;
+        border-right: 1px solid #1a1a1a;
+      }
+
+      .sidebar::-webkit-scrollbar { width: 6px; }
+      .sidebar::-webkit-scrollbar-track { background: transparent; }
+      .sidebar::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+      .thumb-item {
+        cursor: pointer;
+        border: 2px solid transparent;
+        border-radius: 3px;
+        overflow: hidden;
+        transition: border-color 0.15s;
+        background: #fff;
+      }
+      .thumb-item:hover { border-color: rgba(66, 133, 244, 0.6); }
+      .thumb-item.active { border-color: #4285f4; }
+
+      .thumb-item canvas { display: block; width: 100%; height: auto; }
+
+      .thumb-label {
+        background: #2d2d2d;
+        color: #aaa;
+        font-size: 11px;
+        text-align: center;
+        padding: 3px 0 4px;
+      }
+
+      /* ── Main ── */
+      .main {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .main::-webkit-scrollbar { width: 8px; }
+      .main::-webkit-scrollbar-track { background: #404040; }
+      .main::-webkit-scrollbar-thumb { background: #666; border-radius: 4px; }
+
+      .page-block {
+        background: #fff;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+        line-height: 0;
+      }
+
+      .page-block canvas { display: block; }
+
+      /* ── Loading / Error ── */
+      #status {
+        color: #aaa;
+        font-size: 14px;
+        margin-top: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <span class="toolbar-title" id="doc-title">Contract</span>
+
+      <div class="toolbar-nav">
+        <button class="tb-btn" id="prev-btn" title="Previous page" disabled>&#8249;</button>
+        <span id="page-info">— / —</span>
+        <button class="tb-btn" id="next-btn" title="Next page" disabled>&#8250;</button>
+      </div>
+
+      <div class="zoom-group">
+        <button class="tb-btn" id="zoom-out" title="Zoom out">&#8722;</button>
+        <span id="zoom-pct">75%</span>
+        <button class="tb-btn" id="zoom-in" title="Zoom in">&#43;</button>
+      </div>
+
+      <a class="tb-download" id="download-btn" href="#" download>&#8595; Татах</a>
+    </div>
+
+    <div class="viewer-body">
+      <div class="sidebar" id="sidebar"></div>
+      <div class="main" id="main">
+        <p id="status">Loading…</p>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+      const params = new URLSearchParams(location.search);
+      const src = params.get("src") || "";
+      const title = params.get("title") || "Document";
+
+      document.getElementById("doc-title").textContent = title;
+      document.title = title;
+      document.getElementById("download-btn").href = src;
+      document.getElementById("download-btn").download = title + ".pdf";
+
+      const mainEl = document.getElementById("main");
+      const sidebarEl = document.getElementById("sidebar");
+      const pageInfoEl = document.getElementById("page-info");
+      const prevBtn = document.getElementById("prev-btn");
+      const nextBtn = document.getElementById("next-btn");
+      const zoomPctEl = document.getElementById("zoom-pct");
+
+      let pdfDoc = null;
+      let scale = 1.2;
+      const THUMB_SCALE = 0.18;
+
+      function updateZoomDisplay() {
+        zoomPctEl.textContent = Math.round(scale * 100) + "%";
+      }
+
+      async function renderPageToContainer(pageNum, container, renderScale) {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: renderScale });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        const ctx = canvas.getContext("2d");
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        container.innerHTML = "";
+        container.appendChild(canvas);
+      }
+
+      async function reRenderMain() {
+        const blocks = mainEl.querySelectorAll(".page-block");
+        for (const block of blocks) {
+          const n = parseInt(block.dataset.page, 10);
+          renderPageToContainer(n, block, scale);
+        }
+      }
+
+      function scrollToPage(n) {
+        const block = document.getElementById("main-page-" + n);
+        if (block) block.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function updateActiveThumbnail(n) {
+        sidebarEl.querySelectorAll(".thumb-item").forEach((el) => {
+          el.classList.toggle("active", parseInt(el.dataset.page, 10) === n);
+        });
+      }
+
+      function updateNavButtons(n) {
+        prevBtn.disabled = n <= 1;
+        nextBtn.disabled = n >= pdfDoc.numPages;
+        pageInfoEl.textContent = n + " / " + pdfDoc.numPages;
+      }
+
+      function currentVisiblePage() {
+        const blocks = mainEl.querySelectorAll(".page-block");
+        const scrollTop = mainEl.scrollTop;
+        let best = 1;
+        for (const block of blocks) {
+          if (block.offsetTop <= scrollTop + mainEl.clientHeight / 2) {
+            best = parseInt(block.dataset.page, 10);
+          }
+        }
+        return best;
+      }
+
+      async function loadPDF() {
+        try {
+          pdfDoc = await pdfjsLib.getDocument(src).promise;
+        } catch (e) {
+          document.getElementById("status").textContent = "Could not load PDF.";
+          return;
+        }
+
+        document.getElementById("status")?.remove();
+        const n = pdfDoc.numPages;
+        pageInfoEl.textContent = "1 / " + n;
+        prevBtn.disabled = true;
+        nextBtn.disabled = n <= 1;
+
+        for (let i = 1; i <= n; i++) {
+          // Main page block
+          const block = document.createElement("div");
+          block.className = "page-block";
+          block.id = "main-page-" + i;
+          block.dataset.page = i;
+          mainEl.appendChild(block);
+          renderPageToContainer(i, block, scale);
+
+          // Thumbnail
+          const thumb = document.createElement("div");
+          thumb.className = "thumb-item" + (i === 1 ? " active" : "");
+          thumb.dataset.page = i;
+          const canvasWrap = document.createElement("div");
+          const label = document.createElement("div");
+          label.className = "thumb-label";
+          label.textContent = i;
+          thumb.appendChild(canvasWrap);
+          thumb.appendChild(label);
+          sidebarEl.appendChild(thumb);
+          renderPageToContainer(i, canvasWrap, THUMB_SCALE);
+
+          thumb.addEventListener("click", () => {
+            scrollToPage(i);
+            updateActiveThumbnail(i);
+            updateNavButtons(i);
+          });
+        }
+
+        // Update active thumb + nav on scroll
+        let scrollTick = false;
+        mainEl.addEventListener("scroll", () => {
+          if (scrollTick) return;
+          scrollTick = true;
+          requestAnimationFrame(() => {
+            const p = currentVisiblePage();
+            updateActiveThumbnail(p);
+            updateNavButtons(p);
+            scrollTick = false;
+          });
+        });
+      }
+
+      prevBtn.addEventListener("click", () => {
+        const p = currentVisiblePage();
+        if (p > 1) {
+          scrollToPage(p - 1);
+          updateActiveThumbnail(p - 1);
+          updateNavButtons(p - 1);
+        }
+      });
+
+      nextBtn.addEventListener("click", () => {
+        const p = currentVisiblePage();
+        if (p < pdfDoc?.numPages) {
+          scrollToPage(p + 1);
+          updateActiveThumbnail(p + 1);
+          updateNavButtons(p + 1);
+        }
+      });
+
+      document.getElementById("zoom-in").addEventListener("click", () => {
+        scale = Math.min(+(scale + 0.25).toFixed(2), 3.0);
+        updateZoomDisplay();
+        reRenderMain();
+      });
+
+      document.getElementById("zoom-out").addEventListener("click", () => {
+        scale = Math.max(+(scale - 0.25).toFixed(2), 0.5);
+        updateZoomDisplay();
+        reRenderMain();
+      });
+
+      updateZoomDisplay();
+      if (src) {
+        loadPDF();
+      } else {
+        document.getElementById("status").textContent = "No PDF source provided.";
+      }
+    </script>
+  </body>
+</html>
