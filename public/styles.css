@@ -2183,22 +2183,18 @@ body.modal-open {
 .trip-name-link {
   background: none;
   border: none;
-  padding: 2px 6px;
+  padding: 0;
   font: inherit;
-  font-weight: 700;
   font-size: 13px;
-  color: #8a6e00;
-  background: #fef9e0;
-  border-radius: 6px;
+  font-weight: 500;
+  color: #2563eb;
   cursor: pointer;
-  text-decoration: none;
+  text-decoration: underline;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
-  display: inline-block;
+  transition: color 0.15s;
 }
 .trip-name-link:hover {
-  background: #f7c70f;
-  color: #1a1a1a;
+  color: #1d4ed8;
 }
 
 .table-link {
