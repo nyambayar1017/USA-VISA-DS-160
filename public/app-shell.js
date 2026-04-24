@@ -1,8 +1,124 @@
+const WORKSPACE_KEY = "activeWorkspace";
+const COMPANIES = {
+  DTX: {
+    name: "Delkhii Travel X",
+    short: "DTX",
+    logoFull: "/assets/dtx-logo-blue-yellow.png",
+    logoSquare: "/assets/dtx-logo-blue-yellow.png",
+  },
+  USM: {
+    name: "Unlock Steppe Mongolia",
+    short: "USM",
+    logoFull: "/assets/usm-logo.png",
+    logoSquare: "/assets/usm-logo-square.png",
+  },
+};
+const DTX_ONLY_PAGES = new Set(["ds160", "fifa"]);
+
+function readCookie(name) {
+  return document.cookie.split(";").map((c) => c.trim()).find((c) => c.startsWith(`${name}=`))?.split("=")[1] || "";
+}
+
+function readWorkspace() {
+  let value = "";
+  try { value = localStorage.getItem(WORKSPACE_KEY) || ""; } catch {}
+  if (!value) value = readCookie(WORKSPACE_KEY);
+  return COMPANIES[value] ? value : "";
+}
+
+function setWorkspace(company) {
+  if (!COMPANIES[company]) return;
+  try { localStorage.setItem(WORKSPACE_KEY, company); } catch {}
+  const oneYear = 60 * 60 * 24 * 365;
+  document.cookie = `${WORKSPACE_KEY}=${company}; Path=/; Max-Age=${oneYear}; SameSite=Lax`;
+}
+
 const profileNameNode = document.querySelector("[data-profile-name]");
 const profileEmailNode = document.querySelector("[data-profile-email]");
 const profileCard = profileNameNode?.closest(".workspace-profile");
 let currentProfile = null;
 let profileModal = null;
+
+function renderSidebar(user) {
+  const sidebar = document.querySelector("[data-workspace-sidebar]");
+  if (!sidebar) return;
+  const workspace = readWorkspace();
+  if (!workspace) return;
+  const active = document.body.dataset.page || "";
+  const company = COMPANIES[workspace];
+  const other = workspace === "DTX" ? COMPANIES.USM : COMPANIES.DTX;
+  const otherKey = workspace === "DTX" ? "USM" : "DTX";
+  const isAdmin = (user?.role || "").toLowerCase() === "admin";
+  const isDtx = workspace === "DTX";
+
+  const link = (page, href, label, extraClass = "") => {
+    const activeClass = page && active === page ? " is-active" : "";
+    return `<a class="sidebar-link${activeClass}${extraClass ? ` ${extraClass}` : ""}" href="${href}">${label}</a>`;
+  };
+
+  const dtxBlock = isDtx
+    ? `
+        <div class="sidebar-tree">
+          <div class="sidebar-branch">
+            <a class="sidebar-link${active === "fifa" ? " is-active" : ""}" href="/fifa2026-admin">FIFA 2026</a>
+            <div class="sidebar-children">
+              <a class="sidebar-sublink" href="/fifa2026-admin#inventory-section">Inventory</a>
+              <a class="sidebar-sublink" href="/fifa2026-admin#sales-section">Sales</a>
+              <a class="sidebar-sublink" href="/fifa2026" target="_blank" rel="noreferrer">Public Page</a>
+            </div>
+          </div>
+        </div>
+        ${link("ds160", "/ds160", "DS-160")}
+      `
+    : "";
+
+  sidebar.innerHTML = `
+    <a class="sidebar-brand" href="/backoffice" aria-label="${company.name}">
+      <img src="${company.logoSquare}" alt="${company.name}" />
+    </a>
+    <p class="sidebar-workspace-label">${company.name}</p>
+    <div class="sidebar-group">
+      <p class="sidebar-label">Backoffice</p>
+      ${link("home", "/backoffice", "Home")}
+      ${link("camp-reservations", "/camp-reservations", "Camp Reservations")}
+      ${link("flight-reservations", "/flight-reservations", "Flight Reservations")}
+      ${link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
+      ${dtxBlock}
+      ${link("contracts", "/contracts", "Contracts")}
+      <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>
+      ${link("todo", "/todo", "To Do")}
+      ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
+    </div>
+    <div class="sidebar-switch">
+      <p class="sidebar-label">Switch workspace</p>
+      <button type="button" class="sidebar-switch-button" data-switch="${otherKey}" aria-label="Switch to ${other.name}">
+        <img src="${other.logoSquare}" alt="${other.name}" />
+        <span>${other.name}</span>
+      </button>
+    </div>
+  `;
+
+  sidebar.querySelector("[data-switch]")?.addEventListener("click", () => {
+    setWorkspace(otherKey);
+    window.location.href = "/backoffice";
+  });
+}
+
+function ensureWorkspaceOrRedirect() {
+  const page = document.body.dataset.page || "";
+  if (page === "workspace" || page === "login" || !page) return true;
+  const workspace = readWorkspace();
+  if (!workspace) {
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.replace(`/workspace?next=${next}`);
+    return false;
+  }
+  if (workspace === "USM" && DTX_ONLY_PAGES.has(page)) {
+    window.location.replace("/backoffice");
+    return false;
+  }
+  return true;
+}
 
 function initProfileSignatureCanvas(canvas, existingSignatureUrl = "") {
   const ctx = canvas.getContext("2d");
@@ -100,8 +216,8 @@ function initProfileSignatureCanvas(canvas, existingSignatureUrl = "") {
 
 function renderProfile(user) {
   currentProfile = user;
-  profileNameNode.textContent = user.fullName || user.email;
-  profileEmailNode.textContent = `${user.email} · ${user.role}`;
+  if (profileNameNode) profileNameNode.textContent = user.fullName || user.email;
+  if (profileEmailNode) profileEmailNode.textContent = `${user.email} · ${user.role}`;
 }
 
 function ensureProfileModal() {
@@ -282,7 +398,9 @@ function ensureProfileControls() {
 }
 
 async function loadProfile() {
+  if (!ensureWorkspaceOrRedirect()) return;
   if (!profileNameNode || !profileEmailNode) {
+    renderSidebar(null);
     return;
   }
   try {
@@ -292,10 +410,12 @@ async function loadProfile() {
       throw new Error();
     }
     renderProfile(data.user);
+    renderSidebar(data.user);
     ensureProfileControls();
   } catch {
     profileNameNode.textContent = "TravelX Staff";
     profileEmailNode.textContent = "Profile unavailable";
+    renderSidebar(null);
   }
 }
 

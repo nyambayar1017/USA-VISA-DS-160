@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Choose Workspace · TravelX</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-120" />
+  </head>
+  <body class="app-body workspace-picker-body" data-page="workspace">
+    <main class="workspace-picker-shell">
+      <section class="workspace-picker-hero">
+        <p class="eyebrow">Workspace</p>
+        <h1>Аль компанийн хэсэгт ажиллах вэ?</h1>
+        <p class="workspace-picker-sub">
+          Та ажлаа эхлэхийн өмнө компаниа сонгоно уу. Доод буланд байрлах лого дээр дарж хэзээ ч нөгөө рүү шилжиж болно.
+        </p>
+      </section>
+
+      <section class="workspace-picker-grid">
+        <button type="button" class="workspace-picker-card" data-company="DTX">
+          <div class="workspace-picker-logo workspace-picker-logo-dtx">
+            <img src="/assets/dtx-logo-blue-yellow.png" alt="Delkhii Travel X" />
+          </div>
+          <div class="workspace-picker-meta">
+            <strong>Delkhii Travel X</strong>
+            <span>Outbound · DS-160 · FIFA 2026</span>
+          </div>
+        </button>
+
+        <button type="button" class="workspace-picker-card" data-company="USM">
+          <div class="workspace-picker-logo workspace-picker-logo-usm">
+            <img src="/assets/usm-logo-square.png" alt="Unlock Steppe Mongolia" />
+          </div>
+          <div class="workspace-picker-meta">
+            <strong>Unlock Steppe Mongolia</strong>
+            <span>Inbound · Camp · Transfer · Flight</span>
+          </div>
+        </button>
+      </section>
+
+      <p class="workspace-picker-foot" data-profile-foot>Loading profile...</p>
+    </main>
+
+    <script src="/workspace.js?v=workspace-1"></script>
+  </body>
+</html>

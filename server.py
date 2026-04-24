@@ -1049,6 +1049,29 @@ def clear_session_cookie():
     return f"{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
 
 
+WORKSPACE_COOKIE = "activeWorkspace"
+VALID_COMPANIES = {"DTX", "USM"}
+DEFAULT_COMPANY = "USM"
+
+
+def active_workspace(environ):
+    cookies = parse_cookies(environ)
+    value = (cookies.get(WORKSPACE_COOKIE) or "").strip().upper()
+    return value if value in VALID_COMPANIES else ""
+
+
+def normalize_company(value):
+    v = (value or "").strip().upper()
+    return v if v in VALID_COMPANIES else DEFAULT_COMPANY
+
+
+def filter_by_company(records, environ):
+    workspace = active_workspace(environ)
+    if not workspace:
+        return records
+    return [r for r in records if normalize_company(r.get("company")) == workspace]
+
+
 def sanitize_user(user):
     return {
         "id": user["id"],
@@ -4653,6 +4676,7 @@ def build_camp_trip(payload, actor=None):
         "language": normalize_text(payload.get("language")) or "Other",
         "status": normalize_text(payload.get("status")).lower() or "planning",
         "inboundCompany": "Unlock Steppe Mongolia",
+        "company": normalize_company(payload.get("company")),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
         "updatedBy": actor_snapshot(actor),
@@ -4718,6 +4742,7 @@ def build_camp_reservation(payload, actor=None):
         "paidAmount": parse_int(payload.get("paidAmount")),
         "paymentStatus": normalize_text(payload.get("paymentStatus")) or "in_progress",
         "notes": normalize_text(payload.get("notes")),
+        "company": normalize_company(payload.get("company")),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
         "updatedBy": actor_snapshot(actor),
@@ -5655,8 +5680,8 @@ def handle_create_reservation(environ, start_response):
     return json_response(start_response, "201 Created", {"ok": True, "reservation": record})
 
 
-def handle_list_camp_reservations(start_response):
-    records = read_camp_reservations()
+def handle_list_camp_reservations(environ, start_response):
+    records = filter_by_company(read_camp_reservations(), environ)
     return json_response(start_response, "200 OK", {"entries": records, "summary": camp_summary(records)})
 
 
@@ -5847,8 +5872,8 @@ def handle_delete_fifa_sale(environ, start_response, sale_id):
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": sale_id, "summary": build_fifa_summary(store)})
 
 
-def handle_list_camp_trips(start_response):
-    trips = read_camp_trips()
+def handle_list_camp_trips(environ, start_response):
+    trips = filter_by_company(read_camp_trips(), environ)
     return json_response(start_response, "200 OK", {"entries": trips})
 
 
@@ -5890,6 +5915,7 @@ def handle_create_camp_trip(environ, start_response):
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
+    payload["company"] = active_workspace(environ) or DEFAULT_COMPANY
     record = build_camp_trip(payload, actor)
     error = validate_camp_trip(record)
     if error:
@@ -6106,6 +6132,7 @@ def handle_create_camp_reservation(environ, start_response):
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
+    payload["company"] = active_workspace(environ) or DEFAULT_COMPANY
     record = build_camp_reservation(payload, actor)
     trip = find_camp_trip(record["tripId"])
     if trip is None:
@@ -6143,6 +6170,7 @@ def handle_create_flight_reservation(environ, start_response):
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
+    payload["company"] = active_workspace(environ) or DEFAULT_COMPANY
     record = build_flight_reservation(payload, actor)
     trip = find_camp_trip(record["tripId"])
     if trip is None:
@@ -6166,6 +6194,7 @@ def handle_create_transfer_reservation(environ, start_response):
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
 
+    payload["company"] = active_workspace(environ) or DEFAULT_COMPANY
     record = build_transfer_reservation(payload, actor)
     trip = find_camp_trip(record["tripId"])
     if trip is None:
@@ -6181,12 +6210,12 @@ def handle_create_transfer_reservation(environ, start_response):
     return json_response(start_response, "201 Created", {"ok": True, "entry": record})
 
 
-def handle_list_flight_reservations(start_response):
-    return json_response(start_response, "200 OK", {"entries": read_flight_reservations()})
+def handle_list_flight_reservations(environ, start_response):
+    return json_response(start_response, "200 OK", {"entries": filter_by_company(read_flight_reservations(), environ)})
 
 
-def handle_list_transfer_reservations(start_response):
-    return json_response(start_response, "200 OK", {"entries": read_transfer_reservations()})
+def handle_list_transfer_reservations(environ, start_response):
+    return json_response(start_response, "200 OK", {"entries": filter_by_company(read_transfer_reservations(), environ)})
 
 
 def build_flight_reservation(payload, actor=None):
@@ -6223,6 +6252,7 @@ def build_flight_reservation(payload, actor=None):
         "amount": parse_int(payload.get("totalTicketPrice") or payload.get("amount")),
         "currency": "MNT",
         "notes": normalize_text(payload.get("notes")),
+        "company": normalize_company(payload.get("company")),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
         "updatedBy": actor_snapshot(actor),
@@ -6265,6 +6295,7 @@ def build_transfer_reservation(payload, actor=None):
         "driverSalary": parse_int(payload.get("driverSalary") or payload.get("amount")),
         "currency": "MNT",
         "notes": normalize_text(payload.get("notes")),
+        "company": normalize_company(payload.get("company")),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
         "updatedBy": actor_snapshot(actor),
@@ -7199,7 +7230,7 @@ def app(environ, start_response):
         if method == "GET":
             if not require_login(environ, start_response):
                 return []
-            return handle_list_camp_reservations(start_response)
+            return handle_list_camp_reservations(environ, start_response)
         if method == "POST":
             if not require_login(environ, start_response):
                 return []
@@ -7210,7 +7241,7 @@ def app(environ, start_response):
         if method == "GET":
             if not require_login(environ, start_response):
                 return []
-            return handle_list_flight_reservations(start_response)
+            return handle_list_flight_reservations(environ, start_response)
         if method == "POST":
             if not require_login(environ, start_response):
                 return []
@@ -7221,7 +7252,7 @@ def app(environ, start_response):
         if method == "GET":
             if not require_login(environ, start_response):
                 return []
-            return handle_list_transfer_reservations(start_response)
+            return handle_list_transfer_reservations(environ, start_response)
         if method == "POST":
             if not require_login(environ, start_response):
                 return []
@@ -7232,7 +7263,7 @@ def app(environ, start_response):
         if method == "GET":
             if not require_login(environ, start_response):
                 return []
-            return handle_list_camp_trips(start_response)
+            return handle_list_camp_trips(environ, start_response)
         if method == "POST":
             if not require_login(environ, start_response):
                 return []
@@ -7354,8 +7385,16 @@ def app(environ, start_response):
 
     if path == "/login":
         if current_user(environ):
+            if not active_workspace(environ):
+                start_response("302 Found", [("Location", "/workspace")])
+                return [b""]
             return file_response(start_response, PUBLIC_DIR / "backoffice.html")
         return file_response(start_response, PUBLIC_DIR / "login.html")
+
+    if path == "/workspace":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "workspace.html")
 
     if path == "/":
         if host == "camp.travelx.mn":
@@ -7365,12 +7404,18 @@ def app(environ, start_response):
         if host in {"backoffice.travelx.mn", "www.backoffice.travelx.mn"}:
             if not current_user(environ):
                 return file_response(start_response, PUBLIC_DIR / "login.html")
+            if not active_workspace(environ):
+                start_response("302 Found", [("Location", "/workspace")])
+                return [b""]
             return file_response(start_response, PUBLIC_DIR / "camp.html")
         return file_response(start_response, PUBLIC_DIR / "index.html")
 
     if path == "/backoffice":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
+        if not active_workspace(environ):
+            start_response("302 Found", [("Location", "/workspace")])
+            return [b""]
         return file_response(start_response, PUBLIC_DIR / "camp.html")
 
     if path == "/todo":
@@ -7396,6 +7441,9 @@ def app(environ, start_response):
     if path == "/ds160":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
+        if active_workspace(environ) == "USM":
+            start_response("302 Found", [("Location", "/backoffice")])
+            return [b""]
         return file_response(start_response, PUBLIC_DIR / "ds160.html")
 
     if path.startswith("/ds160/form/"):
@@ -7439,6 +7487,9 @@ def app(environ, start_response):
     if path == "/fifa2026-admin":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
+        if active_workspace(environ) == "USM":
+            start_response("302 Found", [("Location", "/backoffice")])
+            return [b""]
         return file_response(start_response, PUBLIC_DIR / "fifa2026-admin.html")
 
     if path == "/fifa2026":
