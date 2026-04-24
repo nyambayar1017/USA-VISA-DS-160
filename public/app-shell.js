@@ -397,22 +397,48 @@ function ensureProfileControls() {
   profileCard.appendChild(actions);
 }
 
+function clearPopoverPosition(popover) {
+  popover.style.position = "";
+  popover.style.top = "";
+  popover.style.left = "";
+  popover.style.right = "";
+  popover.style.bottom = "";
+  popover.style.width = "";
+}
+
 document.addEventListener(
   "toggle",
   (event) => {
     const details = event.target;
     if (!details.matches || !details.matches("details.trip-menu")) return;
+    const popover = details.querySelector(".trip-menu-popover");
+    if (!popover) return;
     if (!details.open) {
+      clearPopoverPosition(popover);
       details.classList.remove("is-upward");
       return;
     }
-    const popover = details.querySelector(".trip-menu-popover");
-    if (!popover) return;
     details.classList.remove("is-upward");
+    clearPopoverPosition(popover);
     requestAnimationFrame(() => {
-      const rect = popover.getBoundingClientRect();
-      if (rect.bottom > window.innerHeight - 8) {
+      const summary = details.querySelector("summary");
+      if (!summary) return;
+      const triggerRect = summary.getBoundingClientRect();
+      const popRect = popover.getBoundingClientRect();
+      const popHeight = popRect.height;
+      const popWidth = popRect.width;
+      const spaceBelow = window.innerHeight - triggerRect.bottom;
+      const openUpward = spaceBelow < popHeight + 16 && triggerRect.top > popHeight + 16;
+      popover.style.position = "fixed";
+      popover.style.left = `${Math.max(8, triggerRect.right - popWidth)}px`;
+      popover.style.right = "auto";
+      if (openUpward) {
+        popover.style.top = `${triggerRect.top - popHeight - 8}px`;
+        popover.style.bottom = "auto";
         details.classList.add("is-upward");
+      } else {
+        popover.style.top = `${triggerRect.bottom + 8}px`;
+        popover.style.bottom = "auto";
       }
     });
   },
