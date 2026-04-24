@@ -2111,12 +2111,9 @@ async function exportReservationsAsPdf(entries, filename = "camp-reservations.pd
       campStatus.textContent = "PDF preview ready.";
       return;
     }
-    const link = document.createElement("a");
-    link.href = appendDownloadQuery(result.entry.pdfPath);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    const pdfSrc = encodeURIComponent(result.entry.pdfPath || "");
+    const pdfTitle = encodeURIComponent(filename.replace(".pdf", ""));
+    window.open("/pdf-viewer?src=" + pdfSrc + "&title=" + pdfTitle, "_blank", "noopener,noreferrer");
     campStatus.textContent = "PDF ready.";
   } catch (error) {
     campStatus.textContent = error.message;
@@ -2359,12 +2356,8 @@ function handleCampTableClick(event) {
     return;
   }
   if (action === "download-pdf") {
-    const link = document.createElement("a");
-    link.href = `/api/camp-reservations/${target.dataset.id}/document?mode=download`;
-    link.download = "";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    const pdfSrc = encodeURIComponent("/api/camp-reservations/" + target.dataset.id + "/document?mode=download");
+    window.open("/pdf-viewer?src=" + pdfSrc + "&title=Reservation", "_blank", "noopener,noreferrer");
     return;
   }
   if (action === "cancel-edit") {

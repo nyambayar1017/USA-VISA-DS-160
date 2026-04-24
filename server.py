@@ -11,7 +11,7 @@ import secrets
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import parse_qs, unquote
+from urllib.parse import parse_qs, unquote, quote
 from urllib import request as urlrequest
 from uuid import uuid4
 import xml.etree.ElementTree as ET
@@ -1946,8 +1946,9 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
                 manager_signature_src = manager_file.as_uri()
 
     download_href = f"/api/contracts/{contract_id}/document?mode=download" if contract_id else ""
+    _dl_title = quote(data.get("contractSerial", "") or (contract_id or ""), safe="")
     download_button = (
-        f'<a href="{html.escape(download_href)}">PDF Татах</a>'
+        f'<a href="/pdf-viewer?src={quote(download_href, safe="")}&title={_dl_title}" target="_blank" rel="noreferrer">PDF Татах</a>'
         if download_href
         else '<button onclick="window.print()">Print</button>'
     )
@@ -2668,6 +2669,8 @@ def build_invoice_html(record, asset_mode="web"):
         return f"/assets/{filename}"
 
     download_href = "" if asset_mode == "file" else f"/api/contracts/{record.get('id')}/invoice?mode=download"
+    _inv_raw_number = f"{normalize_text(data.get('contractSerial')) or record.get('id', '')}-1"
+    _inv_viewer_href = f"/pdf-viewer?src={quote(download_href, safe='')}&title={quote(_inv_raw_number, safe='')}" if download_href else ""
     toolbar_markup = ""
     script_markup = ""
     notice_markup = ""
@@ -2677,7 +2680,7 @@ def build_invoice_html(record, asset_mode="web"):
       <button type="button" class="toolbar-button is-active" data-invoice-mode="view">View</button>
       <button type="button" class="toolbar-button" data-invoice-mode="edit">Edit</button>
       <button type="button" class="toolbar-button toolbar-save" data-save-invoice hidden>Save</button>
-      <a href="{html.escape(download_href)}">PDF Татах</a>
+      <a href="{html.escape(_inv_viewer_href)}" target="_blank" rel="noreferrer">PDF Татах</a>
     </div>"""
         notice_markup = '<div class="save-notice" data-save-notice hidden>Saved successfully</div>'
         script_markup = f"""
