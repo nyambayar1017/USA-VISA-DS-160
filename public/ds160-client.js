@@ -139,9 +139,11 @@ function setSelectOptionsWithLabels(select, options, labelMap, placeholder = "С
     .join("")}`;
 }
 
+const ORDERED_COUNTRIES = ["MONGOLIA", ...COUNTRIES.filter((c) => c !== "MONGOLIA")];
+
 function populateStaticOptions(root = document) {
   root.querySelectorAll("[data-country-select]").forEach((s) => {
-    if (!s.dataset.populated) { setSelectOptionsWithLabels(s, COUNTRIES, COUNTRY_MN); s.dataset.populated = "1"; }
+    if (!s.dataset.populated) { setSelectOptionsWithLabels(s, ORDERED_COUNTRIES, COUNTRY_MN); s.dataset.populated = "1"; }
   });
   root.querySelectorAll("[data-us-state-select]").forEach((s) => {
     if (!s.dataset.populated) { setSelectOptions(s, US_STATES, "- SELECT ONE -"); s.dataset.populated = "1"; }
@@ -354,6 +356,10 @@ function syncConditionalFields() {
   toggleElement("passport-type-other-field", fieldValue("passportType") === "OTHER");
   toggleElement("lost-passport-block", fieldValue("lostPassport") === "ТИЙМ");
 
+  toggleElement("father-info-block", fieldValue("knowsFatherInfo") === "ТИЙМ");
+  toggleElement("father-status-field", fieldValue("knowsFatherInfo") === "ТИЙМ" && fieldValue("fatherInUs") === "ТИЙМ");
+  toggleElement("mother-info-block", fieldValue("knowsMotherInfo") === "ТИЙМ");
+  toggleElement("mother-status-field", fieldValue("knowsMotherInfo") === "ТИЙМ" && fieldValue("motherInUs") === "ТИЙМ");
   toggleElement("immediate-relatives-block", fieldValue("hasImmediateRelativesInUs") === "ТИЙМ");
 
   const hasContactPerson = fieldValue("hasUsContactPerson") === "ТИЙМ";
@@ -383,9 +389,10 @@ function syncConditionalFields() {
   toggleElement("military-block", fieldValue("servedMilitary") === "ТИЙМ");
   toggleElement("paramilitary-explain-field", fieldValue("involvedWithParamilitary") === "ТИЙМ");
 
-  // Security group explain boxes
-  toggleElement("security-medical-explain-field",
-    anyYes("securityCommunicableDisease","securityMentalDisorder","securityDrugAbuse"));
+  // Security per-question explain boxes (Part 1 Medical)
+  toggleElement("securityCommunicableDisease-explain", fieldValue("securityCommunicableDisease") === "ТИЙМ");
+  toggleElement("securityMentalDisorder-explain", fieldValue("securityMentalDisorder") === "ТИЙМ");
+  toggleElement("securityDrugAbuse-explain", fieldValue("securityDrugAbuse") === "ТИЙМ");
   toggleElement("security-criminal-explain-field",
     anyYes("securityArrested","securityControlledSubstances","securityProstitution","securityMoneyLaundering",
            "securityHumanTrafficking","securityHumanTraffickingAid","securityTraffickingBenefit"));
@@ -410,6 +417,7 @@ const CONDITIONAL_TRIGGERS = [
   "mailingSameAsHome","usedOtherPhones","usedOtherEmails","usesSocialMedia","hasOtherWebPresence",
   "passportType","lostPassport",
   "hasImmediateRelativesInUs","hasUsContactPerson","hasUsContactOrg","visaRefused","immigrantPetitionFiled",
+  "knowsFatherInfo","fatherInUs","knowsMotherInfo","motherInUs",
   "spouseAddressType",
   "primaryOccupation","wasPreviouslyEmployed","attendedHigherEducation",
   "belongsToClan","traveledOtherCountriesLastFiveYears","belongsToOrganizations",
@@ -446,6 +454,24 @@ function bindUppercaseFieldsIn(root) {
         try { field.setSelectionRange(start, end); } catch (_) {}
       }
     });
+  });
+}
+
+// ==========================================================================
+// Cyrillic detection for passport / Latin-only fields
+// ==========================================================================
+function bindPassportLatinWarnings() {
+  form.querySelectorAll('[data-passport-latin]').forEach((input) => {
+    const warn = input.parentElement?.querySelector('.warn-cyrillic');
+    if (!warn) return;
+    const check = () => {
+      const hasCyrillic = /[А-Яа-яӨөҮүЁё]/.test(input.value || "");
+      warn.hidden = !hasCyrillic;
+      warn.classList.toggle("is-hidden", !hasCyrillic);
+    };
+    input.addEventListener("input", check);
+    input.addEventListener("blur", check);
+    check();
   });
 }
 
@@ -507,6 +533,86 @@ function bindPhotoUpload() {
 }
 
 // ==========================================================================
+// Passport scan upload
+// ==========================================================================
+function bindPassportUpload() {
+  const input = document.getElementById("passport-file-input");
+  const hidden = document.getElementById("passport-data-field");
+  const previewWrap = document.getElementById("passport-preview-wrap");
+  const previewImg = document.getElementById("passport-preview");
+  const filenameEl = document.getElementById("passport-filename");
+  const clearBtn = document.getElementById("passport-clear-btn");
+  if (!input || !hidden) return;
+
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Паспортын файл 10MB-ээс хэтрэхгүй байх ёстой.");
+      input.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      hidden.value = reader.result;
+      const isImage = typeof reader.result === "string" && reader.result.startsWith("data:image/");
+      if (previewImg) {
+        previewImg.src = isImage ? reader.result : "";
+        previewImg.style.display = isImage ? "" : "none";
+      }
+      if (filenameEl) filenameEl.textContent = `Файл: ${file.name}`;
+      toggleElement("passport-preview-wrap", true);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  clearBtn?.addEventListener("click", () => {
+    hidden.value = "";
+    if (input) input.value = "";
+    if (previewImg) previewImg.src = "";
+    if (filenameEl) filenameEl.textContent = "";
+    toggleElement("passport-preview-wrap", false);
+  });
+}
+
+// ==========================================================================
+// Spouse label prefix based on marital status
+// ==========================================================================
+function bindSpouseLabels() {
+  const field = form.elements.maritalStatus;
+  if (!field) return;
+  field.addEventListener("change", applySpouseLabels);
+  applySpouseLabels();
+}
+function applySpouseLabels() {
+  const section = document.getElementById("section-spouse");
+  if (!section) return;
+  const status = fieldValue("maritalStatus");
+  const base = { surname: "Эхнэр / нөхрийн овог", given: "Эхнэр / нөхрийн нэр", addr: "Эхнэр / нөхрийн одоогийн хаяг төрөл" };
+  let prefixSurname = base.surname, prefixGiven = base.given, prefixAddr = base.addr;
+  if (status === "САЛСАН") {
+    prefixSurname = "Таны салсан эхнэр / нөхрийн овог";
+    prefixGiven = "Таны салсан эхнэр / нөхрийн нэр";
+    prefixAddr = "Таны салсан эхнэр / нөхрийн хаяг төрөл";
+  } else if (status === "БЭЛЭВСЭН") {
+    prefixSurname = "Таны нас барсан эхнэр / нөхрийн овог";
+    prefixGiven = "Таны нас барсан эхнэр / нөхрийн нэр";
+    prefixAddr = "Таны нас барсан эхнэр / нөхрийн хаяг төрөл";
+  }
+  const setLabel = (name, text) => {
+    const input = form.elements[name];
+    if (!input) return;
+    const label = input.closest("label");
+    if (!label) return;
+    const firstText = [...label.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+    if (firstText) firstText.textContent = text;
+  };
+  setLabel("spouseSurname", prefixSurname);
+  setLabel("spouseGivenName", prefixGiven);
+  setLabel("spouseAddressType", prefixAddr);
+}
+
+// ==========================================================================
 // Build payload
 // ==========================================================================
 function buildPayload(formNode) {
@@ -521,6 +627,7 @@ function buildPayload(formNode) {
   for (const [key, value] of formData.entries()) {
     if (skipKeys.has(key)) continue;
     if (key === "photo") { payload.photo = value; continue; }
+    if (key === "passportScan") { payload.passportScan = value; continue; }
     payload[key] = normalizeUppercase(normalizeValue(value));
   }
 
@@ -600,6 +707,16 @@ function applyPayload(payload) {
         const previewImg = document.getElementById("photo-preview");
         if (previewImg) previewImg.src = value;
         toggleElement("photo-preview-wrap", true);
+      }
+      return;
+    }
+    if (key === "passportScan") {
+      const hidden = document.getElementById("passport-data-field");
+      if (hidden && typeof value === "string" && value.startsWith("data:")) {
+        hidden.value = value;
+        const previewImg = document.getElementById("passport-preview");
+        if (previewImg && value.startsWith("data:image/")) previewImg.src = value;
+        toggleElement("passport-preview-wrap", true);
       }
       return;
     }
@@ -691,7 +808,10 @@ populateStaticOptions(document);
 bindRepeatButtons();
 bindNaCheckboxes();
 bindPhotoUpload();
+bindPassportUpload();
+bindPassportLatinWarnings();
 bindUppercaseFieldsIn(form);
+bindSpouseLabels();
 bindConditionalFields();
 
 // Seed one empty row in each repeatable so the UI isn't empty

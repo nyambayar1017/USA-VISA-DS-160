@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-108" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-109" />
   </head>
   <body class="app-body ds160-client-body">
     <header class="travelx-site-header">
@@ -98,7 +98,7 @@
             <a class="ds160-topic-link" href="#section-security-3">17. Аюулгүй — Аюулгүй байдал</a>
             <a class="ds160-topic-link" href="#section-security-4">18. Аюулгүй — Цагаачлал</a>
             <a class="ds160-topic-link" href="#section-security-5">19. Аюулгүй — Бусад</a>
-            <a class="ds160-topic-link" href="#section-photo">20. Зураг</a>
+            <a class="ds160-topic-link" href="#section-photo">20. Зураг ба паспорт</a>
             <a class="ds160-topic-link" href="#section-notes">21. Нэмэлт тэмдэглэл</a>
           </aside>
 
@@ -114,9 +114,9 @@
                 </div>
               </div>
               <div class="field-grid">
-                <label>Овог (Surnames)<input name="surname" required /></label>
-                <label>Нэр (Given Names)<input name="givenName" required /></label>
-                <label class="full-span">Криллээр өөрийн нэрийг бүтэн бичих<input name="nativeFullName" required /></label>
+                <label>Овог (Surnames)<input name="surname" required data-passport-latin="1" /><span class="warn-cyrillic is-hidden" hidden>ЗӨВХӨН ПАСПОРТ ДЭЭР БИЧИГДДЭГ ШИГ БИЧНЭ ҮҮ.</span></label>
+                <label>Нэр (Given Names)<input name="givenName" required data-passport-latin="1" /><span class="warn-cyrillic is-hidden" hidden>ЗӨВХӨН ПАСПОРТ ДЭЭР БИЧИГДДЭГ ШИГ БИЧНЭ ҮҮ.</span></label>
+                <label class="full-span">Криллээр өөрийн нэрийг бүтэн бичих (Зөвхөн нэр)<input name="nativeFullName" required /></label>
                 <label>Та өөр нэр ашиглаж байсан уу? (maiden, шашны, мэргэжлийн, alias)
                   <select name="usedOtherNames">
                     <option value="">Сонгох</option>
@@ -140,7 +140,7 @@
                     </div>
                   </template>
                 </div>
-                <label>Таны нэрийг илэрхийлэх теле код байгаа эсэх
+                <label>Таны нэрийг илэрхийлэх ямар нэгэн ханз байгаа эсэх
                   <select name="hasTelecode">
                     <option value="">Сонгох</option>
                     <option value="ҮГҮЙ">Үгүй</option>
@@ -148,10 +148,10 @@
                   </select>
                 </label>
                 <label id="telecode-surname-field" class="is-hidden" hidden>
-                  Овгийн теле код<input name="telecodeSurname" maxlength="20" />
+                  Овгийн ханз<input name="telecodeSurname" maxlength="20" />
                 </label>
                 <label id="telecode-given-field" class="is-hidden" hidden>
-                  Нэрийн теле код<input name="telecodeGivenName" maxlength="20" />
+                  Нэрийн ханз<input name="telecodeGivenName" maxlength="20" />
                 </label>
                 <label>Хүйс
                   <select name="sex" required>
@@ -246,7 +246,7 @@
                   Байнга оршин суудаг улс
                   <select name="permanentResidentCountry" data-country-select></select>
                 </label>
-                <label>Регистрийн дугаар<input name="registerNumber" /></label>
+                <label>Регистрийн дугаар<input name="registerNumber" data-passport-latin="1" /><span class="warn-cyrillic is-hidden" hidden>ЗӨВХӨН ПАСПОРТ ДЭЭР БИЧИГДДЭГ ШИГ БИЧНЭ ҮҮ.</span></label>
                 <label>АНУ-ын нийгмийн даатгалын дугаартай юу? (U.S. SSN)
                   <select name="hasUsSsn">
                     <option value="">Сонгох</option>
@@ -303,6 +303,7 @@
                     <option value="TN/TD">NAFTA МЭРГЭЖИЛТЭН (TN/TD)</option>
                     <option value="U">ГЭМТ ХЭРГИЙН ХОХИРОГЧ (U)</option>
                   </select>
+                  <span class="helper">Хэрэв та аяллаар явах бол "B" сонгож, тодруулга дээр B1/B2 сонгоно уу.</span>
                 </label>
                 <label id="trip-purpose-detail-field" class="is-hidden" hidden>Тодруулга
                   <select name="tripPurposeDetail">
@@ -329,7 +330,7 @@
                         <label class="segment-field">Жил<select name="arrivalYear" data-future-year-select></select></label>
                       </div>
                     </div>
-                    <label>Очих нислэг<input name="arrivalFlight" /></label>
+                    <label>Очих нислэгийн дугаар<input name="arrivalFlight" /></label>
                     <label>Очих хот<input name="arrivalCity" /></label>
                     <div class="full-span field-stack">
                       <span>АНУ-аас гарах өдөр</span>
@@ -339,9 +340,9 @@
                         <label class="segment-field">Жил<select name="departureYear" data-future-year-select></select></label>
                       </div>
                     </div>
-                    <label>Буцах нислэг<input name="departureFlight" /></label>
+                    <label>Буцах нислэгийн дугаар<input name="departureFlight" /></label>
                     <label>Гарах хот<input name="departureCity" /></label>
-                    <label class="full-span">АНУ-д очих газрууд<textarea name="usLocations" rows="3" placeholder="Жишээ: NEW YORK, LOS ANGELES"></textarea></label>
+                    <label class="full-span">Очих хотууд<textarea name="usLocations" rows="3" placeholder="Жишээ: NEW YORK, LOS ANGELES"></textarea></label>
                   </div>
                 </div>
                 <div id="travel-noplans-fields" class="full-span conditional-block is-hidden" hidden>
@@ -376,7 +377,7 @@
                   <div class="field-grid nested-grid">
                     <label class="full-span">Гудамжны хаяг (1-р мөр)<input name="usStayAddressLine1" /></label>
                     <label class="full-span">Гудамжны хаяг (2-р мөр) — заавал биш<input name="usStayAddressLine2" /></label>
-                    <label>Хот / Аймаг<input name="usStayCity" /></label>
+                    <label>Хот<input name="usStayCity" /></label>
                     <label>Муж / State<select name="usStayState" data-us-state-select></select></label>
                     <label>ZIP код<input name="usStayZip" /></label>
                   </div>
@@ -799,7 +800,7 @@
                   </select>
                 </label>
                 <label id="passport-type-other-field" class="is-hidden" hidden>Бусад тайлбар<input name="passportTypeOther" /></label>
-                <label>Паспортын дугаар<input name="passportNumber" required /></label>
+                <label>Паспортын дугаар<input name="passportNumber" required data-passport-latin="1" /><span class="warn-cyrillic is-hidden" hidden>ЗӨВХӨН ПАСПОРТ ДЭЭР БИЧИГДДЭГ ШИГ БИЧНЭ ҮҮ.</span></label>
                 <label>Паспорт олгосон улс / байгууллага
                   <select name="passportIssuingCountry" data-country-select required></select>
                 </label>
@@ -907,38 +908,62 @@
                 <p>Эцэг, эх болон АНУ дахь хамаатан садан.</p>
               </div>
               <div class="field-grid">
-                <div class="full-span field-stack">
-                  <span>Эцгийн мэдээлэл</span>
+                <label>Аавынхаа овог, нэр, төрсөн өдрийг мэдэх үү?
+                  <select name="knowsFatherInfo">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <div id="father-info-block" class="full-span conditional-block is-hidden" hidden>
                   <div class="field-grid nested-grid">
                     <label>Эцгийн овог<input name="fatherSurname" /></label>
                     <label>Эцгийн нэр<input name="fatherGivenName" /></label>
                     <label>Эцгийн төрсөн өдөр<input name="fatherDateOfBirth" type="date" /></label>
-                    <label>Эцгийн статус
+                    <label>Таны аав АНУ-д байдаг эсэх?
+                      <select name="fatherInUs">
+                        <option value="">Сонгох</option>
+                        <option value="ҮГҮЙ">Үгүй</option>
+                        <option value="ТИЙМ">Тийм</option>
+                      </select>
+                    </label>
+                    <label id="father-status-field" class="full-span is-hidden" hidden>Эцгийн АНУ дахь статус
                       <select name="fatherStatus">
                         <option value="">Сонгох</option>
                         <option value="US CITIZEN">АНУ-ын иргэн</option>
                         <option value="US LPR">АНУ-д байнгын оршин суугч</option>
                         <option value="NONIMMIGRANT">Түр визтэй хүн</option>
                         <option value="OTHER">Бусад / Мэдэхгүй</option>
-                        <option value="LIVES IN MONGOLIA">Монголд байдаг</option>
                       </select>
                     </label>
                   </div>
                 </div>
-                <div class="full-span field-stack">
-                  <span>Эхийн мэдээлэл</span>
+                <label>Ээжийнхээ овог, нэр, төрсөн өдрийг мэдэх үү?
+                  <select name="knowsMotherInfo">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <div id="mother-info-block" class="full-span conditional-block is-hidden" hidden>
                   <div class="field-grid nested-grid">
                     <label>Эхийн овог<input name="motherSurname" /></label>
                     <label>Эхийн нэр<input name="motherGivenName" /></label>
                     <label>Эхийн төрсөн өдөр<input name="motherDateOfBirth" type="date" /></label>
-                    <label>Эхийн статус
+                    <label>Таны ээж АНУ-д байдаг эсэх?
+                      <select name="motherInUs">
+                        <option value="">Сонгох</option>
+                        <option value="ҮГҮЙ">Үгүй</option>
+                        <option value="ТИЙМ">Тийм</option>
+                      </select>
+                    </label>
+                    <label id="mother-status-field" class="full-span is-hidden" hidden>Эхийн АНУ дахь статус
                       <select name="motherStatus">
                         <option value="">Сонгох</option>
                         <option value="US CITIZEN">АНУ-ын иргэн</option>
                         <option value="US LPR">АНУ-д байнгын оршин суугч</option>
                         <option value="NONIMMIGRANT">Түр визтэй хүн</option>
                         <option value="OTHER">Бусад / Мэдэхгүй</option>
-                        <option value="LIVES IN MONGOLIA">Монголд байдаг</option>
                       </select>
                     </label>
                   </div>
@@ -1310,6 +1335,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
+                <label id="securityCommunicableDisease-explain" class="full-span is-hidden" hidden>Тайлбар<textarea name="securityCommunicableDiseaseExplain" rows="3"></textarea></label>
                 <label class="full-span">Та өөртөө эсвэл бусдад аюул учруулж болзошгүй сэтгэцийн эсвэл биеийн эмгэгтэй юу?
                   <select name="securityMentalDisorder">
                     <option value="">Сонгох</option>
@@ -1317,6 +1343,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
+                <label id="securityMentalDisorder-explain" class="full-span is-hidden" hidden>Тайлбар<textarea name="securityMentalDisorderExplain" rows="3"></textarea></label>
                 <label class="full-span">Та хар тамхи хэрэглэгч эсвэл донтогч байсан уу?
                   <select name="securityDrugAbuse">
                     <option value="">Сонгох</option>
@@ -1324,9 +1351,7 @@
                     <option value="ТИЙМ">Тийм</option>
                   </select>
                 </label>
-                <label id="security-medical-explain-field" class="full-span is-hidden" hidden>Тайлбар (дээрх асуултын аль нэгэнд "Тийм" гэж хариулсан бол)
-                  <textarea name="securityMedicalExplain" rows="4"></textarea>
-                </label>
+                <label id="securityDrugAbuse-explain" class="full-span is-hidden" hidden>Тайлбар<textarea name="securityDrugAbuseExplain" rows="3"></textarea></label>
               </div>
             </section>
 
@@ -1521,7 +1546,7 @@
                 <p>Нэмэлт чухал асуултууд.</p>
               </div>
               <div class="field-grid security-grid">
-                <label class="full-span">Та АНУ-ын иргэн хүүхдийг АНУ-ын шүүхийн шийдвэртэй хүнээс хууль бусаар авч үлдсэн үү?
+                <label class="full-span">Та АНУ-ын иргэн хүүхдийг хууль бусаар авч үлдэж байсан уу?
                   <select name="securityChildCustody">
                     <option value="">Сонгох</option>
                     <option value="ҮГҮЙ">Үгүй</option>
@@ -1530,7 +1555,7 @@
                 </label>
                 <label id="securityChildCustody-explain" class="full-span is-hidden" hidden>Тайлбар<textarea name="securityChildCustodyExplain" rows="3"></textarea></label>
 
-                <label class="full-span">Та АНУ-д хууль бусаар санал өгч байсан уу? (жишээ: иргэн биш мөртлөө санал өгсөн)
+                <label class="full-span">Та АНУ-н сонгуульд хууль бусаар санал өгч байсан уу? (жишээ: иргэн биш мөртлөө санал өгсөн)
                   <select name="securityIllegalVoting">
                     <option value="">Сонгох</option>
                     <option value="ҮГҮЙ">Үгүй</option>
@@ -1555,11 +1580,11 @@
             <!-- ============================================================ -->
             <section id="section-photo" class="form-section">
               <div class="section-head">
-                <h2>20. Зураг оруулах</h2>
-                <p>DS-160 шаардлагад нийцсэн цээж зургийг оруулна уу (2x2 инч, цагаан дэвсгэртэй).</p>
+                <h2>20. Зураг ба паспортын хуулбар</h2>
+                <p>DS-160 шаардлагад нийцсэн цээж зураг болон паспортынхаа мэдээлэлтэй хуудасны хуулбарыг оруулна уу.</p>
               </div>
               <div class="field-grid">
-                <label class="full-span">Зураг сонгох (JPG / PNG)
+                <label class="full-span">Цээж зураг оруулах (JPG / PNG, 2x2 инч, цагаан дэвсгэртэй)
                   <input id="photo-file-input" type="file" accept="image/jpeg,image/png" />
                 </label>
                 <div id="photo-preview-wrap" class="full-span is-hidden" hidden>
@@ -1567,6 +1592,16 @@
                   <p class="helper"><button type="button" id="photo-clear-btn" class="button-tertiary">Зураг устгах</button></p>
                 </div>
                 <input type="hidden" name="photo" id="photo-data-field" />
+
+                <label class="full-span">Паспортын мэдээлэлтэй хуудасны хуулбар оруулах (JPG / PNG / PDF)
+                  <input id="passport-file-input" type="file" accept="image/jpeg,image/png,application/pdf" />
+                </label>
+                <div id="passport-preview-wrap" class="full-span is-hidden" hidden>
+                  <img id="passport-preview" alt="Паспортын хуулбар" style="max-width: 280px; border-radius: 8px; border: 1px solid var(--border, #d0d7e8);" />
+                  <p id="passport-filename" class="helper"></p>
+                  <p class="helper"><button type="button" id="passport-clear-btn" class="button-tertiary">Паспортын хуулбар устгах</button></p>
+                </div>
+                <input type="hidden" name="passportScan" id="passport-data-field" />
               </div>
             </section>
 
@@ -1592,6 +1627,6 @@
       </section>
     </main>
 
-    <script src="/ds160-client.js?v=workspace-8"></script>
+    <script src="/ds160-client.js?v=workspace-9"></script>
   </body>
 </html>

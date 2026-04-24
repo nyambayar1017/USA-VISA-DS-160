@@ -564,6 +564,58 @@ function renderAnswers(entry) {
   openAnswersModal();
 }
 
+function formatDs160Status(status) {
+  switch ((status || "").toLowerCase()) {
+    case "draft": return "Draft";
+    case "sent": return "Sent";
+    case "submitted": return "Submitted";
+    case "reviewed": return "Reviewed";
+    default: return status ? status : "Sent";
+  }
+}
+
+function openPrintWindow(entry) {
+  const { surname, givenName } = splitClientName(entry);
+  const fullName = [surname, givenName].filter(Boolean).join(" ") || entry.clientName || "applicant";
+  const photo = entry.photo || entry.payload?.photo || "";
+  const photoImg = typeof photo === "string" && photo.startsWith("data:image/")
+    ? `<img src="${photo}" alt="Photo" style="max-width: 200px; border: 1px solid #d0d7e8; border-radius: 6px;" />` : "";
+  const sections = ANSWER_SECTIONS
+    .map((section) => {
+      const rows = section.fields
+        .map(([label, key]) => `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;width:40%;color:#475569;">${escapeHtml(label)}</td><td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(entry[key] || "-")}</td></tr>`)
+        .join("");
+      return `<section style="margin-bottom:18px;page-break-inside:avoid;"><h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">${escapeHtml(section.title)}</h3><table style="width:100%;border-collapse:collapse;font-size:12px;">${rows}</table></section>`;
+    })
+    .join("");
+  const html = `
+    <!DOCTYPE html>
+    <html><head><meta charset="UTF-8"><title>DS-160 — ${escapeHtml(fullName)}</title>
+    <style>
+      body { font-family: "Montserrat", Arial, sans-serif; color: #111827; margin: 24px; }
+      h1 { font-size: 20px; color: #253a77; margin: 0 0 6px; }
+      p.sub { color: #475569; margin: 0 0 20px; font-size: 13px; }
+      .head { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px; }
+      @media print { body { margin: 12mm; } }
+    </style></head><body>
+      <div class="head">
+        ${photoImg}
+        <div>
+          <h1>DS-160 — ${escapeHtml(fullName)}</h1>
+          <p class="sub">${escapeHtml(entry.clientEmail || "")} · ${escapeHtml(entry.clientPhone || entry.primaryPhone || "")}<br/>Status: ${escapeHtml(formatDs160Status(entry.status))} · Submitted: ${escapeHtml(formatDateTime(entry.submittedAt || entry.createdAt))}</p>
+        </div>
+      </div>
+      ${sections}
+      <script>window.onload = function() { setTimeout(function(){ window.print(); }, 400); };<\/script>
+    </body></html>
+  `;
+  const w = window.open("", "_blank", "width=900,height=1000");
+  if (!w) { alert("Please allow pop-ups to download the PDF."); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
 function renderList() {
   const entries = filteredEntries();
   if (!entries.length) {
@@ -581,6 +633,7 @@ function renderList() {
           <th>Name</th>
           <th>Client Email</th>
           <th>Client Number</th>
+          <th>Status</th>
           <th>Date</th>
           <th>Appointment</th>
           <th>Actions</th>
@@ -590,12 +643,14 @@ function renderList() {
         ${pagination.items
           .map((entry) => {
             const nameParts = splitClientName(entry);
+            const status = (entry.status || "sent").toLowerCase();
             return `
               <tr>
                 <td>${escapeHtml(nameParts.surname || "-")}</td>
                 <td>${escapeHtml(nameParts.givenName || "-")}</td>
                 <td>${escapeHtml(entry.clientEmail || "-")}</td>
                 <td>${escapeHtml(entry.clientPhone || entry.primaryPhone || "-")}</td>
+                <td><span class="ds160-status-pill is-${escapeHtml(status)}">${escapeHtml(formatDs160Status(status))}</span></td>
                 <td>${escapeHtml(formatDateTime(entry.submittedAt || entry.createdAt))}</td>
                 <td>${escapeHtml(formatAppointment(entry.appointmentDate, entry.appointmentTime))}</td>
                 <td class="ds160-actions-cell">
@@ -603,6 +658,7 @@ function renderList() {
                     <summary class="trip-menu-trigger" aria-label="DS-160 actions">⋮</summary>
                     <div class="trip-menu-popover">
                       <button type="button" class="trip-menu-item" data-action="see-answers" data-id="${escapeHtml(entry.id)}">See Answers</button>
+                      <button type="button" class="trip-menu-item" data-action="download-pdf" data-id="${escapeHtml(entry.id)}">Download PDF</button>
                       <button type="button" class="trip-menu-item" data-action="copy-link" data-link="${escapeHtml(entry.shareUrl || "")}">Copy link</button>
                       <button type="button" class="trip-menu-item" data-action="edit-info" data-id="${escapeHtml(entry.id)}">Edit info</button>
                       <button type="button" class="trip-menu-item" data-action="set-appointment" data-id="${escapeHtml(entry.id)}">Set appointment</button>
@@ -644,6 +700,14 @@ function renderList() {
       const entry = state.entries.find((item) => item.id === button.dataset.id);
       if (!entry) return;
       renderAnswers(entry);
+    });
+  });
+
+  listNode.querySelectorAll('[data-action="download-pdf"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = state.entries.find((item) => item.id === button.dataset.id);
+      if (!entry) return;
+      openPrintWindow(entry);
     });
   });
 
@@ -867,6 +931,13 @@ editForm?.addEventListener("submit", async (event) => {
   node?.addEventListener("change", () => {
     state.currentPage = 1;
     renderList();
+  });
+});
+
+// Close the row-action <details> popovers when clicking anywhere outside them
+document.addEventListener("click", (event) => {
+  document.querySelectorAll("details.ds160-action-menu[open]").forEach((details) => {
+    if (!details.contains(event.target)) details.removeAttribute("open");
   });
 });
 

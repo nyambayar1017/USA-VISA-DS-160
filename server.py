@@ -4382,7 +4382,7 @@ def clean_ds160_payload(payload):
             cleaned[key] = cleaned_list
         elif isinstance(value, dict):
             cleaned[key] = {k: normalize_text(v) for k, v in value.items()}
-        elif key == "photo" and isinstance(value, str) and value.startswith("data:"):
+        elif key in ("photo", "passportScan") and isinstance(value, str) and value.startswith("data:"):
             cleaned[key] = value
         else:
             cleaned[key] = normalize_text(value)
