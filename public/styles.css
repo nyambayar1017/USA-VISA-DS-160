@@ -6025,3 +6025,36 @@ body.modal-open {
   gap: 6px;
   flex-shrink: 0;
 }
+
+.doc-category-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.doc-category-select {
+  border: 1px solid var(--border, #d0d7e8);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+.doc-group {
+  margin-bottom: 16px;
+}
+.doc-group-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--border, #d0d7e8);
+  margin-bottom: 8px;
+}
+.doc-group-count {
+  font-weight: 400;
+}

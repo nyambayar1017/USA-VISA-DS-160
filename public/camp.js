@@ -2759,7 +2759,7 @@ document.addEventListener("click", async (event) => {
 const docDropZone = document.getElementById("doc-drop-zone");
 const docDropInner = document.getElementById("doc-drop-inner");
 const docFileInput = document.getElementById("doc-file-input");
-const docBrowseBtn = document.getElementById("doc-browse-btn");
+const docCategorySelect = document.getElementById("doc-category");
 const docUploadStatus = document.getElementById("doc-upload-status");
 const docList = document.getElementById("doc-list");
 
@@ -2787,34 +2787,52 @@ function docViewUrl(doc, tripId) {
   return src;
 }
 
+const DOC_CATEGORY_ORDER = ["Invoices", "Flight Tickets", "Passports & Visas", "Hotel Vouchers", "Contracts", "Other"];
+
 function renderTripDocuments(docs, tripId) {
   if (!docList) return;
   if (!docs || !docs.length) {
     docList.innerHTML = '<p class="muted" style="padding:8px 0">No documents uploaded yet.</p>';
     return;
   }
-  docList.innerHTML = docs.map((doc) => {
-    const icon = docFileIcon(doc.mimeType || "", doc.originalName);
-    const size = docFormatSize(doc.size || 0);
-    const uploadedAt = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "";
-    const uploader = doc.uploadedBy ? (doc.uploadedBy.name || doc.uploadedBy.email || "") : "";
-    const viewUrl = docViewUrl(doc, tripId);
-    const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
-    return (
-      '<div class="doc-item">' +
-        '<div class="doc-icon">' + icon + '</div>' +
-        '<div class="doc-meta">' +
-          '<div class="doc-name" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</div>' +
-          '<div class="doc-info">' + escapeHtml(size) + (uploadedAt ? ' · ' + uploadedAt : '') + (uploader ? ' · ' + escapeHtml(uploader) : '') + '</div>' +
-        '</div>' +
-        '<div class="doc-actions">' +
-          '<a class="secondary-button" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">View</a>' +
-          '<a class="secondary-button" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
-          '<button class="secondary-button danger-button" data-doc-delete="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Delete</button>' +
-        '</div>' +
-      '</div>'
-    );
-  }).join("");
+  const groups = {};
+  docs.forEach(function(doc) {
+    const cat = doc.category || "Other";
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(doc);
+  });
+  const allCats = DOC_CATEGORY_ORDER.concat(Object.keys(groups).filter(function(c) { return DOC_CATEGORY_ORDER.indexOf(c) === -1; }));
+  let html = "";
+  allCats.forEach(function(cat) {
+    const group = groups[cat];
+    if (!group || !group.length) return;
+    html += '<div class="doc-group">';
+    html += '<div class="doc-group-header">' + escapeHtml(cat) + ' <span class="doc-group-count">(' + group.length + ')</span></div>';
+    group.forEach(function(doc) {
+      const icon = docFileIcon(doc.mimeType || "", doc.originalName);
+      const size = docFormatSize(doc.size || 0);
+      const uploadedAt = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "";
+      const uploader = doc.uploadedBy ? (doc.uploadedBy.name || doc.uploadedBy.email || "") : "";
+      const viewUrl = docViewUrl(doc, tripId);
+      const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
+      html += (
+        '<div class="doc-item">' +
+          '<div class="doc-icon">' + icon + '</div>' +
+          '<div class="doc-meta">' +
+            '<div class="doc-name" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</div>' +
+            '<div class="doc-info">' + escapeHtml(size) + (uploadedAt ? ' · ' + uploadedAt : '') + (uploader ? ' · ' + escapeHtml(uploader) : '') + '</div>' +
+          '</div>' +
+          '<div class="doc-actions">' +
+            '<a class="secondary-button" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">View</a>' +
+            '<a class="secondary-button" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
+            '<button class="secondary-button danger-button" data-doc-delete="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Delete</button>' +
+          '</div>' +
+        '</div>'
+      );
+    });
+    html += '</div>';
+  });
+  docList.innerHTML = html;
 }
 
 async function loadTripDocuments(tripId) {
@@ -2830,10 +2848,12 @@ async function loadTripDocuments(tripId) {
 
 async function uploadFiles(tripId, files) {
   if (!tripId) { if (docUploadStatus) docUploadStatus.textContent = "Select a trip first."; return; }
+  const category = (docCategorySelect && docCategorySelect.value) || "Other";
   for (const file of files) {
     if (docUploadStatus) docUploadStatus.textContent = "Uploading " + file.name + "…";
     const form = new FormData();
     form.append("file", file);
+    form.append("category", category);
     try {
       const resp = await fetch("/api/camp-trips/" + tripId + "/documents", { method: "POST", body: form });
       const data = await resp.json();
@@ -2855,7 +2875,6 @@ if (docDropZone && isTripDetailPage()) {
     docDropZone.classList.remove("drag-over");
     uploadFiles(activeTripId, Array.from(e.dataTransfer.files));
   });
-  if (docBrowseBtn) docBrowseBtn.addEventListener("click", () => docFileInput && docFileInput.click());
   if (docFileInput) {
     docFileInput.addEventListener("change", () => {
       if (docFileInput.files.length) uploadFiles(activeTripId, Array.from(docFileInput.files));
@@ -2868,7 +2887,7 @@ if (docDropZone && isTripDetailPage()) {
       if (!btn) return;
       const docId = btn.dataset.docDelete;
       const docName = btn.dataset.docName || "this file";
-      if (!window.confirm("Delete "" + docName + ""?")) return;
+      if (!window.confirm('Delete "' + docName + '"?')) return;
       try {
         const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/" + docId, { method: "DELETE" });
         if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Delete failed"); }

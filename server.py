@@ -5979,7 +5979,7 @@ def handle_upload_trip_document(environ, start_response, trip_id):
     trip_index = next((i for i, t in enumerate(trips) if t["id"] == trip_id), None)
     if trip_index is None:
         return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
-    _, files = parse_multipart(environ)
+    fields, files = parse_multipart(environ)
     if "file" not in files:
         return json_response(start_response, "400 Bad Request", {"error": "No file provided"})
     upload = files["file"]
@@ -5990,6 +5990,7 @@ def handle_upload_trip_document(environ, start_response, trip_id):
     data = upload["data"]
     if len(data) > MAX_UPLOAD_BYTES:
         return json_response(start_response, "400 Bad Request", {"error": "File too large (max 10 MB)"})
+    category = fields.get("category", "Other") or "Other"
     ensure_data_store()
     doc_id = str(uuid4())
     trip_upload_dir = TRIP_UPLOADS_DIR / trip_id
@@ -6003,6 +6004,7 @@ def handle_upload_trip_document(environ, start_response, trip_id):
         "storedName": stored_name,
         "mimeType": upload["content_type"],
         "size": len(data),
+        "category": category,
         "uploadedAt": now_mongolia().isoformat(),
         "uploadedBy": actor_snapshot(actor),
     }
