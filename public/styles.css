@@ -397,7 +397,6 @@ td {
   border-radius: var(--radius);
   background: var(--panel);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
 }
 
 .intake-form {
