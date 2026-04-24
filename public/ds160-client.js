@@ -34,6 +34,59 @@ const COUNTRIES = [
   "VATICAN CITY","VENEZUELA","VIETNAM","YEMEN","ZAMBIA","ZIMBABWE"
 ];
 
+const COUNTRY_MN = {
+  "AFGHANISTAN":"Афганистан","ALBANIA":"Албани","ALGERIA":"Алжир","ANDORRA":"Андорра",
+  "ANGOLA":"Ангол","ANTIGUA AND BARBUDA":"Антигуа ба Барбуда","ARGENTINA":"Аргентин",
+  "ARMENIA":"Армени","AUSTRALIA":"Австрали","AUSTRIA":"Австри","AZERBAIJAN":"Азербайжан",
+  "BAHAMAS":"Багам","BAHRAIN":"Бахрейн","BANGLADESH":"Бангладеш","BARBADOS":"Барбадос",
+  "BELARUS":"Беларусь","BELGIUM":"Бельги","BELIZE":"Белиз","BENIN":"Бенин","BHUTAN":"Бутан",
+  "BOLIVIA":"Боливи","BOSNIA AND HERZEGOVINA":"Босни ба Херцеговин","BOTSWANA":"Ботсван",
+  "BRAZIL":"Бразил","BRUNEI":"Бруней","BULGARIA":"Болгар","BURKINA FASO":"Буркина Фасо",
+  "BURUNDI":"Бурунди","CABO VERDE":"Кабо-Верде","CAMBODIA":"Камбож","CAMEROON":"Камерун",
+  "CANADA":"Канад","CENTRAL AFRICAN REPUBLIC":"Төв Африкийн БНУ","CHAD":"Чад","CHILE":"Чили",
+  "CHINA":"Хятад","COLOMBIA":"Колумби","COMOROS":"Коморын арлууд","CONGO":"Конго",
+  "COSTA RICA":"Коста-Рика","COTE D'IVOIRE":"Котд'Ивуар","CROATIA":"Хорват","CUBA":"Куба",
+  "CYPRUS":"Кипр","CZECH REPUBLIC":"Чех","DENMARK":"Дани","DJIBOUTI":"Жибути",
+  "DOMINICA":"Доминика","DOMINICAN REPUBLIC":"Доминиканы БНУ","ECUADOR":"Эквадор",
+  "EGYPT":"Египет","EL SALVADOR":"Сальвадор","EQUATORIAL GUINEA":"Экваторын Гвиней",
+  "ERITREA":"Эритрей","ESTONIA":"Эстони","ESWATINI":"Эсватини","ETHIOPIA":"Этиоп",
+  "FIJI":"Фижи","FINLAND":"Финлянд","FRANCE":"Франц","GABON":"Габон","GAMBIA":"Гамби",
+  "GEORGIA":"Гүрж","GERMANY":"Герман","GHANA":"Гана","GREECE":"Грек","GRENADA":"Гренада",
+  "GUATEMALA":"Гватемал","GUINEA":"Гвиней","GUINEA-BISSAU":"Гвиней-Бисау","GUYANA":"Гайана",
+  "HAITI":"Гаити","HONDURAS":"Гондурас","HUNGARY":"Унгар","ICELAND":"Исланд",
+  "INDIA":"Энэтхэг","INDONESIA":"Индонез","IRAN":"Иран","IRAQ":"Ирак","IRELAND":"Ирланд",
+  "ISRAEL":"Израиль","ITALY":"Итали","JAMAICA":"Ямайка","JAPAN":"Япон","JORDAN":"Йордан",
+  "KAZAKHSTAN":"Казахстан","KENYA":"Кени","KIRIBATI":"Кирибати","KOREA, NORTH":"Хойд Солонгос",
+  "KOREA, SOUTH":"Өмнөд Солонгос","KOSOVO":"Косово","KUWAIT":"Кувейт","KYRGYZSTAN":"Киргиз",
+  "LAOS":"Лаос","LATVIA":"Латви","LEBANON":"Ливан","LESOTHO":"Лесото","LIBERIA":"Либери",
+  "LIBYA":"Ливи","LIECHTENSTEIN":"Лихтенштейн","LITHUANIA":"Литва","LUXEMBOURG":"Люксембург",
+  "MADAGASCAR":"Мадагаскар","MALAWI":"Малави","MALAYSIA":"Малайз","MALDIVES":"Мальдив",
+  "MALI":"Мали","MALTA":"Мальт","MARSHALL ISLANDS":"Маршаллын арлууд","MAURITANIA":"Мавритани",
+  "MAURITIUS":"Маврикий","MEXICO":"Мексик","MICRONESIA":"Микронез","MOLDOVA":"Молдав",
+  "MONACO":"Монако","MONGOLIA":"Монгол Улс","MONTENEGRO":"Монтенегро","MOROCCO":"Марокко",
+  "MOZAMBIQUE":"Мозамбик","MYANMAR":"Мьянмар","NAMIBIA":"Намиби","NAURU":"Науру",
+  "NEPAL":"Балба","NETHERLANDS":"Нидерланд","NEW ZEALAND":"Шинэ Зеланд","NICARAGUA":"Никарагуа",
+  "NIGER":"Нигер","NIGERIA":"Нигери","NORTH MACEDONIA":"Хойд Македон","NORWAY":"Норвеги",
+  "OMAN":"Оман","PAKISTAN":"Пакистан","PALAU":"Палау","PALESTINE":"Палестин","PANAMA":"Панам",
+  "PAPUA NEW GUINEA":"Папуа Шинэ Гвиней","PARAGUAY":"Парагвай","PERU":"Перу",
+  "PHILIPPINES":"Филиппин","POLAND":"Польш","PORTUGAL":"Португал","QATAR":"Катар",
+  "ROMANIA":"Румын","RUSSIA":"Орос","RWANDA":"Руанда","SAINT KITTS AND NEVIS":"Сент-Китс ба Невис",
+  "SAINT LUCIA":"Сент-Люсиа","SAINT VINCENT AND THE GRENADINES":"Сент-Винсент ба Гренадина",
+  "SAMOA":"Самоа","SAN MARINO":"Сан-Марино","SAO TOME AND PRINCIPE":"Сан-Томе ба Принсипи",
+  "SAUDI ARABIA":"Саудын Араб","SENEGAL":"Сенегал","SERBIA":"Серби","SEYCHELLES":"Сейшелийн арлууд",
+  "SIERRA LEONE":"Сьерра-Леоне","SINGAPORE":"Сингапур","SLOVAKIA":"Словак","SLOVENIA":"Словени",
+  "SOLOMON ISLANDS":"Соломоны арлууд","SOMALIA":"Сомали","SOUTH AFRICA":"Өмнөд Африк",
+  "SOUTH SUDAN":"Өмнөд Судан","SPAIN":"Испани","SRI LANKA":"Шри-Ланка","SUDAN":"Судан",
+  "SURINAME":"Суринам","SWEDEN":"Швед","SWITZERLAND":"Швейцар","SYRIA":"Сири",
+  "TAIWAN":"Тайвань","TAJIKISTAN":"Тажикистан","TANZANIA":"Танзани","THAILAND":"Тайланд",
+  "TIMOR-LESTE":"Тимор-Лесте","TOGO":"Того","TONGA":"Тонга","TRINIDAD AND TOBAGO":"Тринидад ба Тобаго",
+  "TUNISIA":"Тунис","TURKEY":"Турк","TURKMENISTAN":"Туркменистан","TUVALU":"Тувалу",
+  "UGANDA":"Уганда","UKRAINE":"Украйн","UNITED ARAB EMIRATES":"Нэгдсэн Араб Эмират",
+  "UNITED KINGDOM":"Нэгдсэн Вант Улс","UNITED STATES":"АНУ","URUGUAY":"Уругвай",
+  "UZBEKISTAN":"Узбекистан","VANUATU":"Вануату","VATICAN CITY":"Ватикан","VENEZUELA":"Венесуэль",
+  "VIETNAM":"Вьетнам","YEMEN":"Йемен","ZAMBIA":"Замби","ZIMBABWE":"Зимбабве"
+};
+
 const US_STATES = [
   "ALABAMA","ALASKA","ARIZONA","ARKANSAS","CALIFORNIA","COLORADO","CONNECTICUT","DELAWARE",
   "DISTRICT OF COLUMBIA","FLORIDA","GEORGIA","HAWAII","IDAHO","ILLINOIS","INDIANA","IOWA","KANSAS",
@@ -79,9 +132,16 @@ function setSelectOptions(select, options, placeholder = "Сонгох") {
     .join("")}`;
 }
 
+function setSelectOptionsWithLabels(select, options, labelMap, placeholder = "Сонгох") {
+  if (!select) return;
+  select.innerHTML = `<option value="">${placeholder}</option>${options
+    .map((o) => `<option value="${o}">${labelMap[o] ? `${labelMap[o]} (${o})` : o}</option>`)
+    .join("")}`;
+}
+
 function populateStaticOptions(root = document) {
   root.querySelectorAll("[data-country-select]").forEach((s) => {
-    if (!s.dataset.populated) { setSelectOptions(s, COUNTRIES); s.dataset.populated = "1"; }
+    if (!s.dataset.populated) { setSelectOptionsWithLabels(s, COUNTRIES, COUNTRY_MN); s.dataset.populated = "1"; }
   });
   root.querySelectorAll("[data-us-state-select]").forEach((s) => {
     if (!s.dataset.populated) { setSelectOptions(s, US_STATES, "- SELECT ONE -"); s.dataset.populated = "1"; }
@@ -262,9 +322,13 @@ function syncConditionalFields() {
 
   toggleElement("other-nationality-block", fieldValue("hadOtherNationality") === "ТИЙМ");
   toggleElement("permanent-resident-country-field", fieldValue("permanentResidentOther") === "ТИЙМ");
+  toggleElement("us-ssn-field", fieldValue("hasUsSsn") === "ТИЙМ");
+  toggleElement("us-tax-id-field", fieldValue("hasUsTaxId") === "ТИЙМ");
 
   toggleElement("trip-purpose-detail-field", fieldValue("tripPurposeCategory") === "B");
-  toggleElement("travel-itinerary-fields", fieldValue("hasSpecificTravelPlans") === "ТИЙМ");
+  const plans = fieldValue("hasSpecificTravelPlans");
+  toggleElement("travel-itinerary-fields", plans === "ТИЙМ");
+  toggleElement("travel-noplans-fields", plans === "ҮГҮЙ");
   const payer = fieldValue("tripPayer");
   toggleElement("trip-payer-person-fields", payer === "OTHER PERSON");
   toggleElement("trip-payer-org-fields", payer === "PRESENT EMPLOYER" || payer === "EMPLOYER IN THE U.S." || payer === "OTHER COMPANY/ORGANIZATION");
@@ -331,7 +395,7 @@ function syncConditionalFields() {
 
 const CONDITIONAL_TRIGGERS = [
   "usedOtherNames","hasTelecode","maritalStatus",
-  "hadOtherNationality","permanentResidentOther",
+  "hadOtherNationality","permanentResidentOther","hasUsSsn","hasUsTaxId",
   "tripPurposeCategory","hasSpecificTravelPlans","tripPayer","tripPayerSameAddress",
   "travelingWithOthers","travelingAsGroup",
   "beenInUs","hasUsDriverLicense","hadUsVisa",
@@ -443,7 +507,8 @@ function buildPayload(formNode) {
   const skipKeys = new Set([
     "birthDay","birthMonth","birthYear",
     "arrivalDay","arrivalMonth","arrivalYear",
-    "departureDay","departureMonth","departureYear"
+    "departureDay","departureMonth","departureYear",
+    "intendedArrivalDay","intendedArrivalMonth","intendedArrivalYear"
   ]);
   for (const [key, value] of formData.entries()) {
     if (skipKeys.has(key)) continue;
@@ -452,8 +517,13 @@ function buildPayload(formNode) {
   }
 
   payload.dateOfBirth = formatDateParts(fieldValue("birthYear"), fieldValue("birthMonth"), fieldValue("birthDay"));
-  payload.intendedArrivalDate = formatDateParts(fieldValue("arrivalYear"), fieldValue("arrivalMonth"), fieldValue("arrivalDay"));
-  payload.intendedDepartureDate = formatDateParts(fieldValue("departureYear"), fieldValue("departureMonth"), fieldValue("departureDay"));
+  if (fieldValue("hasSpecificTravelPlans") === "ТИЙМ") {
+    payload.intendedArrivalDate = formatDateParts(fieldValue("arrivalYear"), fieldValue("arrivalMonth"), fieldValue("arrivalDay"));
+    payload.intendedDepartureDate = formatDateParts(fieldValue("departureYear"), fieldValue("departureMonth"), fieldValue("departureDay"));
+  } else {
+    payload.intendedArrivalDate = formatDateParts(fieldValue("intendedArrivalYear"), fieldValue("intendedArrivalMonth"), fieldValue("intendedArrivalDay"));
+    payload.intendedDepartureDate = "";
+  }
 
   payload.usStayAddress = [
     fieldValue("usStayAddressLine1"),
@@ -529,8 +599,12 @@ function applyPayload(payload) {
   });
 
   setDateSplit("birth", payload?.dateOfBirth);
-  setDateSplit("arrival", payload?.intendedArrivalDate);
-  setDateSplit("departure", payload?.intendedDepartureDate);
+  if (payload?.intendedDepartureDate) {
+    setDateSplit("arrival", payload?.intendedArrivalDate);
+    setDateSplit("departure", payload?.intendedDepartureDate);
+  } else {
+    setDateSplit("intendedArrival", payload?.intendedArrivalDate);
+  }
 
   REPEAT_TARGETS.forEach((name) => {
     const list = payload?.[`${name}List`];

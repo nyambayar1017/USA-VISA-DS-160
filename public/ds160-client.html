@@ -80,7 +80,7 @@
           <aside class="ds160-client-nav" aria-label="DS-160 topics">
             <p class="ds160-client-nav-label">Хэсгүүд</p>
             <a class="ds160-topic-link" href="#section-personal">1. Хувийн мэдээлэл</a>
-            <a class="ds160-topic-link" href="#section-personal-2">2. Хувийн мэдээлэл 2</a>
+            <a class="ds160-topic-link" href="#section-personal-2">2. Хувийн мэдээлэл</a>
             <a class="ds160-topic-link" href="#section-travel">3. Аяллын мэдээлэл</a>
             <a class="ds160-topic-link" href="#section-companions">4. Хамт явах хүмүүс</a>
             <a class="ds160-topic-link" href="#section-us-travel">5. Өмнөх АНУ аялал</a>
@@ -184,7 +184,7 @@
                   </div>
                 </div>
                 <label>Төрсөн хот<input name="birthCity" required /></label>
-                <label>Төрсөн аймаг / муж<input name="birthProvince" /><span class="na-option"><input type="checkbox" data-na-for="birthProvince" /> Хамаарахгүй</span></label>
+                <label>Төрсөн аймаг / сум<input name="birthProvince" /><span class="na-option"><input type="checkbox" data-na-for="birthProvince" /> Хамаарахгүй</span></label>
                 <label>Төрсөн улс
                   <select name="birthCountry" data-country-select required></select>
                 </label>
@@ -197,7 +197,7 @@
             <section id="section-personal-2" class="form-section">
               <div class="section-head">
                 <div>
-                  <h2>2. Хувийн мэдээлэл 2</h2>
+                  <h2>2. Хувийн мэдээлэл</h2>
                   <p>Иргэншил, бусад харьяалал, ID дугааруудын мэдээлэл.</p>
                 </div>
               </div>
@@ -205,7 +205,7 @@
                 <label>Одоогийн иргэншил
                   <select name="nationality" data-country-select required></select>
                 </label>
-                <label>Дээрхээс өөр улсын иргэншил эзэмшиж байсан эсэх
+                <label>Монголоос өөр улсын иргэншил эзэмшиж байсан эсэх
                   <select name="hadOtherNationality">
                     <option value="">Сонгох</option>
                     <option value="ҮГҮЙ">Үгүй</option>
@@ -246,9 +246,23 @@
                   Байнга оршин суудаг улс
                   <select name="permanentResidentCountry" data-country-select></select>
                 </label>
-                <label>Үндэсний регистрийн дугаар<input name="registerNumber" /><span class="na-option"><input type="checkbox" data-na-for="registerNumber" /> Хамаарахгүй</span></label>
-                <label>АНУ-ын нийгмийн даатгалын дугаар (U.S. SSN)<input name="usSsn" /><span class="na-option"><input type="checkbox" data-na-for="usSsn" /> Хамаарахгүй</span></label>
-                <label>АНУ-ын татвар төлөгчийн дугаар (U.S. ITIN)<input name="usTaxId" /><span class="na-option"><input type="checkbox" data-na-for="usTaxId" /> Хамаарахгүй</span></label>
+                <label>Регистрийн дугаар<input name="registerNumber" /><span class="na-option"><input type="checkbox" data-na-for="registerNumber" /> Хамаарахгүй</span></label>
+                <label>АНУ-ын нийгмийн даатгалын дугаартай юу? (U.S. SSN)
+                  <select name="hasUsSsn">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label id="us-ssn-field" class="is-hidden" hidden>АНУ-ын SSN дугаар<input name="usSsn" /></label>
+                <label>АНУ-ын татвар төлөгчийн дугаартай юу? (U.S. ITIN)
+                  <select name="hasUsTaxId">
+                    <option value="">Сонгох</option>
+                    <option value="ҮГҮЙ">Үгүй</option>
+                    <option value="ТИЙМ">Тийм</option>
+                  </select>
+                </label>
+                <label id="us-tax-id-field" class="is-hidden" hidden>АНУ-ын ITIN дугаар<input name="usTaxId" /></label>
               </div>
             </section>
 
@@ -330,14 +344,41 @@
                     <label class="full-span">АНУ-д очих газрууд<textarea name="usLocations" rows="3" placeholder="Жишээ: NEW YORK, LOS ANGELES"></textarea></label>
                   </div>
                 </div>
-                <div class="full-span field-stack">
-                  <span>АНУ-д байрлах хаяг</span>
+                <div id="travel-noplans-fields" class="full-span conditional-block is-hidden" hidden>
                   <div class="field-grid nested-grid">
-                    <label class="full-span">Street Address (Line 1)<input name="usStayAddressLine1" /></label>
-                    <label class="full-span">Street Address (Line 2) — заавал биш<input name="usStayAddressLine2" /></label>
-                    <label>City<input name="usStayCity" /></label>
-                    <label>State<select name="usStayState" data-us-state-select></select></label>
-                    <label>ZIP<input name="usStayZip" /></label>
+                    <div class="full-span field-stack">
+                      <span>АНУ-д очих хүссэн огноо (Intended Date of Arrival)</span>
+                      <div class="segment-row">
+                        <label class="segment-field">Өдөр<select name="intendedArrivalDay" data-day-select></select></label>
+                        <label class="segment-field">Сар<select name="intendedArrivalMonth" data-month-select></select></label>
+                        <label class="segment-field">Жил<select name="intendedArrivalYear" data-future-year-select></select></label>
+                      </div>
+                    </div>
+                    <div class="full-span field-stack">
+                      <span>Хэр удан хугацаанд байрлах вэ?</span>
+                      <div class="segment-row">
+                        <label class="segment-field">Хэмжээ<input name="intendedStayLength" inputmode="numeric" placeholder="Жишээ: 30" /></label>
+                        <label class="segment-field">Нэгж
+                          <select name="intendedStayUnit">
+                            <option value="">Сонгох</option>
+                            <option value="DAYS">Хоног (Day(s))</option>
+                            <option value="WEEKS">Долоо хоног (Week(s))</option>
+                            <option value="MONTHS">Сар (Month(s))</option>
+                            <option value="YEARS">Жил (Year(s))</option>
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="full-span field-stack">
+                  <span>АНУ-д байрлах хаяг (Address Where You Will Stay in the U.S.)</span>
+                  <div class="field-grid nested-grid">
+                    <label class="full-span">Гудамжны хаяг (1-р мөр)<input name="usStayAddressLine1" /></label>
+                    <label class="full-span">Гудамжны хаяг (2-р мөр) — заавал биш<input name="usStayAddressLine2" /></label>
+                    <label>Хот<input name="usStayCity" /></label>
+                    <label>Муж<select name="usStayState" data-us-state-select></select></label>
+                    <label>ZIP код<input name="usStayZip" /></label>
                   </div>
                 </div>
                 <label>Аяллын зардлыг хэн төлөх вэ?
@@ -1556,6 +1597,6 @@
       </section>
     </main>
 
-    <script src="/ds160-client.js?v=workspace-6"></script>
+    <script src="/ds160-client.js?v=workspace-7"></script>
   </body>
 </html>
