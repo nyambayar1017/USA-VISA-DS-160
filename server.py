@@ -4427,6 +4427,7 @@ def normalize_ds160_record(record):
             "managerPhone",
             "shareUrl",
             "internalNotes",
+            "appId",
             "createdAt",
             "updatedAt",
             "submittedAt",
@@ -4461,6 +4462,7 @@ def normalize_ds160_record(record):
         "managerPhone": normalize_text(record.get("managerPhone")),
         "shareUrl": normalize_text(record.get("shareUrl")),
         "internalNotes": normalize_text(record.get("internalNotes") or record.get("notes")),
+        "appId": normalize_text(record.get("appId")),
         "createdAt": created_at,
         "updatedAt": updated_at,
         "submittedAt": submitted_at,
@@ -4488,6 +4490,7 @@ def build_ds160_invitation(payload, actor):
             "managerEmail": normalize_text(payload.get("managerEmail") or actor.get("email")).lower(),
             "managerPhone": payload.get("managerPhone"),
             "internalNotes": payload.get("internalNotes"),
+            "appId": payload.get("appId"),
             "createdAt": now_iso,
             "updatedAt": now_iso,
             "appointmentDate": payload.get("appointmentDate"),
@@ -5440,7 +5443,7 @@ def handle_update_ds160(environ, start_response, record_id):
             continue
 
         merged = {**record}
-        for key in ["clientName", "clientEmail", "clientPhone", "managerName", "managerEmail", "managerPhone", "internalNotes", "appointmentDate", "appointmentTime", "status"]:
+        for key in ["clientName", "clientEmail", "clientPhone", "managerName", "managerEmail", "managerPhone", "internalNotes", "appId", "appointmentDate", "appointmentTime", "status"]:
             if key in payload:
                 value = normalize_text(payload.get(key))
                 merged[key] = value.lower() if key in {"clientEmail", "managerEmail"} else value

@@ -370,6 +370,7 @@ function openEditModal(entry) {
   editForm.elements.clientEmail.value = entry.clientEmail || "";
   editForm.elements.clientPhone.value = entry.clientPhone || entry.primaryPhone || "";
   editForm.elements.managerName.value = entry.managerName || managerSelect.value || "";
+  editForm.elements.appId.value = entry.appId || "";
   editForm.elements.internalNotes.value = entry.internalNotes || "";
   setEditStatus("");
   editModalNode.classList.remove("is-hidden");
@@ -633,6 +634,7 @@ function renderList() {
           <th>Name</th>
           <th>Client Email</th>
           <th>Client Number</th>
+          <th>APP ID</th>
           <th>Status</th>
           <th>Date</th>
           <th>Appointment</th>
@@ -650,6 +652,7 @@ function renderList() {
                 <td>${escapeHtml(nameParts.givenName || "-")}</td>
                 <td>${escapeHtml(entry.clientEmail || "-")}</td>
                 <td>${escapeHtml(entry.clientPhone || entry.primaryPhone || "-")}</td>
+                <td>${escapeHtml(entry.appId || "-")}</td>
                 <td><span class="ds160-status-pill is-${escapeHtml(status)}">${escapeHtml(formatDs160Status(status))}</span></td>
                 <td>${escapeHtml(formatDateTime(entry.submittedAt || entry.createdAt))}</td>
                 <td>${escapeHtml(formatAppointment(entry.appointmentDate, entry.appointmentTime))}</td>
@@ -907,6 +910,7 @@ editForm?.addEventListener("submit", async (event) => {
         clientEmail: payload.clientEmail,
         clientPhone: payload.clientPhone,
         managerName: payload.managerName,
+        appId: payload.appId,
         internalNotes: payload.internalNotes,
       }),
     });

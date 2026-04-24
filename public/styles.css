@@ -3469,8 +3469,7 @@ body.modal-open {
   }
 
   .ds160-client-nav {
-    position: static;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: none;
   }
 
   .ds160-primary-panel {
@@ -3503,10 +3502,6 @@ body.modal-open {
 }
 
 @media (max-width: 560px) {
-  .ds160-client-nav {
-    grid-template-columns: 1fr;
-  }
-
   .ds160-inline-summary {
     grid-template-columns: 1fr;
   }

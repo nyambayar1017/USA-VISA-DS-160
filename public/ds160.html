@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-109" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-110" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -133,6 +133,10 @@
             Manager
             <select name="managerName" id="ds160-manager-select"></select>
           </label>
+          <label>
+            APP ID
+            <input name="appId" placeholder="Optional — can be added later" />
+          </label>
           <label class="full-span">
             Internal note
             <textarea name="internalNotes" rows="3" placeholder="Trip name, visa type, reminders, or special instructions"></textarea>
@@ -227,6 +231,10 @@
             Manager
             <select name="managerName" id="ds160-edit-manager-select"></select>
           </label>
+          <label>
+            APP ID
+            <input name="appId" placeholder="Embassy application ID" />
+          </label>
           <label class="full-span">
             Internal note
             <textarea name="internalNotes" rows="3"></textarea>
@@ -240,6 +248,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/ds160.js?v=workspace-7"></script>
+    <script src="/ds160.js?v=workspace-8"></script>
   </body>
 </html>
