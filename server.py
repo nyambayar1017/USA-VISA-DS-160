@@ -1994,11 +1994,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       @page {{
         size: A4;
         margin: 2cm 3cm 2cm 3cm;
-        @bottom-center {{
-          content: counter(page);
-          font-family: "TravelXTimes", "Times New Roman", "Liberation Serif", serif;
-          font-size: 10pt;
-        }}
       }}
       * {{ box-sizing: border-box; }}
       body {{
