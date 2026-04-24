@@ -409,6 +409,17 @@ function findClippingAncestor(el) {
   return null;
 }
 
+function resetPopoverInlineStyle(popover) {
+  popover.style.position = "";
+  popover.style.top = "";
+  popover.style.bottom = "";
+  popover.style.left = "";
+  popover.style.right = "";
+  popover.style.width = "";
+  popover.style.minWidth = "";
+  popover.style.zIndex = "";
+}
+
 document.addEventListener(
   "toggle",
   (event) => {
@@ -417,8 +428,7 @@ document.addEventListener(
     const popover = details.querySelector(".trip-menu-popover");
     if (!popover) return;
     if (!details.open) {
-      popover.style.top = "";
-      popover.style.bottom = "";
+      resetPopoverInlineStyle(popover);
       details.classList.remove("is-upward");
       return;
     }
@@ -426,20 +436,40 @@ document.addEventListener(
     if (!summary) return;
     const triggerRect = summary.getBoundingClientRect();
     const clipAncestor = findClippingAncestor(details);
-    const clipBottom = clipAncestor
-      ? Math.min(window.innerHeight, clipAncestor.getBoundingClientRect().bottom)
-      : window.innerHeight;
+    const clipRect = clipAncestor?.getBoundingClientRect();
+    const clipTop = clipRect ? Math.max(0, clipRect.top) : 0;
+    const clipBottom = clipRect ? Math.min(window.innerHeight, clipRect.bottom) : window.innerHeight;
     const items = popover.querySelectorAll("button, a, .trip-menu-item");
     const estimatedPopHeight = Math.max(180, items.length * 44 + 24);
-    const spaceBelow = clipBottom - triggerRect.bottom;
-    if (spaceBelow < estimatedPopHeight + 16) {
+    const estimatedPopWidth = 200;
+    const fitsBelowClip = clipBottom - triggerRect.bottom >= estimatedPopHeight + 16;
+    const fitsAboveClip = triggerRect.top - clipTop >= estimatedPopHeight + 16;
+
+    resetPopoverInlineStyle(popover);
+    details.classList.remove("is-upward");
+
+    if (fitsBelowClip) {
+      return;
+    }
+    if (fitsAboveClip) {
       popover.style.top = "auto";
       popover.style.bottom = "calc(100% + 8px)";
       details.classList.add("is-upward");
+      return;
+    }
+    const viewSpaceBelow = window.innerHeight - triggerRect.bottom;
+    const fixedUpward = viewSpaceBelow < estimatedPopHeight + 16 && triggerRect.top > estimatedPopHeight + 16;
+    popover.style.position = "fixed";
+    popover.style.zIndex = "1000";
+    popover.style.left = `${Math.max(8, triggerRect.right - estimatedPopWidth)}px`;
+    popover.style.right = "auto";
+    if (fixedUpward) {
+      popover.style.bottom = `${Math.max(8, window.innerHeight - triggerRect.top + 8)}px`;
+      popover.style.top = "auto";
+      details.classList.add("is-upward");
     } else {
-      popover.style.top = "";
-      popover.style.bottom = "";
-      details.classList.remove("is-upward");
+      popover.style.top = `${triggerRect.bottom + 8}px`;
+      popover.style.bottom = "auto";
     }
   },
   true,
