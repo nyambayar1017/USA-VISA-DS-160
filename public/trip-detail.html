@@ -18,16 +18,11 @@
         </a>
         <div class="sidebar-group">
           <p class="sidebar-label">Backoffice</p>
-          <a class="sidebar-link" href="/backoffice">Home</a>
+          <a class="sidebar-link is-active" href="/backoffice">Home</a>
+          <a class="sidebar-link" href="/camp-reservations">Camp Reservations</a>
+          <a class="sidebar-link" href="/flight-reservations">Flight Reservations</a>
+          <a class="sidebar-link" href="/transfer-reservations">Transfer Reservations</a>
           <div class="sidebar-tree">
-            <div class="sidebar-branch">
-              <a class="sidebar-link is-active" href="/camp">Trips</a>
-              <div class="sidebar-children">
-                <a class="sidebar-sublink" href="/camp-reservations">Camp Reservations</a>
-                <a class="sidebar-sublink" href="/flight-reservations">Flight Reservations</a>
-                <a class="sidebar-sublink" href="/transfer-reservations">Transfer Reservations</a>
-              </div>
-            </div>
             <div class="sidebar-branch">
               <a class="sidebar-link" href="/fifa2026-admin">FIFA 2026</a>
               <div class="sidebar-children">
@@ -40,6 +35,7 @@
           <a class="sidebar-link" href="/contracts">Contracts</a>
           <a class="sidebar-link" href="/ds160">DS-160</a>
           <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>
+          <a class="sidebar-link" href="/todo">To Do</a>
           <a class="sidebar-link" href="/admin">Team / Admin</a>
         </div>
       </aside>
@@ -58,19 +54,6 @@
           </div>
         </section>
 
-        <section class="card page-hidden-section">
-          <div class="section-head">
-            <div>
-              <h2>Reservation Pages</h2>
-              <p>Open the separate workspaces for camp stays, flights, and transfers.</p>
-            </div>
-            <div class="camp-toolbar">
-              <a class="secondary-button" href="/camp-reservations">Camp Reservations</a>
-              <a class="secondary-button" href="/flight-reservations">Flight Reservations</a>
-              <a class="secondary-button" href="/transfer-reservations">Transfer Reservations</a>
-            </div>
-          </div>
-        </section>
 
         <section class="card page-hidden-section" id="trips-section">
           <div class="section-head">
@@ -878,7 +861,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/camp.js?v=workspace-86"></script>
+    <script src="/camp.js?v=workspace-87"></script>
     <script src="/reservations-addon.js?v=workspace-13"></script>
   </body>
 </html>

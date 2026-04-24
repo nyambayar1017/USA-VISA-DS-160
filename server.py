@@ -7349,10 +7349,15 @@ def app(environ, start_response):
         if host in {"backoffice.travelx.mn", "www.backoffice.travelx.mn"}:
             if not current_user(environ):
                 return file_response(start_response, PUBLIC_DIR / "login.html")
-            return file_response(start_response, PUBLIC_DIR / "backoffice.html")
+            return file_response(start_response, PUBLIC_DIR / "camp.html")
         return file_response(start_response, PUBLIC_DIR / "index.html")
 
     if path == "/backoffice":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "camp.html")
+
+    if path == "/todo":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "backoffice.html")

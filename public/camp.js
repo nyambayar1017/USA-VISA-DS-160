@@ -140,7 +140,7 @@ function closeOpenTripMenus(exceptMenu = null) {
 }
 
 function isTripsPage() {
-  return window.location.pathname === "/camp";
+  return window.location.pathname === "/camp" || window.location.pathname === "/backoffice";
 }
 
 function isCampReservationsPage() {
