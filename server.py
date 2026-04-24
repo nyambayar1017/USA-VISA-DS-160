@@ -38,6 +38,9 @@ CAMP_RESERVATIONS_FILE = DATA_DIR / "camp_reservations.json"
 FLIGHT_RESERVATIONS_FILE = DATA_DIR / "flight_reservations.json"
 TRANSFER_RESERVATIONS_FILE = DATA_DIR / "transfer_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
+TRIP_UPLOADS_DIR = DATA_DIR / "trip-uploads"
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".txt"}
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
 FIFA2026_FILE = DATA_DIR / "fifa2026.json"
 FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
@@ -94,6 +97,7 @@ def ensure_data_store():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    TRIP_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     for file_path in [
         CONTRACTS_FILE,
         DS160_FILE,
@@ -5910,6 +5914,127 @@ def handle_update_camp_trip(environ, start_response, trip_id):
     return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
 
 
+def parse_multipart(environ):
+    content_type = environ.get("CONTENT_TYPE", "")
+    if "multipart/form-data" not in content_type:
+        return {}, {}
+    boundary = None
+    for segment in content_type.split(";"):
+        segment = segment.strip()
+        if segment.startswith("boundary="):
+            boundary = segment[9:].strip().strip('"')
+            break
+    if not boundary:
+        return {}, {}
+    try:
+        content_length = int(environ.get("CONTENT_LENGTH") or "0")
+    except ValueError:
+        return {}, {}
+    body = environ["wsgi.input"].read(content_length)
+    fields, files = {}, {}
+    sep = ("--" + boundary).encode()
+    for part in body.split(sep)[1:]:
+        if part.startswith(b"--"):
+            break
+        if part.startswith(b"\r\n"):
+            part = part[2:]
+        split_pos = part.find(b"\r\n\r\n")
+        if split_pos == -1:
+            continue
+        raw_headers = part[:split_pos].decode("utf-8", errors="replace")
+        raw_body = part[split_pos + 4:]
+        if raw_body.endswith(b"\r\n"):
+            raw_body = raw_body[:-2]
+        headers = {}
+        for line in raw_headers.split("\r\n"):
+            if ":" in line:
+                k, v = line.split(":", 1)
+                headers[k.strip().lower()] = v.strip()
+        disposition = headers.get("content-disposition", "")
+        name = filename = None
+        for token in disposition.split(";"):
+            token = token.strip()
+            if token.startswith("name="):
+                name = token[5:].strip().strip('"')
+            elif token.startswith("filename="):
+                filename = token[9:].strip().strip('"')
+        if name is None:
+            continue
+        if filename is not None:
+            files[name] = {
+                "filename": filename,
+                "content_type": headers.get("content-type", "application/octet-stream"),
+                "data": raw_body,
+            }
+        else:
+            fields[name] = raw_body.decode("utf-8", errors="replace")
+    return fields, files
+
+
+def handle_upload_trip_document(environ, start_response, trip_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    trips = read_camp_trips()
+    trip_index = next((i for i, t in enumerate(trips) if t["id"] == trip_id), None)
+    if trip_index is None:
+        return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
+    _, files = parse_multipart(environ)
+    if "file" not in files:
+        return json_response(start_response, "400 Bad Request", {"error": "No file provided"})
+    upload = files["file"]
+    original_name = upload["filename"] or "file"
+    ext = Path(original_name).suffix.lower()
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        return json_response(start_response, "400 Bad Request", {"error": f"File type {ext} not allowed"})
+    data = upload["data"]
+    if len(data) > MAX_UPLOAD_BYTES:
+        return json_response(start_response, "400 Bad Request", {"error": "File too large (max 10 MB)"})
+    ensure_data_store()
+    doc_id = str(uuid4())
+    trip_upload_dir = TRIP_UPLOADS_DIR / trip_id
+    trip_upload_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = doc_id + ext
+    file_path = trip_upload_dir / stored_name
+    file_path.write_bytes(data)
+    doc = {
+        "id": doc_id,
+        "originalName": original_name,
+        "storedName": stored_name,
+        "mimeType": upload["content_type"],
+        "size": len(data),
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+    trip = trips[trip_index]
+    documents = list(trip.get("documents") or [])
+    documents.append(doc)
+    trips[trip_index] = {**trip, "documents": documents}
+    write_camp_trips(trips)
+    return json_response(start_response, "201 Created", {"ok": True, "document": doc})
+
+
+def handle_delete_trip_document(environ, start_response, trip_id, doc_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    trips = read_camp_trips()
+    trip_index = next((i for i, t in enumerate(trips) if t["id"] == trip_id), None)
+    if trip_index is None:
+        return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
+    trip = trips[trip_index]
+    documents = list(trip.get("documents") or [])
+    doc = next((d for d in documents if d["id"] == doc_id), None)
+    if doc is None:
+        return json_response(start_response, "404 Not Found", {"error": "Document not found"})
+    file_path = (TRIP_UPLOADS_DIR / trip_id / doc["storedName"]).resolve()
+    if str(file_path).startswith(str(TRIP_UPLOADS_DIR.resolve())) and file_path.exists():
+        file_path.unlink()
+    trips[trip_index] = {**trip, "documents": [d for d in documents if d["id"] != doc_id]}
+    write_camp_trips(trips)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": doc_id})
+
+
 def handle_delete_camp_trip(environ, start_response, trip_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -7160,7 +7285,16 @@ def app(environ, start_response):
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/camp-trips/"):
-        trip_id = path.replace("/api/camp-trips/", "", 1).strip("/")
+        tail = path.replace("/api/camp-trips/", "", 1).strip("/")
+        # /api/camp-trips/{id}/documents  — upload
+        if tail.endswith("/documents") and method == "POST":
+            trip_id = tail[: -len("/documents")]
+            return handle_upload_trip_document(environ, start_response, trip_id)
+        # /api/camp-trips/{id}/documents/{doc_id}  — delete
+        if "/documents/" in tail and method == "DELETE":
+            trip_id, doc_id = tail.split("/documents/", 1)
+            return handle_delete_trip_document(environ, start_response, trip_id, doc_id)
+        trip_id = tail
         if method == "POST" and trip_id:
             return handle_update_camp_trip(environ, start_response, trip_id)
         if method == "DELETE" and trip_id:
@@ -7260,6 +7394,17 @@ def app(environ, start_response):
     if path.startswith("/generated/"):
         safe_path = (GENERATED_DIR / unquote(path.replace("/generated/", "", 1))).resolve()
         if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
+            return json_response(start_response, "404 Not Found", {"error": "Not found"})
+        params = parse_qs(environ.get("QUERY_STRING", ""))
+        extra_headers = generated_download_headers(safe_path) if params.get("download", ["0"])[0] == "1" else None
+        return file_response(start_response, safe_path, extra_headers=extra_headers)
+
+    if path.startswith("/trip-uploads/"):
+        if not current_user(environ):
+            return json_response(start_response, "401 Unauthorized", {"error": "Login required"})
+        rel = unquote(path.replace("/trip-uploads/", "", 1))
+        safe_path = (TRIP_UPLOADS_DIR / rel).resolve()
+        if not str(safe_path).startswith(str(TRIP_UPLOADS_DIR.resolve())) or not safe_path.exists():
             return json_response(start_response, "404 Not Found", {"error": "Not found"})
         params = parse_qs(environ.get("QUERY_STRING", ""))
         extra_headers = generated_download_headers(safe_path) if params.get("download", ["0"])[0] == "1" else None

@@ -5948,3 +5948,80 @@ body.modal-open {
     text-align: left;
   }
 }
+
+/* ── Trip Documents ── */
+.doc-drop-zone {
+  border: 2px dashed var(--border, #d0d7e8);
+  border-radius: 10px;
+  padding: 28px 24px 20px;
+  margin-bottom: 20px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.doc-drop-zone.drag-over {
+  border-color: var(--accent, #2563eb);
+  background: rgba(37, 99, 235, 0.05);
+}
+.doc-drop-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  text-align: center;
+}
+.doc-drop-inner svg { color: #9ca3af; }
+.doc-drop-inner p { margin: 0; font-size: 14px; }
+.doc-hint { font-size: 12px !important; color: #9ca3af; }
+.doc-browse-btn {
+  background: none;
+  border: none;
+  color: var(--accent, #2563eb);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.doc-browse-btn:hover { opacity: 0.8; }
+
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg, #f5f7fb);
+  border: 1px solid var(--border, #d0d7e8);
+  border-radius: 8px;
+}
+.doc-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  width: 32px;
+  text-align: center;
+}
+.doc-meta {
+  flex: 1;
+  min-width: 0;
+}
+.doc-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.doc-info {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.doc-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}

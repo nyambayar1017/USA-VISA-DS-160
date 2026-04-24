@@ -529,6 +529,7 @@ function setActiveTrip(tripId, options = {}) {
   renderActiveTripReservations();
   renderActiveCampReservations();
   renderCampPayments();
+  if (isTripDetailPage() && activeTripId) loadTripDocuments(activeTripId);
   if (!options.skipScroll) {
     requestAnimationFrame(() => {
       activeTripReservations.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2752,6 +2753,134 @@ document.addEventListener("click", async (event) => {
   refreshCampSettingsViews();
   await saveSettings();
 });
+
+// ── Trip Documents ──────────────────────────────────────────────────────────
+
+const docDropZone = document.getElementById("doc-drop-zone");
+const docDropInner = document.getElementById("doc-drop-inner");
+const docFileInput = document.getElementById("doc-file-input");
+const docBrowseBtn = document.getElementById("doc-browse-btn");
+const docUploadStatus = document.getElementById("doc-upload-status");
+const docList = document.getElementById("doc-list");
+
+function docFileIcon(mimeType, name) {
+  const ext = (name || "").split(".").pop().toLowerCase();
+  if (mimeType.includes("pdf") || ext === "pdf") return "📄";
+  if (["doc", "docx"].includes(ext)) return "📝";
+  if (["xls", "xlsx"].includes(ext)) return "📊";
+  if (["jpg", "jpeg", "png", "gif"].includes(ext)) return "🖼️";
+  return "📎";
+}
+
+function docFormatSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function docViewUrl(doc, tripId) {
+  const src = "/trip-uploads/" + tripId + "/" + doc.storedName;
+  const mime = doc.mimeType || "";
+  if (mime.includes("pdf") || doc.storedName.endsWith(".pdf")) {
+    return "/pdf-viewer?src=" + encodeURIComponent(src) + "&title=" + encodeURIComponent(doc.originalName);
+  }
+  return src;
+}
+
+function renderTripDocuments(docs, tripId) {
+  if (!docList) return;
+  if (!docs || !docs.length) {
+    docList.innerHTML = '<p class="muted" style="padding:8px 0">No documents uploaded yet.</p>';
+    return;
+  }
+  docList.innerHTML = docs.map((doc) => {
+    const icon = docFileIcon(doc.mimeType || "", doc.originalName);
+    const size = docFormatSize(doc.size || 0);
+    const uploadedAt = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "";
+    const uploader = doc.uploadedBy ? (doc.uploadedBy.name || doc.uploadedBy.email || "") : "";
+    const viewUrl = docViewUrl(doc, tripId);
+    const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
+    return (
+      '<div class="doc-item">' +
+        '<div class="doc-icon">' + icon + '</div>' +
+        '<div class="doc-meta">' +
+          '<div class="doc-name" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</div>' +
+          '<div class="doc-info">' + escapeHtml(size) + (uploadedAt ? ' · ' + uploadedAt : '') + (uploader ? ' · ' + escapeHtml(uploader) : '') + '</div>' +
+        '</div>' +
+        '<div class="doc-actions">' +
+          '<a class="secondary-button" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">View</a>' +
+          '<a class="secondary-button" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
+          '<button class="secondary-button danger-button" data-doc-delete="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Delete</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join("");
+}
+
+async function loadTripDocuments(tripId) {
+  if (!docList || !isTripDetailPage()) return;
+  try {
+    const trips = await fetchJson("/api/camp-trips");
+    const trip = (trips.entries || trips).find((t) => t.id === tripId);
+    renderTripDocuments(trip ? (trip.documents || []) : [], tripId);
+  } catch (_) {
+    // silently fail — documents are non-critical
+  }
+}
+
+async function uploadFiles(tripId, files) {
+  if (!tripId) { if (docUploadStatus) docUploadStatus.textContent = "Select a trip first."; return; }
+  for (const file of files) {
+    if (docUploadStatus) docUploadStatus.textContent = "Uploading " + file.name + "…";
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const resp = await fetch("/api/camp-trips/" + tripId + "/documents", { method: "POST", body: form });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Upload failed");
+    } catch (err) {
+      if (docUploadStatus) docUploadStatus.textContent = "Error: " + err.message;
+      return;
+    }
+  }
+  if (docUploadStatus) docUploadStatus.textContent = files.length + " file(s) uploaded.";
+  await loadTripDocuments(tripId);
+}
+
+if (docDropZone && isTripDetailPage()) {
+  docDropZone.addEventListener("dragover", (e) => { e.preventDefault(); docDropZone.classList.add("drag-over"); });
+  docDropZone.addEventListener("dragleave", () => docDropZone.classList.remove("drag-over"));
+  docDropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    docDropZone.classList.remove("drag-over");
+    uploadFiles(activeTripId, Array.from(e.dataTransfer.files));
+  });
+  if (docBrowseBtn) docBrowseBtn.addEventListener("click", () => docFileInput && docFileInput.click());
+  if (docFileInput) {
+    docFileInput.addEventListener("change", () => {
+      if (docFileInput.files.length) uploadFiles(activeTripId, Array.from(docFileInput.files));
+      docFileInput.value = "";
+    });
+  }
+  if (docList) {
+    docList.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-doc-delete]");
+      if (!btn) return;
+      const docId = btn.dataset.docDelete;
+      const docName = btn.dataset.docName || "this file";
+      if (!window.confirm("Delete "" + docName + ""?")) return;
+      try {
+        const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/" + docId, { method: "DELETE" });
+        if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Delete failed"); }
+        await loadTripDocuments(activeTripId);
+      } catch (err) {
+        alert("Could not delete: " + err.message);
+      }
+    });
+  }
+}
+
+// ── End Trip Documents ──────────────────────────────────────────────────────
 
 async function init() {
   campCreatedDate.value = getMongoliaToday();

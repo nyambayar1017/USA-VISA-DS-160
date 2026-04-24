@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-101" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-102" />
   </head>
   <body class="app-body">
     <div class="workspace-shell">
@@ -756,6 +756,27 @@
           <div id="transfer-list" class="submission-list"></div>
         </section>
 
+        <section class="card" id="documents-section">
+          <div class="section-head">
+            <div>
+              <h2>Trip Documents</h2>
+              <p>Upload invoices, flight tickets, contracts, passports, and any trip-related files.</p>
+            </div>
+          </div>
+
+          <div id="doc-drop-zone" class="doc-drop-zone">
+            <input type="file" id="doc-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt" style="display:none" />
+            <div class="doc-drop-inner" id="doc-drop-inner">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <p>Drop files here or <button type="button" class="doc-browse-btn" id="doc-browse-btn">browse</button></p>
+              <p class="doc-hint">PDF, Word, Excel, JPG, PNG — max 10 MB per file</p>
+            </div>
+            <p id="doc-upload-status" class="status"></p>
+          </div>
+
+          <div id="doc-list" class="doc-list"></div>
+        </section>
+
         <section class="card page-hidden-section" id="payments-section">
           <div class="section-head">
             <h2>Camp Payment Summary</h2>
@@ -825,7 +846,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-64"></script>
-    <script src="/camp.js?v=workspace-74"></script>
+    <script src="/camp.js?v=workspace-83"></script>
     <script src="/reservations-addon.js?v=workspace-13"></script>
   </body>
 </html>
