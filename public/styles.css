@@ -6375,7 +6375,6 @@ body.modal-open {
   max-height: 85%;
   object-fit: contain;
 }
-.workspace-picker-logo-usm { background: #111b47; }
 .workspace-picker-meta {
   display: grid;
   gap: 4px;
