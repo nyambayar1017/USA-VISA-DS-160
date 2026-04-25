@@ -8,6 +8,9 @@ import mimetypes
 import os
 import re
 import secrets
+import sys
+import urllib.error
+import urllib.request
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -8302,7 +8305,7 @@ def handle_update_contract_invoice(environ, start_response, contract_id):
 
 AGENT_CONVERSATIONS_FILE = DATA_DIR / "agent_conversations.json"
 AGENT_AUDIT_FILE = DATA_DIR / "agent_audit.json"
-AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-sonnet-4-5")
+AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-sonnet-4-5-20250929")
 AGENT_MAX_TOKENS = 4096
 AGENT_MAX_TOOL_LOOPS = 8
 AGENT_HISTORY_TURNS = 20  # how many user/assistant turns we keep per user
@@ -8827,7 +8830,11 @@ def _agent_call_anthropic(system, messages, tools):
         "messages": messages,
         "tools": [{"name": t["name"], "description": t["description"], "input_schema": t["input_schema"]} for t in tools],
     }
-    data = json.dumps(body).encode("utf-8")
+    try:
+        data = json.dumps(body).encode("utf-8")
+    except Exception as e:
+        print(f"[agent] payload serialization failed: {e}", file=sys.stderr, flush=True)
+        return {"error": f"Could not serialize request: {e}"}
     req = urllib.request.Request(url, data=data, method="POST", headers={
         "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
@@ -8841,9 +8848,14 @@ def _agent_call_anthropic(system, messages, tools):
             err_body = e.read().decode("utf-8")
         except Exception:
             err_body = str(e)
+        print(f"[agent] Anthropic HTTP {e.code}: {err_body[:1000]}", file=sys.stderr, flush=True)
         return {"error": f"Anthropic API error {e.code}: {err_body[:500]}"}
-    except Exception as e:
+    except urllib.error.URLError as e:
+        print(f"[agent] URLError: {e}", file=sys.stderr, flush=True)
         return {"error": f"Network error contacting Anthropic: {e}"}
+    except Exception as e:
+        print(f"[agent] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        return {"error": f"{type(e).__name__}: {e}"}
 
 
 def handle_agent_chat(environ, start_response):
