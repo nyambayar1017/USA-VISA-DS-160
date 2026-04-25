@@ -730,6 +730,13 @@ def file_response(start_response, file_path, extra_headers=None):
         ("Content-Type", mime_type or "application/octet-stream"),
         ("Content-Length", str(len(body))),
     ]
+    # HTML pages should always re-fetch so cache-busting query strings on
+    # /styles.css and /app-shell.js take effect immediately. Static assets
+    # already carry ?v=… so the browser can cache them aggressively.
+    if file_path.suffix.lower() in (".html", ".htm"):
+        headers.append(("Cache-Control", "no-cache, no-store, must-revalidate"))
+        headers.append(("Pragma", "no-cache"))
+        headers.append(("Expires", "0"))
     if extra_headers:
         headers.extend(extra_headers)
     start_response("200 OK", headers)

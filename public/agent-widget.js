@@ -233,7 +233,7 @@
     if (!panel) return;
     panel.classList.toggle("is-maximized", maximized);
     if (maxBtn) {
-      maxBtn.textContent = maximized ? "⤡" : "⤢";
+      maxBtn.textContent = maximized ? "Жиж" : "Том";
       maxBtn.title = maximized ? "Жижигрүүлэх" : "Томруулах";
     }
   }
@@ -426,7 +426,7 @@
       class: "agent-max",
       type: "button",
       onclick: toggleMaximize,
-    }, [maximized ? "⤡" : "⤢"]);
+    }, [maximized ? "Жиж" : "Том"]);
     maxBtn.title = maximized ? "Жижигрүүлэх" : "Томруулах";
 
     const header = el("div", { class: "agent-header" }, [
@@ -449,28 +449,36 @@
     panel.appendChild(dropOverlay);
 
     panel.addEventListener("dragenter", (e) => {
-      if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
       e.preventDefault();
+      e.stopPropagation();
       dragDepth += 1;
       panel.classList.add("is-dragging");
     });
     panel.addEventListener("dragover", (e) => {
-      if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
       e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     });
     panel.addEventListener("dragleave", (e) => {
-      if (!e.dataTransfer) return;
+      e.preventDefault();
+      e.stopPropagation();
       dragDepth = Math.max(0, dragDepth - 1);
       if (dragDepth === 0) panel.classList.remove("is-dragging");
     });
     panel.addEventListener("drop", (e) => {
-      if (!e.dataTransfer) return;
       e.preventDefault();
+      e.stopPropagation();
       dragDepth = 0;
       panel.classList.remove("is-dragging");
-      const files = Array.from(e.dataTransfer.files || []);
+      const files = e.dataTransfer ? Array.from(e.dataTransfer.files || []) : [];
       if (files.length) handleFiles(files);
+    });
+    // Block default browser behaviour (open file in tab) when dropping
+    // anywhere outside the panel as well — feels nicer.
+    ["dragover", "drop"].forEach((evt) => {
+      window.addEventListener(evt, (e) => {
+        if (!panel.contains(e.target)) e.preventDefault();
+      });
     });
 
     document.body.appendChild(bubble);
