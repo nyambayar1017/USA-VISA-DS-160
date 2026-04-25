@@ -4404,16 +4404,6 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .trip-table .table-primary-cell {
   text-align: center;
 }
-/* Status cells: align all entries to the same left start so "Offer"
-   and "Confirmed" line up at the same horizontal position. */
-.trip-table td:has(> .status-dot-cell) {
-  text-align: left;
-  padding-left: 28px;
-}
-.trip-table th:nth-last-child(4) {
-  text-align: left;
-  padding-left: 28px;
-}
 
 .trip-pax-cell {
   text-align: center !important;
@@ -4554,8 +4544,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 .trip-table th:nth-child(10),
 .trip-table td:nth-child(10) {
-  width: 78px;
+  width: 110px;
   text-align: left;
+  padding-left: 16px;
+}
+/* Force the status pill to start from the left edge of its cell so
+   "Offer" and "Confirmed" both align to the same x position. */
+.trip-table td:nth-child(10) .status-dot-cell {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
 }
 
 .trip-table th:nth-child(11),
