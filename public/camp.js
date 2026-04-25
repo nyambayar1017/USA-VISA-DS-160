@@ -84,6 +84,7 @@ let activeTripPanelHidden = false;
 let activeCampPanelHidden = false;
 const PAGE_SIZE = 15;
 const TRIP_STATUS_OPTIONS = [
+  ["offer", "Offer"],
   ["planning", "Planning"],
   ["confirmed", "Confirmed"],
   ["travelling", "Travelling"],
@@ -303,6 +304,7 @@ function normalizeStatus(status) {
 
 function formatStatusLabel(status) {
   const labels = {
+    offer: "Offer",
     planning: "Planning",
     confirmed: "Confirmed",
     travelling: "Travelling",
@@ -909,7 +911,7 @@ function renderTrips() {
                   <td class="trip-tag-cell">${renderTripTagPills(trip.tags)}</td>
                   <td class="trip-pax-cell">${trip.participantCount}</td>
                   <td class="trip-pax-cell">${trip.staffCount}</td>
-                  <td><span class="status-pill is-${normalizeStatus(trip.status)}">${formatStatusLabel(trip.status)}</span></td>
+                  <td><span class="status-dot status-dot-${normalizeStatus(trip.status)}"></span>${formatStatusLabel(trip.status)}</td>
                   <td class="trip-created-cell">${formatDate(trip.createdAt, true)}</td>
                   <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
                   <td>

@@ -472,6 +472,22 @@ td {
 .row-menu-item.is-danger { color: #b63a3a; }
 .row-menu-item.is-danger:hover { background: rgba(182,58,58,0.08); }
 
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  background: #94a3b8;
+}
+.status-dot-offer { background: #f59e0b; }
+.status-dot-planning { background: #94a3b8; }
+.status-dot-confirmed { background: #22c55e; }
+.status-dot-travelling { background: #3b82f6; }
+.status-dot-completed { background: #16a34a; }
+.status-dot-cancelled { background: #ef4444; }
+
 .workspace-bell-count {
   position: absolute;
   top: 4px;
