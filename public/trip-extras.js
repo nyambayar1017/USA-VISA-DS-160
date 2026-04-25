@@ -186,10 +186,9 @@
           <thead>
             <tr>
               <th><input type="checkbox" id="tourist-select-all" aria-label="Select all" /></th>
-              <th>Serial</th>
+              <th>Group</th>
               <th>Last name</th>
               <th>First name</th>
-              <th>Group</th>
               <th>Nationality</th>
               <th>Passport #</th>
               <th>Passport expiry</th>
@@ -204,10 +203,9 @@
                 (t) => `
                   <tr>
                     <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
-                    <td><strong>${escapeHtml(t.serial)}</strong></td>
+                    <td><strong>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</strong></td>
                     <td>${escapeHtml(t.lastName || "")}</td>
                     <td>${escapeHtml(t.firstName || "")}</td>
-                    <td>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</td>
                     <td>${escapeHtml(t.nationality || "-")}</td>
                     <td>${escapeHtml(t.passportNumber || "-")}</td>
                     <td>${escapeHtml(t.passportExpiry || "-")}</td>

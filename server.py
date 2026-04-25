@@ -5344,6 +5344,8 @@ def handle_update_tourist(environ, start_response, tourist_id):
                 merged[key] = value
         if "roomType" in payload:
             merged["roomType"] = normalize_room_type(payload.get("roomType"))
+        if "orderIndex" in payload:
+            merged["orderIndex"] = parse_int(payload.get("orderIndex")) or 0
         if payload.get("passportScanData"):
             merged["passportScanPath"] = save_tourist_image(payload["passportScanData"], "tourist-passport", tourist_id)
         if payload.get("photoData"):

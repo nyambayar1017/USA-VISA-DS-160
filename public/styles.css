@@ -359,6 +359,92 @@ td {
   pointer-events: none;
 }
 
+.group-summary-actions,
+.trip-summary-actions {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+.group-summary-card,
+.trip-summary-card {
+  position: relative;
+}
+.header-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(32,53,111,0.18);
+  background: #fff;
+  color: #20356f;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+}
+.header-action-btn:hover {
+  background: rgba(32,53,111,0.06);
+  border-color: rgba(32,53,111,0.3);
+}
+.header-action-edit {
+  background: #20356f;
+  color: #fff;
+  border-color: #20356f;
+}
+.header-action-edit:hover {
+  background: #182958;
+  color: #fff;
+}
+
+.reorder-arrows {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reorder-btn {
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(32,53,111,0.18);
+  background: #fff;
+  color: #20356f;
+  font-size: 0.7rem;
+  line-height: 1;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.reorder-btn[disabled] {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.reorder-btn:hover:not([disabled]) {
+  background: rgba(32,53,111,0.06);
+}
+
+.workspace-bell-count {
+  position: absolute;
+  top: 2px;
+  right: 0px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #d6362f;
+  color: #fff;
+  border: 2px solid #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+  box-sizing: content-box;
+}
+
 .workspace-profile-trigger {
   display: inline-flex;
   align-items: center;

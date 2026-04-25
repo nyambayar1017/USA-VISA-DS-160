@@ -60,6 +60,7 @@ let currentProfile = null;
 let profileModal = null;
 let notificationBellNode = null;
 let notificationDotNode = null;
+let notificationCountNode = null;
 let notificationPopoverNode = null;
 let notificationsCache = [];
 let notificationsLastReadAt = "";
@@ -259,7 +260,7 @@ function buildProfileChrome() {
         <path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"></path>
         <path d="M10 19a2 2 0 0 0 4 0"></path>
       </svg>
-      <span class="workspace-bell-dot" data-notif-dot hidden></span>
+      <span class="workspace-bell-count" data-notif-count hidden>0</span>
     </button>
     <button type="button" class="workspace-profile-trigger" data-action="toggle-profile-menu" aria-haspopup="menu" aria-expanded="false">
       <span class="workspace-profile-avatar" data-profile-avatar>
@@ -291,6 +292,7 @@ function buildProfileChrome() {
   profileMenuWrapper = profileCard.querySelector("[data-profile-menu]");
   notificationBellNode = profileCard.querySelector('[data-action="toggle-notifications"]');
   notificationDotNode = profileCard.querySelector("[data-notif-dot]");
+  notificationCountNode = profileCard.querySelector("[data-notif-count]");
   notificationPopoverNode = profileCard.querySelector("[data-notifications-popover]");
 
   profileCard.querySelector('[data-action="toggle-profile-menu"]').addEventListener("click", (event) => {
@@ -439,11 +441,23 @@ function renderNotificationsList() {
 }
 
 function updateBellDot(unread) {
+  const display = unread > 99 ? "99+" : String(unread || 0);
+  if (notificationCountNode) {
+    notificationCountNode.textContent = display;
+    if (unread > 0) notificationCountNode.removeAttribute("hidden");
+    else notificationCountNode.setAttribute("hidden", "");
+  }
   if (notificationDotNode) {
     if (unread > 0) notificationDotNode.removeAttribute("hidden");
     else notificationDotNode.setAttribute("hidden", "");
   }
   if (mobileBar) {
+    const count = mobileBar.querySelector("[data-notif-count-mobile]");
+    if (count) {
+      count.textContent = display;
+      if (unread > 0) count.removeAttribute("hidden");
+      else count.setAttribute("hidden", "");
+    }
     const dot = mobileBar.querySelector("[data-notif-dot-mobile]");
     if (dot) {
       if (unread > 0) dot.removeAttribute("hidden");
@@ -762,7 +776,7 @@ function ensureMobileBar() {
         <path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"></path>
         <path d="M10 19a2 2 0 0 0 4 0"></path>
       </svg>
-      <span class="workspace-bell-dot" data-notif-dot-mobile hidden></span>
+      <span class="workspace-bell-count" data-notif-count-mobile hidden>0</span>
     </button>
     <button type="button" class="workspace-mobile-avatar-btn" data-action="toggle-profile-menu-mobile" aria-label="Profile">
       <span class="workspace-profile-avatar" data-mobile-avatar>

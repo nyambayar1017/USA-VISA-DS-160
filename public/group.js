@@ -81,6 +81,13 @@ function roomColor(t) {
   return roomColorMap[roomKey(t)] || null;
 }
 
+function sortTourists(a, b) {
+  const ai = Number.isFinite(a.orderIndex) ? a.orderIndex : 9999;
+  const bi = Number.isFinite(b.orderIndex) ? b.orderIndex : 9999;
+  if (ai !== bi) return ai - bi;
+  return String(a.serial || "").localeCompare(String(b.serial || ""));
+}
+
 function escapeHtml(value) {
   return String(value == null ? "" : value)
     .replace(/&/g, "&amp;")
@@ -129,7 +136,7 @@ async function loadAll() {
     ]);
     trip = (tripData.entries || []).find((t) => t.id === tripId) || null;
     group = (groupData.entries || []).find((g) => g.id === groupId) || null;
-    tourists = touristData.entries || [];
+    tourists = (touristData.entries || []).slice().sort(sortTourists);
     flights = (flightData.entries || []).filter((f) => f.tripId === tripId);
     transfers = (transferData.entries || []).filter((t) => t.tripId === tripId);
     campReservations = (campData.entries || []).filter((c) => c.tripId === tripId);
@@ -245,7 +252,16 @@ function renderSummary() {
       ${ret ? `<p><strong>Return:</strong> ${escapeHtml(formatDate(ret.departureDate))} ${escapeHtml(ret.departureTime || "")} · ${escapeHtml(ret.fromCity || "-")} → ${escapeHtml(ret.toCity || "-")} ${escapeHtml(ret.airline || "")} ${escapeHtml(ret.flightNumber || "")}</p>` : ""}
     </div>
   ` : "";
+  const isGit = String(trip?.tripType || "git").toLowerCase() === "git";
+  const gitActions = isGit ? `
+    <a class="header-action-btn" href="/contracts?tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(groupId)}">+ Add contract</a>
+    <a class="header-action-btn" href="/trip-detail?tripId=${encodeURIComponent(tripId)}&openInvoice=${encodeURIComponent(groupId)}#invoices-section">+ Add invoice</a>
+  ` : "";
   summaryNode.innerHTML = `
+    <div class="group-summary-actions">
+      ${gitActions}
+      <button type="button" class="header-action-btn header-action-edit" id="group-edit-btn" aria-label="Edit group">✎ Edit</button>
+    </div>
     <div class="group-summary-grid">
       <div>
         <p class="group-summary-label">Group</p>
@@ -273,6 +289,7 @@ function renderSummary() {
       </div>
     </div>
   `;
+  document.getElementById("group-edit-btn")?.addEventListener("click", openGroupEdit);
 }
 
 function renderInvoices() {
@@ -452,6 +469,7 @@ function renderParticipants() {
         <thead>
           <tr>
             <th>#</th>
+            <th>Order</th>
             <th>Serial</th>
             <th>Name</th>
             <th>Passport</th>
@@ -474,6 +492,12 @@ function renderParticipants() {
             return `
               <tr>
                 <td>${i + 1}</td>
+                <td>
+                  <div class="reorder-arrows">
+                    <button type="button" class="reorder-btn" data-action="move-up" data-id="${t.id}" ${i === 0 ? "disabled" : ""} aria-label="Move up">▲</button>
+                    <button type="button" class="reorder-btn" data-action="move-down" data-id="${t.id}" ${i === tourists.length - 1 ? "disabled" : ""} aria-label="Move down">▼</button>
+                  </div>
+                </td>
                 <td><strong>${escapeHtml(t.serial)}</strong></td>
                 <td>${escapeHtml(t.lastName || "")} ${escapeHtml(t.firstName || "")}</td>
                 <td>${escapeHtml(t.passportNumber || "-")}</td>
@@ -494,6 +518,34 @@ function renderParticipants() {
       </table>
     </div>
   `;
+}
+
+async function moveTourist(id, direction) {
+  const idx = tourists.findIndex((t) => t.id === id);
+  if (idx < 0) return;
+  const swapWith = direction === "up" ? idx - 1 : idx + 1;
+  if (swapWith < 0 || swapWith >= tourists.length) return;
+  // Renumber and persist all tourists' orderIndex 0..N-1 with the swap applied
+  const reordered = tourists.slice();
+  const [moved] = reordered.splice(idx, 1);
+  reordered.splice(swapWith, 0, moved);
+  // Persist new orderIndex sequence
+  try {
+    await Promise.all(
+      reordered.map((t, i) =>
+        t.orderIndex === i
+          ? Promise.resolve()
+          : fetchJson(`/api/tourists/${t.id}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderIndex: i }),
+            })
+      )
+    );
+    await loadAll();
+  } catch (err) {
+    alert(err.message || "Could not reorder.");
+  }
 }
 
 function openModal() {
@@ -565,6 +617,8 @@ participantsList.addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;
   const id = btn.dataset.id;
+  if (btn.dataset.action === "move-up") { await moveTourist(id, "up"); return; }
+  if (btn.dataset.action === "move-down") { await moveTourist(id, "down"); return; }
   const t = tourists.find((x) => x.id === id);
   if (!t) return;
   if (btn.dataset.action === "edit") {
@@ -624,29 +678,48 @@ suggestBtn.addEventListener("click", async () => {
   await loadAll();
 });
 
-// Tab switching
-const GROUP_TAB_PANEL_IDS = [
-  "group-participants-section",
-  "group-flights-section",
-  "group-transfers-section",
-  "group-invoices-section",
-  "group-rooming-section",
-  "group-documents-section",
-];
-const tabBar = document.getElementById("group-tab-bar");
-function setActiveTab(tabId) {
-  tabBar.querySelectorAll(".trip-tab").forEach((b) => {
-    b.classList.toggle("is-active", b.dataset.tab === tabId);
-  });
-  GROUP_TAB_PANEL_IDS.forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle("is-hidden", id !== tabId);
-  });
+// Group edit modal
+const groupEditPanel = document.getElementById("group-edit-panel");
+const groupEditForm = document.getElementById("group-edit-form");
+const groupEditStatus = document.getElementById("group-edit-status");
+
+function openGroupEdit() {
+  if (!group || !groupEditPanel) return;
+  groupEditForm.elements.name.value = group.name || "";
+  groupEditForm.elements.headcount.value = group.headcount || "";
+  groupEditForm.elements.leaderName.value = group.leaderName || "";
+  groupEditForm.elements.leaderEmail.value = group.leaderEmail || "";
+  groupEditForm.elements.leaderPhone.value = group.leaderPhone || "";
+  groupEditForm.elements.leaderNationality.value = group.leaderNationality || "";
+  groupEditForm.elements.notes.value = group.notes || "";
+  groupEditStatus.textContent = "";
+  groupEditPanel.classList.remove("is-hidden");
+  groupEditPanel.removeAttribute("hidden");
+  document.body.classList.add("modal-open");
 }
-tabBar?.addEventListener("click", (e) => {
-  const tab = e.target.closest(".trip-tab");
-  if (!tab) return;
-  setActiveTab(tab.dataset.tab);
+function closeGroupEdit() {
+  groupEditPanel.classList.add("is-hidden");
+  groupEditPanel.setAttribute("hidden", "");
+  document.body.classList.remove("modal-open");
+}
+groupEditPanel?.addEventListener("click", (e) => {
+  if (e.target.dataset?.action === "close-group-edit") closeGroupEdit();
+});
+groupEditForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const payload = Object.fromEntries(new FormData(groupEditForm).entries());
+  try {
+    groupEditStatus.textContent = "Saving...";
+    await fetchJson(`/api/tourist-groups/${groupId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    closeGroupEdit();
+    await loadAll();
+  } catch (err) {
+    groupEditStatus.textContent = err.message || "Could not save.";
+  }
 });
 
 loadAll();

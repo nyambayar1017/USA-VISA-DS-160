@@ -865,10 +865,8 @@ function renderTrips() {
           <col style="width: 130px" />
           <col style="width: 52px" />
           <col style="width: 52px" />
-          <col style="width: 92px" />
           <col style="width: 44px" />
           <col style="width: 44px" />
-          <col style="width: 92px" />
           <col style="width: 96px" />
           <col style="width: 128px" />
           <col style="width: 120px" />
@@ -885,10 +883,8 @@ function renderTrips() {
             <th>Tags</th>
             <th>Pax</th>
             <th>Staff</th>
-            <th>Guide</th>
             <th>Driver</th>
             <th>Cook</th>
-            <th>Language</th>
             <th>Status</th>
             <th>Created</th>
             <th>Manager</th>
@@ -911,10 +907,8 @@ function renderTrips() {
                   <td class="trip-tag-cell">${renderTripTagPills(trip.tags)}</td>
                   <td class="trip-pax-cell">${trip.participantCount}</td>
                   <td class="trip-pax-cell">${trip.staffCount}</td>
-                  <td>${escapeHtml(trip.guideName || "-")}</td>
                   <td>${escapeHtml(trip.driverName || "-")}</td>
                   <td>${escapeHtml(trip.cookName || "-")}</td>
-                  <td>${escapeHtml(trip.language)}</td>
                   <td><span class="status-pill is-${normalizeStatus(trip.status)}">${formatStatusLabel(trip.status)}</span></td>
                   <td class="trip-created-cell">${formatDate(trip.createdAt, true)}</td>
                   <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
@@ -975,6 +969,9 @@ function renderActiveTrip() {
         <p>${escapeHtml(trip.reservationName || trip.tripName)} · Start ${formatDate(trip.startDate)}${trip.endDate ? ` → ${formatDate(trip.endDate)}` : ""} · ${escapeHtml(formatStatusLabel(trip.status))}</p>
         <div id="trip-flight-info" class="trip-flight-info"></div>
       </div>
+      <div class="trip-summary-actions">
+        <button type="button" class="header-action-btn header-action-edit" id="active-trip-edit-btn" aria-label="Edit trip">✎ Edit</button>
+      </div>
     </div>
     <div class="trip-summary-grid">
       <article class="trip-summary-stat">
@@ -986,16 +983,19 @@ function renderActiveTrip() {
         <strong>${trip.staffCount}</strong>
       </article>
       <article class="trip-summary-stat">
-        <span>Guide</span>
-        <strong>${escapeHtml(trip.guideName || "-")}</strong>
+        <span>Driver</span>
+        <strong>${escapeHtml(trip.driverName || "-")}</strong>
       </article>
       <article class="trip-summary-stat">
-        <span>Language</span>
-        <strong>${escapeHtml(trip.language || "-")}</strong>
+        <span>Cook</span>
+        <strong>${escapeHtml(trip.cookName || "-")}</strong>
       </article>
     </div>
   `;
   loadTripFlightInfo(trip.id);
+  document.getElementById("active-trip-edit-btn")?.addEventListener("click", () => {
+    startTripEdit(trip.id);
+  });
 }
 
 async function loadTripFlightInfo(tripId) {

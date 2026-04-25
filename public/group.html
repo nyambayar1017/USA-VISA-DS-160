@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-146" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-147" />
   </head>
   <body class="app-body" data-page="group">
     <div class="workspace-shell">
@@ -30,15 +30,6 @@
           <div id="group-summary"></div>
         </section>
 
-        <nav class="trip-tab-bar group-tab-bar" id="group-tab-bar">
-          <button class="trip-tab is-active" data-tab="group-participants-section">Participants</button>
-          <button class="trip-tab" data-tab="group-invoices-section">Invoices</button>
-          <button class="trip-tab" data-tab="group-documents-section">Documents</button>
-          <button class="trip-tab" data-tab="group-flights-section">Flight reservations</button>
-          <button class="trip-tab" data-tab="group-transfers-section">Transfers</button>
-          <button class="trip-tab" data-tab="group-rooming-section">Rooming</button>
-        </nav>
-
         <section class="card group-section" id="group-participants-section">
           <div class="section-head">
             <div>
@@ -50,6 +41,39 @@
             </div>
           </div>
           <div id="group-participants-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section" id="group-invoices-section">
+          <div class="section-head">
+            <div>
+              <h2>Invoices</h2>
+              <p>Contracts and payments tied to this group only.</p>
+            </div>
+          </div>
+          <div id="group-invoices-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section" id="group-documents-section">
+          <div class="section-head">
+            <div>
+              <h2>Documents</h2>
+              <p>Files attached to this group's trip.</p>
+            </div>
+          </div>
+          <div id="group-documents-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section" id="group-rooming-section">
+          <div class="section-head">
+            <div>
+              <h2>Rooming</h2>
+              <p>Each room has its own color; the same color appears on participants' Room cells. Use ↑/↓ to reorder participants.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="group-rooming-suggest">Auto-fill empty</button>
+            </div>
+          </div>
+          <div id="group-rooming-list" class="submission-list"></div>
         </section>
 
         <section class="card group-section is-hidden" id="group-flights-section">
@@ -81,39 +105,6 @@
             </div>
           </div>
           <div id="group-transfers-list" class="submission-list"></div>
-        </section>
-
-        <section class="card group-section is-hidden" id="group-invoices-section">
-          <div class="section-head">
-            <div>
-              <h2>Invoices</h2>
-              <p>Contracts and payments tied to this group only.</p>
-            </div>
-          </div>
-          <div id="group-invoices-list" class="submission-list"></div>
-        </section>
-
-        <section class="card group-section is-hidden" id="group-rooming-section">
-          <div class="section-head">
-            <div>
-              <h2>Rooming</h2>
-              <p>Each room has its own color; the same color appears on participants' Room cells.</p>
-            </div>
-            <div class="camp-toolbar">
-              <button type="button" id="group-rooming-suggest">Auto-fill empty</button>
-            </div>
-          </div>
-          <div id="group-rooming-list" class="submission-list"></div>
-        </section>
-
-        <section class="card group-section is-hidden" id="group-documents-section">
-          <div class="section-head">
-            <div>
-              <h2>Documents</h2>
-              <p>Files attached to this group's trip.</p>
-            </div>
-          </div>
-          <div id="group-documents-list" class="submission-list"></div>
         </section>
       </main>
     </div>
@@ -212,7 +203,55 @@
       </div>
     </div>
 
-    <script src="/app-shell.js?v=workspace-85"></script>
-    <script src="/group.js?v=workspace-3"></script>
+    <div id="group-edit-panel" class="camp-modal workspace-form-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-group-edit"></div>
+      <div class="camp-modal-dialog workspace-form-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Edit group</h2>
+            <p class="camp-modal-copy">Update group details. Group serial is fixed.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-group-edit" aria-label="Close">×</button>
+        </div>
+        <form id="group-edit-form" class="field-grid">
+          <label>
+            Group name
+            <input name="name" required />
+          </label>
+          <label>
+            Headcount
+            <input name="headcount" type="number" min="1" />
+          </label>
+          <label>
+            Leader name
+            <input name="leaderName" />
+          </label>
+          <label>
+            Leader email
+            <input name="leaderEmail" type="email" />
+          </label>
+          <label>
+            Leader phone
+            <input name="leaderPhone" />
+          </label>
+          <label>
+            Leader nationality
+            <input name="leaderNationality" />
+          </label>
+          <label class="full-span">
+            Notes
+            <textarea name="notes" rows="2"></textarea>
+          </label>
+          <div class="actions full-span">
+            <button type="submit">Save</button>
+            <button type="button" class="secondary-button" data-action="close-group-edit">Cancel</button>
+            <p id="group-edit-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/app-shell.js?v=workspace-86"></script>
+    <script src="/group.js?v=workspace-4"></script>
   </body>
 </html>

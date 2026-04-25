@@ -566,5 +566,16 @@
     }
   });
 
-  loadAll();
+  loadAll().then(() => {
+    const params = new URLSearchParams(window.location.search);
+    const preselectGroup = params.get("openInvoice");
+    if (preselectGroup && groups.find((g) => g.id === preselectGroup)) {
+      openWizard(null);
+      const groupSelect = document.querySelector("#invoice-group-select");
+      if (groupSelect) {
+        groupSelect.value = preselectGroup;
+        groupSelect.dispatchEvent(new Event("change"));
+      }
+    }
+  });
 })();
