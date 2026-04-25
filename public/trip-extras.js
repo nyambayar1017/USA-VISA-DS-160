@@ -83,8 +83,43 @@
       renderGroups();
       renderTourists();
       renderGroupOptions();
+      loadInvoices();
     } catch (err) {
       console.warn("trip-extras load failed:", err);
+    }
+  }
+
+  async function loadInvoices() {
+    const node = document.getElementById("trip-invoices-list");
+    if (!node || !tripId) return;
+    try {
+      const data = await fetchJson("/api/contracts");
+      const list = (Array.isArray(data) ? data : (data.entries || [])).filter((c) => c.tripId === tripId);
+      if (!list.length) {
+        node.innerHTML = '<p class="empty">No invoices linked to this trip yet.</p>';
+        return;
+      }
+      node.innerHTML = `
+        <div class="camp-table-wrap">
+          <table class="camp-table reservation-addon-table">
+            <thead><tr><th>#</th><th>Type</th><th>Client</th><th>Total</th><th>Status</th><th>Created</th></tr></thead>
+            <tbody>
+              ${list.map((inv, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${escapeHtml(inv.contractType || inv.type || "-")}</td>
+                  <td>${escapeHtml(inv.clientName || inv.client || "-")}</td>
+                  <td>${escapeHtml(inv.totalAmount || inv.amount || "-")}</td>
+                  <td>${escapeHtml(inv.status || "-")}</td>
+                  <td>${escapeHtml((inv.createdAt || "").slice(0, 10))}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      node.innerHTML = '<p class="empty">Could not load invoices.</p>';
     }
   }
 
@@ -128,7 +163,13 @@
                 <div class="group-card-row">
                   <span class="group-card-status"></span>
                   <span class="group-card-title">${escapeHtml(g.serial)} · ${escapeHtml(g.name)}</span>
-                  <button type="button" class="group-card-menu" data-group-action="menu" data-id="${escapeHtml(g.id)}" aria-label="Group menu" onclick="event.preventDefault(); event.stopPropagation();">⋯</button>
+                  <details class="group-card-menu-wrap" onclick="event.preventDefault(); event.stopPropagation();">
+                    <summary class="group-card-menu" aria-label="Group menu">⋯</summary>
+                    <div class="group-card-menu-popover">
+                      <button type="button" class="trip-menu-item" data-group-action="edit" data-id="${escapeHtml(g.id)}">Edit</button>
+                      <button type="button" class="trip-menu-item is-danger" data-group-action="delete" data-id="${escapeHtml(g.id)}">Delete</button>
+                    </div>
+                  </details>
                 </div>
                 <div class="group-card-meta">
                   <span>${groupTourists.length} tourist${groupTourists.length === 1 ? "" : "s"}${groupTourists.length ? ` (adult - ${groupTourists.length})` : ""}</span>
@@ -179,6 +220,7 @@
         <table class="camp-table reservation-addon-table">
           <thead>
             <tr>
+              <th><input type="checkbox" id="tourist-select-all" aria-label="Select all" /></th>
               <th>Serial</th>
               <th>Last name</th>
               <th>First name</th>
@@ -196,6 +238,7 @@
               .map(
                 (t) => `
                   <tr>
+                    <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
                     <td><strong>${escapeHtml(t.serial)}</strong></td>
                     <td>${escapeHtml(t.lastName || "")}</td>
                     <td>${escapeHtml(t.firstName || "")}</td>
@@ -219,7 +262,48 @@
         </table>
       </div>
     `;
+    const selectAll = touristListNode.querySelector("#tourist-select-all");
+    if (selectAll) {
+      const visibleIds = rows.map((r) => r.id);
+      selectAll.checked = visibleIds.length > 0 && visibleIds.every((id) => selectedTouristIds.has(id));
+    }
   }
+
+  const selectedTouristIds = new Set();
+
+  function downloadTouristsCsv(list, filename) {
+    const headers = ["Serial", "Last name", "First name", "Group", "Gender", "Date of birth", "Nationality", "Passport #", "Passport issue date", "Passport expiry", "Passport issued at", "Registration #", "Phone", "Email"];
+    const escapeCsv = (v) => {
+      const s = v == null ? "" : String(v);
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const rows = list.map((t) => [
+      t.serial, t.lastName, t.firstName, t.groupSerial, t.gender, t.dob,
+      t.nationality, t.passportNumber, t.passportIssueDate, t.passportExpiry,
+      t.passportIssuePlace, t.registrationNumber, t.phone, t.email,
+    ].map(escapeCsv).join(","));
+    const csv = "﻿" + headers.map(escapeCsv).join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  document.getElementById("tourist-export-all")?.addEventListener("click", () => {
+    if (!tourists.length) { alert("No tourists to download."); return; }
+    downloadTouristsCsv(tourists, `tourists-${tripId || "trip"}.csv`);
+  });
+  document.getElementById("tourist-export-selected")?.addEventListener("click", () => {
+    const list = tourists.filter((t) => selectedTouristIds.has(t.id));
+    if (!list.length) { alert("Select at least one tourist first."); return; }
+    downloadTouristsCsv(list, `tourists-selected-${tripId || "trip"}.csv`);
+  });
 
   // ── Group form ───────────────────────────────────────────────
   function resetGroupForm() {
@@ -296,6 +380,7 @@
     const id = btn.dataset.id;
     const group = groups.find((g) => g.id === id);
     if (!group) return;
+    btn.closest("details")?.removeAttribute("open");
     if (action === "menu" || action === "edit") {
       editingGroupId = id;
       groupForm.elements.name.value = group.name || "";
@@ -424,6 +509,30 @@
 
   touristFilterGroup?.addEventListener("change", renderTourists);
   touristFilterName?.addEventListener("input", renderTourists);
+
+  touristListNode?.addEventListener("change", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.id === "tourist-select-all") {
+      const boxes = touristListNode.querySelectorAll(".tourist-select");
+      boxes.forEach((b) => {
+        b.checked = target.checked;
+        const id = b.dataset.id;
+        if (target.checked) selectedTouristIds.add(id);
+        else selectedTouristIds.delete(id);
+      });
+    } else if (target.classList.contains("tourist-select")) {
+      const id = target.dataset.id;
+      if (target.checked) selectedTouristIds.add(id);
+      else selectedTouristIds.delete(id);
+      const selectAll = touristListNode.querySelector("#tourist-select-all");
+      if (selectAll) {
+        const boxes = touristListNode.querySelectorAll(".tourist-select");
+        const allOn = boxes.length > 0 && Array.from(boxes).every((b) => b.checked);
+        selectAll.checked = allOn;
+      }
+    }
+  });
 
   // Hook into the existing trip-tab-bar
   const tabBar = document.getElementById("trip-tab-bar");

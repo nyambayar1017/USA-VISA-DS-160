@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-144" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-145" />
   </head>
   <body class="app-body" data-page="camp-reservations">
     <div class="workspace-shell">
@@ -164,17 +164,7 @@
           <div id="active-trip" class="is-hidden"></div>
         </section>
 
-        <nav class="trip-tab-bar is-hidden" id="trip-tab-bar">
-          <button class="trip-tab" data-tab="groups-section">Groups</button>
-          <button class="trip-tab" data-tab="tourists-section">Tourists</button>
-          <button class="trip-tab" data-tab="reservations-section">Camp Reservations</button>
-          <button class="trip-tab" data-tab="flight-reservations-section">Flight Reservations</button>
-          <button class="trip-tab" data-tab="flight-payments-section">Flight Payments</button>
-          <button class="trip-tab" data-tab="transfer-reservations-section">Transfer Reservations</button>
-          <button class="trip-tab" data-tab="documents-section">Documents</button>
-        </nav>
-
-        <section class="card is-hidden" id="groups-section">
+        <section class="card" id="groups-section">
           <div class="section-head">
             <div>
               <h2>Groups</h2>
@@ -236,13 +226,15 @@
           <div id="group-list" class="submission-list"></div>
         </section>
 
-        <section class="card is-hidden" id="tourists-section">
+        <section class="card" id="tourists-section">
           <div class="section-head">
             <div>
               <h2>Tourists</h2>
               <p>All tourists on this trip. Use the group filter to focus on one party.</p>
             </div>
             <div class="camp-toolbar">
+              <button type="button" id="tourist-export-selected" class="secondary-button">Download selected</button>
+              <button type="button" id="tourist-export-all" class="secondary-button">Download all</button>
               <button type="button" id="tourist-toggle-form">Add tourist</button>
             </div>
           </div>
@@ -342,7 +334,73 @@
           <div id="tourist-section-list" class="submission-list"></div>
         </section>
 
-        <section class="card" id="reservations-section">
+        <section class="card" id="invoices-section">
+          <div class="section-head">
+            <div>
+              <h2>Invoices</h2>
+              <p>Contracts and payments tied to this trip.</p>
+            </div>
+            <div class="camp-toolbar">
+              <a class="secondary-button" id="invoices-add-link" href="/contracts">Open contracts</a>
+            </div>
+          </div>
+          <div id="trip-invoices-list" class="submission-list"></div>
+        </section>
+
+
+        <section class="card" id="documents-section">
+          <div class="section-head">
+            <div>
+              <h2>Trip Documents</h2>
+              <p>Upload invoices, flight tickets, contracts, passports, and any trip-related files.</p>
+            </div>
+          </div>
+
+          <div class="doc-upload-row">
+            <div class="doc-category-row">
+              <label for="doc-category">Category:</label>
+              <select id="doc-category" class="doc-category-select">
+                <option value="Other">Other</option>
+                <option value="Invoices">Invoices</option>
+                <option value="Flight Tickets">Flight Tickets</option>
+                <option value="Passports &amp; Visas">Passports &amp; Visas</option>
+                <option value="Hotel Vouchers">Hotel Vouchers</option>
+                <option value="Contracts">Contracts</option>
+              </select>
+            </div>
+
+            <div id="doc-drop-zone" class="doc-drop-zone">
+              <input type="file" id="doc-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt" style="display:none" />
+              <div class="doc-drop-inner" id="doc-drop-inner">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p>Drop files here or <label for="doc-file-input" class="doc-browse-btn">browse</label></p>
+                <p class="doc-hint">PDF, Word, Excel, JPG, PNG — max 10 MB per file</p>
+              </div>
+              <p id="doc-upload-status" class="status"></p>
+            </div>
+          </div>
+
+          <nav class="doc-filter-tabs" id="doc-filter-tabs">
+            <button class="doc-filter-tab is-active" data-filter="all">All</button>
+            <button class="doc-filter-tab" data-filter="Invoices">Invoices</button>
+            <button class="doc-filter-tab" data-filter="Flight Tickets">Flight Tickets</button>
+            <button class="doc-filter-tab" data-filter="Passports &amp; Visas">Passports &amp; Visas</button>
+            <button class="doc-filter-tab" data-filter="Hotel Vouchers">Hotel Vouchers</button>
+            <button class="doc-filter-tab" data-filter="Contracts">Contracts</button>
+            <button class="doc-filter-tab" data-filter="Other">Other</button>
+          </nav>
+
+          <div id="doc-list" class="doc-list"></div>
+        </section>
+
+
+        <nav class="trip-tab-bar is-hidden" id="trip-tab-bar">
+          <button class="trip-tab" data-tab="reservations-section">Camp</button>
+          <button class="trip-tab" data-tab="flight-reservations-section">Flight</button>
+          <button class="trip-tab" data-tab="transfer-reservations-section">Transfer</button>
+        </nav>
+
+        <section class="card is-hidden" id="reservations-section">
           <div class="section-head">
             <div>
               <h2>Camp Reservations</h2>
@@ -563,7 +621,7 @@
           <div id="active-camp-reservations" class="card camp-trip-detail-panel mini-pagination is-hidden"></div>
         </section>
 
-        <section class="card" id="flight-reservations-section">
+        <section class="card is-hidden" id="flight-reservations-section">
           <div class="section-head">
             <div>
               <h2>Flight Reservations</h2>
@@ -707,7 +765,7 @@
           <div id="flight-list" class="submission-list"></div>
         </section>
 
-        <section class="card" id="flight-payments-section">
+        <section class="card is-hidden" id="flight-payments-section">
           <div class="section-head">
             <div>
               <h2>Flight Payments</h2>
@@ -786,7 +844,7 @@
           <div id="flight-payment-list" class="submission-list"></div>
         </section>
 
-        <section class="card" id="transfer-reservations-section">
+        <section class="card is-hidden" id="transfer-reservations-section">
           <div class="section-head">
             <div>
               <h2>Transfer Reservations</h2>
@@ -910,51 +968,6 @@
           <div id="transfer-list" class="submission-list"></div>
         </section>
 
-        <section class="card" id="documents-section">
-          <div class="section-head">
-            <div>
-              <h2>Trip Documents</h2>
-              <p>Upload invoices, flight tickets, contracts, passports, and any trip-related files.</p>
-            </div>
-          </div>
-
-          <div class="doc-upload-row">
-            <div class="doc-category-row">
-              <label for="doc-category">Category:</label>
-              <select id="doc-category" class="doc-category-select">
-                <option value="Other">Other</option>
-                <option value="Invoices">Invoices</option>
-                <option value="Flight Tickets">Flight Tickets</option>
-                <option value="Passports &amp; Visas">Passports &amp; Visas</option>
-                <option value="Hotel Vouchers">Hotel Vouchers</option>
-                <option value="Contracts">Contracts</option>
-              </select>
-            </div>
-
-            <div id="doc-drop-zone" class="doc-drop-zone">
-              <input type="file" id="doc-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt" style="display:none" />
-              <div class="doc-drop-inner" id="doc-drop-inner">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <p>Drop files here or <label for="doc-file-input" class="doc-browse-btn">browse</label></p>
-                <p class="doc-hint">PDF, Word, Excel, JPG, PNG — max 10 MB per file</p>
-              </div>
-              <p id="doc-upload-status" class="status"></p>
-            </div>
-          </div>
-
-          <nav class="doc-filter-tabs" id="doc-filter-tabs">
-            <button class="doc-filter-tab is-active" data-filter="all">All</button>
-            <button class="doc-filter-tab" data-filter="Invoices">Invoices</button>
-            <button class="doc-filter-tab" data-filter="Flight Tickets">Flight Tickets</button>
-            <button class="doc-filter-tab" data-filter="Passports &amp; Visas">Passports &amp; Visas</button>
-            <button class="doc-filter-tab" data-filter="Hotel Vouchers">Hotel Vouchers</button>
-            <button class="doc-filter-tab" data-filter="Contracts">Contracts</button>
-            <button class="doc-filter-tab" data-filter="Other">Other</button>
-          </nav>
-
-          <div id="doc-list" class="doc-list"></div>
-        </section>
-
         <section class="card page-hidden-section" id="payments-section">
           <div class="section-head">
             <h2>Camp Payment Summary</h2>
@@ -1023,9 +1036,9 @@
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-83"></script>
-    <script src="/camp.js?v=workspace-96"></script>
+    <script src="/app-shell.js?v=workspace-84"></script>
+    <script src="/camp.js?v=workspace-97"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
-    <script src="/trip-extras.js?v=workspace-2"></script>
+    <script src="/trip-extras.js?v=workspace-3"></script>
   </body>
 </html>

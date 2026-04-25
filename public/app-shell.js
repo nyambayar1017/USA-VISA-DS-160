@@ -110,9 +110,6 @@ function renderSidebar(user) {
       <p class="sidebar-label">Backoffice</p>
       ${link("home", "/backoffice", "Home / Trip")}
       ${link("tourist", "/tourist", "Tourist")}
-      ${link("camp-reservations", "/camp-reservations", "Camp Reservations")}
-      ${link("flight-reservations", "/flight-reservations", "Flight Reservations")}
-      ${link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
       ${dtxBlock}
       ${link("contracts", "/contracts", "Contracts")}
       <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>

@@ -45,7 +45,12 @@ const docFilterTabsEl = document.getElementById("doc-filter-tabs");
 const MONGOLIA_TIME_ZONE = "Asia/Ulaanbaatar";
 const CAMP_RESERVATIONS_PATH = "/camp-reservations";
 const TRIP_DETAIL_PATH = "/trip-detail";
-const TRIP_TAB_PANEL_IDS = ["groups-section", "tourists-section", "reservations-section", "flight-reservations-section", "flight-payments-section", "transfer-reservations-section", "documents-section"];
+const TRIP_TAB_PANEL_IDS = ["reservations-section", "flight-reservations-section", "flight-payments-section", "transfer-reservations-section"];
+const TRIP_TAB_TO_PANELS = {
+  "reservations-section": ["reservations-section"],
+  "flight-reservations-section": ["flight-reservations-section", "flight-payments-section"],
+  "transfer-reservations-section": ["transfer-reservations-section"],
+};
 
 let currentTrips = [];
 let currentEntries = [];
@@ -522,9 +527,10 @@ function setActiveTab(tabId) {
   tripTabBar.querySelectorAll(".trip-tab").forEach(function(btn) {
     btn.classList.toggle("is-active", btn.dataset.tab === tabId);
   });
+  const showIds = TRIP_TAB_TO_PANELS[tabId] || [tabId];
   TRIP_TAB_PANEL_IDS.forEach(function(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.toggle("is-hidden", id !== tabId);
+    if (el) el.classList.toggle("is-hidden", showIds.indexOf(id) === -1);
   });
 }
 
@@ -547,7 +553,7 @@ function setActiveTrip(tripId, options = {}) {
   if (isTripDetailPage() && activeTripId) {
     if (tripTabBar) {
       tripTabBar.classList.remove("is-hidden");
-      setActiveTab("groups-section");
+      setActiveTab("reservations-section");
     }
     loadTripDocuments(activeTripId);
   }
@@ -960,16 +966,14 @@ function renderActiveTrip() {
     return;
   }
   activeTripBox.className = "card trip-summary-card";
+  const tripGroupName = trip.groupName ? ` · ${escapeHtml(trip.groupName)}` : "";
+  const tripTypeBadge = trip.tripType ? `<span class="trip-type-pill">${escapeHtml(String(trip.tripType).toUpperCase())}</span> ` : "";
   activeTripBox.innerHTML = `
     <div class="section-head">
       <div>
-        <h2>${trip.serial ? `<span class="trip-serial-tag">${escapeHtml(trip.serial)}</span> ` : ""}${escapeHtml(trip.tripName)}</h2>
-        <p>${escapeHtml(trip.reservationName || trip.tripName)} · Start ${formatDate(trip.startDate)} · ${escapeHtml(formatStatusLabel(trip.status))}</p>
-      </div>
-      <div class="camp-toolbar">
-        <a class="secondary-button" href="/camp-reservations?tripId=${encodeURIComponent(trip.id)}">Camp Page</a>
-        <a class="secondary-button" href="/flight-reservations?tripId=${encodeURIComponent(trip.id)}">Flights Page</a>
-        <a class="secondary-button" href="/transfer-reservations?tripId=${encodeURIComponent(trip.id)}">Transfers Page</a>
+        <h2>${trip.serial ? `<span class="trip-serial-tag">${escapeHtml(trip.serial)}</span> ` : ""}${tripTypeBadge}${escapeHtml(trip.tripName)}${tripGroupName}</h2>
+        <p>${escapeHtml(trip.reservationName || trip.tripName)} · Start ${formatDate(trip.startDate)}${trip.endDate ? ` → ${formatDate(trip.endDate)}` : ""} · ${escapeHtml(formatStatusLabel(trip.status))}</p>
+        <div id="trip-flight-info" class="trip-flight-info"></div>
       </div>
     </div>
     <div class="trip-summary-grid">
@@ -991,6 +995,24 @@ function renderActiveTrip() {
       </article>
     </div>
   `;
+  loadTripFlightInfo(trip.id);
+}
+
+async function loadTripFlightInfo(tripId) {
+  const node = document.getElementById("trip-flight-info");
+  if (!node || !tripId) return;
+  try {
+    const data = await fetch("/api/flight-reservations").then((r) => r.json());
+    const list = (data.entries || []).filter((f) => f.tripId === tripId);
+    if (!list.length) { node.innerHTML = ""; return; }
+    const sorted = list.slice().sort((a, b) => String(a.departureDate || "").localeCompare(String(b.departureDate || "")));
+    const out = sorted[0];
+    const ret = sorted.length > 1 ? sorted[sorted.length - 1] : null;
+    const fmt = (f, label) => `<span><strong>${label}:</strong> ${escapeHtml(formatDate(f.departureDate))} ${escapeHtml(f.departureTime || "")} · ${escapeHtml(f.fromCity || "-")} → ${escapeHtml(f.toCity || "-")} ${escapeHtml(f.airline || "")} ${escapeHtml(f.flightNumber || "")}</span>`;
+    node.innerHTML = `${out ? fmt(out, "Depart") : ""}${ret ? fmt(ret, "Return") : ""}`;
+  } catch (err) {
+    node.innerHTML = "";
+  }
 }
 
 function renderCampPayments() {
@@ -3064,9 +3086,6 @@ if (tripTabBar && isTripDetailPage()) {
     const tab = e.target.closest(".trip-tab");
     if (!tab) return;
     setActiveTab(tab.dataset.tab);
-    if (tab.dataset.tab === "documents-section" && activeTripId) {
-      loadTripDocuments(activeTripId);
-    }
   });
 }
 

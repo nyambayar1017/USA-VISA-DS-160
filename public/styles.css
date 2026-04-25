@@ -159,6 +159,18 @@ td {
   margin-top: 16px;
 }
 
+.trip-flight-info {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.trip-flight-info span { color: var(--muted); }
+.trip-flight-info span strong { color: var(--brand); margin-right: 4px; }
+
 .trip-summary-stat {
   padding: 18px;
   border-radius: 18px;
@@ -974,9 +986,50 @@ td {
   color: var(--muted);
   font-size: 1.1rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
 }
 
+.group-card-menu::-webkit-details-marker { display: none; }
 .group-card-menu:hover { background: rgba(22, 44, 84, 0.08); color: var(--text); }
+
+.group-card-menu-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.group-card-menu-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  min-width: 110px;
+  z-index: 30;
+}
+
+.group-card-menu-popover .trip-menu-item {
+  text-align: left;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.group-card-menu-popover .trip-menu-item:hover { background: rgba(22, 44, 84, 0.06); }
+.group-card-menu-popover .trip-menu-item.is-danger { color: #b13b3b; }
+.group-card-menu-popover .trip-menu-item.is-danger:hover { background: rgba(182, 58, 58, 0.08); }
 
 .group-card-meta {
   grid-column: 1 / 2;
