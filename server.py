@@ -8316,7 +8316,7 @@ AGENT_MEMORY_FILE = DATA_DIR / "agent_memory.json"
 AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-sonnet-4-5-20250929")
 AGENT_MAX_TOKENS = 2048  # smaller responses → faster round trips, fewer timeouts
 AGENT_MAX_TOOL_LOOPS = 6  # fits comfortably inside Render proxy budget; the agent should split big asks instead
-AGENT_HISTORY_TURNS = 20  # how many user/assistant turns we keep per user
+AGENT_HISTORY_TURNS = 8  # smaller history → faster requests, fewer 502s
 AGENT_MAX_IMAGES_PER_MESSAGE = 5
 AGENT_MAX_IMAGE_BYTES = 5 * 1024 * 1024  # Anthropic per-image limit
 
@@ -9250,6 +9250,10 @@ def _handle_agent_chat_impl(environ, start_response):
     convs = _agent_load_conversations()
     user_key = actor.get("id") or actor.get("email") or "anon"
     history = convs.get(user_key, [])
+    # Hard cap loaded history so a long-running conversation doesn't drag
+    # every new request down with 80 stale turns.
+    if len(history) > AGENT_HISTORY_TURNS * 2:
+        history = history[-AGENT_HISTORY_TURNS * 2:]
 
     if method == "GET":
         # Return history (for hydrating the chat panel on page load).
