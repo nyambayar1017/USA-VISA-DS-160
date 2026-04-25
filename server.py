@@ -394,20 +394,25 @@ def backfill_trip_serials(records):
 
 def next_trip_serial(company):
     company = normalize_company(company)
+    prefix = "S-" if company == "USM" else "T-"
     existing = read_json_list(CAMP_TRIPS_FILE)
     max_seq = 0
     for record in existing:
         if normalize_company(record.get("company")) != company:
             continue
-        serial = record.get("serial") or ""
-        if serial.startswith("T-"):
-            try:
-                num = int(serial[2:])
-                if num > max_seq:
-                    max_seq = num
-            except ValueError:
-                pass
-    return f"T-{max_seq + 1:04d}"
+        serial = (record.get("serial") or "").upper()
+        # Read either prefix when scanning so legacy USM trips (T-prefix)
+        # don't collide with the new S- numbering.
+        for known in ("T-", "S-"):
+            if serial.startswith(known):
+                try:
+                    num = int(serial[len(known):])
+                    if num > max_seq:
+                        max_seq = num
+                except ValueError:
+                    pass
+                break
+    return f"{prefix}{max_seq + 1:04d}"
 
 
 def read_tourist_groups():
@@ -9347,6 +9352,7 @@ def _agent_system_prompt(actor):
 Domain context:
 - Two workspaces: DTX (Delkhii Travel Ix — outbound tours, Монгол хүн гадаад руу) and USM (Unlock Steppe Mongolia — inbound, гадаад жуулчин Монгол руу). Records carry a `company` field with value "DTX" or "USM"; tool inputs use `workspace` as a friendly synonym for the same thing.
 - WORKSPACE INFERENCE (very important): if the destination is ANY country other than Mongolia (Dubai, Japan, Turkey, Singapore, Korea, China, Russia, etc.), this is a DTX trip. Only trips whose destination is inside Mongolia (Khustai, Gobi, Khuvsgul, Terelj, etc.) belong to USM. NEVER create a DTX-style trip in USM by mistake. If the user mentions "Dubai", "Japan", "Korea" etc. without naming a workspace, default to DTX.
+- TRIP SERIAL PREFIXES: DTX trips use prefix "T-" (e.g., T-0007), USM trips use prefix "S-" (e.g., S-0007). When the admin asks about "T-0007", search DTX; "S-0007" → USM. Some legacy USM trips still carry T- prefix from before the change, so when an exact serial collides across workspaces ask the admin which workspace.
 - LANGUAGE: when working in DTX (Mongolian outbound), reply in Mongolian. When working in USM (foreign inbound clients), generated documents (invoice descriptions, contract destinations) should be in English even though you speak Mongolian to the admin.
 - Trip types: FIT (individual / family booking, usually no group needed) and GIT (group tour, has named group).
 - Trip status values: planning, offer, confirmed, travelling, completed, cancelled. Lowercase only.
