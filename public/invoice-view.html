@@ -1,51 +1,332 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="mn">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Invoice</title>
+    <title>Нэхэмжлэх</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <style>
-      body { font-family: 'Montserrat', system-ui, sans-serif; margin: 0; padding: 32px; background: #f5f7fb; color: #2d3548; }
-      .invoice-paper { background: #fff; max-width: 760px; margin: 0 auto; padding: 40px 50px; border-radius: 8px; box-shadow: 0 4px 18px rgba(15,23,42,0.08); }
-      .invoice-actions { max-width: 760px; margin: 0 auto 16px; display: flex; gap: 8px; }
-      button.action { padding: 8px 14px; border-radius: 8px; border: 1px solid #20356f; background: #20356f; color: #fff; cursor: pointer; font-weight: 600; }
-      button.secondary { background: #fff; color: #20356f; }
-      .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
-      .invoice-header img { height: 50px; }
-      .invoice-header .meta { text-align: right; color: #4d586f; font-size: 0.92rem; line-height: 1.5; }
-      h1 { font-size: 1.4rem; margin: 4px 0 14px; color: #20356f; }
-      h3 { font-size: 0.92rem; color: #6f7a93; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 28px; margin-bottom: 8px; }
-      .company-block { margin-bottom: 24px; line-height: 1.55; font-size: 0.92rem; }
-      .company-block strong { display: block; font-size: 1.05rem; color: #20356f; }
-      .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 18px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-      th, td { padding: 10px 12px; text-align: left; font-size: 0.93rem; border-bottom: 1px solid rgba(32,53,111,0.08); }
-      th { color: #6f7a93; font-weight: 600; background: rgba(32,53,111,0.04); }
-      td.right, th.right { text-align: right; }
-      td.center, th.center { text-align: center; }
-      tfoot td { font-weight: 700; }
-      .installments { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-      .installment { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 12px; padding: 12px; border: 1px solid rgba(32,53,111,0.1); border-radius: 8px; align-items: center; }
-      .installment .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; }
-      .pill-pending { background: #fef3c7; color: #78350f; }
-      .pill-paid { background: #dcfce7; color: #14532d; }
-      .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 40px; padding-top: 24px; border-top: 1px solid rgba(32,53,111,0.08); font-size: 0.92rem; }
-      .signature { border-top: 1px solid #6f7a93; padding-top: 6px; margin-top: 60px; color: #2d3548; }
-      .empty { text-align: center; color: #6f7a93; padding: 40px; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #27272a;
+        font-family: "Nunito", Arial, sans-serif;
+        font-size: 13px;
+      }
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        justify-content: center;
+        gap: 14px;
+        padding: 18px 16px;
+        background: rgba(255, 255, 255, 0.96);
+        border-bottom: 1px solid #eef1f7;
+        backdrop-filter: blur(10px);
+      }
+      .toolbar a,
+      .toolbar-button {
+        min-width: 86px;
+        min-height: 46px;
+        padding: 11px 18px;
+        border: none;
+        border-radius: 999px;
+        background: #253776;
+        color: #fff;
+        text-decoration: none;
+        font: 800 16px/1.2 "Nunito", Arial, sans-serif;
+        cursor: pointer;
+      }
+      .toolbar-button.secondary {
+        background: #e9eef8;
+        color: #2a3c78;
+      }
+      .page {
+        width: min(720px, calc(100vw - 48px));
+        margin: 20px auto 40px;
+        padding: 20px;
+        background: #fff;
+        border: 1px solid #dce3ef;
+        border-radius: 14px;
+        box-shadow: none;
+      }
+      .invoice-number {
+        margin: 0 0 18px;
+        color: #27272a;
+        font-size: 18px;
+        line-height: 1.15;
+        font-weight: 500;
+      }
+      .header-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+        margin-bottom: 28px;
+      }
+      .invoice-logo {
+        width: 154px;
+        max-width: 100%;
+        display: block;
+        margin-bottom: 10px;
+      }
+      .company-name {
+        margin: 0 0 12px;
+        font-size: 14px;
+        line-height: 1.25;
+        font-weight: 700;
+        color: #27272a;
+      }
+      .company-block p,
+      .customer-block p,
+      .meta-note {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.38;
+      }
+      .meta-note {
+        text-align: right;
+        color: #27272a;
+      }
+      .customer-block {
+        padding-top: 80px;
+      }
+      .customer-block .label {
+        display: block;
+        margin-bottom: 4px;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .section-title {
+        margin: 0 0 10px;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .invoice-items-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        border-radius: 12px;
+        border: 1px solid #cfd8e6;
+        overflow: hidden;
+        margin-bottom: 28px;
+      }
+      th, td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #cfd8e6;
+        text-align: left;
+        font-size: 13px;
+        line-height: 1.25;
+      }
+      th {
+        background: #fbfcfe;
+        color: #27272a;
+        font-weight: 700;
+      }
+      th:first-child,
+      td:first-child {
+        width: 46px;
+      }
+      td:last-child,
+      th:last-child,
+      td:nth-last-child(2),
+      th:nth-last-child(2) {
+        text-align: right;
+      }
+      .total-row td {
+        font-weight: 700;
+        background: #fff;
+        border-bottom: 0;
+      }
+      .payment-stack {
+        display: grid;
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+      .payment-card {
+        display: grid;
+        grid-template-columns: 1.35fr 1.08fr 1.08fr 0.9fr 0.92fr;
+        gap: 10px;
+        align-items: center;
+        min-height: 74px;
+        padding: 16px 18px;
+        border: 1px solid #cfd8e6;
+        border-radius: 12px;
+        background: #fff;
+      }
+      .payment-main,
+      .payment-amount {
+        min-width: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #27272a;
+      }
+      .payment-amount {
+        text-align: right;
+        white-space: nowrap;
+      }
+      .payment-meta {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+      .meta-value {
+        font-size: 13px;
+        font-weight: 600;
+        color: #27272a;
+      }
+      .meta-label {
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .payment-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: fit-content;
+        min-width: 82px;
+        min-height: 30px;
+        padding: 5px 11px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .payment-status.paid {
+        background: #dcf4e3;
+        color: #1f8550;
+      }
+      .payment-status.overdue {
+        background: #f8dede;
+        color: #c44747;
+      }
+      .payment-status.waiting {
+        background: #fff5bd;
+        color: #8a4b12;
+      }
+      .bank-section {
+        margin-top: 0;
+        padding-bottom: 28px;
+        border-bottom: 1px solid #d9e0ea;
+      }
+      .bank-grid {
+        display: grid;
+        gap: 4px;
+        font-size: 13px;
+        line-height: 1.35;
+        color: #27272a;
+      }
+      .bank-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        align-items: baseline;
+      }
+      .bank-prefix {
+        color: #64748b;
+      }
+      .bank-account-number {
+        font-weight: 800;
+      }
+      .signature-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 28px;
+        margin-top: 24px;
+        align-items: start;
+      }
+      .signature-card {
+        position: relative;
+        min-height: 218px;
+        padding-top: 0;
+      }
+      .signature-label {
+        position: relative;
+        z-index: 3;
+        min-height: 18px;
+        margin-bottom: 112px;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 600;
+        background: #fff;
+      }
+      .signature-line {
+        border-bottom: 1px dashed #d5ddec;
+      }
+      .accountant-stamp {
+        position: absolute;
+        left: 2px;
+        bottom: 36px;
+        width: 218px;
+        z-index: 1;
+        opacity: 0.98;
+      }
+      .accountant-signature {
+        position: absolute;
+        left: 64px;
+        bottom: -34px;
+        width: 290px;
+        z-index: 2;
+      }
+      .signature-name {
+        position: relative;
+        z-index: 4;
+        margin-top: 14px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #27272a;
+      }
+      .signature-role {
+        position: relative;
+        z-index: 4;
+        color: #27272a;
+        font-size: 13px;
+      }
+      .empty {
+        text-align: center;
+        color: #64748b;
+        padding: 60px 20px;
+      }
       @media print {
-        body { background: #fff; padding: 0; }
-        .invoice-paper { box-shadow: none; max-width: 100%; padding: 24px 32px; }
-        .invoice-actions { display: none; }
+        .toolbar { display: none; }
+        body { background: #fff; }
+        .page { border: 0; margin: 0; padding: 24px; }
+      }
+      @media (max-width: 980px) {
+        body { font-size: 16px; }
+        .toolbar { gap: 10px; padding: 14px 10px; flex-wrap: wrap; }
+        .page { width: calc(100vw - 24px); margin: 12px auto 24px; padding: 22px; }
+        .header-grid, .signature-grid { grid-template-columns: 1fr; }
+        .invoice-number { font-size: 24px; }
+        .invoice-logo { width: 220px; }
+        .customer-block { padding-top: 0; }
+        .meta-note { text-align: left; }
+        .payment-card { grid-template-columns: 1fr; min-height: auto; padding: 18px; }
+        .payment-amount { text-align: left; }
       }
     </style>
   </head>
   <body>
-    <div class="invoice-actions">
-      <button type="button" class="action" onclick="window.print()">Download as PDF</button>
-      <button type="button" class="action secondary" onclick="window.close()">Close</button>
+    <div class="toolbar">
+      <button type="button" class="toolbar-button" onclick="window.print()">PDF Татах</button>
+      <button type="button" class="toolbar-button secondary" onclick="window.close()">Close</button>
     </div>
-    <div id="invoice-paper" class="invoice-paper"><p class="empty">Loading…</p></div>
+    <div id="invoice-page" class="page"><p class="empty">Loading…</p></div>
     <script>
+      const STATUS_MAP = {
+        pending: { label: "Хүлээгдэж буй", className: "waiting" },
+        waiting: { label: "Хүлээгдэж буй", className: "waiting" },
+        paid: { label: "Төлөгдсөн", className: "paid" },
+        overdue: { label: "Хугацаа хэтэрсэн", className: "overdue" },
+      };
       function escapeHtml(value) {
         return String(value == null ? "" : value)
           .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -55,70 +336,128 @@
         const num = Number(n) || 0;
         return num.toLocaleString("en-US") + " ₮";
       }
+      function statusFor(key) {
+        return STATUS_MAP[(key || "pending").toLowerCase()] || STATUS_MAP.pending;
+      }
       async function load() {
         const id = new URLSearchParams(window.location.search).get("id");
-        if (!id) { document.getElementById("invoice-paper").innerHTML = '<p class="empty">No invoice id provided.</p>'; return; }
-        const list = await fetch("/api/invoices").then((r) => r.json()).catch(() => ({ entries: [] }));
-        const inv = (list.entries || []).find((x) => x.id === id);
-        if (!inv) { document.getElementById("invoice-paper").innerHTML = '<p class="empty">Invoice not found.</p>'; return; }
-        const itemsHtml = (inv.items || []).map((it, i) => `
-          <tr><td class="center">${i + 1}</td><td>${escapeHtml(it.description)}</td><td class="center">${escapeHtml(it.qty)}</td><td class="right">${fmtMoney(it.price)}</td><td class="right">${fmtMoney(it.total)}</td></tr>
+        const page = document.getElementById("invoice-page");
+        if (!id) { page.innerHTML = '<p class="empty">No invoice id provided.</p>'; return; }
+        try {
+          const res = await fetch("/api/invoices");
+          const data = await res.json();
+          const inv = (data.entries || []).find((x) => x.id === id);
+          if (!inv) { page.innerHTML = '<p class="empty">Invoice not found.</p>'; return; }
+          render(inv);
+        } catch (err) {
+          page.innerHTML = `<p class="empty">Could not load invoice: ${escapeHtml(err.message || err)}</p>`;
+        }
+      }
+      function render(inv) {
+        const page = document.getElementById("invoice-page");
+        const customerName = (inv.payerName || "CLIENT").toUpperCase();
+        const issueDate = (inv.createdAt || "").slice(0, 10);
+        const items = inv.items || [];
+        const grandTotal = items.reduce((a, it) => a + (Number(it.qty) || 0) * (Number(it.price) || 0), 0) || (Number(inv.total) || 0);
+        const itemsHtml = items.map((it, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${escapeHtml(it.description || "")}</td>
+            <td>${escapeHtml(it.qty)}</td>
+            <td>${fmtMoney(it.price)}</td>
+            <td>${fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0))}</td>
+          </tr>
         `).join("");
-        const installmentsHtml = (inv.installments || []).map((inst) => `
-          <div class="installment">
-            <strong>${escapeHtml(inst.description)}</strong>
-            <div><div style="color:#6f7a93;font-size:0.78rem;">Issue Date</div>${escapeHtml(inst.issueDate || "-")}</div>
-            <div><div style="color:#6f7a93;font-size:0.78rem;">Due Date</div>${escapeHtml(inst.dueDate || "-")}</div>
-            <div><span class="pill pill-${escapeHtml(inst.status || "pending")}">${escapeHtml(inst.status || "pending")}</span></div>
-            <strong style="text-align:right">${fmtMoney(inst.amount)}</strong>
-          </div>
-        `).join("");
-        document.getElementById("invoice-paper").innerHTML = `
-          <div class="invoice-header">
+        const paymentsHtml = (inv.installments || []).map((inst) => {
+          const s = statusFor(inst.status);
+          return `
+            <div class="payment-card">
+              <div class="payment-main">${escapeHtml(inst.description || "")}</div>
+              <div class="payment-meta">
+                <span class="meta-label">Нэхэмжилсэн огноо</span>
+                <span class="meta-value">${escapeHtml(inst.issueDate || "-")}</span>
+              </div>
+              <div class="payment-meta">
+                <span class="meta-label">Эцсийн хугацаа</span>
+                <span class="meta-value">${escapeHtml(inst.dueDate || "-")}</span>
+              </div>
+              <div class="payment-meta">
+                <span class="meta-label">Төлөв</span>
+                <span class="payment-status ${s.className}">${s.label}</span>
+              </div>
+              <div class="payment-amount">${fmtMoney(inst.amount)}</div>
+            </div>
+          `;
+        }).join("") || '<p class="empty">No installments.</p>';
+        page.innerHTML = `
+          <p class="invoice-number">Нэхэмжлэх #${escapeHtml(inv.serial)}</p>
+          <div class="header-grid">
+            <div class="company-block">
+              <img class="invoice-logo" src="/assets/dtx-logo-blue-yellow.png" alt="Дэлхий Трэвел" onerror="this.style.display='none'" />
+              <p class="company-name">Дэлхий Трэвел Икс ХХК (6925073)</p>
+              <p>Улаанбаатар хот, ХУД, 17-р хороо</p>
+              <p>Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</p>
+              <p>info@travelx.mn</p>
+              <p>+976 72007722</p>
+            </div>
             <div>
-              <h1>Invoice #${escapeHtml(inv.serial)}</h1>
-              <div style="color:#6f7a93;font-size:0.92rem;">Status: ${escapeHtml(inv.status)}</div>
-            </div>
-            <div class="meta">
-              <div>Issue date</div>
-              <strong>${escapeHtml((inv.createdAt || "").slice(0, 10))}</strong>
-            </div>
-          </div>
-          <div class="company-block">
-            <strong>TravelX</strong>
-            Ulaanbaatar, Mongolia<br />
-            info@travelx.mn · +976 7200 7722
-          </div>
-          <div class="row-grid">
-            <div>
-              <h3>Payer</h3>
-              <strong>${escapeHtml(inv.payerName || "-")}</strong>
-            </div>
-            <div>
-              <h3>Currency</h3>
-              <strong>${escapeHtml(inv.currency)}</strong>
+              <p class="meta-note">Сангийн сайдын 2017 оны 12 дугаар сарын 05</p>
+              <p class="meta-note">өдрийн 347 тоот тушаалын хавсралт</p>
+              <div class="customer-block">
+                <span class="label">Төлөгч</span>
+                <p><strong>${escapeHtml(customerName)}</strong></p>
+              </div>
             </div>
           </div>
-          <h3>Price details</h3>
-          <table>
-            <thead><tr><th class="center">№</th><th>Description</th><th class="center">Qty</th><th class="right">Price</th><th class="right">Total</th></tr></thead>
-            <tbody>${itemsHtml}</tbody>
-            <tfoot><tr><td colspan="4" class="right">Total</td><td class="right">${fmtMoney(inv.total)}</td></tr></tfoot>
+          <p class="section-title">Үнийн мэдээлэл</p>
+          <table class="invoice-items-table">
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Утга</th>
+                <th>Тоо ширхэг</th>
+                <th>Нэгжийн үнэ</th>
+                <th>Нийт үнэ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr class="total-row">
+                <td colspan="4">Нийт үнэ</td>
+                <td>${fmtMoney(grandTotal)}</td>
+              </tr>
+            </tbody>
           </table>
-          <h3>Payment schedule</h3>
-          <div class="installments">${installmentsHtml || '<p class="empty">No installments.</p>'}</div>
-          <div class="footer">
-            <div>
-              <strong>TravelX</strong>
-              <div class="signature">Signature</div>
+          <p class="section-title">Төлбөрийн хуваарь</p>
+          <div class="payment-stack">${paymentsHtml}</div>
+          <div class="bank-section">
+            <p class="section-title">Дансны мэдээлэл</p>
+            <div class="bank-grid">
+              <div>Дэлхий Трэвел Икс</div>
+              <div class="bank-line">
+                <span>Төрийн Банк</span>
+                <span class="bank-prefix">MN030034</span>
+                <strong class="bank-account-number">3432 7777 9999</strong>
+              </div>
             </div>
-            <div>
-              <strong>${escapeHtml(inv.payerName || "-")}</strong>
-              <div class="signature">Signature</div>
+          </div>
+          <div class="signature-grid">
+            <div class="signature-card">
+              <div class="signature-label">Дэлхий Трэвел Икс ХХК</div>
+              <div class="signature-line"></div>
+              <img class="accountant-stamp" src="/assets/invoice-finance-stamp.png" alt="" onerror="this.style.display='none'" />
+              <img class="accountant-signature" src="/assets/invoice-finance-signature.png" alt="" onerror="this.style.display='none'" />
+              <div class="signature-name">Нягтлан</div>
+              <div class="signature-role">Г.Басгалаан</div>
+            </div>
+            <div class="signature-card">
+              <div class="signature-label">Төлөгч</div>
+              <div class="signature-line"></div>
+              <div class="signature-name">${escapeHtml(customerName)}</div>
             </div>
           </div>
         `;
-        document.title = `Invoice #${inv.serial}`;
+        document.title = `Нэхэмжлэх #${inv.serial}`;
       }
       load();
     </script>
