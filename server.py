@@ -8399,8 +8399,11 @@ def _tool_get_trip(args, actor):
 
 def _tool_create_trip(args, actor):
     payload = dict(args)
-    if "company" not in payload and payload.get("workspace"):
-        payload["company"] = payload.pop("workspace")
+    ws = (payload.get("workspace") or payload.get("company") or "").upper().strip()
+    if ws not in ("DTX", "USM"):
+        return {"error": "workspace is required and must be 'DTX' (outbound — any non-Mongolia destination) or 'USM' (inbound — inside Mongolia only)."}
+    payload["company"] = ws
+    payload.pop("workspace", None)
     record = build_camp_trip(payload, actor)
     err = validate_camp_trip(record)
     if err:
@@ -8956,8 +8959,9 @@ AGENT_TOOLS = [
     {"name": "get_trip", "description": "Get one trip by id.",
      "input_schema": {"type": "object", "required": ["tripId"], "properties": {"tripId": {"type": "string"}}},
      "handler": _tool_get_trip},
-    {"name": "create_trip", "description": "Create a trip. tripType is 'fit' or 'git'. Dates ISO yyyy-mm-dd.",
-     "input_schema": {"type": "object", "required": ["tripName", "startDate", "tripType"], "properties": {
+    {"name": "create_trip", "description": "Create a trip. workspace MUST be set explicitly: 'DTX' for any destination outside Mongolia (Solongos/Korea, Dubai, Japan, Turkey, Singapore, Russia, China, Europe, etc.) and 'USM' ONLY for trips inside Mongolia (Khustai, Gobi, Khuvsgul, Terelj, etc.). Never let workspace default. tripType is 'fit' or 'git'. Dates ISO yyyy-mm-dd.",
+     "input_schema": {"type": "object", "required": ["tripName", "startDate", "tripType", "workspace"], "properties": {
+         "workspace": {"type": "string", "enum": ["DTX", "USM"], "description": "DTX = outbound (any non-Mongolia destination); USM = inbound (inside Mongolia only). REQUIRED."},
          "tripName": {"type": "string"}, "tripType": {"type": "string", "enum": ["fit", "git"]},
          "startDate": {"type": "string"}, "endDate": {"type": "string"},
          "participantCount": {"type": "integer"}, "staffCount": {"type": "integer"},
