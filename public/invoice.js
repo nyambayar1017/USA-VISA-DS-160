@@ -60,6 +60,11 @@
     }
   }
 
+  function fmtDateOnly(value) {
+    if (!value) return "-";
+    return String(value).split("T")[0];
+  }
+
   function renderList() {
     const total = invoices.length + contracts.length;
     if (!total) {
@@ -72,18 +77,40 @@
       const data = c.data || {};
       const serial = data.contractSerial || c.id;
       const tourist = `${data.touristLastName || ""} ${data.touristFirstName || ""}`.trim() || "-";
-      const total = data.totalPrice ? `${data.totalPrice}` : "-";
+      const manager = (c.createdBy && c.createdBy.name) || (c.updatedBy && c.updatedBy.name) || "-";
+      const destination = data.destination || "-";
+      const totalAmt = data.totalPrice ? Number(String(data.totalPrice).replace(/[^0-9.-]/g, "")) || 0 : 0;
+      const status = c.status || "pending";
+      const statusLabel = status === "signed" ? "Signed" : "Pending";
+      const statusClass = status === "signed" ? "is-confirmed" : "is-pending";
+      const pdfReady = c.pdfPath && String(c.pdfPath).endsWith(".pdf");
+      const signed = status === "signed";
+      const shareLink = `${window.location.origin}/contract/${c.id}`;
+      const docxAttr = c.docxPath ? `href="${escapeHtml(c.docxPath)}" download` : "href=\"#\" data-disabled=\"1\"";
       return `
-        <tr>
+        <tr data-row-kind="contract" data-row-id="${escapeHtml(c.id)}">
           <td>${rowIndex}</td>
+          <td><span class="trip-type-pill">Contract</span></td>
           <td><strong>${escapeHtml(serial)}</strong></td>
-          <td>Contract</td>
           <td>${escapeHtml(tourist)}</td>
-          <td>${escapeHtml(total)}</td>
-          <td>—</td>
-          <td><span class="invoice-status invoice-status-${escapeHtml(c.status || "draft")}">${escapeHtml(c.status || "draft")}</span></td>
+          <td>${escapeHtml(manager)}</td>
+          <td>${escapeHtml(destination)}</td>
+          <td>${escapeHtml(fmtDateOnly(data.tripStartDate || data.contractDate))}</td>
+          <td>${fmtMoney(totalAmt)}</td>
+          <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+          <td>${escapeHtml(fmtDateOnly(c.createdAt))}</td>
           <td>
-            <a class="table-link compact secondary" href="/contracts#${encodeURIComponent(c.id)}" target="_blank" rel="noreferrer">Open</a>
+            <div class="contract-actions">
+              <a class="secondary-button" href="/api/contracts/${encodeURIComponent(c.id)}/document?mode=view" target="_blank" rel="noreferrer">View</a>
+              <button type="button" class="secondary-button" data-contract-action="edit" data-id="${escapeHtml(c.id)}" ${signed ? "disabled" : ""}>Edit</button>
+              <a class="secondary-button" ${docxAttr}>Word</a>
+              ${pdfReady
+                ? `<a class="secondary-button ${signed ? "success-button" : ""}" href="/pdf-viewer?src=${encodeURIComponent("/api/contracts/" + c.id + "/document?mode=download")}&title=${encodeURIComponent(serial || "Contract")}" target="_blank" rel="noreferrer">${signed ? "Signed PDF" : "PDF"}</a>`
+                : '<span class="muted">PDF pending</span>'}
+              <a class="secondary-button" href="/api/contracts/${encodeURIComponent(c.id)}/invoice?mode=view" target="_blank" rel="noreferrer">Invoice</a>
+              <button type="button" class="secondary-button" data-contract-action="copy" data-link="${escapeHtml(shareLink)}">Copy link</button>
+              <button type="button" class="secondary-button danger-button" data-contract-action="delete" data-id="${escapeHtml(c.id)}">Delete</button>
+            </div>
           </td>
         </tr>
       `;
@@ -91,32 +118,54 @@
     const invoiceRows = invoices.map((inv) => {
       rowIndex += 1;
       const grp = groups.find((g) => g.id === inv.groupId);
-      const installments = (inv.installments || []).map((i) =>
-        `${escapeHtml(i.description)} (${escapeHtml(i.status)})`
-      ).join(" · ") || "—";
+      const status = inv.status || "draft";
+      const statusClass = status === "paid" || status === "published"
+        ? "is-confirmed"
+        : status === "cancelled"
+          ? "is-cancelled"
+          : "is-pending";
+      const issue = (inv.installments && inv.installments[0] && inv.installments[0].issueDate) || inv.createdAt;
       return `
-        <tr>
+        <tr data-row-kind="invoice" data-row-id="${escapeHtml(inv.id)}">
           <td>${rowIndex}</td>
+          <td><span class="trip-type-pill">Invoice</span></td>
           <td><strong>#${escapeHtml(inv.serial)}</strong></td>
-          <td>Invoice</td>
-          <td>${escapeHtml(inv.payerName || grp?.name || "-")}</td>
+          <td>${escapeHtml(inv.payerName || "-")}</td>
+          <td>${escapeHtml((inv.createdBy && inv.createdBy.name) || "-")}</td>
+          <td>${escapeHtml(grp?.name || "-")}</td>
+          <td>${escapeHtml(fmtDateOnly(issue))}</td>
           <td>${fmtMoney(inv.total)}</td>
-          <td>${installments}</td>
-          <td><span class="invoice-status invoice-status-${escapeHtml(inv.status)}">${escapeHtml(inv.status)}</span></td>
+          <td><span class="status-pill ${statusClass}">${escapeHtml(status)}</span></td>
+          <td>${escapeHtml(fmtDateOnly(inv.createdAt))}</td>
           <td>
-            <button type="button" class="table-link compact secondary" data-invoice-action="view" data-id="${inv.id}">View</button>
-            <button type="button" class="table-link compact secondary" data-invoice-action="edit" data-id="${inv.id}">Edit</button>
-            <button type="button" class="table-link compact secondary" data-invoice-action="delete" data-id="${inv.id}">Delete</button>
+            <div class="contract-actions">
+              <a class="secondary-button" href="/invoice-view?id=${encodeURIComponent(inv.id)}" target="_blank" rel="noreferrer">View</a>
+              <button type="button" class="secondary-button" data-invoice-action="edit" data-id="${escapeHtml(inv.id)}">Edit</button>
+              <button type="button" class="secondary-button" data-invoice-action="detail" data-id="${escapeHtml(inv.id)}">Details</button>
+              <button type="button" class="secondary-button danger-button" data-invoice-action="delete" data-id="${escapeHtml(inv.id)}">Delete</button>
+            </div>
           </td>
         </tr>
       `;
     }).join("");
     listNode.innerHTML = `
-      <div class="camp-table-wrap">
-        <table class="camp-table reservation-addon-table invoice-list-table">
-          <thead><tr>
-            <th>#</th><th>Serial</th><th>Type</th><th>Client</th><th>Total</th><th>Installments</th><th>Status</th><th>Actions</th>
-          </tr></thead>
+      <div class="table-scroll">
+        <table class="contract-table contract-trip-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Type</th>
+              <th>Serial</th>
+              <th>Client</th>
+              <th>Manager</th>
+              <th>Destination</th>
+              <th>Date</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody>${contractRows}${invoiceRows}</tbody>
         </table>
       </div>
@@ -600,20 +649,48 @@
   });
 
   listNode.addEventListener("click", async (e) => {
-    const btn = e.target.closest("[data-invoice-action]");
-    if (!btn) return;
-    const id = btn.dataset.id;
-    const invoice = invoices.find((x) => x.id === id);
-    if (!invoice) return;
-    const action = btn.dataset.invoiceAction;
-    if (action === "view") openDetailModal(invoice);
-    else if (action === "edit") openWizard(invoice);
-    else if (action === "delete") {
-      if (!confirm(`Delete invoice #${invoice.serial}?`)) return;
-      try {
-        await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
-        await loadAll();
-      } catch (err) { alert(err.message || "Could not delete"); }
+    const invBtn = e.target.closest("[data-invoice-action]");
+    if (invBtn) {
+      const id = invBtn.dataset.id;
+      const invoice = invoices.find((x) => x.id === id);
+      if (!invoice) return;
+      const action = invBtn.dataset.invoiceAction;
+      if (action === "detail" || action === "view") openDetailModal(invoice);
+      else if (action === "edit") openWizard(invoice);
+      else if (action === "delete") {
+        if (!confirm(`Delete invoice #${invoice.serial}?`)) return;
+        try {
+          await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
+          await loadAll();
+        } catch (err) { alert(err.message || "Could not delete"); }
+      }
+      return;
+    }
+    const ctrBtn = e.target.closest("[data-contract-action]");
+    if (ctrBtn) {
+      const action = ctrBtn.dataset.contractAction;
+      if (action === "copy") {
+        const link = ctrBtn.dataset.link || "";
+        try {
+          await navigator.clipboard.writeText(link);
+          const label = ctrBtn.textContent;
+          ctrBtn.textContent = "Copied";
+          setTimeout(() => { ctrBtn.textContent = label; }, 1500);
+        } catch { alert("Could not copy."); }
+        return;
+      }
+      const id = ctrBtn.dataset.id;
+      if (action === "delete") {
+        if (!confirm("Delete this contract?")) return;
+        try {
+          await fetchJson(`/api/contracts/${id}`, { method: "DELETE" });
+          await loadAll();
+        } catch (err) { alert(err.message || "Could not delete contract."); }
+      } else if (action === "edit") {
+        // Re-launch /contracts editor with the contract pre-loaded
+        window.open(`/contracts?editId=${encodeURIComponent(id)}#${encodeURIComponent(id)}`, "_blank", "noreferrer");
+      }
+      return;
     }
   });
 

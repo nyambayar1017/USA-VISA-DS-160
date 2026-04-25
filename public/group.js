@@ -149,25 +149,10 @@ async function loadAll() {
       const contractList = Array.isArray(contractsRes) ? contractsRes : (contractsRes.entries || []);
       const matchingContracts = contractList
         .filter((c) => c.groupId === groupId || (c.tripId === tripId && !c.groupId))
-        .map((c) => ({
-          kind: "contract",
-          id: c.id,
-          serial: (c.data && c.data.contractSerial) || c.id || "-",
-          client: (c.data && (c.data.touristLastName || "") + " " + (c.data.touristFirstName || "")).trim() || "-",
-          total: (c.data && c.data.totalPrice) || "-",
-          createdAt: c.createdAt || "",
-        }));
+        .map((c) => ({ ...c, _kind: "contract" }));
       const matchingInvoices = (invoicesRes.entries || [])
         .filter((i) => !i.groupId || i.groupId === groupId)
-        .map((i) => ({
-          kind: "invoice",
-          id: i.id,
-          serial: i.serial || i.id,
-          client: i.payerName || "-",
-          total: i.total || 0,
-          status: i.status || "draft",
-          createdAt: i.createdAt || "",
-        }));
+        .map((i) => ({ ...i, _kind: "invoice" }));
       invoices = [...matchingContracts, ...matchingInvoices];
     } catch {
       invoices = [];
@@ -313,37 +298,154 @@ function renderSummary() {
   document.getElementById("group-edit-btn")?.addEventListener("click", openGroupEdit);
 }
 
+function fmtMoney(n) {
+  const num = Number(String(n || 0).replace(/[^0-9.-]/g, "")) || 0;
+  return num.toLocaleString("en-US") + " ₮";
+}
+
 function renderInvoices() {
   if (!invoices.length) {
     invoicesList.innerHTML = '<p class="empty">No invoices or contracts linked to this group yet.</p>';
     return;
   }
+  let rowIndex = 0;
+  const rowsHtml = invoices.map((entry) => {
+    rowIndex += 1;
+    if (entry._kind === "contract") {
+      const c = entry;
+      const data = c.data || {};
+      const serial = data.contractSerial || c.id;
+      const tourist = `${data.touristLastName || ""} ${data.touristFirstName || ""}`.trim() || "-";
+      const manager = (c.createdBy && c.createdBy.name) || (c.updatedBy && c.updatedBy.name) || "-";
+      const destination = data.destination || "-";
+      const totalAmt = data.totalPrice ? Number(String(data.totalPrice).replace(/[^0-9.-]/g, "")) || 0 : 0;
+      const status = c.status || "pending";
+      const statusLabel = status === "signed" ? "Signed" : "Pending";
+      const statusClass = status === "signed" ? "is-confirmed" : "is-pending";
+      const pdfReady = c.pdfPath && String(c.pdfPath).endsWith(".pdf");
+      const signed = status === "signed";
+      const shareLink = `${window.location.origin}/contract/${c.id}`;
+      const docxAttr = c.docxPath ? `href="${escapeHtml(c.docxPath)}" download` : "href=\"#\" data-disabled=\"1\"";
+      return `
+        <tr data-row-kind="contract" data-row-id="${escapeHtml(c.id)}">
+          <td>${rowIndex}</td>
+          <td><span class="trip-type-pill">Contract</span></td>
+          <td><strong>${escapeHtml(serial)}</strong></td>
+          <td>${escapeHtml(tourist)}</td>
+          <td>${escapeHtml(manager)}</td>
+          <td>${escapeHtml(destination)}</td>
+          <td>${escapeHtml(formatDate(data.tripStartDate || data.contractDate))}</td>
+          <td>${fmtMoney(totalAmt)}</td>
+          <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+          <td>${escapeHtml(formatDate(c.createdAt))}</td>
+          <td>
+            <div class="contract-actions">
+              <a class="secondary-button" href="/api/contracts/${encodeURIComponent(c.id)}/document?mode=view" target="_blank" rel="noreferrer">View</a>
+              <button type="button" class="secondary-button" data-contract-action="edit" data-id="${escapeHtml(c.id)}" ${signed ? "disabled" : ""}>Edit</button>
+              <a class="secondary-button" ${docxAttr}>Word</a>
+              ${pdfReady
+                ? `<a class="secondary-button ${signed ? "success-button" : ""}" href="/pdf-viewer?src=${encodeURIComponent("/api/contracts/" + c.id + "/document?mode=download")}&title=${encodeURIComponent(serial || "Contract")}" target="_blank" rel="noreferrer">${signed ? "Signed PDF" : "PDF"}</a>`
+                : '<span class="muted">PDF pending</span>'}
+              <a class="secondary-button" href="/api/contracts/${encodeURIComponent(c.id)}/invoice?mode=view" target="_blank" rel="noreferrer">Invoice</a>
+              <button type="button" class="secondary-button" data-contract-action="copy" data-link="${escapeHtml(shareLink)}">Copy link</button>
+              <button type="button" class="secondary-button danger-button" data-contract-action="delete" data-id="${escapeHtml(c.id)}">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+    const inv = entry;
+    const status = inv.status || "draft";
+    const statusClass = status === "paid" || status === "published"
+      ? "is-confirmed"
+      : status === "cancelled"
+        ? "is-cancelled"
+        : "is-pending";
+    const issue = (inv.installments && inv.installments[0] && inv.installments[0].issueDate) || inv.createdAt;
+    return `
+      <tr data-row-kind="invoice" data-row-id="${escapeHtml(inv.id)}">
+        <td>${rowIndex}</td>
+        <td><span class="trip-type-pill">Invoice</span></td>
+        <td><strong>#${escapeHtml(inv.serial || inv.id)}</strong></td>
+        <td>${escapeHtml(inv.payerName || "-")}</td>
+        <td>${escapeHtml((inv.createdBy && inv.createdBy.name) || "-")}</td>
+        <td>${escapeHtml(group?.name || "-")}</td>
+        <td>${escapeHtml(formatDate(issue))}</td>
+        <td>${fmtMoney(inv.total)}</td>
+        <td><span class="status-pill ${statusClass}">${escapeHtml(status)}</span></td>
+        <td>${escapeHtml(formatDate(inv.createdAt))}</td>
+        <td>
+          <div class="contract-actions">
+            <a class="secondary-button" href="/invoice-view?id=${encodeURIComponent(inv.id)}" target="_blank" rel="noreferrer">View</a>
+            <a class="secondary-button" href="/trip-detail?tripId=${encodeURIComponent(tripId)}&openInvoice=${encodeURIComponent(groupId)}#invoices-section" target="_blank" rel="noreferrer">Edit</a>
+            <button type="button" class="secondary-button danger-button" data-invoice-action="delete" data-id="${escapeHtml(inv.id)}">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
   invoicesList.innerHTML = `
-    <div class="camp-table-wrap">
-      <table class="camp-table reservation-addon-table">
-        <thead><tr><th>#</th><th>Type</th><th>Serial</th><th>Client</th><th>Total</th><th>Created</th><th>Open</th></tr></thead>
-        <tbody>
-          ${invoices.map((inv, i) => {
-            const href = inv.kind === "contract"
-              ? `/contracts#${encodeURIComponent(inv.id)}`
-              : `/invoice-view?id=${encodeURIComponent(inv.id)}`;
-            return `
-              <tr>
-                <td>${i + 1}</td>
-                <td>${inv.kind === "contract" ? "Contract" : "Invoice"}</td>
-                <td><strong>${escapeHtml(inv.serial)}</strong></td>
-                <td>${escapeHtml(inv.client || "-")}</td>
-                <td>${escapeHtml(String(inv.total))}</td>
-                <td>${escapeHtml(formatDate(inv.createdAt))}</td>
-                <td><a class="table-link compact secondary" href="${href}" target="_blank" rel="noreferrer">Open</a></td>
-              </tr>
-            `;
-          }).join("")}
-        </tbody>
+    <div class="table-scroll">
+      <table class="contract-table contract-trip-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Type</th>
+            <th>Serial</th>
+            <th>Client</th>
+            <th>Manager</th>
+            <th>Destination</th>
+            <th>Date</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
       </table>
     </div>
   `;
 }
+
+invoicesList.addEventListener("click", async (e) => {
+  const ctrBtn = e.target.closest("[data-contract-action]");
+  if (ctrBtn) {
+    const action = ctrBtn.dataset.contractAction;
+    if (action === "copy") {
+      try {
+        await navigator.clipboard.writeText(ctrBtn.dataset.link || "");
+        const label = ctrBtn.textContent;
+        ctrBtn.textContent = "Copied";
+        setTimeout(() => { ctrBtn.textContent = label; }, 1500);
+      } catch { alert("Could not copy."); }
+      return;
+    }
+    const id = ctrBtn.dataset.id;
+    if (action === "delete") {
+      if (!confirm("Delete this contract?")) return;
+      try {
+        await fetchJson(`/api/contracts/${id}`, { method: "DELETE" });
+        await loadAll();
+      } catch (err) { alert(err.message || "Could not delete contract."); }
+    } else if (action === "edit") {
+      window.open(`/contracts?editId=${encodeURIComponent(id)}#${encodeURIComponent(id)}`, "_blank", "noreferrer");
+    }
+    return;
+  }
+  const invBtn = e.target.closest("[data-invoice-action]");
+  if (invBtn) {
+    const id = invBtn.dataset.id;
+    const action = invBtn.dataset.invoiceAction;
+    if (action === "delete") {
+      if (!confirm("Delete this invoice?")) return;
+      try {
+        await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
+        await loadAll();
+      } catch (err) { alert(err.message || "Could not delete invoice."); }
+    }
+  }
+});
 
 function renderFlights() {
   if (!flights.length) {
