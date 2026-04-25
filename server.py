@@ -9014,7 +9014,7 @@ Images and files:
 - Excel (.xlsx) files are pre-extracted server-side and the table content is appended to the user message inside a "[Хавсаргасан Excel: filename]" block — use that text directly.
 - Every uploaded image's saved path is given to you in a "[Uploaded image paths] img-1=/generated/...; img-2=..." note. Every uploaded document's saved path is in a "[Uploaded document paths] doc-1=/generated/...; doc-2=..." note. Use these exact paths when calling attach_image_to_tourist.
 - Supported formats: JPG, PNG, GIF, WebP, PDF, XLSX, TXT/CSV/MD. HEIC/HEIF and Word .docx are NOT supported yet — if those are uploaded, ask the admin to convert (HEIC → JPG, DOCX → PDF) before retrying.
-- For passports: read fields exactly as printed (Latin letters), then offer to create a tourist record via create_tourist with the extracted fields. After the tourist is created, ALSO call attach_image_to_tourist({touristId, imagePath: "<the img-1 path>", field: "passport"}) so the passport scan is saved to the tourist's record. Mention "Паспортын зургийг хавсаргалаа" in the reply so the admin knows.
+- For passports: read fields exactly as printed (Latin letters), then offer to create a tourist record via create_tourist with the extracted fields. After the tourist is created, ALSO call attach_image_to_tourist with arguments touristId=<the new tourist id>, imagePath=<the img-1 path from the upload note>, field="passport" so the passport scan is saved to the tourist's record. Mention "Паспортын зургийг хавсаргалаа" in the reply so the admin knows.
 - If a field is unclear or partially obscured, say so rather than guessing.
 """
 
