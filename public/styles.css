@@ -791,8 +791,7 @@ td {
   display: none;
 }
 
-.trip-filter-pill[open] > summary,
-.trip-filter-pill.has-active > summary {
+.trip-filter-pill[open] > summary {
   border-style: solid;
   border-color: rgba(37, 58, 119, 0.45);
   background: rgba(238, 243, 255, 0.7);
@@ -820,16 +819,7 @@ td {
 }
 
 .trip-filter-pill-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--brand);
-  color: #fff;
-  font-size: 0.74rem;
-  font-weight: 700;
+  display: none !important;
 }
 
 .trip-filter-popover {
@@ -4244,15 +4234,15 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
 
   .workspace-main {
-    padding: 18px 16px 28px;
+    padding: 8px 14px 24px;
   }
 
   .workspace-mobile-bar {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 4px 0 14px;
-    margin-bottom: 4px;
+    padding: 0;
+    margin-bottom: 0;
   }
 
   .workspace-hamburger {
@@ -4343,9 +4333,10 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     pointer-events: auto;
   }
 
-  .workspace-mobile-bar {
-    padding: 2px 0 6px;
-    margin-bottom: 6px;
+  .workspace-main > .card:first-of-type,
+  .workspace-mobile-bar + .card,
+  .workspace-mobile-bar + .workspace-topbar + .card {
+    margin-top: 6px;
   }
 
   .workspace-profile-menu {
@@ -6787,8 +6778,10 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
 
   .workspace-topbar {
-    padding: 14px;
-    border-radius: 20px;
+    padding: 0;
+    margin: 0;
+    min-height: 0;
+    border-radius: 0;
   }
 
   .workspace-kicker {
