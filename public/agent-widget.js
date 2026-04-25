@@ -263,6 +263,36 @@
     });
   }
 
+  function downsizeImage(dataUrl, maxEdge, quality) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth, h = img.naturalHeight;
+        // No need to resize if already small enough.
+        if (w <= maxEdge && h <= maxEdge) {
+          resolve(dataUrl);
+          return;
+        }
+        const scale = Math.min(maxEdge / w, maxEdge / h);
+        const cw = Math.round(w * scale);
+        const ch = Math.round(h * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = cw;
+        canvas.height = ch;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.drawImage(img, 0, 0, cw, ch);
+        try {
+          const out = canvas.toDataURL("image/jpeg", quality || 0.85);
+          resolve(out);
+        } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function classifyFile(f) {
     if (IMAGE_TYPES.test(f.type)) return "image";
     if (HEIC_TYPES.test(f.type) || /\.(heic|heif)$/i.test(f.name)) return "heic";
@@ -308,7 +338,15 @@
         continue;
       }
       try {
-        const dataUrl = await fileToDataUrl(f);
+        let dataUrl = await fileToDataUrl(f);
+        // Resize images down so the upload to Anthropic stays under
+        // ~400 KB. iPhone passport scans are 3-5 MB which makes every
+        // tool loop slow and risks Render proxy timeouts.
+        if (kind === "image") {
+          try {
+            dataUrl = await downsizeImage(dataUrl, 1280, 0.85);
+          } catch (e) {}
+        }
         pendingFiles.push({ name: f.name, dataUrl, kind, type: f.type || "" });
       } catch (e) {}
     }
