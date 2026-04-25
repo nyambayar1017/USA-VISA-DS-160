@@ -577,14 +577,58 @@ function setActiveCamp(campName, options = {}) {
   }
 }
 
+// New filter state shared across Trip filter pills (in addition to legacy
+// inline inputs that still exist for back-compat with other JS).
+const tripFilterState = {
+  name: "",
+  serial: "",
+  tags: new Set(),
+  status: new Set(),
+  language: new Set(),
+  dateFrom: "",
+  dateTo: "",
+};
+
+function computeTripEndDate(trip) {
+  if (!trip || !trip.startDate) return "";
+  const start = new Date(trip.startDate);
+  if (Number.isNaN(start.getTime())) return "";
+  const days = parseInt(trip.totalDays, 10);
+  if (!days || days < 1) return trip.startDate;
+  const end = new Date(start);
+  end.setDate(end.getDate() + days - 1);
+  return end.toISOString().slice(0, 10);
+}
+
+function renderTripTagPills(tags) {
+  if (!Array.isArray(tags) || tags.length === 0) return "<span class=\"trip-tag-empty\">-</span>";
+  return tags
+    .map((tag) => `<span class="trip-tag">${escapeHtml(tag)}</span>`)
+    .join("");
+}
+
 function getFilteredTrips() {
+  const name = (tripFilterState.name || "").trim().toLowerCase();
+  const serial = (tripFilterState.serial || "").trim().toLowerCase();
+  const tags = tripFilterState.tags;
+  const statuses = tripFilterState.status;
+  const langs = tripFilterState.language;
+  const from = tripFilterState.dateFrom || "";
+  const to = tripFilterState.dateTo || "";
   return sortByDateAsc(currentTrips, "startDate").filter((trip) => {
-    const matchesTripName = !tripFilterName.value || String(trip.tripName || "").toLowerCase().includes(tripFilterName.value.trim().toLowerCase());
-    const matchesStartDate = !tripFilterStartDate.value || String(trip.startDate || "") >= tripFilterStartDate.value;
-    const matchesStatus = !tripFilterStatus.value || trip.status === tripFilterStatus.value;
-    const matchesLanguage = !tripFilterLanguage?.value || trip.language === tripFilterLanguage.value;
-    const matchesCreated = !tripFilterCreatedDate?.value || getCreatedAtFilterValue(trip.createdAt) === tripFilterCreatedDate.value;
-    return matchesTripName && matchesStartDate && matchesStatus && matchesLanguage && matchesCreated;
+    const tripName = String(trip.tripName || "").toLowerCase();
+    const reservationName = String(trip.reservationName || "").toLowerCase();
+    const id = String(trip.id || "").toLowerCase();
+    const matchesName = !name || tripName.includes(name) || reservationName.includes(name);
+    const matchesSerial = !serial || id.includes(serial) || reservationName.includes(serial) || tripName.includes(serial);
+    const tripTags = Array.isArray(trip.tags) ? trip.tags.map((t) => String(t).toLowerCase()) : [];
+    const matchesTags = tags.size === 0 || [...tags].some((t) => tripTags.includes(String(t).toLowerCase()));
+    const matchesStatus = statuses.size === 0 || statuses.has(trip.status);
+    const matchesLang = langs.size === 0 || langs.has(trip.language);
+    const start = String(trip.startDate || "");
+    const matchesFrom = !from || start >= from;
+    const matchesTo = !to || start <= to;
+    return matchesName && matchesSerial && matchesTags && matchesStatus && matchesLang && matchesFrom && matchesTo;
   });
 }
 
@@ -809,6 +853,8 @@ function renderTrips() {
           <col style="width: 210px" />
           <col style="width: 118px" />
           <col style="width: 96px" />
+          <col style="width: 96px" />
+          <col style="width: 130px" />
           <col style="width: 52px" />
           <col style="width: 52px" />
           <col style="width: 92px" />
@@ -826,6 +872,8 @@ function renderTrips() {
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Start</th>
+            <th>End</th>
+            <th>Tags</th>
             <th>Pax</th>
             <th>Staff</th>
             <th>Guide</th>
@@ -849,6 +897,8 @@ function renderTrips() {
                   </td>
                   <td>${escapeHtml(trip.reservationName || trip.tripName)}</td>
                   <td>${formatDate(trip.startDate)}</td>
+                  <td>${formatDate(trip.endDate || computeTripEndDate(trip))}</td>
+                  <td class="trip-tag-cell">${renderTripTagPills(trip.tags)}</td>
                   <td class="trip-pax-cell">${trip.participantCount}</td>
                   <td class="trip-pax-cell">${trip.staffCount}</td>
                   <td>${escapeHtml(trip.guideName || "-")}</td>
@@ -1824,6 +1874,7 @@ async function loadTrips() {
     activeTripId = "";
   }
   renderSettingsOptions();
+  refreshFilterPopoverOptions();
   renderTrips();
   renderActiveTrip();
 }
@@ -1895,11 +1946,17 @@ function startTripEdit(id) {
   tripForm.elements.tripName.value = trip.tripName || "";
   tripForm.elements.reservationName.value = trip.reservationName || trip.tripName || "";
   tripForm.elements.startDate.value = String(trip.startDate || "").slice(0, 10);
+  if (tripForm.elements.endDate) {
+    tripForm.elements.endDate.value = String(trip.endDate || "").slice(0, 10);
+  }
   tripForm.elements.participantCount.value = String(trip.participantCount || 0);
   tripForm.elements.staffCount.value = String(trip.staffCount || 0);
   tripForm.elements.totalDays.value = String(trip.totalDays || 1);
   tripForm.elements.language.value = trip.language || "";
   tripForm.elements.status.value = trip.status || "planning";
+  if (tripForm.elements.tags) {
+    tripForm.elements.tags.value = Array.isArray(trip.tags) ? trip.tags.join(", ") : "";
+  }
   tripStatus.textContent = `Editing trip: ${trip.tripName}`;
   tripForm.elements.guideName.value = trip.guideName || "";
   tripForm.elements.driverName.value = trip.driverName || "";
@@ -2613,6 +2670,8 @@ campPaymentList.addEventListener("click", handleCampTableClick);
   });
 });
 
+// Legacy refs kept null-safe for back-compat — the new pill-based
+// trip filter bar is initialised by setupTripFilterBar() below.
 [tripFilterName, tripFilterStartDate, tripFilterStatus, tripFilterLanguage, tripFilterCreatedDate].forEach((node) => {
   if (!node) return;
   node.addEventListener("input", () => {
@@ -2989,6 +3048,242 @@ if (docFilterTabsEl && isTripDetailPage()) {
 
 // ── End Trip Documents ──────────────────────────────────────────────────────
 
+// ── Trip filter bar (pills + saved filters) ─────────────────────────────────
+const SAVED_FILTERS_KEY = "trips:savedFilters";
+let tripFilterBarReady = false;
+let suppressFilterRender = false;
+
+function readSavedFilters() {
+  try {
+    const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+function writeSavedFilters(list) {
+  try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list)); } catch {}
+}
+
+function snapshotFilterState() {
+  return {
+    name: tripFilterState.name,
+    serial: tripFilterState.serial,
+    tags: [...tripFilterState.tags],
+    status: [...tripFilterState.status],
+    language: [...tripFilterState.language],
+    dateFrom: tripFilterState.dateFrom,
+    dateTo: tripFilterState.dateTo,
+  };
+}
+
+function applyFilterStateFromSnapshot(snap) {
+  suppressFilterRender = true;
+  tripFilterState.name = snap?.name || "";
+  tripFilterState.serial = snap?.serial || "";
+  tripFilterState.tags = new Set(snap?.tags || []);
+  tripFilterState.status = new Set(snap?.status || []);
+  tripFilterState.language = new Set(snap?.language || []);
+  tripFilterState.dateFrom = snap?.dateFrom || "";
+  tripFilterState.dateTo = snap?.dateTo || "";
+  syncFilterBarUiFromState();
+  suppressFilterRender = false;
+  currentTripPage = 1;
+  renderTrips();
+}
+
+function syncFilterBarUiFromState() {
+  const bar = document.querySelector("[data-trip-filter-bar]");
+  if (!bar) return;
+  const nameInput = bar.querySelector("#trip-filter-name");
+  if (nameInput) nameInput.value = tripFilterState.name;
+  const serialInput = bar.querySelector("#trip-filter-serial");
+  if (serialInput) serialInput.value = tripFilterState.serial;
+  const fromInput = bar.querySelector("#trip-filter-date-from");
+  if (fromInput) fromInput.value = tripFilterState.dateFrom;
+  const toInput = bar.querySelector("#trip-filter-date-to");
+  if (toInput) toInput.value = tripFilterState.dateTo;
+  syncPillUi("status", bar);
+  syncPillUi("language", bar);
+  syncPillUi("tags", bar);
+  updateDateRangePillCount(bar);
+}
+
+function syncPillUi(name, bar) {
+  const pill = bar.querySelector(`details[data-filter-pill="${name}"]`);
+  if (!pill) return;
+  const set = tripFilterState[name];
+  pill.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+    cb.checked = set.has(cb.value);
+  });
+  updatePillCount(pill, set.size);
+}
+
+function updatePillCount(pill, count) {
+  const badge = pill.querySelector(".trip-filter-pill-count");
+  const label = pill.querySelector(".trip-filter-pill-label");
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = String(count);
+    badge.removeAttribute("hidden");
+    pill.classList.add("has-active");
+    if (label) label.classList.add("has-selected");
+  } else {
+    badge.setAttribute("hidden", "");
+    pill.classList.remove("has-active");
+    if (label) label.classList.remove("has-selected");
+  }
+}
+
+function updateDateRangePillCount(bar) {
+  const pill = bar.querySelector('details[data-filter-pill="date-range"]');
+  if (!pill) return;
+  const count = (tripFilterState.dateFrom ? 1 : 0) + (tripFilterState.dateTo ? 1 : 0);
+  updatePillCount(pill, count);
+}
+
+function refreshFilterPopoverOptions() {
+  const bar = document.querySelector("[data-trip-filter-bar]");
+  if (!bar) return;
+  const tagSet = new Set();
+  const langSet = new Set();
+  currentTrips.forEach((trip) => {
+    (trip.tags || []).forEach((t) => tagSet.add(t));
+    if (trip.language) langSet.add(trip.language);
+  });
+  ["English", "French", "Mongolian", "Korean", "Spanish", "Italian", "Other"].forEach((l) => langSet.add(l));
+
+  const tagsList = bar.querySelector('details[data-filter-pill="tags"] [data-popover-list]');
+  if (tagsList) {
+    if (tagSet.size === 0) {
+      tagsList.innerHTML = '<p class="trip-filter-empty">No tags yet. Add tags when creating a trip.</p>';
+    } else {
+      tagsList.innerHTML = [...tagSet]
+        .sort((a, b) => a.localeCompare(b))
+        .map((t) => `<label class="trip-filter-checkbox"><input type="checkbox" value="${escapeHtml(t)}" data-tag-checkbox /><span>${escapeHtml(t)}</span></label>`)
+        .join("");
+    }
+  }
+
+  const langList = bar.querySelector('details[data-filter-pill="language"] [data-popover-list]');
+  if (langList) {
+    langList.innerHTML = [...langSet]
+      .sort((a, b) => a.localeCompare(b))
+      .map((l) => `<label class="trip-filter-checkbox"><input type="checkbox" value="${escapeHtml(l)}" data-lang-checkbox /><span>${escapeHtml(l)}</span></label>`)
+      .join("");
+  }
+
+  syncPillUi("tags", bar);
+  syncPillUi("language", bar);
+}
+
+function refreshSavedFiltersDropdown(selectName) {
+  const select = document.querySelector("#trip-saved-filter-select");
+  const deleteBtn = document.querySelector("#trip-delete-filter-btn");
+  if (!select) return;
+  const list = readSavedFilters();
+  const previous = selectName ?? select.value;
+  select.innerHTML = `<option value="">Select saved filter</option>${list
+    .map((f) => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`)
+    .join("")}`;
+  if (previous && list.some((f) => f.name === previous)) {
+    select.value = previous;
+    deleteBtn?.removeAttribute("hidden");
+  } else {
+    select.value = "";
+    deleteBtn?.setAttribute("hidden", "");
+  }
+}
+
+function setupTripFilterBar() {
+  if (tripFilterBarReady) return;
+  const bar = document.querySelector("[data-trip-filter-bar]");
+  if (!bar) return;
+  tripFilterBarReady = true;
+
+  const onChange = () => {
+    if (suppressFilterRender) return;
+    currentTripPage = 1;
+    renderTrips();
+  };
+
+  const nameInput = bar.querySelector("#trip-filter-name");
+  nameInput?.addEventListener("input", () => {
+    tripFilterState.name = nameInput.value;
+    onChange();
+  });
+  const serialInput = bar.querySelector("#trip-filter-serial");
+  serialInput?.addEventListener("input", () => {
+    tripFilterState.serial = serialInput.value;
+    onChange();
+  });
+  const fromInput = bar.querySelector("#trip-filter-date-from");
+  fromInput?.addEventListener("change", () => {
+    tripFilterState.dateFrom = fromInput.value;
+    updateDateRangePillCount(bar);
+    onChange();
+  });
+  const toInput = bar.querySelector("#trip-filter-date-to");
+  toInput?.addEventListener("change", () => {
+    tripFilterState.dateTo = toInput.value;
+    updateDateRangePillCount(bar);
+    onChange();
+  });
+
+  bar.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") return;
+    const pill = target.closest("details[data-filter-pill]");
+    if (!pill) return;
+    const name = pill.dataset.filterPill;
+    if (!tripFilterState[name]) return;
+    if (target.checked) tripFilterState[name].add(target.value);
+    else tripFilterState[name].delete(target.value);
+    updatePillCount(pill, tripFilterState[name].size);
+    onChange();
+  });
+
+  // Close any open filter popover when clicking outside
+  document.addEventListener("click", (event) => {
+    bar.querySelectorAll("details[data-filter-pill][open]").forEach((pill) => {
+      if (!pill.contains(event.target)) pill.removeAttribute("open");
+    });
+  });
+
+  const select = document.querySelector("#trip-saved-filter-select");
+  select?.addEventListener("change", () => {
+    const list = readSavedFilters();
+    const found = list.find((f) => f.name === select.value);
+    document.querySelector("#trip-delete-filter-btn")?.toggleAttribute("hidden", !found);
+    if (found) applyFilterStateFromSnapshot(found.state);
+  });
+
+  document.querySelector("#trip-save-filter-btn")?.addEventListener("click", () => {
+    const name = (window.prompt("Save filter as:") || "").trim();
+    if (!name) return;
+    const list = readSavedFilters().filter((f) => f.name !== name);
+    list.push({ name, state: snapshotFilterState() });
+    writeSavedFilters(list);
+    refreshSavedFiltersDropdown(name);
+  });
+
+  document.querySelector("#trip-delete-filter-btn")?.addEventListener("click", () => {
+    const sel = document.querySelector("#trip-saved-filter-select");
+    if (!sel?.value) return;
+    if (!window.confirm(`Delete saved filter "${sel.value}"?`)) return;
+    const list = readSavedFilters().filter((f) => f.name !== sel.value);
+    writeSavedFilters(list);
+    refreshSavedFiltersDropdown("");
+  });
+
+  document.querySelector("#trip-clear-filter-btn")?.addEventListener("click", () => {
+    applyFilterStateFromSnapshot({});
+    refreshSavedFiltersDropdown("");
+  });
+
+  refreshSavedFiltersDropdown();
+}
+
 async function init() {
   if (isTripDetailPage()) {
     TRIP_TAB_PANEL_IDS.forEach(function(id) {
@@ -2997,8 +3292,10 @@ async function init() {
     });
   }
   campCreatedDate.value = getMongoliaToday();
+  setupTripFilterBar();
   await loadSettings();
   await loadTrips();
+  refreshFilterPopoverOptions();
   await loadReservations();
   if (isCampReservationsPage() || isTripDetailPage()) {
     const params = new URLSearchParams(window.location.search);

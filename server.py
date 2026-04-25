@@ -4776,6 +4776,20 @@ def validate_reservation(data):
     return None
 
 
+def normalize_tag_list(value):
+    if isinstance(value, str):
+        items = [t.strip() for t in value.split(",")]
+    elif isinstance(value, list):
+        items = [normalize_text(t) for t in value]
+    else:
+        items = []
+    seen = []
+    for item in items:
+        if item and item not in seen:
+            seen.append(item)
+    return seen
+
+
 def build_camp_trip(payload, actor=None):
     return {
         "id": str(uuid4()),
@@ -4783,6 +4797,7 @@ def build_camp_trip(payload, actor=None):
         "tripName": normalize_text(payload.get("tripName")),
         "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
         "startDate": normalize_text(payload.get("startDate")),
+        "endDate": normalize_text(payload.get("endDate")),
         "totalDays": parse_int(payload.get("totalDays")) or 1,
         "participantCount": parse_int(payload.get("participantCount")),
         "staffCount": parse_int(payload.get("staffCount")),
@@ -4791,6 +4806,7 @@ def build_camp_trip(payload, actor=None):
         "cookName": normalize_text(payload.get("cookName")),
         "language": normalize_text(payload.get("language")) or "Other",
         "status": normalize_text(payload.get("status")).lower() or "planning",
+        "tags": normalize_tag_list(payload.get("tags")),
         "inboundCompany": "Unlock Steppe Mongolia",
         "company": normalize_company(payload.get("company")),
         "createdBy": actor_snapshot(actor),
@@ -6111,12 +6127,14 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         if trip["id"] != trip_id:
             continue
         merged = {**trip}
-        for key in ["tripName", "reservationName", "startDate", "language", "status", "guideName", "driverName", "cookName"]:
+        for key in ["tripName", "reservationName", "startDate", "endDate", "language", "status", "guideName", "driverName", "cookName"]:
             if key in payload:
                 merged[key] = normalize_text(payload.get(key))
         for key in ["participantCount", "staffCount", "totalDays"]:
             if key in payload:
                 merged[key] = parse_int(payload.get(key))
+        if "tags" in payload:
+            merged["tags"] = normalize_tag_list(payload.get("tags"))
         error = validate_camp_trip(merged)
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-136" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-137" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -37,26 +37,53 @@
             </div>
           </div>
 
-          <div class="camp-filters camp-trip-filters">
-            <label>
-              Filter by Trip Name
-              <input id="trip-filter-name" type="search" placeholder="Search trip name" />
-            </label>
-            <label>
-              Start date from
-              <input id="trip-filter-start-date" type="date" />
-            </label>
-            <label>
-              Status
-              <select id="trip-filter-status">
-                <option value="">All statuses</option>
-                <option value="planning">Planning</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="travelling">Travelling</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
+          <div class="trip-filter-bar" data-trip-filter-bar>
+            <div class="trip-filter-row trip-filter-saved-row">
+              <select id="trip-saved-filter-select" class="trip-saved-filter-select">
+                <option value="">Select saved filter</option>
               </select>
-            </label>
+              <button type="button" id="trip-save-filter-btn" class="trip-saved-filter-action">Save current</button>
+              <button type="button" id="trip-delete-filter-btn" class="trip-saved-filter-action trip-saved-filter-delete" hidden>Delete</button>
+              <button type="button" id="trip-clear-filter-btn" class="trip-saved-filter-action">Clear</button>
+            </div>
+            <div class="trip-filter-row">
+              <input id="trip-filter-name" type="search" placeholder="Search by name" class="trip-filter-input" autocomplete="off" />
+              <input id="trip-filter-serial" type="search" placeholder="Search by serial" class="trip-filter-input" autocomplete="off" />
+              <details class="trip-filter-pill" data-filter-pill="tags">
+                <summary><span class="trip-filter-pill-icon">+</span><span class="trip-filter-pill-label">Tags</span><span class="trip-filter-pill-count" hidden>0</span></summary>
+                <div class="trip-filter-popover" data-popover-list></div>
+              </details>
+              <details class="trip-filter-pill" data-filter-pill="status">
+                <summary><span class="trip-filter-pill-icon">+</span><span class="trip-filter-pill-label">Status</span><span class="trip-filter-pill-count" hidden>0</span></summary>
+                <div class="trip-filter-popover">
+                  <label class="trip-filter-checkbox"><input type="checkbox" value="planning" data-status-checkbox /><span>Planning</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" value="confirmed" data-status-checkbox /><span>Confirmed</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" value="travelling" data-status-checkbox /><span>Travelling</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" value="completed" data-status-checkbox /><span>Completed</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" value="cancelled" data-status-checkbox /><span>Cancelled</span></label>
+                </div>
+              </details>
+              <details class="trip-filter-pill" data-filter-pill="language">
+                <summary><span class="trip-filter-pill-icon">+</span><span class="trip-filter-pill-label">Language</span><span class="trip-filter-pill-count" hidden>0</span></summary>
+                <div class="trip-filter-popover" data-popover-list></div>
+              </details>
+            </div>
+            <div class="trip-filter-row">
+              <details class="trip-filter-pill trip-filter-pill-date" data-filter-pill="date-range">
+                <summary>
+                  <span class="trip-filter-pill-icon trip-filter-date-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+                  </span>
+                  <span class="trip-filter-pill-label">Start date between</span>
+                  <span class="trip-filter-pill-count" hidden>0</span>
+                </summary>
+                <div class="trip-filter-popover trip-filter-popover-date">
+                  <label>From <input id="trip-filter-date-from" type="date" /></label>
+                  <label>To <input id="trip-filter-date-to" type="date" /></label>
+                </div>
+              </details>
+              <p class="trip-filter-summary" id="trip-filter-summary" hidden></p>
+            </div>
           </div>
 
           <div id="trip-form-panel" class="camp-modal workspace-form-modal is-hidden">
@@ -81,6 +108,10 @@
                 <label>
                   Start date
                   <input name="startDate" type="date" required />
+                </label>
+                <label>
+                  End date
+                  <input name="endDate" type="date" />
                 </label>
                 <label>
                   Number of tourists
@@ -119,6 +150,10 @@
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+                </label>
+                <label class="full-span">
+                  Tags
+                  <input name="tags" placeholder="Comma-separated tags (e.g. VIP, Honeymoon)" />
                 </label>
                 <div class="actions full-span">
                   <button type="submit">Save trip</button>
@@ -747,7 +782,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-82"></script>
-    <script src="/camp.js?v=workspace-90"></script>
+    <script src="/camp.js?v=workspace-91"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
   </body>
 </html>
