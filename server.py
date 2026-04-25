@@ -8881,6 +8881,56 @@ def _agent_save_uploaded_image(b64, media_type):
     return f"/generated/{filename}"
 
 
+def _tool_attach_document_to_trip(args, actor):
+    """Attach a previously-uploaded file (from /generated/agent-upload-...
+    or /generated/agent-doc-...) to a trip's Documents section."""
+    trip_id = (args.get("tripId") or "").strip()
+    src_path = (args.get("filePath") or "").strip()
+    category = (args.get("category") or "Other").strip() or "Other"
+    rename_to = (args.get("name") or "").strip()
+    if not trip_id:
+        return {"error": "tripId is required"}
+    if not src_path.startswith("/generated/"):
+        return {"error": "filePath must be a /generated/... path returned in an [Uploaded ...] note"}
+    src_file = GENERATED_DIR / src_path.replace("/generated/", "", 1)
+    if not src_file.exists() or not src_file.is_file():
+        return {"error": f"Source file not found: {src_path}"}
+
+    trips = read_camp_trips()
+    idx = next((i for i, t in enumerate(trips) if t.get("id") == trip_id), None)
+    if idx is None:
+        return {"error": "Trip not found"}
+
+    doc_id = str(uuid4())
+    ext = src_file.suffix.lower()
+    original_name = rename_to or src_file.name
+    if not original_name.lower().endswith(ext):
+        original_name = original_name + ext
+    trip_upload_dir = TRIP_UPLOADS_DIR / trip_id
+    trip_upload_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = doc_id + ext
+    dest = trip_upload_dir / stored_name
+    dest.write_bytes(src_file.read_bytes())
+
+    mime, _ = mimetypes.guess_type(src_file.name)
+    doc = {
+        "id": doc_id,
+        "originalName": original_name,
+        "storedName": stored_name,
+        "mimeType": mime or "application/octet-stream",
+        "size": dest.stat().st_size,
+        "category": category,
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+    trip = trips[idx]
+    documents = list(trip.get("documents") or [])
+    documents.append(doc)
+    trips[idx] = {**trip, "documents": documents}
+    write_camp_trips(trips)
+    return {"ok": True, "document": {"id": doc_id, "originalName": original_name, "category": category}}
+
+
 def _tool_attach_image_to_tourist(args, actor):
     tid = (args.get("touristId") or "").strip()
     image_path = (args.get("imagePath") or "").strip()
@@ -9110,6 +9160,13 @@ AGENT_TOOLS = [
          "tripStartDate": {"type": "string"},
          "tripEndDate": {"type": "string"}}},
      "handler": _tool_create_contract},
+    {"name": "attach_document_to_trip", "description": "Attach a previously-uploaded file (image OR document) to a trip's Documents section. Use the /generated/... path from the [Uploaded image paths] or [Uploaded document paths] note. Categories: 'Passport', 'Visa', 'Ticket', 'Hotel voucher', 'Insurance', 'Itinerary', 'Other'. Optional `name` to rename for display.",
+     "input_schema": {"type": "object", "required": ["tripId", "filePath"], "properties": {
+         "tripId": {"type": "string"},
+         "filePath": {"type": "string", "description": "/generated/agent-upload-XXX.jpg or /generated/agent-doc-XXX.pdf path from the upload note"},
+         "category": {"type": "string"},
+         "name": {"type": "string", "description": "Display filename (extension auto-added if missing)"}}},
+     "handler": _tool_attach_document_to_trip},
     {"name": "attach_image_to_tourist", "description": "Attach an image (passport scan or portrait photo) to an existing tourist record. Use this AFTER the admin uploads an image in chat — every uploaded image is saved to disk and its path is given to you in a system note like '[Uploaded image paths] img-1=/generated/agent-upload-XXX.jpg'. Pass that path as imagePath. field='passport' fills passportScanPath; field='photo' fills photoPath.",
      "input_schema": {"type": "object", "required": ["touristId", "imagePath"], "properties": {
          "touristId": {"type": "string"},
@@ -9196,6 +9253,7 @@ Images and files:
 - Every uploaded image's saved path is given to you in a "[Uploaded image paths] img-1=/generated/...; img-2=..." note. Every uploaded document's saved path is in a "[Uploaded document paths] doc-1=/generated/...; doc-2=..." note. Use these exact paths when calling attach_image_to_tourist.
 - Supported formats: JPG, PNG, GIF, WebP, PDF, XLSX, TXT/CSV/MD. HEIC/HEIF and Word .docx are NOT supported yet — if those are uploaded, ask the admin to convert (HEIC → JPG, DOCX → PDF) before retrying.
 - For passports: read fields exactly as printed (Latin letters), then offer to create a tourist record via create_tourist with the extracted fields. After the tourist is created, ALSO call attach_image_to_tourist with arguments touristId=<the new tourist id>, imagePath=<the img-1 path from the upload note>, field="passport" so the passport scan is saved to the tourist's record. Mention "Паспортын зургийг хавсаргалаа" in the reply so the admin knows.
+- For attaching files to a TRIP's Documents section (е.g., admin says "trip document hesegt upload hii", "энэ файлыг аяллын баримт бичигт нэм"), use attach_document_to_trip with the /generated/... path from the upload note and an appropriate category (Passport, Visa, Ticket, Hotel voucher, Insurance, Itinerary, Other).
 - If a field is unclear or partially obscured, say so rather than guessing.
 """
 
