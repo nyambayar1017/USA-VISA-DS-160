@@ -710,7 +710,7 @@ function renderSettingsOptions() {
   const currentLanguageFilter = tripFilterLanguage?.value || "";
   const currentReservationTrip = reservationTripSelect.value;
   const languages = [...new Set(currentTrips.map((trip) => trip.language).filter(Boolean).concat(["English", "French", "Mongolian", "Korean", "Spanish", "Italian", "Other"]))];
-  tripLanguageSelect.innerHTML = renderOptionMarkup(languages, "Choose language");
+  if (tripLanguageSelect) tripLanguageSelect.innerHTML = renderOptionMarkup(languages, "Choose language");
   if (tripFilterLanguage) tripFilterLanguage.innerHTML = renderOptionMarkup(languages, "All languages");
   reservationTripSelect.innerHTML = `<option value="">Choose trip</option>${currentTrips
     .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
