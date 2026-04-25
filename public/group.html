@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-142" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-143" />
   </head>
   <body class="app-body" data-page="group">
     <div class="workspace-shell">
@@ -30,48 +30,14 @@
           <div id="group-summary"></div>
         </section>
 
-        <section class="card group-section" id="group-invoices-section">
-          <div class="section-head">
-            <div>
-              <h2>Invoices</h2>
-              <p>Contracts and payments tied to this group only.</p>
-            </div>
-          </div>
-          <div id="group-invoices-list" class="submission-list"></div>
-        </section>
-
-        <section class="card group-section" id="group-flights-section">
-          <div class="section-head">
-            <div>
-              <h2>Flights</h2>
-              <p>Flight reservations and payments associated with this group's tourists.</p>
-            </div>
-          </div>
-          <div id="group-flights-list" class="submission-list"></div>
-        </section>
-
-        <section class="card group-section" id="group-transfers-section">
-          <div class="section-head">
-            <div>
-              <h2>Transfers</h2>
-              <p>Transfers tied to this group.</p>
-            </div>
-          </div>
-          <div id="group-transfers-list" class="submission-list"></div>
-        </section>
-
-        <section class="card group-section" id="group-rooming-section">
-          <div class="section-head">
-            <div>
-              <h2>Rooming</h2>
-              <p>Assign each tourist a room. Type + room code (e.g., "01 DOUBLE", "02 TWIN").</p>
-            </div>
-            <div class="camp-toolbar">
-              <button type="button" id="group-rooming-suggest">Auto-fill empty</button>
-            </div>
-          </div>
-          <div id="group-rooming-list" class="submission-list"></div>
-        </section>
+        <nav class="trip-tab-bar group-tab-bar" id="group-tab-bar">
+          <button class="trip-tab is-active" data-tab="group-participants-section">Participants</button>
+          <button class="trip-tab" data-tab="group-flights-section">Flights</button>
+          <button class="trip-tab" data-tab="group-transfers-section">Transfers</button>
+          <button class="trip-tab" data-tab="group-invoices-section">Invoices</button>
+          <button class="trip-tab" data-tab="group-rooming-section">Rooming</button>
+          <button class="trip-tab" data-tab="group-documents-section">Documents</button>
+        </nav>
 
         <section class="card group-section" id="group-participants-section">
           <div class="section-head">
@@ -84,6 +50,59 @@
             </div>
           </div>
           <div id="group-participants-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section is-hidden" id="group-flights-section">
+          <div class="section-head">
+            <div>
+              <h2>Flights</h2>
+              <p>Flight reservations and payments associated with this group's tourists.</p>
+            </div>
+          </div>
+          <div id="group-flights-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section is-hidden" id="group-transfers-section">
+          <div class="section-head">
+            <div>
+              <h2>Transfers</h2>
+              <p>Transfers tied to this group.</p>
+            </div>
+          </div>
+          <div id="group-transfers-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section is-hidden" id="group-invoices-section">
+          <div class="section-head">
+            <div>
+              <h2>Invoices</h2>
+              <p>Contracts and payments tied to this group only.</p>
+            </div>
+          </div>
+          <div id="group-invoices-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section is-hidden" id="group-rooming-section">
+          <div class="section-head">
+            <div>
+              <h2>Rooming</h2>
+              <p>Each room has its own color; the same color appears on participants' Room cells.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="group-rooming-suggest">Auto-fill empty</button>
+            </div>
+          </div>
+          <div id="group-rooming-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section is-hidden" id="group-documents-section">
+          <div class="section-head">
+            <div>
+              <h2>Documents</h2>
+              <p>Files attached to this group's trip.</p>
+            </div>
+          </div>
+          <div id="group-documents-list" class="submission-list"></div>
         </section>
       </main>
     </div>
@@ -183,6 +202,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-83"></script>
-    <script src="/group.js?v=workspace-1"></script>
+    <script src="/group.js?v=workspace-2"></script>
   </body>
 </html>

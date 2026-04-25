@@ -1140,6 +1140,32 @@ td {
   .group-summary-grid { grid-template-columns: 1fr; }
 }
 
+.group-tab-bar { margin-top: 14px; }
+
+.group-doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-doc-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid rgba(32, 53, 111, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 0.88rem;
+}
+
+.group-doc-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .tourist-count {
   margin: 4px 2px 14px;
   color: var(--muted);

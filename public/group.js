@@ -43,6 +43,42 @@ const ROOM_TYPE_SHORT = {
   other: "other",
 };
 
+// Distinct, light pastels for room color-coding. Cycles if more rooms.
+const ROOM_PALETTE = [
+  { bg: "#fde2e4", fg: "#7a1d2a" },
+  { bg: "#dbeafe", fg: "#1e3a8a" },
+  { bg: "#dcfce7", fg: "#14532d" },
+  { bg: "#fef3c7", fg: "#78350f" },
+  { bg: "#e9d5ff", fg: "#5b21b6" },
+  { bg: "#fed7aa", fg: "#7c2d12" },
+  { bg: "#cffafe", fg: "#155e75" },
+  { bg: "#fbcfe8", fg: "#831843" },
+  { bg: "#d9f99d", fg: "#365314" },
+  { bg: "#fde68a", fg: "#713f12" },
+];
+
+let roomColorMap = {};
+function roomKey(t) {
+  if (!t || !t.roomType) return "";
+  return `${t.roomType}|${t.roomCode || ""}`;
+}
+function rebuildRoomColorMap() {
+  roomColorMap = {};
+  let i = 0;
+  tourists
+    .filter((t) => t.roomType)
+    .forEach((t) => {
+      const key = roomKey(t);
+      if (!(key in roomColorMap)) {
+        roomColorMap[key] = ROOM_PALETTE[i % ROOM_PALETTE.length];
+        i += 1;
+      }
+    });
+}
+function roomColor(t) {
+  return roomColorMap[roomKey(t)] || null;
+}
+
 function escapeHtml(value) {
   return String(value == null ? "" : value)
     .replace(/&/g, "&amp;")
@@ -101,6 +137,7 @@ async function loadAll() {
     } catch {
       invoices = [];
     }
+    rebuildRoomColorMap();
     renderBreadcrumb();
     renderSummary();
     renderInvoices();
@@ -108,9 +145,34 @@ async function loadAll() {
     renderTransfers();
     renderRooming();
     renderParticipants();
+    loadDocuments();
   } catch (err) {
     summaryNode.innerHTML = `<p class="empty">Could not load group: ${escapeHtml(err.message)}</p>`;
   }
+}
+
+function loadDocuments() {
+  const docsNode = document.getElementById("group-documents-list");
+  if (!docsNode) return;
+  const docs = (trip && trip.documents) || [];
+  if (!docs.length) {
+    docsNode.innerHTML = '<p class="empty">No documents uploaded for this trip yet. Add them on the trip page.</p>';
+    return;
+  }
+  docsNode.innerHTML = `
+    <ul class="group-doc-list">
+      ${docs.map((d) => `
+        <li>
+          <a href="${escapeHtml(d.url || d.path || "#")}" target="_blank" rel="noreferrer">
+            ${escapeHtml(d.name || d.filename || "Document")}
+          </a>
+          <span class="group-doc-meta">
+            ${d.category ? escapeHtml(d.category) + " · " : ""}${d.uploadedAt ? escapeHtml(formatDate(d.uploadedAt)) : ""}
+          </span>
+        </li>
+      `).join("")}
+    </ul>
+  `;
 }
 
 function renderBreadcrumb() {
@@ -259,28 +321,30 @@ function renderRooming() {
     roomingList.innerHTML = '<p class="empty">Add participants first, then assign rooms.</p>';
     return;
   }
-  // Group tourists by roomType + roomCode to visualise rooms
   const rooms = {};
   tourists.forEach((t) => {
     if (!t.roomType) return;
     const key = `${t.roomType}|${t.roomCode || ""}`;
-    rooms[key] = rooms[key] || { type: t.roomType, code: t.roomCode || "", occupants: [] };
+    rooms[key] = rooms[key] || { type: t.roomType, code: t.roomCode || "", occupants: [], colors: roomColor(t) };
     rooms[key].occupants.push(t);
   });
   const unassigned = tourists.filter((t) => !t.roomType);
   const roomCards = Object.values(rooms)
     .sort((a, b) => (a.code || "").localeCompare(b.code || "") || a.type.localeCompare(b.type))
-    .map((room) => `
-      <div class="rooming-card">
-        <header>
-          <strong>${escapeHtml(room.code || "—")} ${escapeHtml(ROOM_TYPE_LABELS[room.type] || room.type)}</strong>
-          <span>${room.occupants.length} pax</span>
-        </header>
-        <ul>
-          ${room.occupants.map((o) => `<li>${escapeHtml(o.serial)} · ${escapeHtml(o.lastName)} ${escapeHtml(o.firstName)}</li>`).join("")}
-        </ul>
-      </div>
-    `)
+    .map((room) => {
+      const c = room.colors || { bg: "#f3f4f6", fg: "#374151" };
+      return `
+        <div class="rooming-card" style="background:${c.bg};color:${c.fg};border-color:${c.fg}22;">
+          <header>
+            <strong>${escapeHtml(room.code || "—")} ${escapeHtml(ROOM_TYPE_LABELS[room.type] || room.type)}</strong>
+            <span>${room.occupants.length} pax</span>
+          </header>
+          <ul>
+            ${room.occupants.map((o) => `<li>${escapeHtml(o.serial)} · ${escapeHtml(o.lastName)} ${escapeHtml(o.firstName)}</li>`).join("")}
+          </ul>
+        </div>
+      `;
+    })
     .join("");
   const unassignedCard = unassigned.length
     ? `<div class="rooming-card rooming-card-empty"><header><strong>Unassigned</strong><span>${unassigned.length} pax</span></header><ul>${unassigned.map((o) => `<li>${escapeHtml(o.serial)} · ${escapeHtml(o.lastName)} ${escapeHtml(o.firstName)}</li>`).join("")}</ul></div>`
@@ -312,24 +376,31 @@ function renderParticipants() {
           </tr>
         </thead>
         <tbody>
-          ${tourists.map((t, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td><strong>${escapeHtml(t.serial)}</strong></td>
-              <td>${escapeHtml(t.lastName || "")} ${escapeHtml(t.firstName || "")}</td>
-              <td>${escapeHtml(t.passportNumber || "-")}</td>
-              <td>${escapeHtml(formatDate(t.passportExpiry))}</td>
-              <td>${escapeHtml(formatDate(t.dob))}</td>
-              <td>${ageFromDob(t.dob) || "-"}</td>
-              <td>${escapeHtml((t.gender || "-").toUpperCase())}</td>
-              <td>${escapeHtml(t.phone || "-")}</td>
-              <td>${escapeHtml(t.roomCode || "")} ${escapeHtml(ROOM_TYPE_LABELS[t.roomType] || "")}</td>
-              <td>
-                <button type="button" class="table-link compact secondary" data-action="edit" data-id="${t.id}">Edit</button>
-                <button type="button" class="table-link compact secondary" data-action="delete" data-id="${t.id}">Delete</button>
-              </td>
-            </tr>
-          `).join("")}
+          ${tourists.map((t, i) => {
+            const c = roomColor(t);
+            const roomStyle = c ? `style="background:${c.bg};color:${c.fg};font-weight:700;"` : "";
+            const roomLabel = t.roomType
+              ? `${escapeHtml(t.roomCode || "—")} ${escapeHtml((ROOM_TYPE_LABELS[t.roomType] || "").toUpperCase())}`
+              : "—";
+            return `
+              <tr>
+                <td>${i + 1}</td>
+                <td><strong>${escapeHtml(t.serial)}</strong></td>
+                <td>${escapeHtml(t.lastName || "")} ${escapeHtml(t.firstName || "")}</td>
+                <td>${escapeHtml(t.passportNumber || "-")}</td>
+                <td>${escapeHtml(formatDate(t.passportExpiry))}</td>
+                <td>${escapeHtml(formatDate(t.dob))}</td>
+                <td>${ageFromDob(t.dob) || "-"}</td>
+                <td>${escapeHtml((t.gender || "-").toUpperCase())}</td>
+                <td>${escapeHtml(t.phone || "-")}</td>
+                <td ${roomStyle}>${roomLabel}</td>
+                <td>
+                  <button type="button" class="table-link compact secondary" data-action="edit" data-id="${t.id}">Edit</button>
+                  <button type="button" class="table-link compact secondary" data-action="delete" data-id="${t.id}">Delete</button>
+                </td>
+              </tr>
+            `;
+          }).join("")}
         </tbody>
       </table>
     </div>
@@ -462,6 +533,31 @@ suggestBtn.addEventListener("click", async () => {
     }
   }
   await loadAll();
+});
+
+// Tab switching
+const GROUP_TAB_PANEL_IDS = [
+  "group-participants-section",
+  "group-flights-section",
+  "group-transfers-section",
+  "group-invoices-section",
+  "group-rooming-section",
+  "group-documents-section",
+];
+const tabBar = document.getElementById("group-tab-bar");
+function setActiveTab(tabId) {
+  tabBar.querySelectorAll(".trip-tab").forEach((b) => {
+    b.classList.toggle("is-active", b.dataset.tab === tabId);
+  });
+  GROUP_TAB_PANEL_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("is-hidden", id !== tabId);
+  });
+}
+tabBar?.addEventListener("click", (e) => {
+  const tab = e.target.closest(".trip-tab");
+  if (!tab) return;
+  setActiveTab(tab.dataset.tab);
 });
 
 loadAll();
