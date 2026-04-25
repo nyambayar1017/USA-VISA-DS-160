@@ -279,6 +279,10 @@ td {
 .workspace-main {
   min-width: 0;
   padding: 28px;
+  /* Contain any wide child (FIFA bracket, wide tables) so the body
+     never scrolls horizontally and the sidebar stays put. Wide tables
+     should use their own scrollable wrapper (e.g. .table-scroll). */
+  overflow-x: hidden;
 }
 
 .workspace-topbar {
@@ -6265,6 +6269,13 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 .fifa-match-accordion--table {
   gap: 8px;
+  /* Allow the wide accordion grid to scroll horizontally inside its
+     own card instead of forcing the workspace to expand. */
+  overflow-x: auto;
+}
+.fifa-match-accordion--table > .fifa-match-table-head,
+.fifa-match-accordion--table > .fifa-match-card {
+  min-width: 980px;
 }
 
 .fifa-match-table-head {
