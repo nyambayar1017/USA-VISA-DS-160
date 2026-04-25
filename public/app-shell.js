@@ -930,7 +930,10 @@ loadProfile();
 (function injectAgentWidget() {
   if (document.querySelector('script[data-agent-widget]')) return;
   const s = document.createElement("script");
-  s.src = "/agent-widget.js?v=workspace-8";
+  // Per-page-load timestamp so the widget always re-fetches; avoids stale
+  // browser cache (Atlas, Safari, Chrome) when we ship widget changes
+  // in quick succession.
+  s.src = "/agent-widget.js?t=" + Date.now();
   s.defer = true;
   s.setAttribute("data-agent-widget", "1");
   document.head.appendChild(s);
