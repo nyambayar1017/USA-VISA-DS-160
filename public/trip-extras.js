@@ -88,52 +88,59 @@
     }
   }
 
+  const ROOM_SHORT = { single: "sgl", double: "dbl", twin: "twin", triple: "tpl", family: "fam", other: "other" };
+  const ROOM_OCCUPANCY = { single: 1, double: 2, twin: 2, triple: 3 };
+
+  function buildRoomingSummary(list) {
+    const counts = {};
+    list.forEach((t) => {
+      if (!t.roomType) return;
+      counts[t.roomType] = (counts[t.roomType] || 0) + 1;
+    });
+    const parts = Object.keys(counts).map((type) => {
+      const occupants = counts[type];
+      const cap = ROOM_OCCUPANCY[type] || 1;
+      const rooms = Math.ceil(occupants / cap);
+      return `${ROOM_SHORT[type] || type} - ${rooms}`;
+    });
+    return parts.join(", ");
+  }
+
   function renderGroups() {
     if (!groups.length) {
       groupListNode.innerHTML = '<p class="empty">No groups yet. Click "Add group" to create one.</p>';
       return;
     }
     groupListNode.innerHTML = `
-      <div class="camp-table-wrap">
-        <table class="camp-table reservation-addon-table">
-          <thead>
-            <tr>
-              <th>Serial</th>
-              <th>Group name</th>
-              <th>Leader</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Headcount</th>
-              <th>Tourists</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${groups
-              .map((g) => {
-                const inGroup = tourists.filter((t) => t.groupId === g.id).length;
-                return `
-                  <tr>
-                    <td><strong>${escapeHtml(g.serial)}</strong></td>
-                    <td>${escapeHtml(g.name)}</td>
-                    <td>${escapeHtml(g.leaderName || "-")}</td>
-                    <td>${escapeHtml(g.leaderEmail || "-")}</td>
-                    <td>${escapeHtml(g.leaderPhone || "-")}</td>
-                    <td class="table-center">${g.headcount || "-"}</td>
-                    <td class="table-center">${inGroup}</td>
-                    <td>
-                      <div class="trip-row-actions trip-row-actions-inline">
-                        <button type="button" class="table-link compact secondary" data-group-action="filter" data-id="${g.id}">View tourists</button>
-                        <button type="button" class="table-link compact secondary" data-group-action="edit" data-id="${g.id}">Edit</button>
-                        <button type="button" class="table-link compact secondary" data-group-action="delete" data-id="${g.id}">Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                `;
-              })
-              .join("")}
-          </tbody>
-        </table>
+      <div class="group-card-grid">
+        ${groups
+          .map((g) => {
+            const groupTourists = tourists.filter((t) => t.groupId === g.id);
+            const rooming = buildRoomingSummary(groupTourists);
+            const initials = (g.leaderName || g.name || "?")
+              .split(/\s+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((p) => p[0]?.toUpperCase() || "")
+              .join("") || "?";
+            return `
+              <a class="group-card" href="/group?tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(g.id)}">
+                <div class="group-card-row">
+                  <span class="group-card-status"></span>
+                  <span class="group-card-title">${escapeHtml(g.serial)} · ${escapeHtml(g.name)}</span>
+                  <button type="button" class="group-card-menu" data-group-action="menu" data-id="${escapeHtml(g.id)}" aria-label="Group menu" onclick="event.preventDefault(); event.stopPropagation();">⋯</button>
+                </div>
+                <div class="group-card-meta">
+                  <span>${groupTourists.length} tourist${groupTourists.length === 1 ? "" : "s"}${groupTourists.length ? ` (adult - ${groupTourists.length})` : ""}</span>
+                  ${rooming ? `<span class="group-card-rooming">${escapeHtml(rooming)}</span>` : ""}
+                </div>
+                <div class="group-card-leader">
+                  <span class="group-card-avatar">${escapeHtml(initials)}</span>
+                </div>
+              </a>
+            `;
+          })
+          .join("")}
       </div>
     `;
   }
@@ -221,6 +228,7 @@
     groupForm.elements.id.value = "";
     if (groupFormTitle) groupFormTitle.textContent = "New group";
     if (groupStatus) groupStatus.textContent = "";
+    document.getElementById("group-delete-btn")?.setAttribute("hidden", "");
   }
 
   groupToggleBtn?.addEventListener("click", () => {
@@ -232,8 +240,29 @@
     openModal(groupFormPanel);
   });
 
-  groupFormPanel?.addEventListener("click", (e) => {
-    if (e.target.dataset?.action === "close-group-modal") closeModal(groupFormPanel);
+  groupFormPanel?.addEventListener("click", async (e) => {
+    if (e.target.dataset?.action === "close-group-modal") {
+      closeModal(groupFormPanel);
+      return;
+    }
+    if (e.target.id === "group-delete-btn") {
+      const id = e.target.dataset.id;
+      const group = groups.find((g) => g.id === id);
+      if (!group) return;
+      const inGroup = tourists.filter((t) => t.groupId === id).length;
+      const msg = inGroup
+        ? `Delete group "${group.name}" and its ${inGroup} tourist${inGroup === 1 ? "" : "s"}?`
+        : `Delete group "${group.name}"?`;
+      if (!confirm(msg)) return;
+      try {
+        await fetchJson(`/api/tourist-groups/${id}`, { method: "DELETE" });
+        closeModal(groupFormPanel);
+        resetGroupForm();
+        await loadGroupsAndTourists(tripId);
+      } catch (err) {
+        alert(err.message || "Could not delete group.");
+      }
+    }
   });
 
   groupForm?.addEventListener("submit", async (e) => {
@@ -261,11 +290,13 @@
   groupListNode?.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-group-action]");
     if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
     const action = btn.dataset.groupAction;
     const id = btn.dataset.id;
     const group = groups.find((g) => g.id === id);
     if (!group) return;
-    if (action === "edit") {
+    if (action === "menu" || action === "edit") {
       editingGroupId = id;
       groupForm.elements.name.value = group.name || "";
       groupForm.elements.headcount.value = group.headcount || "";
@@ -275,6 +306,11 @@
       groupForm.elements.leaderNationality.value = group.leaderNationality || "";
       groupForm.elements.notes.value = group.notes || "";
       if (groupFormTitle) groupFormTitle.textContent = `Edit group ${group.serial}`;
+      const delBtn = document.getElementById("group-delete-btn");
+      if (delBtn) {
+        delBtn.removeAttribute("hidden");
+        delBtn.dataset.id = id;
+      }
       openModal(groupFormPanel);
     } else if (action === "delete") {
       const inGroup = tourists.filter((t) => t.groupId === id).length;
@@ -319,6 +355,21 @@
 
   touristFormPanel?.addEventListener("click", (e) => {
     if (e.target.dataset?.action === "close-tourist-modal") closeModal(touristFormPanel);
+  });
+
+  // Auto-uppercase passport-related inputs on the legacy tourist form
+  const UPPER_NAMES = new Set(["firstName", "lastName", "nationality", "passportNumber", "passportIssuePlace", "registrationNumber"]);
+  touristForm?.addEventListener("input", (e) => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement)) return;
+    if (!UPPER_NAMES.has(el.name)) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const upper = el.value.toUpperCase();
+    if (upper !== el.value) {
+      el.value = upper;
+      try { el.setSelectionRange(start, end); } catch {}
+    }
   });
 
   touristForm?.addEventListener("submit", async (e) => {

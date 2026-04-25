@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelX Group</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-142" />
+  </head>
+  <body class="app-body" data-page="group">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div></div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <nav class="group-breadcrumb" id="group-breadcrumb"></nav>
+
+        <section class="card group-summary-card" id="group-summary-card">
+          <div id="group-summary"></div>
+        </section>
+
+        <section class="card group-section" id="group-invoices-section">
+          <div class="section-head">
+            <div>
+              <h2>Invoices</h2>
+              <p>Contracts and payments tied to this group only.</p>
+            </div>
+          </div>
+          <div id="group-invoices-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section" id="group-flights-section">
+          <div class="section-head">
+            <div>
+              <h2>Flights</h2>
+              <p>Flight reservations and payments associated with this group's tourists.</p>
+            </div>
+          </div>
+          <div id="group-flights-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section" id="group-transfers-section">
+          <div class="section-head">
+            <div>
+              <h2>Transfers</h2>
+              <p>Transfers tied to this group.</p>
+            </div>
+          </div>
+          <div id="group-transfers-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section" id="group-rooming-section">
+          <div class="section-head">
+            <div>
+              <h2>Rooming</h2>
+              <p>Assign each tourist a room. Type + room code (e.g., "01 DOUBLE", "02 TWIN").</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="group-rooming-suggest">Auto-fill empty</button>
+            </div>
+          </div>
+          <div id="group-rooming-list" class="submission-list"></div>
+        </section>
+
+        <section class="card group-section" id="group-participants-section">
+          <div class="section-head">
+            <div>
+              <h2>Participants</h2>
+              <p>Tourists in this group. Names, passports, and phone numbers — entered in CAPITALS.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="group-add-tourist">Add participant</button>
+            </div>
+          </div>
+          <div id="group-participants-list" class="submission-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="group-tourist-form-panel" class="camp-modal workspace-form-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-tourist-modal"></div>
+      <div class="camp-modal-dialog workspace-form-modal-dialog workspace-form-modal-dialog-wide">
+        <div class="camp-modal-header">
+          <div>
+            <h2 id="group-tourist-form-title">New participant</h2>
+            <p class="camp-modal-copy">Passport + name fields auto-uppercase. Serial is generated from the group serial.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-tourist-modal" aria-label="Close">×</button>
+        </div>
+        <form id="group-tourist-form" class="field-grid">
+          <input type="hidden" name="id" />
+          <label>
+            Last name
+            <input name="lastName" data-uppercase required />
+          </label>
+          <label>
+            First name
+            <input name="firstName" data-uppercase required />
+          </label>
+          <label>
+            Gender
+            <select name="gender">
+              <option value="">—</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>
+            Date of birth
+            <input name="dob" type="date" />
+          </label>
+          <label>
+            Nationality
+            <input name="nationality" data-uppercase placeholder="MONGOLIAN" />
+          </label>
+          <label>
+            Passport #
+            <input name="passportNumber" data-uppercase placeholder="E1234567" />
+          </label>
+          <label>
+            Passport issue date
+            <input name="passportIssueDate" type="date" />
+          </label>
+          <label>
+            Passport expiry
+            <input name="passportExpiry" type="date" />
+          </label>
+          <label>
+            Passport issued at
+            <input name="passportIssuePlace" data-uppercase />
+          </label>
+          <label>
+            Registration #
+            <input name="registrationNumber" data-uppercase />
+          </label>
+          <label>
+            Phone
+            <input name="phone" />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" />
+          </label>
+          <label>
+            Room type
+            <select name="roomType">
+              <option value="">—</option>
+              <option value="single">Single</option>
+              <option value="double">Double</option>
+              <option value="twin">Twin</option>
+              <option value="triple">Triple</option>
+              <option value="family">Family connected</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>
+            Room code
+            <input name="roomCode" placeholder="01" />
+          </label>
+          <label class="full-span">
+            Notes
+            <textarea name="notes" rows="2"></textarea>
+          </label>
+          <div class="actions full-span">
+            <button type="submit">Save participant</button>
+            <button type="button" class="secondary-button" data-action="close-tourist-modal">Cancel</button>
+            <p id="group-tourist-form-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/app-shell.js?v=workspace-83"></script>
+    <script src="/group.js?v=workspace-1"></script>
+  </body>
+</html>

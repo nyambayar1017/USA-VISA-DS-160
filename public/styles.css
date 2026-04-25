@@ -914,6 +914,232 @@ td {
   margin: 18px 0 14px;
 }
 
+/* ─── Group cards (trip detail) ────────────────────────────────── */
+.group-card-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+  margin-top: 8px;
+}
+
+.group-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 14px;
+  padding: 14px 18px;
+  border: 1px solid rgba(32, 53, 111, 0.08);
+  border-radius: 16px;
+  background: #f1f5fc;
+  text-decoration: none;
+  color: inherit;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.group-card:hover {
+  background: #e7eefb;
+  transform: translateY(-1px);
+}
+
+.group-card-row {
+  grid-column: 1 / 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.group-card-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #2fb46d;
+}
+
+.group-card-title {
+  flex: 1;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1c4ed3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-card-menu {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.group-card-menu:hover { background: rgba(22, 44, 84, 0.08); color: var(--text); }
+
+.group-card-meta {
+  grid-column: 1 / 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.group-card-rooming {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.group-card-leader {
+  grid-row: 1 / span 2;
+  grid-column: 2 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.group-card-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #dce3f2, #eef3ff);
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* ─── Group detail page ────────────────────────────────────────── */
+.group-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 14px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.group-breadcrumb a {
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.group-breadcrumb a:hover { text-decoration: underline; }
+
+.group-summary-card { padding: 22px 26px; }
+
+.group-summary-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 18px;
+}
+
+.group-summary-grid h1 {
+  margin: 6px 0 8px;
+  font-size: 1.4rem;
+  color: var(--brand);
+}
+
+.group-summary-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.group-summary-meta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.group-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+.group-summary-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group-stat-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.group-summary-stats strong {
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.group-summary-leader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group-summary-leader p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.group-section { margin-top: 14px; }
+
+.rooming-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.rooming-card {
+  border: 1px solid rgba(32, 53, 111, 0.1);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #f8fbff;
+}
+
+.rooming-card-empty { background: rgba(234, 106, 79, 0.08); border-color: rgba(234, 106, 79, 0.2); }
+
+.rooming-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 0.86rem;
+}
+
+.rooming-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 820px) {
+  .group-summary-grid { grid-template-columns: 1fr; }
+}
+
 .tourist-count {
   margin: 4px 2px 14px;
   color: var(--muted);

@@ -4989,6 +4989,18 @@ def validate_tourist_group(data):
     return None
 
 
+VALID_ROOM_TYPES = {"single", "double", "twin", "triple", "family", "other"}
+
+
+def normalize_room_type(value):
+    v = normalize_text(value).lower()
+    return v if v in VALID_ROOM_TYPES else ""
+
+
+def upper_text(value):
+    return normalize_text(value).upper()
+
+
 def build_tourist(payload, actor=None):
     group_id = normalize_text(payload.get("groupId"))
     group = find_tourist_group(group_id) if group_id else None
@@ -5004,18 +5016,20 @@ def build_tourist(payload, actor=None):
         "groupId": group_id,
         "groupSerial": group_serial,
         "groupName": (group or {}).get("name") or "",
-        "firstName": normalize_text(payload.get("firstName")),
-        "lastName": normalize_text(payload.get("lastName")),
+        "firstName": upper_text(payload.get("firstName")),
+        "lastName": upper_text(payload.get("lastName")),
         "gender": normalize_text(payload.get("gender")).lower(),
         "dob": normalize_text(payload.get("dob")),
-        "nationality": normalize_text(payload.get("nationality")),
-        "passportNumber": normalize_text(payload.get("passportNumber")),
+        "nationality": upper_text(payload.get("nationality")),
+        "passportNumber": upper_text(payload.get("passportNumber")),
         "passportIssueDate": normalize_text(payload.get("passportIssueDate")),
         "passportExpiry": normalize_text(payload.get("passportExpiry")),
-        "passportIssuePlace": normalize_text(payload.get("passportIssuePlace")),
-        "registrationNumber": normalize_text(payload.get("registrationNumber")),
+        "passportIssuePlace": upper_text(payload.get("passportIssuePlace")),
+        "registrationNumber": upper_text(payload.get("registrationNumber")),
         "phone": normalize_text(payload.get("phone")),
         "email": normalize_text(payload.get("email")).lower(),
+        "roomType": normalize_room_type(payload.get("roomType")),
+        "roomCode": normalize_text(payload.get("roomCode")),
         "passportScanPath": normalize_text(payload.get("passportScanPath")),
         "photoPath": normalize_text(payload.get("photoPath")),
         "notes": normalize_text(payload.get("notes")),
@@ -5221,14 +5235,19 @@ def handle_update_tourist(environ, start_response, tourist_id):
         if record.get("id") != tourist_id:
             continue
         merged = {**record}
-        for key in ["firstName", "lastName", "gender", "dob", "nationality", "passportNumber", "passportIssueDate", "passportExpiry", "passportIssuePlace", "registrationNumber", "phone", "email", "notes"]:
+        upper_keys = {"firstName", "lastName", "nationality", "passportNumber", "passportIssuePlace", "registrationNumber"}
+        for key in ["firstName", "lastName", "gender", "dob", "nationality", "passportNumber", "passportIssueDate", "passportExpiry", "passportIssuePlace", "registrationNumber", "phone", "email", "notes", "roomCode"]:
             if key in payload:
                 value = normalize_text(payload.get(key))
                 if key == "email":
                     value = value.lower()
                 if key == "gender":
                     value = value.lower()
+                if key in upper_keys:
+                    value = value.upper()
                 merged[key] = value
+        if "roomType" in payload:
+            merged["roomType"] = normalize_room_type(payload.get("roomType"))
         if payload.get("passportScanData"):
             merged["passportScanPath"] = save_tourist_image(payload["passportScanData"], "tourist-passport", tourist_id)
         if payload.get("photoData"):
@@ -8176,6 +8195,11 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "tourist.html")
+
+    if path == "/group":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "group.html")
 
     if path == "/admin":
         user = current_user(environ)
