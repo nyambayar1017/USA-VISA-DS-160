@@ -3894,6 +3894,10 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .trip-table th {
   height: 44px;
   vertical-align: middle;
+  text-align: center;
+}
+.trip-table .table-primary-cell {
+  text-align: center;
 }
 
 .trip-pax-cell {

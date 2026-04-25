@@ -400,11 +400,33 @@
     if (touristFormStatus) touristFormStatus.textContent = "";
   }
 
-  touristToggleBtn?.addEventListener("click", () => {
-    if (!groups.length) {
-      alert("Create a group first, then add tourists into it.");
-      return;
+  async function ensureDefaultGroup() {
+    if (groups.length) return groups[0];
+    if (!tripId) {
+      alert("Open a trip first.");
+      return null;
     }
+    // Auto-create a default group named after the trip (used for FIT trips)
+    const tripName = (document.querySelector("#active-trip h2")?.textContent || "Main").trim();
+    try {
+      const created = await fetchJson("/api/tourist-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId, name: tripName.slice(0, 80), headcount: 1 }),
+      });
+      const g = created.entry || created;
+      groups.push(g);
+      renderGroupOptions();
+      return g;
+    } catch (err) {
+      alert("Could not create a group automatically: " + (err.message || err));
+      return null;
+    }
+  }
+
+  touristToggleBtn?.addEventListener("click", async () => {
+    const g = await ensureDefaultGroup();
+    if (!g) return;
     resetTouristForm();
     openModal(touristFormPanel);
   });
