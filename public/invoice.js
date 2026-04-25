@@ -66,13 +66,16 @@
       listNode.innerHTML = '<p class="empty">No invoices or contracts yet. Use the buttons at the top of the trip to add one.</p>';
       return;
     }
+    let rowIndex = 0;
     const contractRows = contracts.map((c) => {
+      rowIndex += 1;
       const data = c.data || {};
       const serial = data.contractSerial || c.id;
       const tourist = `${data.touristLastName || ""} ${data.touristFirstName || ""}`.trim() || "-";
       const total = data.totalPrice ? `${data.totalPrice}` : "-";
       return `
         <tr>
+          <td>${rowIndex}</td>
           <td><strong>${escapeHtml(serial)}</strong></td>
           <td>Contract</td>
           <td>${escapeHtml(tourist)}</td>
@@ -86,12 +89,14 @@
       `;
     }).join("");
     const invoiceRows = invoices.map((inv) => {
+      rowIndex += 1;
       const grp = groups.find((g) => g.id === inv.groupId);
       const installments = (inv.installments || []).map((i) =>
         `${escapeHtml(i.description)} (${escapeHtml(i.status)})`
       ).join(" · ") || "—";
       return `
         <tr>
+          <td>${rowIndex}</td>
           <td><strong>#${escapeHtml(inv.serial)}</strong></td>
           <td>Invoice</td>
           <td>${escapeHtml(inv.payerName || grp?.name || "-")}</td>
@@ -108,9 +113,9 @@
     }).join("");
     listNode.innerHTML = `
       <div class="camp-table-wrap">
-        <table class="camp-table reservation-addon-table">
+        <table class="camp-table reservation-addon-table invoice-list-table">
           <thead><tr>
-            <th>Serial</th><th>Type</th><th>Client</th><th>Total</th><th>Installments</th><th>Status</th><th>Actions</th>
+            <th>#</th><th>Serial</th><th>Type</th><th>Client</th><th>Total</th><th>Installments</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>${contractRows}${invoiceRows}</tbody>
         </table>

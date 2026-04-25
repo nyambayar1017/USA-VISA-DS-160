@@ -472,13 +472,18 @@ td {
 .row-menu-item.is-danger { color: #b63a3a; }
 .row-menu-item.is-danger:hover { background: rgba(182,58,58,0.08); }
 
+.status-dot-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
 .status-dot {
   display: inline-block;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  margin-right: 8px;
-  vertical-align: middle;
+  flex-shrink: 0;
   background: #94a3b8;
 }
 .status-dot-offer { background: #f59e0b; }
@@ -1469,6 +1474,36 @@ td {
 .invoice-status {
   display: inline-block; padding: 2px 10px; border-radius: 999px;
   font-size: 0.74rem; font-weight: 700;
+}
+
+.invoice-list-table th,
+.invoice-list-table td {
+  white-space: nowrap;
+}
+.invoice-list-table th:nth-child(2),
+.invoice-list-table td:nth-child(2) {
+  min-width: 160px;
+  max-width: none;
+  width: auto;
+  text-align: left;
+}
+.invoice-list-table th:nth-child(4),
+.invoice-list-table td:nth-child(4) {
+  min-width: 180px;
+  text-align: left;
+}
+.invoice-list-table th:nth-child(6),
+.invoice-list-table td:nth-child(6) {
+  min-width: 220px;
+  text-align: left;
+}
+.invoice-list-table th:nth-child(8),
+.invoice-list-table td:nth-child(8) {
+  min-width: 200px;
+  white-space: nowrap;
+}
+.invoice-list-table td .table-link {
+  margin-right: 4px;
 }
 .invoice-status-draft { background: rgba(100, 116, 139, 0.15); color: #475569; }
 .invoice-status-published { background: #dcfce7; color: #14532d; }

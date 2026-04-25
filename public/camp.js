@@ -914,7 +914,7 @@ function renderTrips() {
                   <td class="trip-tag-cell">${renderTripTagPills(trip.tags)}</td>
                   <td class="trip-pax-cell">${trip.participantCount}</td>
                   <td class="trip-pax-cell">${trip.staffCount}</td>
-                  <td><span class="status-dot status-dot-${normalizeStatus(trip.status)}"></span>${formatStatusLabel(trip.status)}</td>
+                  <td><span class="status-dot-cell"><span class="status-dot status-dot-${normalizeStatus(trip.status)}"></span><span>${formatStatusLabel(trip.status)}</span></span></td>
                   <td class="trip-created-cell">${formatDate(trip.createdAt, true)}</td>
                   <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
                   <td>
