@@ -8687,6 +8687,85 @@ def _tool_list_fifa_inventory(args, actor):
     return tickets[:200] if isinstance(tickets, list) else (tickets or [])
 
 
+def _tool_create_contract(args, actor):
+    payload = dict(args)
+
+    # Auto-fill manager fields from the logged-in admin if not provided.
+    if actor:
+        payload.setdefault("managerLastName", actor.get("contractLastName") or "")
+        payload.setdefault("managerFirstName",
+                            actor.get("contractFirstName") or (actor.get("fullName") or "").split(" ")[0] or "Admin")
+        payload.setdefault("managerPhone", actor.get("contractPhone") or "")
+        payload.setdefault("managerEmail", actor.get("contractEmail") or actor.get("email") or "")
+
+    # Auto-fill from trip.
+    trip_id = payload.get("tripId") or payload.get("attachedTripId")
+    if trip_id:
+        trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None)
+        if trip:
+            payload.setdefault("destination", trip.get("tripName") or "")
+            payload.setdefault("tripStartDate", trip.get("startDate") or "")
+            payload.setdefault("tripEndDate", trip.get("endDate") or "")
+            payload.setdefault("tripDuration", str(trip.get("totalDays") or ""))
+            payload["attachedTripId"] = trip_id
+
+    # Auto-fill from tourist.
+    tid = payload.get("touristId")
+    if tid:
+        tourist = next((t for t in read_tourists() if t.get("id") == tid), None)
+        if tourist:
+            payload.setdefault("touristLastName", tourist.get("lastName") or "")
+            payload.setdefault("touristFirstName", tourist.get("firstName") or "")
+            payload.setdefault("touristRegister", tourist.get("registrationNumber") or tourist.get("passportNumber") or "")
+            payload.setdefault("touristPhone", tourist.get("phone") or "")
+            payload.setdefault("touristEmail", tourist.get("email") or "")
+
+    gid = payload.get("groupId")
+    if gid:
+        payload["attachedGroupId"] = gid
+
+    data = build_contract_data(payload)
+    err = validate_contract_data(data)
+    if err:
+        return {"error": err}
+    try:
+        record = save_contract_files(data)
+    except Exception as exc:
+        return {"error": f"save_contract_files failed: {type(exc).__name__}: {exc}"}
+    record["createdBy"] = actor_snapshot(actor)
+    record["updatedBy"] = actor_snapshot(actor)
+    if trip_id:
+        record["tripId"] = trip_id
+    if gid:
+        record["groupId"] = gid
+    contracts = read_contracts()
+    contracts.insert(0, record)
+    write_contracts(contracts)
+
+    # Auto-create the matching invoice (mirrors handle_generate_contract).
+    auto_invoice = None
+    try:
+        auto_inv = build_invoice_from_contract(record, actor)
+        if auto_inv:
+            inv_list = read_invoices()
+            inv_list.insert(0, auto_inv)
+            write_invoices(inv_list)
+            record["autoInvoiceId"] = auto_inv["id"]
+            contracts[0] = record
+            write_contracts(contracts)
+            auto_invoice = {"id": auto_inv["id"], "serial": auto_inv.get("serial")}
+    except Exception as exc:
+        print(f"[agent contract->invoice] auto-create failed: {exc}", file=sys.stderr, flush=True)
+
+    return {"ok": True, "contract": {
+        "id": record["id"],
+        "contractSerial": (record.get("data") or {}).get("contractSerial"),
+        "pdfPath": record.get("pdfPath") or "",
+        "docxPath": record.get("docxPath") or "",
+        "autoInvoice": auto_invoice,
+    }}
+
+
 def _agent_save_uploaded_doc(raw_bytes, original_name, ext_hint):
     """Persist an arbitrary uploaded file to the generated dir and return public path."""
     if not raw_bytes:
@@ -8947,6 +9026,24 @@ AGENT_TOOLS = [
     {"name": "delete_memory", "description": "Delete a long-term note by id. Use when the admin says 'forget that' or 'мартчих'.",
      "input_schema": {"type": "object", "required": ["memoryId"], "properties": {"memoryId": {"type": "string"}}},
      "handler": _tool_delete_memory},
+    {"name": "create_contract", "description": "Create a tour contract (гэрээ) and automatically generate the matching invoice. Pass tripId and touristId so destination, dates, and tourist info auto-fill from the existing records — you only need to provide pricing fields and counts. Required pricing fields: adultCount, adultPrice (per-adult price), depositAmount, depositDueDate (yyyy-mm-dd), balanceDueDate (yyyy-mm-dd). Optional: childCount, childPrice, infantCount, infantPrice. The tool fills in destination/dates from the trip and tourist info from the tourist record. Returns {contract: {id, contractSerial, pdfPath, autoInvoice}}.",
+     "input_schema": {"type": "object", "required": ["tripId", "touristId", "adultCount", "adultPrice", "depositAmount", "depositDueDate", "balanceDueDate"],
+       "properties": {
+         "tripId": {"type": "string"},
+         "groupId": {"type": "string"},
+         "touristId": {"type": "string"},
+         "adultCount": {"type": "number"},
+         "adultPrice": {"type": "number"},
+         "childCount": {"type": "number"},
+         "childPrice": {"type": "number"},
+         "depositAmount": {"type": "number"},
+         "depositDueDate": {"type": "string"},
+         "balanceDueDate": {"type": "string"},
+         "totalPrice": {"type": "number"},
+         "destination": {"type": "string"},
+         "tripStartDate": {"type": "string"},
+         "tripEndDate": {"type": "string"}}},
+     "handler": _tool_create_contract},
     {"name": "attach_image_to_tourist", "description": "Attach an image (passport scan or portrait photo) to an existing tourist record. Use this AFTER the admin uploads an image in chat — every uploaded image is saved to disk and its path is given to you in a system note like '[Uploaded image paths] img-1=/generated/agent-upload-XXX.jpg'. Pass that path as imagePath. field='passport' fills passportScanPath; field='photo' fills photoPath.",
      "input_schema": {"type": "object", "required": ["touristId", "imagePath"], "properties": {
          "touristId": {"type": "string"},
@@ -8975,11 +9072,14 @@ def _agent_system_prompt(actor):
     return f"""You are "Батаа" (Bataa) — the in-app admin assistant for travelx.mn back-office. Today is {today}. You are talking to {name} (admin). Introduce yourself as Батаа when greeted; reply in Mongolian by default unless the user writes in another language.{memory_block}
 
 Domain context:
-- Two workspaces: DTX (Delkhii Travel Ix — outbound tours) and USM (Unlock Steppe Mongolia — inbound). Records carry a `company` field with value "DTX" or "USM"; tool inputs use `workspace` as a friendly synonym for the same thing.
+- Two workspaces: DTX (Delkhii Travel Ix — outbound tours, Монгол хүн гадаад руу) and USM (Unlock Steppe Mongolia — inbound, гадаад жуулчин Монгол руу). Records carry a `company` field with value "DTX" or "USM"; tool inputs use `workspace` as a friendly synonym for the same thing.
+- WORKSPACE INFERENCE (very important): if the destination is ANY country other than Mongolia (Dubai, Japan, Turkey, Singapore, Korea, China, Russia, etc.), this is a DTX trip. Only trips whose destination is inside Mongolia (Khustai, Gobi, Khuvsgul, Terelj, etc.) belong to USM. NEVER create a DTX-style trip in USM by mistake. If the user mentions "Dubai", "Japan", "Korea" etc. without naming a workspace, default to DTX.
+- LANGUAGE: when working in DTX (Mongolian outbound), reply in Mongolian. When working in USM (foreign inbound clients), generated documents (invoice descriptions, contract destinations) should be in English even though you speak Mongolian to the admin.
 - Trip types: FIT (individual / family booking, usually no group needed) and GIT (group tour, has named group).
 - Trip status values: planning, offer, confirmed, travelling, completed, cancelled. Lowercase only.
 - Each trip can have groups, participants (tourists), camp/flight/transfer reservations, contracts, invoices, documents.
-- Invoices have items + installments. Each installment has issueDate, dueDate, amount, status (pending/paid/overdue).
+- Invoices have items + installments. Each item has fields description, qty, price; total = qty × price. Each installment has issueDate, dueDate, amount, status (pending/paid/overdue).
+- IMPORTANT for invoices with multiple people: if the admin says "4 хүн × 2,500,000₮", create ONE item with qty=4 and price=2500000 (total auto-calculates to 10,000,000). Do NOT create one item with qty=1 and price=2500000.
 - Mongolian-language naming is normal: payerName, descriptions, etc. may be in Mongolian.
 
 How you work:
