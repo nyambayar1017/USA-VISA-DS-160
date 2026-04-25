@@ -118,6 +118,7 @@ def ensure_data_store():
         NOTIFICATIONS_FILE,
         GROUPS_FILE,
         TOURISTS_FILE,
+        INVOICES_FILE,
     ]:
         if not file_path.exists():
             file_path.write_text("[]", encoding="utf-8")
@@ -423,11 +424,17 @@ def write_tourists(records):
 
 
 def read_invoices():
-    return read_json_list(INVOICES_FILE)
+    try:
+        if not INVOICES_FILE.exists():
+            INVOICES_FILE.write_text("[]", encoding="utf-8")
+        return json.loads(INVOICES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
 
 
 def write_invoices(records):
-    write_json_list(INVOICES_FILE, records)
+    INVOICES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    INVOICES_FILE.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def next_invoice_serial():

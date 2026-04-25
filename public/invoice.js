@@ -39,17 +39,21 @@
     return data;
   }
 
+  let contracts = [];
   async function loadAll() {
     if (!tripId) return;
     try {
-      const [g, t, inv] = await Promise.all([
+      const [g, t, inv, contractsRes] = await Promise.all([
         fetchJson(`/api/tourist-groups?tripId=${encodeURIComponent(tripId)}`),
         fetchJson(`/api/tourists?tripId=${encodeURIComponent(tripId)}`),
-        fetchJson(`/api/invoices?tripId=${encodeURIComponent(tripId)}`),
+        fetchJson(`/api/invoices?tripId=${encodeURIComponent(tripId)}`).catch(() => ({ entries: [] })),
+        fetchJson("/api/contracts").catch(() => []),
       ]);
       groups = g.entries || [];
       tourists = t.entries || [];
       invoices = inv.entries || [];
+      const list = Array.isArray(contractsRes) ? contractsRes : (contractsRes.entries || []);
+      contracts = list.filter((c) => c.tripId === tripId);
       renderList();
     } catch (e) {
       listNode.innerHTML = `<p class="empty">Could not load invoices: ${escapeHtml(e.message)}</p>`;
@@ -57,39 +61,58 @@
   }
 
   function renderList() {
-    if (!invoices.length) {
-      listNode.innerHTML = '<p class="empty">No invoices yet. Click "Create invoice" to start.</p>';
+    const total = invoices.length + contracts.length;
+    if (!total) {
+      listNode.innerHTML = '<p class="empty">No invoices or contracts yet. Use the buttons at the top of the trip to add one.</p>';
       return;
     }
+    const contractRows = contracts.map((c) => {
+      const data = c.data || {};
+      const serial = data.contractSerial || c.id;
+      const tourist = `${data.touristLastName || ""} ${data.touristFirstName || ""}`.trim() || "-";
+      const total = data.totalPrice ? `${data.totalPrice}` : "-";
+      return `
+        <tr>
+          <td><strong>${escapeHtml(serial)}</strong></td>
+          <td>Contract</td>
+          <td>${escapeHtml(tourist)}</td>
+          <td>${escapeHtml(total)}</td>
+          <td>—</td>
+          <td><span class="invoice-status invoice-status-${escapeHtml(c.status || "draft")}">${escapeHtml(c.status || "draft")}</span></td>
+          <td>
+            <a class="table-link compact secondary" href="/contracts#${encodeURIComponent(c.id)}" target="_blank" rel="noreferrer">Open</a>
+          </td>
+        </tr>
+      `;
+    }).join("");
+    const invoiceRows = invoices.map((inv) => {
+      const grp = groups.find((g) => g.id === inv.groupId);
+      const installments = (inv.installments || []).map((i) =>
+        `${escapeHtml(i.description)} (${escapeHtml(i.status)})`
+      ).join(" · ") || "—";
+      return `
+        <tr>
+          <td><strong>#${escapeHtml(inv.serial)}</strong></td>
+          <td>Invoice</td>
+          <td>${escapeHtml(inv.payerName || grp?.name || "-")}</td>
+          <td>${fmtMoney(inv.total)}</td>
+          <td>${installments}</td>
+          <td><span class="invoice-status invoice-status-${escapeHtml(inv.status)}">${escapeHtml(inv.status)}</span></td>
+          <td>
+            <button type="button" class="table-link compact secondary" data-invoice-action="view" data-id="${inv.id}">View</button>
+            <button type="button" class="table-link compact secondary" data-invoice-action="edit" data-id="${inv.id}">Edit</button>
+            <button type="button" class="table-link compact secondary" data-invoice-action="delete" data-id="${inv.id}">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
     listNode.innerHTML = `
       <div class="camp-table-wrap">
         <table class="camp-table reservation-addon-table">
           <thead><tr>
-            <th>#</th><th>Group</th><th>Payer</th><th>Total</th><th>Installments</th><th>Status</th><th>Actions</th>
+            <th>Serial</th><th>Type</th><th>Client</th><th>Total</th><th>Installments</th><th>Status</th><th>Actions</th>
           </tr></thead>
-          <tbody>
-            ${invoices.map((inv) => {
-              const grp = groups.find((g) => g.id === inv.groupId);
-              const installments = (inv.installments || []).map((i) =>
-                `${escapeHtml(i.description)} (${escapeHtml(i.status)})`
-              ).join(" · ") || "—";
-              return `
-                <tr>
-                  <td><strong>#${escapeHtml(inv.serial)}</strong></td>
-                  <td>${escapeHtml(grp?.name || inv.groupId || "-")}</td>
-                  <td>${escapeHtml(inv.payerName || "-")}</td>
-                  <td>${fmtMoney(inv.total)}</td>
-                  <td>${installments}</td>
-                  <td><span class="invoice-status invoice-status-${escapeHtml(inv.status)}">${escapeHtml(inv.status)}</span></td>
-                  <td>
-                    <button type="button" class="table-link compact secondary" data-invoice-action="view" data-id="${inv.id}">View</button>
-                    <button type="button" class="table-link compact secondary" data-invoice-action="edit" data-id="${inv.id}">Edit</button>
-                    <button type="button" class="table-link compact secondary" data-invoice-action="delete" data-id="${inv.id}">Delete</button>
-                  </td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
+          <tbody>${contractRows}${invoiceRows}</tbody>
         </table>
       </div>
     `;

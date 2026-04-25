@@ -194,31 +194,39 @@
               <th>Passport expiry</th>
               <th>Reg #</th>
               <th>Phone</th>
+              <th>Room</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             ${rows
               .map(
-                (t) => `
-                  <tr>
-                    <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
-                    <td><strong>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</strong></td>
-                    <td>${escapeHtml(t.lastName || "")}</td>
-                    <td>${escapeHtml(t.firstName || "")}</td>
-                    <td>${escapeHtml(t.nationality || "-")}</td>
-                    <td>${escapeHtml(t.passportNumber || "-")}</td>
-                    <td>${escapeHtml(t.passportExpiry || "-")}</td>
-                    <td>${escapeHtml(t.registrationNumber || "-")}</td>
-                    <td>${escapeHtml(t.phone || "-")}</td>
-                    <td>
-                      <div class="trip-row-actions trip-row-actions-inline">
-                        <button type="button" class="table-link compact secondary" data-tourist-action="edit" data-id="${t.id}">Edit</button>
-                        <button type="button" class="table-link compact secondary" data-tourist-action="delete" data-id="${t.id}">Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                `
+                (t) => {
+                  const roomTypeShort = { single: "SGL", double: "DBL", twin: "TWIN", triple: "TPL", family: "FAM", other: "OTH" };
+                  const roomLabel = t.roomType
+                    ? `${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}`
+                    : "—";
+                  return `
+                    <tr>
+                      <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
+                      <td><strong>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</strong></td>
+                      <td>${escapeHtml(t.lastName || "")}</td>
+                      <td>${escapeHtml(t.firstName || "")}</td>
+                      <td>${escapeHtml(t.nationality || "-")}</td>
+                      <td>${escapeHtml(t.passportNumber || "-")}</td>
+                      <td>${escapeHtml(t.passportExpiry || "-")}</td>
+                      <td>${escapeHtml(t.registrationNumber || "-")}</td>
+                      <td>${escapeHtml(t.phone || "-")}</td>
+                      <td>${roomLabel}</td>
+                      <td>
+                        <div class="trip-row-actions trip-row-actions-inline">
+                          <button type="button" class="table-link compact secondary" data-tourist-action="edit" data-id="${t.id}">Edit</button>
+                          <button type="button" class="table-link compact secondary" data-tourist-action="delete" data-id="${t.id}">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }
               )
               .join("")}
           </tbody>
