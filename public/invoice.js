@@ -180,6 +180,15 @@
             </span>
             <span class="inv-cell inv-payer">${escapeHtml(inv.payerName || "-")}</span>
             <span class="inv-cell inv-total">${fmtMoney(inv.total)}</span>
+            <details class="inv-row-menu">
+              <summary aria-label="Actions">⋯</summary>
+              <div class="inv-row-menu-popover">
+                <button type="button" data-inv-action="open" data-id="${escapeHtml(inv.id)}">Edit</button>
+                <button type="button" data-inv-action="open-view" data-id="${escapeHtml(inv.id)}">View</button>
+                <button type="button" data-inv-action="copy-row" data-id="${escapeHtml(inv.id)}">Copy link</button>
+                <button type="button" class="is-danger" data-inv-action="delete" data-id="${escapeHtml(inv.id)}">Delete</button>
+              </div>
+            </details>
           </div>
           <div class="inv-row-installments">
             ${installmentRows}
@@ -222,8 +231,8 @@
         <div class="inv-side-header">
           <h2 id="inv-side-title">Invoice</h2>
           <div class="inv-side-header-actions">
-            <button type="button" class="inv-icon-btn" data-inv-action="share" title="Share">↗</button>
-            <button type="button" class="inv-icon-btn" data-inv-action="menu" title="More">⋯</button>
+            <button type="button" class="inv-text-btn" data-inv-action="copy">Copy link</button>
+            <button type="button" class="inv-text-btn" data-inv-action="open-view">Open</button>
             <button type="button" class="inv-icon-btn" data-inv-action="close-panel" aria-label="Close">×</button>
           </div>
         </div>
@@ -234,18 +243,24 @@
     panel.addEventListener("click", (e) => {
       const action = e.target.closest("[data-inv-action]")?.dataset?.invAction;
       if (action === "close-panel") closeSidePanel();
-      if (action === "share") {
+      if (action === "copy") {
         const id = panel.dataset.invoiceId;
         const link = `${window.location.origin}/invoice-view?id=${id}`;
-        navigator.clipboard?.writeText(link).then(() => alert("Link copied."));
+        const btn = e.target.closest("[data-inv-action='copy']");
+        navigator.clipboard?.writeText(link).then(() => {
+          if (!btn) return;
+          const t = btn.textContent;
+          btn.textContent = "Copied";
+          setTimeout(() => { btn.textContent = t; }, 1200);
+        });
       }
-      if (action === "menu") {
+      if (action === "open-view") {
         const id = panel.dataset.invoiceId;
-        const choice = prompt("Type:\n  publish — publish this invoice\n  delete — delete it\n  view — open Mongolian view\n");
-        if (!choice) return;
-        if (choice === "publish") publishInvoice(id);
-        else if (choice === "delete") deleteInvoice(id);
-        else if (choice === "view") window.open(`/invoice-view?id=${id}`, "_blank");
+        window.open(`/invoice-view?id=${id}`, "_blank");
+      }
+      if (action === "publish-now") {
+        const id = panel.dataset.invoiceId;
+        publishInvoice(id);
       }
       const editAction = e.target.closest("[data-inv-edit]")?.dataset?.invEdit;
       if (editAction === "payer") openEditPayerModal();
@@ -336,8 +351,11 @@
         </div>
         <div class="inv-side-row">
           <div class="inv-side-row-label">Publication Status</div>
-          <div class="inv-side-row-value">${escapeHtml(pubLabel)}</div>
-          <button type="button" class="inv-side-edit" data-inv-action="menu" aria-label="Status menu">${pencilSvg()}</button>
+          <div class="inv-side-row-value">
+            ${escapeHtml(pubLabel)}
+            ${isPublished ? "" : `<button type="button" class="inv-publish-btn" data-inv-action="publish-now">Publish</button>`}
+          </div>
+          <span class="inv-side-edit-spacer"></span>
         </div>
       </div>
 
@@ -1039,7 +1057,7 @@
     } catch (err) { alert("Could not open invoice wizard: " + err.message); }
   });
 
-  invoicesListNode.addEventListener("click", (e) => {
+  invoicesListNode.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-inv-action]");
     if (!btn) return;
     const action = btn.dataset.invAction;
@@ -1049,10 +1067,44 @@
       if (expandedInvoiceIds.has(id)) expandedInvoiceIds.delete(id);
       else expandedInvoiceIds.add(id);
       renderInvoicesList();
-    } else if (action === "open" && invoice) {
-      e.preventDefault();
-      openSidePanel(invoice);
+      return;
     }
+    if (action === "open" && invoice) {
+      e.preventDefault();
+      btn.closest("details.inv-row-menu")?.removeAttribute("open");
+      openSidePanel(invoice);
+      return;
+    }
+    if (action === "open-view") {
+      e.preventDefault();
+      btn.closest("details.inv-row-menu")?.removeAttribute("open");
+      window.open(`/invoice-view?id=${id}`, "_blank");
+      return;
+    }
+    if (action === "copy-row") {
+      btn.closest("details.inv-row-menu")?.removeAttribute("open");
+      try {
+        await navigator.clipboard.writeText(`${window.location.origin}/invoice-view?id=${id}`);
+        const t = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(() => { btn.textContent = t; }, 1200);
+      } catch { alert("Could not copy."); }
+      return;
+    }
+    if (action === "delete" && invoice) {
+      btn.closest("details.inv-row-menu")?.removeAttribute("open");
+      if (!confirm(`Delete invoice #${invoice.serial || invoice.id}?`)) return;
+      try {
+        await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
+        await loadAll();
+      } catch (err) { alert(err.message || "Could not delete."); }
+    }
+  });
+  // Auto-close any open row-menu on outside click
+  document.addEventListener("click", (e) => {
+    invoicesListNode.querySelectorAll("details.inv-row-menu[open]").forEach((det) => {
+      if (!det.contains(e.target)) det.removeAttribute("open");
+    });
   });
 
   contractsListNode.addEventListener("click", async (e) => {

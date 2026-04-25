@@ -3750,7 +3750,9 @@ def _fmt_money(value):
 
 
 def build_standalone_invoice_html(invoice):
-    """Render the new-model invoice as Mongolian printable HTML for WeasyPrint."""
+    """Render the new-model invoice as Mongolian printable HTML for WeasyPrint.
+    CSS mirrors the working contract-invoice template (build_invoice_html).
+    """
     serial = html.escape(str(invoice.get("serial") or invoice.get("id") or ""))
     customer = html.escape(str((invoice.get("payerName") or "CLIENT")).upper())
     items = invoice.get("items") or []
@@ -3776,55 +3778,75 @@ def build_standalone_invoice_html(invoice):
           <div class="payment-amount">{_fmt_money(inst.get('amount'))}</div>
         </div>
         """
+    # Use Path.as_uri() so WeasyPrint loads the local files reliably (handles spaces).
+    def _asset(name):
+        p = (BASE_DIR / "public" / "assets" / name)
+        return p.resolve().as_uri() if p.exists() else ""
+    logo_src = _asset("dtx-logo-blue-yellow.png")
+    stamp_src = _asset("invoice-finance-stamp.png")
+    sig_src = _asset("invoice-finance-signature.png")
     css = """
+      @page { size: A4; margin: 16mm 14mm; }
       * { box-sizing: border-box; }
-      body { margin: 0; background: #fff; color: #27272a; font-family: 'Nunito', Arial, sans-serif; font-size: 13px; }
-      .page { padding: 28px 32px; }
-      .invoice-number { margin: 0 0 18px; font-size: 18px; font-weight: 500; }
-      .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+      body { margin: 0; background: #fff; color: #27272a;
+        font-family: 'Nunito', Arial, sans-serif; font-size: 13px; }
+      .page { padding: 0; }
+      .invoice-number { margin: 0 0 18px; color: #27272a; font-size: 18px;
+        line-height: 1.15; font-weight: 500; }
+      .header-grid { display: grid; grid-template-columns: 1.05fr 0.95fr;
+        gap: 20px; align-items: start; margin-bottom: 28px; }
       .invoice-logo { width: 154px; max-width: 100%; display: block; margin-bottom: 10px; }
-      .company-name { margin: 0 0 12px; font-size: 14px; font-weight: 700; }
-      .company-block p, .customer-block p, .meta-note { margin: 0; font-size: 13px; line-height: 1.38; }
-      .meta-note { text-align: right; }
+      .company-name { margin: 0 0 12px; font-size: 14px; line-height: 1.25;
+        font-weight: 700; color: #27272a; }
+      .company-block p, .customer-block p, .meta-note {
+        margin: 0; font-size: 13px; line-height: 1.38; }
+      .meta-note { text-align: right; color: #27272a; white-space: nowrap; }
       .customer-block { padding-top: 80px; }
-      .customer-block .label { display: block; margin-bottom: 4px; color: #64748b; font-weight: 600; }
+      .customer-block .label { display: block; margin-bottom: 4px; color: #64748b;
+        font-size: 13px; font-weight: 600; }
       .section-title { margin: 0 0 10px; color: #64748b; font-size: 13px; font-weight: 600; }
       .invoice-items-table { width: 100%; border-collapse: separate; border-spacing: 0;
         border-radius: 12px; border: 1px solid #cfd8e6; overflow: hidden; margin-bottom: 28px; }
-      .invoice-items-table th { background: #eef2f9; color: #1f3168; padding: 10px 12px; text-align: left; font-size: 13px; }
-      .invoice-items-table td { padding: 10px 12px; border-top: 1px solid #eef2f9; }
-      .invoice-items-table tr.total-row td { font-weight: 700; background: #f8fafd; }
-      .payment-stack { display: grid; gap: 10px; margin-bottom: 24px; }
-      .payment-card { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 16px; padding: 14px 16px;
-        border: 1px solid #cfd8e6; border-radius: 12px; align-items: center; }
-      .payment-main { font-weight: 700; }
-      .payment-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-      .meta-label { color: #64748b; }
-      .payment-status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-      .payment-status.waiting { background: #fef3c7; color: #92400e; }
-      .payment-status.paid { background: #dcfce7; color: #166534; }
-      .payment-status.overdue { background: #fee2e2; color: #991b1b; }
-      .payment-amount { text-align: right; font-weight: 700; }
-      .bank-section { margin-bottom: 28px; }
-      .bank-grid { display: grid; gap: 6px; padding: 14px 18px; border: 1px solid #cfd8e6; border-radius: 12px; }
-      .bank-line { display: flex; gap: 12px; align-items: center; }
-      .bank-prefix { color: #64748b; font-size: 12px; }
-      .bank-account-number { font-size: 16px; }
-      .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-      .signature-card { position: relative; padding-top: 8px; }
-      .signature-label { color: #64748b; font-size: 12px; margin-bottom: 8px; }
-      .signature-line { height: 1px; background: #cfd8e6; margin: 60px 0 8px; }
-      .accountant-stamp { position: absolute; top: 16px; left: 8px; height: 90px; }
-      .accountant-signature { position: absolute; top: 30px; left: 60px; height: 60px; }
-      .signature-name { font-weight: 700; }
-      .signature-role { color: #64748b; font-size: 12px; }
+      th, td { padding: 10px 12px; border-bottom: 1px solid #cfd8e6;
+        text-align: left; font-size: 13px; line-height: 1.25; }
+      th { background: #fbfcfe; color: #27272a; font-weight: 700; }
+      th:first-child, td:first-child { width: 46px; }
+      td:last-child, th:last-child, td:nth-last-child(2), th:nth-last-child(2) { text-align: right; }
+      .total-row td { font-weight: 700; background: #fff; border-bottom: 0; }
+      .payment-stack { display: grid; gap: 16px; margin-bottom: 28px; }
+      .payment-card { display: grid;
+        grid-template-columns: 1.35fr 1.08fr 1.08fr 0.9fr 0.92fr;
+        gap: 10px; align-items: center; min-height: 74px; padding: 16px 18px;
+        border: 1px solid #cfd8e6; border-radius: 12px; background: #fff; }
+      .payment-main, .payment-amount { min-width: 0; font-size: 13px; font-weight: 600; color: #27272a; }
+      .payment-amount { text-align: right; white-space: nowrap; }
+      .payment-meta { display: grid; gap: 4px; min-width: 0; }
+      .meta-value { font-size: 13px; font-weight: 600; color: #27272a; }
+      .meta-label { color: #64748b; font-size: 13px; font-weight: 600; white-space: nowrap; }
+      .payment-status { display: inline-flex; align-items: center; justify-content: center;
+        min-width: 82px; min-height: 30px; padding: 5px 11px; border-radius: 999px;
+        font-size: 12px; font-weight: 700; }
+      .payment-status.paid { background: #dcf4e3; color: #1f8550; }
+      .payment-status.overdue { background: #f8dede; color: #c44747; }
+      .payment-status.waiting { background: #fff5bd; color: #8a4b12; }
+      .bank-section { margin-top: 0; padding-bottom: 28px; border-bottom: 1px solid #d9e0ea; }
+      .bank-grid { display: grid; gap: 4px; font-size: 13px; line-height: 1.35; color: #27272a; }
+      .bank-line { display: flex; flex-wrap: wrap; gap: 18px; align-items: baseline; }
+      .bank-prefix { color: #64748b; }
+      .bank-account-number { font-weight: 800; }
+      .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
+        margin-top: 24px; align-items: start; }
+      .signature-card { position: relative; min-height: 218px; padding-top: 0; }
+      .signature-label { position: relative; z-index: 3; min-height: 18px; margin-bottom: 112px;
+        color: #64748b; font-size: 13px; font-weight: 600; background: #fff; }
+      .signature-line { border-bottom: 1px dashed #d5ddec; }
+      .accountant-stamp { position: absolute; left: 2px; bottom: 36px; width: 218px;
+        z-index: 1; opacity: 0.98; }
+      .accountant-signature { position: absolute; left: 64px; bottom: -34px; width: 290px; z-index: 2; }
+      .signature-name { position: relative; z-index: 4; margin-top: 14px; font-size: 13px;
+        font-weight: 700; color: #27272a; }
+      .signature-role { position: relative; z-index: 4; color: #27272a; font-size: 13px; }
     """
-    logo_path = (BASE_DIR / "public/assets/dtx-logo-blue-yellow.png")
-    stamp_path = (BASE_DIR / "public/assets/invoice-finance-stamp.png")
-    sig_path = (BASE_DIR / "public/assets/invoice-finance-signature.png")
-    logo_src = f"file://{logo_path}" if logo_path.exists() else ""
-    stamp_src = f"file://{stamp_path}" if stamp_path.exists() else ""
-    sig_src = f"file://{sig_path}" if sig_path.exists() else ""
     return f"""<!DOCTYPE html>
 <html lang="mn"><head><meta charset="UTF-8"><title>Нэхэмжлэх #{serial}</title>
 <style>{css}</style></head><body><div class="page">
@@ -3878,7 +3900,7 @@ def save_standalone_invoice_pdf(invoice):
         raise RuntimeError(f"WeasyPrint not available: {exc}") from exc
     html_string = build_standalone_invoice_html(invoice)
     try:
-        HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
+        HTML(string=html_string, base_url=str(BASE_DIR), media_type="screen").write_pdf(str(pdf_path))
     except Exception as exc:
         raise RuntimeError(f"PDF generation failed: {exc}") from exc
     return f"/generated/{pdf_filename}"
