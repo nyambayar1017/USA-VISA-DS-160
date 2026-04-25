@@ -8687,6 +8687,51 @@ def _tool_list_fifa_inventory(args, actor):
     return tickets[:200] if isinstance(tickets, list) else (tickets or [])
 
 
+def _agent_save_uploaded_image(b64, media_type):
+    """Persist a base64 image to the generated dir and return its public path."""
+    if not b64:
+        return ""
+    ext_map = {"image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+               "image/gif": "gif", "image/webp": "webp"}
+    ext = ext_map.get((media_type or "").lower(), "jpg")
+    try:
+        raw = base64.b64decode(b64)
+    except Exception:
+        return ""
+    if not raw or len(raw) > AGENT_MAX_IMAGE_BYTES:
+        return ""
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"agent-upload-{uuid4().hex[:12]}.{ext}"
+    (GENERATED_DIR / filename).write_bytes(raw)
+    return f"/generated/{filename}"
+
+
+def _tool_attach_image_to_tourist(args, actor):
+    tid = (args.get("touristId") or "").strip()
+    image_path = (args.get("imagePath") or "").strip()
+    field = (args.get("field") or "passport").strip().lower()
+    if not tid:
+        return {"error": "touristId is required"}
+    if not image_path:
+        return {"error": "imagePath is required (use a path returned in the [Uploaded image paths] note)"}
+    if field not in ("passport", "photo"):
+        return {"error": "field must be 'passport' or 'photo'"}
+    target_field = "passportScanPath" if field == "passport" else "photoPath"
+    tourists = read_tourists()
+    for i, t in enumerate(tourists):
+        if t.get("id") != tid:
+            continue
+        t[target_field] = image_path
+        t["updatedAt"] = now_mongolia().isoformat()
+        t["updatedBy"] = actor_snapshot(actor)
+        tourists[i] = t
+        write_tourists(tourists)
+        return {"ok": True, "tourist": {"id": t["id"], "serial": t.get("serial"),
+                                          "lastName": t.get("lastName"), "firstName": t.get("firstName"),
+                                          target_field: image_path}}
+    return {"error": "Tourist not found"}
+
+
 def _tool_save_memory(args, actor):
     text = (args.get("text") or "").strip()
     if not text:
@@ -8868,6 +8913,12 @@ AGENT_TOOLS = [
     {"name": "delete_memory", "description": "Delete a long-term note by id. Use when the admin says 'forget that' or 'мартчих'.",
      "input_schema": {"type": "object", "required": ["memoryId"], "properties": {"memoryId": {"type": "string"}}},
      "handler": _tool_delete_memory},
+    {"name": "attach_image_to_tourist", "description": "Attach an image (passport scan or portrait photo) to an existing tourist record. Use this AFTER the admin uploads an image in chat — every uploaded image is saved to disk and its path is given to you in a system note like '[Uploaded image paths] img-1=/generated/agent-upload-XXX.jpg'. Pass that path as imagePath. field='passport' fills passportScanPath; field='photo' fills photoPath.",
+     "input_schema": {"type": "object", "required": ["touristId", "imagePath"], "properties": {
+         "touristId": {"type": "string"},
+         "imagePath": {"type": "string", "description": "Path returned in the [Uploaded image paths] note, e.g. /generated/agent-upload-abc123.jpg"},
+         "field": {"type": "string", "description": "'passport' (default) or 'photo'"}}},
+     "handler": _tool_attach_image_to_tourist},
 ]
 AGENT_TOOL_BY_NAME = {t["name"]: t for t in AGENT_TOOLS}
 
@@ -8924,7 +8975,8 @@ Long-term memory:
 
 Images:
 - The admin can attach images (passport pages, contracts, ID photos, receipts). When attached, read them carefully and extract whatever the admin asks for — names, passport numbers, dates of birth, expiry dates, nationality, document numbers.
-- For passports: read fields exactly as printed (Latin letters), then offer to create a tourist record via create_tourist with the extracted fields. Do not call create_tourist without confirming with the admin first.
+- Every uploaded image is saved on the server and its path is given to you in a "[Uploaded image paths] img-1=/generated/...; img-2=..." note appended to the user's message. Use those exact paths when calling attach_image_to_tourist.
+- For passports: read fields exactly as printed (Latin letters), then offer to create a tourist record via create_tourist with the extracted fields. After the tourist is created, ALSO call attach_image_to_tourist({touristId, imagePath: "<the img-1 path>", field: "passport"}) so the passport scan is saved to the tourist's record. Mention "Паспортын зургийг хавсаргалаа" in the reply so the admin knows.
 - If a field is unclear or partially obscured, say so rather than guessing.
 """
 
@@ -9002,6 +9054,7 @@ def handle_agent_chat(environ, start_response):
     raw_images = raw_images[:AGENT_MAX_IMAGES_PER_MESSAGE]
 
     image_blocks = []
+    saved_paths = []  # list of public paths corresponding to the image_blocks
     for img in raw_images:
         data_url = (img.get("dataUrl") or "") if isinstance(img, dict) else ""
         if not data_url.startswith("data:"):
@@ -9020,14 +9073,22 @@ def handle_agent_chat(environ, start_response):
             "type": "image",
             "source": {"type": "base64", "media_type": media_type, "data": b64},
         })
+        # Persist a copy so the agent can reference it via attach_image_to_tourist.
+        saved_paths.append(_agent_save_uploaded_image(b64, media_type))
 
     if not user_msg and not image_blocks:
         return json_response(start_response, "400 Bad Request", {"error": "Empty message"})
 
     # Build the user content blocks: images first, then text. Always include
-    # at least a text block so Claude has something to respond to.
+    # at least a text block so Claude has something to respond to. If we
+    # persisted any uploads, surface their server paths so the agent can
+    # call attach_image_to_tourist with them.
     content_blocks = list(image_blocks)
-    content_blocks.append({"type": "text", "text": user_msg or "(зураг хавсаргав — танилцана уу)"})
+    text_parts = [user_msg or "(зураг хавсаргав — танилцана уу)"]
+    upload_lines = [f"img-{i+1}={p}" for i, p in enumerate(saved_paths) if p]
+    if upload_lines:
+        text_parts.append("\n\n[Uploaded image paths] " + "; ".join(upload_lines))
+    content_blocks.append({"type": "text", "text": "\n".join(text_parts)})
     history.append({"role": "user", "content": content_blocks})
 
     system = _agent_system_prompt(actor)
