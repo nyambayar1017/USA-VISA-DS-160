@@ -8314,8 +8314,8 @@ AGENT_CONVERSATIONS_FILE = DATA_DIR / "agent_conversations.json"
 AGENT_AUDIT_FILE = DATA_DIR / "agent_audit.json"
 AGENT_MEMORY_FILE = DATA_DIR / "agent_memory.json"
 AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-sonnet-4-5-20250929")
-AGENT_MAX_TOKENS = 4096
-AGENT_MAX_TOOL_LOOPS = 12
+AGENT_MAX_TOKENS = 2048  # smaller responses → faster round trips, fewer timeouts
+AGENT_MAX_TOOL_LOOPS = 6  # fits comfortably inside Render proxy budget; the agent should split big asks instead
 AGENT_HISTORY_TURNS = 20  # how many user/assistant turns we keep per user
 AGENT_MAX_IMAGES_PER_MESSAGE = 5
 AGENT_MAX_IMAGE_BYTES = 5 * 1024 * 1024  # Anthropic per-image limit
@@ -9369,6 +9369,8 @@ def _handle_agent_chat_impl(environ, start_response):
     final_text = ""
     loops = 0
 
+    import time
+    loop_start = time.time()
     while loops < AGENT_MAX_TOOL_LOOPS:
         loops += 1
         # Strip image bytes from earlier turns before subsequent calls — Claude
@@ -9377,7 +9379,14 @@ def _handle_agent_chat_impl(environ, start_response):
         # timeout. Keep the placeholder so the model knows an image was sent.
         if loops > 1:
             history = _strip_image_bytes_from_history(history)
+        elapsed = time.time() - loop_start
+        if elapsed > 80:
+            print(f"[agent] aborting at loop {loops} after {elapsed:.1f}s to stay under proxy timeout", file=sys.stderr, flush=True)
+            final_text = (final_text or "") + "\n\n⏱ Хэт удаан үргэлжиллээ. Үлдсэн алхмуудыг дараагийн мессежээр үргэлжлүүлээрэй."
+            break
+        t0 = time.time()
         resp = _agent_call_anthropic(system, history, AGENT_TOOLS)
+        print(f"[agent] loop {loops} anthropic call took {time.time()-t0:.1f}s", file=sys.stderr, flush=True)
         if "error" in resp:
             history.pop()  # Don't persist the failed turn.
             return json_response(start_response, "502 Bad Gateway", {"error": resp["error"]})
