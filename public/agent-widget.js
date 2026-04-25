@@ -7,7 +7,11 @@
   let panelOpen = false;
   let busy = false;
   let messages = []; // {role:"user"|"assistant", text:string, actions?:[]}
-  let bubble, panel, listEl, inputEl, sendBtn, clearBtn, statusEl;
+  let bubble, panel, listEl, inputEl, sendBtn, clearBtn, statusEl, micBtn, ttsBtn;
+  let recognition = null;
+  let recognizing = false;
+  let ttsEnabled = false;
+  try { ttsEnabled = localStorage.getItem("agent-tts") === "1"; } catch (e) {}
 
   function el(tag, props, children) {
     const node = document.createElement(tag);
@@ -109,11 +113,13 @@
           text: "⚠ " + (data.error || ("HTTP " + r.status)),
         });
       } else {
+        const reply = data.reply || "(хариу алга)";
         messages.push({
           role: "assistant",
-          text: data.reply || "(хариу алга)",
+          text: reply,
           actions: data.actions || [],
         });
+        if (ttsEnabled) speak(reply);
       }
     } catch (err) {
       messages.push({ role: "assistant", text: "⚠ Сүлжээний алдаа" });
@@ -121,6 +127,85 @@
       setBusy(false);
       render();
       inputEl.focus();
+    }
+  }
+
+  function speak(text) {
+    try {
+      if (!("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "mn-MN";
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
+      window.speechSynthesis.speak(utter);
+    } catch (e) {}
+  }
+
+  function ensureRecognition() {
+    if (recognition) return recognition;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    recognition = new SR();
+    recognition.lang = "mn-MN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.onresult = (event) => {
+      let finalText = "";
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += t;
+        else interim += t;
+      }
+      if (finalText) {
+        const cur = (inputEl.value || "").replace(/\s+$/, "");
+        inputEl.value = (cur ? cur + " " : "") + finalText.trim();
+      } else if (interim) {
+        statusEl.textContent = "🎙 " + interim;
+      }
+    };
+    recognition.onerror = (e) => {
+      recognizing = false;
+      micBtn.classList.remove("is-rec");
+      statusEl.textContent = "🎙 Алдаа: " + (e.error || "unknown");
+      setTimeout(() => { if (statusEl.textContent.startsWith("🎙")) statusEl.textContent = ""; }, 2400);
+    };
+    recognition.onend = () => {
+      recognizing = false;
+      micBtn.classList.remove("is-rec");
+      if (statusEl.textContent.startsWith("🎙")) statusEl.textContent = "";
+    };
+    return recognition;
+  }
+
+  function toggleMic() {
+    const rec = ensureRecognition();
+    if (!rec) {
+      alert("Энэ хөтөч дуу таних боломжгүй (Chrome эсвэл Safari ашиглана уу).");
+      return;
+    }
+    if (recognizing) {
+      try { rec.stop(); } catch (e) {}
+      return;
+    }
+    try {
+      rec.start();
+      recognizing = true;
+      micBtn.classList.add("is-rec");
+      statusEl.textContent = "🎙 Сонсож байна…";
+    } catch (e) {
+      statusEl.textContent = "🎙 Эхлүүлж чадсангүй";
+    }
+  }
+
+  function toggleTts() {
+    ttsEnabled = !ttsEnabled;
+    try { localStorage.setItem("agent-tts", ttsEnabled ? "1" : "0"); } catch (e) {}
+    ttsBtn.classList.toggle("is-on", ttsEnabled);
+    ttsBtn.title = ttsEnabled ? "Дуугаар уншихыг унтраах" : "Хариуг дуугаар унших";
+    if (!ttsEnabled && "speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
     }
   }
 
@@ -147,9 +232,9 @@
     bubble = el("button", {
       class: "agent-bubble",
       type: "button",
-      title: "AI туслах",
+      title: "Батаа",
       onclick: () => togglePanel(),
-    }, ["AI"]);
+    }, ["Батаа"]);
 
     listEl = el("div", { class: "agent-list" });
     statusEl = el("div", { class: "agent-status" });
@@ -167,15 +252,29 @@
     sendBtn = el("button", { class: "agent-send", type: "button", onclick: send }, ["Илгээх"]);
     clearBtn = el("button", { class: "agent-clear", type: "button", onclick: clearHistory, title: "Түүх цэвэрлэх" }, ["Цэвэрлэх"]);
 
+    micBtn = el("button", {
+      class: "agent-mic",
+      type: "button",
+      title: "Дуугаар оруулах",
+      onclick: toggleMic,
+    }, ["🎙"]);
+    ttsBtn = el("button", {
+      class: "agent-tts" + (ttsEnabled ? " is-on" : ""),
+      type: "button",
+      title: ttsEnabled ? "Дуугаар уншихыг унтраах" : "Хариуг дуугаар унших",
+      onclick: toggleTts,
+    }, ["🔊"]);
+
     const header = el("div", { class: "agent-header" }, [
-      el("div", { class: "agent-title" }, ["AI туслах ", el("span", { class: "agent-tag" }, ["admin"])]),
+      el("div", { class: "agent-title" }, ["Батаа ", el("span", { class: "agent-tag" }, ["admin"])]),
       el("div", { class: "agent-header-actions" }, [
+        ttsBtn,
         clearBtn,
         el("button", { class: "agent-close", type: "button", onclick: () => togglePanel(false) }, ["×"]),
       ]),
     ]);
 
-    const inputRow = el("div", { class: "agent-input-row" }, [inputEl, sendBtn]);
+    const inputRow = el("div", { class: "agent-input-row" }, [micBtn, inputEl, sendBtn]);
 
     panel = el("div", { class: "agent-panel" }, [header, listEl, statusEl, inputRow]);
 
