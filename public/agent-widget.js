@@ -216,7 +216,7 @@
     if (!panel) return;
     panel.classList.toggle("is-maximized", maximized);
     if (maxBtn) {
-      maxBtn.textContent = maximized ? "🗗" : "🗖";
+      maxBtn.textContent = maximized ? "⤡" : "⤢";
       maxBtn.title = maximized ? "Жижигрүүлэх" : "Томруулах";
     }
   }
@@ -369,7 +369,7 @@
       class: "agent-max",
       type: "button",
       onclick: toggleMaximize,
-    }, [maximized ? "🗗" : "🗖"]);
+    }, [maximized ? "⤡" : "⤢"]);
     maxBtn.title = maximized ? "Жижигрүүлэх" : "Томруулах";
 
     const header = el("div", { class: "agent-header" }, [
