@@ -572,6 +572,20 @@ td {
   display: none;
 }
 
+.list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 8px;
+}
+
+.list-toolbar button {
+  padding: 8px 16px;
+  font-size: 0.86rem;
+}
+
 .sidebar-close {
   display: none;
 }
@@ -1698,6 +1712,9 @@ time {
 
 .reservation-addon-table {
   table-layout: auto;
+  min-width: 0;
+  width: max-content;
+  max-width: 100%;
 }
 
 .reservation-addon-table th,

@@ -247,8 +247,8 @@
   function getFilteredTransfers() {
     return transfers
       .filter((entry) => (!transferFilterTrip.value || entry.tripId === transferFilterTrip.value))
-      .filter((entry) => (!transferFilterType.value || entry.transferType === transferFilterType.value))
-      .filter((entry) => (!transferFilterStatus.value || entry.paymentStatus === transferFilterStatus.value))
+      .filter((entry) => (!transferFilterType?.value || entry.transferType === transferFilterType.value))
+      .filter((entry) => (!transferFilterStatus?.value || entry.paymentStatus === transferFilterStatus.value))
       .filter((entry) => !transferFilterDriver?.value || String(entry.driverName || "").toLowerCase().includes(transferFilterDriver.value.trim().toLowerCase()))
       .filter((entry) => (!transferFilterDate.value || entry.serviceDate === transferFilterDate.value))
       .sort((left, right) => String(left.serviceDate || "").localeCompare(String(right.serviceDate || "")));

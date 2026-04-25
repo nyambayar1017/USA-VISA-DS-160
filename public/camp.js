@@ -582,8 +582,8 @@ function getFilteredTrips() {
     const matchesTripName = !tripFilterName.value || String(trip.tripName || "").toLowerCase().includes(tripFilterName.value.trim().toLowerCase());
     const matchesStartDate = !tripFilterStartDate.value || String(trip.startDate || "") >= tripFilterStartDate.value;
     const matchesStatus = !tripFilterStatus.value || trip.status === tripFilterStatus.value;
-    const matchesLanguage = !tripFilterLanguage.value || trip.language === tripFilterLanguage.value;
-    const matchesCreated = !tripFilterCreatedDate.value || getCreatedAtFilterValue(trip.createdAt) === tripFilterCreatedDate.value;
+    const matchesLanguage = !tripFilterLanguage?.value || trip.language === tripFilterLanguage.value;
+    const matchesCreated = !tripFilterCreatedDate?.value || getCreatedAtFilterValue(trip.createdAt) === tripFilterCreatedDate.value;
     return matchesTripName && matchesStartDate && matchesStatus && matchesLanguage && matchesCreated;
   });
 }
@@ -591,7 +591,7 @@ function getFilteredTrips() {
 function getFilteredEntries() {
   const campNeedle = filterCampName.value;
   const tripId = filterTripName.value;
-  const reservedDate = filterReservedDate.value;
+  const reservedDate = filterReservedDate?.value || "";
   const status = filterStatus.value;
 
   return sortByDateAsc(currentEntries, "checkIn").filter((entry) => {
@@ -656,11 +656,11 @@ function renderSettingsOptions() {
   const currentCampFilter = filterCampName.value;
   const currentPaymentTripFilter = paymentFilterTripName?.value || "";
   const currentPaymentCampFilter = paymentFilterCampName?.value || "";
-  const currentLanguageFilter = tripFilterLanguage.value;
+  const currentLanguageFilter = tripFilterLanguage?.value || "";
   const currentReservationTrip = reservationTripSelect.value;
   const languages = [...new Set(currentTrips.map((trip) => trip.language).filter(Boolean).concat(["English", "French", "Mongolian", "Korean", "Spanish", "Italian", "Other"]))];
   tripLanguageSelect.innerHTML = renderOptionMarkup(languages, "Choose language");
-  tripFilterLanguage.innerHTML = renderOptionMarkup(languages, "All languages");
+  if (tripFilterLanguage) tripFilterLanguage.innerHTML = renderOptionMarkup(languages, "All languages");
   reservationTripSelect.innerHTML = `<option value="">Choose trip</option>${currentTrips
     .map((trip) => `<option value="${trip.id}">${escapeHtml(trip.tripName)}</option>`)
     .join("")}`;
@@ -680,7 +680,7 @@ function renderSettingsOptions() {
   }
   staffAssignmentSelect.innerHTML = renderOptionMarkup(campSettings.staffAssignments, "Choose staff");
   roomTypeSelect.innerHTML = renderOptionMarkup(campSettings.roomChoices, "Choose room type");
-  tripFilterLanguage.value = currentLanguageFilter;
+  if (tripFilterLanguage) tripFilterLanguage.value = currentLanguageFilter;
   filterTripName.value = currentTripFilter;
   filterCampName.value = currentCampFilter;
   if (paymentFilterTripName) {
@@ -2585,6 +2585,7 @@ paymentEditPanel.addEventListener("change", handleCampTableChange);
 campPaymentList.addEventListener("click", handleCampTableClick);
 
 [filterTripName, filterCampName, filterTripStartDate, filterReservedDate, filterStatus].forEach((node) => {
+  if (!node) return;
   node.addEventListener("input", () => {
     currentPage = 1;
     renderEntries();
@@ -2613,6 +2614,7 @@ campPaymentList.addEventListener("click", handleCampTableClick);
 });
 
 [tripFilterName, tripFilterStartDate, tripFilterStatus, tripFilterLanguage, tripFilterCreatedDate].forEach((node) => {
+  if (!node) return;
   node.addEventListener("input", () => {
     currentTripPage = 1;
     renderTrips();
