@@ -867,15 +867,12 @@ function renderTrips() {
         <colgroup>
           <col style="width: 40px" />
           <col style="width: 86px" />
-          <col style="width: 210px" />
-          <col style="width: 118px" />
+          <col style="width: 240px" />
           <col style="width: 96px" />
           <col style="width: 96px" />
           <col style="width: 130px" />
           <col style="width: 52px" />
           <col style="width: 52px" />
-          <col style="width: 44px" />
-          <col style="width: 44px" />
           <col style="width: 96px" />
           <col style="width: 128px" />
           <col style="width: 120px" />
@@ -886,14 +883,11 @@ function renderTrips() {
             <th>#</th>
             <th>Serial</th>
             <th>Trip</th>
-            <th>Reservation Name</th>
             <th>Start</th>
             <th>End</th>
             <th>Tags</th>
             <th>Pax</th>
             <th>Staff</th>
-            <th>Driver</th>
-            <th>Cook</th>
             <th>Status</th>
             <th>Created</th>
             <th>Manager</th>
@@ -910,14 +904,11 @@ function renderTrips() {
                     <a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link"><strong>${escapeHtml(trip.serial || "-")}</strong></a>
                   </td>
                   <td class="table-primary-cell">${escapeHtml(trip.tripName)}</td>
-                  <td>${escapeHtml(trip.reservationName || trip.tripName)}</td>
                   <td>${formatDate(trip.startDate)}</td>
                   <td>${formatDate(trip.endDate || computeTripEndDate(trip))}</td>
                   <td class="trip-tag-cell">${renderTripTagPills(trip.tags)}</td>
                   <td class="trip-pax-cell">${trip.participantCount}</td>
                   <td class="trip-pax-cell">${trip.staffCount}</td>
-                  <td>${escapeHtml(trip.driverName || "-")}</td>
-                  <td>${escapeHtml(trip.cookName || "-")}</td>
                   <td><span class="status-pill is-${normalizeStatus(trip.status)}">${formatStatusLabel(trip.status)}</span></td>
                   <td class="trip-created-cell">${formatDate(trip.createdAt, true)}</td>
                   <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
@@ -1001,12 +992,12 @@ function renderActiveTrip() {
         <strong>${trip.staffCount}</strong>
       </article>
       <article class="trip-summary-stat">
-        <span>Driver</span>
-        <strong>${escapeHtml(trip.driverName || "-")}</strong>
+        <span>Total days</span>
+        <strong>${escapeHtml(trip.totalDays || "-")}</strong>
       </article>
       <article class="trip-summary-stat">
-        <span>Cook</span>
-        <strong>${escapeHtml(trip.cookName || "-")}</strong>
+        <span>Status</span>
+        <strong>${escapeHtml(formatStatusLabel(trip.status) || "-")}</strong>
       </article>
     </div>
   `;
