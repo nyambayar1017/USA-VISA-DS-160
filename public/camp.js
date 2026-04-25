@@ -3177,22 +3177,41 @@ function refreshFilterPopoverOptions() {
   syncPillUi("language", bar);
 }
 
+let activeSavedFilterName = "";
+
 function refreshSavedFiltersDropdown(selectName) {
-  const select = document.querySelector("#trip-saved-filter-select");
-  const deleteBtn = document.querySelector("#trip-delete-filter-btn");
-  if (!select) return;
+  const dropdown = document.querySelector("[data-saved-filter-dropdown]");
+  const popover = document.querySelector("[data-saved-filter-popover]");
+  const label = document.querySelector("[data-saved-filter-current]");
+  if (!dropdown || !popover || !label) return;
   const list = readSavedFilters();
-  const previous = selectName ?? select.value;
-  select.innerHTML = `<option value="">Select saved filter</option>${list
-    .map((f) => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`)
-    .join("")}`;
-  if (previous && list.some((f) => f.name === previous)) {
-    select.value = previous;
-    deleteBtn?.removeAttribute("hidden");
+  const next = selectName !== undefined ? selectName : activeSavedFilterName;
+  if (next && list.some((f) => f.name === next)) {
+    activeSavedFilterName = next;
+    label.textContent = next;
+    dropdown.classList.add("has-active");
   } else {
-    select.value = "";
-    deleteBtn?.setAttribute("hidden", "");
+    activeSavedFilterName = "";
+    label.textContent = "Select saved filter";
+    dropdown.classList.remove("has-active");
   }
+  const items = list.length
+    ? list
+        .map(
+          (f) => `
+            <div class="trip-saved-filter-item ${f.name === activeSavedFilterName ? "is-active" : ""}">
+              <button type="button" class="trip-saved-filter-name" data-saved-action="apply" data-name="${escapeHtml(f.name)}">${escapeHtml(f.name)}</button>
+              <button type="button" class="trip-saved-filter-remove" data-saved-action="delete" data-name="${escapeHtml(f.name)}" aria-label="Delete ${escapeHtml(f.name)}">×</button>
+            </div>
+          `
+        )
+        .join("")
+    : '<p class="trip-saved-filter-empty">No saved filters yet.</p>';
+  popover.innerHTML = `
+    ${items}
+    <div class="trip-saved-filter-divider"></div>
+    <button type="button" class="trip-saved-filter-save" data-saved-action="save">+ Save current as…</button>
+  `;
 }
 
 function setupTripFilterBar() {
@@ -3250,30 +3269,39 @@ function setupTripFilterBar() {
     });
   });
 
-  const select = document.querySelector("#trip-saved-filter-select");
-  select?.addEventListener("change", () => {
-    const list = readSavedFilters();
-    const found = list.find((f) => f.name === select.value);
-    document.querySelector("#trip-delete-filter-btn")?.toggleAttribute("hidden", !found);
-    if (found) applyFilterStateFromSnapshot(found.state);
+  const dropdown = document.querySelector("[data-saved-filter-dropdown]");
+  dropdown?.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-saved-action]");
+    if (!target) return;
+    event.preventDefault();
+    const action = target.dataset.savedAction;
+    const name = target.dataset.name || "";
+    if (action === "apply") {
+      const found = readSavedFilters().find((f) => f.name === name);
+      if (!found) return;
+      dropdown.removeAttribute("open");
+      refreshSavedFiltersDropdown(name);
+      applyFilterStateFromSnapshot(found.state);
+    } else if (action === "delete") {
+      if (!window.confirm(`Delete saved filter "${name}"?`)) return;
+      const list = readSavedFilters().filter((f) => f.name !== name);
+      writeSavedFilters(list);
+      refreshSavedFiltersDropdown(activeSavedFilterName === name ? "" : activeSavedFilterName);
+    } else if (action === "save") {
+      dropdown.removeAttribute("open");
+      const newName = (window.prompt("Save filter as:") || "").trim();
+      if (!newName) return;
+      const list = readSavedFilters().filter((f) => f.name !== newName);
+      list.push({ name: newName, state: snapshotFilterState() });
+      writeSavedFilters(list);
+      refreshSavedFiltersDropdown(newName);
+    }
   });
 
-  document.querySelector("#trip-save-filter-btn")?.addEventListener("click", () => {
-    const name = (window.prompt("Save filter as:") || "").trim();
-    if (!name) return;
-    const list = readSavedFilters().filter((f) => f.name !== name);
-    list.push({ name, state: snapshotFilterState() });
-    writeSavedFilters(list);
-    refreshSavedFiltersDropdown(name);
-  });
-
-  document.querySelector("#trip-delete-filter-btn")?.addEventListener("click", () => {
-    const sel = document.querySelector("#trip-saved-filter-select");
-    if (!sel?.value) return;
-    if (!window.confirm(`Delete saved filter "${sel.value}"?`)) return;
-    const list = readSavedFilters().filter((f) => f.name !== sel.value);
-    writeSavedFilters(list);
-    refreshSavedFiltersDropdown("");
+  document.addEventListener("click", (event) => {
+    if (dropdown?.hasAttribute("open") && !dropdown.contains(event.target)) {
+      dropdown.removeAttribute("open");
+    }
   });
 
   document.querySelector("#trip-clear-filter-btn")?.addEventListener("click", () => {

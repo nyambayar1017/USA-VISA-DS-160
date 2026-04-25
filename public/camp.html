@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-137" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-138" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -39,11 +39,13 @@
 
           <div class="trip-filter-bar" data-trip-filter-bar>
             <div class="trip-filter-row trip-filter-saved-row">
-              <select id="trip-saved-filter-select" class="trip-saved-filter-select">
-                <option value="">Select saved filter</option>
-              </select>
-              <button type="button" id="trip-save-filter-btn" class="trip-saved-filter-action">Save current</button>
-              <button type="button" id="trip-delete-filter-btn" class="trip-saved-filter-action trip-saved-filter-delete" hidden>Delete</button>
+              <details class="trip-saved-filter-dropdown" data-saved-filter-dropdown>
+                <summary>
+                  <span data-saved-filter-current>Select saved filter</span>
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="trip-saved-filter-popover" data-saved-filter-popover></div>
+              </details>
               <button type="button" id="trip-clear-filter-btn" class="trip-saved-filter-action">Clear</button>
             </div>
             <div class="trip-filter-row">
@@ -782,7 +784,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-82"></script>
-    <script src="/camp.js?v=workspace-91"></script>
+    <script src="/camp.js?v=workspace-92"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
   </body>
 </html>
