@@ -869,6 +869,7 @@ function renderTrips() {
         <colgroup>
           <col style="width: 40px" />
           <col style="width: 86px" />
+          <col style="width: 56px" />
           <col style="width: 240px" />
           <col style="width: 96px" />
           <col style="width: 96px" />
@@ -884,6 +885,7 @@ function renderTrips() {
           <tr>
             <th>#</th>
             <th>Serial</th>
+            <th>Type</th>
             <th>Trip</th>
             <th>Start</th>
             <th>End</th>
@@ -905,6 +907,7 @@ function renderTrips() {
                   <td class="trip-serial-cell">
                     <a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link"><strong>${escapeHtml(trip.serial || "-")}</strong></a>
                   </td>
+                  <td><span class="trip-type-pill">${escapeHtml(String(trip.tripType || "git").toUpperCase())}</span></td>
                   <td class="table-primary-cell">${escapeHtml(trip.tripName)}</td>
                   <td>${formatDate(trip.startDate)}</td>
                   <td>${formatDate(trip.endDate || computeTripEndDate(trip))}</td>

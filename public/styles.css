@@ -1224,12 +1224,18 @@ td {
 }
 
 .group-breadcrumb a {
-  color: var(--brand);
-  text-decoration: none;
+  color: #2563eb;
+  text-decoration: underline;
+  text-decoration-color: rgba(37, 99, 235, 0.5);
+  text-underline-offset: 3px;
   font-weight: 600;
+  transition: color 120ms ease;
 }
 
-.group-breadcrumb a:hover { text-decoration: underline; }
+.group-breadcrumb a:hover {
+  color: #1e40af;
+  text-decoration-color: #1e40af;
+}
 
 .group-summary-card { padding: 22px 26px; }
 

@@ -33,6 +33,37 @@
   let editingGroupId = "";
   let editingTouristId = "";
 
+  const ROOM_PALETTE = [
+    { bg: "#fde2e4", fg: "#7a1d2a" },
+    { bg: "#dbeafe", fg: "#1e3a8a" },
+    { bg: "#dcfce7", fg: "#14532d" },
+    { bg: "#fef3c7", fg: "#78350f" },
+    { bg: "#e9d5ff", fg: "#5b21b6" },
+    { bg: "#fed7aa", fg: "#7c2d12" },
+    { bg: "#cffafe", fg: "#155e75" },
+    { bg: "#fbcfe8", fg: "#831843" },
+    { bg: "#d9f99d", fg: "#365314" },
+    { bg: "#fde68a", fg: "#713f12" },
+  ];
+  // Same color across all tourists sharing groupId+roomType+roomCode
+  const roomColorCache = new Map();
+  function roomKeyFor(t) {
+    if (!t || !t.roomType) return "";
+    return `${t.groupId || ""}|${t.roomType}|${t.roomCode || ""}`;
+  }
+  function roomColorFor(t) {
+    const key = roomKeyFor(t);
+    if (!key) return null;
+    if (!roomColorCache.has(key)) {
+      roomColorCache.set(key, ROOM_PALETTE[roomColorCache.size % ROOM_PALETTE.length]);
+    }
+    return roomColorCache.get(key);
+  }
+  function rebuildRoomColors() {
+    roomColorCache.clear();
+    tourists.filter((t) => t.roomType).forEach(roomColorFor);
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -80,6 +111,7 @@
       ]);
       groups = g.entries || [];
       tourists = t.entries || [];
+      rebuildRoomColors();
       renderGroups();
       renderTourists();
       renderGroupOptions();
@@ -206,6 +238,8 @@
                   const roomLabel = t.roomType
                     ? `${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}`
                     : "—";
+                  const c = roomColorFor(t);
+                  const roomStyle = c ? `style="background:${c.bg};color:${c.fg};font-weight:700;"` : "";
                   return `
                     <tr>
                       <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
@@ -217,7 +251,7 @@
                       <td>${escapeHtml(t.passportExpiry || "-")}</td>
                       <td>${escapeHtml(t.registrationNumber || "-")}</td>
                       <td>${escapeHtml(t.phone || "-")}</td>
-                      <td>${roomLabel}</td>
+                      <td ${roomStyle}>${roomLabel}</td>
                       <td>
                         <div class="trip-row-actions trip-row-actions-inline">
                           <button type="button" class="table-link compact secondary" data-tourist-action="edit" data-id="${t.id}">Edit</button>
