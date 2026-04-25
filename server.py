@@ -8376,11 +8376,12 @@ def _tool_list_trips(args, actor):
         trips = [t for t in trips if (t.get("status") or "").lower() == status]
     if trip_type:
         trips = [t for t in trips if (t.get("tripType") or "").lower() == trip_type]
-    return [{"id": t["id"], "serial": t.get("serial"), "tripName": t.get("tripName"),
-             "tripType": t.get("tripType"), "startDate": t.get("startDate"),
-             "endDate": t.get("endDate"), "status": t.get("status"),
-             "participantCount": t.get("participantCount"), "company": t.get("company")}
-            for t in trips]
+    items = [{"id": t["id"], "serial": t.get("serial"), "tripName": t.get("tripName"),
+              "tripType": t.get("tripType"), "startDate": t.get("startDate"),
+              "endDate": t.get("endDate"), "status": t.get("status"),
+              "participantCount": t.get("participantCount"), "company": t.get("company")}
+             for t in trips]
+    return {"count": len(items), "items": items}
 
 
 def _tool_get_trip(args, actor):
@@ -8731,7 +8732,7 @@ def _tool_delete_memory(args, actor):
 # ── Tool registry (Claude-facing JSON schemas) ────────────────────────
 
 AGENT_TOOLS = [
-    {"name": "list_trips", "description": "List trips. Optional filters: workspace (DTX or USM), status (planning, confirmed, travelling, completed, cancelled, offer), tripType (fit or git). Returns id, serial, tripName, dates, status, participantCount, company.",
+    {"name": "list_trips", "description": "List trips. Optional filters: workspace (DTX or USM), status (planning, confirmed, travelling, completed, cancelled, offer), tripType (fit or git). Returns {count, items: [...]} — ALWAYS use the returned `count` field for any 'how many' answer; never count the items array yourself.",
      "input_schema": {"type": "object", "properties": {
          "workspace": {"type": "string"}, "status": {"type": "string"}, "tripType": {"type": "string"}}},
      "handler": _tool_list_trips},
@@ -8904,6 +8905,10 @@ How you work:
 - If a tool returns {{"error": ...}}, explain what went wrong and propose a fix. If a list returns 0 items, double-check by calling the same tool without filters before telling the user the data is empty — the filter may be wrong.
 - For dates, use yyyy-mm-dd. For money, use plain numbers (no commas) when calling tools.
 - Never invent IDs; only use ones returned by tools.
+
+Counting:
+- When a tool returns an object with a `count` field, that count is authoritative — never re-count the items array yourself, and never enumerate items just to get a number. Quote `count` directly.
+- Do NOT infer that a serial is "missing" from gaps in returned data unless you have explicitly listed every record and confirmed the gap. Gaps in serial numbers are normal (e.g., a trip was deleted, or status filter excluded it) and do not affect the count.
 
 Long-term memory:
 - Use save_memory whenever the admin teaches you something durable — a business rule, a recurring price, a naming convention, a person's role, a recurring instruction. Confirm in your reply (e.g., "Тэмдэглэн авлаа").
@@ -9101,6 +9106,8 @@ def _summarize_tool_output(name, out):
     if isinstance(out, dict):
         if "error" in out:
             return f"error: {out['error']}"
+        if "count" in out:
+            return f"{out['count']} item(s)"
         if "ok" in out:
             extras = []
             for k in ("trip", "group", "tourist", "invoice", "installment"):
