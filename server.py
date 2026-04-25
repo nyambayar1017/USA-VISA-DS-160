@@ -8881,6 +8881,146 @@ def _agent_save_uploaded_image(b64, media_type):
     return f"/generated/{filename}"
 
 
+def _agent_resolve_attachment(att):
+    """Translate {kind, id} or {kind, path} into (filename, bytes). Returns
+    (None, error_message) on failure."""
+    if not isinstance(att, dict):
+        return None, "attachment must be an object"
+    kind = (att.get("kind") or "").lower().strip()
+
+    if kind == "file":
+        rel = (att.get("path") or "").strip()
+        if not rel.startswith("/generated/"):
+            return None, "file path must start with /generated/"
+        p = GENERATED_DIR / rel.replace("/generated/", "", 1)
+        if not p.exists():
+            return None, f"file not found: {rel}"
+        return p.name, p.read_bytes()
+
+    if kind == "invoice":
+        iid = (att.get("id") or "").strip()
+        inv = next((i for i in read_invoices() if i.get("id") == iid), None)
+        if not inv:
+            return None, f"invoice {iid} not found"
+        try:
+            pdf_url = save_standalone_invoice_pdf(inv)
+        except Exception as exc:
+            return None, f"invoice PDF render failed: {exc}"
+        p = GENERATED_DIR / pdf_url.replace("/generated/", "", 1)
+        return f"invoice-{inv.get('serial') or iid}.pdf", p.read_bytes()
+
+    if kind == "contract":
+        cid = (att.get("id") or "").strip()
+        contract = next((c for c in read_contracts() if c.get("id") == cid), None)
+        if not contract:
+            return None, f"contract {cid} not found"
+        # Prefer the PDF if present, otherwise the docx.
+        rel = contract.get("pdfPath") or contract.get("docxPath") or ""
+        if not rel:
+            return None, "contract has no saved file"
+        p = GENERATED_DIR / rel.replace("/generated/", "", 1)
+        if not p.exists():
+            return None, f"contract file not found on disk: {rel}"
+        serial = (contract.get("data") or {}).get("contractSerial") or cid
+        return f"contract-{serial}{p.suffix}", p.read_bytes()
+
+    if kind == "tourist_passport":
+        tid = (att.get("id") or "").strip()
+        tourist = next((t for t in read_tourists() if t.get("id") == tid), None)
+        if not tourist:
+            return None, f"tourist {tid} not found"
+        rel = tourist.get("passportScanPath") or ""
+        if not rel.startswith("/generated/"):
+            return None, "tourist has no saved passport scan"
+        p = GENERATED_DIR / rel.replace("/generated/", "", 1)
+        if not p.exists():
+            return None, f"passport file not found on disk: {rel}"
+        name = ((tourist.get("lastName") or "") + "-" + (tourist.get("firstName") or "")).strip("-") or tid
+        return f"passport-{name}{p.suffix}", p.read_bytes()
+
+    return None, f"unknown attachment kind: {kind}"
+
+
+def _tool_send_email(args, actor):
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not api_key:
+        return {"error": "Email is not configured. Sign up at resend.com (free, 100 emails/day) and add RESEND_API_KEY to Render → Environment."}
+    sender = os.environ.get("EMAIL_FROM", "").strip() or "Travelx <onboarding@resend.dev>"
+    to_raw = args.get("to") or ""
+    if isinstance(to_raw, str):
+        to_list = [x.strip() for x in to_raw.replace(";", ",").split(",") if x.strip()]
+    elif isinstance(to_raw, list):
+        to_list = [str(x).strip() for x in to_raw if str(x).strip()]
+    else:
+        to_list = []
+    if not to_list:
+        return {"error": "to (recipient email) is required"}
+
+    subject = (args.get("subject") or "").strip() or "Travelx документ"
+    body = args.get("body") or ""
+    # Treat plain newlines as <br> so the email renders as the agent intended.
+    body_html = "<p>" + html.escape(body).replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+
+    raw_attachments = args.get("attachments") or []
+    if not isinstance(raw_attachments, list):
+        raw_attachments = []
+    if len(raw_attachments) > 10:
+        return {"error": "too many attachments (max 10 per email)"}
+
+    api_attachments = []
+    failed = []
+    for att in raw_attachments:
+        filename, payload = _agent_resolve_attachment(att)
+        if filename is None:
+            failed.append(payload)
+            continue
+        api_attachments.append({
+            "filename": filename,
+            "content": base64.b64encode(payload).decode("ascii"),
+        })
+
+    if failed and not api_attachments:
+        return {"error": "All attachments failed: " + "; ".join(failed)}
+
+    payload = {
+        "from": sender,
+        "to": to_list,
+        "subject": subject,
+        "html": body_html,
+    }
+    if api_attachments:
+        payload["attachments"] = api_attachments
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8")
+        except Exception:
+            err_body = str(e)
+        return {"error": f"Resend API error {e.code}: {err_body[:400]}"}
+    except Exception as exc:
+        return {"error": f"Email send failed: {type(exc).__name__}: {exc}"}
+
+    return {
+        "ok": True,
+        "messageId": data.get("id"),
+        "to": to_list,
+        "attachments": [a["filename"] for a in api_attachments],
+        "warnings": failed if failed else None,
+    }
+
+
 def _tool_attach_document_to_trip(args, actor):
     """Attach a previously-uploaded file (from /generated/agent-upload-...
     or /generated/agent-doc-...) to a trip's Documents section."""
@@ -9160,6 +9300,16 @@ AGENT_TOOLS = [
          "tripStartDate": {"type": "string"},
          "tripEndDate": {"type": "string"}}},
      "handler": _tool_create_contract},
+    {"name": "send_email", "description": "Send an email with attached files (contract PDF, invoice PDF, tourist passport scans, or arbitrary uploaded files). Requires RESEND_API_KEY env var. Attachments is an array of objects: {kind: 'invoice'|'contract'|'tourist_passport'|'file', id?: '<recordId>', path?: '/generated/...'}. Use kind='invoice' with the invoice id, kind='contract' with the contract id, kind='tourist_passport' with the tourist id, kind='file' with a /generated/... path.",
+     "input_schema": {"type": "object", "required": ["to", "subject"], "properties": {
+         "to": {"type": "string", "description": "Recipient email address(es), comma-separated for multiple"},
+         "subject": {"type": "string"},
+         "body": {"type": "string", "description": "Plain text body; newlines become line breaks"},
+         "attachments": {"type": "array", "items": {"type": "object", "properties": {
+             "kind": {"type": "string", "enum": ["invoice", "contract", "tourist_passport", "file"]},
+             "id": {"type": "string"},
+             "path": {"type": "string"}}}}}},
+     "handler": _tool_send_email},
     {"name": "attach_document_to_trip", "description": "Attach a previously-uploaded file (image OR document) to a trip's Documents section. Use the /generated/... path from the [Uploaded image paths] or [Uploaded document paths] note. Categories: 'Passport', 'Visa', 'Ticket', 'Hotel voucher', 'Insurance', 'Itinerary', 'Other'. Optional `name` to rename for display.",
      "input_schema": {"type": "object", "required": ["tripId", "filePath"], "properties": {
          "tripId": {"type": "string"},
@@ -9254,6 +9404,11 @@ Images and files:
 - Supported formats: JPG, PNG, GIF, WebP, PDF, XLSX, TXT/CSV/MD. HEIC/HEIF and Word .docx are NOT supported yet — if those are uploaded, ask the admin to convert (HEIC → JPG, DOCX → PDF) before retrying.
 - For passports: read fields exactly as printed (Latin letters), then offer to create a tourist record via create_tourist with the extracted fields. After the tourist is created, ALSO call attach_image_to_tourist with arguments touristId=<the new tourist id>, imagePath=<the img-1 path from the upload note>, field="passport" so the passport scan is saved to the tourist's record. Mention "Паспортын зургийг хавсаргалаа" in the reply so the admin knows.
 - For attaching files to a TRIP's Documents section (е.g., admin says "trip document hesegt upload hii", "энэ файлыг аяллын баримт бичигт нэм"), use attach_document_to_trip with the /generated/... path from the upload note and an appropriate category (Passport, Visa, Ticket, Hotel voucher, Insurance, Itinerary, Other).
+
+Email:
+- Use send_email when the admin asks to mail something ("mail-r yavuulj og", "имэйлээр илгээ", "send to client@example.com"). Requires RESEND_API_KEY in the env; if it's missing, send_email returns a clear error and you should pass that error to the admin verbatim.
+- Attach files by reference. For each attachment pass an object with a `kind` field plus the right id/path: kind="invoice" with id=<invoice id>; kind="contract" with id=<contract id>; kind="tourist_passport" with id=<tourist id>; kind="file" with path="/generated/...". The server fetches and renders the right file — you do not need to know the underlying path.
+- Default subject in Mongolian unless admin specified otherwise. Always confirm to the admin which addresses received the mail and which files were attached.
 - If a field is unclear or partially obscured, say so rather than guessing.
 """
 
