@@ -971,6 +971,14 @@ function renderActiveTrip() {
   activeTripBox.className = "card trip-summary-card";
   const tripGroupName = trip.groupName ? ` · ${escapeHtml(trip.groupName)}` : "";
   const tripTypeBadge = trip.tripType ? `<span class="trip-type-pill">${escapeHtml(String(trip.tripType).toUpperCase())}</span> ` : "";
+  const isFit = String(trip.tripType || "").toLowerCase() === "fit";
+  const fitActions = isFit ? `
+    <a class="header-action-btn" href="/contracts?tripId=${encodeURIComponent(trip.id)}">+ Add contract</a>
+    <a class="header-action-btn" href="/trip-detail?tripId=${encodeURIComponent(trip.id)}&openInvoiceFit=1#invoices-section">+ Add invoice</a>
+  ` : "";
+  // Toggle Groups section visibility based on FIT/GIT
+  const groupsSection = document.getElementById("groups-section");
+  if (groupsSection) groupsSection.classList.toggle("is-hidden", isFit);
   activeTripBox.innerHTML = `
     <div class="section-head">
       <div>
@@ -979,6 +987,7 @@ function renderActiveTrip() {
         <div id="trip-flight-info" class="trip-flight-info"></div>
       </div>
       <div class="trip-summary-actions">
+        ${fitActions}
         <button type="button" class="header-action-btn header-action-edit" id="active-trip-edit-btn" aria-label="Edit trip">✎ Edit</button>
       </div>
     </div>
@@ -1979,7 +1988,7 @@ function startTripEdit(id) {
   editingTripId = id;
   openPanel(tripFormPanel);
   tripForm.elements.tripName.value = trip.tripName || "";
-  tripForm.elements.reservationName.value = trip.reservationName || trip.tripName || "";
+  if (tripForm.elements.reservationName) tripForm.elements.reservationName.value = trip.reservationName || trip.tripName || "";
   tripForm.elements.startDate.value = String(trip.startDate || "").slice(0, 10);
   if (tripForm.elements.endDate) {
     tripForm.elements.endDate.value = String(trip.endDate || "").slice(0, 10);
@@ -2036,6 +2045,28 @@ function applyTripTypeMode() {
 if (tripForm && tripForm.elements && tripForm.elements.tripType) {
   tripForm.elements.tripType.addEventListener("change", applyTripTypeMode);
   applyTripTypeMode();
+}
+
+function recalcTripTotalDays() {
+  if (!tripForm || !tripForm.elements) return;
+  const startEl = tripForm.elements.startDate;
+  const endEl = tripForm.elements.endDate;
+  const totalEl = tripForm.elements.totalDays;
+  if (!startEl || !endEl || !totalEl) return;
+  const start = startEl.value;
+  const end = endEl.value;
+  if (!start || !end) return;
+  const startMs = new Date(start + "T00:00:00").getTime();
+  const endMs = new Date(end + "T00:00:00").getTime();
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) return;
+  const days = Math.round((endMs - startMs) / 86400000) + 1;
+  if (days > 0) totalEl.value = String(days);
+}
+if (tripForm && tripForm.elements) {
+  ["startDate", "endDate"].forEach((name) => {
+    const el = tripForm.elements[name];
+    if (el) el.addEventListener("change", recalcTripTotalDays);
+  });
 }
 
 function openReservationModal(tripId = "", reservation = null) {

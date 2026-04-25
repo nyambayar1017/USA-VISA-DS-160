@@ -576,6 +576,7 @@
   loadAll().then(() => {
     const params = new URLSearchParams(window.location.search);
     const preselectGroup = params.get("openInvoice");
+    const fitOpen = params.get("openInvoiceFit");
     if (preselectGroup && groups.find((g) => g.id === preselectGroup)) {
       openWizard(null);
       const groupSelect = document.querySelector("#invoice-group-select");
@@ -583,6 +584,10 @@
         groupSelect.value = preselectGroup;
         groupSelect.dispatchEvent(new Event("change"));
       }
+    } else if (fitOpen && groups.length) {
+      openWizard(null);
+    } else if (fitOpen) {
+      alert("Add a group to this trip first, then create an invoice for it.");
     }
   });
 })();

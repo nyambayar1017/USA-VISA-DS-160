@@ -5028,8 +5028,6 @@ def validate_camp_trip(data):
     trip_type = (data.get("tripType") or "").lower()
     if trip_type and trip_type not in {"fit", "git"}:
         return "Trip type must be FIT or GIT"
-    if trip_type == "git" and not normalize_text(data.get("groupName")):
-        return "Group name is required for GIT trips"
     return None
 
 
