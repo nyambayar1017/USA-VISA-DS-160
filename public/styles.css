@@ -1713,8 +1713,6 @@ time {
 .reservation-addon-table {
   table-layout: auto;
   min-width: 0;
-  width: max-content;
-  max-width: 100%;
 }
 
 .reservation-addon-table th,

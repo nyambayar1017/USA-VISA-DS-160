@@ -701,37 +701,41 @@ async function handleLogout() {
 const MOBILE_TOOLBAR_QUERY = window.matchMedia("(max-width: 900px)");
 
 function applySectionHeadToolbarPlacement() {
-  const isMobile = MOBILE_TOOLBAR_QUERY.matches;
-  if (isMobile) {
-    document.querySelectorAll(".section-head .camp-toolbar").forEach((toolbar) => {
-      if (toolbar.dataset.movedToList === "true") return;
-      if (!toolbar.children.length) return;
-      const card = toolbar.closest(".card, section");
-      if (!card) return;
-      const list = card.querySelector(".submission-list, .manager-table-wrap");
-      if (!list) return;
-      const wrapper = document.createElement("div");
-      wrapper.className = "list-toolbar list-toolbar-mobile";
-      while (toolbar.firstChild) wrapper.appendChild(toolbar.firstChild);
-      toolbar.style.display = "none";
-      toolbar.dataset.movedToList = "true";
-      list.parentNode.insertBefore(wrapper, list);
-    });
-  } else {
-    document.querySelectorAll(".list-toolbar-mobile").forEach((wrapper) => {
-      const card = wrapper.closest(".card, section");
-      if (!card) {
+  try {
+    const isMobile = MOBILE_TOOLBAR_QUERY.matches;
+    if (isMobile) {
+      document.querySelectorAll(".section-head .camp-toolbar").forEach((toolbar) => {
+        if (toolbar.dataset.movedToList === "true") return;
+        if (!toolbar.children.length) return;
+        const card = toolbar.closest(".card, section");
+        if (!card) return;
+        const list = card.querySelector(".submission-list, .manager-table-wrap");
+        if (!list) return;
+        const wrapper = document.createElement("div");
+        wrapper.className = "list-toolbar list-toolbar-mobile";
+        while (toolbar.firstChild) wrapper.appendChild(toolbar.firstChild);
+        toolbar.style.display = "none";
+        toolbar.dataset.movedToList = "true";
+        list.parentNode.insertBefore(wrapper, list);
+      });
+    } else {
+      document.querySelectorAll(".list-toolbar-mobile").forEach((wrapper) => {
+        const card = wrapper.closest(".card, section");
+        if (!card) {
+          wrapper.remove();
+          return;
+        }
+        const toolbar = card.querySelector('.section-head .camp-toolbar[data-moved-to-list="true"]');
+        if (toolbar) {
+          while (wrapper.firstChild) toolbar.appendChild(wrapper.firstChild);
+          toolbar.style.display = "";
+          delete toolbar.dataset.movedToList;
+        }
         wrapper.remove();
-        return;
-      }
-      const toolbar = card.querySelector('.section-head .camp-toolbar[data-moved-to-list="true"]');
-      if (toolbar) {
-        while (wrapper.firstChild) toolbar.appendChild(wrapper.firstChild);
-        toolbar.style.display = "";
-        delete toolbar.dataset.movedToList;
-      }
-      wrapper.remove();
-    });
+      });
+    }
+  } catch (err) {
+    console.warn("applySectionHeadToolbarPlacement failed:", err);
   }
 }
 
