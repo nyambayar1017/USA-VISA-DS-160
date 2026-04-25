@@ -3207,9 +3207,13 @@ function refreshSavedFiltersDropdown(selectName) {
         )
         .join("")
     : '<p class="trip-saved-filter-empty">No saved filters yet.</p>';
+  const updateBtn = activeSavedFilterName
+    ? `<button type="button" class="trip-saved-filter-save trip-saved-filter-update" data-saved-action="update" data-name="${escapeHtml(activeSavedFilterName)}">↻ Update “${escapeHtml(activeSavedFilterName)}”</button>`
+    : "";
   popover.innerHTML = `
     ${items}
     <div class="trip-saved-filter-divider"></div>
+    ${updateBtn}
     <button type="button" class="trip-saved-filter-save" data-saved-action="save">+ Save current as…</button>
   `;
 }
@@ -3295,6 +3299,13 @@ function setupTripFilterBar() {
       list.push({ name: newName, state: snapshotFilterState() });
       writeSavedFilters(list);
       refreshSavedFiltersDropdown(newName);
+    } else if (action === "update") {
+      dropdown.removeAttribute("open");
+      const list = readSavedFilters().map((f) =>
+        f.name === name ? { name, state: snapshotFilterState() } : f
+      );
+      writeSavedFilters(list);
+      refreshSavedFiltersDropdown(name);
     }
   });
 

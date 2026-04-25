@@ -731,6 +731,14 @@ td {
   background: rgba(22, 44, 84, 0.06);
 }
 
+.trip-saved-filter-update {
+  color: #1f7a3e;
+}
+
+.trip-saved-filter-update:hover {
+  background: rgba(31, 122, 62, 0.08);
+}
+
 .trip-saved-filter-empty {
   margin: 0;
   padding: 12px;
