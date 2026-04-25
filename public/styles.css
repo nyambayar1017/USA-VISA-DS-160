@@ -3997,8 +3997,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
 
   .sidebar-workspace-label {
-    margin: 0 4px 10px;
-    font-size: 0.74rem;
+    display: none;
   }
 
   .sidebar-label {
@@ -4096,7 +4095,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 @media (max-width: 560px) {
   .workspace-main {
-    padding: 16px 12px 24px;
+    padding: 12px 10px 22px;
   }
 
   .backoffice-home {
@@ -4122,6 +4121,84 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
   .camp-filters {
     grid-template-columns: 1fr;
+  }
+
+  /* Compact forms / cards / buttons on phones */
+  .card {
+    margin-top: 12px;
+    padding: 16px 14px;
+    border-radius: 18px;
+  }
+
+  .section-head {
+    margin-bottom: 12px;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .section-head h2,
+  .dashboard-head h2 {
+    font-size: 1.05rem;
+  }
+
+  .section-head p {
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .field-grid {
+    gap: 10px 12px;
+  }
+
+  label {
+    font-size: 0.78rem;
+    gap: 4px;
+  }
+
+  input,
+  select,
+  textarea {
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 0.88rem;
+  }
+
+  textarea {
+    min-height: 44px;
+  }
+
+  button {
+    padding: 8px 14px;
+    font-size: 0.86rem;
+  }
+
+  .actions {
+    margin-top: 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .camp-toolbar {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .manager-filter-row {
+    gap: 10px;
+  }
+
+  .manager-stat-card,
+  .manager-panel {
+    padding: 16px 14px;
+  }
+
+  .manager-stat-card strong {
+    font-size: 1.4rem;
   }
 }
 
