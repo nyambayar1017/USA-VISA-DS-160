@@ -9022,6 +9022,17 @@ def _agent_call_anthropic(system, messages, tools):
 
 
 def handle_agent_chat(environ, start_response):
+    try:
+        return _handle_agent_chat_impl(environ, start_response)
+    except Exception as exc:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[agent] handler crashed: {tb}", file=sys.stderr, flush=True)
+        return json_response(start_response, "500 Internal Server Error",
+                             {"error": f"{type(exc).__name__}: {exc}"})
+
+
+def _handle_agent_chat_impl(environ, start_response):
     actor = require_admin(environ, start_response)
     if not actor:
         return []
