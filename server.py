@@ -49,6 +49,8 @@ USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
 NOTIFICATIONS_FILE = DATA_DIR / "notifications.json"
 NOTIFICATIONS_MAX = 200
+GROUPS_FILE = DATA_DIR / "tourist_groups.json"
+TOURISTS_FILE = DATA_DIR / "tourists.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 SESSION_COOKIE = "travelx_session"
@@ -113,6 +115,8 @@ def ensure_data_store():
         USERS_FILE,
         SESSIONS_FILE,
         NOTIFICATIONS_FILE,
+        GROUPS_FILE,
+        TOURISTS_FILE,
     ]:
         if not file_path.exists():
             file_path.write_text("[]", encoding="utf-8")
@@ -346,11 +350,115 @@ def write_transfer_reservations(records):
 
 
 def read_camp_trips():
-    return read_json_list(CAMP_TRIPS_FILE)
+    records = read_json_list(CAMP_TRIPS_FILE)
+    if any(not r.get("serial") for r in records):
+        records = backfill_trip_serials(records)
+        write_json_list(CAMP_TRIPS_FILE, records)
+    return records
 
 
 def write_camp_trips(records):
     write_json_list(CAMP_TRIPS_FILE, records)
+
+
+def backfill_trip_serials(records):
+    counters = {}
+    sorted_records = sorted(
+        records,
+        key=lambda r: (
+            r.get("createdAt") or "",
+            r.get("startDate") or "",
+            r.get("id") or "",
+        ),
+    )
+    for record in sorted_records:
+        if record.get("serial"):
+            continue
+        company = normalize_company(record.get("company"))
+        counters.setdefault(company, 0)
+        counters[company] += 1
+        # Find a unique serial that doesn't collide with existing ones
+        while True:
+            candidate = f"T-{counters[company]:04d}"
+            if not any(r.get("serial") == candidate for r in records):
+                record["serial"] = candidate
+                break
+            counters[company] += 1
+    return records
+
+
+def next_trip_serial(company):
+    company = normalize_company(company)
+    existing = read_json_list(CAMP_TRIPS_FILE)
+    max_seq = 0
+    for record in existing:
+        if normalize_company(record.get("company")) != company:
+            continue
+        serial = record.get("serial") or ""
+        if serial.startswith("T-"):
+            try:
+                num = int(serial[2:])
+                if num > max_seq:
+                    max_seq = num
+            except ValueError:
+                pass
+    return f"T-{max_seq + 1:04d}"
+
+
+def read_tourist_groups():
+    return read_json_list(GROUPS_FILE)
+
+
+def write_tourist_groups(records):
+    write_json_list(GROUPS_FILE, records)
+
+
+def read_tourists():
+    return read_json_list(TOURISTS_FILE)
+
+
+def write_tourists(records):
+    write_json_list(TOURISTS_FILE, records)
+
+
+def next_group_serial(trip_serial, trip_id):
+    if not trip_serial:
+        return ""
+    existing = read_tourist_groups()
+    max_seq = 0
+    prefix = f"{trip_serial}-G"
+    for record in existing:
+        if record.get("tripId") != trip_id:
+            continue
+        serial = record.get("serial") or ""
+        if serial.startswith(prefix):
+            try:
+                num = int(serial[len(prefix):])
+                if num > max_seq:
+                    max_seq = num
+            except ValueError:
+                pass
+    return f"{prefix}{max_seq + 1}"
+
+
+def next_tourist_serial(group_serial, group_id):
+    if not group_serial:
+        return ""
+    existing = read_tourists()
+    max_seq = 0
+    prefix = f"{group_serial}-"
+    for record in existing:
+        if record.get("groupId") != group_id:
+            continue
+        serial = record.get("serial") or ""
+        if serial.startswith(prefix):
+            try:
+                num = int(serial[len(prefix):])
+                if num > max_seq:
+                    max_seq = num
+            except ValueError:
+                pass
+    return f"{prefix}{max_seq + 1:02d}"
 
 
 def normalize_manager_dashboard(payload):
@@ -4791,8 +4899,10 @@ def normalize_tag_list(value):
 
 
 def build_camp_trip(payload, actor=None):
+    company = normalize_company(payload.get("company"))
     return {
         "id": str(uuid4()),
+        "serial": next_trip_serial(company),
         "createdAt": now_mongolia().isoformat(),
         "tripName": normalize_text(payload.get("tripName")),
         "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
@@ -4808,7 +4918,7 @@ def build_camp_trip(payload, actor=None):
         "status": normalize_text(payload.get("status")).lower() or "planning",
         "tags": normalize_tag_list(payload.get("tags")),
         "inboundCompany": "Unlock Steppe Mongolia",
-        "company": normalize_company(payload.get("company")),
+        "company": company,
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
         "updatedBy": actor_snapshot(actor),
@@ -4832,6 +4942,322 @@ def find_camp_trip(trip_id):
         if trip["id"] == trip_id:
             return trip
     return None
+
+
+def find_tourist_group(group_id):
+    for record in read_tourist_groups():
+        if record["id"] == group_id:
+            return record
+    return None
+
+
+def find_tourist(tourist_id):
+    for record in read_tourists():
+        if record["id"] == tourist_id:
+            return record
+    return None
+
+
+def build_tourist_group(payload, actor=None):
+    trip_id = normalize_text(payload.get("tripId"))
+    trip = find_camp_trip(trip_id)
+    trip_serial = trip.get("serial") if trip else ""
+    return {
+        "id": str(uuid4()),
+        "serial": next_group_serial(trip_serial, trip_id),
+        "tripId": trip_id,
+        "tripSerial": trip_serial,
+        "name": normalize_text(payload.get("name")),
+        "leaderName": normalize_text(payload.get("leaderName")),
+        "leaderEmail": normalize_text(payload.get("leaderEmail")).lower(),
+        "leaderPhone": normalize_text(payload.get("leaderPhone")),
+        "leaderNationality": normalize_text(payload.get("leaderNationality")),
+        "headcount": parse_int(payload.get("headcount")) or 0,
+        "notes": normalize_text(payload.get("notes")),
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
+def validate_tourist_group(data):
+    if not data.get("tripId"):
+        return "Trip is required"
+    if not data.get("name"):
+        return "Group name is required"
+    return None
+
+
+def build_tourist(payload, actor=None):
+    group_id = normalize_text(payload.get("groupId"))
+    group = find_tourist_group(group_id) if group_id else None
+    trip_id = (group or {}).get("tripId") or normalize_text(payload.get("tripId"))
+    trip = find_camp_trip(trip_id) if trip_id else None
+    group_serial = (group or {}).get("serial") or ""
+    trip_serial = (trip or {}).get("serial") or ""
+    return {
+        "id": str(uuid4()),
+        "serial": next_tourist_serial(group_serial, group_id),
+        "tripId": trip_id,
+        "tripSerial": trip_serial,
+        "groupId": group_id,
+        "groupSerial": group_serial,
+        "groupName": (group or {}).get("name") or "",
+        "firstName": normalize_text(payload.get("firstName")),
+        "lastName": normalize_text(payload.get("lastName")),
+        "gender": normalize_text(payload.get("gender")).lower(),
+        "dob": normalize_text(payload.get("dob")),
+        "nationality": normalize_text(payload.get("nationality")),
+        "passportNumber": normalize_text(payload.get("passportNumber")),
+        "passportIssueDate": normalize_text(payload.get("passportIssueDate")),
+        "passportExpiry": normalize_text(payload.get("passportExpiry")),
+        "passportIssuePlace": normalize_text(payload.get("passportIssuePlace")),
+        "registrationNumber": normalize_text(payload.get("registrationNumber")),
+        "phone": normalize_text(payload.get("phone")),
+        "email": normalize_text(payload.get("email")).lower(),
+        "passportScanPath": normalize_text(payload.get("passportScanPath")),
+        "photoPath": normalize_text(payload.get("photoPath")),
+        "notes": normalize_text(payload.get("notes")),
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
+def validate_tourist(data):
+    if not data.get("tripId"):
+        return "Trip is required"
+    if not data.get("groupId"):
+        return "Group is required"
+    if not data.get("firstName") and not data.get("lastName"):
+        return "Tourist name is required"
+    return None
+
+
+def save_tourist_image(data_url, prefix, tourist_id):
+    if not data_url or "base64," not in data_url:
+        return ""
+    header, encoded = data_url.split("base64,", 1)
+    ext = "png"
+    if "image/jpeg" in header or "image/jpg" in header:
+        ext = "jpg"
+    elif "image/webp" in header:
+        ext = "webp"
+    elif "image/png" not in header:
+        return ""
+    try:
+        raw = base64.b64decode(encoded)
+    except Exception:
+        return ""
+    if len(raw) > 6 * 1024 * 1024:
+        return ""
+    filename = f"{prefix}-{tourist_id}-{uuid4().hex[:8]}.{ext}"
+    path = GENERATED_DIR / filename
+    path.write_bytes(raw)
+    return f"/generated/{filename}"
+
+
+def handle_list_tourist_groups(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    trip_id = (params.get("tripId", [""])[0] or "").strip()
+    workspace = active_workspace(environ)
+    groups = read_tourist_groups()
+    if trip_id:
+        groups = [g for g in groups if g.get("tripId") == trip_id]
+    elif workspace:
+        trip_ids = {t["id"] for t in read_camp_trips() if normalize_company(t.get("company")) == workspace}
+        groups = [g for g in groups if g.get("tripId") in trip_ids]
+    groups.sort(key=lambda g: (g.get("tripSerial") or "", g.get("serial") or ""))
+    return json_response(start_response, "200 OK", {"entries": groups})
+
+
+def handle_create_tourist_group(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    record = build_tourist_group(payload, actor)
+    error = validate_tourist_group(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    records = read_tourist_groups()
+    records.insert(0, record)
+    write_tourist_groups(records)
+    try:
+        log_notification(
+            "group.created",
+            actor,
+            "New group added",
+            detail=f"{record.get('serial', '')} {record.get('name', '')}".strip(),
+            meta={"id": record["id"], "tripId": record.get("tripId")},
+        )
+    except Exception:
+        pass
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_update_tourist_group(environ, start_response, group_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    records = read_tourist_groups()
+    for index, record in enumerate(records):
+        if record.get("id") != group_id:
+            continue
+        merged = {**record}
+        for key in ["name", "leaderName", "leaderEmail", "leaderPhone", "leaderNationality", "notes"]:
+            if key in payload:
+                merged[key] = normalize_text(payload.get(key))
+        if "headcount" in payload:
+            merged["headcount"] = parse_int(payload.get("headcount")) or 0
+        error = validate_tourist_group(merged)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        merged["updatedAt"] = now_mongolia().isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
+        records[index] = merged
+        write_tourist_groups(records)
+        # Cascade groupName update to tourists
+        if "name" in payload:
+            tourists = read_tourists()
+            changed = False
+            for t in tourists:
+                if t.get("groupId") == group_id and t.get("groupName") != merged["name"]:
+                    t["groupName"] = merged["name"]
+                    changed = True
+            if changed:
+                write_tourists(tourists)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+    return json_response(start_response, "404 Not Found", {"error": "Group not found"})
+
+
+def handle_delete_tourist_group(environ, start_response, group_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_tourist_groups()
+    remaining = [r for r in records if r.get("id") != group_id]
+    if len(remaining) == len(records):
+        return json_response(start_response, "404 Not Found", {"error": "Group not found"})
+    write_tourist_groups(remaining)
+    # Also delete tourists in that group
+    tourists = read_tourists()
+    new_tourists = [t for t in tourists if t.get("groupId") != group_id]
+    if len(new_tourists) != len(tourists):
+        write_tourists(new_tourists)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": group_id})
+
+
+def handle_list_tourists(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    trip_id = (params.get("tripId", [""])[0] or "").strip()
+    group_id = (params.get("groupId", [""])[0] or "").strip()
+    workspace = active_workspace(environ)
+    tourists = read_tourists()
+    if group_id:
+        tourists = [t for t in tourists if t.get("groupId") == group_id]
+    elif trip_id:
+        tourists = [t for t in tourists if t.get("tripId") == trip_id]
+    elif workspace:
+        trip_ids = {t["id"] for t in read_camp_trips() if normalize_company(t.get("company")) == workspace}
+        tourists = [t for t in tourists if t.get("tripId") in trip_ids]
+    tourists.sort(key=lambda t: (t.get("tripSerial") or "", t.get("serial") or ""))
+    return json_response(start_response, "200 OK", {"entries": tourists})
+
+
+def handle_create_tourist(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    record = build_tourist(payload, actor)
+    error = validate_tourist(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    if payload.get("passportScanData"):
+        record["passportScanPath"] = save_tourist_image(payload["passportScanData"], "tourist-passport", record["id"])
+    if payload.get("photoData"):
+        record["photoPath"] = save_tourist_image(payload["photoData"], "tourist-photo", record["id"])
+    records = read_tourists()
+    records.insert(0, record)
+    write_tourists(records)
+    try:
+        log_notification(
+            "tourist.created",
+            actor,
+            "New tourist added",
+            detail=f"{record.get('serial', '')} {record.get('lastName', '')} {record.get('firstName', '')}".strip(),
+            meta={"id": record["id"], "tripId": record.get("tripId"), "groupId": record.get("groupId")},
+        )
+    except Exception:
+        pass
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_update_tourist(environ, start_response, tourist_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    records = read_tourists()
+    for index, record in enumerate(records):
+        if record.get("id") != tourist_id:
+            continue
+        merged = {**record}
+        for key in ["firstName", "lastName", "gender", "dob", "nationality", "passportNumber", "passportIssueDate", "passportExpiry", "passportIssuePlace", "registrationNumber", "phone", "email", "notes"]:
+            if key in payload:
+                value = normalize_text(payload.get(key))
+                if key == "email":
+                    value = value.lower()
+                if key == "gender":
+                    value = value.lower()
+                merged[key] = value
+        if payload.get("passportScanData"):
+            merged["passportScanPath"] = save_tourist_image(payload["passportScanData"], "tourist-passport", tourist_id)
+        if payload.get("photoData"):
+            merged["photoPath"] = save_tourist_image(payload["photoData"], "tourist-photo", tourist_id)
+        if payload.get("removePassportScan"):
+            merged["passportScanPath"] = ""
+        if payload.get("removePhoto"):
+            merged["photoPath"] = ""
+        error = validate_tourist(merged)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        merged["updatedAt"] = now_mongolia().isoformat()
+        merged["updatedBy"] = actor_snapshot(actor)
+        records[index] = merged
+        write_tourists(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+    return json_response(start_response, "404 Not Found", {"error": "Tourist not found"})
+
+
+def handle_delete_tourist(environ, start_response, tourist_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_tourists()
+    remaining = [r for r in records if r.get("id") != tourist_id]
+    if len(remaining) == len(records):
+        return json_response(start_response, "404 Not Found", {"error": "Tourist not found"})
+    write_tourists(remaining)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": tourist_id})
 
 
 def ensure_checkout_from_nights(check_in, nights, check_out):
@@ -7252,6 +7678,36 @@ def app(environ, start_response):
             return handle_mark_notifications_read(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/tourist-groups":
+        if method == "GET":
+            return handle_list_tourist_groups(environ, start_response)
+        if method == "POST":
+            return handle_create_tourist_group(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/tourist-groups/"):
+        group_id = path.replace("/api/tourist-groups/", "", 1).strip("/")
+        if method == "POST" and group_id:
+            return handle_update_tourist_group(environ, start_response, group_id)
+        if method == "DELETE" and group_id:
+            return handle_delete_tourist_group(environ, start_response, group_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/tourists":
+        if method == "GET":
+            return handle_list_tourists(environ, start_response)
+        if method == "POST":
+            return handle_create_tourist(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/tourists/"):
+        tourist_id = path.replace("/api/tourists/", "", 1).strip("/")
+        if method == "POST" and tourist_id:
+            return handle_update_tourist(environ, start_response, tourist_id)
+        if method == "DELETE" and tourist_id:
+            return handle_delete_tourist(environ, start_response, tourist_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path.startswith("/api/users/"):
         user_id = path.replace("/api/users/", "", 1).strip("/")
         if method == "POST" and user_id:
@@ -7715,6 +8171,11 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "trip-detail.html")
+
+    if path == "/tourist":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "tourist.html")
 
     if path == "/admin":
         user = current_user(environ)

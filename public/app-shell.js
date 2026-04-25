@@ -108,7 +108,8 @@ function renderSidebar(user) {
     <p class="sidebar-workspace-label">${company.name}</p>
     <div class="sidebar-group">
       <p class="sidebar-label">Backoffice</p>
-      ${link("home", "/backoffice", "Home")}
+      ${link("home", "/backoffice", "Home / Trip")}
+      ${link("tourist", "/tourist", "Tourist")}
       ${link("camp-reservations", "/camp-reservations", "Camp Reservations")}
       ${link("flight-reservations", "/flight-reservations", "Flight Reservations")}
       ${link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}

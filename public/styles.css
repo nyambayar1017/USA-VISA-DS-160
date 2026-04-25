@@ -187,6 +187,14 @@ td {
   line-height: 1;
 }
 
+.sidebar-group .sidebar-link[href="/tourist"]::before {
+  content: "♟";
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
 .sidebar-group .sidebar-link[href="/camp"]::before,
 .sidebar-group .sidebar-link[href="/camp-reservations"]::before,
 .sidebar-group .sidebar-link[href="/flight-reservations"]::before,
@@ -897,6 +905,48 @@ td {
   color: var(--brand);
   font-size: 0.74rem;
   font-weight: 600;
+}
+
+.tourist-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 14px;
+}
+
+.tourist-count {
+  margin: 4px 2px 14px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.tourist-directory-table th,
+.tourist-directory-table td {
+  white-space: nowrap;
+}
+
+.tourist-directory-table td:nth-child(1) {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+.trip-serial-cell {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  color: var(--brand);
+  white-space: nowrap;
+}
+
+.trip-serial-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: rgba(37, 58, 119, 0.12);
+  color: var(--brand);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.7em;
+  vertical-align: middle;
 }
 
 .trip-tag-empty {

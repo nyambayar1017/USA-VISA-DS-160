@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-140" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-141" />
   </head>
   <body class="app-body" data-page="camp-reservations">
     <div class="workspace-shell">
@@ -93,6 +93,10 @@
                   <input name="startDate" type="date" required />
                 </label>
                 <label>
+                  End date
+                  <input name="endDate" type="date" />
+                </label>
+                <label>
                   Number of tourists
                   <input name="participantCount" type="number" min="1" value="2" required />
                 </label>
@@ -130,6 +134,10 @@
                     <option value="cancelled">Cancelled</option>
                   </select>
                 </label>
+                <label class="full-span">
+                  Tags
+                  <input name="tags" placeholder="Comma-separated tags (e.g. VIP, Honeymoon)" />
+                </label>
                 <div class="actions full-span">
                   <button type="submit">Save trip</button>
                   <p id="trip-status" class="status"></p>
@@ -146,12 +154,181 @@
         </section>
 
         <nav class="trip-tab-bar is-hidden" id="trip-tab-bar">
+          <button class="trip-tab" data-tab="groups-section">Groups</button>
+          <button class="trip-tab" data-tab="tourists-section">Tourists</button>
           <button class="trip-tab" data-tab="reservations-section">Camp Reservations</button>
           <button class="trip-tab" data-tab="flight-reservations-section">Flight Reservations</button>
           <button class="trip-tab" data-tab="flight-payments-section">Flight Payments</button>
           <button class="trip-tab" data-tab="transfer-reservations-section">Transfer Reservations</button>
           <button class="trip-tab" data-tab="documents-section">Documents</button>
         </nav>
+
+        <section class="card is-hidden" id="groups-section">
+          <div class="section-head">
+            <div>
+              <h2>Groups</h2>
+              <p>One row per booking party. Each group keeps its own tourists and contact person.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="group-toggle-form">Add group</button>
+            </div>
+          </div>
+          <div id="group-form-panel" class="camp-modal workspace-form-modal is-hidden">
+            <div class="camp-modal-backdrop" data-action="close-group-modal"></div>
+            <div class="camp-modal-dialog workspace-form-modal-dialog">
+              <div class="camp-modal-header">
+                <div>
+                  <h2 id="group-form-title">New group</h2>
+                  <p class="camp-modal-copy">Group serial is generated from the trip serial.</p>
+                </div>
+                <button type="button" class="camp-modal-close" data-action="close-group-modal" aria-label="Close group window">×</button>
+              </div>
+              <form id="group-form" class="field-grid">
+                <input type="hidden" name="id" />
+                <label>
+                  Group name
+                  <input name="name" placeholder="Smith family" required />
+                </label>
+                <label>
+                  Headcount
+                  <input name="headcount" type="number" min="1" value="1" />
+                </label>
+                <label>
+                  Leader name
+                  <input name="leaderName" />
+                </label>
+                <label>
+                  Leader email
+                  <input name="leaderEmail" type="email" />
+                </label>
+                <label>
+                  Leader phone
+                  <input name="leaderPhone" />
+                </label>
+                <label>
+                  Leader nationality
+                  <input name="leaderNationality" />
+                </label>
+                <label class="full-span">
+                  Notes
+                  <textarea name="notes" rows="2"></textarea>
+                </label>
+                <div class="actions full-span">
+                  <button type="submit">Save group</button>
+                  <button type="button" class="secondary-button" data-action="close-group-modal">Cancel</button>
+                  <p id="group-status" class="status"></p>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div id="group-list" class="submission-list"></div>
+        </section>
+
+        <section class="card is-hidden" id="tourists-section">
+          <div class="section-head">
+            <div>
+              <h2>Tourists</h2>
+              <p>All tourists on this trip. Use the group filter to focus on one party.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="tourist-toggle-form">Add tourist</button>
+            </div>
+          </div>
+          <div class="camp-filters">
+            <label>
+              Group
+              <select id="tourist-section-filter-group">
+                <option value="">All groups</option>
+              </select>
+            </label>
+            <label>
+              Search
+              <input id="tourist-section-filter-name" type="search" placeholder="Search name or passport" />
+            </label>
+          </div>
+          <div id="tourist-form-panel" class="camp-modal workspace-form-modal is-hidden">
+            <div class="camp-modal-backdrop" data-action="close-tourist-modal"></div>
+            <div class="camp-modal-dialog workspace-form-modal-dialog workspace-form-modal-dialog-wide">
+              <div class="camp-modal-header">
+                <div>
+                  <h2 id="tourist-form-title">New tourist</h2>
+                  <p class="camp-modal-copy">Tourist serial is generated from the group serial.</p>
+                </div>
+                <button type="button" class="camp-modal-close" data-action="close-tourist-modal" aria-label="Close tourist window">×</button>
+              </div>
+              <form id="tourist-form" class="field-grid">
+                <input type="hidden" name="id" />
+                <label>
+                  Group
+                  <select name="groupId" id="tourist-form-group" required></select>
+                </label>
+                <label>
+                  Last name
+                  <input name="lastName" required />
+                </label>
+                <label>
+                  First name
+                  <input name="firstName" required />
+                </label>
+                <label>
+                  Gender
+                  <select name="gender">
+                    <option value="">—</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Date of birth
+                  <input name="dob" type="date" />
+                </label>
+                <label>
+                  Nationality
+                  <input name="nationality" />
+                </label>
+                <label>
+                  Passport #
+                  <input name="passportNumber" />
+                </label>
+                <label>
+                  Passport issue date
+                  <input name="passportIssueDate" type="date" />
+                </label>
+                <label>
+                  Passport expiry
+                  <input name="passportExpiry" type="date" />
+                </label>
+                <label>
+                  Passport issued at
+                  <input name="passportIssuePlace" />
+                </label>
+                <label>
+                  Registration #
+                  <input name="registrationNumber" />
+                </label>
+                <label>
+                  Phone
+                  <input name="phone" />
+                </label>
+                <label>
+                  Email
+                  <input name="email" type="email" />
+                </label>
+                <label class="full-span">
+                  Notes
+                  <textarea name="notes" rows="2"></textarea>
+                </label>
+                <div class="actions full-span">
+                  <button type="submit">Save tourist</button>
+                  <button type="button" class="secondary-button" data-action="close-tourist-modal">Cancel</button>
+                  <p id="tourist-form-status" class="status"></p>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div id="tourist-section-list" class="submission-list"></div>
+        </section>
 
         <section class="card" id="reservations-section">
           <div class="section-head">
@@ -834,8 +1011,9 @@
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-82"></script>
-    <script src="/camp.js?v=workspace-93"></script>
+    <script src="/app-shell.js?v=workspace-83"></script>
+    <script src="/camp.js?v=workspace-94"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
+    <script src="/trip-extras.js?v=workspace-1"></script>
   </body>
 </html>

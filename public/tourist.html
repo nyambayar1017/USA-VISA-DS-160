@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelX Tourist</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-141" />
+  </head>
+  <body class="app-body" data-page="tourist">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div></div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card" id="tourist-section">
+          <div class="section-head">
+            <h2>Tourist Directory</h2>
+            <p>Every tourist across every trip in this workspace, with serials, passports, and group links.</p>
+          </div>
+
+          <div class="tourist-filter-bar">
+            <input id="tourist-filter-name" type="search" placeholder="Search by name" class="trip-filter-input" autocomplete="off" />
+            <input id="tourist-filter-serial" type="search" placeholder="Search by serial" class="trip-filter-input" autocomplete="off" />
+            <select id="tourist-filter-trip" class="trip-filter-input">
+              <option value="">All trips</option>
+            </select>
+            <select id="tourist-filter-group" class="trip-filter-input">
+              <option value="">All groups</option>
+            </select>
+            <input id="tourist-filter-nationality" type="search" placeholder="Nationality" class="trip-filter-input" autocomplete="off" />
+          </div>
+
+          <p class="tourist-count" id="tourist-count"></p>
+          <div id="tourist-list" class="submission-list"></div>
+        </section>
+      </main>
+    </div>
+    <script src="/app-shell.js?v=workspace-83"></script>
+    <script src="/tourist.js?v=workspace-1"></script>
+  </body>
+</html>

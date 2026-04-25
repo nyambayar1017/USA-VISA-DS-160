@@ -45,7 +45,7 @@ const docFilterTabsEl = document.getElementById("doc-filter-tabs");
 const MONGOLIA_TIME_ZONE = "Asia/Ulaanbaatar";
 const CAMP_RESERVATIONS_PATH = "/camp-reservations";
 const TRIP_DETAIL_PATH = "/trip-detail";
-const TRIP_TAB_PANEL_IDS = ["reservations-section", "flight-reservations-section", "flight-payments-section", "transfer-reservations-section", "documents-section"];
+const TRIP_TAB_PANEL_IDS = ["groups-section", "tourists-section", "reservations-section", "flight-reservations-section", "flight-payments-section", "transfer-reservations-section", "documents-section"];
 
 let currentTrips = [];
 let currentEntries = [];
@@ -620,7 +620,8 @@ function getFilteredTrips() {
     const reservationName = String(trip.reservationName || "").toLowerCase();
     const id = String(trip.id || "").toLowerCase();
     const matchesName = !name || tripName.includes(name) || reservationName.includes(name);
-    const matchesSerial = !serial || id.includes(serial) || reservationName.includes(serial) || tripName.includes(serial);
+    const tripSerial = String(trip.serial || "").toLowerCase();
+    const matchesSerial = !serial || tripSerial.includes(serial) || id.includes(serial) || reservationName.includes(serial) || tripName.includes(serial);
     const tripTags = Array.isArray(trip.tags) ? trip.tags.map((t) => String(t).toLowerCase()) : [];
     const matchesTags = tags.size === 0 || [...tags].some((t) => tripTags.includes(String(t).toLowerCase()));
     const matchesStatus = statuses.size === 0 || statuses.has(trip.status);
@@ -850,6 +851,7 @@ function renderTrips() {
       <table class="camp-table trip-table">
         <colgroup>
           <col style="width: 40px" />
+          <col style="width: 86px" />
           <col style="width: 210px" />
           <col style="width: 118px" />
           <col style="width: 96px" />
@@ -869,6 +871,7 @@ function renderTrips() {
         <thead>
           <tr>
             <th>#</th>
+            <th>Serial</th>
             <th>Trip</th>
             <th>Reservation Name</th>
             <th>Start</th>
@@ -892,6 +895,7 @@ function renderTrips() {
               (trip, index) => `
                 <tr class="${activeTripId === trip.id ? "is-trip-active" : ""}">
                   <td>${startIndex + index + 1}</td>
+                  <td class="trip-serial-cell"><strong>${escapeHtml(trip.serial || "-")}</strong></td>
                   <td class="table-primary-cell">
                     <a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link">${escapeHtml(trip.tripName)}</a>
                   </td>
@@ -959,7 +963,7 @@ function renderActiveTrip() {
   activeTripBox.innerHTML = `
     <div class="section-head">
       <div>
-        <h2>${escapeHtml(trip.tripName)}</h2>
+        <h2>${trip.serial ? `<span class="trip-serial-tag">${escapeHtml(trip.serial)}</span> ` : ""}${escapeHtml(trip.tripName)}</h2>
         <p>${escapeHtml(trip.reservationName || trip.tripName)} · Start ${formatDate(trip.startDate)} · ${escapeHtml(formatStatusLabel(trip.status))}</p>
       </div>
       <div class="camp-toolbar">
