@@ -482,7 +482,7 @@
       [
         "firstName", "lastName", "gender", "dob", "nationality",
         "passportNumber", "passportIssueDate", "passportExpiry", "passportIssuePlace",
-        "registrationNumber", "phone", "email", "notes",
+        "registrationNumber", "phone", "email", "notes", "roomType", "roomCode",
       ].forEach((key) => {
         if (touristForm.elements[key]) touristForm.elements[key].value = tourist[key] || "";
       });

@@ -643,6 +643,36 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+participantsList.addEventListener("toggle", (e) => {
+  const det = e.target;
+  if (!(det instanceof HTMLDetailsElement) || !det.classList.contains("row-menu")) return;
+  if (!det.open) return;
+  const trigger = det.querySelector("summary");
+  const popover = det.querySelector(".row-menu-popover");
+  if (!trigger || !popover) return;
+  const rect = trigger.getBoundingClientRect();
+  // Render off-screen briefly to measure actual height
+  popover.style.left = "-9999px";
+  popover.style.top = "0px";
+  requestAnimationFrame(() => {
+    const ph = popover.offsetHeight;
+    const pw = popover.offsetWidth;
+    const margin = 6;
+    let top = rect.bottom + margin;
+    if (top + ph > window.innerHeight - 8) top = Math.max(8, rect.top - ph - margin);
+    let left = rect.right - pw;
+    if (left < 8) left = 8;
+    popover.style.top = `${top}px`;
+    popover.style.left = `${left}px`;
+  });
+}, true);
+// Close any open row-menu when clicking elsewhere
+document.addEventListener("click", (e) => {
+  document.querySelectorAll("details.row-menu[open]").forEach((det) => {
+    if (!det.contains(e.target)) det.removeAttribute("open");
+  });
+});
+
 participantsList.addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;

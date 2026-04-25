@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-150" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-151" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -295,6 +295,22 @@
                 <label>
                   Email
                   <input name="email" type="email" />
+                </label>
+                <label>
+                  Room type
+                  <select name="roomType">
+                    <option value="">—</option>
+                    <option value="single">Single</option>
+                    <option value="double">Double</option>
+                    <option value="twin">Twin</option>
+                    <option value="triple">Triple</option>
+                    <option value="family">Family connected</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Room code
+                  <input name="roomCode" placeholder="01" />
                 </label>
                 <label class="full-span">
                   Notes
@@ -1014,7 +1030,7 @@
     <script src="/app-shell.js?v=workspace-87"></script>
     <script src="/camp.js?v=workspace-104"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
-    <script src="/trip-extras.js?v=workspace-7"></script>
+    <script src="/trip-extras.js?v=workspace-8"></script>
     <script src="/invoice.js?v=workspace-6"></script>
   </body>
 </html>
