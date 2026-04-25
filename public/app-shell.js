@@ -308,19 +308,13 @@ function buildProfileChrome() {
     event.stopPropagation();
     toggleNotifications();
   });
-  // Re-parent popovers onto <body> so they render even when the
-  // workspace-topbar/.workspace-profile is hidden on mobile.
-  if (profileMenuWrapper) document.body.appendChild(profileMenuWrapper);
-  if (notificationPopoverNode) document.body.appendChild(notificationPopoverNode);
-  notificationPopoverNode?.querySelector('[data-action="close-notifications"]')?.addEventListener("click", () => {
+  profileCard.querySelector('[data-action="close-notifications"]')?.addEventListener("click", () => {
     closeNotifications();
   });
   document.addEventListener("click", (event) => {
     const inProfile = profileCard.contains(event.target);
-    const inMenu = profileMenuWrapper?.contains(event.target);
-    const inPopover = notificationPopoverNode?.contains(event.target);
     const inMobileBar = mobileBar?.contains(event.target);
-    if (!inProfile && !inMenu && !inPopover && !inMobileBar) {
+    if (!inProfile && !inMobileBar) {
       closeProfileMenu();
       closeNotifications();
     }
@@ -701,6 +695,46 @@ async function handleLogout() {
   }
 }
 
+// On mobile (≤900px), pull each .section-head .camp-toolbar out
+// and place it as a .list-toolbar right above its sibling list/table.
+// On desktop, restore the buttons back into their original section-head.
+const MOBILE_TOOLBAR_QUERY = window.matchMedia("(max-width: 900px)");
+
+function applySectionHeadToolbarPlacement() {
+  const isMobile = MOBILE_TOOLBAR_QUERY.matches;
+  if (isMobile) {
+    document.querySelectorAll(".section-head .camp-toolbar").forEach((toolbar) => {
+      if (toolbar.dataset.movedToList === "true") return;
+      if (!toolbar.children.length) return;
+      const card = toolbar.closest(".card, section");
+      if (!card) return;
+      const list = card.querySelector(".submission-list, .manager-table-wrap");
+      if (!list) return;
+      const wrapper = document.createElement("div");
+      wrapper.className = "list-toolbar list-toolbar-mobile";
+      while (toolbar.firstChild) wrapper.appendChild(toolbar.firstChild);
+      toolbar.style.display = "none";
+      toolbar.dataset.movedToList = "true";
+      list.parentNode.insertBefore(wrapper, list);
+    });
+  } else {
+    document.querySelectorAll(".list-toolbar-mobile").forEach((wrapper) => {
+      const card = wrapper.closest(".card, section");
+      if (!card) {
+        wrapper.remove();
+        return;
+      }
+      const toolbar = card.querySelector('.section-head .camp-toolbar[data-moved-to-list="true"]');
+      if (toolbar) {
+        while (wrapper.firstChild) toolbar.appendChild(wrapper.firstChild);
+        toolbar.style.display = "";
+        delete toolbar.dataset.movedToList;
+      }
+      wrapper.remove();
+    });
+  }
+}
+
 function ensureMobileBar() {
   const shell = document.querySelector(".workspace-shell");
   const main = document.querySelector(".workspace-main");
@@ -849,6 +883,8 @@ document.addEventListener(
 async function loadProfile() {
   if (!ensureWorkspaceOrRedirect()) return;
   ensureMobileBar();
+  applySectionHeadToolbarPlacement();
+  MOBILE_TOOLBAR_QUERY.addEventListener?.("change", applySectionHeadToolbarPlacement);
   if (!profileCard) {
     renderSidebar(null);
     return;

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-133" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-134" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -32,6 +32,9 @@
         <section class="card" id="trips-section">
           <div class="section-head">
             <h2>Trips</h2>
+            <div class="camp-toolbar">
+              <button type="button" id="trip-toggle-form">Create Trip</button>
+            </div>
           </div>
 
           <div class="camp-filters camp-trip-filters">
@@ -125,9 +128,6 @@
             </div>
           </div>
 
-          <div class="list-toolbar">
-            <button type="button" id="trip-toggle-form">Create Trip</button>
-          </div>
           <div id="trip-list" class="submission-list"></div>
         </section>
 
@@ -136,6 +136,11 @@
             <div>
               <h2>Camp Reservations</h2>
               <p>Accommodation and camp coordination linked to each trip.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="camp-view-pdf" class="secondary-button">View</button>
+              <button type="button" id="camp-export-pdf" class="secondary-button">Download all</button>
+              <button type="button" id="camp-toggle-form">Add camp</button>
             </div>
           </div>
 
@@ -339,11 +344,6 @@
           </div>
 
           <div id="reservation-edit-panel" class="camp-modal reservation-inline-modal is-hidden"></div>
-          <div class="list-toolbar">
-            <button type="button" id="camp-view-pdf" class="secondary-button">View</button>
-            <button type="button" id="camp-export-pdf" class="secondary-button">Download all</button>
-            <button type="button" id="camp-toggle-form">Add camp</button>
-          </div>
           <div id="camp-list" class="submission-list"></div>
           <div id="active-trip" class="is-hidden"></div>
           <div id="active-trip-reservations" class="card camp-trip-detail-panel mini-pagination is-hidden"></div>
@@ -357,6 +357,7 @@
               <p>Domestic and international tickets related to each trip.</p>
             </div>
             <div class="camp-toolbar">
+              <button type="button" id="flight-toggle-form">Add flight</button>
             </div>
           </div>
           <div class="camp-filters reservation-filters-grid">
@@ -490,9 +491,6 @@
               </form>
             </div>
           </div>
-          <div class="list-toolbar">
-            <button type="button" id="flight-toggle-form">Add flight</button>
-          </div>
           <div id="flight-list" class="submission-list"></div>
         </section>
 
@@ -503,6 +501,7 @@
               <p>Track payment details separately from the flight reservation information.</p>
             </div>
             <div class="camp-toolbar">
+              <button type="button" id="flight-payment-toggle-form" class="secondary-button">Add payment</button>
             </div>
           </div>
           <div class="camp-filters reservation-filters-grid">
@@ -571,9 +570,6 @@
               </form>
             </div>
           </div>
-          <div class="list-toolbar">
-            <button type="button" id="flight-payment-toggle-form" class="secondary-button">Add payment</button>
-          </div>
           <div id="flight-payment-list" class="submission-list"></div>
         </section>
 
@@ -582,6 +578,9 @@
             <div>
               <h2>Transfer Reservations</h2>
               <p>Airport, hotel, train, and custom transfer services related to each trip.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="transfer-toggle-form">Add transfer</button>
             </div>
           </div>
           <div class="camp-filters reservation-filters-grid">
@@ -676,9 +675,6 @@
               </form>
             </div>
           </div>
-          <div class="list-toolbar">
-            <button type="button" id="transfer-toggle-form">Add transfer</button>
-          </div>
           <div id="transfer-list" class="submission-list"></div>
         </section>
 
@@ -750,7 +746,7 @@
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-80"></script>
+    <script src="/app-shell.js?v=workspace-81"></script>
     <script src="/camp.js?v=workspace-89"></script>
     <script src="/reservations-addon.js?v=workspace-14"></script>
   </body>

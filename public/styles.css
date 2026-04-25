@@ -3969,10 +3969,36 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     height: 36px;
   }
 
-  /* Topbar is empty on mobile (profile lives in the mobile bar
-     instead, popovers are re-parented to <body>). */
+  /* Collapse the desktop topbar on mobile (profile lives in the
+     mobile bar instead) but keep it in the DOM so popover children
+     positioned via `position: fixed` still render. */
   .workspace-topbar {
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .workspace-profile {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .workspace-profile > .workspace-bell,
+  .workspace-profile > .workspace-profile-trigger {
     display: none;
+  }
+
+  .workspace-profile > .workspace-profile-menu,
+  .workspace-profile > .notifications-popover {
+    pointer-events: auto;
   }
 
   .workspace-mobile-bar {
@@ -4216,6 +4242,40 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
   .manager-stat-card strong {
     font-size: 1.4rem;
+  }
+
+  /* FIFA admin compact layout */
+  .fifa-panel {
+    padding: 14px 12px;
+    border-radius: 18px;
+  }
+
+  .fifa-public-stage-panel {
+    margin-top: 14px;
+  }
+
+  .fifa-public-section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .fifa-public-section-head h2 {
+    font-size: 1.1rem;
+  }
+
+  .fifa-public-section-head p {
+    font-size: 0.78rem;
+  }
+
+  .fifa-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
