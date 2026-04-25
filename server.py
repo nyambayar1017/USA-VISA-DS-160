@@ -8296,6 +8296,669 @@ def handle_update_contract_invoice(environ, start_response, contract_id):
     return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
 
 
+# ════════════════════════════════════════════════════════════════════
+#  AGENT  (admin-only Claude assistant with tool use over the API)
+# ════════════════════════════════════════════════════════════════════
+
+AGENT_CONVERSATIONS_FILE = DATA_DIR / "agent_conversations.json"
+AGENT_AUDIT_FILE = DATA_DIR / "agent_audit.json"
+AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-sonnet-4-5")
+AGENT_MAX_TOKENS = 4096
+AGENT_MAX_TOOL_LOOPS = 8
+AGENT_HISTORY_TURNS = 20  # how many user/assistant turns we keep per user
+
+
+def _agent_load_conversations():
+    if not AGENT_CONVERSATIONS_FILE.exists():
+        return {}
+    try:
+        return json.loads(AGENT_CONVERSATIONS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _agent_save_conversations(data):
+    AGENT_CONVERSATIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    AGENT_CONVERSATIONS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _agent_audit(user, tool_name, tool_input, ok, output_summary):
+    AGENT_AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        existing = json.loads(AGENT_AUDIT_FILE.read_text(encoding="utf-8")) if AGENT_AUDIT_FILE.exists() else []
+    except Exception:
+        existing = []
+    existing.append({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "user": (user or {}).get("email") or (user or {}).get("id") or "?",
+        "tool": tool_name,
+        "input": tool_input,
+        "ok": ok,
+        "summary": str(output_summary)[:400],
+    })
+    # Keep last 2000 entries.
+    if len(existing) > 2000:
+        existing = existing[-2000:]
+    AGENT_AUDIT_FILE.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# ── Tool implementations (thin wrappers over read_/write_/build_) ─────
+
+def _tool_list_trips(args, actor):
+    trips = read_camp_trips()
+    ws = (args.get("workspace") or "").upper().strip()
+    status = (args.get("status") or "").lower().strip()
+    if ws:
+        trips = [t for t in trips if (t.get("workspace") or "").upper() == ws]
+    if status:
+        trips = [t for t in trips if (t.get("status") or "").lower() == status]
+    return [{"id": t["id"], "serial": t.get("serial"), "tripName": t.get("tripName"),
+             "tripType": t.get("tripType"), "startDate": t.get("startDate"),
+             "endDate": t.get("endDate"), "status": t.get("status"),
+             "participantCount": t.get("participantCount"), "workspace": t.get("workspace")}
+            for t in trips]
+
+
+def _tool_get_trip(args, actor):
+    trip_id = args.get("tripId") or ""
+    trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None)
+    return trip or {"error": "Trip not found"}
+
+
+def _tool_create_trip(args, actor):
+    payload = dict(args)
+    record = build_camp_trip(payload, actor)
+    err = validate_camp_trip(record)
+    if err:
+        return {"error": err}
+    trips = read_camp_trips()
+    trips.insert(0, record)
+    write_camp_trips(trips)
+    return {"ok": True, "trip": {"id": record["id"], "serial": record.get("serial"), "tripName": record.get("tripName")}}
+
+
+def _tool_update_trip(args, actor):
+    trip_id = args.get("tripId") or ""
+    fields = args.get("fields") or {}
+    trips = read_camp_trips()
+    for i, t in enumerate(trips):
+        if t.get("id") != trip_id:
+            continue
+        t.update({k: v for k, v in fields.items() if k != "id"})
+        t["updatedAt"] = now_mongolia().isoformat()
+        t["updatedBy"] = actor_snapshot(actor)
+        trips[i] = t
+        write_camp_trips(trips)
+        return {"ok": True, "trip": {"id": t["id"], "serial": t.get("serial"), "tripName": t.get("tripName"), "status": t.get("status")}}
+    return {"error": "Trip not found"}
+
+
+def _tool_delete_trip(args, actor):
+    trip_id = args.get("tripId") or ""
+    trips = read_camp_trips()
+    new = [t for t in trips if t.get("id") != trip_id]
+    if len(new) == len(trips):
+        return {"error": "Trip not found"}
+    write_camp_trips(new)
+    return {"ok": True}
+
+
+def _tool_list_groups(args, actor):
+    groups = read_tourist_groups()
+    trip_id = (args.get("tripId") or "").strip()
+    if trip_id:
+        groups = [g for g in groups if g.get("tripId") == trip_id]
+    return [{"id": g["id"], "serial": g.get("serial"), "name": g.get("name"),
+             "tripId": g.get("tripId"), "headcount": g.get("headcount"),
+             "status": g.get("status"), "leaderName": g.get("leaderName")}
+            for g in groups]
+
+
+def _tool_create_group(args, actor):
+    record = build_tourist_group(dict(args), actor)
+    err = validate_tourist_group(record)
+    if err:
+        return {"error": err}
+    groups = read_tourist_groups()
+    groups.append(record)
+    write_tourist_groups(groups)
+    return {"ok": True, "group": {"id": record["id"], "serial": record.get("serial"), "name": record.get("name")}}
+
+
+def _tool_update_group(args, actor):
+    gid = args.get("groupId") or ""
+    fields = args.get("fields") or {}
+    groups = read_tourist_groups()
+    for i, g in enumerate(groups):
+        if g.get("id") != gid:
+            continue
+        g.update({k: v for k, v in fields.items() if k != "id"})
+        g["updatedAt"] = now_mongolia().isoformat()
+        g["updatedBy"] = actor_snapshot(actor)
+        groups[i] = g
+        write_tourist_groups(groups)
+        return {"ok": True, "group": g}
+    return {"error": "Group not found"}
+
+
+def _tool_delete_group(args, actor):
+    gid = args.get("groupId") or ""
+    groups = read_tourist_groups()
+    new = [g for g in groups if g.get("id") != gid]
+    if len(new) == len(groups):
+        return {"error": "Group not found"}
+    write_tourist_groups(new)
+    return {"ok": True}
+
+
+def _tool_list_tourists(args, actor):
+    tourists = read_tourists()
+    trip_id = (args.get("tripId") or "").strip()
+    group_id = (args.get("groupId") or "").strip()
+    if trip_id:
+        tourists = [t for t in tourists if t.get("tripId") == trip_id]
+    if group_id:
+        tourists = [t for t in tourists if t.get("groupId") == group_id]
+    return [{"id": t["id"], "serial": t.get("serial"),
+             "lastName": t.get("lastName"), "firstName": t.get("firstName"),
+             "passportNumber": t.get("passportNumber"), "phone": t.get("phone"),
+             "groupId": t.get("groupId"), "tripId": t.get("tripId"),
+             "roomType": t.get("roomType"), "roomCode": t.get("roomCode")}
+            for t in tourists]
+
+
+def _tool_create_tourist(args, actor):
+    record = build_tourist(dict(args), actor)
+    err = validate_tourist(record)
+    if err:
+        return {"error": err}
+    tourists = read_tourists()
+    tourists.append(record)
+    write_tourists(tourists)
+    return {"ok": True, "tourist": {"id": record["id"], "serial": record.get("serial"),
+                                     "lastName": record.get("lastName"), "firstName": record.get("firstName")}}
+
+
+def _tool_update_tourist(args, actor):
+    tid = args.get("touristId") or ""
+    fields = args.get("fields") or {}
+    tourists = read_tourists()
+    for i, t in enumerate(tourists):
+        if t.get("id") != tid:
+            continue
+        t.update({k: v for k, v in fields.items() if k != "id"})
+        t["updatedAt"] = now_mongolia().isoformat()
+        t["updatedBy"] = actor_snapshot(actor)
+        tourists[i] = t
+        write_tourists(tourists)
+        return {"ok": True, "tourist": t}
+    return {"error": "Tourist not found"}
+
+
+def _tool_delete_tourist(args, actor):
+    tid = args.get("touristId") or ""
+    tourists = read_tourists()
+    new = [t for t in tourists if t.get("id") != tid]
+    if len(new) == len(tourists):
+        return {"error": "Tourist not found"}
+    write_tourists(new)
+    return {"ok": True}
+
+
+def _tool_list_invoices(args, actor):
+    invoices = read_invoices()
+    trip_id = (args.get("tripId") or "").strip()
+    if trip_id:
+        invoices = [i for i in invoices if i.get("tripId") == trip_id]
+    return [{"id": i["id"], "serial": i.get("serial"), "tripId": i.get("tripId"),
+             "groupId": i.get("groupId"), "payerName": i.get("payerName"),
+             "total": i.get("total"), "status": i.get("status")}
+            for i in invoices]
+
+
+def _tool_get_invoice(args, actor):
+    iid = args.get("invoiceId") or ""
+    inv = next((i for i in read_invoices() if i.get("id") == iid), None)
+    return inv or {"error": "Invoice not found"}
+
+
+def _tool_create_invoice(args, actor):
+    record = build_invoice(dict(args), actor)
+    err = validate_invoice(record)
+    if err:
+        return {"error": err}
+    invs = read_invoices()
+    invs.insert(0, record)
+    write_invoices(invs)
+    return {"ok": True, "invoice": {"id": record["id"], "serial": record.get("serial"), "total": record.get("total")}}
+
+
+def _tool_update_invoice(args, actor):
+    iid = args.get("invoiceId") or ""
+    fields = args.get("fields") or {}
+    invs = read_invoices()
+    for i, inv in enumerate(invs):
+        if inv.get("id") != iid:
+            continue
+        inv.update({k: v for k, v in fields.items() if k != "id"})
+        inv["updatedAt"] = now_mongolia().isoformat()
+        inv["updatedBy"] = actor_snapshot(actor)
+        invs[i] = inv
+        write_invoices(invs)
+        return {"ok": True, "invoice": inv}
+    return {"error": "Invoice not found"}
+
+
+def _tool_delete_invoice(args, actor):
+    iid = args.get("invoiceId") or ""
+    invs = read_invoices()
+    new = [i for i in invs if i.get("id") != iid]
+    if len(new) == len(invs):
+        return {"error": "Invoice not found"}
+    write_invoices(new)
+    return {"ok": True}
+
+
+def _tool_publish_invoice(args, actor):
+    iid = args.get("invoiceId") or ""
+    invs = read_invoices()
+    for i, inv in enumerate(invs):
+        if inv.get("id") != iid:
+            continue
+        inv["status"] = "published"
+        inv["publishedAt"] = now_mongolia().isoformat()
+        inv["updatedBy"] = actor_snapshot(actor)
+        invs[i] = inv
+        write_invoices(invs)
+        return {"ok": True, "invoice": {"id": inv["id"], "status": inv["status"]}}
+    return {"error": "Invoice not found"}
+
+
+def _tool_register_invoice_payment(args, actor):
+    iid = args.get("invoiceId") or ""
+    idx = int(args.get("installmentIndex") or 0)
+    paid = args.get("paidDate") or now_mongolia().date().isoformat()
+    invs = read_invoices()
+    for i, inv in enumerate(invs):
+        if inv.get("id") != iid:
+            continue
+        installments = inv.get("installments") or []
+        if idx < 0 or idx >= len(installments):
+            return {"error": "installmentIndex out of range"}
+        installments[idx]["status"] = "paid"
+        installments[idx]["paidDate"] = paid
+        inv["installments"] = installments
+        inv["updatedBy"] = actor_snapshot(actor)
+        invs[i] = inv
+        write_invoices(invs)
+        return {"ok": True, "installment": installments[idx]}
+    return {"error": "Invoice not found"}
+
+
+def _tool_list_contracts(args, actor):
+    cs = read_contracts()
+    trip_id = (args.get("tripId") or "").strip()
+    if trip_id:
+        cs = [c for c in cs if c.get("tripId") == trip_id]
+    return [{"id": c["id"], "tripId": c.get("tripId"), "groupId": c.get("groupId"),
+             "status": c.get("status"), "contractSerial": (c.get("data") or {}).get("contractSerial"),
+             "tourist": ((c.get("data") or {}).get("touristLastName") or "") + " " + ((c.get("data") or {}).get("touristFirstName") or "")}
+            for c in cs]
+
+
+def _tool_delete_contract(args, actor):
+    cid = args.get("contractId") or ""
+    cs = read_contracts()
+    new = [c for c in cs if c.get("id") != cid]
+    if len(new) == len(cs):
+        return {"error": "Contract not found"}
+    write_contracts(new)
+    return {"ok": True}
+
+
+def _tool_list_camp_reservations(args, actor):
+    rs = read_camp_reservations()
+    trip_id = (args.get("tripId") or "").strip()
+    if trip_id:
+        rs = [r for r in rs if r.get("tripId") == trip_id]
+    return rs
+
+
+def _tool_list_flight_reservations(args, actor):
+    rs = read_flight_reservations()
+    trip_id = (args.get("tripId") or "").strip()
+    if trip_id:
+        rs = [r for r in rs if r.get("tripId") == trip_id]
+    return rs
+
+
+def _tool_list_transfer_reservations(args, actor):
+    rs = read_transfer_reservations()
+    trip_id = (args.get("tripId") or "").strip()
+    if trip_id:
+        rs = [r for r in rs if r.get("tripId") == trip_id]
+    return rs
+
+
+def _tool_list_users(args, actor):
+    return [{"id": u.get("id"), "email": u.get("email"), "fullName": u.get("fullName"),
+             "role": u.get("role"), "status": u.get("status")} for u in read_users()]
+
+
+def _tool_list_ds160(args, actor):
+    return [{"id": a.get("id"), "email": a.get("email"), "status": a.get("status"),
+             "createdAt": a.get("createdAt")} for a in read_ds160_applications()]
+
+
+def _tool_list_notifications(args, actor):
+    return read_notifications()[-50:]
+
+
+def _tool_list_fifa_inventory(args, actor):
+    store = read_fifa2026_store()
+    tickets = store.get("tickets") if isinstance(store, dict) else None
+    return tickets[:200] if isinstance(tickets, list) else (tickets or [])
+
+
+# ── Tool registry (Claude-facing JSON schemas) ────────────────────────
+
+AGENT_TOOLS = [
+    {"name": "list_trips", "description": "List trips. Optional filter by workspace (DTX or USM) or status.",
+     "input_schema": {"type": "object", "properties": {
+         "workspace": {"type": "string"}, "status": {"type": "string"}}},
+     "handler": _tool_list_trips},
+    {"name": "get_trip", "description": "Get one trip by id.",
+     "input_schema": {"type": "object", "required": ["tripId"], "properties": {"tripId": {"type": "string"}}},
+     "handler": _tool_get_trip},
+    {"name": "create_trip", "description": "Create a trip. tripType is 'fit' or 'git'. Dates ISO yyyy-mm-dd.",
+     "input_schema": {"type": "object", "required": ["tripName", "startDate", "tripType"], "properties": {
+         "tripName": {"type": "string"}, "tripType": {"type": "string", "enum": ["fit", "git"]},
+         "startDate": {"type": "string"}, "endDate": {"type": "string"},
+         "participantCount": {"type": "integer"}, "staffCount": {"type": "integer"},
+         "totalDays": {"type": "integer"},
+         "status": {"type": "string", "enum": ["offer", "planning", "confirmed", "travelling", "completed", "cancelled"]},
+         "tags": {"type": "string"}}},
+     "handler": _tool_create_trip},
+    {"name": "update_trip", "description": "Update fields on an existing trip. Pass fields object with keys to change.",
+     "input_schema": {"type": "object", "required": ["tripId", "fields"], "properties": {
+         "tripId": {"type": "string"}, "fields": {"type": "object"}}},
+     "handler": _tool_update_trip},
+    {"name": "delete_trip", "description": "Delete a trip.",
+     "input_schema": {"type": "object", "required": ["tripId"], "properties": {"tripId": {"type": "string"}}},
+     "handler": _tool_delete_trip},
+
+    {"name": "list_groups", "description": "List groups, optionally filtered by tripId.",
+     "input_schema": {"type": "object", "properties": {"tripId": {"type": "string"}}},
+     "handler": _tool_list_groups},
+    {"name": "create_group", "description": "Create a tourist group on a trip.",
+     "input_schema": {"type": "object", "required": ["tripId", "name"], "properties": {
+         "tripId": {"type": "string"}, "name": {"type": "string"}, "headcount": {"type": "integer"},
+         "leaderName": {"type": "string"}, "leaderEmail": {"type": "string"},
+         "leaderPhone": {"type": "string"}, "leaderNationality": {"type": "string"},
+         "status": {"type": "string", "enum": ["pending", "confirmed", "cancelled"]}}},
+     "handler": _tool_create_group},
+    {"name": "update_group", "description": "Update group fields.",
+     "input_schema": {"type": "object", "required": ["groupId", "fields"], "properties": {
+         "groupId": {"type": "string"}, "fields": {"type": "object"}}},
+     "handler": _tool_update_group},
+    {"name": "delete_group", "description": "Delete a group.",
+     "input_schema": {"type": "object", "required": ["groupId"], "properties": {"groupId": {"type": "string"}}},
+     "handler": _tool_delete_group},
+
+    {"name": "list_tourists", "description": "List participants, optionally filtered by tripId or groupId.",
+     "input_schema": {"type": "object", "properties": {"tripId": {"type": "string"}, "groupId": {"type": "string"}}},
+     "handler": _tool_list_tourists},
+    {"name": "create_tourist", "description": "Add a participant to a group.",
+     "input_schema": {"type": "object", "required": ["tripId", "groupId", "lastName", "firstName"], "properties": {
+         "tripId": {"type": "string"}, "groupId": {"type": "string"},
+         "lastName": {"type": "string"}, "firstName": {"type": "string"},
+         "gender": {"type": "string"}, "dob": {"type": "string"},
+         "nationality": {"type": "string"}, "passportNumber": {"type": "string"},
+         "passportIssueDate": {"type": "string"}, "passportExpiry": {"type": "string"},
+         "passportIssuePlace": {"type": "string"}, "registrationNumber": {"type": "string"},
+         "phone": {"type": "string"}, "email": {"type": "string"},
+         "roomType": {"type": "string"}, "roomCode": {"type": "string"},
+         "notes": {"type": "string"}}},
+     "handler": _tool_create_tourist},
+    {"name": "update_tourist", "description": "Update a participant.",
+     "input_schema": {"type": "object", "required": ["touristId", "fields"], "properties": {
+         "touristId": {"type": "string"}, "fields": {"type": "object"}}},
+     "handler": _tool_update_tourist},
+    {"name": "delete_tourist", "description": "Delete a participant.",
+     "input_schema": {"type": "object", "required": ["touristId"], "properties": {"touristId": {"type": "string"}}},
+     "handler": _tool_delete_tourist},
+
+    {"name": "list_invoices", "description": "List invoices, optionally filtered by tripId.",
+     "input_schema": {"type": "object", "properties": {"tripId": {"type": "string"}}},
+     "handler": _tool_list_invoices},
+    {"name": "get_invoice", "description": "Get one invoice by id.",
+     "input_schema": {"type": "object", "required": ["invoiceId"], "properties": {"invoiceId": {"type": "string"}}},
+     "handler": _tool_get_invoice},
+    {"name": "create_invoice", "description": "Create an invoice. Items are [{description, qty, price}]. Installments are [{description, amount, issueDate, dueDate, status}].",
+     "input_schema": {"type": "object", "required": ["tripId", "groupId", "payerName", "items"], "properties": {
+         "tripId": {"type": "string"}, "groupId": {"type": "string"},
+         "payerName": {"type": "string"}, "payerId": {"type": "string"},
+         "participantIds": {"type": "array", "items": {"type": "string"}},
+         "items": {"type": "array", "items": {"type": "object"}},
+         "installments": {"type": "array", "items": {"type": "object"}},
+         "currency": {"type": "string"}}},
+     "handler": _tool_create_invoice},
+    {"name": "update_invoice", "description": "Update invoice fields.",
+     "input_schema": {"type": "object", "required": ["invoiceId", "fields"], "properties": {
+         "invoiceId": {"type": "string"}, "fields": {"type": "object"}}},
+     "handler": _tool_update_invoice},
+    {"name": "delete_invoice", "description": "Delete an invoice.",
+     "input_schema": {"type": "object", "required": ["invoiceId"], "properties": {"invoiceId": {"type": "string"}}},
+     "handler": _tool_delete_invoice},
+    {"name": "publish_invoice", "description": "Publish a draft invoice.",
+     "input_schema": {"type": "object", "required": ["invoiceId"], "properties": {"invoiceId": {"type": "string"}}},
+     "handler": _tool_publish_invoice},
+    {"name": "register_invoice_payment", "description": "Mark an installment as paid.",
+     "input_schema": {"type": "object", "required": ["invoiceId", "installmentIndex"], "properties": {
+         "invoiceId": {"type": "string"}, "installmentIndex": {"type": "integer"},
+         "paidDate": {"type": "string"}}},
+     "handler": _tool_register_invoice_payment},
+
+    {"name": "list_contracts", "description": "List contracts, optionally filtered by tripId.",
+     "input_schema": {"type": "object", "properties": {"tripId": {"type": "string"}}},
+     "handler": _tool_list_contracts},
+    {"name": "delete_contract", "description": "Delete a contract.",
+     "input_schema": {"type": "object", "required": ["contractId"], "properties": {"contractId": {"type": "string"}}},
+     "handler": _tool_delete_contract},
+
+    {"name": "list_camp_reservations", "description": "List camp reservations, optionally for a trip.",
+     "input_schema": {"type": "object", "properties": {"tripId": {"type": "string"}}},
+     "handler": _tool_list_camp_reservations},
+    {"name": "list_flight_reservations", "description": "List flight reservations, optionally for a trip.",
+     "input_schema": {"type": "object", "properties": {"tripId": {"type": "string"}}},
+     "handler": _tool_list_flight_reservations},
+    {"name": "list_transfer_reservations", "description": "List transfer reservations, optionally for a trip.",
+     "input_schema": {"type": "object", "properties": {"tripId": {"type": "string"}}},
+     "handler": _tool_list_transfer_reservations},
+
+    {"name": "list_users", "description": "List back-office users.",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_list_users},
+    {"name": "list_ds160_applications", "description": "List DS-160 applications.",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_list_ds160},
+    {"name": "list_notifications", "description": "List recent notifications (last 50).",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_list_notifications},
+    {"name": "list_fifa_inventory", "description": "List FIFA 2026 ticket inventory entries (first 200).",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_list_fifa_inventory},
+]
+AGENT_TOOL_BY_NAME = {t["name"]: t for t in AGENT_TOOLS}
+
+
+def _agent_system_prompt(actor):
+    name = (actor or {}).get("fullName") or (actor or {}).get("email") or "admin"
+    today = now_mongolia().date().isoformat()
+    return f"""You are the in-app admin assistant for travelx.mn back-office. Today is {today}. You are talking to {name} (admin).
+
+Domain context:
+- Two workspaces: DTX (Delkhii Travel Ix — outbound tours) and USM (Unlock Steppe Mongolia — inbound). Trips, groups, tourists, contracts, invoices all belong to one workspace.
+- Trip types: FIT (individual / family booking, usually no group needed) and GIT (group tour, has named group).
+- Trip status lifecycle: offer → planning → confirmed → travelling → completed (or cancelled).
+- Each trip can have groups, participants (tourists), camp/flight/transfer reservations, contracts, invoices, documents.
+- Invoices have items + installments. Each installment has issueDate, dueDate, amount, status (pending/paid/overdue).
+- Mongolian-language naming is normal: payerName, descriptions, etc. may be in Mongolian.
+
+How you work:
+- Use the provided tools to read and write the system. Don't make up data — call list_/get_ first when you need a fact.
+- Before destructive actions (delete_*, update_invoice fields wiping data, deleting trips/groups), briefly confirm with the user in your reply, then call the tool only if they assent.
+- After you do something, summarize the result in 1-2 sentences and include the relevant id/serial. Mongolian or English — match the user's language.
+- If a tool returns {{"error": ...}}, explain what went wrong and propose a fix.
+- For dates, use yyyy-mm-dd. For money, use plain numbers (no commas) when calling tools.
+- Never invent IDs; only use ones returned by tools.
+"""
+
+
+def _agent_call_anthropic(system, messages, tools):
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY is not set on the server. Add it in Render → Environment → ANTHROPIC_API_KEY."}
+    url = "https://api.anthropic.com/v1/messages"
+    body = {
+        "model": AGENT_MODEL,
+        "max_tokens": AGENT_MAX_TOKENS,
+        "system": system,
+        "messages": messages,
+        "tools": [{"name": t["name"], "description": t["description"], "input_schema": t["input_schema"]} for t in tools],
+    }
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method="POST", headers={
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8")
+        except Exception:
+            err_body = str(e)
+        return {"error": f"Anthropic API error {e.code}: {err_body[:500]}"}
+    except Exception as e:
+        return {"error": f"Network error contacting Anthropic: {e}"}
+
+
+def handle_agent_chat(environ, start_response):
+    actor = require_admin(environ, start_response)
+    if not actor:
+        return []
+
+    method = environ["REQUEST_METHOD"]
+    convs = _agent_load_conversations()
+    user_key = actor.get("id") or actor.get("email") or "anon"
+    history = convs.get(user_key, [])
+
+    if method == "GET":
+        # Return history (for hydrating the chat panel on page load).
+        params = parse_qs(environ.get("QUERY_STRING", ""))
+        if (params.get("history", [""])[0] or "").strip() == "1":
+            return json_response(start_response, "200 OK", {"messages": history[-AGENT_HISTORY_TURNS * 2:]})
+        return json_response(start_response, "200 OK", {"ok": True})
+
+    if method == "DELETE":
+        convs[user_key] = []
+        _agent_save_conversations(convs)
+        return json_response(start_response, "200 OK", {"ok": True, "messages": []})
+
+    if method != "POST":
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    payload = collect_json(environ) or {}
+    user_msg = (payload.get("message") or "").strip()
+    if not user_msg:
+        return json_response(start_response, "400 Bad Request", {"error": "Empty message"})
+
+    # Append the new user message.
+    history.append({"role": "user", "content": [{"type": "text", "text": user_msg}]})
+
+    system = _agent_system_prompt(actor)
+    actions = []  # human-readable summary of tool calls performed
+    final_text = ""
+    loops = 0
+
+    while loops < AGENT_MAX_TOOL_LOOPS:
+        loops += 1
+        resp = _agent_call_anthropic(system, history, AGENT_TOOLS)
+        if "error" in resp:
+            history.pop()  # Don't persist the failed turn.
+            return json_response(start_response, "502 Bad Gateway", {"error": resp["error"]})
+
+        assistant_blocks = resp.get("content") or []
+        # Append assistant turn to history (full content, including tool_use blocks).
+        history.append({"role": "assistant", "content": assistant_blocks})
+
+        tool_uses = [b for b in assistant_blocks if b.get("type") == "tool_use"]
+        for b in assistant_blocks:
+            if b.get("type") == "text" and b.get("text"):
+                final_text += b["text"]
+
+        if not tool_uses or resp.get("stop_reason") == "end_turn":
+            break
+
+        # Execute every tool_use, then feed the results back as a single user turn.
+        results_blocks = []
+        for tu in tool_uses:
+            name = tu.get("name") or ""
+            tool = AGENT_TOOL_BY_NAME.get(name)
+            tool_input = tu.get("input") or {}
+            if not tool:
+                out = {"error": f"Unknown tool: {name}"}
+                ok = False
+            else:
+                try:
+                    out = tool["handler"](tool_input, actor)
+                    ok = "error" not in (out if isinstance(out, dict) else {})
+                except Exception as exc:
+                    out = {"error": f"{type(exc).__name__}: {exc}"}
+                    ok = False
+            _agent_audit(actor, name, tool_input, ok, out if isinstance(out, (str, dict)) else "ok")
+            actions.append({"tool": name, "ok": ok, "input": tool_input, "summary": _summarize_tool_output(name, out)})
+            results_blocks.append({
+                "type": "tool_result",
+                "tool_use_id": tu.get("id"),
+                "content": json.dumps(out, ensure_ascii=False)[:8000],
+                "is_error": (not ok),
+            })
+        history.append({"role": "user", "content": results_blocks})
+
+    # Trim history to keep it bounded but preserve assistant/tool pairs.
+    if len(history) > AGENT_HISTORY_TURNS * 4:
+        history = history[-AGENT_HISTORY_TURNS * 4:]
+    convs[user_key] = history
+    _agent_save_conversations(convs)
+
+    return json_response(start_response, "200 OK", {
+        "ok": True,
+        "reply": final_text or "(done)",
+        "actions": actions,
+    })
+
+
+def _summarize_tool_output(name, out):
+    if isinstance(out, dict):
+        if "error" in out:
+            return f"error: {out['error']}"
+        if "ok" in out:
+            extras = []
+            for k in ("trip", "group", "tourist", "invoice", "installment"):
+                if k in out and isinstance(out[k], dict):
+                    s = out[k].get("serial") or out[k].get("id") or ""
+                    if s:
+                        extras.append(f"{k}={s}")
+            return "✓ " + (" ".join(extras) if extras else "done")
+    if isinstance(out, list):
+        return f"{len(out)} item(s)"
+    return "done"
+
+
 def app(environ, start_response):
     ensure_data_store()
 
@@ -8345,6 +9008,11 @@ def app(environ, start_response):
     if path == "/api/notifications/read":
         if method == "POST":
             return handle_mark_notifications_read(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/agent/chat":
+        if method in ("GET", "POST", "DELETE"):
+            return handle_agent_chat(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/tourist-groups":

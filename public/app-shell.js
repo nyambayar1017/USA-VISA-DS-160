@@ -925,3 +925,13 @@ async function loadProfile() {
 }
 
 loadProfile();
+
+// Inject AI agent widget on every page; the widget itself only mounts for admins.
+(function injectAgentWidget() {
+  if (document.querySelector('script[data-agent-widget]')) return;
+  const s = document.createElement("script");
+  s.src = "/agent-widget.js?v=workspace-1";
+  s.defer = true;
+  s.setAttribute("data-agent-widget", "1");
+  document.head.appendChild(s);
+})();
