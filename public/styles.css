@@ -1548,13 +1548,24 @@ td {
 }
 .inv-row-main {
   display: grid;
-  grid-template-columns: 28px 28px minmax(110px, 1fr) minmax(140px, 1.4fr) minmax(110px, 0.9fr) 28px;
+  grid-template-columns: 28px 28px minmax(110px, 1fr) minmax(140px, 1.4fr) minmax(110px, 0.9fr) 60px 28px;
   gap: 8px;
   align-items: center;
   padding: 12px 14px;
   border-right: 1px solid #eef1f7;
 }
-.inv-row-header .inv-row-main { grid-template-columns: 28px 28px minmax(110px, 1fr) minmax(140px, 1.4fr) minmax(110px, 0.9fr) 28px; }
+.inv-row-header .inv-row-main { grid-template-columns: 28px 28px minmax(110px, 1fr) minmax(140px, 1.4fr) minmax(110px, 0.9fr) 60px 28px; }
+.inv-row-actions { display: inline-flex; gap: 4px; align-items: center; }
+.inv-row-action-btn {
+  width: 26px; height: 26px; padding: 0;
+  border-radius: 6px; border: 1px solid #e5e9f3;
+  background: #ffffff; color: #475569;
+  font-size: 13px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.inv-row-action-btn:hover { background: #eef1f7; color: #0f172a; }
+.inv-row-action-btn.is-danger { color: #dc2626; }
+.inv-row-action-btn.is-danger:hover { background: #fee2e2; color: #991b1b; }
 .inv-row-menu { position: relative; }
 .inv-row-menu summary {
   width: 24px; height: 24px; border-radius: 6px;
@@ -4392,6 +4403,16 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 .trip-table .table-primary-cell {
   text-align: center;
+}
+/* Status cells: align all entries to the same left start so "Offer"
+   and "Confirmed" line up at the same horizontal position. */
+.trip-table td:has(> .status-dot-cell) {
+  text-align: left;
+  padding-left: 28px;
+}
+.trip-table th:nth-last-child(4) {
+  text-align: left;
+  padding-left: 28px;
 }
 
 .trip-pax-cell {

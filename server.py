@@ -7776,6 +7776,122 @@ def handle_camp_reservation_document(environ, start_response, reservation_id):
     return file_response(start_response, safe_path, extra_headers=extra_headers)
 
 
+def build_invoice_from_contract(contract, actor):
+    """Create a standalone invoice record mirroring a freshly-saved contract.
+    Skipped (returns None) if the contract has no trip+group attached, since
+    invoices require both. Items mirror the contract line items where possible,
+    otherwise fall back to a single line for the total. Two installments
+    (deposit / balance) are created from the contract's deposit/balance fields.
+    """
+    trip_id = (contract.get("tripId") or "").strip()
+    group_id = (contract.get("groupId") or "").strip()
+    if not trip_id or not group_id:
+        return None
+
+    data = contract.get("data") or {}
+    payer = f"{normalize_text(data.get('touristLastName'))} {normalize_text(data.get('touristFirstName'))}".strip()
+    if not payer:
+        payer = normalize_text(data.get("clientName")) or "Client"
+
+    def _num(v):
+        try:
+            return float(str(v).replace(",", "").replace("₮", "").strip() or 0)
+        except Exception:
+            return 0.0
+
+    # Build line items from per-category counts/prices on the contract.
+    raw_items = []
+    cats = [
+        ("adultCount", "adultPrice", "Том хүн"),
+        ("childCount", "childPrice", "Хүүхэд"),
+        ("infantCount", "infantPrice", "Нярай"),
+        ("ticketOnlyCount", "ticketOnlyPrice", "Зөвхөн билет"),
+        ("landOnlyCount", "landOnlyPrice", "Газрын үйлчилгээ"),
+        ("customCount", "customPrice", "Бусад"),
+    ]
+    for count_key, price_key, default_label in cats:
+        qty = _num(data.get(count_key))
+        price = _num(data.get(price_key))
+        if qty <= 0 or price <= 0:
+            continue
+        label = default_label
+        if count_key == "customCount":
+            label = normalize_text(data.get("customPriceLabel")) or default_label
+        raw_items.append({
+            "description": label,
+            "qty": qty,
+            "price": price,
+            "total": round(qty * price, 2),
+        })
+
+    total = round(sum(it["total"] for it in raw_items), 2)
+    if not raw_items:
+        # Fallback: a single line with the contract total.
+        total = _num(data.get("totalPrice"))
+        if total <= 0:
+            return None
+        raw_items.append({
+            "description": normalize_text(data.get("destination")) or "Trip",
+            "qty": 1,
+            "price": total,
+            "total": total,
+        })
+
+    deposit = _num(data.get("depositAmount"))
+    balance = _num(data.get("balanceAmount"))
+    if balance <= 0 and deposit > 0:
+        balance = max(total - deposit, 0)
+    contract_date = normalize_text(data.get("contractDate")) or now_mongolia().date().isoformat()
+    deposit_due = normalize_text(data.get("depositDueDate")) or contract_date
+    balance_due = normalize_text(data.get("balanceDueDate")) or ""
+
+    installments = []
+    if deposit > 0:
+        installments.append({
+            "description": "Урьдчилгаа",
+            "amount": deposit,
+            "issueDate": contract_date,
+            "dueDate": deposit_due,
+            "status": "pending",
+        })
+    if balance > 0:
+        installments.append({
+            "description": "Аяллын үлдэгдэл",
+            "amount": balance,
+            "issueDate": contract_date,
+            "dueDate": balance_due,
+            "status": "pending",
+        })
+    if not installments:
+        installments.append({
+            "description": "Бүрэн төлбөр",
+            "amount": total,
+            "issueDate": contract_date,
+            "dueDate": balance_due or contract_date,
+            "status": "pending",
+        })
+
+    return {
+        "id": str(uuid4()),
+        "serial": next_invoice_serial(),
+        "tripId": trip_id,
+        "groupId": group_id,
+        "payerId": "",
+        "payerName": payer,
+        "participantIds": [],
+        "items": raw_items,
+        "total": total,
+        "installments": installments,
+        "currency": "MNT",
+        "status": "draft",
+        "contractId": contract.get("id"),
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
 def handle_generate_contract(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -7812,6 +7928,19 @@ def handle_generate_contract(environ, start_response):
             )
         except Exception:
             pass
+        # Auto-create a corresponding invoice when the contract is attached to a trip+group.
+        try:
+            auto_inv = build_invoice_from_contract(record, actor)
+            if auto_inv:
+                inv_list = read_invoices()
+                inv_list.insert(0, auto_inv)
+                write_invoices(inv_list)
+                record["autoInvoiceId"] = auto_inv["id"]
+                # Persist the link back on the contract.
+                contracts[0] = record
+                write_contracts(contracts)
+        except Exception as exc:
+            print(f"[contract->invoice] auto-create failed: {exc}")
         return json_response(start_response, "201 Created", {"ok": True, "contract": record})
     except FileNotFoundError as exc:
         return json_response(start_response, "500 Internal Server Error", {"error": str(exc)})

@@ -180,6 +180,10 @@
             </span>
             <span class="inv-cell inv-payer">${escapeHtml(inv.payerName || "-")}</span>
             <span class="inv-cell inv-total">${fmtMoney(inv.total)}</span>
+            <span class="inv-row-actions">
+              <button type="button" class="inv-row-action-btn" data-inv-action="open" data-id="${escapeHtml(inv.id)}" title="Edit" aria-label="Edit">✎</button>
+              <button type="button" class="inv-row-action-btn is-danger" data-inv-action="delete" data-id="${escapeHtml(inv.id)}" title="Delete" aria-label="Delete">✕</button>
+            </span>
             <details class="inv-row-menu">
               <summary aria-label="Actions">⋯</summary>
               <div class="inv-row-menu-popover">
