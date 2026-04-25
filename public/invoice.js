@@ -1046,19 +1046,44 @@
     } catch (err) { alert(err.message || "Could not save invoice."); }
   }
 
+  // Ensure the trip has at least one group; if not, create a default one
+  // (matches trip-extras.js behaviour). Returns once `groups` is populated.
+  async function ensureDefaultGroup() {
+    if (groups.length) return;
+    try { await loadAll(); } catch {}
+    if (groups.length) return;
+    // Get trip name to seed the default group name.
+    let tripName = "Default group";
+    try {
+      const trips = await fetchJson("/api/camp-trips");
+      const trip = (trips.entries || []).find((t) => t.id === tripId);
+      if (trip?.tripName) tripName = trip.tripName;
+    } catch {}
+    try {
+      await fetchJson("/api/tourist-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId, name: tripName, headcount: 1 }),
+      });
+      await loadAll();
+    } catch (err) {
+      throw new Error("Could not create a default group: " + (err.message || err));
+    }
+  }
+
   // ── Wire ──
   createBtn.addEventListener("click", async (event) => {
     event.preventDefault();
     try {
+      await ensureDefaultGroup();
       if (!groups.length) {
-        try { await loadAll(); } catch (err) { console.error(err); }
-      }
-      if (!groups.length) {
-        alert("Add a group to this trip first, then create an invoice for it.");
+        alert("Could not prepare a group for this invoice. Try again.");
         return;
       }
       openWizard(null);
-    } catch (err) { alert("Could not open invoice wizard: " + err.message); }
+    } catch (err) {
+      alert("Could not open invoice wizard: " + (err.message || err));
+    }
   });
 
   invoicesListNode.addEventListener("click", async (e) => {
@@ -1136,7 +1161,7 @@
     }
   });
 
-  loadAll().then(() => {
+  loadAll().then(async () => {
     const params = new URLSearchParams(window.location.search);
     const preselectGroup = params.get("openInvoice");
     const fitOpen = params.get("openInvoiceFit");
@@ -1144,10 +1169,9 @@
       openWizard(null);
       const groupSelect = document.querySelector("#invoice-group-select");
       if (groupSelect) { groupSelect.value = preselectGroup; groupSelect.dispatchEvent(new Event("change")); }
-    } else if (fitOpen && groups.length) {
-      openWizard(null);
     } else if (fitOpen) {
-      alert("Add a group to this trip first, then create an invoice for it.");
+      try { await ensureDefaultGroup(); } catch {}
+      if (groups.length) openWizard(null);
     }
   });
 })();

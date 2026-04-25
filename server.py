@@ -7785,8 +7785,29 @@ def build_invoice_from_contract(contract, actor):
     """
     trip_id = (contract.get("tripId") or "").strip()
     group_id = (contract.get("groupId") or "").strip()
-    if not trip_id or not group_id:
+    if not trip_id:
         return None
+    # FIT trips usually create contracts without an explicit groupId.
+    # Fall back to the trip's first existing group; if none exist yet,
+    # create a default group named after the trip so the invoice can attach.
+    if not group_id:
+        groups = [g for g in read_tourist_groups() if g.get("tripId") == trip_id]
+        if groups:
+            group_id = groups[0]["id"]
+        else:
+            trip = find_camp_trip(trip_id)
+            if trip:
+                default = build_tourist_group({
+                    "tripId": trip_id,
+                    "name": trip.get("tripName") or "Default group",
+                    "headcount": trip.get("participantCount") or 0,
+                }, actor)
+                groups_all = read_tourist_groups()
+                groups_all.append(default)
+                write_tourist_groups(groups_all)
+                group_id = default["id"]
+        if not group_id:
+            return None
 
     data = contract.get("data") or {}
     payer = f"{normalize_text(data.get('touristLastName'))} {normalize_text(data.get('touristFirstName'))}".strip()

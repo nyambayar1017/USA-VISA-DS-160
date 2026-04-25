@@ -2287,6 +2287,11 @@ td {
   border-radius: var(--radius);
   background: var(--panel);
   box-shadow: var(--shadow);
+  /* Cards must not stretch beyond the workspace-main width even when
+     they contain a very wide table. Wide content uses its own
+     scrollable wrapper. */
+  min-width: 0;
+  max-width: 100%;
 }
 
 .intake-form {
