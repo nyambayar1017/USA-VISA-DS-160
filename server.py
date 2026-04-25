@@ -47,6 +47,8 @@ FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
+NOTIFICATIONS_FILE = DATA_DIR / "notifications.json"
+NOTIFICATIONS_MAX = 200
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 SESSION_COOKIE = "travelx_session"
@@ -110,6 +112,7 @@ def ensure_data_store():
         CAMP_TRIPS_FILE,
         USERS_FILE,
         SESSIONS_FILE,
+        NOTIFICATIONS_FILE,
     ]:
         if not file_path.exists():
             file_path.write_text("[]", encoding="utf-8")
@@ -714,6 +717,8 @@ def handle_auth_profile_update(environ, start_response):
     contract_email = normalize_text(payload.get("contractEmail")).lower()
     contract_phone = normalize_text(payload.get("contractPhone"))
     signature_data = payload.get("contractSignatureData")
+    avatar_data = payload.get("avatarData")
+    remove_avatar = bool(payload.get("removeAvatar"))
     if len(full_name) < 2:
         return json_response(start_response, "400 Bad Request", {"error": "Name must be at least 2 characters"})
     if contract_last_name and len(contract_last_name) < 2:
@@ -732,6 +737,13 @@ def handle_auth_profile_update(environ, start_response):
             if not signature_path:
                 return json_response(start_response, "400 Bad Request", {"error": "Invalid manager signature"})
             record["contractSignaturePath"] = signature_path
+        if avatar_data:
+            avatar_path = save_user_avatar_image(avatar_data, record["id"])
+            if not avatar_path:
+                return json_response(start_response, "400 Bad Request", {"error": "Invalid profile picture"})
+            record["avatarPath"] = avatar_path
+        elif remove_avatar:
+            record["avatarPath"] = ""
         record["fullName"] = full_name
         record["contractLastName"] = contract_last_name
         record["contractFirstName"] = contract_first_name
@@ -749,6 +761,53 @@ def handle_list_users(environ, start_response):
         return []
     users = [sanitize_user(user) for user in read_users()]
     return json_response(start_response, "200 OK", {"entries": users})
+
+
+def handle_list_notifications(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    try:
+        limit = int(params.get("limit", ["50"])[0])
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(limit, NOTIFICATIONS_MAX))
+    since = normalize_text(params.get("since", [""])[0])
+    entries = read_notifications()
+    if since:
+        filtered = [e for e in entries if e.get("createdAt", "") > since]
+        entries = filtered if filtered else entries
+    last_read_iso = ""
+    users = read_users()
+    for record in users:
+        if record.get("id") == actor.get("id"):
+            last_read_iso = record.get("notificationsLastReadAt", "")
+            break
+    unread = [e for e in entries if e.get("createdAt", "") > last_read_iso] if last_read_iso else list(entries)
+    return json_response(
+        start_response,
+        "200 OK",
+        {
+            "entries": entries[:limit],
+            "unread": len(unread),
+            "lastReadAt": last_read_iso,
+        },
+    )
+
+
+def handle_mark_notifications_read(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    users = read_users()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for record in users:
+        if record.get("id") == actor.get("id"):
+            record["notificationsLastReadAt"] = now_iso
+            write_users(users)
+            break
+    return json_response(start_response, "200 OK", {"ok": True, "lastReadAt": now_iso})
 
 
 def handle_list_team_members(environ, start_response):
@@ -771,6 +830,7 @@ def handle_list_team_members(environ, start_response):
                 "contractEmail": normalize_text(user.get("contractEmail")).lower(),
                 "contractPhone": normalize_text(user.get("contractPhone")),
                 "contractSignaturePath": normalize_text(user.get("contractSignaturePath")),
+                "avatarPath": normalize_text(user.get("avatarPath")),
                 "email": normalize_text(user.get("email")),
                 "role": normalize_text(user.get("role")) or "staff",
             }
@@ -1026,6 +1086,38 @@ def write_sessions(records):
     write_json_list(SESSIONS_FILE, records)
 
 
+def read_notifications():
+    try:
+        return read_json_list(NOTIFICATIONS_FILE)
+    except Exception:
+        return []
+
+
+def write_notifications(records):
+    write_json_list(NOTIFICATIONS_FILE, records[:NOTIFICATIONS_MAX])
+
+
+def log_notification(kind, actor, title, detail="", meta=None):
+    try:
+        entries = read_notifications()
+    except Exception:
+        entries = []
+    actor_info = actor_snapshot(actor) if actor else {"id": "", "email": "system", "name": "System"}
+    entry = {
+        "id": uuid4().hex,
+        "kind": kind,
+        "title": title,
+        "detail": detail or "",
+        "actor": actor_info,
+        "actorAvatar": (actor.get("avatarPath") if isinstance(actor, dict) else "") or "",
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "meta": meta or {},
+    }
+    entries.insert(0, entry)
+    write_notifications(entries)
+    return entry
+
+
 def hash_password(password):
     return hashlib.sha256(f"{SESSION_SECRET}:{password}".encode("utf-8")).hexdigest()
 
@@ -1082,6 +1174,7 @@ def sanitize_user(user):
         "contractEmail": user.get("contractEmail", ""),
         "contractPhone": user.get("contractPhone", ""),
         "contractSignaturePath": user.get("contractSignaturePath", ""),
+        "avatarPath": user.get("avatarPath", ""),
         "role": user.get("role", "staff"),
         "status": user.get("status", "pending"),
         "createdAt": user.get("createdAt"),
@@ -3523,6 +3616,29 @@ def save_manager_signature_image(data_url, user_id):
     return f"/generated/{filename}"
 
 
+def save_user_avatar_image(data_url, user_id):
+    if not data_url or "base64," not in data_url:
+        return None
+    header, encoded = data_url.split("base64,", 1)
+    ext = "png"
+    if "image/jpeg" in header or "image/jpg" in header:
+        ext = "jpg"
+    elif "image/webp" in header:
+        ext = "webp"
+    elif "image/png" not in header:
+        return None
+    try:
+        raw = base64.b64decode(encoded)
+    except Exception:
+        return None
+    if len(raw) > 4 * 1024 * 1024:
+        return None
+    filename = f"avatar-{user_id}-{uuid4().hex[:8]}.{ext}"
+    path = GENERATED_DIR / filename
+    path.write_bytes(raw)
+    return f"/generated/{filename}"
+
+
 def build_document_html(title, subtitle, sections):
     section_markup = []
     for heading, content in sections:
@@ -5338,6 +5454,21 @@ def update_manager_item(records, item_id, payload, builder, validator):
     return None, "Record not found"
 
 
+MANAGER_ITEM_LABELS = {
+    "tasks": ("task", "Task"),
+    "contacts": ("contact", "Contact"),
+    "reminders": ("reminder", "Reminder"),
+}
+
+
+def _manager_item_title(record, key):
+    if key == "tasks":
+        return normalize_text(record.get("title")) or "Untitled task"
+    if key == "contacts":
+        return normalize_text(record.get("name")) or "Untitled contact"
+    return normalize_text(record.get("title")) or normalize_text(record.get("name")) or "Item"
+
+
 def handle_manager_item_create(environ, start_response, key, builder, validator, response_label):
     actor = require_login(environ, start_response)
     if not actor:
@@ -5352,6 +5483,17 @@ def handle_manager_item_create(environ, start_response, key, builder, validator,
     store = read_manager_dashboard()
     store[key].insert(0, record)
     write_manager_dashboard(store)
+    try:
+        singular, label = MANAGER_ITEM_LABELS.get(key, (response_label, response_label.title()))
+        log_notification(
+            f"{singular}.created",
+            actor,
+            f"New {singular} added",
+            detail=_manager_item_title(record, key),
+            meta={"id": record.get("id"), "key": key},
+        )
+    except Exception:
+        pass
     return json_response(
         start_response,
         "201 Created",
@@ -5377,6 +5519,26 @@ def handle_manager_item_update(environ, start_response, key, item_id, builder, v
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})
     write_manager_dashboard(store)
+    try:
+        singular, _ = MANAGER_ITEM_LABELS.get(key, (response_label, response_label.title()))
+        if key == "tasks" and normalize_text(record.get("status")) == "done":
+            log_notification(
+                "task.completed",
+                actor,
+                "Task completed",
+                detail=_manager_item_title(record, key),
+                meta={"id": record.get("id"), "key": key},
+            )
+        else:
+            log_notification(
+                f"{singular}.updated",
+                actor,
+                f"{singular.capitalize()} updated",
+                detail=_manager_item_title(record, key),
+                meta={"id": record.get("id"), "key": key},
+            )
+    except Exception:
+        pass
     return json_response(
         start_response,
         "200 OK",
@@ -5924,6 +6086,16 @@ def handle_create_camp_trip(environ, start_response):
     trips = read_camp_trips()
     trips.insert(0, record)
     write_camp_trips(trips)
+    try:
+        log_notification(
+            "trip.created",
+            actor,
+            "New trip created",
+            detail=record.get("tripName") or record.get("reservationName") or "",
+            meta={"id": record.get("id")},
+        )
+    except Exception:
+        pass
     return json_response(start_response, "201 Created", {"ok": True, "entry": record})
 
 
@@ -6159,6 +6331,16 @@ def handle_create_camp_reservation(environ, start_response):
     records = read_camp_reservations()
     records.insert(0, record)
     write_camp_reservations(records)
+    try:
+        log_notification(
+            "camp_reservation.created",
+            actor,
+            "Camp reservation created",
+            detail=record.get("reservationName") or record.get("tripName") or "",
+            meta={"id": record.get("id"), "tripId": record.get("tripId")},
+        )
+    except Exception:
+        pass
     return json_response(start_response, "201 Created", {"ok": True, "entry": record, "summary": camp_summary(records)})
 
 
@@ -6183,6 +6365,16 @@ def handle_create_flight_reservation(environ, start_response):
     records = read_flight_reservations()
     records.insert(0, record)
     write_flight_reservations(records)
+    try:
+        log_notification(
+            "flight_reservation.created",
+            actor,
+            "Flight reservation created",
+            detail=f"{record.get('fromCity','')} → {record.get('toCity','')}".strip(" →"),
+            meta={"id": record.get("id"), "tripId": record.get("tripId")},
+        )
+    except Exception:
+        pass
     return json_response(start_response, "201 Created", {"ok": True, "entry": record})
 
 
@@ -6207,6 +6399,16 @@ def handle_create_transfer_reservation(environ, start_response):
     records = read_transfer_reservations()
     records.insert(0, record)
     write_transfer_reservations(records)
+    try:
+        log_notification(
+            "transfer_reservation.created",
+            actor,
+            "Transfer reservation created",
+            detail=record.get("reservationName") or record.get("tripName") or "",
+            meta={"id": record.get("id"), "tripId": record.get("tripId")},
+        )
+    except Exception:
+        pass
     return json_response(start_response, "201 Created", {"ok": True, "entry": record})
 
 
@@ -6637,6 +6839,16 @@ def handle_generate_contract(environ, start_response):
         record["updatedBy"] = actor_snapshot(actor)
         contracts.insert(0, record)
         write_contracts(contracts)
+        try:
+            log_notification(
+                "contract.created",
+                actor,
+                "New contract generated",
+                detail=record.get("clientName") or record.get("contractNumber") or "",
+                meta={"id": record.get("id")},
+            )
+        except Exception:
+            pass
         return json_response(start_response, "201 Created", {"ok": True, "contract": record})
     except FileNotFoundError as exc:
         return json_response(start_response, "500 Internal Server Error", {"error": str(exc)})
@@ -7010,6 +7222,16 @@ def app(environ, start_response):
     if path == "/api/team-members":
         if method == "GET":
             return handle_list_team_members(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/notifications":
+        if method == "GET":
+            return handle_list_notifications(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/notifications/read":
+        if method == "POST":
+            return handle_mark_notifications_read(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/users/"):

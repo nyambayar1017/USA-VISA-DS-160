@@ -270,62 +270,357 @@ td {
 }
 
 .workspace-profile {
-  min-width: 240px;
-  padding: 16px 18px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.92);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  min-width: 0;
 }
 
 .workspace-profile-label {
-  display: block;
-  margin-bottom: 8px;
-  color: #7a88a1;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  display: none;
 }
 
-.workspace-profile strong,
-.workspace-profile span {
+/* Legacy server-rendered contents hidden; buildProfileChrome repopulates. */
+.workspace-profile:not(.workspace-profile-compact) > strong,
+.workspace-profile:not(.workspace-profile-compact) > span {
   display: block;
 }
 
-.workspace-profile strong {
-  color: var(--brand);
-}
-
-.workspace-profile span:last-child {
-  margin-top: 4px;
-  color: var(--muted);
-}
-
-.workspace-profile-actions {
-  display: flex;
-  flex-wrap: wrap;
+.workspace-profile-compact {
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 12px;
 }
 
-.workspace-profile-button {
-  min-height: 32px;
-  padding: 0 12px;
-  border: 1px solid rgba(32, 53, 111, 0.12);
+.workspace-bell {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #3a4457;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.workspace-bell svg {
+  width: 22px;
+  height: 22px;
+}
+
+.workspace-bell:hover {
   background: rgba(22, 44, 84, 0.06);
+  border-color: rgba(22, 44, 84, 0.08);
   color: var(--brand);
+}
+
+.workspace-bell-dot {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 2px solid #fff;
+  pointer-events: none;
+}
+
+.workspace-profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
   font: inherit;
-  font-size: 0.82rem;
+  cursor: pointer;
+  max-width: 260px;
+  text-align: left;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.workspace-profile-trigger:hover {
+  background: rgba(22, 44, 84, 0.05);
+  border-color: rgba(22, 44, 84, 0.08);
+}
+
+.workspace-profile-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #dce3f2, #eef3ff);
+  color: var(--brand);
   font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.workspace-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.workspace-profile-avatar-fallback {
+  display: inline-block;
+  line-height: 1;
+}
+
+.workspace-profile-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.workspace-profile-text strong {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.workspace-profile-text span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.workspace-profile-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 200px;
+  padding: 10px;
+  border: 1px solid rgba(32, 53, 111, 0.1);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(20, 30, 60, 0.14);
+  z-index: 60;
+}
+
+.workspace-profile-menu-label {
+  margin: 4px 8px 6px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.workspace-profile-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #2a3148;
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
   cursor: pointer;
 }
 
-.workspace-profile-button-logout {
-  background: rgba(182, 58, 58, 0.1);
-  border-color: rgba(182, 58, 58, 0.16);
+.workspace-profile-menu-item:hover {
+  background: rgba(22, 44, 84, 0.06);
+}
+
+.workspace-profile-menu-item.is-danger {
   color: #9b2f2f;
+}
+
+.workspace-profile-menu-item.is-danger:hover {
+  background: rgba(182, 58, 58, 0.08);
+}
+
+.notifications-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(380px, calc(100vw - 32px));
+  max-height: 440px;
+  padding: 0;
+  border: 1px solid rgba(32, 53, 111, 0.1);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(20, 30, 60, 0.16);
+  z-index: 60;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.notifications-popover header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(32, 53, 111, 0.08);
+}
+
+.notifications-popover header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.notifications-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  font-size: 1.2rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.notifications-close:hover {
+  background: rgba(22, 44, 84, 0.08);
+  color: var(--text);
+}
+
+.notifications-list {
+  overflow-y: auto;
+  padding: 4px 0;
+  flex: 1;
+}
+
+.notifications-empty {
+  margin: 0;
+  padding: 28px 18px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.88rem;
+}
+
+.notifications-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(32, 53, 111, 0.06);
+}
+
+.notifications-item:last-child {
+  border-bottom: 0;
+}
+
+.notifications-item .notification-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #dce3f2, #eef3ff);
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.notifications-item .notification-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.notifications-item-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.notifications-item-body p {
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  color: #1a2235;
+  line-height: 1.4;
+}
+
+.notifications-item-body time {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.workspace-mobile-bar {
+  display: none;
+}
+
+.sidebar-close {
+  display: none;
+}
+
+.workspace-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 26, 48, 0.45);
+  z-index: 90;
+}
+
+.profile-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid rgba(32, 53, 111, 0.08);
+  margin-bottom: 10px;
+}
+
+.profile-avatar-preview {
+  width: 84px;
+  height: 84px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #dce3f2, #eef3ff);
+  display: grid;
+  place-items: center;
+  color: var(--brand);
+  font-size: 1.5rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.profile-avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.profile-avatar-upload {
+  cursor: pointer;
+  margin: 0;
+}
+
+.profile-avatar-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .workspace-kicker {
@@ -3543,14 +3838,132 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
 
   .workspace-sidebar {
-    position: static;
-    min-height: auto;
-    border-right: 0;
-    border-bottom: 1px solid rgba(32, 53, 111, 0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(300px, 86vw);
+    min-height: 100vh;
+    z-index: 100;
+    padding: 26px 18px 28px;
+    border-right: 1px solid rgba(32, 53, 111, 0.1);
+    border-bottom: 0;
+    background: #fff;
+    transform: translateX(-105%);
+    transition: transform 220ms ease;
+    box-shadow: 24px 0 60px rgba(18, 26, 48, 0);
+    overflow-y: auto;
+  }
+
+  body.sidebar-open .workspace-sidebar {
+    transform: translateX(0);
+    box-shadow: 24px 0 60px rgba(18, 26, 48, 0.18);
+  }
+
+  .sidebar-close {
+    display: inline-grid;
+    place-items: center;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(22, 44, 84, 0.06);
+    color: var(--text);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
   }
 
   .workspace-main {
-    padding: 22px 18px 28px;
+    padding: 18px 16px 28px;
+  }
+
+  .workspace-mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0 14px;
+    margin-bottom: 4px;
+  }
+
+  .workspace-hamburger {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 0;
+    background: transparent;
+    display: inline-grid;
+    gap: 4px;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  .workspace-hamburger span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: #2a3148;
+    border-radius: 999px;
+  }
+
+  .workspace-hamburger:hover {
+    background: rgba(22, 44, 84, 0.06);
+  }
+
+  .workspace-mobile-logo {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .workspace-mobile-logo img {
+    height: 28px;
+    width: auto;
+    display: block;
+  }
+
+  .workspace-mobile-spacer {
+    flex: 1;
+  }
+
+  .workspace-mobile-avatar-btn {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .workspace-mobile-avatar-btn .workspace-profile-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .workspace-bell-mobile {
+    width: 36px;
+    height: 36px;
+  }
+
+  .workspace-profile {
+    display: none;
+  }
+
+  .workspace-profile-menu {
+    position: fixed;
+    top: 64px;
+    right: 12px;
+    left: auto;
+    z-index: 120;
+  }
+
+  .notifications-popover {
+    position: fixed;
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    z-index: 120;
   }
 
   .backoffice-home {

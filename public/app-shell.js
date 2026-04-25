@@ -33,11 +33,39 @@ function setWorkspace(company) {
   document.cookie = `${WORKSPACE_KEY}=${company}; Path=/; Max-Age=${oneYear}; SameSite=Lax`;
 }
 
-const profileNameNode = document.querySelector("[data-profile-name]");
-const profileEmailNode = document.querySelector("[data-profile-email]");
-const profileCard = profileNameNode?.closest(".workspace-profile");
+function escapeHtml(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getInitials(name, email) {
+  const source = (name || email || "").trim();
+  if (!source) return "?";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+const profileCard = document.querySelector(".workspace-profile");
+let profileNameNode = null;
+let profileEmailNode = null;
+let profileAvatarNode = null;
+let profileMenuWrapper = null;
 let currentProfile = null;
 let profileModal = null;
+let notificationBellNode = null;
+let notificationDotNode = null;
+let notificationPopoverNode = null;
+let notificationsCache = [];
+let notificationsLastReadAt = "";
+let notificationsPollTimer = null;
+let sidebarBackdrop = null;
+let mobileBar = null;
 
 function renderSidebar(user) {
   const sidebar = document.querySelector("[data-workspace-sidebar]");
@@ -73,6 +101,7 @@ function renderSidebar(user) {
     : "";
 
   sidebar.innerHTML = `
+    <button type="button" class="sidebar-close" data-action="close-sidebar" aria-label="Close menu">×</button>
     <a class="sidebar-brand" href="/backoffice" aria-label="${company.name}">
       <img src="${company.logoBrand}" alt="${company.name}" />
     </a>
@@ -101,6 +130,12 @@ function renderSidebar(user) {
   sidebar.querySelector("[data-switch]")?.addEventListener("click", () => {
     setWorkspace(otherKey);
     window.location.href = "/backoffice";
+  });
+  sidebar.querySelector('[data-action="close-sidebar"]')?.addEventListener("click", () => {
+    closeMobileSidebar();
+  });
+  sidebar.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => closeMobileSidebar());
   });
 }
 
@@ -214,10 +249,231 @@ function initProfileSignatureCanvas(canvas, existingSignatureUrl = "") {
   };
 }
 
+function buildProfileChrome() {
+  if (!profileCard) return;
+  profileCard.classList.add("workspace-profile-compact");
+  profileCard.innerHTML = `
+    <button type="button" class="workspace-bell" data-action="toggle-notifications" aria-label="Notifications">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"></path>
+        <path d="M10 19a2 2 0 0 0 4 0"></path>
+      </svg>
+      <span class="workspace-bell-dot" data-notif-dot hidden></span>
+    </button>
+    <button type="button" class="workspace-profile-trigger" data-action="toggle-profile-menu" aria-haspopup="menu" aria-expanded="false">
+      <span class="workspace-profile-avatar" data-profile-avatar>
+        <span class="workspace-profile-avatar-fallback">?</span>
+      </span>
+      <span class="workspace-profile-text">
+        <strong data-profile-name>Loading…</strong>
+        <span data-profile-email></span>
+      </span>
+    </button>
+    <div class="workspace-profile-menu" data-profile-menu hidden>
+      <p class="workspace-profile-menu-label">My Account</p>
+      <button type="button" class="workspace-profile-menu-item" data-action="edit-profile">Edit profile</button>
+      <button type="button" class="workspace-profile-menu-item is-danger" data-action="logout">Sign out</button>
+    </div>
+    <div class="notifications-popover" data-notifications-popover hidden>
+      <header>
+        <h3>Notifications</h3>
+        <button type="button" class="notifications-close" data-action="close-notifications" aria-label="Close">×</button>
+      </header>
+      <div class="notifications-list" data-notifications-list>
+        <p class="notifications-empty">Loading…</p>
+      </div>
+    </div>
+  `;
+  profileNameNode = profileCard.querySelector("[data-profile-name]");
+  profileEmailNode = profileCard.querySelector("[data-profile-email]");
+  profileAvatarNode = profileCard.querySelector("[data-profile-avatar]");
+  profileMenuWrapper = profileCard.querySelector("[data-profile-menu]");
+  notificationBellNode = profileCard.querySelector('[data-action="toggle-notifications"]');
+  notificationDotNode = profileCard.querySelector("[data-notif-dot]");
+  notificationPopoverNode = profileCard.querySelector("[data-notifications-popover]");
+
+  profileCard.querySelector('[data-action="toggle-profile-menu"]').addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleProfileMenu();
+  });
+  profileCard.querySelector('[data-action="edit-profile"]').addEventListener("click", () => {
+    closeProfileMenu();
+    handleProfileEdit();
+  });
+  profileCard.querySelector('[data-action="logout"]').addEventListener("click", () => {
+    closeProfileMenu();
+    handleLogout();
+  });
+  notificationBellNode.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleNotifications();
+  });
+  profileCard.querySelector('[data-action="close-notifications"]').addEventListener("click", () => {
+    closeNotifications();
+  });
+  document.addEventListener("click", (event) => {
+    if (!profileCard.contains(event.target)) {
+      closeProfileMenu();
+      closeNotifications();
+    }
+  });
+}
+
+function toggleProfileMenu(forceState) {
+  if (!profileMenuWrapper) return;
+  const trigger = profileCard?.querySelector('[data-action="toggle-profile-menu"]');
+  const isOpen = typeof forceState === "boolean" ? forceState : profileMenuWrapper.hasAttribute("hidden");
+  if (isOpen) {
+    profileMenuWrapper.removeAttribute("hidden");
+    trigger?.setAttribute("aria-expanded", "true");
+    closeNotifications();
+  } else {
+    profileMenuWrapper.setAttribute("hidden", "");
+    trigger?.setAttribute("aria-expanded", "false");
+  }
+}
+
+function closeProfileMenu() {
+  toggleProfileMenu(false);
+}
+
+function toggleNotifications(forceState) {
+  if (!notificationPopoverNode) return;
+  const isOpen = typeof forceState === "boolean" ? forceState : notificationPopoverNode.hasAttribute("hidden");
+  if (isOpen) {
+    notificationPopoverNode.removeAttribute("hidden");
+    closeProfileMenu();
+    markNotificationsRead();
+  } else {
+    notificationPopoverNode.setAttribute("hidden", "");
+  }
+}
+
+function closeNotifications() {
+  toggleNotifications(false);
+}
+
 function renderProfile(user) {
   currentProfile = user;
-  if (profileNameNode) profileNameNode.textContent = user.fullName || user.email;
-  if (profileEmailNode) profileEmailNode.textContent = `${user.email} · ${user.role}`;
+  if (!profileCard) return;
+  const displayName = user.fullName || user.email || "TravelX";
+  const displayEmail = user.email || "";
+  if (profileNameNode) profileNameNode.textContent = displayName;
+  if (profileEmailNode) profileEmailNode.textContent = displayEmail;
+  if (profileAvatarNode) {
+    if (user.avatarPath) {
+      profileAvatarNode.innerHTML = `<img src="${escapeHtml(user.avatarPath)}?v=${Date.now()}" alt="${escapeHtml(displayName)}" />`;
+    } else {
+      profileAvatarNode.innerHTML = `<span class="workspace-profile-avatar-fallback">${escapeHtml(getInitials(user.fullName, user.email))}</span>`;
+    }
+  }
+  if (mobileBar) {
+    const mobileAvatar = mobileBar.querySelector("[data-mobile-avatar]");
+    if (mobileAvatar) {
+      if (user.avatarPath) {
+        mobileAvatar.innerHTML = `<img src="${escapeHtml(user.avatarPath)}?v=${Date.now()}" alt="${escapeHtml(displayName)}" />`;
+      } else {
+        mobileAvatar.innerHTML = `<span class="workspace-profile-avatar-fallback">${escapeHtml(getInitials(user.fullName, user.email))}</span>`;
+      }
+    }
+  }
+}
+
+function formatRelativeTime(iso) {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diff = Date.now() - then;
+  const minutes = Math.round(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  const months = Math.round(days / 30);
+  if (months < 12) return `${months} mo ago`;
+  return `${Math.round(months / 12)} yr ago`;
+}
+
+function notificationIcon(kind) {
+  if (kind && kind.startsWith("task")) return "◎";
+  if (kind && kind.startsWith("contact")) return "☎";
+  if (kind && kind.startsWith("camp_reservation")) return "⛺";
+  if (kind && kind.startsWith("flight_reservation")) return "✈";
+  if (kind && kind.startsWith("transfer_reservation")) return "🚐";
+  if (kind && kind.startsWith("contract")) return "▤";
+  if (kind && kind.startsWith("trip")) return "◉";
+  return "•";
+}
+
+function renderNotificationsList() {
+  if (!notificationPopoverNode) return;
+  const list = notificationPopoverNode.querySelector("[data-notifications-list]");
+  if (!list) return;
+  if (!notificationsCache.length) {
+    list.innerHTML = `<p class="notifications-empty">No activity yet.</p>`;
+    return;
+  }
+  list.innerHTML = notificationsCache
+    .map((entry) => {
+      const actorName = entry.actor?.name || entry.actor?.email || "Someone";
+      const detail = entry.detail ? ` — ${escapeHtml(entry.detail)}` : "";
+      const avatarBlock = entry.actorAvatar
+        ? `<span class="notification-avatar"><img src="${escapeHtml(entry.actorAvatar)}" alt=""></span>`
+        : `<span class="notification-avatar notification-avatar-icon">${notificationIcon(entry.kind)}</span>`;
+      return `
+        <article class="notifications-item">
+          ${avatarBlock}
+          <div class="notifications-item-body">
+            <p><strong>${escapeHtml(actorName)}</strong> ${escapeHtml(entry.title || "updated something")}${detail}</p>
+            <time>${escapeHtml(formatRelativeTime(entry.createdAt))}</time>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function updateBellDot(unread) {
+  if (notificationDotNode) {
+    if (unread > 0) notificationDotNode.removeAttribute("hidden");
+    else notificationDotNode.setAttribute("hidden", "");
+  }
+  if (mobileBar) {
+    const dot = mobileBar.querySelector("[data-notif-dot-mobile]");
+    if (dot) {
+      if (unread > 0) dot.removeAttribute("hidden");
+      else dot.setAttribute("hidden", "");
+    }
+  }
+}
+
+async function fetchNotifications() {
+  try {
+    const response = await fetch("/api/notifications?limit=50");
+    if (!response.ok) return;
+    const data = await response.json();
+    notificationsCache = Array.isArray(data.entries) ? data.entries : [];
+    notificationsLastReadAt = data.lastReadAt || "";
+    renderNotificationsList();
+    updateBellDot(data.unread || 0);
+  } catch {}
+}
+
+async function markNotificationsRead() {
+  try {
+    const response = await fetch("/api/notifications/read", { method: "POST" });
+    if (!response.ok) return;
+    const data = await response.json();
+    notificationsLastReadAt = data.lastReadAt || notificationsLastReadAt;
+    updateBellDot(0);
+  } catch {}
+}
+
+function startNotificationPolling() {
+  if (notificationsPollTimer) clearInterval(notificationsPollTimer);
+  notificationsPollTimer = setInterval(fetchNotifications, 45000);
 }
 
 function ensureProfileModal() {
@@ -237,6 +493,19 @@ function ensureProfileModal() {
         <button type="button" class="camp-modal-close" data-action="close-profile-modal" aria-label="Close profile window">×</button>
       </div>
       <form id="profile-edit-form" class="field-grid">
+        <div class="full-span profile-avatar-row">
+          <div class="profile-avatar-preview" data-avatar-preview>
+            <span class="workspace-profile-avatar-fallback">?</span>
+          </div>
+          <div class="profile-avatar-actions">
+            <label class="secondary-button profile-avatar-upload">
+              Upload photo
+              <input type="file" accept="image/png,image/jpeg,image/webp" id="profile-avatar-input" hidden />
+            </label>
+            <button type="button" class="secondary-button" id="profile-avatar-remove">Remove</button>
+            <p class="profile-avatar-hint">PNG, JPG or WEBP. Max 4 MB.</p>
+          </div>
+        </div>
         <label>
           Registered Name
           <input name="fullName" />
@@ -294,7 +563,46 @@ function ensureProfileModal() {
   const statusNode = wrapper.querySelector("#profile-edit-status");
   const signatureCanvas = wrapper.querySelector("#profile-signature-canvas");
   const signaturePad = signatureCanvas ? initProfileSignatureCanvas(signatureCanvas) : null;
+  const avatarPreview = wrapper.querySelector("[data-avatar-preview]");
+  const avatarInput = wrapper.querySelector("#profile-avatar-input");
+  const avatarRemoveButton = wrapper.querySelector("#profile-avatar-remove");
   wrapper._signaturePad = signaturePad;
+  wrapper._state = { avatarData: "", removeAvatar: false };
+
+  const renderAvatarPreview = () => {
+    if (!avatarPreview) return;
+    if (wrapper._state.avatarData) {
+      avatarPreview.innerHTML = `<img src="${wrapper._state.avatarData}" alt="Profile preview" />`;
+    } else if (!wrapper._state.removeAvatar && currentProfile?.avatarPath) {
+      avatarPreview.innerHTML = `<img src="${currentProfile.avatarPath}?v=${Date.now()}" alt="Profile" />`;
+    } else {
+      avatarPreview.innerHTML = `<span class="workspace-profile-avatar-fallback">${escapeHtml(getInitials(currentProfile?.fullName, currentProfile?.email))}</span>`;
+    }
+  };
+
+  avatarInput?.addEventListener("change", () => {
+    const file = avatarInput.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      statusNode.textContent = "Image must be smaller than 4 MB.";
+      avatarInput.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      wrapper._state.avatarData = reader.result;
+      wrapper._state.removeAvatar = false;
+      renderAvatarPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  avatarRemoveButton?.addEventListener("click", () => {
+    wrapper._state.avatarData = "";
+    wrapper._state.removeAvatar = true;
+    avatarInput.value = "";
+    renderAvatarPreview();
+  });
+
   wrapper.querySelector("#profile-signature-clear")?.addEventListener("click", () => {
     signaturePad?.clear();
   });
@@ -302,9 +610,16 @@ function ensureProfileModal() {
     event.preventDefault();
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData.entries());
+    delete payload["profile-avatar-input"];
     const fullName = String(payload.fullName || "").trim();
     if (signaturePad?.hasInk()) {
       payload.contractSignatureData = signatureCanvas.toDataURL("image/png");
+    }
+    if (wrapper._state.avatarData) {
+      payload.avatarData = wrapper._state.avatarData;
+    }
+    if (wrapper._state.removeAvatar) {
+      payload.removeAvatar = true;
     }
     if (fullName.length < 2) {
       statusNode.textContent = "Please enter at least 2 characters.";
@@ -323,6 +638,8 @@ function ensureProfileModal() {
         throw new Error(data.error || "Could not update profile.");
       }
       renderProfile(data.user);
+      wrapper._state.avatarData = "";
+      wrapper._state.removeAvatar = false;
       statusNode.textContent = "Saved.";
       setTimeout(() => {
         statusNode.textContent = "";
@@ -334,6 +651,7 @@ function ensureProfileModal() {
   });
 
   profileModal = wrapper;
+  profileModal._renderAvatarPreview = renderAvatarPreview;
   return wrapper;
 }
 
@@ -343,6 +661,8 @@ function openProfileModal() {
   const form = modal.querySelector("#profile-edit-form");
   const statusNode = modal.querySelector("#profile-edit-status");
   const signaturePad = modal._signaturePad;
+  modal._state.avatarData = "";
+  modal._state.removeAvatar = false;
   if (form) {
     form.elements.fullName.value = currentProfile.fullName || currentProfile.email || "";
     form.elements.contractLastName.value = currentProfile.contractLastName || "";
@@ -351,6 +671,7 @@ function openProfileModal() {
     form.elements.contractPhone.value = currentProfile.contractPhone || "";
     signaturePad?.loadExisting(currentProfile.contractSignaturePath || "");
   }
+  modal._renderAvatarPreview?.();
   if (statusNode) statusNode.textContent = "";
   modal.classList.remove("is-hidden");
   modal.removeAttribute("hidden");
@@ -372,29 +693,70 @@ async function handleLogout() {
   }
 }
 
-function ensureProfileControls() {
-  if (!profileCard || profileCard.querySelector(".workspace-profile-actions")) {
-    return;
+function ensureMobileBar() {
+  const shell = document.querySelector(".workspace-shell");
+  const main = document.querySelector(".workspace-main");
+  if (!shell || !main || mobileBar) return;
+  const workspace = readWorkspace();
+  const company = workspace ? COMPANIES[workspace] : null;
+  const logoSrc = company?.logoIcon || "/assets/favicon-dtx-x.png";
+  const bar = document.createElement("div");
+  bar.className = "workspace-mobile-bar";
+  bar.innerHTML = `
+    <button type="button" class="workspace-hamburger" data-action="open-sidebar" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+    <a class="workspace-mobile-logo" href="/backoffice" aria-label="Home">
+      <img src="${logoSrc}" alt="" />
+    </a>
+    <div class="workspace-mobile-spacer"></div>
+    <button type="button" class="workspace-bell workspace-bell-mobile" data-action="toggle-notifications-mobile" aria-label="Notifications">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"></path>
+        <path d="M10 19a2 2 0 0 0 4 0"></path>
+      </svg>
+      <span class="workspace-bell-dot" data-notif-dot-mobile hidden></span>
+    </button>
+    <button type="button" class="workspace-mobile-avatar-btn" data-action="toggle-profile-menu-mobile" aria-label="Profile">
+      <span class="workspace-profile-avatar" data-mobile-avatar>
+        <span class="workspace-profile-avatar-fallback">?</span>
+      </span>
+    </button>
+  `;
+  main.insertBefore(bar, main.firstChild);
+  mobileBar = bar;
+
+  bar.querySelector('[data-action="open-sidebar"]').addEventListener("click", () => {
+    openMobileSidebar();
+  });
+  bar.querySelector('[data-action="toggle-notifications-mobile"]').addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleNotifications();
+    const dot = bar.querySelector("[data-notif-dot-mobile]");
+    if (dot) dot.setAttribute("hidden", "");
+  });
+  bar.querySelector('[data-action="toggle-profile-menu-mobile"]').addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleProfileMenu();
+  });
+
+  if (!sidebarBackdrop) {
+    sidebarBackdrop = document.createElement("div");
+    sidebarBackdrop.className = "workspace-sidebar-backdrop";
+    sidebarBackdrop.setAttribute("hidden", "");
+    sidebarBackdrop.addEventListener("click", () => closeMobileSidebar());
+    document.body.appendChild(sidebarBackdrop);
   }
+}
 
-  const actions = document.createElement("div");
-  actions.className = "workspace-profile-actions";
+function openMobileSidebar() {
+  document.body.classList.add("sidebar-open");
+  sidebarBackdrop?.removeAttribute("hidden");
+}
 
-  const editButton = document.createElement("button");
-  editButton.type = "button";
-  editButton.className = "workspace-profile-button";
-  editButton.textContent = "Edit profile";
-  editButton.addEventListener("click", handleProfileEdit);
-
-  const logoutButton = document.createElement("button");
-  logoutButton.type = "button";
-  logoutButton.className = "workspace-profile-button workspace-profile-button-logout";
-  logoutButton.textContent = "Logout";
-  logoutButton.addEventListener("click", handleLogout);
-
-  actions.appendChild(editButton);
-  actions.appendChild(logoutButton);
-  profileCard.appendChild(actions);
+function closeMobileSidebar() {
+  document.body.classList.remove("sidebar-open");
+  sidebarBackdrop?.setAttribute("hidden", "");
 }
 
 function findClippingAncestor(el) {
@@ -478,10 +840,12 @@ document.addEventListener(
 
 async function loadProfile() {
   if (!ensureWorkspaceOrRedirect()) return;
-  if (!profileNameNode || !profileEmailNode) {
+  ensureMobileBar();
+  if (!profileCard) {
     renderSidebar(null);
     return;
   }
+  buildProfileChrome();
   try {
     const response = await fetch("/api/auth/me");
     const data = await response.json();
@@ -490,10 +854,11 @@ async function loadProfile() {
     }
     renderProfile(data.user);
     renderSidebar(data.user);
-    ensureProfileControls();
+    fetchNotifications();
+    startNotificationPolling();
   } catch {
-    profileNameNode.textContent = "TravelX Staff";
-    profileEmailNode.textContent = "Profile unavailable";
+    if (profileNameNode) profileNameNode.textContent = "TravelX Staff";
+    if (profileEmailNode) profileEmailNode.textContent = "Profile unavailable";
     renderSidebar(null);
   }
 }
