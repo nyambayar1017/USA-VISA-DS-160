@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-157" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-158" />
   </head>
   <body class="app-body" data-page="group">
     <div class="workspace-shell">
@@ -43,11 +43,27 @@
           <div id="group-participants-list" class="submission-list"></div>
         </section>
 
+        <section class="card group-section" id="group-contracts-section">
+          <div class="section-head">
+            <div>
+              <h2>Contracts</h2>
+              <p>Signed and pending contracts tied to this group.</p>
+            </div>
+            <div class="camp-toolbar">
+              <a class="header-action-btn" id="group-add-contract-btn">+ Add contract</a>
+            </div>
+          </div>
+          <div id="group-contracts-list" class="submission-list"></div>
+        </section>
+
         <section class="card group-section" id="group-invoices-section">
           <div class="section-head">
             <div>
               <h2>Invoices</h2>
-              <p>Contracts and payments tied to this group only.</p>
+              <p>Invoices and installment plans tied to this group.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="group-add-invoice-btn" class="header-action-btn">+ Add invoice</button>
             </div>
           </div>
           <div id="group-invoices-list" class="submission-list"></div>
@@ -261,6 +277,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-87"></script>
-    <script src="/group.js?v=workspace-8"></script>
+    <script src="/group.js?v=workspace-9"></script>
   </body>
 </html>

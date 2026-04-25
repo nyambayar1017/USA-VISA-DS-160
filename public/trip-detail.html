@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-157" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-158" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -329,14 +329,29 @@
           <div id="tourist-section-list" class="submission-list"></div>
         </section>
 
+        <section class="card" id="contracts-section">
+          <div class="section-head">
+            <div>
+              <h2>Contracts</h2>
+              <p>Signed and pending contracts for this trip.</p>
+            </div>
+            <div class="camp-toolbar">
+              <a class="header-action-btn" id="trip-add-contract-btn">+ Add contract</a>
+            </div>
+          </div>
+          <div id="trip-contracts-list" class="submission-list"></div>
+        </section>
+
         <section class="card" id="invoices-section">
           <div class="section-head">
             <div>
-              <h2>Invoices &amp; Contracts</h2>
-              <p>Use the + Add invoice / + Add contract button at the top of this trip to create new ones.</p>
+              <h2>Invoices</h2>
+              <p>Invoices and installment plans for this trip.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="invoice-create-btn" class="header-action-btn">+ Add invoice</button>
             </div>
           </div>
-          <button type="button" id="invoice-create-btn" hidden>Create invoice</button>
           <div id="trip-invoices-list" class="submission-list"></div>
         </section>
 
@@ -1030,9 +1045,9 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-87"></script>
-    <script src="/camp.js?v=workspace-107"></script>
+    <script src="/camp.js?v=workspace-108"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
     <script src="/trip-extras.js?v=workspace-9"></script>
-    <script src="/invoice.js?v=workspace-8"></script>
+    <script src="/invoice.js?v=workspace-9"></script>
   </body>
 </html>

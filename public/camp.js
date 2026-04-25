@@ -968,10 +968,8 @@ function renderActiveTrip() {
   const tripGroupName = trip.groupName ? ` · ${escapeHtml(trip.groupName)}` : "";
   const tripTypeBadge = trip.tripType ? `<span class="trip-type-pill">${escapeHtml(String(trip.tripType).toUpperCase())}</span> ` : "";
   const isFit = String(trip.tripType || "").toLowerCase() === "fit";
-  const fitActions = isFit ? `
-    <a class="header-action-btn" href="/contracts?openCreate=1&tripId=${encodeURIComponent(trip.id)}">+ Add contract</a>
-    <a class="header-action-btn" href="/trip-detail?tripId=${encodeURIComponent(trip.id)}&openInvoiceFit=1#invoices-section">+ Add invoice</a>
-  ` : "";
+  // Contract/Invoice add buttons now live in the section headers themselves; no need to duplicate them here.
+  const fitActions = "";
   // Toggle Groups section visibility based on FIT/GIT
   const groupsSection = document.getElementById("groups-section");
   if (groupsSection) groupsSection.classList.toggle("is-hidden", isFit);
