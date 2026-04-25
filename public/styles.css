@@ -9073,6 +9073,102 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   border-color: #e5e7eb;
 }
 
+.agent-pending-chip.is-doc {
+  width: auto;
+  min-width: 110px;
+  max-width: 200px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 30px 0 8px;
+  background: #fff;
+}
+.agent-pending-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #253a77;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.04em;
+  flex: 0 0 36px;
+}
+.agent-pending-name {
+  font-size: 0.74rem;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.agent-msg-docs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.agent-msg-doc {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.agent-msg.is-assistant .agent-msg-doc {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+.agent-msg-doc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 18px;
+  border-radius: 4px;
+  background: #253a77;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  flex: 0 0 28px;
+}
+.agent-msg-doc-name {
+  word-break: break-all;
+}
+
+.agent-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(37, 58, 119, 0.85);
+  border: 3px dashed #fff;
+  border-radius: 16px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+.agent-panel.is-dragging .agent-drop-overlay {
+  display: flex;
+}
+.agent-drop-msg {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.18);
+  padding: 14px 22px;
+  border-radius: 14px;
+}
+
 @media (max-width: 520px) {
   .agent-panel {
     right: 10px;

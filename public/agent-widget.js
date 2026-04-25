@@ -6,15 +6,20 @@
 
   let panelOpen = false;
   let busy = false;
-  let messages = []; // {role:"user"|"assistant", text:string, actions?:[], images?:[]}
-  let pendingImages = []; // {name, dataUrl}
-  let bubble, panel, listEl, inputEl, sendBtn, clearBtn, statusEl, micBtn, ttsBtn, attachBtn, fileInput, pendingArea, maxBtn;
+  let messages = []; // {role:"user"|"assistant", text:string, actions?:[], images?:[], documents?:[]}
+  let pendingFiles = []; // {name, dataUrl, kind: "image"|"document", type}
+  let bubble, panel, listEl, inputEl, sendBtn, clearBtn, statusEl, micBtn, ttsBtn, attachBtn, fileInput, pendingArea, maxBtn, dropOverlay;
+  let dragDepth = 0;
   let recognition = null;
   let recognizing = false;
   let ttsEnabled = false;
   let maximized = false;
-  const MAX_IMAGES = 5;
+  const MAX_FILES = 5;
   const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+  const MAX_DOC_BYTES = 30 * 1024 * 1024;
+  const IMAGE_TYPES = /^image\/(jpeg|png|gif|webp)$/i;
+  const HEIC_TYPES = /^image\/(heic|heif)$/i;
+  const DOC_EXTS = /\.(pdf|xlsx|txt|csv|md)$/i;
   try { ttsEnabled = localStorage.getItem("agent-tts") === "1"; } catch (e) {}
   try { maximized = localStorage.getItem("agent-maximized") === "1"; } catch (e) {}
 
@@ -54,6 +59,16 @@
           imgWrap.appendChild(el("img", { src: img.dataUrl, alt: img.name || "image" }));
         });
         node.appendChild(imgWrap);
+      }
+      if (Array.isArray(m.documents) && m.documents.length) {
+        const docWrap = el("div", { class: "agent-msg-docs" });
+        m.documents.forEach((d) => {
+          docWrap.appendChild(el("div", { class: "agent-msg-doc" }, [
+            el("span", { class: "agent-msg-doc-icon" }, [fileExtIcon(d.name || "")]),
+            el("span", { class: "agent-msg-doc-name" }, [d.name || "document"]),
+          ]));
+        });
+        node.appendChild(docWrap);
       }
       if (m.text) {
         const body = el("div", { class: "agent-msg-body" }, [m.text]);
@@ -101,12 +116,13 @@
 
   async function send() {
     const text = (inputEl.value || "").trim();
-    if ((!text && !pendingImages.length) || busy) return;
+    if ((!text && !pendingFiles.length) || busy) return;
     inputEl.value = "";
-    const sentImages = pendingImages.slice();
-    pendingImages = [];
+    const sentImages = pendingFiles.filter((f) => f.kind === "image");
+    const sentDocs = pendingFiles.filter((f) => f.kind === "document");
+    pendingFiles = [];
     renderPending();
-    messages.push({ role: "user", text, images: sentImages });
+    messages.push({ role: "user", text, images: sentImages, documents: sentDocs });
     render();
     setBusy(true);
     try {
@@ -117,6 +133,7 @@
         body: JSON.stringify({
           message: text,
           images: sentImages.map((f) => ({ dataUrl: f.dataUrl })),
+          documents: sentDocs.map((f) => ({ name: f.name, dataUrl: f.dataUrl })),
         }),
       });
       const data = await r.json().catch(() => ({}));
@@ -246,23 +263,53 @@
     });
   }
 
+  function classifyFile(f) {
+    if (IMAGE_TYPES.test(f.type)) return "image";
+    if (HEIC_TYPES.test(f.type) || /\.(heic|heif)$/i.test(f.name)) return "heic";
+    if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) return "document";
+    if (/\.xlsx$/i.test(f.name) || f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") return "document";
+    if (/\.(txt|csv|md)$/i.test(f.name) || (f.type || "").startsWith("text/")) return "document";
+    if (/\.docx$/i.test(f.name) || f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "docx";
+    return "other";
+  }
+
+  function fileExtIcon(name) {
+    const ext = (name.split(".").pop() || "").toLowerCase();
+    if (ext === "pdf") return "PDF";
+    if (ext === "xlsx" || ext === "xls" || ext === "csv") return "XLS";
+    if (ext === "docx" || ext === "doc") return "DOC";
+    if (ext === "txt" || ext === "md") return "TXT";
+    return ext.slice(0, 3).toUpperCase() || "FILE";
+  }
+
   async function handleFiles(files) {
     for (const f of files) {
-      if (pendingImages.length >= MAX_IMAGES) {
-        alert(`Хамгийн ихдээ ${MAX_IMAGES} зураг хавсаргана.`);
+      if (pendingFiles.length >= MAX_FILES) {
+        alert(`Хамгийн ихдээ ${MAX_FILES} файл хавсаргана.`);
         break;
       }
-      if (!/^image\/(jpeg|png|gif|webp)$/i.test(f.type)) {
-        alert("Зөвхөн JPG, PNG, GIF, WebP зураг хавсаргана.");
+      const kind = classifyFile(f);
+      if (kind === "heic") {
+        alert(`"${f.name}" — HEIC/HEIF зургийг шууд боловсруулах боломжгүй. JPG болгож хөрвүүлээд дахин оруулна уу.`);
         continue;
       }
-      if (f.size > MAX_IMAGE_BYTES) {
-        alert(`"${f.name}" хэт том (5MB-ээс илүү).`);
+      if (kind === "docx") {
+        alert(`"${f.name}" — Word .docx форматыг шууд унших боломжгүй. PDF болгож хадгалаад оруулна уу.`);
+        continue;
+      }
+      if (kind === "other") {
+        alert(`"${f.name}" — энэ файлын форматыг дэмждэггүй.`);
+        continue;
+      }
+      const cap = kind === "image" ? MAX_IMAGE_BYTES : MAX_DOC_BYTES;
+      if (f.size > cap) {
+        const limit = kind === "image" ? "5MB" : "30MB";
+        alert(`"${f.name}" хэт том (${limit}-ээс илүү).`);
         continue;
       }
       try {
         const dataUrl = await fileToDataUrl(f);
-        pendingImages.push({ name: f.name, dataUrl });
+        pendingFiles.push({ name: f.name, dataUrl, kind, type: f.type || "" });
       } catch (e) {}
     }
     renderPending();
@@ -271,21 +318,31 @@
   function renderPending() {
     if (!pendingArea) return;
     pendingArea.innerHTML = "";
-    if (!pendingImages.length) {
+    if (!pendingFiles.length) {
       pendingArea.classList.remove("has-files");
       return;
     }
     pendingArea.classList.add("has-files");
-    pendingImages.forEach((f, idx) => {
-      const chip = el("div", { class: "agent-pending-chip" }, [
-        el("img", { src: f.dataUrl, alt: f.name }),
-        el("button", {
-          type: "button",
-          class: "agent-pending-x",
-          title: "Устгах",
-          onclick: () => { pendingImages.splice(idx, 1); renderPending(); },
-        }, ["×"]),
-      ]);
+    pendingFiles.forEach((f, idx) => {
+      const removeBtn = el("button", {
+        type: "button",
+        class: "agent-pending-x",
+        title: "Устгах",
+        onclick: () => { pendingFiles.splice(idx, 1); renderPending(); },
+      }, ["×"]);
+      let chip;
+      if (f.kind === "image") {
+        chip = el("div", { class: "agent-pending-chip" }, [
+          el("img", { src: f.dataUrl, alt: f.name }),
+          removeBtn,
+        ]);
+      } else {
+        chip = el("div", { class: "agent-pending-chip is-doc", title: f.name }, [
+          el("div", { class: "agent-pending-icon" }, [fileExtIcon(f.name)]),
+          el("div", { class: "agent-pending-name" }, [f.name]),
+          removeBtn,
+        ]);
+      }
       pendingArea.appendChild(chip);
     });
   }
@@ -348,7 +405,7 @@
 
     fileInput = el("input", {
       type: "file",
-      accept: "image/jpeg,image/png,image/gif,image/webp",
+      accept: "image/jpeg,image/png,image/gif,image/webp,application/pdf,.pdf,.xlsx,.txt,.csv,.md",
       multiple: "multiple",
       style: "display:none",
     });
@@ -359,7 +416,7 @@
     attachBtn = el("button", {
       class: "agent-attach",
       type: "button",
-      title: "Зураг хавсаргах",
+      title: "Файл хавсаргах (зураг, PDF, Excel)",
       onclick: () => fileInput.click(),
     }, ["📎"]);
 
@@ -385,6 +442,36 @@
     const inputRow = el("div", { class: "agent-input-row" }, [attachBtn, micBtn, inputEl, sendBtn, fileInput]);
 
     panel = el("div", { class: "agent-panel" }, [header, listEl, statusEl, pendingArea, inputRow]);
+
+    dropOverlay = el("div", { class: "agent-drop-overlay" }, [
+      el("div", { class: "agent-drop-msg" }, ["📥 Файлыг энд тавь"]),
+    ]);
+    panel.appendChild(dropOverlay);
+
+    panel.addEventListener("dragenter", (e) => {
+      if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
+      e.preventDefault();
+      dragDepth += 1;
+      panel.classList.add("is-dragging");
+    });
+    panel.addEventListener("dragover", (e) => {
+      if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    });
+    panel.addEventListener("dragleave", (e) => {
+      if (!e.dataTransfer) return;
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) panel.classList.remove("is-dragging");
+    });
+    panel.addEventListener("drop", (e) => {
+      if (!e.dataTransfer) return;
+      e.preventDefault();
+      dragDepth = 0;
+      panel.classList.remove("is-dragging");
+      const files = Array.from(e.dataTransfer.files || []);
+      if (files.length) handleFiles(files);
+    });
 
     document.body.appendChild(bubble);
     document.body.appendChild(panel);

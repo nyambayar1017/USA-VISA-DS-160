@@ -8687,6 +8687,40 @@ def _tool_list_fifa_inventory(args, actor):
     return tickets[:200] if isinstance(tickets, list) else (tickets or [])
 
 
+def _agent_save_uploaded_doc(raw_bytes, original_name, ext_hint):
+    """Persist an arbitrary uploaded file to the generated dir and return public path."""
+    if not raw_bytes:
+        return ""
+    safe_ext = re.sub(r"[^a-z0-9]", "", (ext_hint or "bin").lower())[:6] or "bin"
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", original_name or "doc")[:40]
+    filename = f"agent-doc-{uuid4().hex[:10]}-{base}"
+    if not filename.lower().endswith("." + safe_ext):
+        filename = f"{filename}.{safe_ext}"
+    (GENERATED_DIR / filename).write_bytes(raw_bytes)
+    return f"/generated/{filename}"
+
+
+def _agent_extract_xlsx_text(raw_bytes):
+    """Return a compact text dump of an xlsx file (first sheet, first 200 rows)."""
+    try:
+        from openpyxl import load_workbook
+        from io import BytesIO
+        wb = load_workbook(BytesIO(raw_bytes), read_only=True, data_only=True)
+        out = []
+        for ws in wb.worksheets[:3]:
+            out.append(f"--- Sheet: {ws.title} ---")
+            for row_idx, row in enumerate(ws.iter_rows(values_only=True)):
+                if row_idx >= 200:
+                    out.append("(... rows truncated ...)")
+                    break
+                cells = ["" if v is None else str(v) for v in row]
+                out.append("\t".join(cells)[:500])
+        return "\n".join(out)[:15000]
+    except Exception as exc:
+        return f"(xlsx parse failed: {type(exc).__name__}: {exc})"
+
+
 def _agent_save_uploaded_image(b64, media_type):
     """Persist a base64 image to the generated dir and return its public path."""
     if not b64:
@@ -8973,9 +9007,13 @@ Long-term memory:
 - Use list_memories when you want to recall what's been saved (the most recent ~80 are also injected into your system prompt automatically).
 - Use delete_memory when the admin says forget / мартчих / устга.
 
-Images:
-- The admin can attach images (passport pages, contracts, ID photos, receipts). When attached, read them carefully and extract whatever the admin asks for — names, passport numbers, dates of birth, expiry dates, nationality, document numbers.
-- Every uploaded image is saved on the server and its path is given to you in a "[Uploaded image paths] img-1=/generated/...; img-2=..." note appended to the user's message. Use those exact paths when calling attach_image_to_tourist.
+Images and files:
+- The admin can attach images (passport pages, contracts, ID photos, receipts), PDF documents, Excel spreadsheets, and plain-text files. Drag-and-drop into the chat works too.
+- Images (jpg/png/gif/webp) are sent to you as vision blocks — read them carefully.
+- PDF files are sent as document blocks — read every page.
+- Excel (.xlsx) files are pre-extracted server-side and the table content is appended to the user message inside a "[Хавсаргасан Excel: filename]" block — use that text directly.
+- Every uploaded image's saved path is given to you in a "[Uploaded image paths] img-1=/generated/...; img-2=..." note. Every uploaded document's saved path is in a "[Uploaded document paths] doc-1=/generated/...; doc-2=..." note. Use these exact paths when calling attach_image_to_tourist.
+- Supported formats: JPG, PNG, GIF, WebP, PDF, XLSX, TXT/CSV/MD. HEIC/HEIF and Word .docx are NOT supported yet — if those are uploaded, ask the admin to convert (HEIC → JPG, DOCX → PDF) before retrying.
 - For passports: read fields exactly as printed (Latin letters), then offer to create a tourist record via create_tourist with the extracted fields. After the tourist is created, ALSO call attach_image_to_tourist({touristId, imagePath: "<the img-1 path>", field: "passport"}) so the passport scan is saved to the tourist's record. Mention "Паспортын зургийг хавсаргалаа" in the reply so the admin knows.
 - If a field is unclear or partially obscured, say so rather than guessing.
 """
@@ -9063,9 +9101,17 @@ def _handle_agent_chat_impl(environ, start_response):
     if not isinstance(raw_images, list):
         raw_images = []
     raw_images = raw_images[:AGENT_MAX_IMAGES_PER_MESSAGE]
+    raw_docs = payload.get("documents") or []
+    if not isinstance(raw_docs, list):
+        raw_docs = []
+    raw_docs = raw_docs[:AGENT_MAX_IMAGES_PER_MESSAGE]
 
     image_blocks = []
-    saved_paths = []  # list of public paths corresponding to the image_blocks
+    doc_blocks = []
+    extra_text_blocks = []  # for xlsx/text content extracted server-side
+    saved_paths = []  # public paths for images (so agent can attach them later)
+    saved_doc_paths = []  # public paths for documents
+
     for img in raw_images:
         data_url = (img.get("dataUrl") or "") if isinstance(img, dict) else ""
         if not data_url.startswith("data:"):
@@ -9077,28 +9123,77 @@ def _handle_agent_chat_impl(environ, start_response):
         media_type = header.replace("data:", "", 1).strip().lower() or "image/jpeg"
         if media_type not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
             continue
-        # Cheap size guard: base64 length * 3/4 ≈ raw bytes.
         if len(b64) * 3 // 4 > AGENT_MAX_IMAGE_BYTES:
             continue
         image_blocks.append({
             "type": "image",
             "source": {"type": "base64", "media_type": media_type, "data": b64},
         })
-        # Persist a copy so the agent can reference it via attach_image_to_tourist.
         saved_paths.append(_agent_save_uploaded_image(b64, media_type))
 
-    if not user_msg and not image_blocks:
+    for doc in raw_docs:
+        if not isinstance(doc, dict):
+            continue
+        data_url = doc.get("dataUrl") or ""
+        name = (doc.get("name") or "").strip() or "document"
+        if not data_url.startswith("data:"):
+            continue
+        try:
+            header, b64 = data_url.split(";base64,", 1)
+        except ValueError:
+            continue
+        media_type = header.replace("data:", "", 1).strip().lower()
+        try:
+            raw = base64.b64decode(b64)
+        except Exception:
+            continue
+        if not raw or len(raw) > 30 * 1024 * 1024:  # 30 MB cap per document
+            continue
+
+        if media_type == "application/pdf" or name.lower().endswith(".pdf"):
+            doc_blocks.append({
+                "type": "document",
+                "source": {"type": "base64", "media_type": "application/pdf", "data": b64},
+                "title": name[:120],
+            })
+            saved_doc_paths.append(_agent_save_uploaded_doc(raw, name, "pdf"))
+        elif name.lower().endswith(".xlsx") or media_type in (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel",
+        ):
+            extracted = _agent_extract_xlsx_text(raw)
+            extra_text_blocks.append(f"\n\n[Хавсаргасан Excel: {name}]\n{extracted}")
+            saved_doc_paths.append(_agent_save_uploaded_doc(raw, name, "xlsx"))
+        elif media_type.startswith("text/") or name.lower().endswith((".txt", ".csv", ".md")):
+            try:
+                txt = raw.decode("utf-8", errors="replace")[:20000]
+            except Exception:
+                txt = ""
+            extra_text_blocks.append(f"\n\n[Хавсаргасан текст файл: {name}]\n{txt}")
+            saved_doc_paths.append(_agent_save_uploaded_doc(raw, name, "txt"))
+        else:
+            # Unknown type — just save and tell agent the file name.
+            ext = (name.rsplit(".", 1)[-1] if "." in name else "bin").lower()[:6]
+            saved = _agent_save_uploaded_doc(raw, name, ext)
+            saved_doc_paths.append(saved)
+            extra_text_blocks.append(
+                f"\n\n[Хавсаргасан файл: {name} — энэ форматыг шууд унших боломжгүй, зөвхөн файлын зам хадгалагдсан: {saved}]"
+            )
+
+    if not user_msg and not image_blocks and not doc_blocks and not extra_text_blocks:
         return json_response(start_response, "400 Bad Request", {"error": "Empty message"})
 
-    # Build the user content blocks: images first, then text. Always include
-    # at least a text block so Claude has something to respond to. If we
-    # persisted any uploads, surface their server paths so the agent can
-    # call attach_image_to_tourist with them.
-    content_blocks = list(image_blocks)
-    text_parts = [user_msg or "(зураг хавсаргав — танилцана уу)"]
+    # Build the user content blocks: images, then PDFs, then text. Always
+    # include at least a text block so Claude has something to respond to.
+    content_blocks = list(image_blocks) + list(doc_blocks)
+    text_parts = [user_msg or "(файл хавсаргав — танилцана уу)"]
     upload_lines = [f"img-{i+1}={p}" for i, p in enumerate(saved_paths) if p]
     if upload_lines:
         text_parts.append("\n\n[Uploaded image paths] " + "; ".join(upload_lines))
+    doc_lines = [f"doc-{i+1}={p}" for i, p in enumerate(saved_doc_paths) if p]
+    if doc_lines:
+        text_parts.append("\n\n[Uploaded document paths] " + "; ".join(doc_lines))
+    text_parts.extend(extra_text_blocks)
     content_blocks.append({"type": "text", "text": "\n".join(text_parts)})
     history.append({"role": "user", "content": content_blocks})
 
