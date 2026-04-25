@@ -8804,6 +8804,27 @@ def _tool_create_contract(args, actor):
     }}
 
 
+def _strip_image_bytes_from_history(history):
+    """Replace image / document content blocks with text placeholders so
+    the conversation stays small after the first round-trip. Used between
+    tool loops — after Claude has already read the image once, sending it
+    again wastes proxy budget."""
+    out = []
+    for turn in history:
+        content = turn.get("content")
+        if isinstance(content, list):
+            new_content = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") in ("image", "document"):
+                    new_content.append({"type": "text", "text": "[image/file already read in earlier turn — see notes above]"})
+                else:
+                    new_content.append(block)
+            out.append({**turn, "content": new_content})
+        else:
+            out.append(turn)
+    return out
+
+
 def _agent_save_uploaded_doc(raw_bytes, original_name, ext_hint):
     """Persist an arbitrary uploaded file to the generated dir and return public path."""
     if not raw_bytes:
@@ -9350,6 +9371,12 @@ def _handle_agent_chat_impl(environ, start_response):
 
     while loops < AGENT_MAX_TOOL_LOOPS:
         loops += 1
+        # Strip image bytes from earlier turns before subsequent calls — Claude
+        # has already extracted what it needs from the image in loop 1, and
+        # re-uploading multi-MB base64 on every loop blows past Render's proxy
+        # timeout. Keep the placeholder so the model knows an image was sent.
+        if loops > 1:
+            history = _strip_image_bytes_from_history(history)
         resp = _agent_call_anthropic(system, history, AGENT_TOOLS)
         if "error" in resp:
             history.pop()  # Don't persist the failed turn.
