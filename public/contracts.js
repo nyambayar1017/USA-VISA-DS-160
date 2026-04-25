@@ -348,6 +348,35 @@ const initContractForm = () => {
     openStepOne();
   });
 
+  // Auto-launch the form when ?openCreate=1 is in the URL (used by + Add contract from trip/group pages).
+  // Stash tripId/groupId as hidden fields so the submit handler attaches them to the saved contract.
+  (function autoLaunchFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("openCreate")) return;
+    const tripId = params.get("tripId") || "";
+    const groupId = params.get("groupId") || "";
+    if (tripId || groupId) {
+      let tripField = form.querySelector("input[name='attachedTripId']");
+      if (!tripField) {
+        tripField = document.createElement("input");
+        tripField.type = "hidden";
+        tripField.name = "attachedTripId";
+        form.appendChild(tripField);
+      }
+      tripField.value = tripId;
+      let groupField = form.querySelector("input[name='attachedGroupId']");
+      if (!groupField) {
+        groupField = document.createElement("input");
+        groupField.type = "hidden";
+        groupField.name = "attachedGroupId";
+        form.appendChild(groupField);
+      }
+      groupField.value = groupId;
+    }
+    // Open the form modal automatically
+    setTimeout(() => toggle.click(), 50);
+  })();
+
   panel.addEventListener("click", (event) => {
     if (event.target.dataset.action === "close-contract-panel") closePanel();
     if (event.target.dataset.action === "contract-continue") {

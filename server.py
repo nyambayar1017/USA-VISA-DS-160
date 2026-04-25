@@ -7595,6 +7595,12 @@ def handle_generate_contract(environ, start_response):
         contracts = read_contracts()
         record["createdBy"] = actor_snapshot(actor)
         record["updatedBy"] = actor_snapshot(actor)
+        attached_trip = normalize_text(payload.get("attachedTripId"))
+        attached_group = normalize_text(payload.get("attachedGroupId"))
+        if attached_trip:
+            record["tripId"] = attached_trip
+        if attached_group:
+            record["groupId"] = attached_group
         contracts.insert(0, record)
         write_contracts(contracts)
         try:

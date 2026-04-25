@@ -973,7 +973,7 @@ function renderActiveTrip() {
   const tripTypeBadge = trip.tripType ? `<span class="trip-type-pill">${escapeHtml(String(trip.tripType).toUpperCase())}</span> ` : "";
   const isFit = String(trip.tripType || "").toLowerCase() === "fit";
   const fitActions = isFit ? `
-    <a class="header-action-btn" href="/contracts?tripId=${encodeURIComponent(trip.id)}">+ Add contract</a>
+    <a class="header-action-btn" href="/contracts?openCreate=1&tripId=${encodeURIComponent(trip.id)}">+ Add contract</a>
     <a class="header-action-btn" href="/trip-detail?tripId=${encodeURIComponent(trip.id)}&openInvoiceFit=1#invoices-section">+ Add invoice</a>
   ` : "";
   // Toggle Groups section visibility based on FIT/GIT

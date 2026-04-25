@@ -3,7 +3,11 @@
 
   const listNode = document.getElementById("trip-invoices-list");
   const createBtn = document.getElementById("invoice-create-btn");
-  if (!listNode || !createBtn) return;
+  if (!listNode || !createBtn) {
+    console.warn("[invoice.js] missing nodes:", { listNode, createBtn });
+    return;
+  }
+  console.log("[invoice.js] initialized");
 
   const tripId = new URLSearchParams(window.location.search).get("tripId") || "";
   let groups = [];
@@ -130,6 +134,7 @@
   }
 
   function openWizard(invoice = null) {
+    console.log("[invoice.js] openWizard", { invoice, groupCount: groups.length });
     editingInvoiceId = invoice?.id || "";
     draft = invoice
       ? JSON.parse(JSON.stringify(invoice))
@@ -145,13 +150,18 @@
     wizardStep = 1;
     const overlay = buildOverlay();
     overlay.classList.remove("is-hidden");
+    overlay.removeAttribute("hidden");
+    overlay.style.display = "flex";
     document.body.classList.add("modal-open");
     renderWizardStep();
   }
 
   function closeWizard() {
     const overlay = document.getElementById("invoice-wizard-overlay");
-    if (overlay) overlay.classList.add("is-hidden");
+    if (overlay) {
+      overlay.classList.add("is-hidden");
+      overlay.style.display = "none";
+    }
     document.body.classList.remove("modal-open");
     draft = null;
     editingInvoiceId = "";
@@ -543,16 +553,22 @@
   }
 
   // ── Wire ──
-  createBtn.addEventListener("click", async () => {
-    if (!groups.length) {
-      // Try one more refresh in case load was slow / failed silently
-      try { await loadAll(); } catch {}
+  createBtn.addEventListener("click", async (event) => {
+    event.preventDefault();
+    console.log("[invoice.js] Create invoice clicked");
+    try {
+      if (!groups.length) {
+        try { await loadAll(); } catch (err) { console.error("[invoice.js] reload error", err); }
+      }
+      if (!groups.length) {
+        alert("Add a group to this trip first, then create an invoice for it.");
+        return;
+      }
+      openWizard(null);
+    } catch (err) {
+      console.error("[invoice.js] open wizard failed", err);
+      alert("Could not open invoice wizard: " + (err && err.message ? err.message : err));
     }
-    if (!groups.length) {
-      alert("Create a group first, then add an invoice for it.");
-      return;
-    }
-    openWizard(null);
   });
 
   listNode.addEventListener("click", async (e) => {

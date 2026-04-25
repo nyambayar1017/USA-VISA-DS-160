@@ -476,16 +476,16 @@ td {
 
 .workspace-bell-count {
   position: absolute;
-  top: 2px;
-  right: 0px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  top: 4px;
+  right: 4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
   border-radius: 999px;
   background: #d6362f;
   color: #fff;
-  border: 2px solid #fff;
-  font-size: 0.68rem;
+  border: 1.5px solid #fff;
+  font-size: 0.6rem;
   font-weight: 700;
   line-height: 14px;
   text-align: center;

@@ -140,11 +140,35 @@ async function loadAll() {
     flights = (flightData.entries || []).filter((f) => f.tripId === tripId);
     transfers = (transferData.entries || []).filter((t) => t.tripId === tripId);
     campReservations = (campData.entries || []).filter((c) => c.tripId === tripId);
-    // Invoices: not yet group-tagged. Filter by tripId where possible.
+    // Combine contracts (legacy) and invoices (new) attached to this trip/group.
     try {
-      const contracts = await fetchJson("/api/contracts");
-      const list = Array.isArray(contracts) ? contracts : (contracts.entries || []);
-      invoices = list.filter((c) => c.tripId === tripId || c.groupId === groupId);
+      const [contractsRes, invoicesRes] = await Promise.all([
+        fetchJson("/api/contracts").catch(() => []),
+        fetchJson(`/api/invoices?tripId=${encodeURIComponent(tripId)}`).catch(() => ({ entries: [] })),
+      ]);
+      const contractList = Array.isArray(contractsRes) ? contractsRes : (contractsRes.entries || []);
+      const matchingContracts = contractList
+        .filter((c) => c.groupId === groupId || (c.tripId === tripId && !c.groupId))
+        .map((c) => ({
+          kind: "contract",
+          id: c.id,
+          serial: (c.data && c.data.contractSerial) || c.id || "-",
+          client: (c.data && (c.data.touristLastName || "") + " " + (c.data.touristFirstName || "")).trim() || "-",
+          total: (c.data && c.data.totalPrice) || "-",
+          createdAt: c.createdAt || "",
+        }));
+      const matchingInvoices = (invoicesRes.entries || [])
+        .filter((i) => !i.groupId || i.groupId === groupId)
+        .map((i) => ({
+          kind: "invoice",
+          id: i.id,
+          serial: i.serial || i.id,
+          client: i.payerName || "-",
+          total: i.total || 0,
+          status: i.status || "draft",
+          createdAt: i.createdAt || "",
+        }));
+      invoices = [...matchingContracts, ...matchingInvoices];
     } catch {
       invoices = [];
     }
@@ -254,7 +278,7 @@ function renderSummary() {
   ` : "";
   summaryNode.innerHTML = `
     <div class="group-summary-actions">
-      <a class="header-action-btn" href="/contracts?tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(groupId)}">+ Add contract</a>
+      <a class="header-action-btn" href="/contracts?openCreate=1&tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(groupId)}">+ Add contract</a>
       <a class="header-action-btn" href="/trip-detail?tripId=${encodeURIComponent(tripId)}&openInvoice=${encodeURIComponent(groupId)}#invoices-section">+ Add invoice</a>
       <button type="button" class="header-action-btn header-action-edit" id="group-edit-btn" aria-label="Edit group">✎ Edit</button>
     </div>
@@ -291,23 +315,30 @@ function renderSummary() {
 
 function renderInvoices() {
   if (!invoices.length) {
-    invoicesList.innerHTML = '<p class="empty">No invoices linked to this group yet.</p>';
+    invoicesList.innerHTML = '<p class="empty">No invoices or contracts linked to this group yet.</p>';
     return;
   }
   invoicesList.innerHTML = `
     <div class="camp-table-wrap">
       <table class="camp-table reservation-addon-table">
-        <thead><tr><th>#</th><th>Type</th><th>Client</th><th>Total</th><th>Created</th></tr></thead>
+        <thead><tr><th>#</th><th>Type</th><th>Serial</th><th>Client</th><th>Total</th><th>Created</th><th>Open</th></tr></thead>
         <tbody>
-          ${invoices.map((inv, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td>${escapeHtml(inv.contractType || inv.type || "-")}</td>
-              <td>${escapeHtml(inv.clientName || inv.client || "-")}</td>
-              <td>${escapeHtml(inv.totalAmount || inv.amount || "-")}</td>
-              <td>${escapeHtml(formatDate(inv.createdAt))}</td>
-            </tr>
-          `).join("")}
+          ${invoices.map((inv, i) => {
+            const href = inv.kind === "contract"
+              ? `/contracts#${encodeURIComponent(inv.id)}`
+              : `/invoice-view?id=${encodeURIComponent(inv.id)}`;
+            return `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${inv.kind === "contract" ? "Contract" : "Invoice"}</td>
+                <td><strong>${escapeHtml(inv.serial)}</strong></td>
+                <td>${escapeHtml(inv.client || "-")}</td>
+                <td>${escapeHtml(String(inv.total))}</td>
+                <td>${escapeHtml(formatDate(inv.createdAt))}</td>
+                <td><a class="table-link compact secondary" href="${href}" target="_blank" rel="noreferrer">Open</a></td>
+              </tr>
+            `;
+          }).join("")}
         </tbody>
       </table>
     </div>
