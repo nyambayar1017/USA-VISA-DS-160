@@ -263,10 +263,17 @@ td {
 
 .workspace-topbar {
   display: flex;
-  justify-content: space-between;
-  align-items: end;
+  justify-content: flex-end;
+  align-items: center;
   gap: 18px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
+  min-height: 48px;
+}
+
+.workspace-topbar > div:not(.workspace-profile),
+.workspace-topbar > form,
+.workspace-topbar > section:not(.workspace-profile) {
+  display: none;
 }
 
 .workspace-profile {
