@@ -46,6 +46,27 @@
         background: #e9eef8;
         color: #2a3c78;
       }
+      .toolbar-button.toolbar-save {
+        background: #1f8f52;
+      }
+      .toolbar-button.toolbar-save:hover {
+        background: #156d3e;
+      }
+      .invoice-edit-input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #cfd8e6;
+        border-radius: 8px;
+        font: inherit;
+        background: #ffffff;
+      }
+      .invoice-items-table .invoice-edit-input,
+      .invoice-items-table input.invoice-edit-input {
+        text-align: right;
+      }
+      .invoice-items-table td.cell-desc .invoice-edit-input { text-align: left; }
+      .payment-card .invoice-edit-input { font-size: 13px; }
+      .payment-card.is-edit { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
       .page {
         width: min(720px, calc(100vw - 48px));
         margin: 20px auto 40px;
@@ -315,9 +336,11 @@
     </style>
   </head>
   <body>
-    <div class="toolbar">
-      <button type="button" class="toolbar-button" onclick="window.print()">PDF Татах</button>
-      <button type="button" class="toolbar-button secondary" onclick="window.close()">Close</button>
+    <div class="toolbar" id="invoice-toolbar">
+      <button type="button" class="toolbar-button secondary" id="btn-view">View</button>
+      <button type="button" class="toolbar-button" id="btn-edit">Edit</button>
+      <button type="button" class="toolbar-button toolbar-save" id="btn-save" hidden>Save</button>
+      <button type="button" class="toolbar-button" id="btn-pdf">PDF Татах</button>
     </div>
     <div id="invoice-page" class="page"><p class="empty">Loading…</p></div>
     <script>
@@ -353,13 +376,24 @@
           page.innerHTML = `<p class="empty">Could not load invoice: ${escapeHtml(err.message || err)}</p>`;
         }
       }
+      let currentInvoice = null;
+      let editMode = false;
       function render(inv) {
+        currentInvoice = inv;
         const page = document.getElementById("invoice-page");
         const customerName = (inv.payerName || "CLIENT").toUpperCase();
         const issueDate = (inv.createdAt || "").slice(0, 10);
         const items = inv.items || [];
         const grandTotal = items.reduce((a, it) => a + (Number(it.qty) || 0) * (Number(it.price) || 0), 0) || (Number(inv.total) || 0);
-        const itemsHtml = items.map((it, i) => `
+        const itemsHtml = items.map((it, i) => editMode ? `
+          <tr data-item-i="${i}">
+            <td>${i + 1}</td>
+            <td class="cell-desc"><input class="invoice-edit-input" data-field="description" value="${escapeHtml(it.description || "")}" /></td>
+            <td><input class="invoice-edit-input" data-field="qty" type="number" min="0" value="${escapeHtml(it.qty || 0)}" /></td>
+            <td><input class="invoice-edit-input" data-field="price" type="number" min="0" value="${escapeHtml(it.price || 0)}" /></td>
+            <td>${fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0))}</td>
+          </tr>
+        ` : `
           <tr>
             <td>${i + 1}</td>
             <td>${escapeHtml(it.description || "")}</td>
@@ -368,8 +402,25 @@
             <td>${fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0))}</td>
           </tr>
         `).join("");
-        const paymentsHtml = (inv.installments || []).map((inst) => {
+        const paymentsHtml = (inv.installments || []).map((inst, i) => {
           const s = statusFor(inst.status);
+          if (editMode) {
+            return `
+              <div class="payment-card is-edit" data-inst-i="${i}">
+                <div><span class="meta-label">Нэр</span><input class="invoice-edit-input" data-field="description" value="${escapeHtml(inst.description || "")}" /></div>
+                <div><span class="meta-label">Нэхэмжилсэн огноо</span><input class="invoice-edit-input" data-field="issueDate" type="date" value="${escapeHtml(inst.issueDate || "")}" /></div>
+                <div><span class="meta-label">Эцсийн хугацаа</span><input class="invoice-edit-input" data-field="dueDate" type="date" value="${escapeHtml(inst.dueDate || "")}" /></div>
+                <div><span class="meta-label">Төлөв</span>
+                  <select class="invoice-edit-input" data-field="status">
+                    <option value="pending" ${(inst.status||"pending")==="pending"?"selected":""}>Хүлээгдэж буй</option>
+                    <option value="paid" ${inst.status==="paid"?"selected":""}>Төлөгдсөн</option>
+                    <option value="overdue" ${inst.status==="overdue"?"selected":""}>Хугацаа хэтэрсэн</option>
+                  </select>
+                </div>
+                <div><span class="meta-label">Дүн</span><input class="invoice-edit-input" data-field="amount" type="number" min="0" value="${escapeHtml(inst.amount || 0)}" /></div>
+              </div>
+            `;
+          }
           return `
             <div class="payment-card">
               <div class="payment-main">${escapeHtml(inst.description || "")}</div>
@@ -458,7 +509,79 @@
           </div>
         `;
         document.title = `Нэхэмжлэх #${inv.serial}`;
+        const btnSave = document.getElementById("btn-save");
+        const btnEdit = document.getElementById("btn-edit");
+        const btnView = document.getElementById("btn-view");
+        if (btnSave && btnEdit && btnView) {
+          btnSave.hidden = !editMode;
+          btnEdit.classList.toggle("secondary", editMode);
+          btnView.classList.toggle("secondary", !editMode);
+        }
       }
+      function switchMode(mode) {
+        editMode = mode === "edit";
+        if (currentInvoice) render(currentInvoice);
+      }
+      async function saveInvoice() {
+        if (!currentInvoice) return;
+        const page = document.getElementById("invoice-page");
+        const items = Array.from(page.querySelectorAll("[data-item-i]")).map((row) => {
+          const obj = { description: "", qty: 0, price: 0 };
+          row.querySelectorAll("[data-field]").forEach((el) => {
+            const f = el.dataset.field;
+            obj[f] = (f === "qty" || f === "price") ? Number(el.value) || 0 : el.value;
+          });
+          return obj;
+        }).filter((it) => (it.description || "").trim());
+        const installments = Array.from(page.querySelectorAll("[data-inst-i]")).map((row) => {
+          const obj = { description: "", issueDate: "", dueDate: "", status: "pending", amount: 0 };
+          row.querySelectorAll("[data-field]").forEach((el) => {
+            const f = el.dataset.field;
+            obj[f] = f === "amount" ? Number(el.value) || 0 : el.value;
+          });
+          return obj;
+        });
+        const payload = {
+          tripId: currentInvoice.tripId,
+          groupId: currentInvoice.groupId,
+          payerId: currentInvoice.payerId || "",
+          payerName: currentInvoice.payerName,
+          participantIds: currentInvoice.participantIds || [],
+          items,
+          installments,
+          currency: currentInvoice.currency || "MNT",
+        };
+        const btnSave = document.getElementById("btn-save");
+        const orig = btnSave.textContent;
+        btnSave.textContent = "Saving…";
+        btnSave.disabled = true;
+        try {
+          const res = await fetch(`/api/invoices/${currentInvoice.id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error((await res.json()).error || "Save failed");
+          editMode = false;
+          await load();
+          btnSave.textContent = "Saved";
+          setTimeout(() => { btnSave.textContent = orig; btnSave.disabled = false; }, 1200);
+        } catch (err) {
+          alert(err.message || "Could not save invoice.");
+          btnSave.textContent = orig;
+          btnSave.disabled = false;
+        }
+      }
+      function openPdf() {
+        if (!currentInvoice) return;
+        const src = encodeURIComponent(`/api/invoices/${currentInvoice.id}/pdf`);
+        const title = encodeURIComponent(`Нэхэмжлэх ${currentInvoice.serial || ""}`);
+        window.open(`/pdf-viewer?src=${src}&title=${title}`, "_blank", "noreferrer");
+      }
+      document.getElementById("btn-view").addEventListener("click", () => switchMode("view"));
+      document.getElementById("btn-edit").addEventListener("click", () => switchMode("edit"));
+      document.getElementById("btn-save").addEventListener("click", saveInvoice);
+      document.getElementById("btn-pdf").addEventListener("click", openPdf);
       load();
     </script>
   </body>

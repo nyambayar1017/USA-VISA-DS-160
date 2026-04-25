@@ -222,8 +222,8 @@
         <div class="inv-side-header">
           <h2 id="inv-side-title">Invoice</h2>
           <div class="inv-side-header-actions">
-            <button type="button" class="inv-icon-btn" data-inv-action="share" title="Share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></button>
-            <button type="button" class="inv-icon-btn" data-inv-action="menu" title="More"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+            <button type="button" class="inv-icon-btn" data-inv-action="share" title="Share">↗</button>
+            <button type="button" class="inv-icon-btn" data-inv-action="menu" title="More">⋯</button>
             <button type="button" class="inv-icon-btn" data-inv-action="close-panel" aria-label="Close">×</button>
           </div>
         </div>

@@ -3732,6 +3732,176 @@ def save_invoice_pdf(record):
     return f"/generated/{pdf_filename}"
 
 
+# ── Standalone invoice (new model) — Mongolian invoice template ──
+INVOICE_STATUS_LABELS = {
+    "pending": ("Хүлээгдэж буй", "waiting"),
+    "waiting": ("Хүлээгдэж буй", "waiting"),
+    "paid":    ("Төлөгдсөн", "paid"),
+    "overdue": ("Хугацаа хэтэрсэн", "overdue"),
+}
+
+
+def _fmt_money(value):
+    try:
+        n = float(value or 0)
+    except Exception:
+        n = 0
+    return f"{int(round(n)):,} ₮".replace(",", ",")
+
+
+def build_standalone_invoice_html(invoice):
+    """Render the new-model invoice as Mongolian printable HTML for WeasyPrint."""
+    serial = html.escape(str(invoice.get("serial") or invoice.get("id") or ""))
+    customer = html.escape(str((invoice.get("payerName") or "CLIENT")).upper())
+    items = invoice.get("items") or []
+    grand = sum((float(it.get("qty") or 0) * float(it.get("price") or 0)) for it in items)
+    items_rows = "".join(
+        f"<tr><td>{i+1}</td>"
+        f"<td>{html.escape(str(it.get('description') or ''))}</td>"
+        f"<td>{html.escape(str(it.get('qty') or 0))}</td>"
+        f"<td>{_fmt_money(it.get('price'))}</td>"
+        f"<td>{_fmt_money(float(it.get('qty') or 0) * float(it.get('price') or 0))}</td></tr>"
+        for i, it in enumerate(items)
+    )
+    payments_html = ""
+    for inst in (invoice.get("installments") or []):
+        status_key = (inst.get("status") or "pending").lower()
+        label, klass = INVOICE_STATUS_LABELS.get(status_key, INVOICE_STATUS_LABELS["pending"])
+        payments_html += f"""
+        <div class="payment-card">
+          <div class="payment-main">{html.escape(str(inst.get('description') or ''))}</div>
+          <div class="payment-meta"><span class="meta-label">Нэхэмжилсэн огноо</span><span class="meta-value">{html.escape(str(inst.get('issueDate') or '-'))}</span></div>
+          <div class="payment-meta"><span class="meta-label">Эцсийн хугацаа</span><span class="meta-value">{html.escape(str(inst.get('dueDate') or '-'))}</span></div>
+          <div class="payment-meta"><span class="meta-label">Төлөв</span><span class="payment-status {klass}">{label}</span></div>
+          <div class="payment-amount">{_fmt_money(inst.get('amount'))}</div>
+        </div>
+        """
+    css = """
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #fff; color: #27272a; font-family: 'Nunito', Arial, sans-serif; font-size: 13px; }
+      .page { padding: 28px 32px; }
+      .invoice-number { margin: 0 0 18px; font-size: 18px; font-weight: 500; }
+      .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+      .invoice-logo { width: 154px; max-width: 100%; display: block; margin-bottom: 10px; }
+      .company-name { margin: 0 0 12px; font-size: 14px; font-weight: 700; }
+      .company-block p, .customer-block p, .meta-note { margin: 0; font-size: 13px; line-height: 1.38; }
+      .meta-note { text-align: right; }
+      .customer-block { padding-top: 80px; }
+      .customer-block .label { display: block; margin-bottom: 4px; color: #64748b; font-weight: 600; }
+      .section-title { margin: 0 0 10px; color: #64748b; font-size: 13px; font-weight: 600; }
+      .invoice-items-table { width: 100%; border-collapse: separate; border-spacing: 0;
+        border-radius: 12px; border: 1px solid #cfd8e6; overflow: hidden; margin-bottom: 28px; }
+      .invoice-items-table th { background: #eef2f9; color: #1f3168; padding: 10px 12px; text-align: left; font-size: 13px; }
+      .invoice-items-table td { padding: 10px 12px; border-top: 1px solid #eef2f9; }
+      .invoice-items-table tr.total-row td { font-weight: 700; background: #f8fafd; }
+      .payment-stack { display: grid; gap: 10px; margin-bottom: 24px; }
+      .payment-card { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 16px; padding: 14px 16px;
+        border: 1px solid #cfd8e6; border-radius: 12px; align-items: center; }
+      .payment-main { font-weight: 700; }
+      .payment-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+      .meta-label { color: #64748b; }
+      .payment-status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+      .payment-status.waiting { background: #fef3c7; color: #92400e; }
+      .payment-status.paid { background: #dcfce7; color: #166534; }
+      .payment-status.overdue { background: #fee2e2; color: #991b1b; }
+      .payment-amount { text-align: right; font-weight: 700; }
+      .bank-section { margin-bottom: 28px; }
+      .bank-grid { display: grid; gap: 6px; padding: 14px 18px; border: 1px solid #cfd8e6; border-radius: 12px; }
+      .bank-line { display: flex; gap: 12px; align-items: center; }
+      .bank-prefix { color: #64748b; font-size: 12px; }
+      .bank-account-number { font-size: 16px; }
+      .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+      .signature-card { position: relative; padding-top: 8px; }
+      .signature-label { color: #64748b; font-size: 12px; margin-bottom: 8px; }
+      .signature-line { height: 1px; background: #cfd8e6; margin: 60px 0 8px; }
+      .accountant-stamp { position: absolute; top: 16px; left: 8px; height: 90px; }
+      .accountant-signature { position: absolute; top: 30px; left: 60px; height: 60px; }
+      .signature-name { font-weight: 700; }
+      .signature-role { color: #64748b; font-size: 12px; }
+    """
+    logo_path = (BASE_DIR / "public/assets/dtx-logo-blue-yellow.png")
+    stamp_path = (BASE_DIR / "public/assets/invoice-finance-stamp.png")
+    sig_path = (BASE_DIR / "public/assets/invoice-finance-signature.png")
+    logo_src = f"file://{logo_path}" if logo_path.exists() else ""
+    stamp_src = f"file://{stamp_path}" if stamp_path.exists() else ""
+    sig_src = f"file://{sig_path}" if sig_path.exists() else ""
+    return f"""<!DOCTYPE html>
+<html lang="mn"><head><meta charset="UTF-8"><title>Нэхэмжлэх #{serial}</title>
+<style>{css}</style></head><body><div class="page">
+  <p class="invoice-number">Нэхэмжлэх #{serial}</p>
+  <div class="header-grid">
+    <div class="company-block">
+      {f'<img class="invoice-logo" src="{logo_src}" alt="">' if logo_src else ''}
+      <p class="company-name">Дэлхий Трэвел Икс ХХК (6925073)</p>
+      <p>Улаанбаатар хот, ХУД, 17-р хороо</p>
+      <p>Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</p>
+      <p>info@travelx.mn</p><p>+976 72007722</p>
+    </div>
+    <div>
+      <p class="meta-note">Сангийн сайдын 2017 оны 12 дугаар сарын 05</p>
+      <p class="meta-note">өдрийн 347 тоот тушаалын хавсралт</p>
+      <div class="customer-block"><span class="label">Төлөгч</span><p><strong>{customer}</strong></p></div>
+    </div>
+  </div>
+  <p class="section-title">Үнийн мэдээлэл</p>
+  <table class="invoice-items-table">
+    <thead><tr><th>№</th><th>Утга</th><th>Тоо ширхэг</th><th>Нэгжийн үнэ</th><th>Нийт үнэ</th></tr></thead>
+    <tbody>{items_rows}<tr class="total-row"><td colspan="4">Нийт үнэ</td><td>{_fmt_money(grand)}</td></tr></tbody>
+  </table>
+  <p class="section-title">Төлбөрийн хуваарь</p>
+  <div class="payment-stack">{payments_html}</div>
+  <div class="bank-section"><p class="section-title">Дансны мэдээлэл</p>
+    <div class="bank-grid"><div>Дэлхий Трэвел Икс</div>
+      <div class="bank-line"><span>Төрийн Банк</span><span class="bank-prefix">MN030034</span><strong class="bank-account-number">3432 7777 9999</strong></div>
+    </div>
+  </div>
+  <div class="signature-grid">
+    <div class="signature-card"><div class="signature-label">Дэлхий Трэвел Икс ХХК</div><div class="signature-line"></div>
+      {f'<img class="accountant-stamp" src="{stamp_src}" alt="">' if stamp_src else ''}
+      {f'<img class="accountant-signature" src="{sig_src}" alt="">' if sig_src else ''}
+      <div class="signature-name">Нягтлан</div><div class="signature-role">Г.Басгалаан</div>
+    </div>
+    <div class="signature-card"><div class="signature-label">Төлөгч</div><div class="signature-line"></div>
+      <div class="signature-name">{customer}</div>
+    </div>
+  </div>
+</div></body></html>"""
+
+
+def save_standalone_invoice_pdf(invoice):
+    ensure_data_store()
+    pdf_filename = f"std-invoice-{invoice['id']}.pdf"
+    pdf_path = GENERATED_DIR / pdf_filename
+    try:
+        from weasyprint import HTML
+    except Exception as exc:
+        raise RuntimeError(f"WeasyPrint not available: {exc}") from exc
+    html_string = build_standalone_invoice_html(invoice)
+    try:
+        HTML(string=html_string, base_url=str(BASE_DIR)).write_pdf(str(pdf_path))
+    except Exception as exc:
+        raise RuntimeError(f"PDF generation failed: {exc}") from exc
+    return f"/generated/{pdf_filename}"
+
+
+def handle_standalone_invoice_pdf(environ, start_response, invoice_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    invoices = read_invoices()
+    invoice = next((i for i in invoices if i.get("id") == invoice_id), None)
+    if not invoice:
+        return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+    try:
+        pdf_url = save_standalone_invoice_pdf(invoice)
+    except Exception as exc:
+        return json_response(start_response, "500 Internal Server Error", {"error": f"Could not generate invoice PDF: {exc}"})
+    safe_path = (GENERATED_DIR / unquote(pdf_url.replace("/generated/", "", 1))).resolve()
+    if not str(safe_path).startswith(str(GENERATED_DIR.resolve())) or not safe_path.exists():
+        return json_response(start_response, "404 Not Found", {"error": "Invoice PDF not found"})
+    return file_response(start_response, safe_path, extra_headers=generated_download_headers(safe_path))
+
+
 def save_contract_pdf(record):
     ensure_data_store()
     pdf_filename = f"contract-{record['id']}.pdf"
@@ -8049,6 +8219,12 @@ def app(environ, start_response):
         invoice_id = path.replace("/api/invoices/", "", 1).replace("/payment", "", 1).strip("/")
         if method == "POST" and invoice_id:
             return handle_invoice_payment(environ, start_response, invoice_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/invoices/") and path.endswith("/pdf"):
+        invoice_id = path.replace("/api/invoices/", "", 1).replace("/pdf", "", 1).strip("/")
+        if method == "GET" and invoice_id:
+            return handle_standalone_invoice_pdf(environ, start_response, invoice_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/invoices/"):
