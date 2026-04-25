@@ -91,8 +91,6 @@ function renderSidebar(user) {
           <div class="sidebar-branch">
             <a class="sidebar-link${active === "fifa" ? " is-active" : ""}" href="/fifa2026-admin">FIFA 2026</a>
             <div class="sidebar-children">
-              <a class="sidebar-sublink" href="/fifa2026-admin#inventory-section">Inventory</a>
-              <a class="sidebar-sublink" href="/fifa2026-admin#sales-section">Sales</a>
               <a class="sidebar-sublink" href="/fifa2026" target="_blank" rel="noreferrer">Public Page</a>
             </div>
           </div>

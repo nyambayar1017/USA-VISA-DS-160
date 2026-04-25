@@ -551,9 +551,18 @@ function setActiveTrip(tripId, options = {}) {
   renderActiveCampReservations();
   renderCampPayments();
   if (isTripDetailPage() && activeTripId) {
+    const ws = (typeof readWorkspace === "function" ? readWorkspace() : "") || "DTX";
     if (tripTabBar) {
-      tripTabBar.classList.remove("is-hidden");
-      setActiveTab("reservations-section");
+      if (ws === "DTX") {
+        tripTabBar.classList.add("is-hidden");
+        TRIP_TAB_PANEL_IDS.forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.classList.add("is-hidden");
+        });
+      } else {
+        tripTabBar.classList.remove("is-hidden");
+        setActiveTab("reservations-section");
+      }
     }
     loadTripDocuments(activeTripId);
   }
@@ -897,10 +906,10 @@ function renderTrips() {
               (trip, index) => `
                 <tr class="${activeTripId === trip.id ? "is-trip-active" : ""}">
                   <td>${startIndex + index + 1}</td>
-                  <td class="trip-serial-cell"><strong>${escapeHtml(trip.serial || "-")}</strong></td>
-                  <td class="table-primary-cell">
-                    <a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link">${escapeHtml(trip.tripName)}</a>
+                  <td class="trip-serial-cell">
+                    <a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link"><strong>${escapeHtml(trip.serial || "-")}</strong></a>
                   </td>
+                  <td class="table-primary-cell">${escapeHtml(trip.tripName)}</td>
                   <td>${escapeHtml(trip.reservationName || trip.tripName)}</td>
                   <td>${formatDate(trip.startDate)}</td>
                   <td>${formatDate(trip.endDate || computeTripEndDate(trip))}</td>

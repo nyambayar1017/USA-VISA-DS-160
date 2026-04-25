@@ -426,6 +426,54 @@ td {
   background: rgba(32,53,111,0.06);
 }
 
+.row-menu {
+  position: relative;
+  display: inline-block;
+}
+.row-menu-trigger {
+  list-style: none;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #20356f;
+  border: 1px solid rgba(32,53,111,0.18);
+  background: #fff;
+  display: inline-block;
+}
+.row-menu-trigger::-webkit-details-marker { display: none; }
+.row-menu-trigger:hover { background: rgba(32,53,111,0.06); }
+.row-menu-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #fff;
+  border: 1px solid rgba(32,53,111,0.18);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(15,23,42,0.1);
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 4px;
+  z-index: 50;
+}
+.row-menu-item {
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font-size: 0.85rem;
+  color: #2d3548;
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: inherit;
+}
+.row-menu-item:hover:not([disabled]) { background: rgba(32,53,111,0.06); }
+.row-menu-item[disabled] { opacity: 0.4; cursor: not-allowed; }
+.row-menu-item.is-danger { color: #b63a3a; }
+.row-menu-item.is-danger:hover { background: rgba(182,58,58,0.08); }
+
 .workspace-bell-count {
   position: absolute;
   top: 2px;

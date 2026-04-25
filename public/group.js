@@ -252,14 +252,10 @@ function renderSummary() {
       ${ret ? `<p><strong>Return:</strong> ${escapeHtml(formatDate(ret.departureDate))} ${escapeHtml(ret.departureTime || "")} · ${escapeHtml(ret.fromCity || "-")} → ${escapeHtml(ret.toCity || "-")} ${escapeHtml(ret.airline || "")} ${escapeHtml(ret.flightNumber || "")}</p>` : ""}
     </div>
   ` : "";
-  const isGit = String(trip?.tripType || "git").toLowerCase() === "git";
-  const gitActions = isGit ? `
-    <a class="header-action-btn" href="/contracts?tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(groupId)}">+ Add contract</a>
-    <a class="header-action-btn" href="/trip-detail?tripId=${encodeURIComponent(tripId)}&openInvoice=${encodeURIComponent(groupId)}#invoices-section">+ Add invoice</a>
-  ` : "";
   summaryNode.innerHTML = `
     <div class="group-summary-actions">
-      ${gitActions}
+      <a class="header-action-btn" href="/contracts?tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(groupId)}">+ Add contract</a>
+      <a class="header-action-btn" href="/trip-detail?tripId=${encodeURIComponent(tripId)}&openInvoice=${encodeURIComponent(groupId)}#invoices-section">+ Add invoice</a>
       <button type="button" class="header-action-btn header-action-edit" id="group-edit-btn" aria-label="Edit group">✎ Edit</button>
     </div>
     <div class="group-summary-grid">
@@ -271,6 +267,7 @@ function renderSummary() {
           <span>${escapeHtml(trip?.tripName || "")}</span>
           <span>${formatDate(trip?.startDate)} → ${formatDate(trip?.endDate || "")}</span>
           ${trip?.tripType ? `<span class="trip-type-pill">${escapeHtml(trip.tripType.toUpperCase())}</span>` : ""}
+          ${group.status ? `<span class="status-pill is-${escapeHtml(group.status)}">${escapeHtml(group.status)}</span>` : ""}
         </p>
         ${flightInfo}
       </div>
@@ -469,7 +466,6 @@ function renderParticipants() {
         <thead>
           <tr>
             <th>#</th>
-            <th>Order</th>
             <th>Serial</th>
             <th>Name</th>
             <th>Passport</th>
@@ -489,15 +485,11 @@ function renderParticipants() {
             const roomLabel = t.roomType
               ? `${escapeHtml(t.roomCode || "—")} ${escapeHtml((ROOM_TYPE_LABELS[t.roomType] || "").toUpperCase())}`
               : "—";
+            const upDisabled = i === 0 ? "disabled" : "";
+            const downDisabled = i === tourists.length - 1 ? "disabled" : "";
             return `
               <tr>
                 <td>${i + 1}</td>
-                <td>
-                  <div class="reorder-arrows">
-                    <button type="button" class="reorder-btn" data-action="move-up" data-id="${t.id}" ${i === 0 ? "disabled" : ""} aria-label="Move up">▲</button>
-                    <button type="button" class="reorder-btn" data-action="move-down" data-id="${t.id}" ${i === tourists.length - 1 ? "disabled" : ""} aria-label="Move down">▼</button>
-                  </div>
-                </td>
                 <td><strong>${escapeHtml(t.serial)}</strong></td>
                 <td>${escapeHtml(t.lastName || "")} ${escapeHtml(t.firstName || "")}</td>
                 <td>${escapeHtml(t.passportNumber || "-")}</td>
@@ -508,8 +500,15 @@ function renderParticipants() {
                 <td>${escapeHtml(t.phone || "-")}</td>
                 <td ${roomStyle}>${roomLabel}</td>
                 <td>
-                  <button type="button" class="table-link compact secondary" data-action="edit" data-id="${t.id}">Edit</button>
-                  <button type="button" class="table-link compact secondary" data-action="delete" data-id="${t.id}">Delete</button>
+                  <details class="row-menu">
+                    <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>
+                    <div class="row-menu-popover">
+                      <button type="button" class="row-menu-item" data-action="edit" data-id="${t.id}">Edit</button>
+                      <button type="button" class="row-menu-item" data-action="move-up" data-id="${t.id}" ${upDisabled}>▲ Move up</button>
+                      <button type="button" class="row-menu-item" data-action="move-down" data-id="${t.id}" ${downDisabled}>▼ Move down</button>
+                      <button type="button" class="row-menu-item is-danger" data-action="delete" data-id="${t.id}">Delete</button>
+                    </div>
+                  </details>
                 </td>
               </tr>
             `;
@@ -617,6 +616,7 @@ participantsList.addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;
   const id = btn.dataset.id;
+  btn.closest("details.row-menu")?.removeAttribute("open");
   if (btn.dataset.action === "move-up") { await moveTourist(id, "up"); return; }
   if (btn.dataset.action === "move-down") { await moveTourist(id, "down"); return; }
   const t = tourists.find((x) => x.id === id);
@@ -692,6 +692,7 @@ function openGroupEdit() {
   groupEditForm.elements.leaderPhone.value = group.leaderPhone || "";
   groupEditForm.elements.leaderNationality.value = group.leaderNationality || "";
   groupEditForm.elements.notes.value = group.notes || "";
+  if (groupEditForm.elements.status) groupEditForm.elements.status.value = group.status || "pending";
   groupEditStatus.textContent = "";
   groupEditPanel.classList.remove("is-hidden");
   groupEditPanel.removeAttribute("hidden");
@@ -719,6 +720,15 @@ groupEditForm?.addEventListener("submit", async (e) => {
     await loadAll();
   } catch (err) {
     groupEditStatus.textContent = err.message || "Could not save.";
+  }
+});
+document.getElementById("group-edit-delete")?.addEventListener("click", async () => {
+  if (!confirm(`Delete group "${group?.name || ""}"? This cannot be undone.`)) return;
+  try {
+    await fetchJson(`/api/tourist-groups/${groupId}`, { method: "DELETE" });
+    window.location.href = `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
+  } catch (err) {
+    groupEditStatus.textContent = err.message || "Could not delete.";
   }
 });
 

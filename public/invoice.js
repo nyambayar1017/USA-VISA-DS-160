@@ -543,8 +543,15 @@
   }
 
   // ── Wire ──
-  createBtn.addEventListener("click", () => {
-    if (!groups.length) { alert("Create a group first, then add an invoice for it."); return; }
+  createBtn.addEventListener("click", async () => {
+    if (!groups.length) {
+      // Try one more refresh in case load was slow / failed silently
+      try { await loadAll(); } catch {}
+    }
+    if (!groups.length) {
+      alert("Create a group first, then add an invoice for it.");
+      return;
+    }
     openWizard(null);
   });
 

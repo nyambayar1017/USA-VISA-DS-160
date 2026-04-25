@@ -5070,6 +5070,7 @@ def build_tourist_group(payload, actor=None):
         "leaderNationality": normalize_text(payload.get("leaderNationality")),
         "headcount": parse_int(payload.get("headcount")) or 0,
         "notes": normalize_text(payload.get("notes")),
+        "status": (normalize_text(payload.get("status")) or "pending").lower(),
         "createdAt": now_mongolia().isoformat(),
         "createdBy": actor_snapshot(actor),
         "updatedAt": "",
@@ -5230,6 +5231,8 @@ def handle_update_tourist_group(environ, start_response, group_id):
                 merged[key] = normalize_text(payload.get(key))
         if "headcount" in payload:
             merged["headcount"] = parse_int(payload.get("headcount")) or 0
+        if "status" in payload:
+            merged["status"] = (normalize_text(payload.get("status")) or "pending").lower()
         error = validate_tourist_group(merged)
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})

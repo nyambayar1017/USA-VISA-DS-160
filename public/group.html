@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-147" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-148" />
   </head>
   <body class="app-body" data-page="group">
     <div class="workspace-shell">
@@ -238,6 +238,14 @@
             Leader nationality
             <input name="leaderNationality" />
           </label>
+          <label>
+            Status
+            <select name="status">
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
           <label class="full-span">
             Notes
             <textarea name="notes" rows="2"></textarea>
@@ -245,13 +253,14 @@
           <div class="actions full-span">
             <button type="submit">Save</button>
             <button type="button" class="secondary-button" data-action="close-group-edit">Cancel</button>
+            <button type="button" class="secondary-button" id="group-edit-delete" style="margin-left:auto;color:#9b2f2f;border-color:rgba(182,58,58,0.2);background:rgba(182,58,58,0.08);">Delete group</button>
             <p id="group-edit-status" class="status"></p>
           </div>
         </form>
       </div>
     </div>
 
-    <script src="/app-shell.js?v=workspace-86"></script>
-    <script src="/group.js?v=workspace-4"></script>
+    <script src="/app-shell.js?v=workspace-87"></script>
+    <script src="/group.js?v=workspace-5"></script>
   </body>
 </html>
