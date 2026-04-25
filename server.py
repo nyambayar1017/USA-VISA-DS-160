@@ -8687,6 +8687,37 @@ def _tool_list_fifa_inventory(args, actor):
     return tickets[:200] if isinstance(tickets, list) else (tickets or [])
 
 
+def _tool_get_contract(args, actor):
+    cid = (args.get("contractId") or "").strip()
+    if not cid:
+        return {"error": "contractId is required"}
+    contract = next((c for c in read_contracts() if c.get("id") == cid), None)
+    if not contract:
+        return {"error": "Contract not found"}
+    data = contract.get("data") or {}
+    return {
+        "id": contract.get("id"),
+        "contractSerial": data.get("contractSerial"),
+        "tripId": contract.get("tripId"),
+        "groupId": contract.get("groupId"),
+        "destination": data.get("destination"),
+        "tripStartDate": data.get("tripStartDate"),
+        "tripEndDate": data.get("tripEndDate"),
+        "touristLastName": data.get("touristLastName"),
+        "touristFirstName": data.get("touristFirstName"),
+        "adultCount": data.get("adultCount"),
+        "adultPrice": data.get("adultPrice"),
+        "childCount": data.get("childCount"),
+        "childPrice": data.get("childPrice"),
+        "totalPrice": data.get("totalPrice"),
+        "depositAmount": data.get("depositAmount"),
+        "depositDueDate": data.get("depositDueDate"),
+        "balanceDueDate": data.get("balanceDueDate"),
+        "autoInvoiceId": contract.get("autoInvoiceId"),
+        "pdfPath": contract.get("pdfPath"),
+    }
+
+
 def _tool_create_contract(args, actor):
     payload = dict(args)
 
@@ -9026,6 +9057,9 @@ AGENT_TOOLS = [
     {"name": "delete_memory", "description": "Delete a long-term note by id. Use when the admin says 'forget that' or 'мартчих'.",
      "input_schema": {"type": "object", "required": ["memoryId"], "properties": {"memoryId": {"type": "string"}}},
      "handler": _tool_delete_memory},
+    {"name": "get_contract", "description": "Read back a contract by id. Use this AFTER create_contract to verify what was actually saved (totalPrice, adultCount, depositAmount, dates) before reporting success to the admin.",
+     "input_schema": {"type": "object", "required": ["contractId"], "properties": {"contractId": {"type": "string"}}},
+     "handler": _tool_get_contract},
     {"name": "create_contract", "description": "Create a tour contract (гэрээ) and automatically generate the matching invoice. Pass tripId and touristId so destination, dates, and tourist info auto-fill from the existing records — you only need to provide pricing fields and counts. Required pricing fields: adultCount, adultPrice (per-adult price), depositAmount, depositDueDate (yyyy-mm-dd), balanceDueDate (yyyy-mm-dd). Optional: childCount, childPrice, infantCount, infantPrice. The tool fills in destination/dates from the trip and tourist info from the tourist record. Returns {contract: {id, contractSerial, pdfPath, autoInvoice}}.",
      "input_schema": {"type": "object", "required": ["tripId", "touristId", "adultCount", "adultPrice", "depositAmount", "depositDueDate", "balanceDueDate"],
        "properties": {
@@ -9101,6 +9135,11 @@ Honesty (very important):
 - If you are unsure (e.g., the user's question is ambiguous, or two records look like they could match), ask a clarifying question instead of guessing.
 - Never claim a record exists, a price is X, or a status is Y unless that fact came back from a tool call you just made in this turn.
 - It is far better to say "Би мэдэхгүй байна" or "Энэ функц одоогоор боломжгүй" than to give a confident wrong answer.
+
+Verify-after-write (mandatory):
+- After EVERY create_* or update_* call that involves money, counts, or dates, you MUST call the matching get_* (get_invoice, get_contract, get_trip) and quote the returned numbers verbatim in your reply. Do not summarize from memory — read the saved values back from the tool result.
+- When the admin asks "did you do X correctly?" or "show me what you saved", call get_* first; never answer from your own recollection of what you intended to save.
+- If the saved totals do not match what the admin asked for (e.g. admin said 4 × 2,500,000 = 10,000,000 but the saved invoice total is 4,000,000), say so explicitly: "Уучлаарай, би буруу үүсгэсэн байна. Жинхэнэ дүн: 4,000,000₮, таны хэлсэн дүн: 10,000,000₮. Засъя?" — then offer to update or delete-and-recreate. NEVER claim the wrong value is correct.
 
 Long-term memory:
 - Use save_memory whenever the admin teaches you something durable — a business rule, a recurring price, a naming convention, a person's role, a recurring instruction. Confirm in your reply (e.g., "Тэмдэглэн авлаа").
