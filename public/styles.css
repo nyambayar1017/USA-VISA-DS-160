@@ -8750,6 +8750,14 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .agent-panel.is-open {
   display: flex;
 }
+.agent-panel.is-maximized {
+  width: min(960px, calc(100vw - 32px));
+  height: calc(100vh - 60px);
+  max-height: calc(100vh - 60px);
+  bottom: 30px;
+  right: 16px;
+  border-radius: 18px;
+}
 
 .agent-header {
   padding: 12px 14px;
@@ -8784,13 +8792,24 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   gap: 6px;
 }
 .agent-clear,
-.agent-close {
+.agent-close,
+.agent-max {
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+}
+.agent-max {
+  font-size: 0.95rem;
+  width: 28px;
+  height: 26px;
+  line-height: 1;
+  padding: 0;
+}
+.agent-max:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 .agent-clear {
   font-size: 0.72rem;

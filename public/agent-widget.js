@@ -8,13 +8,15 @@
   let busy = false;
   let messages = []; // {role:"user"|"assistant", text:string, actions?:[], images?:[]}
   let pendingImages = []; // {name, dataUrl}
-  let bubble, panel, listEl, inputEl, sendBtn, clearBtn, statusEl, micBtn, ttsBtn, attachBtn, fileInput, pendingArea;
+  let bubble, panel, listEl, inputEl, sendBtn, clearBtn, statusEl, micBtn, ttsBtn, attachBtn, fileInput, pendingArea, maxBtn;
   let recognition = null;
   let recognizing = false;
   let ttsEnabled = false;
+  let maximized = false;
   const MAX_IMAGES = 5;
   const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
   try { ttsEnabled = localStorage.getItem("agent-tts") === "1"; } catch (e) {}
+  try { maximized = localStorage.getItem("agent-maximized") === "1"; } catch (e) {}
 
   function el(tag, props, children) {
     const node = document.createElement(tag);
@@ -210,6 +212,21 @@
     }
   }
 
+  function applyMaximizedClass() {
+    if (!panel) return;
+    panel.classList.toggle("is-maximized", maximized);
+    if (maxBtn) {
+      maxBtn.textContent = maximized ? "🗗" : "🗖";
+      maxBtn.title = maximized ? "Жижигрүүлэх" : "Томруулах";
+    }
+  }
+
+  function toggleMaximize() {
+    maximized = !maximized;
+    try { localStorage.setItem("agent-maximized", maximized ? "1" : "0"); } catch (e) {}
+    applyMaximizedClass();
+  }
+
   function toggleTts() {
     ttsEnabled = !ttsEnabled;
     try { localStorage.setItem("agent-tts", ttsEnabled ? "1" : "0"); } catch (e) {}
@@ -348,11 +365,19 @@
 
     pendingArea = el("div", { class: "agent-pending-area" });
 
+    maxBtn = el("button", {
+      class: "agent-max",
+      type: "button",
+      onclick: toggleMaximize,
+    }, [maximized ? "🗗" : "🗖"]);
+    maxBtn.title = maximized ? "Жижигрүүлэх" : "Томруулах";
+
     const header = el("div", { class: "agent-header" }, [
       el("div", { class: "agent-title" }, ["Батаа ", el("span", { class: "agent-tag" }, ["admin"])]),
       el("div", { class: "agent-header-actions" }, [
         ttsBtn,
         clearBtn,
+        maxBtn,
         el("button", { class: "agent-close", type: "button", onclick: () => togglePanel(false) }, ["×"]),
       ]),
     ]);
@@ -363,6 +388,7 @@
 
     document.body.appendChild(bubble);
     document.body.appendChild(panel);
+    applyMaximizedClass();
     render();
   }
 
