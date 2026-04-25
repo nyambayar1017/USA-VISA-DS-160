@@ -547,7 +547,7 @@ function setActiveTrip(tripId, options = {}) {
   if (isTripDetailPage() && activeTripId) {
     if (tripTabBar) {
       tripTabBar.classList.remove("is-hidden");
-      setActiveTab("reservations-section");
+      setActiveTab("groups-section");
     }
     loadTripDocuments(activeTripId);
   }
@@ -1965,6 +1965,13 @@ function startTripEdit(id) {
   tripForm.elements.guideName.value = trip.guideName || "";
   tripForm.elements.driverName.value = trip.driverName || "";
   tripForm.elements.cookName.value = trip.cookName || "";
+  if (tripForm.elements.tripType) {
+    tripForm.elements.tripType.value = (trip.tripType || "git").toLowerCase();
+  }
+  if (tripForm.elements.groupName) {
+    tripForm.elements.groupName.value = trip.groupName || "";
+  }
+  applyTripTypeMode();
 }
 
 function resetTripFormState() {
@@ -1974,7 +1981,29 @@ function resetTripFormState() {
   tripForm.elements.staffCount.value = "0";
   tripForm.elements.totalDays.value = "1";
   tripForm.elements.status.value = "planning";
+  if (tripForm.elements.tripType) tripForm.elements.tripType.value = "git";
+  applyTripTypeMode();
   tripStatus.textContent = "";
+}
+
+function applyTripTypeMode() {
+  const sel = tripForm?.elements?.tripType;
+  const groupInput = tripForm?.elements?.groupName;
+  const hint = document.getElementById("trip-group-name-hint");
+  if (!sel || !groupInput) return;
+  const isGit = (sel.value || "git").toLowerCase() === "git";
+  if (isGit) {
+    groupInput.required = true;
+    if (hint) hint.textContent = "(required for GIT)";
+  } else {
+    groupInput.required = false;
+    if (hint) hint.textContent = "(optional for FIT)";
+  }
+}
+
+if (tripForm && tripForm.elements && tripForm.elements.tripType) {
+  tripForm.elements.tripType.addEventListener("change", applyTripTypeMode);
+  applyTripTypeMode();
 }
 
 function openReservationModal(tripId = "", reservation = null) {

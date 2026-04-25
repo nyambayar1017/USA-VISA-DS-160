@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-143" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-144" />
   </head>
   <body class="app-body" data-page="camp-reservations">
     <div class="workspace-shell">
@@ -81,8 +81,19 @@
               </div>
               <form id="trip-form" class="field-grid">
                 <label>
+                  Trip type
+                  <select name="tripType" id="trip-type-select" required>
+                    <option value="git">GIT (group)</option>
+                    <option value="fit">FIT (individual)</option>
+                  </select>
+                </label>
+                <label>
                   Trip Name
                   <input name="tripName" placeholder="STEPPE MONGOLIA 0802" required />
+                </label>
+                <label id="trip-group-name-label">
+                  Group name <span class="label-hint" id="trip-group-name-hint">(required for GIT)</span>
+                  <input name="groupName" placeholder="e.g. SMITH FAMILY" />
                 </label>
                 <label>
                   Reservation Name
@@ -1013,7 +1024,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-83"></script>
-    <script src="/camp.js?v=workspace-95"></script>
+    <script src="/camp.js?v=workspace-96"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
     <script src="/trip-extras.js?v=workspace-2"></script>
   </body>

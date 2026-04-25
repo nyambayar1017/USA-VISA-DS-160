@@ -4900,11 +4900,16 @@ def normalize_tag_list(value):
 
 def build_camp_trip(payload, actor=None):
     company = normalize_company(payload.get("company"))
+    trip_type = normalize_text(payload.get("tripType")).lower() or "git"
+    if trip_type not in {"fit", "git"}:
+        trip_type = "git"
     return {
         "id": str(uuid4()),
         "serial": next_trip_serial(company),
         "createdAt": now_mongolia().isoformat(),
         "tripName": normalize_text(payload.get("tripName")),
+        "tripType": trip_type,
+        "groupName": normalize_text(payload.get("groupName")),
         "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
         "startDate": normalize_text(payload.get("startDate")),
         "endDate": normalize_text(payload.get("endDate")),
@@ -4934,6 +4939,11 @@ def validate_camp_trip(data):
         return "Number of participants must be greater than 0"
     if data.get("totalDays", 0) <= 0:
         return "Total days must be greater than 0"
+    trip_type = (data.get("tripType") or "").lower()
+    if trip_type and trip_type not in {"fit", "git"}:
+        return "Trip type must be FIT or GIT"
+    if trip_type == "git" and not normalize_text(data.get("groupName")):
+        return "Group name is required for GIT trips"
     return None
 
 
@@ -6572,7 +6582,7 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         if trip["id"] != trip_id:
             continue
         merged = {**trip}
-        for key in ["tripName", "reservationName", "startDate", "endDate", "language", "status", "guideName", "driverName", "cookName"]:
+        for key in ["tripName", "reservationName", "startDate", "endDate", "language", "status", "guideName", "driverName", "cookName", "groupName"]:
             if key in payload:
                 merged[key] = normalize_text(payload.get(key))
         for key in ["participantCount", "staffCount", "totalDays"]:
@@ -6580,6 +6590,10 @@ def handle_update_camp_trip(environ, start_response, trip_id):
                 merged[key] = parse_int(payload.get(key))
         if "tags" in payload:
             merged["tags"] = normalize_tag_list(payload.get("tags"))
+        if "tripType" in payload:
+            tt = normalize_text(payload.get("tripType")).lower()
+            if tt in {"fit", "git"}:
+                merged["tripType"] = tt
         error = validate_camp_trip(merged)
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})

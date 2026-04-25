@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-143" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-144" />
   </head>
   <body class="app-body" data-page="group">
     <div class="workspace-shell">
@@ -32,11 +32,11 @@
 
         <nav class="trip-tab-bar group-tab-bar" id="group-tab-bar">
           <button class="trip-tab is-active" data-tab="group-participants-section">Participants</button>
-          <button class="trip-tab" data-tab="group-flights-section">Flights</button>
-          <button class="trip-tab" data-tab="group-transfers-section">Transfers</button>
           <button class="trip-tab" data-tab="group-invoices-section">Invoices</button>
-          <button class="trip-tab" data-tab="group-rooming-section">Rooming</button>
           <button class="trip-tab" data-tab="group-documents-section">Documents</button>
+          <button class="trip-tab" data-tab="group-flights-section">Flight reservations</button>
+          <button class="trip-tab" data-tab="group-transfers-section">Transfers</button>
+          <button class="trip-tab" data-tab="group-rooming-section">Rooming</button>
         </nav>
 
         <section class="card group-section" id="group-participants-section">
@@ -55,11 +55,22 @@
         <section class="card group-section is-hidden" id="group-flights-section">
           <div class="section-head">
             <div>
-              <h2>Flights</h2>
-              <p>Flight reservations and payments associated with this group's tourists.</p>
+              <h2>Flight reservations</h2>
+              <p>Camp reservations, flight bookings, and flight payments tied to this trip.</p>
             </div>
           </div>
-          <div id="group-flights-list" class="submission-list"></div>
+          <div class="group-subsection">
+            <h3 class="group-subsection-title">Camp reservations</h3>
+            <div id="group-camp-list" class="submission-list"></div>
+          </div>
+          <div class="group-subsection">
+            <h3 class="group-subsection-title">Flights</h3>
+            <div id="group-flights-list" class="submission-list"></div>
+          </div>
+          <div class="group-subsection">
+            <h3 class="group-subsection-title">Flight payments</h3>
+            <div id="group-flight-payments-list" class="submission-list"></div>
+          </div>
         </section>
 
         <section class="card group-section is-hidden" id="group-transfers-section">
@@ -202,6 +213,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-83"></script>
-    <script src="/group.js?v=workspace-2"></script>
+    <script src="/group.js?v=workspace-3"></script>
   </body>
 </html>

@@ -5,7 +5,9 @@ const groupId = params.get("groupId") || "";
 const breadcrumb = document.getElementById("group-breadcrumb");
 const summaryNode = document.getElementById("group-summary");
 const invoicesList = document.getElementById("group-invoices-list");
+const campList = document.getElementById("group-camp-list");
 const flightsList = document.getElementById("group-flights-list");
+const flightPaymentsList = document.getElementById("group-flight-payments-list");
 const transfersList = document.getElementById("group-transfers-list");
 const roomingList = document.getElementById("group-rooming-list");
 const participantsList = document.getElementById("group-participants-list");
@@ -22,7 +24,7 @@ let group = null;
 let tourists = [];
 let invoices = [];
 let flights = [];
-let flightPayments = [];
+let campReservations = [];
 let transfers = [];
 let editingId = "";
 
@@ -117,18 +119,20 @@ async function loadAll() {
     return;
   }
   try {
-    const [tripData, groupData, touristData, flightData, transferData] = await Promise.all([
+    const [tripData, groupData, touristData, flightData, transferData, campData] = await Promise.all([
       fetchJson("/api/camp-trips"),
       fetchJson(`/api/tourist-groups?tripId=${encodeURIComponent(tripId)}`),
       fetchJson(`/api/tourists?groupId=${encodeURIComponent(groupId)}`),
       fetchJson("/api/flight-reservations").catch(() => ({ entries: [] })),
       fetchJson("/api/transfer-reservations").catch(() => ({ entries: [] })),
+      fetchJson("/api/camp-reservations").catch(() => ({ entries: [] })),
     ]);
     trip = (tripData.entries || []).find((t) => t.id === tripId) || null;
     group = (groupData.entries || []).find((g) => g.id === groupId) || null;
     tourists = touristData.entries || [];
     flights = (flightData.entries || []).filter((f) => f.tripId === tripId);
     transfers = (transferData.entries || []).filter((t) => t.tripId === tripId);
+    campReservations = (campData.entries || []).filter((c) => c.tripId === tripId);
     // Invoices: not yet group-tagged. Filter by tripId where possible.
     try {
       const contracts = await fetchJson("/api/contracts");
@@ -141,7 +145,9 @@ async function loadAll() {
     renderBreadcrumb();
     renderSummary();
     renderInvoices();
+    renderCampReservations();
     renderFlights();
+    renderFlightPayments();
     renderTransfers();
     renderRooming();
     renderParticipants();
@@ -203,6 +209,22 @@ function buildRoomingSummary(list) {
   return parts.join(", ");
 }
 
+function getOutboundFlight() {
+  if (!flights.length) return null;
+  const sorted = flights.slice().sort((a, b) =>
+    String(a.departureDate || "").localeCompare(String(b.departureDate || ""))
+  );
+  return sorted[0];
+}
+
+function getReturnFlight() {
+  if (!flights.length) return null;
+  const sorted = flights.slice().sort((a, b) =>
+    String(b.departureDate || "").localeCompare(String(a.departureDate || ""))
+  );
+  return sorted[0];
+}
+
 function renderSummary() {
   if (!group) {
     summaryNode.innerHTML = '<p class="empty">Group not found.</p>';
@@ -214,15 +236,27 @@ function renderSummary() {
   }).length;
   const children = tourists.length - adults;
   const rooming = buildRoomingSummary(tourists) || "Not set";
+  const outbound = getOutboundFlight();
+  const ret = flights.length > 1 ? getReturnFlight() : null;
+  const flightInfo = (outbound || ret) ? `
+    <div class="group-summary-flights">
+      <p class="group-summary-label">Flight info</p>
+      ${outbound ? `<p><strong>Depart:</strong> ${escapeHtml(formatDate(outbound.departureDate))} ${escapeHtml(outbound.departureTime || "")} · ${escapeHtml(outbound.fromCity || "-")} → ${escapeHtml(outbound.toCity || "-")} ${escapeHtml(outbound.airline || "")} ${escapeHtml(outbound.flightNumber || "")}</p>` : ""}
+      ${ret ? `<p><strong>Return:</strong> ${escapeHtml(formatDate(ret.departureDate))} ${escapeHtml(ret.departureTime || "")} · ${escapeHtml(ret.fromCity || "-")} → ${escapeHtml(ret.toCity || "-")} ${escapeHtml(ret.airline || "")} ${escapeHtml(ret.flightNumber || "")}</p>` : ""}
+    </div>
+  ` : "";
   summaryNode.innerHTML = `
     <div class="group-summary-grid">
       <div>
         <p class="group-summary-label">Group</p>
-        <h1>${escapeHtml(group.serial)} · ${escapeHtml(group.name)}</h1>
+        <h1>${escapeHtml(trip?.serial || "")} · ${escapeHtml(group.name || "—")}</h1>
         <p class="group-summary-meta">
-          <span>${escapeHtml(trip?.serial || "")} · ${escapeHtml(trip?.tripName || "")}</span>
+          <span>${escapeHtml(group.serial || "")}</span>
+          <span>${escapeHtml(trip?.tripName || "")}</span>
           <span>${formatDate(trip?.startDate)} → ${formatDate(trip?.endDate || "")}</span>
+          ${trip?.tripType ? `<span class="trip-type-pill">${escapeHtml(trip.tripType.toUpperCase())}</span>` : ""}
         </p>
+        ${flightInfo}
       </div>
       <div class="group-summary-stats">
         <div><span class="group-stat-label">Headcount</span><strong>${tourists.length} / ${group.headcount || "-"}</strong></div>
@@ -283,6 +317,61 @@ function renderFlights() {
               <td>${escapeHtml(f.fromCity || "-")} → ${escapeHtml(f.toCity || "-")}</td>
               <td>${escapeHtml(formatDate(f.departureDate))} ${escapeHtml(f.departureTime || "")}</td>
               <td>${escapeHtml(f.passengerCount || "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderCampReservations() {
+  if (!campList) return;
+  if (!campReservations.length) {
+    campList.innerHTML = '<p class="empty">No camp reservations on this trip.</p>';
+    return;
+  }
+  campList.innerHTML = `
+    <div class="camp-table-wrap">
+      <table class="camp-table reservation-addon-table">
+        <thead><tr><th>#</th><th>Camp</th><th>Type</th><th>Check-in</th><th>Check-out</th><th>Room</th><th>Status</th></tr></thead>
+        <tbody>
+          ${campReservations.map((c, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${escapeHtml(c.campName || "-")}</td>
+              <td>${escapeHtml((c.reservationType || "-").toString().replace(/_/g, " "))}</td>
+              <td>${escapeHtml(formatDate(c.checkIn))}</td>
+              <td>${escapeHtml(formatDate(c.checkOut))}</td>
+              <td>${escapeHtml((c.roomType || "-").toString().replace(/_/g, " "))}</td>
+              <td>${escapeHtml((c.status || "-").toString().replace(/_/g, " "))}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderFlightPayments() {
+  if (!flightPaymentsList) return;
+  if (!flights.length) {
+    flightPaymentsList.innerHTML = '<p class="empty">No flight payments yet.</p>';
+    return;
+  }
+  flightPaymentsList.innerHTML = `
+    <div class="camp-table-wrap">
+      <table class="camp-table reservation-addon-table">
+        <thead><tr><th>#</th><th>Airline</th><th>Route</th><th>Departure</th><th>Amount</th><th>Status</th></tr></thead>
+        <tbody>
+          ${flights.map((f, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${escapeHtml(f.airline || "-")} ${escapeHtml(f.flightNumber || "")}</td>
+              <td>${escapeHtml(f.fromCity || "-")} → ${escapeHtml(f.toCity || "-")}</td>
+              <td>${escapeHtml(formatDate(f.departureDate))} ${escapeHtml(f.departureTime || "")}</td>
+              <td>${escapeHtml(f.totalAmount || f.amount || "-")}</td>
+              <td>${escapeHtml((f.paymentStatus || "unpaid").toString().replace(/_/g, " "))}</td>
             </tr>
           `).join("")}
         </tbody>
