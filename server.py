@@ -8349,16 +8349,19 @@ def _agent_audit(user, tool_name, tool_input, ok, output_summary):
 
 def _tool_list_trips(args, actor):
     trips = read_camp_trips()
-    ws = (args.get("workspace") or "").upper().strip()
+    ws = (args.get("workspace") or args.get("company") or "").upper().strip()
     status = (args.get("status") or "").lower().strip()
+    trip_type = (args.get("tripType") or "").lower().strip()
     if ws:
-        trips = [t for t in trips if (t.get("workspace") or "").upper() == ws]
+        trips = [t for t in trips if normalize_company(t.get("company")) == ws]
     if status:
         trips = [t for t in trips if (t.get("status") or "").lower() == status]
+    if trip_type:
+        trips = [t for t in trips if (t.get("tripType") or "").lower() == trip_type]
     return [{"id": t["id"], "serial": t.get("serial"), "tripName": t.get("tripName"),
              "tripType": t.get("tripType"), "startDate": t.get("startDate"),
              "endDate": t.get("endDate"), "status": t.get("status"),
-             "participantCount": t.get("participantCount"), "workspace": t.get("workspace")}
+             "participantCount": t.get("participantCount"), "company": t.get("company")}
             for t in trips]
 
 
@@ -8370,6 +8373,8 @@ def _tool_get_trip(args, actor):
 
 def _tool_create_trip(args, actor):
     payload = dict(args)
+    if "company" not in payload and payload.get("workspace"):
+        payload["company"] = payload.pop("workspace")
     record = build_camp_trip(payload, actor)
     err = validate_camp_trip(record)
     if err:
@@ -8666,9 +8671,9 @@ def _tool_list_fifa_inventory(args, actor):
 # ── Tool registry (Claude-facing JSON schemas) ────────────────────────
 
 AGENT_TOOLS = [
-    {"name": "list_trips", "description": "List trips. Optional filter by workspace (DTX or USM) or status.",
+    {"name": "list_trips", "description": "List trips. Optional filters: workspace (DTX or USM), status (planning, confirmed, travelling, completed, cancelled, offer), tripType (fit or git). Returns id, serial, tripName, dates, status, participantCount, company.",
      "input_schema": {"type": "object", "properties": {
-         "workspace": {"type": "string"}, "status": {"type": "string"}}},
+         "workspace": {"type": "string"}, "status": {"type": "string"}, "tripType": {"type": "string"}}},
      "handler": _tool_list_trips},
     {"name": "get_trip", "description": "Get one trip by id.",
      "input_schema": {"type": "object", "required": ["tripId"], "properties": {"tripId": {"type": "string"}}},
@@ -8801,18 +8806,19 @@ def _agent_system_prompt(actor):
     return f"""You are "Батаа" (Bataa) — the in-app admin assistant for travelx.mn back-office. Today is {today}. You are talking to {name} (admin). Introduce yourself as Батаа when greeted; reply in Mongolian by default unless the user writes in another language.
 
 Domain context:
-- Two workspaces: DTX (Delkhii Travel Ix — outbound tours) and USM (Unlock Steppe Mongolia — inbound). Trips, groups, tourists, contracts, invoices all belong to one workspace.
+- Two workspaces: DTX (Delkhii Travel Ix — outbound tours) and USM (Unlock Steppe Mongolia — inbound). Records carry a `company` field with value "DTX" or "USM"; tool inputs use `workspace` as a friendly synonym for the same thing.
 - Trip types: FIT (individual / family booking, usually no group needed) and GIT (group tour, has named group).
-- Trip status lifecycle: offer → planning → confirmed → travelling → completed (or cancelled).
+- Trip status values: planning, offer, confirmed, travelling, completed, cancelled. Lowercase only.
 - Each trip can have groups, participants (tourists), camp/flight/transfer reservations, contracts, invoices, documents.
 - Invoices have items + installments. Each installment has issueDate, dueDate, amount, status (pending/paid/overdue).
 - Mongolian-language naming is normal: payerName, descriptions, etc. may be in Mongolian.
 
 How you work:
 - Use the provided tools to read and write the system. Don't make up data — call list_/get_ first when you need a fact.
+- When the user asks about "DTX-н аяллууд" / "USM-н аяллууд" / "this workspace's X", always pass workspace="DTX" or "USM" to the list tool — never assume.
 - Before destructive actions (delete_*, update_invoice fields wiping data, deleting trips/groups), briefly confirm with the user in your reply, then call the tool only if they assent.
-- After you do something, summarize the result in 1-2 sentences and include the relevant id/serial. Mongolian or English — match the user's language.
-- If a tool returns {{"error": ...}}, explain what went wrong and propose a fix.
+- After you do something, summarize the result in 1-2 sentences and include the relevant id/serial. Reply in Mongolian unless the user writes in another language.
+- If a tool returns {{"error": ...}}, explain what went wrong and propose a fix. If a list returns 0 items, double-check by calling the same tool without filters before telling the user the data is empty — the filter may be wrong.
 - For dates, use yyyy-mm-dd. For money, use plain numbers (no commas) when calling tools.
 - Never invent IDs; only use ones returned by tools.
 """
