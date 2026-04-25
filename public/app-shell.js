@@ -308,11 +308,19 @@ function buildProfileChrome() {
     event.stopPropagation();
     toggleNotifications();
   });
-  profileCard.querySelector('[data-action="close-notifications"]').addEventListener("click", () => {
+  // Re-parent popovers onto <body> so they render even when the
+  // workspace-topbar/.workspace-profile is hidden on mobile.
+  if (profileMenuWrapper) document.body.appendChild(profileMenuWrapper);
+  if (notificationPopoverNode) document.body.appendChild(notificationPopoverNode);
+  notificationPopoverNode?.querySelector('[data-action="close-notifications"]')?.addEventListener("click", () => {
     closeNotifications();
   });
   document.addEventListener("click", (event) => {
-    if (!profileCard.contains(event.target)) {
+    const inProfile = profileCard.contains(event.target);
+    const inMenu = profileMenuWrapper?.contains(event.target);
+    const inPopover = notificationPopoverNode?.contains(event.target);
+    const inMobileBar = mobileBar?.contains(event.target);
+    if (!inProfile && !inMenu && !inPopover && !inMobileBar) {
       closeProfileMenu();
       closeNotifications();
     }

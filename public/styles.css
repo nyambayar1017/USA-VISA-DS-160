@@ -3952,33 +3952,20 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     height: 36px;
   }
 
-  /* Collapse the desktop topbar/profile but keep the wrapper in the
-     DOM so that the JS-built popovers (which live inside it) still
-     render — they use position:fixed on mobile. */
+  /* Topbar is empty on mobile (profile lives in the mobile bar
+     instead, popovers are re-parented to <body>). */
   .workspace-topbar {
-    min-height: 0;
-    margin: 0;
-    padding: 0;
-  }
-
-  .workspace-profile {
-    position: absolute;
-    width: 0;
-    height: 0;
-    padding: 0;
-    margin: 0;
-    border: 0;
-    overflow: visible;
-  }
-
-  .workspace-profile > .workspace-bell,
-  .workspace-profile > .workspace-profile-trigger {
     display: none;
+  }
+
+  .workspace-mobile-bar {
+    padding: 2px 0 6px;
+    margin-bottom: 6px;
   }
 
   .workspace-profile-menu {
     position: fixed;
-    top: 64px;
+    top: 60px;
     right: 12px;
     left: auto;
     z-index: 120;
@@ -3986,65 +3973,76 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
   .notifications-popover {
     position: fixed;
-    top: 64px;
+    top: 60px;
     right: 12px;
     left: 12px;
     width: auto;
+    max-height: 70vh;
     z-index: 120;
   }
 
-  /* Compact drawer typography so the menu fits and the brand stays visible */
+  /* Compact drawer so all menu items + Switch workspace fit on phones. */
   .workspace-sidebar {
-    padding-top: 52px;
+    padding: 44px 12px 18px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .sidebar-brand {
-    margin: 0 4px 16px;
+    margin: 0 4px 12px;
   }
 
   .sidebar-brand img {
-    width: min(100%, 160px);
+    width: min(100%, 150px);
   }
 
   .sidebar-workspace-label {
-    margin: 0 4px 14px;
-    font-size: 0.78rem;
+    margin: 0 4px 10px;
+    font-size: 0.74rem;
   }
 
   .sidebar-label {
-    margin: 0 8px 12px;
-    font-size: 0.78rem;
+    margin: 0 6px 8px;
+    font-size: 0.72rem;
   }
 
   .sidebar-link {
-    min-height: 38px;
-    margin-bottom: 6px;
-    padding: 0 12px 0 38px;
-    font-size: 0.86rem;
+    min-height: 32px;
+    margin-bottom: 2px;
+    padding: 0 10px 0 34px;
+    font-size: 0.82rem;
+    border-radius: 10px;
   }
 
   .sidebar-link::before {
-    left: 12px;
-    width: 14px;
-    height: 14px;
+    left: 10px;
+    width: 13px;
+    height: 13px;
   }
 
   .sidebar-group + .sidebar-group,
   .sidebar-switch {
-    margin-top: 14px;
+    margin-top: 10px;
   }
 
   .sidebar-switch-button {
-    padding: 8px 10px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
   }
 
   .sidebar-switch-button img {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
   }
 
   body.sidebar-open {
     overflow: hidden;
+    overscroll-behavior: contain;
+    touch-action: none;
+  }
+
+  body.sidebar-open .workspace-sidebar {
+    touch-action: pan-y;
   }
 
   .backoffice-home {
