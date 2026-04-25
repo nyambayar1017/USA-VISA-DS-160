@@ -83,43 +83,8 @@
       renderGroups();
       renderTourists();
       renderGroupOptions();
-      loadInvoices();
     } catch (err) {
       console.warn("trip-extras load failed:", err);
-    }
-  }
-
-  async function loadInvoices() {
-    const node = document.getElementById("trip-invoices-list");
-    if (!node || !tripId) return;
-    try {
-      const data = await fetchJson("/api/contracts");
-      const list = (Array.isArray(data) ? data : (data.entries || [])).filter((c) => c.tripId === tripId);
-      if (!list.length) {
-        node.innerHTML = '<p class="empty">No invoices linked to this trip yet.</p>';
-        return;
-      }
-      node.innerHTML = `
-        <div class="camp-table-wrap">
-          <table class="camp-table reservation-addon-table">
-            <thead><tr><th>#</th><th>Type</th><th>Client</th><th>Total</th><th>Status</th><th>Created</th></tr></thead>
-            <tbody>
-              ${list.map((inv, i) => `
-                <tr>
-                  <td>${i + 1}</td>
-                  <td>${escapeHtml(inv.contractType || inv.type || "-")}</td>
-                  <td>${escapeHtml(inv.clientName || inv.client || "-")}</td>
-                  <td>${escapeHtml(inv.totalAmount || inv.amount || "-")}</td>
-                  <td>${escapeHtml(inv.status || "-")}</td>
-                  <td>${escapeHtml((inv.createdAt || "").slice(0, 10))}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-      `;
-    } catch (err) {
-      node.innerHTML = '<p class="empty">Could not load invoices.</p>';
     }
   }
 
@@ -242,7 +207,7 @@
                     <td><strong>${escapeHtml(t.serial)}</strong></td>
                     <td>${escapeHtml(t.lastName || "")}</td>
                     <td>${escapeHtml(t.firstName || "")}</td>
-                    <td>${escapeHtml(t.groupSerial || "-")}</td>
+                    <td>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</td>
                     <td>${escapeHtml(t.nationality || "-")}</td>
                     <td>${escapeHtml(t.passportNumber || "-")}</td>
                     <td>${escapeHtml(t.passportExpiry || "-")}</td>
@@ -271,20 +236,20 @@
 
   const selectedTouristIds = new Set();
 
-  function downloadTouristsCsv(list, filename) {
-    const headers = ["Serial", "Last name", "First name", "Group", "Gender", "Date of birth", "Nationality", "Passport #", "Passport issue date", "Passport expiry", "Passport issued at", "Registration #", "Phone", "Email"];
-    const escapeCsv = (v) => {
-      const s = v == null ? "" : String(v);
-      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    };
-    const rows = list.map((t) => [
-      t.serial, t.lastName, t.firstName, t.groupSerial, t.gender, t.dob,
-      t.nationality, t.passportNumber, t.passportIssueDate, t.passportExpiry,
-      t.passportIssuePlace, t.registrationNumber, t.phone, t.email,
-    ].map(escapeCsv).join(","));
-    const csv = "﻿" + headers.map(escapeCsv).join(",") + "\n" + rows.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  async function downloadTouristsXlsx(ids, filename) {
+    const body = ids.length ? { ids } : { tripId };
+    const res = await fetch("/api/tourists/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      let err = "Could not download.";
+      try { err = (await res.json()).error || err; } catch {}
+      alert(err);
+      return;
+    }
+    const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -297,12 +262,12 @@
 
   document.getElementById("tourist-export-all")?.addEventListener("click", () => {
     if (!tourists.length) { alert("No tourists to download."); return; }
-    downloadTouristsCsv(tourists, `tourists-${tripId || "trip"}.csv`);
+    downloadTouristsXlsx([], `tourists-${tripId || "trip"}.xlsx`);
   });
   document.getElementById("tourist-export-selected")?.addEventListener("click", () => {
-    const list = tourists.filter((t) => selectedTouristIds.has(t.id));
-    if (!list.length) { alert("Select at least one tourist first."); return; }
-    downloadTouristsCsv(list, `tourists-selected-${tripId || "trip"}.csv`);
+    const ids = Array.from(selectedTouristIds);
+    if (!ids.length) { alert("Select at least one tourist first."); return; }
+    downloadTouristsXlsx(ids, `tourists-selected-${tripId || "trip"}.xlsx`);
   });
 
   // ── Group form ───────────────────────────────────────────────

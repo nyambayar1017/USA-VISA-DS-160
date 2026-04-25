@@ -51,6 +51,7 @@ NOTIFICATIONS_FILE = DATA_DIR / "notifications.json"
 NOTIFICATIONS_MAX = 200
 GROUPS_FILE = DATA_DIR / "tourist_groups.json"
 TOURISTS_FILE = DATA_DIR / "tourists.json"
+INVOICES_FILE = DATA_DIR / "invoices.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 SESSION_COOKIE = "travelx_session"
@@ -419,6 +420,91 @@ def read_tourists():
 
 def write_tourists(records):
     write_json_list(TOURISTS_FILE, records)
+
+
+def read_invoices():
+    return read_json_list(INVOICES_FILE)
+
+
+def write_invoices(records):
+    write_json_list(INVOICES_FILE, records)
+
+
+def next_invoice_serial():
+    existing = read_invoices()
+    max_seq = 0
+    for record in existing:
+        s = str(record.get("serial") or "")
+        if s.isdigit():
+            max_seq = max(max_seq, int(s))
+    return str(max_seq + 1).zfill(6)
+
+
+def build_invoice(payload, actor=None):
+    items = []
+    for raw in payload.get("items") or []:
+        desc = normalize_text(raw.get("description"))
+        if not desc:
+            continue
+        try:
+            qty = float(raw.get("qty") or 1)
+        except Exception:
+            qty = 1
+        try:
+            price = float(raw.get("price") or 0)
+        except Exception:
+            price = 0
+        items.append({
+            "description": desc,
+            "qty": qty,
+            "price": price,
+            "total": round(qty * price, 2),
+        })
+    installments = []
+    for raw in payload.get("installments") or []:
+        desc = normalize_text(raw.get("description")) or "Installment"
+        try:
+            amount = float(raw.get("amount") or 0)
+        except Exception:
+            amount = 0
+        installments.append({
+            "description": desc,
+            "amount": amount,
+            "issueDate": normalize_text(raw.get("issueDate")),
+            "dueDate": normalize_text(raw.get("dueDate")),
+            "status": normalize_text(raw.get("status")) or "pending",
+        })
+    total = round(sum(i["total"] for i in items), 2)
+    return {
+        "id": str(uuid4()),
+        "serial": next_invoice_serial(),
+        "tripId": normalize_text(payload.get("tripId")),
+        "groupId": normalize_text(payload.get("groupId")),
+        "payerId": normalize_text(payload.get("payerId")),
+        "payerName": normalize_text(payload.get("payerName")),
+        "participantIds": [normalize_text(x) for x in (payload.get("participantIds") or []) if x],
+        "items": items,
+        "total": total,
+        "installments": installments,
+        "currency": normalize_text(payload.get("currency")) or "MNT",
+        "status": "draft",
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": "",
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
+def validate_invoice(data):
+    if not data.get("tripId"):
+        return "tripId is required"
+    if not data.get("groupId"):
+        return "groupId is required"
+    if not data.get("payerName") and not data.get("payerId"):
+        return "Payer is required"
+    if not data.get("items"):
+        return "At least one item is required"
+    return None
 
 
 def next_group_serial(trip_serial, trip_id):
@@ -4931,7 +5017,7 @@ def build_camp_trip(payload, actor=None):
 
 
 def validate_camp_trip(data):
-    required = ["tripName", "startDate", "language"]
+    required = ["tripName", "startDate"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -5287,6 +5373,198 @@ def handle_delete_tourist(environ, start_response, tourist_id):
         return json_response(start_response, "404 Not Found", {"error": "Tourist not found"})
     write_tourists(remaining)
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": tourist_id})
+
+
+def handle_list_invoices(environ, start_response):
+    if not require_login(environ, start_response):
+        return []
+    qs = parse_qs(environ.get("QUERY_STRING", ""))
+    trip_id = (qs.get("tripId") or [""])[0].strip()
+    group_id = (qs.get("groupId") or [""])[0].strip()
+    records = read_invoices()
+    if trip_id:
+        records = [r for r in records if r.get("tripId") == trip_id]
+    if group_id:
+        records = [r for r in records if r.get("groupId") == group_id]
+    records.sort(key=lambda r: r.get("createdAt") or "", reverse=True)
+    return json_response(start_response, "200 OK", {"entries": records})
+
+
+def handle_create_invoice(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    record = build_invoice(payload, actor)
+    error = validate_invoice(record)
+    if error:
+        return json_response(start_response, "400 Bad Request", {"error": error})
+    records = read_invoices()
+    records.append(record)
+    write_invoices(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_update_invoice(environ, start_response, invoice_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    records = read_invoices()
+    for index, record in enumerate(records):
+        if record.get("id") != invoice_id:
+            continue
+        rebuilt = build_invoice({**record, **payload}, actor)
+        rebuilt["id"] = record["id"]
+        rebuilt["serial"] = record["serial"]
+        rebuilt["createdAt"] = record.get("createdAt", now_mongolia().isoformat())
+        rebuilt["createdBy"] = record.get("createdBy", actor_snapshot(actor))
+        rebuilt["status"] = record.get("status", "draft")
+        rebuilt["updatedAt"] = now_mongolia().isoformat()
+        rebuilt["updatedBy"] = actor_snapshot(actor)
+        error = validate_invoice(rebuilt)
+        if error:
+            return json_response(start_response, "400 Bad Request", {"error": error})
+        records[index] = rebuilt
+        write_invoices(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": rebuilt})
+    return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+
+
+def handle_delete_invoice(environ, start_response, invoice_id):
+    if not require_login(environ, start_response):
+        return []
+    records = read_invoices()
+    remaining = [r for r in records if r.get("id") != invoice_id]
+    if len(remaining) == len(records):
+        return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+    write_invoices(remaining)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": invoice_id})
+
+
+def handle_publish_invoice(environ, start_response, invoice_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_invoices()
+    for index, record in enumerate(records):
+        if record.get("id") != invoice_id:
+            continue
+        record["status"] = "published"
+        record["publishedAt"] = now_mongolia().isoformat()
+        record["updatedAt"] = now_mongolia().isoformat()
+        record["updatedBy"] = actor_snapshot(actor)
+        records[index] = record
+        write_invoices(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": record})
+    return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+
+
+def handle_invoice_payment(environ, start_response, invoice_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    inst_index = payload.get("installmentIndex")
+    if inst_index is None:
+        return json_response(start_response, "400 Bad Request", {"error": "installmentIndex required"})
+    try:
+        inst_index = int(inst_index)
+    except Exception:
+        return json_response(start_response, "400 Bad Request", {"error": "installmentIndex must be integer"})
+    new_status = normalize_text(payload.get("status")) or "paid"
+    paid_date = normalize_text(payload.get("paidDate"))
+    records = read_invoices()
+    for index, record in enumerate(records):
+        if record.get("id") != invoice_id:
+            continue
+        installments = record.get("installments") or []
+        if inst_index < 0 or inst_index >= len(installments):
+            return json_response(start_response, "400 Bad Request", {"error": "installment out of range"})
+        installments[inst_index]["status"] = new_status
+        if paid_date:
+            installments[inst_index]["paidDate"] = paid_date
+        record["installments"] = installments
+        record["updatedAt"] = now_mongolia().isoformat()
+        record["updatedBy"] = actor_snapshot(actor)
+        records[index] = record
+        write_invoices(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": record})
+    return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+
+
+def handle_export_tourists(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    ids = payload.get("ids") or []
+    trip_id = normalize_text(payload.get("tripId"))
+    records = read_tourists()
+    if ids:
+        id_set = set(ids)
+        records = [r for r in records if r.get("id") in id_set]
+    elif trip_id:
+        records = [r for r in records if r.get("tripId") == trip_id]
+    groups_by_id = {g["id"]: g for g in read_tourist_groups()}
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from io import BytesIO
+    except Exception as exc:
+        return json_response(start_response, "500 Internal Server Error", {"error": f"Excel export unavailable: {exc}"})
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Tourists"
+    headers = [
+        "Serial", "Last name", "First name", "Group",
+        "Gender", "Date of birth", "Nationality",
+        "Passport #", "Passport issue date", "Passport expiry", "Passport issued at",
+        "Registration #", "Phone", "Email",
+    ]
+    ws.append(headers)
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="20356F")
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    for r in records:
+        group = groups_by_id.get(r.get("groupId")) or {}
+        ws.append([
+            r.get("serial", ""),
+            r.get("lastName", ""),
+            r.get("firstName", ""),
+            group.get("name") or r.get("groupSerial", ""),
+            r.get("gender", ""),
+            r.get("dob", ""),
+            r.get("nationality", ""),
+            r.get("passportNumber", ""),
+            r.get("passportIssueDate", ""),
+            r.get("passportExpiry", ""),
+            r.get("passportIssuePlace", ""),
+            r.get("registrationNumber", ""),
+            r.get("phone", ""),
+            r.get("email", ""),
+        ])
+    widths = [14, 16, 16, 22, 8, 12, 14, 14, 14, 14, 18, 14, 14, 22]
+    for idx, w in enumerate(widths, start=1):
+        ws.column_dimensions[chr(64 + idx)].width = w
+    buf = BytesIO()
+    wb.save(buf)
+    body = buf.getvalue()
+    filename = f"tourists-{trip_id or 'all'}.xlsx"
+    headers_out = [
+        ("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        ("Content-Length", str(len(body))),
+        ("Content-Disposition", f'attachment; filename="{filename}"'),
+    ]
+    start_response("200 OK", headers_out)
+    return [body]
 
 
 def ensure_checkout_from_nights(check_in, nights, check_out):
@@ -7733,6 +8011,38 @@ def app(environ, start_response):
             return handle_create_tourist(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/tourists/export":
+        if method == "POST":
+            return handle_export_tourists(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/invoices":
+        if method == "GET":
+            return handle_list_invoices(environ, start_response)
+        if method == "POST":
+            return handle_create_invoice(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/invoices/") and path.endswith("/publish"):
+        invoice_id = path.replace("/api/invoices/", "", 1).replace("/publish", "", 1).strip("/")
+        if method == "POST" and invoice_id:
+            return handle_publish_invoice(environ, start_response, invoice_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/invoices/") and path.endswith("/payment"):
+        invoice_id = path.replace("/api/invoices/", "", 1).replace("/payment", "", 1).strip("/")
+        if method == "POST" and invoice_id:
+            return handle_invoice_payment(environ, start_response, invoice_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/invoices/"):
+        invoice_id = path.replace("/api/invoices/", "", 1).strip("/")
+        if method == "POST" and invoice_id:
+            return handle_update_invoice(environ, start_response, invoice_id)
+        if method == "DELETE" and invoice_id:
+            return handle_delete_invoice(environ, start_response, invoice_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path.startswith("/api/tourists/"):
         tourist_id = path.replace("/api/tourists/", "", 1).strip("/")
         if method == "POST" and tourist_id:
@@ -8214,6 +8524,9 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "group.html")
+
+    if path == "/invoice-view":
+        return file_response(start_response, PUBLIC_DIR / "invoice-view.html")
 
     if path == "/admin":
         user = current_user(environ)

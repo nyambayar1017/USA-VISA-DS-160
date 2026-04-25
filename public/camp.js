@@ -1978,15 +1978,15 @@ function startTripEdit(id) {
   tripForm.elements.participantCount.value = String(trip.participantCount || 0);
   tripForm.elements.staffCount.value = String(trip.staffCount || 0);
   tripForm.elements.totalDays.value = String(trip.totalDays || 1);
-  tripForm.elements.language.value = trip.language || "";
+  if (tripForm.elements.language) tripForm.elements.language.value = trip.language || "";
   tripForm.elements.status.value = trip.status || "planning";
   if (tripForm.elements.tags) {
     tripForm.elements.tags.value = Array.isArray(trip.tags) ? trip.tags.join(", ") : "";
   }
   tripStatus.textContent = `Editing trip: ${trip.tripName}`;
-  tripForm.elements.guideName.value = trip.guideName || "";
-  tripForm.elements.driverName.value = trip.driverName || "";
-  tripForm.elements.cookName.value = trip.cookName || "";
+  if (tripForm.elements.guideName) tripForm.elements.guideName.value = trip.guideName || "";
+  if (tripForm.elements.driverName) tripForm.elements.driverName.value = trip.driverName || "";
+  if (tripForm.elements.cookName) tripForm.elements.cookName.value = trip.cookName || "";
   if (tripForm.elements.tripType) {
     tripForm.elements.tripType.value = (trip.tripType || "git").toLowerCase();
   }
@@ -2005,6 +2005,7 @@ function resetTripFormState() {
   tripForm.elements.status.value = "planning";
   if (tripForm.elements.tripType) tripForm.elements.tripType.value = "git";
   applyTripTypeMode();
+  clearTripFlightRows();
   tripStatus.textContent = "";
 }
 
@@ -2260,21 +2261,112 @@ async function exportReservationsAsPdf(entries, filename = "camp-reservations.pd
   }
 }
 
+function getTripFlightsList() {
+  return tripForm?.querySelector("[data-trip-flights-list]") || null;
+}
+
+function addTripFlightRow(prefill = {}) {
+  const list = getTripFlightsList();
+  if (!list) return;
+  const idx = list.querySelectorAll(".trip-flight-row").length + 1;
+  const div = document.createElement("div");
+  div.className = "trip-flight-row";
+  div.innerHTML = `
+    <div class="trip-flight-row-head">
+      <strong>Flight ${idx}</strong>
+      <button type="button" class="table-link compact secondary" data-action="trip-flight-remove">Remove</button>
+    </div>
+    <div class="trip-flight-row-grid">
+      <label>Airline<input data-flight-field="airline" placeholder="MIAT" value="${prefill.airline || ""}" /></label>
+      <label>Flight #<input data-flight-field="flightNumber" placeholder="OM 301" value="${prefill.flightNumber || ""}" /></label>
+      <label>From<input data-flight-field="fromCity" placeholder="UBN" value="${prefill.fromCity || ""}" /></label>
+      <label>To<input data-flight-field="toCity" placeholder="SGN" value="${prefill.toCity || ""}" /></label>
+      <label>Depart date<input type="date" data-flight-field="departureDate" value="${prefill.departureDate || ""}" /></label>
+      <label>Depart time<input type="time" data-flight-field="departureTime" value="${prefill.departureTime || ""}" /></label>
+      <label>Arrive date<input type="date" data-flight-field="arrivalDate" value="${prefill.arrivalDate || ""}" /></label>
+      <label>Arrive time<input type="time" data-flight-field="arrivalTime" value="${prefill.arrivalTime || ""}" /></label>
+    </div>
+  `;
+  list.appendChild(div);
+}
+
+function readTripFlightRows() {
+  const list = getTripFlightsList();
+  if (!list) return [];
+  return Array.from(list.querySelectorAll(".trip-flight-row")).map((row) => {
+    const obj = {};
+    row.querySelectorAll("[data-flight-field]").forEach((el) => {
+      obj[el.dataset.flightField] = el.value || "";
+    });
+    return obj;
+  }).filter((f) => f.airline || f.flightNumber || f.fromCity || f.toCity || f.departureDate);
+}
+
+function clearTripFlightRows() {
+  const list = getTripFlightsList();
+  if (list) list.innerHTML = "";
+}
+
+tripForm?.addEventListener("click", (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLElement)) return;
+  if (t.dataset.action === "trip-flight-add") {
+    e.preventDefault();
+    addTripFlightRow();
+  } else if (t.dataset.action === "trip-flight-remove") {
+    e.preventDefault();
+    t.closest(".trip-flight-row")?.remove();
+  }
+});
+
 tripForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   tripStatus.textContent = editingTripId ? "Saving trip changes..." : "Saving trip...";
 
   try {
+    const payload = buildPayload(tripForm);
+    if (!payload.language) payload.language = "Other";
+    const flights = readTripFlightRows();
     const result = await fetchJson(editingTripId ? `/api/camp-trips/${editingTripId}` : "/api/camp-trips", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildPayload(tripForm)),
+      body: JSON.stringify(payload),
     });
+    const tripId = result.entry.id;
+    if (flights.length) {
+      tripStatus.textContent = "Saving flights...";
+      for (const f of flights) {
+        const flightPayload = {
+          tripId,
+          tripName: result.entry.tripName,
+          airline: f.airline || "",
+          flightNumber: f.flightNumber || "",
+          fromCity: f.fromCity || "",
+          toCity: f.toCity || "",
+          departureDate: f.departureDate || "",
+          departureTime: f.departureTime || "",
+          arrivalDate: f.arrivalDate || "",
+          arrivalTime: f.arrivalTime || "",
+          passengerCount: result.entry.participantCount || 0,
+          staffCount: result.entry.staffCount || 0,
+          touristTicketStatus: "waiting_list",
+          guideTicketStatus: "waiting_list",
+          paymentStatus: "unpaid",
+        };
+        try {
+          await fetchJson("/api/flight-reservations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(flightPayload),
+          });
+        } catch (e) { console.warn("Flight save failed", e); }
+      }
+    }
     tripStatus.textContent = editingTripId ? `Trip updated: ${result.entry.tripName}` : `Trip created: ${result.entry.tripName}`;
     resetTripFormState();
     closePanel(tripFormPanel);
     await loadTrips();
-    setActiveTrip(result.entry.id);
+    setActiveTrip(tripId);
   } catch (error) {
     tripStatus.textContent = error.message;
   }

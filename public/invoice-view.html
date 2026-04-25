@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invoice</title>
+    <style>
+      body { font-family: 'Montserrat', system-ui, sans-serif; margin: 0; padding: 32px; background: #f5f7fb; color: #2d3548; }
+      .invoice-paper { background: #fff; max-width: 760px; margin: 0 auto; padding: 40px 50px; border-radius: 8px; box-shadow: 0 4px 18px rgba(15,23,42,0.08); }
+      .invoice-actions { max-width: 760px; margin: 0 auto 16px; display: flex; gap: 8px; }
+      button.action { padding: 8px 14px; border-radius: 8px; border: 1px solid #20356f; background: #20356f; color: #fff; cursor: pointer; font-weight: 600; }
+      button.secondary { background: #fff; color: #20356f; }
+      .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+      .invoice-header img { height: 50px; }
+      .invoice-header .meta { text-align: right; color: #4d586f; font-size: 0.92rem; line-height: 1.5; }
+      h1 { font-size: 1.4rem; margin: 4px 0 14px; color: #20356f; }
+      h3 { font-size: 0.92rem; color: #6f7a93; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 28px; margin-bottom: 8px; }
+      .company-block { margin-bottom: 24px; line-height: 1.55; font-size: 0.92rem; }
+      .company-block strong { display: block; font-size: 1.05rem; color: #20356f; }
+      .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 18px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+      th, td { padding: 10px 12px; text-align: left; font-size: 0.93rem; border-bottom: 1px solid rgba(32,53,111,0.08); }
+      th { color: #6f7a93; font-weight: 600; background: rgba(32,53,111,0.04); }
+      td.right, th.right { text-align: right; }
+      td.center, th.center { text-align: center; }
+      tfoot td { font-weight: 700; }
+      .installments { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+      .installment { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 12px; padding: 12px; border: 1px solid rgba(32,53,111,0.1); border-radius: 8px; align-items: center; }
+      .installment .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; }
+      .pill-pending { background: #fef3c7; color: #78350f; }
+      .pill-paid { background: #dcfce7; color: #14532d; }
+      .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 40px; padding-top: 24px; border-top: 1px solid rgba(32,53,111,0.08); font-size: 0.92rem; }
+      .signature { border-top: 1px solid #6f7a93; padding-top: 6px; margin-top: 60px; color: #2d3548; }
+      .empty { text-align: center; color: #6f7a93; padding: 40px; }
+      @media print {
+        body { background: #fff; padding: 0; }
+        .invoice-paper { box-shadow: none; max-width: 100%; padding: 24px 32px; }
+        .invoice-actions { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="invoice-actions">
+      <button type="button" class="action" onclick="window.print()">Download as PDF</button>
+      <button type="button" class="action secondary" onclick="window.close()">Close</button>
+    </div>
+    <div id="invoice-paper" class="invoice-paper"><p class="empty">Loading…</p></div>
+    <script>
+      function escapeHtml(value) {
+        return String(value == null ? "" : value)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+      }
+      function fmtMoney(n) {
+        const num = Number(n) || 0;
+        return num.toLocaleString("en-US") + " ₮";
+      }
+      async function load() {
+        const id = new URLSearchParams(window.location.search).get("id");
+        if (!id) { document.getElementById("invoice-paper").innerHTML = '<p class="empty">No invoice id provided.</p>'; return; }
+        const list = await fetch("/api/invoices").then((r) => r.json()).catch(() => ({ entries: [] }));
+        const inv = (list.entries || []).find((x) => x.id === id);
+        if (!inv) { document.getElementById("invoice-paper").innerHTML = '<p class="empty">Invoice not found.</p>'; return; }
+        const itemsHtml = (inv.items || []).map((it, i) => `
+          <tr><td class="center">${i + 1}</td><td>${escapeHtml(it.description)}</td><td class="center">${escapeHtml(it.qty)}</td><td class="right">${fmtMoney(it.price)}</td><td class="right">${fmtMoney(it.total)}</td></tr>
+        `).join("");
+        const installmentsHtml = (inv.installments || []).map((inst) => `
+          <div class="installment">
+            <strong>${escapeHtml(inst.description)}</strong>
+            <div><div style="color:#6f7a93;font-size:0.78rem;">Issue Date</div>${escapeHtml(inst.issueDate || "-")}</div>
+            <div><div style="color:#6f7a93;font-size:0.78rem;">Due Date</div>${escapeHtml(inst.dueDate || "-")}</div>
+            <div><span class="pill pill-${escapeHtml(inst.status || "pending")}">${escapeHtml(inst.status || "pending")}</span></div>
+            <strong style="text-align:right">${fmtMoney(inst.amount)}</strong>
+          </div>
+        `).join("");
+        document.getElementById("invoice-paper").innerHTML = `
+          <div class="invoice-header">
+            <div>
+              <h1>Invoice #${escapeHtml(inv.serial)}</h1>
+              <div style="color:#6f7a93;font-size:0.92rem;">Status: ${escapeHtml(inv.status)}</div>
+            </div>
+            <div class="meta">
+              <div>Issue date</div>
+              <strong>${escapeHtml((inv.createdAt || "").slice(0, 10))}</strong>
+            </div>
+          </div>
+          <div class="company-block">
+            <strong>TravelX</strong>
+            Ulaanbaatar, Mongolia<br />
+            info@travelx.mn · +976 7200 7722
+          </div>
+          <div class="row-grid">
+            <div>
+              <h3>Payer</h3>
+              <strong>${escapeHtml(inv.payerName || "-")}</strong>
+            </div>
+            <div>
+              <h3>Currency</h3>
+              <strong>${escapeHtml(inv.currency)}</strong>
+            </div>
+          </div>
+          <h3>Price details</h3>
+          <table>
+            <thead><tr><th class="center">№</th><th>Description</th><th class="center">Qty</th><th class="right">Price</th><th class="right">Total</th></tr></thead>
+            <tbody>${itemsHtml}</tbody>
+            <tfoot><tr><td colspan="4" class="right">Total</td><td class="right">${fmtMoney(inv.total)}</td></tr></tfoot>
+          </table>
+          <h3>Payment schedule</h3>
+          <div class="installments">${installmentsHtml || '<p class="empty">No installments.</p>'}</div>
+          <div class="footer">
+            <div>
+              <strong>TravelX</strong>
+              <div class="signature">Signature</div>
+            </div>
+            <div>
+              <strong>${escapeHtml(inv.payerName || "-")}</strong>
+              <div class="signature">Signature</div>
+            </div>
+          </div>
+        `;
+        document.title = `Invoice #${inv.serial}`;
+      }
+      load();
+    </script>
+  </body>
+</html>

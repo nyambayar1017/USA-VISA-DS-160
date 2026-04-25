@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-145" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-146" />
   </head>
   <body class="app-body" data-page="camp-reservations">
     <div class="workspace-shell">
@@ -120,20 +120,12 @@
                   <input name="totalDays" type="number" min="1" value="1" required />
                 </label>
                 <label>
-                  Guide
-                  <input name="guideName" placeholder="Guide name" />
-                </label>
-                <label>
                   Driver
                   <input name="driverName" placeholder="Driver name" />
                 </label>
                 <label>
                   Cook
                   <input name="cookName" placeholder="Cook name" />
-                </label>
-                <label>
-                  Language
-                  <select name="language" id="trip-language-select" required></select>
                 </label>
                 <label>
                   Status
@@ -149,6 +141,13 @@
                   Tags
                   <input name="tags" placeholder="Comma-separated tags (e.g. VIP, Honeymoon)" />
                 </label>
+                <div class="full-span trip-flights-block">
+                  <div class="trip-flights-head">
+                    <strong>Flights</strong>
+                    <button type="button" class="secondary-button trip-flight-add" data-action="trip-flight-add">+ Add flight</button>
+                  </div>
+                  <div class="trip-flights-list" data-trip-flights-list></div>
+                </div>
                 <div class="actions full-span">
                   <button type="submit">Save trip</button>
                   <p id="trip-status" class="status"></p>
@@ -338,10 +337,10 @@
           <div class="section-head">
             <div>
               <h2>Invoices</h2>
-              <p>Contracts and payments tied to this trip.</p>
+              <p>Create invoices per group with items and payment installments.</p>
             </div>
             <div class="camp-toolbar">
-              <a class="secondary-button" id="invoices-add-link" href="/contracts">Open contracts</a>
+              <button type="button" id="invoice-create-btn">Create invoice</button>
             </div>
           </div>
           <div id="trip-invoices-list" class="submission-list"></div>
@@ -364,7 +363,7 @@
                 <option value="Invoices">Invoices</option>
                 <option value="Flight Tickets">Flight Tickets</option>
                 <option value="Passports &amp; Visas">Passports &amp; Visas</option>
-                <option value="Hotel Vouchers">Hotel Vouchers</option>
+                <option value="Insurance">Insurance</option>
                 <option value="Contracts">Contracts</option>
               </select>
             </div>
@@ -385,7 +384,7 @@
             <button class="doc-filter-tab" data-filter="Invoices">Invoices</button>
             <button class="doc-filter-tab" data-filter="Flight Tickets">Flight Tickets</button>
             <button class="doc-filter-tab" data-filter="Passports &amp; Visas">Passports &amp; Visas</button>
-            <button class="doc-filter-tab" data-filter="Hotel Vouchers">Hotel Vouchers</button>
+            <button class="doc-filter-tab" data-filter="Insurance">Insurance</button>
             <button class="doc-filter-tab" data-filter="Contracts">Contracts</button>
             <button class="doc-filter-tab" data-filter="Other">Other</button>
           </nav>
@@ -1037,8 +1036,9 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-84"></script>
-    <script src="/camp.js?v=workspace-97"></script>
+    <script src="/camp.js?v=workspace-98"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
-    <script src="/trip-extras.js?v=workspace-3"></script>
+    <script src="/trip-extras.js?v=workspace-4"></script>
+    <script src="/invoice.js?v=workspace-1"></script>
   </body>
 </html>
