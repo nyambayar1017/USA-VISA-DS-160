@@ -6,11 +6,14 @@
 
   let panelOpen = false;
   let busy = false;
-  let messages = []; // {role:"user"|"assistant", text:string, actions?:[]}
-  let bubble, panel, listEl, inputEl, sendBtn, clearBtn, statusEl, micBtn, ttsBtn;
+  let messages = []; // {role:"user"|"assistant", text:string, actions?:[], images?:[]}
+  let pendingImages = []; // {name, dataUrl}
+  let bubble, panel, listEl, inputEl, sendBtn, clearBtn, statusEl, micBtn, ttsBtn, attachBtn, fileInput, pendingArea;
   let recognition = null;
   let recognizing = false;
   let ttsEnabled = false;
+  const MAX_IMAGES = 5;
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
   try { ttsEnabled = localStorage.getItem("agent-tts") === "1"; } catch (e) {}
 
   function el(tag, props, children) {
@@ -36,22 +39,24 @@
     listEl.innerHTML = "";
     if (!messages.length) {
       const hint = el("div", { class: "agent-empty" }, [
-        "Сайн уу? Би таны туслах. Жишээ нь:",
-        el("br"),
-        el("br"),
-        "• \"DTX-н идэвхтэй аяллуудыг харуул\"",
-        el("br"),
-        "• \"Шинэ аялал нэмье\"",
-        el("br"),
-        "• \"Энэ группд жуулчин нэмье\"",
+        "Сайн уу? Би Батаа.",
       ]);
       listEl.appendChild(hint);
     }
     messages.forEach((m) => {
       const cls = "agent-msg " + (m.role === "user" ? "is-user" : "is-assistant");
       const node = el("div", { class: cls });
-      const body = el("div", { class: "agent-msg-body" }, [m.text || ""]);
-      node.appendChild(body);
+      if (Array.isArray(m.images) && m.images.length) {
+        const imgWrap = el("div", { class: "agent-msg-images" });
+        m.images.forEach((img) => {
+          imgWrap.appendChild(el("img", { src: img.dataUrl, alt: img.name || "image" }));
+        });
+        node.appendChild(imgWrap);
+      }
+      if (m.text) {
+        const body = el("div", { class: "agent-msg-body" }, [m.text]);
+        node.appendChild(body);
+      }
       if (Array.isArray(m.actions) && m.actions.length) {
         const acts = el("div", { class: "agent-actions" });
         m.actions.forEach((a) => {
@@ -94,9 +99,12 @@
 
   async function send() {
     const text = (inputEl.value || "").trim();
-    if (!text || busy) return;
+    if ((!text && !pendingImages.length) || busy) return;
     inputEl.value = "";
-    messages.push({ role: "user", text });
+    const sentImages = pendingImages.slice();
+    pendingImages = [];
+    renderPending();
+    messages.push({ role: "user", text, images: sentImages });
     render();
     setBusy(true);
     try {
@@ -104,7 +112,10 @@
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          images: sentImages.map((f) => ({ dataUrl: f.dataUrl })),
+        }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
@@ -209,6 +220,59 @@
     }
   }
 
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function handleFiles(files) {
+    for (const f of files) {
+      if (pendingImages.length >= MAX_IMAGES) {
+        alert(`Хамгийн ихдээ ${MAX_IMAGES} зураг хавсаргана.`);
+        break;
+      }
+      if (!/^image\/(jpeg|png|gif|webp)$/i.test(f.type)) {
+        alert("Зөвхөн JPG, PNG, GIF, WebP зураг хавсаргана.");
+        continue;
+      }
+      if (f.size > MAX_IMAGE_BYTES) {
+        alert(`"${f.name}" хэт том (5MB-ээс илүү).`);
+        continue;
+      }
+      try {
+        const dataUrl = await fileToDataUrl(f);
+        pendingImages.push({ name: f.name, dataUrl });
+      } catch (e) {}
+    }
+    renderPending();
+  }
+
+  function renderPending() {
+    if (!pendingArea) return;
+    pendingArea.innerHTML = "";
+    if (!pendingImages.length) {
+      pendingArea.classList.remove("has-files");
+      return;
+    }
+    pendingArea.classList.add("has-files");
+    pendingImages.forEach((f, idx) => {
+      const chip = el("div", { class: "agent-pending-chip" }, [
+        el("img", { src: f.dataUrl, alt: f.name }),
+        el("button", {
+          type: "button",
+          class: "agent-pending-x",
+          title: "Устгах",
+          onclick: () => { pendingImages.splice(idx, 1); renderPending(); },
+        }, ["×"]),
+      ]);
+      pendingArea.appendChild(chip);
+    });
+  }
+
   async function clearHistory() {
     if (!confirm("Чатын түүхийг устгах уу?")) return;
     try {
@@ -241,7 +305,7 @@
     inputEl = el("textarea", {
       class: "agent-input",
       rows: "2",
-      placeholder: "Юу хийх вэ? (Жишээ: 'DTX-н идэвхтэй аяллуудыг харуул')",
+      placeholder: "",
       onkeydown: (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
@@ -265,6 +329,25 @@
       onclick: toggleTts,
     }, ["🔊"]);
 
+    fileInput = el("input", {
+      type: "file",
+      accept: "image/jpeg,image/png,image/gif,image/webp",
+      multiple: "multiple",
+      style: "display:none",
+    });
+    fileInput.addEventListener("change", () => {
+      handleFiles(Array.from(fileInput.files || []));
+      fileInput.value = "";
+    });
+    attachBtn = el("button", {
+      class: "agent-attach",
+      type: "button",
+      title: "Зураг хавсаргах",
+      onclick: () => fileInput.click(),
+    }, ["📎"]);
+
+    pendingArea = el("div", { class: "agent-pending-area" });
+
     const header = el("div", { class: "agent-header" }, [
       el("div", { class: "agent-title" }, ["Батаа ", el("span", { class: "agent-tag" }, ["admin"])]),
       el("div", { class: "agent-header-actions" }, [
@@ -274,9 +357,9 @@
       ]),
     ]);
 
-    const inputRow = el("div", { class: "agent-input-row" }, [micBtn, inputEl, sendBtn]);
+    const inputRow = el("div", { class: "agent-input-row" }, [attachBtn, micBtn, inputEl, sendBtn, fileInput]);
 
-    panel = el("div", { class: "agent-panel" }, [header, listEl, statusEl, inputRow]);
+    panel = el("div", { class: "agent-panel" }, [header, listEl, statusEl, pendingArea, inputRow]);
 
     document.body.appendChild(bubble);
     document.body.appendChild(panel);

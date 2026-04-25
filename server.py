@@ -8305,10 +8305,28 @@ def handle_update_contract_invoice(environ, start_response, contract_id):
 
 AGENT_CONVERSATIONS_FILE = DATA_DIR / "agent_conversations.json"
 AGENT_AUDIT_FILE = DATA_DIR / "agent_audit.json"
+AGENT_MEMORY_FILE = DATA_DIR / "agent_memory.json"
 AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-sonnet-4-5-20250929")
 AGENT_MAX_TOKENS = 4096
 AGENT_MAX_TOOL_LOOPS = 8
 AGENT_HISTORY_TURNS = 20  # how many user/assistant turns we keep per user
+AGENT_MAX_IMAGES_PER_MESSAGE = 5
+AGENT_MAX_IMAGE_BYTES = 5 * 1024 * 1024  # Anthropic per-image limit
+
+
+def _agent_load_memories():
+    if not AGENT_MEMORY_FILE.exists():
+        return []
+    try:
+        data = json.loads(AGENT_MEMORY_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _agent_save_memories(records):
+    AGENT_MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    AGENT_MEMORY_FILE.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _agent_load_conversations():
@@ -8668,6 +8686,48 @@ def _tool_list_fifa_inventory(args, actor):
     return tickets[:200] if isinstance(tickets, list) else (tickets or [])
 
 
+def _tool_save_memory(args, actor):
+    text = (args.get("text") or "").strip()
+    if not text:
+        return {"error": "text is required"}
+    if len(text) > 1000:
+        return {"error": "memory text too long (max 1000 chars)"}
+    category = (args.get("category") or "general").strip().lower() or "general"
+    mems = _agent_load_memories()
+    record = {
+        "id": str(uuid4()),
+        "text": text,
+        "category": category,
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": (actor or {}).get("email") or (actor or {}).get("id") or "admin",
+    }
+    mems.append(record)
+    if len(mems) > 200:
+        mems = mems[-200:]
+    _agent_save_memories(mems)
+    return {"ok": True, "memory": {"id": record["id"], "category": category, "text": text[:80]}}
+
+
+def _tool_list_memories(args, actor):
+    cat = (args.get("category") or "").strip().lower()
+    mems = _agent_load_memories()
+    if cat:
+        mems = [m for m in mems if (m.get("category") or "") == cat]
+    return mems
+
+
+def _tool_delete_memory(args, actor):
+    mid = (args.get("memoryId") or "").strip()
+    if not mid:
+        return {"error": "memoryId is required"}
+    mems = _agent_load_memories()
+    new = [m for m in mems if m.get("id") != mid]
+    if len(new) == len(mems):
+        return {"error": "Memory not found"}
+    _agent_save_memories(new)
+    return {"ok": True}
+
+
 # ── Tool registry (Claude-facing JSON schemas) ────────────────────────
 
 AGENT_TOOLS = [
@@ -8796,6 +8856,17 @@ AGENT_TOOLS = [
     {"name": "list_fifa_inventory", "description": "List FIFA 2026 ticket inventory entries (first 200).",
      "input_schema": {"type": "object", "properties": {}},
      "handler": _tool_list_fifa_inventory},
+    {"name": "save_memory", "description": "Save a long-term note that you (Батаа) should remember in every future conversation. Use this when the admin says 'remember that…', 'санаж аваач', or teaches you a business rule, naming convention, recurring price, or fact that is not obvious from the data. Categories: 'rule' for business rules, 'fact' for facts, 'preference' for stylistic preferences, 'general' otherwise. Keep text short and self-contained.",
+     "input_schema": {"type": "object", "required": ["text"], "properties": {
+         "text": {"type": "string", "description": "The note to remember (max 1000 chars)."},
+         "category": {"type": "string", "description": "rule | fact | preference | general"}}},
+     "handler": _tool_save_memory},
+    {"name": "list_memories", "description": "List long-term notes saved via save_memory. Optional category filter.",
+     "input_schema": {"type": "object", "properties": {"category": {"type": "string"}}},
+     "handler": _tool_list_memories},
+    {"name": "delete_memory", "description": "Delete a long-term note by id. Use when the admin says 'forget that' or 'мартчих'.",
+     "input_schema": {"type": "object", "required": ["memoryId"], "properties": {"memoryId": {"type": "string"}}},
+     "handler": _tool_delete_memory},
 ]
 AGENT_TOOL_BY_NAME = {t["name"]: t for t in AGENT_TOOLS}
 
@@ -8803,7 +8874,19 @@ AGENT_TOOL_BY_NAME = {t["name"]: t for t in AGENT_TOOLS}
 def _agent_system_prompt(actor):
     name = (actor or {}).get("fullName") or (actor or {}).get("email") or "admin"
     today = now_mongolia().date().isoformat()
-    return f"""You are "Батаа" (Bataa) — the in-app admin assistant for travelx.mn back-office. Today is {today}. You are talking to {name} (admin). Introduce yourself as Батаа when greeted; reply in Mongolian by default unless the user writes in another language.
+    memories = _agent_load_memories()
+    if memories:
+        mem_lines = "\n".join(
+            f"- [{m.get('category', 'general')}] {m.get('text', '')}"
+            for m in memories[-80:]
+        )
+        memory_block = (
+            "\n\nLong-term memory (notes saved by the admin team — treat as authoritative business rules):\n"
+            + mem_lines + "\n"
+        )
+    else:
+        memory_block = ""
+    return f"""You are "Батаа" (Bataa) — the in-app admin assistant for travelx.mn back-office. Today is {today}. You are talking to {name} (admin). Introduce yourself as Батаа when greeted; reply in Mongolian by default unless the user writes in another language.{memory_block}
 
 Domain context:
 - Two workspaces: DTX (Delkhii Travel Ix — outbound tours) and USM (Unlock Steppe Mongolia — inbound). Records carry a `company` field with value "DTX" or "USM"; tool inputs use `workspace` as a friendly synonym for the same thing.
@@ -8821,6 +8904,16 @@ How you work:
 - If a tool returns {{"error": ...}}, explain what went wrong and propose a fix. If a list returns 0 items, double-check by calling the same tool without filters before telling the user the data is empty — the filter may be wrong.
 - For dates, use yyyy-mm-dd. For money, use plain numbers (no commas) when calling tools.
 - Never invent IDs; only use ones returned by tools.
+
+Long-term memory:
+- Use save_memory whenever the admin teaches you something durable — a business rule, a recurring price, a naming convention, a person's role, a recurring instruction. Confirm in your reply (e.g., "Тэмдэглэн авлаа").
+- Use list_memories when you want to recall what's been saved (the most recent ~80 are also injected into your system prompt automatically).
+- Use delete_memory when the admin says forget / мартчих / устга.
+
+Images:
+- The admin can attach images (passport pages, contracts, ID photos, receipts). When attached, read them carefully and extract whatever the admin asks for — names, passport numbers, dates of birth, expiry dates, nationality, document numbers.
+- For passports: read fields exactly as printed (Latin letters), then offer to create a tourist record via create_tourist with the extracted fields. Do not call create_tourist without confirming with the admin first.
+- If a field is unclear or partially obscured, say so rather than guessing.
 """
 
 
@@ -8891,11 +8984,39 @@ def handle_agent_chat(environ, start_response):
 
     payload = collect_json(environ) or {}
     user_msg = (payload.get("message") or "").strip()
-    if not user_msg:
+    raw_images = payload.get("images") or []
+    if not isinstance(raw_images, list):
+        raw_images = []
+    raw_images = raw_images[:AGENT_MAX_IMAGES_PER_MESSAGE]
+
+    image_blocks = []
+    for img in raw_images:
+        data_url = (img.get("dataUrl") or "") if isinstance(img, dict) else ""
+        if not data_url.startswith("data:"):
+            continue
+        try:
+            header, b64 = data_url.split(";base64,", 1)
+        except ValueError:
+            continue
+        media_type = header.replace("data:", "", 1).strip().lower() or "image/jpeg"
+        if media_type not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+            continue
+        # Cheap size guard: base64 length * 3/4 ≈ raw bytes.
+        if len(b64) * 3 // 4 > AGENT_MAX_IMAGE_BYTES:
+            continue
+        image_blocks.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": media_type, "data": b64},
+        })
+
+    if not user_msg and not image_blocks:
         return json_response(start_response, "400 Bad Request", {"error": "Empty message"})
 
-    # Append the new user message.
-    history.append({"role": "user", "content": [{"type": "text", "text": user_msg}]})
+    # Build the user content blocks: images first, then text. Always include
+    # at least a text block so Claude has something to respond to.
+    content_blocks = list(image_blocks)
+    content_blocks.append({"type": "text", "text": user_msg or "(зураг хавсаргав — танилцана уу)"})
+    history.append({"role": "user", "content": content_blocks})
 
     system = _agent_system_prompt(actor)
     actions = []  # human-readable summary of tool calls performed
@@ -8950,7 +9071,23 @@ def handle_agent_chat(environ, start_response):
     # Trim history to keep it bounded but preserve assistant/tool pairs.
     if len(history) > AGENT_HISTORY_TURNS * 4:
         history = history[-AGENT_HISTORY_TURNS * 4:]
-    convs[user_key] = history
+    # Strip base64 image bytes before persisting — keep a placeholder so the
+    # assistant's later turns still know an image was attached, but don't bloat
+    # the JSON file with megabytes of base64.
+    persistable = []
+    for turn in history:
+        content = turn.get("content")
+        if isinstance(content, list):
+            new_content = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "image":
+                    new_content.append({"type": "text", "text": "[image attached, omitted from history]"})
+                else:
+                    new_content.append(block)
+            persistable.append({**turn, "content": new_content})
+        else:
+            persistable.append(turn)
+    convs[user_key] = persistable
     _agent_save_conversations(convs)
 
     return json_response(start_response, "200 OK", {
