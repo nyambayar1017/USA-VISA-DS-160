@@ -432,6 +432,15 @@
     touristForm.elements.id.value = "";
     if (touristFormTitle) touristFormTitle.textContent = "New tourist";
     if (touristFormStatus) touristFormStatus.textContent = "";
+    // DTX defaults: nationality MONGOLIAN, passport issued in ULAANBAATAR.
+    if (typeof readWorkspace === "function" && readWorkspace() === "DTX") {
+      if (touristForm.elements.nationality && !touristForm.elements.nationality.value) {
+        touristForm.elements.nationality.value = "MONGOLIAN";
+      }
+      if (touristForm.elements.passportIssuePlace && !touristForm.elements.passportIssuePlace.value) {
+        touristForm.elements.passportIssuePlace.value = "ULAANBAATAR";
+      }
+    }
   }
 
   async function ensureDefaultGroup() {

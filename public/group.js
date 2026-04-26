@@ -1298,6 +1298,17 @@ function resetForm() {
   form.elements.id.value = "";
   formTitle.textContent = "New participant";
   formStatus.textContent = "";
+  // DTX participants are overwhelmingly Mongolian with passports issued in
+  // Ulaanbaatar — pre-fill those defaults to save typing. Admin can overwrite.
+  // USM clients are international, so leave blank there.
+  if (typeof readWorkspace === "function" && readWorkspace() === "DTX") {
+    if (form.elements.nationality && !form.elements.nationality.value) {
+      form.elements.nationality.value = "MONGOLIAN";
+    }
+    if (form.elements.passportIssuePlace && !form.elements.passportIssuePlace.value) {
+      form.elements.passportIssuePlace.value = "ULAANBAATAR";
+    }
+  }
 }
 
 addBtn.addEventListener("click", () => {
