@@ -8137,9 +8137,12 @@ def handle_sign_contract(environ, start_response, contract_id):
 
 
 def _send_signed_contract_email(contract):
-    """Auto-send the signed contract PDF + matching invoice PDF to the client
-    (and to info@travelx.mn). Failures are logged and swallowed — a Resend
-    outage must not break the client's signing flow."""
+    """Auto-send after a client signs. Two separate emails:
+      1. Friendly confirmation to the client (with auto-disclaimer footer).
+      2. Internal notification to info@travelx.mn with full client/contract
+         details, no "do not reply" footer (it's self-referential).
+    Both carry the contract PDF + invoice PDF as attachments. Failures are
+    logged and swallowed — a Resend outage must not break the signing flow."""
     try:
         data = contract.get("data") or {}
         client_email = (data.get("clientEmail") or "").strip()
@@ -8148,26 +8151,70 @@ def _send_signed_contract_email(contract):
         serial = data.get("contractSerial") or contract.get("id")
         invoice_id = (contract.get("autoInvoiceId") or "").strip()
         attachments = [{"kind": "contract", "id": contract.get("id")}]
+        invoice_serial = None
         if invoice_id:
             attachments.append({"kind": "invoice", "id": invoice_id})
-        body_lines = [
+            inv = next((i for i in read_invoices() if i.get("id") == invoice_id), None)
+            invoice_serial = inv.get("serial") if inv else None
+        client_name = " ".join(filter(None, [data.get("touristLastName"), data.get("touristFirstName")])) or "—"
+        client_phone = data.get("clientPhone") or "—"
+        destination = data.get("destination") or "—"
+        signed_iso = contract.get("signedAt") or ""
+        try:
+            signed_dt = datetime.fromisoformat(signed_iso.replace("Z", "+00:00")) if signed_iso else None
+            signed_str = signed_dt.astimezone(MONGOLIA_TZ).strftime("%Y-%m-%d %H:%M") if signed_dt else "—"
+        except Exception:
+            signed_str = signed_iso[:16] if signed_iso else "—"
+
+        # Email 1 — to the client
+        client_lines = [
             "Сайн байна уу,",
             "",
             "Гэрээ амжилттай байгууллаа. Хавсаргав:",
             f"- Гэрээ {serial}",
         ]
-        if invoice_id:
-            body_lines.append("- Нэхэмжлэх")
-        body_lines += ["", "Баярлалаа"]
-        args = {
-            "to": [client_email, "info@travelx.mn"],
+        if invoice_serial:
+            client_lines.append(f"- Нэхэмжлэх {invoice_serial}")
+        elif invoice_id:
+            client_lines.append("- Нэхэмжлэх")
+        client_lines += ["", "Баярлалаа"]
+        client_args = {
+            "to": [client_email],
             "subject": f"Travelx — Гэрээ {serial}",
-            "body": "\n".join(body_lines),
+            "body": "\n".join(client_lines),
             "attachments": attachments,
         }
-        result = _tool_send_email(args, None)
-        ok = bool(result.get("ok"))
-        print(f"[auto-email] sign-confirmation contract={contract.get('id')} ok={ok} result={result}", flush=True)
+        client_result = _tool_send_email(client_args, None)
+
+        # Email 2 — to info@travelx.mn (internal notification, no auto-footer)
+        internal_lines = [
+            "Үйлчлүүлэгч гэрээнд гарын үсэг зурлаа.",
+            "",
+            f"Гэрээ: {serial}",
+            f"Үйлчлүүлэгч: {client_name}",
+            f"Утас: {client_phone}",
+            f"Имэйл: {client_email}",
+            f"Аяллын чиглэл: {destination}",
+            f"Гарын үсэг зурсан: {signed_str}",
+            "",
+            f"Гэрээ болон нэхэмжлэхийг {client_email} хаяг руу автоматаар илгээлээ.",
+        ]
+        internal_args = {
+            "to": ["info@travelx.mn"],
+            "subject": f"Шинэ гарын үсэг — Гэрээ {serial} — {client_name}",
+            "body": "\n".join(internal_lines),
+            "attachments": attachments,
+            "_skip_footer": True,
+        }
+        internal_result = _tool_send_email(internal_args, None)
+
+        ok = bool(client_result.get("ok"))
+        print(
+            f"[auto-email] sign-confirmation contract={contract.get('id')} "
+            f"client_ok={client_result.get('ok')} internal_ok={internal_result.get('ok')} "
+            f"client_result={client_result} internal_result={internal_result}",
+            flush=True,
+        )
         return ok
     except Exception as exc:
         print(f"[auto-email] sign-confirmation crashed: {type(exc).__name__}: {exc}", flush=True)
@@ -9031,14 +9078,17 @@ def _tool_send_email(args, actor):
     body_html = "<p>" + html.escape(body).replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
     # Auto-appended footer: small gray italic disclaimer + signature. Server-owned
     # so Bataa can't forget it and styling stays consistent across all sends.
-    body_html += (
-        '<p style="color:#888;font-style:italic;font-size:12px;margin-top:20px">'
-        'Энэ имэйл нь автомат илгээгдсэн тул буцааж хариу бичихгүй байхыг хүсье. '
-        'Шаардлагатай бол <a href="mailto:info@travelx.mn" style="color:#888">info@travelx.mn</a> '
-        'эсвэл <a href="tel:+97672007722" style="color:#888">72007722</a> дугаараар холбогдоорой.'
-        '</p>'
-        '<p style="margin-top:8px">Хүндэтгэсэн,<br>Дэлхий Трэвел Икс</p>'
-    )
+    # Internal callers can pass _skip_footer=True (e.g. when emailing info@travelx.mn
+    # itself, where the "contact info@travelx.mn" line would be self-referential).
+    if not args.get("_skip_footer"):
+        body_html += (
+            '<p style="color:#888;font-style:italic;font-size:12px;margin-top:20px">'
+            'Энэ имэйл нь автомат илгээгдсэн тул буцааж хариу бичихгүй байхыг хүсье. '
+            'Шаардлагатай бол <a href="mailto:info@travelx.mn" style="color:#888">info@travelx.mn</a> '
+            'эсвэл <a href="tel:+97672007722" style="color:#888">72007722</a> дугаараар холбогдоорой.'
+            '</p>'
+            '<p style="margin-top:8px">Хүндэтгэсэн,<br>Дэлхий Трэвел Икс</p>'
+        )
 
     raw_attachments = args.get("attachments") or []
     if not isinstance(raw_attachments, list):
