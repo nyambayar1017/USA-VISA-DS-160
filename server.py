@@ -8089,7 +8089,13 @@ def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, re
         msg["References"] = reply_to_message_id
     msg.set_content(body or "")
 
-    all_recipients = list(to_list) + list(cc_list or []) + list(bcc_list or [])
+    seen = set()
+    all_recipients = []
+    for addr in list(to_list) + list(cc_list or []) + list(bcc_list or []):
+        key = addr.lower().strip()
+        if key and key not in seen:
+            seen.add(key)
+            all_recipients.append(addr)
     try:
         with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as smtp:
             smtp.login(address, password)
@@ -8099,29 +8105,9 @@ def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, re
     except Exception as exc:
         return False, f"SMTP send failed: {exc}"
 
-    # Best-effort: append a copy to Gmail's [Gmail]/Sent Mail so the user sees
-    # it in their regular Gmail Sent folder. If it fails, the message was still
-    # sent — we just don't have a Sent record on the server side.
-    try:
-        import imaplib
-        host = account.get("imapHost") or "imap.gmail.com"
-        port = int(account.get("imapPort") or 993)
-        client = imaplib.IMAP4_SSL(host, port, timeout=20)
-        try:
-            client.login(address, password)
-            try:
-                client.append('"[Gmail]/Sent Mail"', "\\Seen", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
-            except Exception:
-                # Try a non-Gmail "Sent" folder name as a fallback
-                try:
-                    client.append('"Sent"', "\\Seen", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
-                except Exception:
-                    pass
-        finally:
-            try: client.logout()
-            except Exception: pass
-    except Exception:
-        pass
+    # Gmail SMTP automatically saves sent messages to [Gmail]/Sent Mail.
+    # We deliberately do NOT IMAP APPEND a copy ourselves — that would
+    # produce a duplicate in the sender's Sent folder.
     return True, ""
 
 

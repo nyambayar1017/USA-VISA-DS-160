@@ -12,6 +12,7 @@
   let accounts = [];
   let messages = [];
   let selectedKey = "";
+  const checkedKeys = new Set();
 
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
@@ -71,6 +72,7 @@
   function renderList() {
     const rows = getFiltered();
     countNode.textContent = `${rows.length} message${rows.length === 1 ? "" : "s"}`;
+    updateBulkBar();
     if (!rows.length) {
       listNode.innerHTML = '<p class="empty">No messages match.</p>';
       return;
@@ -79,31 +81,77 @@
       const key = getKey(m);
       const isActive = key === selectedKey;
       const isUnread = !m.isRead;
+      const isChecked = checkedKeys.has(key);
       const ini = initials(m.fromName, m.fromEmail);
       const color = colorFor(m.fromEmail || m.from);
       const accountTag = m.accountAddress
         ? `<span class="mail-list-account-tag mail-list-account-tag--${(m.workspace || "DTX").toLowerCase()}">${escapeHtml(m.accountAddress)}</span>`
         : "";
       return `
-        <button type="button" class="mail-list-row${isActive ? " is-active" : ""}${isUnread ? " is-unread" : " is-read"}" data-key="${escapeHtml(key)}">
-          <span class="mail-list-avatar" style="background:${color}">${escapeHtml(ini)}</span>
-          <div class="mail-list-body">
-            <div class="mail-list-row-top">
-              <strong>${escapeHtml(m.fromName || m.fromEmail || "(no sender)")}</strong>
-              <time>${escapeHtml(timeFmt(m.date))}</time>
+        <div class="mail-list-row-wrap${isActive ? " is-active" : ""}${isUnread ? " is-unread" : " is-read"}${isChecked ? " is-checked" : ""}" data-key="${escapeHtml(key)}">
+          <label class="mail-list-check">
+            <input type="checkbox" data-bulk-key="${escapeHtml(key)}" ${isChecked ? "checked" : ""}>
+          </label>
+          <button type="button" class="mail-list-row" data-key="${escapeHtml(key)}">
+            <span class="mail-list-avatar" style="background:${color}">${escapeHtml(ini)}</span>
+            <div class="mail-list-body">
+              <div class="mail-list-row-top">
+                <strong>${escapeHtml(m.fromName || m.fromEmail || "(no sender)")}</strong>
+                <time>${escapeHtml(timeFmt(m.date))}</time>
+              </div>
+              <div class="mail-list-row-mid">
+                <span class="mail-list-subject">${escapeHtml(m.subject || "(no subject)")}</span>
+                ${m.hasAttachment ? '<span class="mail-list-attach" title="Has attachment">📎</span>' : ""}
+              </div>
+              <div class="mail-list-row-bottom">
+                <span class="mail-list-snippet">${escapeHtml((m.snippet || "").slice(0, 140))}</span>
+                ${accountTag}
+              </div>
             </div>
-            <div class="mail-list-row-mid">
-              <span class="mail-list-subject">${escapeHtml(m.subject || "(no subject)")}</span>
-              ${m.hasAttachment ? '<span class="mail-list-attach" title="Has attachment">📎</span>' : ""}
-            </div>
-            <div class="mail-list-row-bottom">
-              <span class="mail-list-snippet">${escapeHtml((m.snippet || "").slice(0, 140))}</span>
-              ${accountTag}
-            </div>
-          </div>
-        </button>
+          </button>
+        </div>
       `;
     }).join("");
+  }
+
+  function updateBulkBar() {
+    const bar = document.getElementById("mail-bulk-bar");
+    if (!bar) return;
+    if (checkedKeys.size === 0) {
+      bar.setAttribute("hidden", "");
+    } else {
+      bar.removeAttribute("hidden");
+      const lbl = bar.querySelector("[data-bulk-count]");
+      if (lbl) lbl.textContent = `${checkedKeys.size} selected`;
+    }
+  }
+
+  async function bulkDelete() {
+    if (checkedKeys.size === 0) return;
+    const ok = await UI.confirm(`Move ${checkedKeys.size} message${checkedKeys.size === 1 ? "" : "s"} to Trash?`, { dangerous: true });
+    if (!ok) return;
+    const keys = Array.from(checkedKeys);
+    let okCount = 0, failCount = 0;
+    for (const key of keys) {
+      const [accountId, uid] = key.split(":");
+      try {
+        const r = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}`, { method: "DELETE" });
+        if (r.ok) okCount++;
+        else failCount++;
+      } catch {
+        failCount++;
+      }
+    }
+    messages = messages.filter((m) => !checkedKeys.has(getKey(m)));
+    checkedKeys.clear();
+    if (selectedKey && !messages.find((m) => getKey(m) === selectedKey)) {
+      selectedKey = "";
+      currentMessage = null;
+      viewerNode.innerHTML = '<div class="mail-viewer-empty"><div class="mail-empty-illustration mail-empty-illustration--small">✉</div><p>Select a message to read it.</p></div>';
+    }
+    renderList();
+    if (failCount) UI?.toast?.(`${okCount} moved, ${failCount} failed.`, "warning");
+    else UI?.toast?.(`${okCount} moved to Trash.`, "success");
   }
 
   async function loadMessage(key) {
@@ -223,12 +271,6 @@
   });
 
   // ── Reply / Forward / Delete from viewer ──────────────────────
-  function quoteBody(m) {
-    const stamp = m.date ? new Date(m.date).toLocaleString() : "";
-    const text = (m.bodyText || (m.bodyHtml ? "" : "")).split("\n").map((l) => "> " + l).join("\n");
-    return `\n\n---\nOn ${stamp}, ${m.fromName || m.fromEmail || ""} wrote:\n${text}`;
-  }
-
   viewerNode?.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn || !currentMessage) return;
@@ -238,7 +280,7 @@
         fromAccountId: m.accountId,
         to: m.fromEmail || m.from,
         subject: m.subject?.toLowerCase().startsWith("re:") ? m.subject : `Re: ${m.subject || ""}`,
-        body: quoteBody(m),
+        body: "",
         replyToMessageId: m.messageId,
       }, "Reply");
     } else if (btn.dataset.action === "reply-all") {
@@ -248,14 +290,14 @@
         to: m.fromEmail || m.from,
         cc: cc,
         subject: m.subject?.toLowerCase().startsWith("re:") ? m.subject : `Re: ${m.subject || ""}`,
-        body: quoteBody(m),
+        body: "",
         replyToMessageId: m.messageId,
       }, "Reply all");
     } else if (btn.dataset.action === "forward") {
       openCompose({
         fromAccountId: m.accountId,
         subject: m.subject?.toLowerCase().startsWith("fwd:") ? m.subject : `Fwd: ${m.subject || ""}`,
-        body: `\n\n---\nForwarded message:\nFrom: ${m.from || ""}\nDate: ${fullTimeFmt(m.date)}\nSubject: ${m.subject || ""}\nTo: ${m.to || ""}\n\n${m.bodyText || ""}`,
+        body: "",
       }, "Forward");
     } else if (btn.dataset.action === "delete-msg") {
       const ok = await UI.confirm("Move this message to Trash?", { dangerous: true });
@@ -328,18 +370,34 @@
     searchInput.addEventListener("input", renderList);
     refreshBtn.addEventListener("click", () => loadInbox(true));
     listNode.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-key]");
+      const cb = e.target.closest("[data-bulk-key]");
+      if (cb) {
+        e.stopPropagation();
+        const key = cb.dataset.bulkKey;
+        if (cb.checked) checkedKeys.add(key);
+        else checkedKeys.delete(key);
+        const wrap = cb.closest("[data-key]");
+        wrap?.classList.toggle("is-checked", cb.checked);
+        updateBulkBar();
+        return;
+      }
+      const btn = e.target.closest("button.mail-list-row");
       if (btn) selectKey(btn.dataset.key);
+    });
+    document.getElementById("mail-bulk-delete")?.addEventListener("click", bulkDelete);
+    document.getElementById("mail-bulk-clear")?.addEventListener("click", () => {
+      checkedKeys.clear();
+      renderList();
     });
     await loadInbox(true);
 
-    // Auto-poll every 60s while the page is visible. Pause when hidden
+    // Auto-poll every 20s while the page is visible. Pause when hidden
     // so we don't burn cycles on a backgrounded tab.
     setInterval(() => {
       if (document.visibilityState === "visible") {
         loadInbox(false);
       }
-    }, 60000);
+    }, 20000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") loadInbox(false);
     });
