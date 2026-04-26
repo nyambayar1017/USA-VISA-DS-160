@@ -2121,9 +2121,8 @@ td {
 }
 
 .trip-serial-cell {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 11px;
-  color: var(--brand);
+  /* Inherit the unified table font/size — was previously 11 px monospace
+     which made the Serial column look tiny vs every other table. */
   white-space: nowrap;
 }
 
@@ -4401,16 +4400,16 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   white-space: nowrap;
 }
 
-.trip-table td,
-.trip-table th {
-  height: 44px;
-  vertical-align: middle;
-  text-align: center;
+/* Default every trip-table cell to nowrap so YYYY-MM-DD dates and serials
+   never break across two lines. The table-primary-cell (Trip name) is the
+   one column where wrapping is fine — long names can grow vertically. */
+.trip-table tbody td,
+.trip-table thead th {
+  white-space: nowrap;
 }
 .trip-table .table-primary-cell {
-  text-align: center;
+  white-space: normal;
 }
-
 .trip-pax-cell {
   text-align: center !important;
 }
