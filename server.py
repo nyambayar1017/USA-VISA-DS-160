@@ -9,7 +9,6 @@ import os
 import re
 import secrets
 import sys
-import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -64,8 +63,7 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
 BACKUP_WEBHOOK_URL = os.environ.get("BACKUP_WEBHOOK_URL", "").strip()
 BACKUP_TOKEN = os.environ.get("BACKUP_TOKEN", "").strip()
-MINDEE_API_KEY = os.environ.get("MINDEE_API_KEY", "").strip()
-MINDEE_PASSPORT_MODEL_ID = os.environ.get("MINDEE_PASSPORT_MODEL_ID", "").strip()
+OCRSPACE_API_KEY = os.environ.get("OCRSPACE_API_KEY", "").strip()
 TOURIST_PASSPORT_TEMP_DIR = DATA_DIR / "tourist-passport-temp"
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
@@ -7283,163 +7281,151 @@ def handle_update_camp_trip(environ, start_response, trip_id):
     return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
 
 
-_PASSPORT_FIELD_MAP = {
-    "surname": "lastName",
-    "given_names": "firstName",
-    "gender": "gender",
-    "birth_date": "dob",
-    "country": "nationality",
-    "id_number": "passportNumber",
-    "issuance_date": "passportIssueDate",
-    "expiry_date": "passportExpiry",
-}
-
-
-_MINDEE_V2_CONFIDENCE = {"Certain": 1.0, "High": 0.85, "Medium": 0.6}
-
-
-def _mindee_v2_open(req, label):
+def ocrspace_scan(file_bytes, filename, content_type):
+    """Send the uploaded passport to OCR.space and return the parsed
+    text. Free tier: 25k requests/month. On any network/auth error
+    raises RuntimeError so the caller can fall back to manual entry.
+    """
+    if not OCRSPACE_API_KEY:
+        raise RuntimeError("OCRSPACE_API_KEY is not configured")
+    boundary = "----travelxpassport" + uuid4().hex
+    parts = []
+    def add_field(name, value):
+        parts.append(f"--{boundary}".encode())
+        parts.append(f'Content-Disposition: form-data; name="{name}"'.encode())
+        parts.append(b"")
+        parts.append(value.encode() if isinstance(value, str) else value)
+    add_field("language", "eng")
+    add_field("isOverlayRequired", "false")
+    add_field("OCREngine", "2")
+    add_field("scale", "true")
+    add_field("detectOrientation", "true")
+    parts.append(f"--{boundary}".encode())
+    parts.append(
+        b'Content-Disposition: form-data; name="file"; filename="'
+        + filename.encode()
+        + b'"'
+    )
+    parts.append(f"Content-Type: {content_type}".encode())
+    parts.append(b"")
+    parts.append(file_bytes)
+    parts.append(f"--{boundary}--".encode())
+    parts.append(b"")
+    body = b"\r\n".join(parts)
+    req = urllib.request.Request(
+        "https://api.ocr.space/parse/image",
+        data=body,
+        method="POST",
+        headers={
+            "apikey": OCRSPACE_API_KEY,
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
+    )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         try:
             body_snippet = exc.read().decode("utf-8", errors="replace")[:400]
         except Exception:
             body_snippet = ""
-        raise RuntimeError(f"Mindee {label} HTTP {exc.code}: {body_snippet}") from exc
+        raise RuntimeError(f"OCR.space HTTP {exc.code}: {body_snippet}") from exc
     except Exception as exc:
-        raise RuntimeError(f"Mindee {label} failed: {exc}") from exc
+        raise RuntimeError(f"OCR.space request failed: {exc}") from exc
+    if payload.get("IsErroredOnProcessing"):
+        msg = payload.get("ErrorMessage") or payload.get("ErrorDetails") or "OCR failed"
+        if isinstance(msg, list):
+            msg = " ".join(str(m) for m in msg)
+        raise RuntimeError(f"OCR.space error: {msg}")
+    results = payload.get("ParsedResults") or []
+    if not results:
+        raise RuntimeError(f"OCR.space returned no results: {str(payload)[:300]}")
+    text = results[0].get("ParsedText") or ""
+    return text, payload
 
 
-def mindee_passport_scan(file_bytes, filename, content_type):
-    """Send the uploaded passport to Mindee v2 and return parsed fields.
-    Flow: enqueue → poll job → fetch result. Returns (fields_dict,
-    min_confidence, raw_response). On any error raises RuntimeError so
-    the caller can fall back to manual entry.
+def _mrz_yymmdd_to_iso(raw, century_cutoff):
+    if len(raw) != 6 or not raw.isdigit():
+        return ""
+    yy, mm, dd = int(raw[0:2]), raw[2:4], raw[4:6]
+    year = (2000 + yy) if yy <= century_cutoff else (1900 + yy)
+    return f"{year:04d}-{mm}-{dd}"
+
+
+def parse_passport_mrz(text):
+    """Best-effort parser for TD-3 passport MRZ. Returns a dict with the
+    same keys the front-end expects (lastName, firstName, gender, dob,
+    nationality, passportNumber, passportExpiry). Missing fields are
+    simply omitted. We deliberately keep this lenient — OCR is messy.
     """
-    if not MINDEE_API_KEY:
-        raise RuntimeError("MINDEE_API_KEY is not configured")
-    if not MINDEE_PASSPORT_MODEL_ID:
-        raise RuntimeError(
-            "MINDEE_PASSPORT_MODEL_ID is not set — add a Passport model in "
-            "Mindee → Models, then set its UUID as MINDEE_PASSPORT_MODEL_ID"
-        )
-    boundary = "----travelxpassport" + uuid4().hex
-    body_parts = [
-        f"--{boundary}".encode(),
-        b'Content-Disposition: form-data; name="model_id"',
-        b"",
-        MINDEE_PASSPORT_MODEL_ID.encode(),
-        f"--{boundary}".encode(),
-        b'Content-Disposition: form-data; name="file"; filename="' + filename.encode() + b'"',
-        f"Content-Type: {content_type}".encode(),
-        b"",
-        file_bytes,
-        f"--{boundary}--".encode(),
-        b"",
-    ]
-    body = b"\r\n".join(body_parts)
-    auth_headers = {"Authorization": MINDEE_API_KEY}
-
-    enqueue_req = urllib.request.Request(
-        "https://api-v2.mindee.net/v2/inferences/enqueue",
-        data=body,
-        method="POST",
-        headers={**auth_headers, "Content-Type": f"multipart/form-data; boundary={boundary}"},
-    )
-    enqueue_payload = _mindee_v2_open(enqueue_req, "enqueue")
-    try:
-        print(f"[passport-scan] enqueue resp: {json.dumps(enqueue_payload)[:600]}", file=sys.stderr, flush=True)
-    except Exception:
-        pass
-    job = enqueue_payload.get("job") or {}
-    polling_url = job.get("polling_url")
-    job_id = job.get("id")
-    if not polling_url:
-        raise RuntimeError(f"Mindee enqueue missing polling_url: {enqueue_payload}")
-
-    deadline = time.time() + 60
-    result_url = None
-    last_status = None
-    poll_attempts = 0
-    while time.time() < deadline:
-        time.sleep(2.0)
-        poll_attempts += 1
-        poll_req = urllib.request.Request(polling_url, headers=auth_headers)
-        try:
-            poll_payload = _mindee_v2_open(poll_req, "poll")
-        except RuntimeError as exc:
-            msg = str(exc)
-            # Transient 404 right after enqueue — keep waiting
-            if "HTTP 404" in msg and time.time() < deadline:
-                last_status = "404"
-                continue
-            raise
-        job = poll_payload.get("job") or {}
-        last_status = job.get("status")
-        if last_status == "Failed":
-            err = job.get("error") or {}
-            raise RuntimeError(f"Mindee inference Failed: {err}")
-        if last_status == "Processed":
-            result_url = job.get("result_url")
+    if not text:
+        return {}, 0
+    lines = []
+    for raw_line in text.split("\n"):
+        norm = re.sub(r"\s+", "", raw_line).upper()
+        norm = norm.replace("«", "<").replace("«", "<")
+        if len(norm) >= 30 and norm.count("<") >= 4:
+            lines.append(norm)
+    line1 = line2 = None
+    for i, l in enumerate(lines):
+        if l.startswith("P") and i + 1 < len(lines):
+            line1 = l
+            line2 = lines[i + 1]
             break
-    if not result_url:
-        raise RuntimeError(
-            f"Mindee inference timed out after 60s (attempts={poll_attempts}, "
-            f"last_status={last_status}, polling_url={polling_url}, job_id={job_id})"
-        )
-
-    result_req = urllib.request.Request(result_url, headers=auth_headers)
-    result_payload = _mindee_v2_open(result_req, "result")
-    inference = result_payload.get("inference") or {}
-    fields_payload = ((inference.get("result") or {}).get("fields")) or {}
+    if line1 is None and len(lines) >= 2:
+        line1, line2 = lines[-2], lines[-1]
+    if not line1 or not line2:
+        return {}, 0
 
     fields = {}
-    confidences = []
-    for source, target in _PASSPORT_FIELD_MAP.items():
-        node = fields_payload.get(source)
-        if not isinstance(node, dict):
-            continue
-        value = node.get("value")
-        if value is None or value == "":
-            # ListField fallback (given_names sometimes returns items)
-            items = node.get("items")
-            if isinstance(items, list) and items:
-                parts = []
-                for item in items:
-                    if isinstance(item, dict) and item.get("value"):
-                        parts.append(str(item["value"]))
-                    elif isinstance(item, str):
-                        parts.append(item)
-                if parts:
-                    value = " ".join(parts)
-        if value is None or value == "":
-            continue
-        if isinstance(value, list):
-            value = " ".join(str(v) for v in value if v)
-        fields[target] = str(value)
-        conf_num = _MINDEE_V2_CONFIDENCE.get(node.get("confidence"), 0.5)
-        confidences.append(conf_num)
+    found = 0
 
-    if "gender" in fields:
-        g = fields["gender"].strip().upper()
-        if g.startswith("M"):
+    if line1.startswith("P") and len(line1) >= 5:
+        country = line1[2:5].replace("<", "")
+        if len(country) == 3 and country.isalpha():
+            fields["nationality"] = country
+            found += 1
+        names_part = line1[5:]
+        name_split = names_part.split("<<", 1)
+        surname = name_split[0].replace("<", " ").strip()
+        if surname:
+            fields["lastName"] = surname
+            found += 1
+        if len(name_split) > 1:
+            given = name_split[1].replace("<", " ").strip()
+            if given:
+                fields["firstName"] = given
+                found += 1
+
+    if len(line2) >= 28:
+        passport_no = line2[0:9].replace("<", "").strip()
+        if passport_no:
+            fields["passportNumber"] = passport_no
+            found += 1
+        dob = _mrz_yymmdd_to_iso(line2[13:19], century_cutoff=30)
+        if dob:
+            fields["dob"] = dob
+            found += 1
+        gender_char = line2[20] if len(line2) > 20 else ""
+        if gender_char == "M":
             fields["gender"] = "male"
-        elif g.startswith("F"):
+            found += 1
+        elif gender_char == "F":
             fields["gender"] = "female"
-        else:
-            fields["gender"] = ""
-    min_confidence = min(confidences) if confidences else 0.0
-    return fields, min_confidence, result_payload
+            found += 1
+        expiry = _mrz_yymmdd_to_iso(line2[21:27], century_cutoff=70)
+        if expiry:
+            fields["passportExpiry"] = expiry
+            found += 1
+    return fields, found
 
 
 def handle_passport_scan(environ, start_response):
     """POST /api/tourists/passport-scan — accept a passport image, run
-    Mindee OCR, save the file to the temp passport area keyed by a
-    one-time token, return the parsed fields + token. The client sends
-    the token back when it saves the tourist; that's when the file gets
-    moved into the trip's documents."""
+    OCR.space + MRZ parsing, save the file to the temp passport area
+    keyed by a one-time token, return the parsed fields + token. The
+    client sends the token back when it saves the tourist; that's when
+    the file gets moved into the trip's documents."""
     actor = require_login(environ, start_response)
     if not actor:
         return []
@@ -7462,7 +7448,7 @@ def handle_passport_scan(environ, start_response):
     temp_path = TOURIST_PASSPORT_TEMP_DIR / f"{token}{ext}"
     temp_path.write_bytes(data)
 
-    if not MINDEE_API_KEY:
+    if not OCRSPACE_API_KEY:
         return json_response(start_response, "200 OK", {
             "ok": True,
             "token": token,
@@ -7474,10 +7460,10 @@ def handle_passport_scan(environ, start_response):
         })
 
     try:
-        parsed, min_confidence, _raw = mindee_passport_scan(data, original_name, upload["content_type"])
+        text, _raw = ocrspace_scan(data, original_name, upload["content_type"])
     except RuntimeError as exc:
         try:
-            print(f"[passport-scan] Mindee call failed: {exc}", file=sys.stderr, flush=True)
+            print(f"[passport-scan] OCR.space call failed: {exc}", file=sys.stderr, flush=True)
         except Exception:
             pass
         return json_response(start_response, "200 OK", {
@@ -7491,12 +7477,12 @@ def handle_passport_scan(environ, start_response):
             "contentType": upload["content_type"],
         })
 
-    quality_ok = bool(parsed) and min_confidence >= 0.45
+    parsed, found = parse_passport_mrz(text)
+    quality_ok = found >= 4
     return json_response(start_response, "200 OK", {
         "ok": True,
         "token": token,
         "fields": parsed,
-        "minConfidence": min_confidence,
         "qualityOk": quality_ok,
         "originalName": original_name,
         "contentType": upload["content_type"],

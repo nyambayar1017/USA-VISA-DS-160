@@ -492,7 +492,7 @@
     if (e.target.dataset?.action === "close-tourist-modal") closeModal(touristFormPanel);
   });
 
-  // ── Passport scan upload (Mindee OCR auto-fill) ───────────────
+  // ── Passport scan upload (OCR.space + MRZ auto-fill) ──────────
   const passportDropzone = document.getElementById("tourist-passport-dropzone");
   const passportFileInput = document.getElementById("tourist-passport-file");
   const passportTokenInput = document.getElementById("tourist-passport-token");
