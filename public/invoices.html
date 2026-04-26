@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invoices</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-176" />
+  </head>
+  <body class="app-body" data-page="invoices">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">Billing</p>
+            <h1>Invoices</h1>
+            <p class="workspace-subtitle">Every invoice across every trip — search, filter, jump to its dossier or group.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="invoices-filter-bar">
+            <input id="inv-filter-serial" type="search" placeholder="Search by serial" autocomplete="off" />
+            <input id="inv-filter-dossier" type="search" placeholder="Search by dossier" autocomplete="off" />
+            <input id="inv-filter-group" type="search" placeholder="Search by group" autocomplete="off" />
+            <input id="inv-filter-payer" type="search" placeholder="Search by payer" autocomplete="off" />
+            <div class="invoices-status-pills" id="inv-status-pills">
+              <button type="button" class="invoices-status-pill" data-status="pending">Pending</button>
+              <button type="button" class="invoices-status-pill" data-status="overdue">Overdue</button>
+              <button type="button" class="invoices-status-pill" data-status="paid">Paid</button>
+            </div>
+            <button type="button" class="secondary-button" id="inv-reset">Reset</button>
+          </div>
+
+          <p class="invoices-count" id="inv-count"></p>
+          <div class="invoices-table-wrap">
+            <table class="invoices-table" id="inv-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Serial</th>
+                  <th>Dossier</th>
+                  <th>Group</th>
+                  <th>Payer</th>
+                  <th>Total</th>
+                  <th>Total paid</th>
+                  <th>Status</th>
+                  <th>Next due</th>
+                  <th>Last paid</th>
+                </tr>
+              </thead>
+              <tbody id="inv-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/app-shell.js?v=workspace-95"></script>
+    <script src="/invoices-page.js?v=workspace-1"></script>
+  </body>
+</html>

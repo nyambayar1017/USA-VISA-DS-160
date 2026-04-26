@@ -130,6 +130,7 @@ function renderSidebar(user) {
       ${isDtx ? "" : link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
       ${dtxBlock}
       ${link("contracts", "/contracts", "Contracts")}
+      ${link("invoices", "/invoices", "Invoices")}
       ${link("todo", "/todo", "To Do")}
       ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
     </div>

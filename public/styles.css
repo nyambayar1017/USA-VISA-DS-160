@@ -9248,3 +9248,89 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     bottom: 14px;
   }
 }
+
+/* ── Global Invoices page ──────────────────────────────────────────── */
+.invoices-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.invoices-filter-bar input[type="search"] {
+  padding: 8px 12px;
+  border: 1px solid #d0d7e8;
+  border-radius: 6px;
+  font: inherit;
+  min-width: 180px;
+  flex: 1;
+}
+.invoices-status-pills {
+  display: inline-flex;
+  gap: 6px;
+}
+.invoices-status-pill {
+  padding: 6px 12px;
+  border: 1px solid #d0d7e8;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.invoices-status-pill.is-active {
+  background: #c64d3a;
+  color: #fff;
+  border-color: #c64d3a;
+}
+.invoices-count {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+.invoices-table-wrap {
+  overflow-x: auto;
+}
+.invoices-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.invoices-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 600;
+  color: #4b5563;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+  background: #fafbfc;
+  position: sticky;
+  top: 0;
+}
+.invoices-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+.invoices-table tbody tr:hover {
+  background: #f9fafb;
+}
+.invoices-table a {
+  color: #2563eb;
+  text-decoration: none;
+}
+.invoices-table a:hover { text-decoration: underline; }
+.invoices-table .empty {
+  text-align: center;
+  padding: 30px;
+  color: #9ca3af;
+}
+.invoices-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.invoices-pill-pending { background: #fef3c7; color: #92400e; }
+.invoices-pill-overdue { background: #fee2e2; color: #991b1b; }
+.invoices-pill-paid    { background: #d1fae5; color: #065f46; }

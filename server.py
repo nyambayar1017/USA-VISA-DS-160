@@ -10462,6 +10462,11 @@ def app(environ, start_response):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "contracts.html")
 
+    if path == "/invoices":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "invoices.html")
+
     if path == "/pdf-viewer":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
