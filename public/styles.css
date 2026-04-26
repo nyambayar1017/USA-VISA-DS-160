@@ -9295,6 +9295,32 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #fff;
   border-color: #059669;
 }
+/* Tourist marketing-status filter pills — semantic active colors. */
+.invoices-status-pill.is-active[data-status="potential"] {
+  background: #fdba74;
+  color: #7c2d12;
+  border-color: #f97316;
+}
+.invoices-status-pill.is-active[data-status="standard"] {
+  background: #93c5fd;
+  color: #1e3a8a;
+  border-color: #3b82f6;
+}
+.invoices-status-pill.is-active[data-status="vip"] {
+  background: #10b981;
+  color: #fff;
+  border-color: #059669;
+}
+.invoices-status-pill.is-active[data-status="child"] {
+  background: #c4b5fd;
+  color: #4c1d95;
+  border-color: #8b5cf6;
+}
+.invoices-status-pill.is-active[data-status="do_not_contact"] {
+  background: #ef4444;
+  color: #fff;
+  border-color: #dc2626;
+}
 .invoices-saved-filter-row {
   display: flex;
   align-items: center;
