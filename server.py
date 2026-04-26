@@ -8238,6 +8238,47 @@ def imap_sync_account(account, limit=20, folder="inbox"):
     return new_count, ""
 
 
+def handle_mail_unread_summary(environ, start_response):
+    """Cache-only summary used by the topbar mail icon. Returns the count of
+    unread inbox messages plus a short list of recent ones, scoped to the
+    workspace passed in ?workspace=DTX|USM (falls back to all)."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    workspace = (params.get("workspace", [""])[0] or "").strip().upper()
+    limit = 12
+    accounts = read_mail_accounts()
+    if workspace:
+        accounts = [a for a in accounts if (a.get("workspace") or "DTX").upper() == workspace]
+
+    rows = []
+    for a in accounts:
+        cache = _read_mail_cache(a["id"])
+        for msg in cache.get("messages", []):
+            if (msg.get("folder") or "inbox") != "inbox":
+                continue
+            if msg.get("isRead"):
+                continue
+            rows.append({
+                "accountId": a["id"],
+                "accountAddress": a["address"],
+                "uid": msg.get("uid"),
+                "subject": msg.get("subject") or "",
+                "fromName": msg.get("fromName") or "",
+                "fromEmail": msg.get("fromEmail") or "",
+                "snippet": msg.get("snippet") or "",
+                "date": msg.get("date") or "",
+                "workspace": a.get("workspace") or "DTX",
+            })
+
+    rows.sort(key=lambda m: m.get("date") or "", reverse=True)
+    return json_response(start_response, "200 OK", {
+        "count": len(rows),
+        "entries": rows[:limit],
+    })
+
+
 def handle_list_mail_messages(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -12208,6 +12249,11 @@ def _dispatch(environ, start_response):
     if path == "/api/mail/messages":
         if method == "GET":
             return handle_list_mail_messages(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/mail/unread-summary":
+        if method == "GET":
+            return handle_mail_unread_summary(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/mail/send":

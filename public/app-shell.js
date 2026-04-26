@@ -81,6 +81,11 @@ let notificationPopoverNode = null;
 let notificationsCache = [];
 let notificationsLastReadAt = "";
 let notificationsPollTimer = null;
+let mailIconNode = null;
+let mailCountNode = null;
+let mailPopoverNode = null;
+let mailUnreadCache = [];
+let mailUnreadPollTimer = null;
 let sidebarBackdrop = null;
 let mobileBar = null;
 
@@ -291,6 +296,13 @@ function buildProfileChrome() {
   if (!profileCard) return;
   profileCard.classList.add("workspace-profile-compact");
   profileCard.innerHTML = `
+    <button type="button" class="workspace-bell workspace-mail-icon" data-action="toggle-mail" aria-label="Mail">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+        <path d="M3 7l9 6 9-6"></path>
+      </svg>
+      <span class="workspace-bell-count" data-mail-count hidden>0</span>
+    </button>
     <button type="button" class="workspace-bell" data-action="toggle-notifications" aria-label="Notifications">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"></path>
@@ -321,6 +333,16 @@ function buildProfileChrome() {
         <p class="notifications-empty">Loading…</p>
       </div>
     </div>
+    <div class="notifications-popover mail-popover" data-mail-popover hidden>
+      <header>
+        <h3>Unread mail</h3>
+        <a class="mail-popover-open" href="/mail" title="Open mailbox">Open</a>
+        <button type="button" class="notifications-close" data-action="close-mail" aria-label="Close">×</button>
+      </header>
+      <div class="notifications-list" data-mail-list>
+        <p class="notifications-empty">Loading…</p>
+      </div>
+    </div>
   `;
   profileNameNode = profileCard.querySelector("[data-profile-name]");
   profileEmailNode = profileCard.querySelector("[data-profile-email]");
@@ -330,6 +352,9 @@ function buildProfileChrome() {
   notificationDotNode = profileCard.querySelector("[data-notif-dot]");
   notificationCountNode = profileCard.querySelector("[data-notif-count]");
   notificationPopoverNode = profileCard.querySelector("[data-notifications-popover]");
+  mailIconNode = profileCard.querySelector('[data-action="toggle-mail"]');
+  mailCountNode = profileCard.querySelector("[data-mail-count]");
+  mailPopoverNode = profileCard.querySelector("[data-mail-popover]");
 
   profileCard.querySelector('[data-action="toggle-profile-menu"]').addEventListener("click", (event) => {
     event.stopPropagation();
@@ -350,12 +375,20 @@ function buildProfileChrome() {
   profileCard.querySelector('[data-action="close-notifications"]')?.addEventListener("click", () => {
     closeNotifications();
   });
+  mailIconNode?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMailPopover();
+  });
+  profileCard.querySelector('[data-action="close-mail"]')?.addEventListener("click", () => {
+    closeMailPopover();
+  });
   document.addEventListener("click", (event) => {
     const inProfile = profileCard.contains(event.target);
     const inMobileBar = mobileBar?.contains(event.target);
     if (!inProfile && !inMobileBar) {
       closeProfileMenu();
       closeNotifications();
+      closeMailPopover();
     }
   });
 }
@@ -384,6 +417,7 @@ function toggleNotifications(forceState) {
   if (isOpen) {
     notificationPopoverNode.removeAttribute("hidden");
     closeProfileMenu();
+    closeMailPopover();
     markNotificationsRead();
   } else {
     notificationPopoverNode.setAttribute("hidden", "");
@@ -392,6 +426,90 @@ function toggleNotifications(forceState) {
 
 function closeNotifications() {
   toggleNotifications(false);
+}
+
+function toggleMailPopover(forceState) {
+  if (!mailPopoverNode) return;
+  const isOpen = typeof forceState === "boolean" ? forceState : mailPopoverNode.hasAttribute("hidden");
+  if (isOpen) {
+    mailPopoverNode.removeAttribute("hidden");
+    closeProfileMenu();
+    closeNotifications();
+    fetchMailUnread();
+  } else {
+    mailPopoverNode.setAttribute("hidden", "");
+  }
+}
+
+function closeMailPopover() {
+  toggleMailPopover(false);
+}
+
+function renderMailUnreadList() {
+  if (!mailPopoverNode) return;
+  const list = mailPopoverNode.querySelector("[data-mail-list]");
+  if (!list) return;
+  if (!mailUnreadCache.length) {
+    list.innerHTML = `<p class="notifications-empty">No unread mail.</p>`;
+    return;
+  }
+  list.innerHTML = mailUnreadCache
+    .map((m) => {
+      const sender = m.fromName || m.fromEmail || "(unknown)";
+      const subject = m.subject || "(no subject)";
+      const snippet = (m.snippet || "").trim();
+      const url = `/mail?key=${encodeURIComponent(m.accountId)}:${encodeURIComponent(m.uid)}`;
+      const tag = (m.workspace || "DTX").toUpperCase();
+      const tagClass = tag === "USM" ? "mail-pop-tag mail-pop-tag--usm" : "mail-pop-tag mail-pop-tag--dtx";
+      return `
+        <a class="notifications-item notifications-item--link mail-pop-item" href="${escapeHtml(url)}">
+          <span class="notification-avatar notification-avatar-icon">✉</span>
+          <div class="notifications-item-body">
+            <p><strong>${escapeHtml(sender)}</strong> <span class="${tagClass}">${escapeHtml(tag)}</span></p>
+            <p class="mail-pop-subject">${escapeHtml(subject)}</p>
+            ${snippet ? `<p class="mail-pop-snippet">${escapeHtml(snippet.slice(0, 110))}</p>` : ""}
+            <time>${escapeHtml(formatRelativeTime(m.date))} · ${escapeHtml(m.accountAddress || "")}</time>
+          </div>
+        </a>
+      `;
+    })
+    .join("");
+}
+
+function updateMailCount(unread) {
+  const display = unread > 99 ? "99+" : String(unread || 0);
+  if (mailCountNode) {
+    mailCountNode.textContent = display;
+    if (unread > 0) mailCountNode.removeAttribute("hidden");
+    else mailCountNode.setAttribute("hidden", "");
+  }
+  if (mobileBar) {
+    const count = mobileBar.querySelector("[data-mail-count-mobile]");
+    if (count) {
+      count.textContent = display;
+      if (unread > 0) count.removeAttribute("hidden");
+      else count.setAttribute("hidden", "");
+    }
+  }
+}
+
+async function fetchMailUnread() {
+  try {
+    const ws = readWorkspace();
+    const qs = ws ? `?workspace=${encodeURIComponent(ws)}` : "";
+    const response = await fetch(`/api/mail/unread-summary${qs}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    mailUnreadCache = Array.isArray(data.entries) ? data.entries : [];
+    updateMailCount(data.count || 0);
+    renderMailUnreadList();
+  } catch {}
+}
+
+function startMailUnreadPolling() {
+  if (mailUnreadPollTimer) clearInterval(mailUnreadPollTimer);
+  fetchMailUnread();
+  mailUnreadPollTimer = setInterval(fetchMailUnread, 60000);
 }
 
 function renderProfile(user) {
@@ -831,6 +949,13 @@ function ensureMobileBar() {
       <img src="${logoSrc}" alt="" />
     </a>
     <div class="workspace-mobile-spacer"></div>
+    <button type="button" class="workspace-bell workspace-bell-mobile workspace-mail-icon" data-action="toggle-mail-mobile" aria-label="Mail">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+        <path d="M3 7l9 6 9-6"></path>
+      </svg>
+      <span class="workspace-bell-count" data-mail-count-mobile hidden>0</span>
+    </button>
     <button type="button" class="workspace-bell workspace-bell-mobile" data-action="toggle-notifications-mobile" aria-label="Notifications">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"></path>
@@ -855,6 +980,10 @@ function ensureMobileBar() {
     toggleNotifications();
     const dot = bar.querySelector("[data-notif-dot-mobile]");
     if (dot) dot.setAttribute("hidden", "");
+  });
+  bar.querySelector('[data-action="toggle-mail-mobile"]').addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMailPopover();
   });
   bar.querySelector('[data-action="toggle-profile-menu-mobile"]').addEventListener("click", (event) => {
     event.stopPropagation();
@@ -980,6 +1109,7 @@ async function loadProfile() {
     renderSidebar(data.user);
     fetchNotifications();
     startNotificationPolling();
+    startMailUnreadPolling();
   } catch {
     if (profileNameNode) profileNameNode.textContent = "TravelX Staff";
     if (profileEmailNode) profileEmailNode.textContent = "Profile unavailable";

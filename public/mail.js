@@ -15,6 +15,21 @@
   let currentFolder = "inbox"; // "inbox" or "sent"
   const checkedKeys = new Set();
 
+  // Read the current workspace (DTX/USM) from localStorage so we can scope
+  // mailboxes and messages to it. App-shell sets WORKSPACE_KEY="travelx_workspace".
+  function currentWorkspace() {
+    try {
+      return localStorage.getItem("travelx_workspace") || "";
+    } catch {
+      return "";
+    }
+  }
+  function workspaceMatches(account) {
+    const ws = currentWorkspace();
+    if (!ws) return true; // fall through if no workspace set
+    return (account.workspace || "DTX").toUpperCase() === ws;
+  }
+
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
@@ -222,7 +237,7 @@
       const r = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}?folder=${encodeURIComponent(currentFolder)}`);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Could not load");
-      renderViewer(data.entry);
+      await renderViewer(data.entry);
     } catch (err) {
       viewerNode.innerHTML = `<div class="mail-viewer-empty"><p>Error: ${escapeHtml(err.message)}</p></div>`;
     }
@@ -339,14 +354,88 @@
 
   let currentMessage = null;
 
-  function renderViewer(m) {
+  // Strip "Re:" / "Fwd:" / "Fw:" prefixes (one or more) plus locale variants
+  // so we can group a thread by its base subject.
+  function normalizeSubject(s) {
+    let t = (s || "").trim().toLowerCase();
+    let prev = "";
+    while (t !== prev) {
+      prev = t;
+      t = t.replace(/^(re|fw|fwd|sv|aw|tr|ynt|rv|вн|нэ|fyi)\s*[:\-]\s*/i, "").trim();
+    }
+    return t.replace(/\s+/g, " ");
+  }
+
+  // Find related messages for a thread: same accountId, same normalized
+  // subject, sorted oldest-first. Falls back to single message when no
+  // matches found.
+  function threadFor(m) {
+    if (!m) return [];
+    const norm = normalizeSubject(m.subject);
+    if (!norm) return [m];
+    const related = messages.filter((x) =>
+      x.accountId === m.accountId &&
+      normalizeSubject(x.subject) === norm
+    );
+    if (!related.length) return [m];
+    related.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    return related;
+  }
+
+  // Fetch full bodies for a list of message stubs (the inbox list only has
+  // headers + snippet). Returns Promise<entry[]>.
+  async function fetchThreadBodies(stubs) {
+    const results = await Promise.all(stubs.map(async (s) => {
+      try {
+        const r = await fetch(`/api/mail/messages/${encodeURIComponent(s.accountId)}/${encodeURIComponent(s.uid)}?folder=${encodeURIComponent(s.folder || currentFolder)}`);
+        if (!r.ok) return null;
+        const data = await r.json();
+        return data.entry;
+      } catch { return null; }
+    }));
+    return results.filter(Boolean);
+  }
+
+  function isFromMe(entry) {
+    if (!entry) return false;
+    const acc = accounts.find((a) => a.id === entry.accountId);
+    if (!acc) return false;
+    const me = (acc.address || "").toLowerCase();
+    const from = (entry.fromEmail || "").toLowerCase();
+    return !!me && me === from;
+  }
+
+  function renderConversationBubbles(entries, current) {
+    const currentKey = `${current.accountId}:${current.uid}`;
+    return entries.map((e) => {
+      const mine = isFromMe(e);
+      const sender = e.fromName || e.fromEmail || "(unknown)";
+      const ini = initials(e.fromName, e.fromEmail);
+      const color = colorFor(e.fromEmail || e.from);
+      const body = e.bodyHtml
+        ? `<iframe class="mail-bubble-iframe" sandbox="" srcdoc="${escapeHtml(e.bodyHtml)}"></iframe>`
+        : `<pre class="mail-bubble-text">${escapeHtml(e.bodyText || "(empty message)")}</pre>`;
+      const atts = renderAttachments(e);
+      const key = `${e.accountId}:${e.uid}`;
+      const isCurrent = key === currentKey;
+      return `
+        <div class="mail-bubble ${mine ? "mail-bubble--mine" : "mail-bubble--theirs"} ${isCurrent ? "is-current" : ""}">
+          <div class="mail-bubble-meta">
+            ${mine ? "" : `<span class="mail-bubble-avatar" style="background:${color}">${escapeHtml(ini)}</span>`}
+            <div>
+              <p><strong>${escapeHtml(sender)}</strong> ${mine ? `<span class="mail-bubble-tag">me</span>` : ""}</p>
+              <small>${escapeHtml(fullTimeFmt(e.date))}</small>
+            </div>
+          </div>
+          <div class="mail-bubble-body">${body}</div>
+          ${atts}
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function renderViewer(m) {
     currentMessage = m;
-    const ini = initials(m.fromName, m.fromEmail);
-    const color = colorFor(m.fromEmail || m.from);
-    const bodyHtml = m.bodyHtml
-      ? `<iframe class="mail-body-iframe" sandbox="" srcdoc="${escapeHtml(m.bodyHtml)}"></iframe>`
-      : `<pre class="mail-body-text">${escapeHtml(m.bodyText || "(empty message)")}</pre>`;
-    const attachmentsHtml = renderAttachments(m);
     const isSent = (m.folder || currentFolder) === "sent";
     const actionsHtml = isSent
       ? `<button type="button" class="secondary-button" data-action="forward">→ Forward</button>
@@ -356,25 +445,64 @@
          <button type="button" class="secondary-button" data-action="forward">→ Forward</button>
          <button type="button" class="secondary-button" data-action="mark-unread">◉ Mark unread</button>
          <button type="button" class="secondary-button danger-button" data-action="delete-msg">Delete</button>`;
+
+    // Look at the inbox/sent list for messages in the same thread.
+    const stubs = threadFor(m);
+    if (stubs.length <= 1) {
+      // Single-message render — same layout as before.
+      const ini = initials(m.fromName, m.fromEmail);
+      const color = colorFor(m.fromEmail || m.from);
+      const bodyHtml = m.bodyHtml
+        ? `<iframe class="mail-body-iframe" sandbox="" srcdoc="${escapeHtml(m.bodyHtml)}"></iframe>`
+        : `<pre class="mail-body-text">${escapeHtml(m.bodyText || "(empty message)")}</pre>`;
+      const attachmentsHtml = renderAttachments(m);
+      viewerNode.innerHTML = `
+        <div class="mail-viewer-head">
+          <h2>${escapeHtml(m.subject || "(no subject)")}</h2>
+          <p class="mail-viewer-meta">
+            <span class="mail-viewer-avatar" style="background:${color}">${escapeHtml(ini)}</span>
+            <span>
+              <strong>${escapeHtml(m.fromName || m.fromEmail || "(no sender)")}</strong>
+              <span class="mail-viewer-from-email">&lt;${escapeHtml(m.fromEmail || "")}&gt;</span><br>
+              <small>to ${escapeHtml(m.to || "")}${m.cc ? ` · cc ${escapeHtml(m.cc)}` : ""}</small><br>
+              <small>${escapeHtml(fullTimeFmt(m.date))} · via ${escapeHtml(m.accountAddress || "")}</small>
+            </span>
+          </p>
+          ${attachmentsHtml}
+          <div class="mail-viewer-actions">
+            ${actionsHtml}
+          </div>
+        </div>
+        <div class="mail-viewer-body">${bodyHtml}</div>
+      `;
+      return;
+    }
+
+    // Conversation render — title + bubbles (oldest → newest), with the
+    // existing actions row pinned beneath the latest message.
     viewerNode.innerHTML = `
       <div class="mail-viewer-head">
-        <h2>${escapeHtml(m.subject || "(no subject)")}</h2>
+        <h2>${escapeHtml(normalizeSubject(m.subject) ? m.subject.replace(/^((re|fw|fwd|sv|aw|tr|ynt|rv|вн|нэ|fyi)\s*[:\-]\s*)+/i, "") : (m.subject || "(no subject)"))}</h2>
         <p class="mail-viewer-meta">
-          <span class="mail-viewer-avatar" style="background:${color}">${escapeHtml(ini)}</span>
-          <span>
-            <strong>${escapeHtml(m.fromName || m.fromEmail || "(no sender)")}</strong>
-            <span class="mail-viewer-from-email">&lt;${escapeHtml(m.fromEmail || "")}&gt;</span><br>
-            <small>to ${escapeHtml(m.to || "")}${m.cc ? ` · cc ${escapeHtml(m.cc)}` : ""}</small><br>
-            <small>${escapeHtml(fullTimeFmt(m.date))} · via ${escapeHtml(m.accountAddress || "")}</small>
-          </span>
+          <small>${stubs.length} messages · via ${escapeHtml(m.accountAddress || "")}</small>
         </p>
-        ${attachmentsHtml}
         <div class="mail-viewer-actions">
           ${actionsHtml}
         </div>
       </div>
-      <div class="mail-viewer-body">${bodyHtml}</div>
+      <div class="mail-conversation"><p class="empty">Loading conversation…</p></div>
     `;
+    const entries = await fetchThreadBodies(stubs);
+    const conv = viewerNode.querySelector(".mail-conversation");
+    if (!conv) return;
+    if (!entries.length) {
+      conv.innerHTML = `<p class="empty">Could not load conversation.</p>`;
+      return;
+    }
+    conv.innerHTML = renderConversationBubbles(entries, m);
+    // Scroll the most recent bubble into view by default.
+    const last = conv.querySelector(".mail-bubble:last-child");
+    if (last) last.scrollIntoView({ block: "start", behavior: "auto" });
   }
 
   // ── Compose modal ─────────────────────────────────────────────
@@ -912,7 +1040,9 @@
       const r = await fetch(`/api/mail/messages?sync=1&folder=${encodeURIComponent(currentFolder)}`);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Failed to load");
-      messages = data.entries || [];
+      // Only show messages from accounts in the current workspace
+      const visibleAccountIds = new Set(accounts.map((a) => a.id));
+      messages = (data.entries || []).filter((m) => visibleAccountIds.has(m.accountId));
       if (data.syncErrors && data.syncErrors.length) {
         UI?.toast?.(`Sync issue: ${data.syncErrors[0].error}`, "error");
       }
@@ -1077,7 +1207,7 @@
     try {
       const r = await fetch("/api/mail/accounts");
       const data = await r.json();
-      accounts = data.entries || [];
+      accounts = (data.entries || []).filter(workspaceMatches);
     } catch {
       accounts = [];
     }
@@ -1086,7 +1216,8 @@
       return;
     }
     shellNode.removeAttribute("hidden");
-    accountFilter.innerHTML = '<option value="">All mailboxes</option>' +
+    const wsLabel = currentWorkspace() === "USM" ? "All Steppe Mongolia mailboxes" : "All DTX mailboxes";
+    accountFilter.innerHTML = `<option value="">${escapeHtml(wsLabel)}</option>` +
       accounts.map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.address)}</option>`).join("");
     accountFilter.addEventListener("change", renderList);
     searchInput.addEventListener("input", renderList);
@@ -1119,6 +1250,16 @@
     loadTemplates();
     loadSignatures();
     await loadInbox(true);
+
+    // If routed from the topbar mail icon (e.g. /mail?key=accountId:uid),
+    // open the targeted message after the inbox finishes loading.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const key = params.get("key");
+      if (key && messages.find((m) => getKey(m) === key)) {
+        selectKey(key);
+      }
+    } catch {}
 
     // Auto-poll every 30s while the page is visible. Pause when hidden
     // so we don't burn cycles on a backgrounded tab.
