@@ -10256,7 +10256,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   font-size: 0.9rem;
   outline: none;
 }
-.mail-toolbar-right select { min-width: 180px; }
+.mail-toolbar-right select { min-width: 240px; max-width: 320px; }
 .mail-toolbar-row--search input[type="search"] { flex: 1; min-width: 200px; }
 .mail-toolbar input[type="search"]:focus, .mail-toolbar select:focus {
   border-color: #2563eb;
@@ -10492,20 +10492,46 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .mail-list-row-wrap .mail-list-row {
   border-bottom: 0;
   flex: 1;
-  padding-left: 6px;
+  padding-left: 16px;
 }
 
+/* Checkbox overlays the avatar position. On devices with hover (desktop)
+   it's hidden by default and revealed on hover or when the row is checked,
+   recovering the horizontal room it was previously eating in flex flow.
+   On touch devices we keep it visible so users can still tap to select. */
 .mail-list-check {
+  position: absolute;
+  left: 14px;
+  top: 0;
+  bottom: 0;
   display: flex;
-  align-items: flex-start;
-  padding: 14px 4px 0 12px;
+  align-items: center;
+  padding: 0 4px;
   cursor: pointer;
+  z-index: 2;
 }
 .mail-list-check input[type="checkbox"] {
   width: 16px;
   height: 16px;
   cursor: pointer;
   accent-color: #2563eb;
+}
+@media (hover: hover) {
+  .mail-list-check {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+  }
+  .mail-list-row-wrap:hover .mail-list-check,
+  .mail-list-row-wrap.is-checked .mail-list-check {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mail-list-avatar { transition: opacity 120ms ease; }
+  .mail-list-row-wrap:hover .mail-list-avatar,
+  .mail-list-row-wrap.is-checked .mail-list-avatar {
+    opacity: 0;
+  }
 }
 
 .mail-list-row-wrap.is-unread .mail-list-row::before {
@@ -10605,41 +10631,25 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .mail-list-row-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; min-width: 0; }
 .mail-list-row-top strong { flex: 1; min-width: 0; font-size: 0.92rem; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mail-list-row-top time { font-size: 0.75rem; color: #94a3b8; flex-shrink: 0; white-space: nowrap; }
-/* Account chip on the bottom row, colored by workspace.
-   Steppe Mongolia (USM) = blue · DTX = orange. */
+/* Account chip — inline colored text (no pill background). Steppe
+   Mongolia (USM) = blue, DTX = orange. */
 .mail-list-chip {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  padding: 2px 8px;
-  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  border: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   flex-shrink: 0;
   max-width: 240px;
-  border: 1px solid transparent;
 }
-.mail-list-chip--dtx {
-  background: #ffedd5;
-  color: #9a3412;
-  border-color: rgba(234, 88, 12, 0.35);
-}
-.mail-list-chip--usm {
-  background: #dbeafe;
-  color: #1e3a8a;
-  border-color: rgba(37, 99, 235, 0.35);
-}
-.mail-list-row-wrap.is-read .mail-list-chip--dtx {
-  background: #fff7ed;
-  color: #c2410c;
-  border-color: rgba(234, 88, 12, 0.2);
-}
-.mail-list-row-wrap.is-read .mail-list-chip--usm {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: rgba(37, 99, 235, 0.2);
-}
+.mail-list-chip--dtx { color: #c2410c; }
+.mail-list-chip--usm { color: #1d4ed8; }
+.mail-list-row-wrap.is-read .mail-list-chip--dtx { color: #fb923c; }
+.mail-list-row-wrap.is-read .mail-list-chip--usm { color: #60a5fa; }
 .mail-list-row-mid { display: flex; gap: 6px; align-items: center; min-width: 0; }
 .mail-list-subject { flex: 1; min-width: 0; font-size: 0.86rem; color: #1e3a8a; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mail-list-attach { font-size: 0.85rem; flex-shrink: 0; }
