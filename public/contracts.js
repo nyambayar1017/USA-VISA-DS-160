@@ -284,6 +284,28 @@ const startContractsLiveRefresh = () => {
   });
 };
 
+// Lazy-load the contract modal markup on pages that don't ship it inline
+// (group, trip-detail, etc.). Single source of truth = /contracts page HTML.
+async function ensureContractModalInDOM() {
+  if (document.getElementById("contract-form-panel")) return;
+  const html = await fetch("/contracts", { credentials: "include" }).then((r) => r.text());
+  const tmpl = document.createElement("template");
+  tmpl.innerHTML = html;
+  const panel = tmpl.content.querySelector("#contract-form-panel");
+  if (panel) document.body.appendChild(panel);
+  // initContractForm bails if these aren't present — provide hidden stand-ins so
+  // it can wire up the same modal on any page.
+  const stub = (id) => {
+    if (document.getElementById(id)) return;
+    const el = document.createElement("button");
+    el.id = id;
+    el.type = "button";
+    el.style.display = "none";
+    document.body.appendChild(el);
+  };
+  stub("contract-toggle-form");
+}
+
 const initContractForm = () => {
   const panel = qs("#contract-form-panel");
   const toggle = qs("#contract-toggle-form");
@@ -404,12 +426,94 @@ const initContractForm = () => {
       statusEl.textContent = editingContractId ? "Updated successfully" : "Saved successfully";
       form.reset();
       closePanel();
-      loadContracts();
+      // Per-page success hook (set by openContractModal). Falls back to the
+      // /contracts page list refresh.
+      if (typeof window.__contractOnSuccess === "function") {
+        try { window.__contractOnSuccess(); } catch {}
+      } else if (location.pathname === "/contracts") {
+        loadContracts();
+      }
       setTimeout(() => (statusEl.textContent = ""), 2000);
     } catch (error) {
       statusEl.textContent = error.message;
     }
   });
+
+  // ---- public openContractModal API (called from group.js / trip pages) ----
+  // Keeps the heavy form-handling logic here in contracts.js; other pages just
+  // pass in the tripId/groupId, prefill values, and tourist list.
+  const setHiddenFormField = (name, value) => {
+    let f = form.querySelector(`input[name='${name}']`);
+    if (!f) {
+      f = document.createElement("input");
+      f.type = "hidden";
+      f.name = name;
+      form.appendChild(f);
+    }
+    f.value = value || "";
+  };
+
+  const setupTouristPicker = (tourists, defaultId) => {
+    const lastInput = form.querySelector("input[name='touristLastName']");
+    const firstInput = form.querySelector("input[name='touristFirstName']");
+    const regInput = form.querySelector("input[name='touristRegister']");
+    let pickerLabel = form.querySelector("label[data-tourist-picker]");
+    if (!pickerLabel) {
+      pickerLabel = document.createElement("label");
+      pickerLabel.setAttribute("data-tourist-picker", "");
+      pickerLabel.innerHTML = `Жуулчин сонгох<select name="touristPicker"><option value="">Сонгох...</option></select>`;
+      const anchor = lastInput?.closest("label");
+      if (anchor && anchor.parentElement) {
+        anchor.parentElement.insertBefore(pickerLabel, anchor);
+      } else {
+        form.prepend(pickerLabel);
+      }
+    }
+    const picker = pickerLabel.querySelector("select");
+    const escape = (s) => String(s || "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    picker.innerHTML = `<option value="">Сонгох...</option>` + tourists.map((t) => {
+      const last = t.lastName || "";
+      const first = t.firstName || "";
+      const reg = t.register || t.registerNumber || "";
+      return `<option value="${escape(t.id)}" data-last="${escape(last)}" data-first="${escape(first)}" data-register="${escape(reg)}">${escape(`${last} ${first}`.trim() || t.id)}</option>`;
+    }).join("");
+    picker.onchange = () => {
+      const opt = picker.selectedOptions[0];
+      if (!opt || !opt.value) return;
+      if (lastInput) lastInput.value = opt.dataset.last || "";
+      if (firstInput) firstInput.value = opt.dataset.first || "";
+      if (regInput) regInput.value = opt.dataset.register || "";
+    };
+    if (defaultId && [...picker.options].some((o) => o.value === defaultId)) {
+      picker.value = defaultId;
+      picker.dispatchEvent(new Event("change"));
+    }
+  };
+
+  window.__openContractModalInternal = (opts = {}) => {
+    setHiddenFormField("attachedTripId", opts.tripId);
+    setHiddenFormField("attachedGroupId", opts.groupId);
+    window.__contractOnSuccess = typeof opts.onSuccess === "function" ? opts.onSuccess : null;
+    if (Array.isArray(opts.tourists) && opts.tourists.length) {
+      setupTouristPicker(opts.tourists, opts.defaultTouristId);
+    }
+    const prefill = opts.prefill || {};
+    Object.entries(prefill).forEach(([name, value]) => {
+      if (value === null || value === undefined || value === "") return;
+      const input = form.querySelector(`[name="${name}"]`);
+      if (input) input.value = value;
+    });
+    // Pre-fill the step-1 setup count (Том хүний тоо) so admins don't retype it.
+    if (prefill.adultCount != null) {
+      const setupAdult = countSetup.querySelector("input[name='setupAdultCount']");
+      if (setupAdult) setupAdult.value = String(prefill.adultCount);
+    }
+    if (prefill.childCount != null) {
+      const setupChild = countSetup.querySelector("input[name='setupChildCount']");
+      if (setupChild) setupChild.value = String(prefill.childCount);
+    }
+    toggle.click();
+  };
 
   // Ensure the panel is hidden on first load even if browser caches styles.
   closePanel();
@@ -1004,3 +1108,16 @@ document.addEventListener("DOMContentLoaded", () => {
     initContractSignPage();
   }
 });
+
+// Public entrypoint for trip/group/FIT/GIT pages: lazy-loads the modal
+// markup, wires it up once, applies prefill, and opens it in-place.
+window.openContractModal = async (opts = {}) => {
+  await ensureContractModalInDOM();
+  if (!window.__contractFormInited) {
+    initContractForm();
+    window.__contractFormInited = true;
+  }
+  if (typeof window.__openContractModalInternal === "function") {
+    window.__openContractModalInternal(opts);
+  }
+};

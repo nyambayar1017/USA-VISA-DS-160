@@ -313,9 +313,57 @@ function fmtDateShort(value) {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
-// Wire the "+ Add contract" button to deep-link into /contracts wizard pre-attached.
+// "+ Add contract" opens the modal in-place on the group page (no nav).
+// Pre-fills destination/dates from trip, traveler counts from group, and
+// shows a tourist picker so admin can choose who signs (default: leader).
 if (addContractBtnTop) {
-  addContractBtnTop.setAttribute("href", `/contracts?openCreate=1&tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(groupId)}`);
+  addContractBtnTop.removeAttribute("href");
+  addContractBtnTop.setAttribute("role", "button");
+  addContractBtnTop.style.cursor = "pointer";
+  addContractBtnTop.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (typeof window.openContractModal !== "function") {
+      // Fallback to old redirect if the shared modal failed to load.
+      window.location.href = `/contracts?openCreate=1&tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(groupId)}`;
+      return;
+    }
+    const norm = (s) => String(s || "").trim().toLowerCase();
+    const leaderName = norm(group?.leaderName);
+    const leaderTourist = leaderName
+      ? tourists.find((t) => {
+          const a = norm(`${t.lastName || ""} ${t.firstName || ""}`);
+          const b = norm(`${t.firstName || ""} ${t.lastName || ""}`);
+          return a === leaderName || b === leaderName;
+        })
+      : null;
+    const adultCount = tourists.filter((t) => {
+      const cat = String(t.category || t.ageGroup || "").toLowerCase();
+      return !cat || cat === "adult" || cat === "том";
+    }).length || tourists.length || 1;
+    const childCount = tourists.filter((t) => {
+      const cat = String(t.category || t.ageGroup || "").toLowerCase();
+      return cat === "child" || cat === "хүүхэд";
+    }).length;
+    await window.openContractModal({
+      tripId,
+      groupId,
+      tourists: tourists.map((t) => ({
+        id: t.id,
+        lastName: t.lastName,
+        firstName: t.firstName,
+        register: t.register || t.registerNumber,
+      })),
+      defaultTouristId: leaderTourist?.id || tourists[0]?.id,
+      prefill: {
+        destination: trip?.destination || trip?.country || "",
+        tripStartDate: trip?.startDate || trip?.tripStartDate || "",
+        tripEndDate: trip?.endDate || trip?.tripEndDate || "",
+        adultCount,
+        childCount,
+      },
+      onSuccess: () => loadAll(),
+    });
+  });
 }
 
 function renderContracts() {
