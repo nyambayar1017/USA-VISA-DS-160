@@ -8931,7 +8931,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #6b7280;
   font-size: 13px;
 }
-.invoices-table-wrap {
+.invoices-table-wrap,
+.table-scroll {
   overflow-x: auto;
 }
 .invoices-table {
@@ -9047,6 +9048,27 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   vertical-align: middle !important;
   font-size: 14px !important;
   color: #1f2937 !important;
+  /* Match Tourist Directory mobile behavior — nowrap so dates and serials
+     like "DTX-09A-26-060" stay on one line and the wrapper scrolls
+     horizontally instead of breaking text mid-word. Cells that
+     intentionally need to wrap (long descriptions, primary content)
+     opt in via `.table-primary-cell` below. */
+  white-space: nowrap !important;
+}
+.invoices-table .table-primary-cell,
+.trip-table .table-primary-cell,
+.camp-table .table-primary-cell,
+.contract-table .table-primary-cell,
+.contract-trip-table .table-primary-cell,
+.tourist-directory-table .table-primary-cell,
+.reservation-addon-table .table-primary-cell,
+.camp-reservation-table .table-primary-cell,
+.flight-reservation-table .table-primary-cell,
+.transfer-reservation-table .table-primary-cell,
+.camp-payment-table .table-primary-cell,
+.flight-payment-table .table-primary-cell,
+.manager-table .table-primary-cell {
+  white-space: normal !important;
 }
 .invoices-table tbody tr:hover td,
 .trip-table tbody tr:hover td,
