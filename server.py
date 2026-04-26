@@ -7710,6 +7710,17 @@ def handle_delete_mail_account(environ, start_response, account_id):
             msg_path.unlink()
     except Exception:
         pass
+    # Clean up all body + attachment files for this account
+    safe_acc = re.sub(r"[^A-Za-z0-9_-]", "_", str(account_id))
+    try:
+        for p in MAIL_MESSAGES_DIR.glob(f"body-{safe_acc}-*"):
+            try: p.unlink()
+            except Exception: pass
+        for p in MAIL_MESSAGES_DIR.glob(f"att-{safe_acc}-*"):
+            try: p.unlink()
+            except Exception: pass
+    except Exception:
+        pass
     return json_response(start_response, "200 OK", {"ok": True})
 
 
@@ -7875,6 +7886,59 @@ def _attachment_path(account_id, folder, uid, idx):
     return MAIL_MESSAGES_DIR / f"att-{safe_acc}-{safe_folder}-{int(uid)}-{int(idx)}.bin"
 
 
+def _body_path(account_id, folder, uid):
+    """Bodies live as small per-message JSON files on disk so the per-account
+    cache stays tiny. This keeps memory pressure low: the cache file is read
+    on every poll, but bodies are only loaded when the user opens a message."""
+    safe_acc = re.sub(r"[^A-Za-z0-9_-]", "_", str(account_id))
+    safe_folder = re.sub(r"[^A-Za-z0-9_-]", "_", str(folder))
+    return MAIL_MESSAGES_DIR / f"body-{safe_acc}-{safe_folder}-{int(uid)}.json"
+
+
+def _save_message_body(account_id, folder, uid, body_text, body_html):
+    path = _body_path(account_id, folder, uid)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump({"bodyText": body_text or "", "bodyHtml": body_html or ""}, fh, ensure_ascii=False)
+        tmp.replace(path)
+    except Exception:
+        pass
+
+
+def _load_message_body(account_id, folder, uid):
+    path = _body_path(account_id, folder, uid)
+    if not path.exists():
+        return {"bodyText": "", "bodyHtml": ""}
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return {
+            "bodyText": data.get("bodyText", "") or "",
+            "bodyHtml": data.get("bodyHtml", "") or "",
+        }
+    except Exception:
+        return {"bodyText": "", "bodyHtml": ""}
+
+
+def _delete_message_files(account_id, folder, uid, attachment_count=0):
+    """Remove body + attachment files for a message. Best-effort."""
+    try:
+        bp = _body_path(account_id, folder, uid)
+        if bp.exists():
+            bp.unlink()
+    except Exception:
+        pass
+    for i in range(max(int(attachment_count or 0), 0)):
+        try:
+            ap = _attachment_path(account_id, folder, uid, i)
+            if ap.exists():
+                ap.unlink()
+        except Exception:
+            pass
+
+
 def _persist_attachments(account_id, folder, uid, msg_obj, parsed):
     """Walk the parsed MIME message and save each attachment payload to disk
     so it can be served by /api/mail/messages/.../attachments/.../download."""
@@ -7942,6 +8006,34 @@ def _read_mail_cache(account_id):
         data.setdefault("folders", {})
         data["folders"].setdefault("inbox", {"uidvalidity": None, "lastUid": 0})
         data["folders"].setdefault("sent", {"uidvalidity": None, "lastUid": 0})
+
+        # One-time migration: legacy caches stored bodyText/bodyHtml inline
+        # on every message. Strip them out and persist to per-message files
+        # so the in-memory cache footprint is tiny.
+        if not data.get("bodyMigrationDone"):
+            for m in data.get("messages", []):
+                has_body = ("bodyText" in m) or ("bodyHtml" in m)
+                if not has_body:
+                    continue
+                try:
+                    uid_val = int(m.get("uid", 0))
+                except Exception:
+                    uid_val = 0
+                folder_val = m.get("folder") or "inbox"
+                if uid_val:
+                    _save_message_body(
+                        account_id, folder_val, uid_val,
+                        m.pop("bodyText", "") or "",
+                        m.pop("bodyHtml", "") or "",
+                    )
+                else:
+                    m.pop("bodyText", None)
+                    m.pop("bodyHtml", None)
+            data["bodyMigrationDone"] = True
+            try:
+                _write_mail_cache(account_id, data)
+            except Exception:
+                pass
         return data
     except Exception:
         return _empty_mail_cache()
@@ -7979,7 +8071,7 @@ def _select_imap_folder(client, folder_key):
     return "", last_err or f"Could not select folder '{folder_key}'"
 
 
-def imap_sync_account(account, limit=50, folder="inbox"):
+def imap_sync_account(account, limit=20, folder="inbox"):
     """Fetch most recent messages from the given folder ('inbox' or 'sent')
     and append/update the local cache. Returns (new_message_count, error_string)."""
     import imaplib
@@ -8057,7 +8149,15 @@ def imap_sync_account(account, limit=50, folder="inbox"):
                 parsed["isRead"] = "\\Seen" in flags_str
                 # Save attachment payloads to disk (so the viewer can offer downloads)
                 _persist_attachments(account["id"], folder, uid, msg_obj, parsed)
+                # Bodies live on disk; strip them from the metadata kept in memory
+                body_text = parsed.pop("bodyText", "") or ""
+                body_html = parsed.pop("bodyHtml", "") or ""
+                _save_message_body(account["id"], folder, uid, body_text, body_html)
                 cache_messages[uid] = parsed
+                # Free the raw bytes ASAP so the GC can reclaim them before
+                # we fetch the next message in the loop.
+                raw = None
+                msg_obj = None
                 new_count += 1
                 if uid > last_uid:
                     last_uid = uid
@@ -8101,8 +8201,18 @@ def imap_sync_account(account, limit=50, folder="inbox"):
     other_folders_messages = [m for m in cache.get("messages", []) if m.get("folder") != folder]
     merged = other_folders_messages + list(cache_messages.values())
     merged.sort(key=lambda m: m.get("date") or "", reverse=True)
-    # Keep the most recent ~400 across all folders so we don't grow forever
-    merged = merged[:400]
+    # Keep the most recent ~200 across all folders so we don't grow forever
+    if len(merged) > 200:
+        # Clean up bodies + attachments for messages we're about to drop
+        for m in merged[200:]:
+            try:
+                folder_val = m.get("folder") or "inbox"
+                uid_val = int(m.get("uid", 0))
+                if uid_val:
+                    _delete_message_files(account["id"], folder_val, uid_val, len(m.get("attachments") or []))
+            except Exception:
+                pass
+        merged = merged[:200]
 
     cache["folders"][folder] = {
         "uidvalidity": uidvalidity if uidvalidity else cached_uidvalidity,
@@ -8444,11 +8554,19 @@ def handle_delete_mail_message(environ, start_response, account_id, uid):
     if not ok:
         return json_response(start_response, "500 Internal Server Error", {"error": err})
     cache = _read_mail_cache(account_id)
+    # Find the message first so we know how many attachments to clean up
+    deleted_msg = next(
+        (m for m in cache.get("messages", [])
+         if int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder),
+        None,
+    )
     cache["messages"] = [
         m for m in cache.get("messages", [])
         if not (int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder)
     ]
     _write_mail_cache(account_id, cache)
+    if deleted_msg:
+        _delete_message_files(account_id, folder, uid_int, len(deleted_msg.get("attachments") or []))
     return json_response(start_response, "200 OK", {"ok": True})
 
 
@@ -8482,10 +8600,8 @@ def handle_get_mail_message(environ, start_response, account_id, uid):
         try:
             refreshed = _refetch_message(account, folder, uid_int)
             if refreshed:
-                # Preserve isRead / folder
                 refreshed["isRead"] = msg.get("isRead", True)
                 refreshed["folder"] = folder
-                # Update cache
                 for i, m in enumerate(cache.get("messages", [])):
                     if int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder:
                         cache["messages"][i] = refreshed
@@ -8495,13 +8611,35 @@ def handle_get_mail_message(environ, start_response, account_id, uid):
         except Exception:
             pass
 
-    body_text = msg.get("bodyText") or ""
-    body_html = msg.get("bodyHtml") or ""
+    # Bodies live on disk now — load on demand. Fall back to re-fetch if
+    # the body file is missing (e.g. message synced before this change).
+    body = _load_message_body(account_id, folder, uid_int)
+    if not body["bodyText"] and not body["bodyHtml"] and account:
+        try:
+            refreshed = _refetch_message(account, folder, uid_int)
+            if refreshed:
+                refreshed["isRead"] = msg.get("isRead", True)
+                refreshed["folder"] = folder
+                for i, m in enumerate(cache.get("messages", [])):
+                    if int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder:
+                        cache["messages"][i] = refreshed
+                        break
+                _write_mail_cache(account_id, cache)
+                msg = refreshed
+                body = _load_message_body(account_id, folder, uid_int)
+        except Exception:
+            pass
+
+    body_text = body["bodyText"]
+    body_html = body["bodyHtml"]
     if not body_html and body_text and body_text.lstrip()[:1] == "<" and re.search(r"<\s*(html|body|table|div|p|span|td)\b", body_text, re.IGNORECASE):
-        msg = {**msg, "bodyHtml": body_text, "bodyText": ""}
+        body_html, body_text = body_text, ""
+
+    response_msg = {**msg, "bodyText": body_text, "bodyHtml": body_html}
     if account:
-        msg = {**msg, "accountAddress": account["address"], "accountDisplay": account.get("displayName") or account["address"]}
-    return json_response(start_response, "200 OK", {"entry": msg})
+        response_msg["accountAddress"] = account["address"]
+        response_msg["accountDisplay"] = account.get("displayName") or account["address"]
+    return json_response(start_response, "200 OK", {"entry": response_msg})
 
 
 def _refetch_message(account, folder, uid):
@@ -8536,6 +8674,9 @@ def _refetch_message(account, folder, uid):
             parsed = _parse_email_message(msg_obj, account["id"], uid)
             parsed["folder"] = folder
             _persist_attachments(account["id"], folder, uid, msg_obj, parsed)
+            body_text = parsed.pop("bodyText", "") or ""
+            body_html = parsed.pop("bodyHtml", "") or ""
+            _save_message_body(account["id"], folder, uid, body_text, body_html)
             return parsed
         finally:
             try: client.logout()

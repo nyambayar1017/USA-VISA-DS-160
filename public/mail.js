@@ -756,13 +756,13 @@
     setupSwipeGestures();
     await loadInbox(true);
 
-    // Auto-poll every 20s while the page is visible. Pause when hidden
+    // Auto-poll every 30s while the page is visible. Pause when hidden
     // so we don't burn cycles on a backgrounded tab.
     setInterval(() => {
       if (document.visibilityState === "visible") {
         loadInbox(false);
       }
-    }, 20000);
+    }, 30000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") loadInbox(false);
     });
