@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-223" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-224" />
   </head>
   <body class="app-body" data-page="mail">
     <div class="workspace-shell">
@@ -38,6 +38,10 @@
         <section class="card mail-shell" id="mail-shell" hidden>
           <div class="mail-toolbar">
             <button type="button" id="mail-compose" class="primary-pill">+ Compose</button>
+            <div class="mail-folder-tabs" role="tablist">
+              <button type="button" class="mail-folder-tab is-active" data-folder="inbox" role="tab">Inbox</button>
+              <button type="button" class="mail-folder-tab" data-folder="sent" role="tab">Sent</button>
+            </div>
             <select id="mail-account-filter" class="trip-filter-input">
               <option value="">All mailboxes</option>
             </select>
@@ -107,7 +111,7 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-103"></script>
-    <script src="/mail.js?v=workspace-5"></script>
+    <script src="/mail.js?v=workspace-6"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

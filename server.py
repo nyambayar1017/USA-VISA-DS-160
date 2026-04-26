@@ -7796,16 +7796,24 @@ def _parse_email_message(msg, account_id, uid):
 
     body_text = ""
     body_html = ""
-    has_attachment = False
+    attachments = []  # list of dicts: {idx, filename, contentType, size}
     if msg.is_multipart():
+        idx = 0
         for part in msg.walk():
             ctype = part.get_content_type()
             cdisp = (part.get("Content-Disposition") or "").lower()
-            if "attachment" in cdisp:
-                has_attachment = True
-                continue
-            if part.get_filename():
-                has_attachment = True
+            fname_raw = part.get_filename()
+            fname = _decode_header_value(fname_raw) if fname_raw else ""
+            is_attachment = ("attachment" in cdisp) or bool(fname)
+            if is_attachment:
+                payload = part.get_payload(decode=True) or b""
+                attachments.append({
+                    "idx": idx,
+                    "filename": fname or f"attachment-{idx}",
+                    "contentType": ctype,
+                    "size": len(payload),
+                })
+                idx += 1
                 continue
             if ctype == "text/plain" and not body_text:
                 payload = part.get_payload(decode=True) or b""
@@ -7834,7 +7842,6 @@ def _parse_email_message(msg, account_id, uid):
             body_text = decoded
 
     if not body_text and body_html:
-        # Strip HTML tags for snippet
         body_text_strip = re.sub(r"<[^>]+>", " ", body_html)
         body_text_strip = re.sub(r"\s+", " ", body_text_strip).strip()
     else:
@@ -7856,26 +7863,88 @@ def _parse_email_message(msg, account_id, uid):
         "snippet": snippet,
         "bodyText": body_text,
         "bodyHtml": body_html,
-        "hasAttachment": has_attachment,
+        "hasAttachment": bool(attachments),
+        "attachments": attachments,
         "fetchedAt": now_mongolia().isoformat(),
+    }
+
+
+def _attachment_path(account_id, folder, uid, idx):
+    safe_acc = re.sub(r"[^A-Za-z0-9_-]", "_", str(account_id))
+    safe_folder = re.sub(r"[^A-Za-z0-9_-]", "_", str(folder))
+    return MAIL_MESSAGES_DIR / f"att-{safe_acc}-{safe_folder}-{int(uid)}-{int(idx)}.bin"
+
+
+def _persist_attachments(account_id, folder, uid, msg_obj, parsed):
+    """Walk the parsed MIME message and save each attachment payload to disk
+    so it can be served by /api/mail/messages/.../attachments/.../download."""
+    if not parsed.get("attachments"):
+        return
+    try:
+        idx = 0
+        for part in msg_obj.walk():
+            cdisp = (part.get("Content-Disposition") or "").lower()
+            fname_raw = part.get_filename()
+            is_attachment = ("attachment" in cdisp) or bool(fname_raw)
+            if not is_attachment:
+                continue
+            payload = part.get_payload(decode=True) or b""
+            path = _attachment_path(account_id, folder, uid, idx)
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("wb") as fh:
+                    fh.write(payload)
+            except Exception:
+                pass
+            idx += 1
+    except Exception:
+        pass
+
+
+def _empty_mail_cache():
+    """A fresh cache supports multiple folders. Each folder entry tracks
+    uidvalidity + lastUid; messages live in a single list and each carries
+    a 'folder' field ('inbox' or 'sent')."""
+    return {
+        "folders": {
+            "inbox": {"uidvalidity": None, "lastUid": 0},
+            "sent": {"uidvalidity": None, "lastUid": 0},
+        },
+        "messages": [],
     }
 
 
 def _read_mail_cache(account_id):
     path = MAIL_MESSAGES_DIR / f"{account_id}.json"
     if not path.exists():
-        return {"uidvalidity": None, "lastUid": 0, "messages": []}
+        return _empty_mail_cache()
     try:
         with path.open("r", encoding="utf-8") as fh:
             data = json.load(fh)
         if not isinstance(data, dict):
-            return {"uidvalidity": None, "lastUid": 0, "messages": []}
-        data.setdefault("uidvalidity", None)
-        data.setdefault("lastUid", 0)
+            return _empty_mail_cache()
+        # Migrate old single-folder cache into the new structure.
+        if "folders" not in data:
+            data = {
+                "folders": {
+                    "inbox": {
+                        "uidvalidity": data.get("uidvalidity"),
+                        "lastUid": int(data.get("lastUid") or 0),
+                    },
+                    "sent": {"uidvalidity": None, "lastUid": 0},
+                },
+                "messages": [
+                    {**m, "folder": m.get("folder") or "inbox"}
+                    for m in (data.get("messages") or [])
+                ],
+            }
         data.setdefault("messages", [])
+        data.setdefault("folders", {})
+        data["folders"].setdefault("inbox", {"uidvalidity": None, "lastUid": 0})
+        data["folders"].setdefault("sent", {"uidvalidity": None, "lastUid": 0})
         return data
     except Exception:
-        return {"uidvalidity": None, "lastUid": 0, "messages": []}
+        return _empty_mail_cache()
 
 
 def _write_mail_cache(account_id, cache):
@@ -7887,9 +7956,32 @@ def _write_mail_cache(account_id, cache):
     tmp.replace(path)
 
 
-def imap_sync_account(account, limit=50):
-    """Fetch most recent messages and append/update the local cache.
-    Returns (new_message_count, error_string_or_empty)."""
+FOLDER_IMAP_NAMES = {
+    "inbox": ["INBOX"],
+    "sent": ['"[Gmail]/Sent Mail"', '"[Gmail]/&BB4EQgQ_BEAEMAQyBDsENQQ9BD0ESwQ1-"', "Sent"],
+}
+
+
+def _select_imap_folder(client, folder_key):
+    """Try the conventional folder names for the given logical folder.
+    Returns (selected_folder_name, error_or_empty)."""
+    candidates = FOLDER_IMAP_NAMES.get(folder_key, [folder_key])
+    last_err = ""
+    for name in candidates:
+        try:
+            typ, _ = client.select(name, readonly=True)
+            if typ == "OK":
+                return name, ""
+            last_err = f"select {name}: {typ}"
+        except Exception as exc:
+            last_err = str(exc)
+            continue
+    return "", last_err or f"Could not select folder '{folder_key}'"
+
+
+def imap_sync_account(account, limit=50, folder="inbox"):
+    """Fetch most recent messages from the given folder ('inbox' or 'sent')
+    and append/update the local cache. Returns (new_message_count, error_string)."""
     import imaplib
     import email as email_mod
     address = account.get("address")
@@ -7904,17 +7996,19 @@ def imap_sync_account(account, limit=50):
         return 0, "Password contains non-ASCII characters"
 
     cache = _read_mail_cache(account["id"])
-    cache_messages = {int(m["uid"]): m for m in cache.get("messages", [])}
-    last_uid = int(cache.get("lastUid") or 0)
-    cached_uidvalidity = cache.get("uidvalidity")
+    folder_state = cache["folders"].setdefault(folder, {"uidvalidity": None, "lastUid": 0})
+    # Build a uid->message map but only for messages in *this* folder
+    cache_messages = {int(m["uid"]): m for m in cache.get("messages", []) if m.get("folder") == folder}
+    last_uid = int(folder_state.get("lastUid") or 0)
+    cached_uidvalidity = folder_state.get("uidvalidity")
 
     try:
         client = imaplib.IMAP4_SSL(host, port, timeout=30)
         try:
             client.login(address, password)
-            typ, _ = client.select("INBOX", readonly=True)
-            if typ != "OK":
-                return 0, "Could not select INBOX"
+            selected_name, sel_err = _select_imap_folder(client, folder)
+            if not selected_name:
+                return 0, sel_err
             typ, data = client.response("UIDVALIDITY")
             uidvalidity = None
             if typ == "OK" and data and data[0]:
@@ -7949,8 +8043,6 @@ def imap_sync_account(account, limit=50):
                 flags_str = ""
                 for part in data:
                     if isinstance(part, tuple) and len(part) >= 2:
-                        # Header part contains FLAGS info; tuple[0] looks like:
-                        # b'1234 (FLAGS (\\Seen) UID 99 BODY[] {bytes}'
                         if not raw:
                             raw = part[1]
                             try:
@@ -7961,17 +8053,18 @@ def imap_sync_account(account, limit=50):
                     continue
                 msg_obj = email_mod.message_from_bytes(raw)
                 parsed = _parse_email_message(msg_obj, account["id"], uid)
+                parsed["folder"] = folder
                 parsed["isRead"] = "\\Seen" in flags_str
+                # Save attachment payloads to disk (so the viewer can offer downloads)
+                _persist_attachments(account["id"], folder, uid, msg_obj, parsed)
                 cache_messages[uid] = parsed
                 new_count += 1
                 if uid > last_uid:
                     last_uid = uid
 
-            # Refresh flags for already-cached messages too, so things
-            # marked read in Gmail (or by another client) get updated.
+            # Refresh \Seen flags for already-cached messages
             existing_uids = [u for u in cache_messages.keys() if u not in uids]
             if existing_uids:
-                # Batch in chunks
                 for i in range(0, len(existing_uids), 100):
                     batch = existing_uids[i:i+100]
                     uid_set = ",".join(str(u) for u in batch)
@@ -8002,14 +8095,21 @@ def imap_sync_account(account, limit=50):
             except Exception:
                 pass
     except Exception as exc:
-        return 0, f"Sync failed: {exc}"
+        return 0, f"Sync failed ({folder}): {exc}"
 
-    sorted_messages = sorted(cache_messages.values(), key=lambda m: m.get("date") or "", reverse=True)[:200]
-    _write_mail_cache(account["id"], {
+    # Re-merge the per-folder messages back with messages from *other* folders
+    other_folders_messages = [m for m in cache.get("messages", []) if m.get("folder") != folder]
+    merged = other_folders_messages + list(cache_messages.values())
+    merged.sort(key=lambda m: m.get("date") or "", reverse=True)
+    # Keep the most recent ~400 across all folders so we don't grow forever
+    merged = merged[:400]
+
+    cache["folders"][folder] = {
         "uidvalidity": uidvalidity if uidvalidity else cached_uidvalidity,
         "lastUid": last_uid,
-        "messages": sorted_messages,
-    })
+    }
+    cache["messages"] = merged
+    _write_mail_cache(account["id"], cache)
 
     accounts = read_mail_accounts()
     for i, a in enumerate(accounts):
@@ -8027,6 +8127,9 @@ def handle_list_mail_messages(environ, start_response):
     params = parse_qs(environ.get("QUERY_STRING", ""))
     do_sync = (params.get("sync", ["1"])[0] or "1") != "0"
     account_filter = (params.get("accountId", [""])[0] or "").strip()
+    folder_filter = (params.get("folder", ["inbox"])[0] or "inbox").strip().lower()
+    if folder_filter not in ("inbox", "sent"):
+        folder_filter = "inbox"
 
     accounts = read_mail_accounts()
     if account_filter:
@@ -8035,9 +8138,11 @@ def handle_list_mail_messages(environ, start_response):
     sync_errors = []
     if do_sync:
         for a in accounts:
-            _, err = imap_sync_account(a, limit=50)
+            # Sync the requested folder. Inbox is the hot path; sync sent only
+            # when the user is viewing it (saves a Gmail round-trip).
+            _, err = imap_sync_account(a, limit=50, folder=folder_filter)
             if err:
-                sync_errors.append({"accountId": a["id"], "address": a["address"], "error": err})
+                sync_errors.append({"accountId": a["id"], "address": a["address"], "folder": folder_filter, "error": err})
 
     all_messages = []
     accounts_full = read_mail_accounts()
@@ -8046,6 +8151,8 @@ def handle_list_mail_messages(environ, start_response):
     for a in accounts_full:
         cache = _read_mail_cache(a["id"])
         for msg in cache.get("messages", []):
+            if (msg.get("folder") or "inbox") != folder_filter:
+                continue
             slim = {k: v for k, v in msg.items() if k not in ("bodyText", "bodyHtml")}
             slim["accountAddress"] = a["address"]
             slim["accountDisplay"] = a.get("displayName") or a["address"]
@@ -8055,17 +8162,21 @@ def handle_list_mail_messages(environ, start_response):
     all_messages.sort(key=lambda m: m.get("date") or "", reverse=True)
     return json_response(start_response, "200 OK", {
         "entries": all_messages,
+        "folder": folder_filter,
         "syncErrors": sync_errors,
         "syncedAt": now_mongolia().isoformat(),
     })
 
 
-def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=None, in_reply_to_subject=None):
-    """Send a plaintext email through Gmail SMTP using the connected account's
-    app password. Also APPENDs the message into Gmail's Sent Mail folder so it
-    shows up in their normal Sent box. Returns (ok, error_message)."""
+def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=None, in_reply_to_subject=None, attachments=None):
+    """Send an email through Gmail SMTP using the connected account's
+    app password. to_list/cc_list/bcc_list may be either bare emails or
+    'Display Name <addr@x>' style strings — only the bare emails are used
+    for the SMTP envelope; the headers preserve whatever the caller passed.
+    Returns (ok, error_message)."""
     import smtplib
     from email.message import EmailMessage
+    from email.utils import getaddresses
     address = account.get("address")
     password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
     smtp_host = account.get("smtpHost") or "smtp.gmail.com"
@@ -8089,19 +8200,49 @@ def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, re
         msg["References"] = reply_to_message_id
     msg.set_content(body or "")
 
+    if attachments:
+        for att in attachments:
+            try:
+                data = att.get("data")
+                if isinstance(data, str):
+                    data = base64.b64decode(data)
+                if not data:
+                    continue
+                ctype = att.get("contentType") or "application/octet-stream"
+                maintype, _, subtype = ctype.partition("/")
+                if not subtype:
+                    maintype, subtype = "application", "octet-stream"
+                fname = att.get("filename") or "attachment"
+                msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=fname)
+            except Exception:
+                pass
+
+    # Build the envelope recipient list using the parsed bare email
+    # portion of every header value, deduped case-insensitively.
+    pairs = getaddresses(list(to_list) + list(cc_list or []) + list(bcc_list or []))
     seen = set()
     all_recipients = []
-    for addr in list(to_list) + list(cc_list or []) + list(bcc_list or []):
-        key = addr.lower().strip()
+    for _name, email_addr in pairs:
+        if not email_addr or "@" not in email_addr:
+            continue
+        key = email_addr.lower().strip()
         if key and key not in seen:
             seen.add(key)
-            all_recipients.append(addr)
+            all_recipients.append(email_addr.strip())
+    if not all_recipients:
+        return False, "No valid recipients"
     try:
         with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as smtp:
             smtp.login(address, password)
             smtp.send_message(msg, from_addr=address, to_addrs=all_recipients)
     except smtplib.SMTPAuthenticationError as exc:
         return False, f"SMTP auth failed: {exc}"
+    except smtplib.SMTPRecipientsRefused as exc:
+        return False, f"Recipients refused: {exc.recipients}"
+    except smtplib.SMTPSenderRefused as exc:
+        return False, f"Sender refused: {exc.smtp_error}"
+    except smtplib.SMTPDataError as exc:
+        return False, f"SMTP data error: {exc.smtp_error}"
     except Exception as exc:
         return False, f"SMTP send failed: {exc}"
 
@@ -8124,14 +8265,26 @@ def handle_send_mail(environ, start_response):
     if not account:
         return json_response(start_response, "400 Bad Request", {"error": "Choose a From mailbox"})
 
+    from email.utils import getaddresses
     def split_addrs(value):
+        """Parse a recipient string robustly: handles 'a@b, c@d', semicolons,
+        and 'Display <addr@x>' forms. Returns a list of header-style strings
+        (display name preserved when present, otherwise the bare email)."""
         if not value:
             return []
         if isinstance(value, list):
             raw = ", ".join(str(v) for v in value)
         else:
             raw = str(value)
-        return [a.strip() for a in raw.replace(";", ",").split(",") if a.strip() and "@" in a]
+        raw = raw.replace(";", ",")
+        out = []
+        for name, email_addr in getaddresses([raw]):
+            email_addr = (email_addr or "").strip()
+            if not email_addr or "@" not in email_addr:
+                continue
+            name = (name or "").strip()
+            out.append(f"{name} <{email_addr}>" if name else email_addr)
+        return out
 
     to_list = split_addrs(payload.get("to"))
     cc_list = split_addrs(payload.get("cc"))
@@ -8159,7 +8312,7 @@ def handle_send_mail(environ, start_response):
     return json_response(start_response, "200 OK", {"ok": True})
 
 
-def imap_mark_read(account, uid):
+def imap_mark_read(account, uid, folder="inbox"):
     """Set the \\Seen flag on a message so Gmail also marks it read."""
     import imaplib
     address = account.get("address")
@@ -8172,7 +8325,13 @@ def imap_mark_read(account, uid):
         client = imaplib.IMAP4_SSL(host, port, timeout=20)
         try:
             client.login(address, password)
-            client.select("INBOX")
+            for name in FOLDER_IMAP_NAMES.get(folder, [folder]):
+                try:
+                    typ, _ = client.select(name)
+                    if typ == "OK":
+                        break
+                except Exception:
+                    continue
             client.uid("STORE", str(uid), "+FLAGS", "(\\Seen)")
         finally:
             try: client.logout()
@@ -8194,17 +8353,21 @@ def handle_mark_read_mail_message(environ, start_response, account_id, uid):
         uid_int = int(uid)
     except ValueError:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid uid"})
-    ok, err = imap_mark_read(account, uid_int)
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    folder = (params.get("folder", ["inbox"])[0] or "inbox").strip().lower()
+    if folder not in ("inbox", "sent"):
+        folder = "inbox"
+    ok, err = imap_mark_read(account, uid_int, folder=folder)
     cache = _read_mail_cache(account_id)
     for m in cache.get("messages", []):
-        if int(m.get("uid", 0)) == uid_int:
+        if int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder:
             m["isRead"] = True
             break
     _write_mail_cache(account_id, cache)
     return json_response(start_response, "200 OK", {"ok": ok, "error": err})
 
 
-def imap_delete_message(account, uid):
+def imap_delete_message(account, uid, folder="inbox"):
     """Move a message to Trash on Gmail. Returns (ok, error)."""
     import imaplib
     address = account.get("address")
@@ -8217,11 +8380,18 @@ def imap_delete_message(account, uid):
         client = imaplib.IMAP4_SSL(host, port, timeout=20)
         try:
             client.login(address, password)
-            client.select("INBOX")
+            # Re-select non-readonly so we can mutate
+            candidates = FOLDER_IMAP_NAMES.get(folder, [folder])
+            for name in candidates:
+                try:
+                    typ, _ = client.select(name)
+                    if typ == "OK":
+                        break
+                except Exception:
+                    continue
             try:
                 client.uid("MOVE", str(uid), '"[Gmail]/Trash"')
             except Exception:
-                # Fallback: copy + flag deleted + expunge
                 try:
                     client.uid("COPY", str(uid), '"[Gmail]/Trash"')
                 except Exception:
@@ -8248,11 +8418,18 @@ def handle_delete_mail_message(environ, start_response, account_id, uid):
         uid_int = int(uid)
     except ValueError:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid uid"})
-    ok, err = imap_delete_message(account, uid_int)
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    folder = (params.get("folder", ["inbox"])[0] or "inbox").strip().lower()
+    if folder not in ("inbox", "sent"):
+        folder = "inbox"
+    ok, err = imap_delete_message(account, uid_int, folder=folder)
     if not ok:
         return json_response(start_response, "500 Internal Server Error", {"error": err})
     cache = _read_mail_cache(account_id)
-    cache["messages"] = [m for m in cache.get("messages", []) if int(m.get("uid", 0)) != uid_int]
+    cache["messages"] = [
+        m for m in cache.get("messages", [])
+        if not (int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder)
+    ]
     _write_mail_cache(account_id, cache)
     return json_response(start_response, "200 OK", {"ok": True})
 
@@ -8261,24 +8438,203 @@ def handle_get_mail_message(environ, start_response, account_id, uid):
     actor = require_login(environ, start_response)
     if not actor:
         return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    folder = (params.get("folder", ["inbox"])[0] or "inbox").strip().lower()
+    if folder not in ("inbox", "sent"):
+        folder = "inbox"
     cache = _read_mail_cache(account_id)
     try:
         uid_int = int(uid)
     except ValueError:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid uid"})
-    msg = next((m for m in cache.get("messages", []) if int(m.get("uid", 0)) == uid_int), None)
+    msg = next(
+        (m for m in cache.get("messages", [])
+         if int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder),
+        None,
+    )
     if not msg:
         return json_response(start_response, "404 Not Found", {"error": "Message not found"})
-    # Heal cached messages where HTML was misclassified into bodyText.
+    accounts = read_mail_accounts()
+    account = next((a for a in accounts if a["id"] == account_id), None)
+
+    # If this is an older cached message with hasAttachment=true but no
+    # attachments array (cached before attachment support was added),
+    # re-fetch the raw message once and rebuild metadata + persist payloads.
+    if account and msg.get("hasAttachment") and not msg.get("attachments"):
+        try:
+            refreshed = _refetch_message(account, folder, uid_int)
+            if refreshed:
+                # Preserve isRead / folder
+                refreshed["isRead"] = msg.get("isRead", True)
+                refreshed["folder"] = folder
+                # Update cache
+                for i, m in enumerate(cache.get("messages", [])):
+                    if int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder:
+                        cache["messages"][i] = refreshed
+                        break
+                _write_mail_cache(account_id, cache)
+                msg = refreshed
+        except Exception:
+            pass
+
     body_text = msg.get("bodyText") or ""
     body_html = msg.get("bodyHtml") or ""
     if not body_html and body_text and body_text.lstrip()[:1] == "<" and re.search(r"<\s*(html|body|table|div|p|span|td)\b", body_text, re.IGNORECASE):
         msg = {**msg, "bodyHtml": body_text, "bodyText": ""}
-    accounts = read_mail_accounts()
-    account = next((a for a in accounts if a["id"] == account_id), None)
     if account:
         msg = {**msg, "accountAddress": account["address"], "accountDisplay": account.get("displayName") or account["address"]}
     return json_response(start_response, "200 OK", {"entry": msg})
+
+
+def _refetch_message(account, folder, uid):
+    """Re-download a single message from IMAP, parse it, and persist its
+    attachment payloads to disk. Returns the parsed message dict (or None)."""
+    import imaplib
+    import email as email_mod
+    address = account.get("address")
+    password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
+    host = account.get("imapHost") or "imap.gmail.com"
+    port = int(account.get("imapPort") or 993)
+    if not address or not password:
+        return None
+    try:
+        client = imaplib.IMAP4_SSL(host, port, timeout=30)
+        try:
+            client.login(address, password)
+            selected, _ = _select_imap_folder(client, folder)
+            if not selected:
+                return None
+            typ, data = client.uid("fetch", str(uid), "(BODY.PEEK[])")
+            if typ != "OK" or not data:
+                return None
+            raw = None
+            for part in data:
+                if isinstance(part, tuple) and len(part) >= 2:
+                    raw = part[1]
+                    break
+            if not raw:
+                return None
+            msg_obj = email_mod.message_from_bytes(raw)
+            parsed = _parse_email_message(msg_obj, account["id"], uid)
+            parsed["folder"] = folder
+            _persist_attachments(account["id"], folder, uid, msg_obj, parsed)
+            return parsed
+        finally:
+            try: client.logout()
+            except Exception: pass
+    except Exception:
+        return None
+
+
+def handle_download_mail_attachment(environ, start_response, account_id, uid, idx):
+    """Stream an attachment payload back to the browser. Falls back to
+    re-fetching from IMAP if the on-disk cache file is missing."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    folder = (params.get("folder", ["inbox"])[0] or "inbox").strip().lower()
+    if folder not in ("inbox", "sent"):
+        folder = "inbox"
+    try:
+        uid_int = int(uid)
+        idx_int = int(idx)
+    except ValueError:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid uid/idx"})
+
+    cache = _read_mail_cache(account_id)
+    msg = next(
+        (m for m in cache.get("messages", [])
+         if int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder),
+        None,
+    )
+    if not msg:
+        return json_response(start_response, "404 Not Found", {"error": "Message not found"})
+    attachments = msg.get("attachments") or []
+    if idx_int < 0 or idx_int >= len(attachments):
+        return json_response(start_response, "404 Not Found", {"error": "Attachment not found"})
+    att = attachments[idx_int]
+
+    path = _attachment_path(account_id, folder, uid_int, idx_int)
+    payload = b""
+    if path.exists():
+        try:
+            with path.open("rb") as fh:
+                payload = fh.read()
+        except Exception:
+            payload = b""
+    if not payload:
+        # Fallback: re-fetch the message from IMAP and pull the part.
+        accounts = read_mail_accounts()
+        account = next((a for a in accounts if a["id"] == account_id), None)
+        if account:
+            payload = _fetch_attachment_from_imap(account, folder, uid_int, idx_int)
+            if payload:
+                try:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    with path.open("wb") as fh:
+                        fh.write(payload)
+                except Exception:
+                    pass
+    if not payload:
+        return json_response(start_response, "404 Not Found", {"error": "Attachment payload missing"})
+
+    fname = att.get("filename") or f"attachment-{idx_int}"
+    ctype = att.get("contentType") or "application/octet-stream"
+    safe_fname = fname.encode("utf-8", errors="replace").decode("ascii", errors="replace")
+    headers = [
+        ("Content-Type", ctype),
+        ("Content-Length", str(len(payload))),
+        ("Content-Disposition", f'attachment; filename="{safe_fname}"; filename*=UTF-8\'\'{quote(fname)}'),
+        ("Cache-Control", "private, max-age=3600"),
+    ]
+    start_response("200 OK", headers)
+    return [payload]
+
+
+def _fetch_attachment_from_imap(account, folder, uid, idx):
+    """Re-download a single attachment by walking the message MIME tree."""
+    import imaplib
+    import email as email_mod
+    address = account.get("address")
+    password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
+    host = account.get("imapHost") or "imap.gmail.com"
+    port = int(account.get("imapPort") or 993)
+    if not address or not password:
+        return b""
+    try:
+        client = imaplib.IMAP4_SSL(host, port, timeout=30)
+        try:
+            client.login(address, password)
+            selected, _ = _select_imap_folder(client, folder)
+            if not selected:
+                return b""
+            typ, data = client.uid("fetch", str(uid), "(BODY.PEEK[])")
+            if typ != "OK" or not data:
+                return b""
+            raw = None
+            for part in data:
+                if isinstance(part, tuple) and len(part) >= 2:
+                    raw = part[1]
+                    break
+            if not raw:
+                return b""
+            msg_obj = email_mod.message_from_bytes(raw)
+            i = 0
+            for part in msg_obj.walk():
+                cdisp = (part.get("Content-Disposition") or "").lower()
+                fname_raw = part.get_filename()
+                if not (("attachment" in cdisp) or bool(fname_raw)):
+                    continue
+                if i == idx:
+                    return part.get_payload(decode=True) or b""
+                i += 1
+        finally:
+            try: client.logout()
+            except Exception: pass
+    except Exception:
+        return b""
+    return b""
 
 
 def parse_multipart(environ):
@@ -11341,8 +11697,11 @@ def _dispatch(environ, start_response):
             acc_id = parts[0]
             uid = parts[1]
             sub = parts[2] if len(parts) > 2 else ""
+            sub_arg = parts[3] if len(parts) > 3 else ""
             if sub == "read" and method == "POST":
                 return handle_mark_read_mail_message(environ, start_response, acc_id, uid)
+            if sub == "attachments" and sub_arg and method == "GET":
+                return handle_download_mail_attachment(environ, start_response, acc_id, uid, sub_arg)
             if not sub and method == "GET":
                 return handle_get_mail_message(environ, start_response, acc_id, uid)
             if not sub and method == "DELETE":

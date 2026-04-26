@@ -12,6 +12,7 @@
   let accounts = [];
   let messages = [];
   let selectedKey = "";
+  let currentFolder = "inbox"; // "inbox" or "sent"
   const checkedKeys = new Set();
 
   function escapeHtml(s) {
@@ -69,26 +70,49 @@
     });
   }
 
+  function shortAddr(s) {
+    // For the Sent view, "to" header may have multiple recipients; show
+    // the first one + "+N more" hint.
+    if (!s) return "";
+    const list = String(s).split(/[,;]/).map((x) => x.trim()).filter(Boolean);
+    if (!list.length) return "";
+    const first = list[0].replace(/^"?([^"<]+?)"?\s*<.*>$/, "$1").trim() || list[0];
+    return list.length > 1 ? `${first} +${list.length - 1}` : first;
+  }
+
   function renderList() {
     const rows = getFiltered();
     countNode.textContent = `${rows.length} message${rows.length === 1 ? "" : "s"}`;
     updateBulkBar();
     if (!rows.length) {
-      listNode.innerHTML = '<p class="empty">No messages match.</p>';
+      const emptyMsg = currentFolder === "sent"
+        ? "No sent messages match."
+        : "No messages match.";
+      listNode.innerHTML = `<p class="empty">${emptyMsg}</p>`;
       return;
     }
+    const isSent = currentFolder === "sent";
     listNode.innerHTML = rows.map((m) => {
       const key = getKey(m);
       const isActive = key === selectedKey;
-      const isUnread = !m.isRead;
+      const isUnread = !m.isRead && !isSent; // sent items are always "read" visually
       const isChecked = checkedKeys.has(key);
-      const ini = initials(m.fromName, m.fromEmail);
-      const color = colorFor(m.fromEmail || m.from);
+      // For Sent: show recipients on the prominent line (prefixed "To:")
+      const headlineRaw = isSent
+        ? (shortAddr(m.to) || "(no recipient)")
+        : (m.fromName || m.fromEmail || "(no sender)");
+      const headline = isSent ? `To: ${headlineRaw}` : headlineRaw;
+      const avatarSeed = isSent ? (m.to || "") : (m.fromEmail || m.from || "");
+      const ini = isSent
+        ? (initials("", (m.to || "").split(/[,;]/)[0]?.trim().replace(/^"?([^"<]+?)"?\s*<.*>$/, "$1")) || "→")
+        : initials(m.fromName, m.fromEmail);
+      const color = colorFor(avatarSeed);
+      const workspace = (m.workspace || "DTX").toUpperCase();
       const accountTag = m.accountAddress
-        ? `<span class="mail-list-account-tag mail-list-account-tag--${(m.workspace || "DTX").toLowerCase()}">${escapeHtml(m.accountAddress)}</span>`
+        ? `<span class="mail-list-account-tag mail-list-account-tag--${workspace.toLowerCase()}">${escapeHtml(m.accountAddress)}</span>`
         : "";
       return `
-        <div class="mail-list-row-wrap${isActive ? " is-active" : ""}${isUnread ? " is-unread" : " is-read"}${isChecked ? " is-checked" : ""}" data-key="${escapeHtml(key)}">
+        <div class="mail-list-row-wrap${isActive ? " is-active" : ""}${isUnread ? " is-unread" : " is-read"}${isChecked ? " is-checked" : ""}" data-key="${escapeHtml(key)}" data-workspace="${escapeHtml(workspace)}">
           <label class="mail-list-check">
             <input type="checkbox" data-bulk-key="${escapeHtml(key)}" ${isChecked ? "checked" : ""}>
           </label>
@@ -96,7 +120,7 @@
             <span class="mail-list-avatar" style="background:${color}">${escapeHtml(ini)}</span>
             <div class="mail-list-body">
               <div class="mail-list-row-top">
-                <strong>${escapeHtml(m.fromName || m.fromEmail || "(no sender)")}</strong>
+                <strong>${escapeHtml(headline)}</strong>
                 <time>${escapeHtml(timeFmt(m.date))}</time>
               </div>
               <div class="mail-list-row-mid">
@@ -135,7 +159,7 @@
     for (const key of keys) {
       const [accountId, uid] = key.split(":");
       try {
-        const r = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}`, { method: "DELETE" });
+        const r = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}?folder=${encodeURIComponent(currentFolder)}`, { method: "DELETE" });
         if (r.ok) okCount++;
         else failCount++;
       } catch {
@@ -158,13 +182,46 @@
     const [accountId, uid] = key.split(":");
     viewerNode.innerHTML = '<div class="mail-viewer-empty"><p>Loading...</p></div>';
     try {
-      const r = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}`);
+      const r = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}?folder=${encodeURIComponent(currentFolder)}`);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Could not load");
       renderViewer(data.entry);
     } catch (err) {
       viewerNode.innerHTML = `<div class="mail-viewer-empty"><p>Error: ${escapeHtml(err.message)}</p></div>`;
     }
+  }
+
+  function fmtSize(bytes) {
+    if (!bytes && bytes !== 0) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function attachmentIcon(ctype) {
+    const t = (ctype || "").toLowerCase();
+    if (t.startsWith("image/")) return "🖼";
+    if (t === "application/pdf") return "📄";
+    if (t.includes("zip") || t.includes("compressed")) return "🗜";
+    if (t.includes("word") || t.includes("officedocument")) return "📝";
+    if (t.includes("sheet") || t.includes("excel") || t.includes("csv")) return "📊";
+    if (t.startsWith("audio/")) return "🎵";
+    if (t.startsWith("video/")) return "🎬";
+    return "📎";
+  }
+
+  function renderAttachments(m) {
+    const list = m.attachments || [];
+    if (!list.length) return "";
+    const items = list.map((a) => {
+      const url = `/api/mail/messages/${encodeURIComponent(m.accountId)}/${encodeURIComponent(m.uid)}/attachments/${encodeURIComponent(a.idx)}?folder=${encodeURIComponent(currentFolder)}`;
+      return `<a class="mail-attachment" href="${url}" target="_blank" rel="noopener" download="${escapeHtml(a.filename || '')}">
+        <span class="mail-attachment-icon">${attachmentIcon(a.contentType)}</span>
+        <span class="mail-attachment-name">${escapeHtml(a.filename || 'attachment')}</span>
+        <span class="mail-attachment-size">${escapeHtml(fmtSize(a.size))}</span>
+      </a>`;
+    }).join("");
+    return `<div class="mail-attachments">${items}</div>`;
   }
 
   let currentMessage = null;
@@ -176,6 +233,15 @@
     const bodyHtml = m.bodyHtml
       ? `<iframe class="mail-body-iframe" sandbox="" srcdoc="${escapeHtml(m.bodyHtml)}"></iframe>`
       : `<pre class="mail-body-text">${escapeHtml(m.bodyText || "(empty message)")}</pre>`;
+    const attachmentsHtml = renderAttachments(m);
+    const isSent = (m.folder || currentFolder) === "sent";
+    const actionsHtml = isSent
+      ? `<button type="button" class="secondary-button" data-action="forward">→ Forward</button>
+         <button type="button" class="secondary-button danger-button" data-action="delete-msg">Delete</button>`
+      : `<button type="button" class="secondary-button" data-action="reply">↩ Reply</button>
+         <button type="button" class="secondary-button" data-action="reply-all">↩↩ Reply all</button>
+         <button type="button" class="secondary-button" data-action="forward">→ Forward</button>
+         <button type="button" class="secondary-button danger-button" data-action="delete-msg">Delete</button>`;
     viewerNode.innerHTML = `
       <div class="mail-viewer-head">
         <h2>${escapeHtml(m.subject || "(no subject)")}</h2>
@@ -188,11 +254,9 @@
             <small>${escapeHtml(fullTimeFmt(m.date))} · via ${escapeHtml(m.accountAddress || "")}</small>
           </span>
         </p>
+        ${attachmentsHtml}
         <div class="mail-viewer-actions">
-          <button type="button" class="secondary-button" data-action="reply">↩ Reply</button>
-          <button type="button" class="secondary-button" data-action="reply-all">↩↩ Reply all</button>
-          <button type="button" class="secondary-button" data-action="forward">→ Forward</button>
-          <button type="button" class="secondary-button danger-button" data-action="delete-msg">Delete</button>
+          ${actionsHtml}
         </div>
       </div>
       <div class="mail-viewer-body">${bodyHtml}</div>
@@ -303,7 +367,7 @@
       const ok = await UI.confirm("Move this message to Trash?", { dangerous: true });
       if (!ok) return;
       try {
-        const r = await fetch(`/api/mail/messages/${encodeURIComponent(m.accountId)}/${encodeURIComponent(m.uid)}`, { method: "DELETE" });
+        const r = await fetch(`/api/mail/messages/${encodeURIComponent(m.accountId)}/${encodeURIComponent(m.uid)}?folder=${encodeURIComponent(currentFolder)}`, { method: "DELETE" });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || "Delete failed");
         UI?.toast?.("Moved to Trash.", "success");
@@ -321,13 +385,11 @@
   function selectKey(key) {
     selectedKey = key;
     if (key) {
-      // Optimistically mark read locally
       const [accountId, uid] = key.split(":");
       const m = messages.find((x) => x.accountId === accountId && String(x.uid) === uid);
-      if (m && !m.isRead) {
+      if (m && !m.isRead && currentFolder === "inbox") {
         m.isRead = true;
-        // Fire-and-forget mark-read on server (also flags it \Seen on Gmail)
-        fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}/read`, { method: "POST" }).catch(() => {});
+        fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}/read?folder=${encodeURIComponent(currentFolder)}`, { method: "POST" }).catch(() => {});
       }
       loadMessage(key);
     }
@@ -336,9 +398,12 @@
   }
 
   async function loadInbox(showSpinner) {
-    if (showSpinner) listNode.innerHTML = '<p class="empty">Syncing mailbox...</p>';
+    if (showSpinner) {
+      const label = currentFolder === "sent" ? "Loading sent mail..." : "Syncing mailbox...";
+      listNode.innerHTML = `<p class="empty">${label}</p>`;
+    }
     try {
-      const r = await fetch("/api/mail/messages?sync=1");
+      const r = await fetch(`/api/mail/messages?sync=1&folder=${encodeURIComponent(currentFolder)}`);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Failed to load");
       messages = data.entries || [];
@@ -349,6 +414,21 @@
     } catch (err) {
       listNode.innerHTML = `<p class="empty">Could not load: ${escapeHtml(err.message)}</p>`;
     }
+  }
+
+  function setFolder(folder) {
+    if (folder !== "inbox" && folder !== "sent") return;
+    if (folder === currentFolder) return;
+    currentFolder = folder;
+    selectedKey = "";
+    currentMessage = null;
+    checkedKeys.clear();
+    document.querySelectorAll(".mail-folder-tab").forEach((t) => {
+      t.classList.toggle("is-active", t.dataset.folder === folder);
+    });
+    viewerNode.innerHTML = '<div class="mail-viewer-empty"><div class="mail-empty-illustration mail-empty-illustration--small">✉</div><p>Select a message to read it.</p></div>';
+    document.querySelector(".mail-layout")?.classList.remove("is-viewing");
+    loadInbox(true);
   }
 
   async function bootstrap() {
@@ -388,6 +468,9 @@
     document.getElementById("mail-bulk-clear")?.addEventListener("click", () => {
       checkedKeys.clear();
       renderList();
+    });
+    document.querySelectorAll(".mail-folder-tab").forEach((t) => {
+      t.addEventListener("click", () => setFolder(t.dataset.folder));
     });
     await loadInbox(true);
 
