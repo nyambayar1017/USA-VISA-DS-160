@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -64,6 +65,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
 BACKUP_WEBHOOK_URL = os.environ.get("BACKUP_WEBHOOK_URL", "").strip()
 BACKUP_TOKEN = os.environ.get("BACKUP_TOKEN", "").strip()
 MINDEE_API_KEY = os.environ.get("MINDEE_API_KEY", "").strip()
+MINDEE_PASSPORT_MODEL_ID = os.environ.get("MINDEE_PASSPORT_MODEL_ID", "").strip()
 TOURIST_PASSPORT_TEMP_DIR = DATA_DIR / "tourist-passport-temp"
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
@@ -7293,19 +7295,44 @@ _PASSPORT_FIELD_MAP = {
 }
 
 
+_MINDEE_V2_CONFIDENCE = {"Certain": 1.0, "High": 0.85, "Medium": 0.6}
+
+
+def _mindee_v2_open(req, label):
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            body_snippet = exc.read().decode("utf-8", errors="replace")[:400]
+        except Exception:
+            body_snippet = ""
+        raise RuntimeError(f"Mindee {label} HTTP {exc.code}: {body_snippet}") from exc
+    except Exception as exc:
+        raise RuntimeError(f"Mindee {label} failed: {exc}") from exc
+
+
 def mindee_passport_scan(file_bytes, filename, content_type):
-    """Send the uploaded passport to Mindee Passport V1 and return parsed
-    fields. Returns (fields_dict, min_confidence, raw_response). On any
-    network/auth error, raises RuntimeError so the caller can fall back
-    to manual entry. We use the standard library only (urllib) — no new
-    deps. The user's Mindee API key is read from MINDEE_API_KEY env var.
+    """Send the uploaded passport to Mindee v2 and return parsed fields.
+    Flow: enqueue → poll job → fetch result. Returns (fields_dict,
+    min_confidence, raw_response). On any error raises RuntimeError so
+    the caller can fall back to manual entry.
     """
     if not MINDEE_API_KEY:
         raise RuntimeError("MINDEE_API_KEY is not configured")
+    if not MINDEE_PASSPORT_MODEL_ID:
+        raise RuntimeError(
+            "MINDEE_PASSPORT_MODEL_ID is not set — add a Passport model in "
+            "Mindee → Models, then set its UUID as MINDEE_PASSPORT_MODEL_ID"
+        )
     boundary = "----travelxpassport" + uuid4().hex
     body_parts = [
         f"--{boundary}".encode(),
-        b'Content-Disposition: form-data; name="document"; filename="' + filename.encode() + b'"',
+        b'Content-Disposition: form-data; name="model_id"',
+        b"",
+        MINDEE_PASSPORT_MODEL_ID.encode(),
+        f"--{boundary}".encode(),
+        b'Content-Disposition: form-data; name="file"; filename="' + filename.encode() + b'"',
         f"Content-Type: {content_type}".encode(),
         b"",
         file_bytes,
@@ -7313,39 +7340,69 @@ def mindee_passport_scan(file_bytes, filename, content_type):
         b"",
     ]
     body = b"\r\n".join(body_parts)
-    req = urllib.request.Request(
-        "https://api.mindee.net/v1/products/mindee/passport/v1/predict",
+    auth_headers = {"Authorization": f"Token {MINDEE_API_KEY}"}
+
+    enqueue_req = urllib.request.Request(
+        "https://api-v2.mindee.net/v2/inferences/enqueue",
         data=body,
         method="POST",
-        headers={
-            "Authorization": f"Token {MINDEE_API_KEY}",
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-        },
+        headers={**auth_headers, "Content-Type": f"multipart/form-data; boundary={boundary}"},
     )
-    try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        try:
-            body_snippet = exc.read().decode("utf-8", errors="replace")[:400]
-        except Exception:
-            body_snippet = ""
-        raise RuntimeError(f"Mindee HTTP {exc.code}: {body_snippet}") from exc
-    except Exception as exc:  # network / json / timeout
-        raise RuntimeError(f"Mindee request failed: {exc}") from exc
+    enqueue_payload = _mindee_v2_open(enqueue_req, "enqueue")
+    job = enqueue_payload.get("job") or {}
+    polling_url = job.get("polling_url")
+    if not polling_url:
+        raise RuntimeError(f"Mindee enqueue missing polling_url: {enqueue_payload}")
 
-    document = (payload.get("document") or {}).get("inference") or {}
-    prediction = (document.get("prediction") or {})
+    deadline = time.time() + 60
+    result_url = None
+    while time.time() < deadline:
+        time.sleep(1.5)
+        poll_req = urllib.request.Request(polling_url, headers=auth_headers)
+        poll_payload = _mindee_v2_open(poll_req, "poll")
+        job = poll_payload.get("job") or {}
+        status = job.get("status")
+        if status == "Failed":
+            err = job.get("error") or {}
+            raise RuntimeError(f"Mindee inference Failed: {err}")
+        if status == "Processed":
+            result_url = job.get("result_url")
+            break
+    if not result_url:
+        raise RuntimeError("Mindee inference timed out after 60s")
+
+    result_req = urllib.request.Request(result_url, headers=auth_headers)
+    result_payload = _mindee_v2_open(result_req, "result")
+    inference = result_payload.get("inference") or {}
+    fields_payload = ((inference.get("result") or {}).get("fields")) or {}
+
     fields = {}
     confidences = []
     for source, target in _PASSPORT_FIELD_MAP.items():
-        node = prediction.get(source) or {}
-        value = node.get("value") if isinstance(node, dict) else node
-        confidence = node.get("confidence") if isinstance(node, dict) else None
-        if value:
-            fields[target] = str(value)
-            if isinstance(confidence, (int, float)):
-                confidences.append(float(confidence))
+        node = fields_payload.get(source)
+        if not isinstance(node, dict):
+            continue
+        value = node.get("value")
+        if value is None or value == "":
+            # ListField fallback (given_names sometimes returns items)
+            items = node.get("items")
+            if isinstance(items, list) and items:
+                parts = []
+                for item in items:
+                    if isinstance(item, dict) and item.get("value"):
+                        parts.append(str(item["value"]))
+                    elif isinstance(item, str):
+                        parts.append(item)
+                if parts:
+                    value = " ".join(parts)
+        if value is None or value == "":
+            continue
+        if isinstance(value, list):
+            value = " ".join(str(v) for v in value if v)
+        fields[target] = str(value)
+        conf_num = _MINDEE_V2_CONFIDENCE.get(node.get("confidence"), 0.5)
+        confidences.append(conf_num)
+
     if "gender" in fields:
         g = fields["gender"].strip().upper()
         if g.startswith("M"):
@@ -7355,7 +7412,7 @@ def mindee_passport_scan(file_bytes, filename, content_type):
         else:
             fields["gender"] = ""
     min_confidence = min(confidences) if confidences else 0.0
-    return fields, min_confidence, payload
+    return fields, min_confidence, result_payload
 
 
 def handle_passport_scan(environ, start_response):
