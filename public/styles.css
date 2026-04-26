@@ -9370,33 +9370,79 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .invoices-pill-overdue { background: #fee2e2; color: #991b1b; }
 .invoices-pill-paid    { background: #d1fae5; color: #065f46; }
 
-/* Match the cleaner invoices-table look on the Trips list */
-.trip-table {
-  border-collapse: collapse;
-  font-size: 14px;
-  min-width: 100%;
+/* Unified data-table look — matches the /invoices table everywhere a
+   listing exists (Trips, Tourist Directory, Camp/Flight/Transfer
+   Reservations, payment lists). Detail/edit tables (.camp-table-detail)
+   are intentionally excluded so inline-edit inputs keep their layout. */
+.invoices-table,
+.trip-table,
+.tourist-directory-table,
+.reservation-addon-table,
+.camp-reservation-table,
+.flight-reservation-table,
+.transfer-reservation-table,
+.camp-payment-table,
+.flight-payment-table {
+  border-collapse: collapse !important;
+  font-size: 14px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: auto !important;
 }
-.trip-table thead th {
+.invoices-table thead th,
+.trip-table thead th,
+.tourist-directory-table thead th,
+.reservation-addon-table thead th,
+.camp-reservation-table thead th,
+.flight-reservation-table thead th,
+.transfer-reservation-table thead th,
+.camp-payment-table thead th,
+.flight-payment-table thead th {
   background: #fafbfc !important;
   color: #4b5563 !important;
-  font-weight: 600;
+  font-weight: 600 !important;
   text-align: left !important;
   padding: 10px 12px !important;
   border: none !important;
   border-bottom: 2px solid #e5e7eb !important;
   white-space: nowrap;
 }
-.trip-table tbody td {
+.invoices-table tbody td,
+.trip-table tbody td,
+.tourist-directory-table tbody td,
+.reservation-addon-table tbody td,
+.camp-reservation-table tbody td,
+.flight-reservation-table tbody td,
+.transfer-reservation-table tbody td,
+.camp-payment-table tbody td,
+.flight-payment-table tbody td {
   padding: 10px 12px !important;
   border: none !important;
   border-bottom: 1px solid #f1f5f9 !important;
   text-align: left !important;
   background: transparent !important;
-  vertical-align: middle;
+  vertical-align: middle !important;
+  font-size: 14px !important;
 }
-.trip-table tbody tr:hover td {
+.invoices-table tbody tr:hover td,
+.trip-table tbody tr:hover td,
+.tourist-directory-table tbody tr:hover td,
+.reservation-addon-table tbody tr:hover td,
+.camp-reservation-table tbody tr:hover td,
+.flight-reservation-table tbody tr:hover td,
+.transfer-reservation-table tbody tr:hover td,
+.camp-payment-table tbody tr:hover td,
+.flight-payment-table tbody tr:hover td {
   background: #f9fafb !important;
 }
 .trip-table tbody tr.is-trip-active td {
   background: #eff4ff !important;
+}
+/* Drop the small monospace serial styling that caused overlapping
+   glyphs on the Tourist Directory — table now inherits the unified
+   look above. */
+.tourist-directory-table td:nth-child(1) {
+  font-family: inherit !important;
+  font-size: 14px !important;
+  white-space: nowrap;
 }
