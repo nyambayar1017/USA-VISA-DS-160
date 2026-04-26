@@ -446,6 +446,27 @@ function notificationIcon(kind) {
   return "•";
 }
 
+function notificationTargetUrl(entry) {
+  const kind = entry?.kind || "";
+  const meta = entry?.meta || {};
+  const tripId = meta.tripId || (kind.startsWith("trip") ? meta.id : "");
+  if (kind === "tourist.created") {
+    if (meta.groupId && tripId) return `/group?id=${encodeURIComponent(meta.groupId)}&tripId=${encodeURIComponent(tripId)}`;
+    if (tripId) return `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
+  }
+  if (kind === "group.created") {
+    if (meta.id && tripId) return `/group?id=${encodeURIComponent(meta.id)}&tripId=${encodeURIComponent(tripId)}`;
+    if (tripId) return `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
+  }
+  if (kind === "trip.created" && meta.id) return `/trip-detail?tripId=${encodeURIComponent(meta.id)}`;
+  if (kind === "camp_reservation.created" && tripId) return `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
+  if (kind === "flight_reservation.created") return tripId ? `/trip-detail?tripId=${encodeURIComponent(tripId)}` : "/flight-reservations";
+  if (kind === "transfer_reservation.created") return tripId ? `/trip-detail?tripId=${encodeURIComponent(tripId)}` : "/transfer-reservations";
+  if (kind && kind.startsWith("contract")) return meta.id ? `/contracts?editId=${encodeURIComponent(meta.id)}` : "/contracts";
+  if (kind && kind.startsWith("task")) return "/backoffice";
+  return "";
+}
+
 function renderNotificationsList() {
   if (!notificationPopoverNode) return;
   const list = notificationPopoverNode.querySelector("[data-notifications-list]");
@@ -461,14 +482,17 @@ function renderNotificationsList() {
       const avatarBlock = entry.actorAvatar
         ? `<span class="notification-avatar"><img src="${escapeHtml(entry.actorAvatar)}" alt=""></span>`
         : `<span class="notification-avatar notification-avatar-icon">${notificationIcon(entry.kind)}</span>`;
+      const url = notificationTargetUrl(entry);
+      const tag = url ? "a" : "article";
+      const attrs = url ? ` class="notifications-item notifications-item--link" href="${escapeHtml(url)}"` : ` class="notifications-item"`;
       return `
-        <article class="notifications-item">
+        <${tag}${attrs}>
           ${avatarBlock}
           <div class="notifications-item-body">
             <p><strong>${escapeHtml(actorName)}</strong> ${escapeHtml(entry.title || "updated something")}${detail}</p>
             <time>${escapeHtml(formatRelativeTime(entry.createdAt))}</time>
           </div>
-        </article>
+        </${tag}>
       `;
     })
     .join("");

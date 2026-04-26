@@ -710,6 +710,17 @@ td {
   border-bottom: 0;
 }
 
+.notifications-item--link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.notifications-item--link:hover {
+  background-color: rgba(32, 53, 111, 0.04);
+}
+
 .notifications-item .notification-avatar {
   display: inline-grid;
   place-items: center;
