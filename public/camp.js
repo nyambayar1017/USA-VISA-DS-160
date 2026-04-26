@@ -3260,7 +3260,12 @@ if (docDropZone && isTripDetailPage()) {
         const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ recipientEmail: recipient, recipientName: name, docIds: [...selectedDocIds] }),
+          body: JSON.stringify({
+            recipientEmail: recipient,
+            recipientName: name,
+            docIds: [...selectedDocIds],
+            workspace: typeof readWorkspace === "function" ? readWorkspace() : "",
+          }),
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || "Send failed");

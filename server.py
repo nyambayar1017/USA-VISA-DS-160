@@ -7243,6 +7243,7 @@ def handle_email_trip_documents(environ, start_response, trip_id):
         return json_response(start_response, "400 Bad Request", {"error": "Invalid JSON"})
     recipient = (data.get("recipientEmail") or "").strip()
     recipient_name = (data.get("recipientName") or "").strip()
+    workspace = (data.get("workspace") or "").strip().upper()
     doc_ids = data.get("docIds") or []
     if not recipient or "@" not in recipient:
         return json_response(start_response, "400 Bad Request", {"error": "recipientEmail is required"})
@@ -7258,19 +7259,21 @@ def handle_email_trip_documents(environ, start_response, trip_id):
     if not selected:
         return json_response(start_response, "400 Bad Request", {"error": "no matching documents on this trip"})
 
+    company_name = "Unlock Steppe Mongolia" if workspace == "USM" else "Дэлхий Трэвел Икс"
     greet = "Сайн байна уу" + (f", {recipient_name}" if recipient_name else "") + ","
     body_text = (
         f"{greet}\n\n"
         "Танд аяллын баримт бичгүүдийг хавсаргаж илгээж байна. "
         "Та хавсралтуудыг хүлээн авч, шаардлагатай бол хадгалаад авна уу."
     )
-    subject = "TravelX — Аяллын баримт бичгүүд"
+    subject = f"Аяллын баримт бичгүүд - {company_name}"
     attachments = [{"kind": "trip_document", "tripId": trip_id, "id": d["id"]} for d in selected]
     result = _tool_send_email({
         "to": recipient,
         "subject": subject,
         "body": body_text,
         "attachments": attachments,
+        "_company_name": company_name,
     }, actor)
 
     if result.get("error"):
@@ -9151,13 +9154,14 @@ def _tool_send_email(args, actor):
     # Internal callers can pass _skip_footer=True (e.g. when emailing info@travelx.mn
     # itself, where the "contact info@travelx.mn" line would be self-referential).
     if not args.get("_skip_footer"):
+        company_name = (args.get("_company_name") or "").strip() or "Дэлхий Трэвел Икс"
         body_html += (
             '<p style="color:#888;font-style:italic;font-size:12px;margin-top:20px">'
             'Энэ имэйл нь автомат илгээгдсэн тул буцааж хариу бичихгүй байхыг хүсье. '
             'Шаардлагатай бол <a href="mailto:info@travelx.mn" style="color:#888">info@travelx.mn</a> '
             'эсвэл <a href="tel:+97672007722" style="color:#888">72007722</a> дугаараар холбогдоорой.'
             '</p>'
-            '<p style="margin-top:8px">Хүндэтгэсэн,<br>Дэлхий Трэвел Икс</p>'
+            f'<p style="margin-top:8px">Хүндэтгэсэн,<br>{html.escape(company_name)}</p>'
         )
 
     raw_attachments = args.get("attachments") or []

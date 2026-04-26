@@ -1,5 +1,5 @@
 const WORKSPACE_KEY = "activeWorkspace";
-const COMPANIES = { DTX: "Delkhii Travel X", USM: "Unlock Steppe Mongolia" };
+const COMPANIES = { DTX: "Дэлхий Трэвел Икс", USM: "Unlock Steppe Mongolia" };
 
 function setWorkspace(company) {
   if (!COMPANIES[company]) return;

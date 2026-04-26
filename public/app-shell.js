@@ -1,7 +1,7 @@
 const WORKSPACE_KEY = "activeWorkspace";
 const COMPANIES = {
   DTX: {
-    name: "Delkhii Travel X",
+    name: "Дэлхий Трэвел Икс",
     short: "DTX",
     logoBrand: "/assets/dtx-logo-blue-yellow.png",
     logoIcon: "/assets/favicon-dtx-x.png",
@@ -13,6 +13,22 @@ const COMPANIES = {
     logoIcon: "/assets/usm-logo-square.png",
   },
 };
+
+function applyWorkspaceBranding() {
+  const ws = readWorkspace();
+  if (!ws) return;
+  const company = COMPANIES[ws];
+  if (!company) return;
+  document.title = company.name;
+  let icon = document.querySelector('link[rel="icon"]');
+  if (!icon) {
+    icon = document.createElement("link");
+    icon.rel = "icon";
+    document.head.appendChild(icon);
+  }
+  icon.type = "image/png";
+  icon.href = company.logoIcon;
+}
 const DTX_ONLY_PAGES = new Set(["ds160", "fifa"]);
 
 function readCookie(name) {
@@ -899,6 +915,7 @@ document.addEventListener(
 
 async function loadProfile() {
   if (!ensureWorkspaceOrRedirect()) return;
+  applyWorkspaceBranding();
   ensureMobileBar();
   applySectionHeadToolbarPlacement();
   MOBILE_TOOLBAR_QUERY.addEventListener?.("change", applySectionHeadToolbarPlacement);
