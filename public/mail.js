@@ -383,18 +383,13 @@
   const composeStatus = document.getElementById("mail-compose-status");
   const composeBtn = document.getElementById("mail-compose");
   const composeTitle = document.getElementById("mail-compose-title");
-  const composeTemplateSel = document.getElementById("mail-compose-template");
+  const composeBodyHost = document.getElementById("mail-compose-body-host");
+  const composeSignatureSel = document.getElementById("mail-compose-signature");
+  const loadTemplateBtn = document.getElementById("mail-compose-load-template");
+  const manageSigsBtn = document.getElementById("mail-compose-manage-sigs");
   let templates = [];
-
-  function htmlToPlain(html) {
-    if (!html) return "";
-    const div = document.createElement("div");
-    div.innerHTML = html
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p\s*>/gi, "\n\n")
-      .replace(/<\/div\s*>/gi, "\n");
-    return (div.textContent || div.innerText || "").replace(/\n{3,}/g, "\n\n").trim();
-  }
+  let signatures = [];
+  let composeEditor = null;
 
   async function loadTemplates() {
     try {
@@ -404,20 +399,192 @@
     } catch {
       templates = [];
     }
-    if (!composeTemplateSel) return;
-    composeTemplateSel.innerHTML = '<option value="">📄 Templates...</option>' +
-      templates.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join("");
   }
 
-  composeTemplateSel?.addEventListener("change", () => {
-    const id = composeTemplateSel.value;
-    if (!id) return;
-    const tpl = templates.find((t) => t.id === id);
-    if (!tpl) return;
-    if (tpl.subject) composeForm.elements.subject.value = tpl.subject;
-    composeForm.elements.body.value = htmlToPlain(tpl.bodyHtml || "");
-    composeTemplateSel.value = "";
-    UI?.toast?.(`Applied template: ${tpl.name}`, "info");
+  async function loadSignatures() {
+    try {
+      const r = await fetch("/api/mail/my-signatures");
+      const data = await r.json();
+      if (r.ok) signatures = data.entries || [];
+    } catch {
+      signatures = [];
+    }
+    if (!composeSignatureSel) return;
+    const opts = ['<option value="">— No signature —</option>']
+      .concat(signatures.map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`));
+    composeSignatureSel.innerHTML = opts.join("");
+  }
+
+  // ── Template picker modal ────────────────────────────────────
+  const tplPickerModal = document.getElementById("mail-template-picker");
+  const tplPickerListNode = document.getElementById("mail-template-picker-list");
+  const tplPickerSearch = document.getElementById("mail-template-search");
+
+  function renderTemplatePickerList() {
+    const q = (tplPickerSearch?.value || "").trim().toLowerCase();
+    const rows = templates.filter((t) =>
+      !q || (t.name || "").toLowerCase().includes(q) || (t.subject || "").toLowerCase().includes(q)
+    );
+    if (!rows.length) {
+      tplPickerListNode.innerHTML = '<p class="empty">No templates. Create one in /mail-settings.</p>';
+      return;
+    }
+    tplPickerListNode.innerHTML = rows.map((t) => `
+      <button type="button" class="mail-pick-row" data-tpl-id="${escapeHtml(t.id)}">
+        <div class="mail-pick-row-main">
+          <strong>${escapeHtml(t.name)}</strong>
+          <span>${escapeHtml(t.subject || "(no subject)")}</span>
+        </div>
+        <span class="mail-pick-row-arrow">→</span>
+      </button>
+    `).join("");
+  }
+
+  async function openTemplatePicker() {
+    await loadTemplates();
+    if (tplPickerSearch) tplPickerSearch.value = "";
+    renderTemplatePickerList();
+    tplPickerModal.removeAttribute("hidden");
+    setTimeout(() => tplPickerSearch?.focus(), 50);
+  }
+  function closeTemplatePicker() { tplPickerModal.setAttribute("hidden", ""); }
+
+  tplPickerSearch?.addEventListener("input", renderTemplatePickerList);
+  tplPickerModal?.addEventListener("click", (e) => {
+    if (e.target.dataset.action === "close-picker") closeTemplatePicker();
+    const row = e.target.closest("[data-tpl-id]");
+    if (row) {
+      const id = row.dataset.tplId;
+      const tpl = templates.find((t) => t.id === id);
+      if (tpl) {
+        if (tpl.subject) composeForm.elements.subject.value = tpl.subject;
+        composeEditor?.setHtml(tpl.bodyHtml || "");
+        UI?.toast?.(`Applied template: ${tpl.name}`, "info");
+      }
+      closeTemplatePicker();
+    }
+  });
+  loadTemplateBtn?.addEventListener("click", openTemplatePicker);
+
+  // ── Signatures manager + sub-editor ──────────────────────────
+  const sigsModal = document.getElementById("mail-signatures-modal");
+  const sigListHost = document.getElementById("mail-sig-list-host");
+  const sigEditorModal = document.getElementById("mail-sig-editor-modal");
+  const sigEditorTitle = document.getElementById("mail-sig-editor-title");
+  const sigEditorName = document.getElementById("mail-sig-editor-name");
+  const sigEditorHost = document.getElementById("mail-sig-editor-host");
+  const sigEditorStatus = document.getElementById("mail-sig-editor-status");
+  const sigEditorSaveBtn = document.getElementById("mail-sig-editor-save");
+  const sigsOpenBtn = document.getElementById("mail-signatures-open");
+  const sigNewBtn = document.getElementById("mail-sig-new");
+  let sigEditor = null;
+  let sigEditingId = null;
+
+  function renderSigList() {
+    if (!signatures.length) {
+      sigListHost.innerHTML = '<p class="empty">No signatures yet. Click "+ New signature" to create one.</p>';
+      return;
+    }
+    sigListHost.innerHTML = signatures.map((s) => `
+      <article class="mail-sig-card" data-sig-id="${escapeHtml(s.id)}">
+        <header>
+          <strong>${escapeHtml(s.name)}</strong>
+          <span class="mail-sig-actions">
+            <button type="button" class="secondary-button" data-sig-action="edit">Edit</button>
+            <button type="button" class="secondary-button danger-button" data-sig-action="delete">Delete</button>
+          </span>
+        </header>
+        <div class="mail-sig-preview">${s.html || '<em>(empty)</em>'}</div>
+      </article>
+    `).join("");
+  }
+
+  async function openSignaturesModal() {
+    await loadSignatures();
+    renderSigList();
+    sigsModal.removeAttribute("hidden");
+  }
+  function closeSignaturesModal() { sigsModal.setAttribute("hidden", ""); }
+
+  function openSigEditor(sig) {
+    sigEditingId = sig?.id || null;
+    sigEditorTitle.textContent = sig ? `Edit: ${sig.name}` : "New signature";
+    sigEditorName.value = sig?.name || "";
+    sigEditor = window.RichEditor.create(sigEditorHost, { initialHtml: sig?.html || "", minHeight: 220 });
+    sigEditorStatus.textContent = "";
+    sigEditorModal.removeAttribute("hidden");
+    setTimeout(() => sigEditorName.focus(), 50);
+  }
+  function closeSigEditor() {
+    sigEditorModal.setAttribute("hidden", "");
+    sigEditorHost.innerHTML = "";
+    sigEditor = null;
+    sigEditingId = null;
+  }
+
+  sigsOpenBtn?.addEventListener("click", openSignaturesModal);
+  manageSigsBtn?.addEventListener("click", openSignaturesModal);
+  sigNewBtn?.addEventListener("click", () => openSigEditor(null));
+  sigsModal?.addEventListener("click", async (e) => {
+    if (e.target.dataset.action === "close-sigs") return closeSignaturesModal();
+    const btn = e.target.closest("[data-sig-action]");
+    if (!btn) return;
+    const card = btn.closest("[data-sig-id]");
+    const id = card?.dataset.sigId;
+    const sig = signatures.find((s) => s.id === id);
+    if (!sig) return;
+    if (btn.dataset.sigAction === "edit") {
+      openSigEditor(sig);
+    } else if (btn.dataset.sigAction === "delete") {
+      const ok = await UI.confirm(`Delete signature "${sig.name}"?`, { dangerous: true });
+      if (!ok) return;
+      try {
+        const r = await fetch(`/api/mail/my-signatures/${encodeURIComponent(id)}`, { method: "DELETE" });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Delete failed");
+        UI?.toast?.("Deleted.", "success");
+        await loadSignatures();
+        renderSigList();
+      } catch (err) {
+        UI?.toast?.(err.message || "Delete failed", "error");
+      }
+    }
+  });
+
+  sigEditorModal?.addEventListener("click", (e) => {
+    if (e.target.dataset.action === "close-sig-editor") closeSigEditor();
+  });
+
+  sigEditorSaveBtn?.addEventListener("click", async () => {
+    const name = (sigEditorName.value || "").trim();
+    if (!name) {
+      sigEditorStatus.textContent = "Name is required";
+      return;
+    }
+    const html = sigEditor?.getHtml() || "";
+    sigEditorStatus.textContent = "Saving...";
+    sigEditorSaveBtn.disabled = true;
+    try {
+      const url = sigEditingId
+        ? `/api/mail/my-signatures/${encodeURIComponent(sigEditingId)}`
+        : "/api/mail/my-signatures";
+      const method = sigEditingId ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, html }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Save failed");
+      UI?.toast?.("Saved.", "success");
+      closeSigEditor();
+      await loadSignatures();
+      renderSigList();
+    } catch (err) {
+      sigEditorStatus.textContent = err.message || "Save failed";
+    } finally {
+      sigEditorSaveBtn.disabled = false;
+    }
   });
 
   function openCompose(prefill, title) {
@@ -426,20 +593,25 @@
       return;
     }
     composeForm.reset();
-    if (composeForm.elements.includeSignature) composeForm.elements.includeSignature.checked = true;
     composeTitle.textContent = title || "New message";
-    // Refresh templates list in case the user just edited them in another tab
+    // Refresh templates and signatures so any edits in another tab show up
     loadTemplates();
+    loadSignatures();
     const fromSel = composeForm.elements.fromAccountId;
     fromSel.innerHTML = accounts.map((a) =>
       `<option value="${escapeHtml(a.id)}">${escapeHtml(a.displayName || a.address)} &lt;${escapeHtml(a.address)}&gt;</option>`
     ).join("");
+    // Mount the rich editor for the body
+    composeEditor = window.RichEditor.create(composeBodyHost, {
+      initialHtml: prefill?.bodyHtml || "",
+      minHeight: 240,
+      placeholder: "Write your message...",
+    });
     if (prefill) {
       if (prefill.fromAccountId) fromSel.value = prefill.fromAccountId;
       if (prefill.to) composeForm.elements.to.value = prefill.to;
       if (prefill.cc) composeForm.elements.cc.value = prefill.cc;
       if (prefill.subject) composeForm.elements.subject.value = prefill.subject;
-      if (prefill.body) composeForm.elements.body.value = prefill.body;
       if (prefill.replyToMessageId) composeForm.elements.replyToMessageId.value = prefill.replyToMessageId;
       if (prefill.cc || prefill.bcc) composeForm.querySelector(".mail-compose-extra")?.setAttribute("open", "");
     } else {
@@ -452,6 +624,8 @@
 
   function closeCompose() {
     composeModal.setAttribute("hidden", "");
+    if (composeBodyHost) composeBodyHost.innerHTML = "";
+    composeEditor = null;
   }
 
   composeBtn?.addEventListener("click", () => openCompose(null, "New message"));
@@ -462,15 +636,26 @@
   composeForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(composeForm);
+    const bodyHtml = composeEditor?.getHtml() || "";
+    // Derive a plain-text version locally as a fallback for the server
+    const plainBody = (() => {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = bodyHtml
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p\s*>/gi, "\n\n")
+        .replace(/<\/div\s*>/gi, "\n");
+      return (tmp.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+    })();
     const payload = {
       fromAccountId: fd.get("fromAccountId"),
       to: fd.get("to"),
       cc: fd.get("cc"),
       bcc: fd.get("bcc"),
       subject: fd.get("subject"),
-      body: fd.get("body"),
+      body: plainBody,
+      bodyHtml,
       replyToMessageId: fd.get("replyToMessageId"),
-      includeSignature: composeForm.elements.includeSignature?.checked ?? true,
+      signatureId: fd.get("signatureId") || "",
     };
     composeStatus.textContent = "Sending...";
     try {
@@ -808,6 +993,7 @@
     });
     setupSwipeGestures();
     loadTemplates();
+    loadSignatures();
     await loadInbox(true);
 
     // Auto-poll every 30s while the page is visible. Pause when hidden

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-230" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-231" />
   </head>
   <body class="app-body" data-page="mail">
     <div class="workspace-shell">
@@ -38,6 +38,7 @@
         <section class="card mail-shell" id="mail-shell" hidden>
           <div class="mail-toolbar">
             <button type="button" id="mail-compose" class="primary-pill">+ Compose</button>
+            <button type="button" id="mail-signatures-open" class="secondary-button" title="Manage your signatures">✍ My signatures</button>
             <div class="mail-folder-tabs" role="tablist">
               <button type="button" class="mail-folder-tab is-active" data-folder="inbox" role="tab">Inbox</button>
               <button type="button" class="mail-folder-tab" data-folder="sent" role="tab">Sent</button>
@@ -76,9 +77,7 @@
             <header>
               <h2 id="mail-compose-title">New message</h2>
               <div class="mail-compose-header-actions">
-                <select id="mail-compose-template" class="mail-compose-template" title="Apply a template">
-                  <option value="">📄 Templates...</option>
-                </select>
+                <button type="button" id="mail-compose-load-template" class="secondary-button">📄 Load Template</button>
                 <button type="button" class="mail-compose-close" data-action="close-compose" aria-label="Close">×</button>
               </div>
             </header>
@@ -105,12 +104,18 @@
               <span>Subject</span>
               <input name="subject" type="text" />
             </label>
-            <textarea name="body" rows="12" placeholder="Write your message..."></textarea>
+            <div class="mail-compose-body-host" id="mail-compose-body-host"></div>
             <input type="hidden" name="replyToMessageId" />
-            <label class="mail-compose-sig">
-              <input type="checkbox" name="includeSignature" checked />
-              <span>Include signature from this mailbox</span>
-            </label>
+            <input type="hidden" name="bodyHtml" />
+            <div class="mail-compose-sig-row">
+              <label>
+                <span>Signature</span>
+                <select name="signatureId" id="mail-compose-signature">
+                  <option value="">— No signature —</option>
+                </select>
+              </label>
+              <button type="button" class="secondary-button" id="mail-compose-manage-sigs">Manage…</button>
+            </div>
             <footer>
               <p id="mail-compose-status" class="status"></p>
               <button type="button" class="secondary-button" data-action="close-compose">Cancel</button>
@@ -118,10 +123,70 @@
             </footer>
           </form>
         </div>
+
+        <!-- Load Template picker -->
+        <div id="mail-template-picker" class="mail-pick-modal" hidden>
+          <div class="mail-pick-backdrop" data-action="close-picker"></div>
+          <div class="mail-pick-card">
+            <header>
+              <strong>Load Template</strong>
+              <button type="button" class="mail-pick-close" data-action="close-picker" aria-label="Close">×</button>
+            </header>
+            <div class="mail-pick-body">
+              <input id="mail-template-search" type="search" placeholder="Search templates..." autocomplete="off" />
+              <div id="mail-template-picker-list" class="mail-pick-list">
+                <p class="empty">Loading…</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signatures manager -->
+        <div id="mail-signatures-modal" class="mail-pick-modal" hidden>
+          <div class="mail-pick-backdrop" data-action="close-sigs"></div>
+          <div class="mail-pick-card mail-pick-card--lg">
+            <header>
+              <strong>My signatures</strong>
+              <span class="mail-pick-actions">
+                <button type="button" class="primary-pill" id="mail-sig-new">+ New signature</button>
+                <button type="button" class="mail-pick-close" data-action="close-sigs" aria-label="Close">×</button>
+              </span>
+            </header>
+            <div class="mail-pick-body">
+              <div id="mail-sig-list-host" class="mail-pick-list">
+                <p class="empty">Loading…</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signature editor (sub-modal of signatures manager) -->
+        <div id="mail-sig-editor-modal" class="mail-editor-modal" hidden>
+          <div class="mail-editor-backdrop" data-action="close-sig-editor"></div>
+          <div class="mail-editor-card">
+            <header>
+              <strong id="mail-sig-editor-title">New signature</strong>
+              <button type="button" class="mail-editor-close" data-action="close-sig-editor" aria-label="Close">×</button>
+            </header>
+            <div class="mail-editor-body">
+              <label class="rich-extra-row">
+                <span>Name</span>
+                <input type="text" id="mail-sig-editor-name" placeholder="e.g. Default · Bayan" required/>
+              </label>
+              <div id="mail-sig-editor-host"></div>
+            </div>
+            <footer>
+              <p id="mail-sig-editor-status" class="status"></p>
+              <button type="button" class="secondary-button" data-action="close-sig-editor">Cancel</button>
+              <button type="button" class="primary-pill" id="mail-sig-editor-save">Save</button>
+            </footer>
+          </div>
+        </div>
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-103"></script>
-    <script src="/mail.js?v=workspace-14"></script>
+    <script src="/rich-editor.js?v=workspace-1"></script>
+    <script src="/mail.js?v=workspace-15"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

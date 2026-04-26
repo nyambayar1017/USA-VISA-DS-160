@@ -70,6 +70,7 @@ MAIL_ACCOUNTS_PATH = DATA_DIR / "mail-accounts.json"
 MAIL_MESSAGES_DIR = DATA_DIR / "mail-messages"
 MAIL_UPLOADS_DIR = DATA_DIR / "mail-uploads"
 MAIL_TEMPLATES_PATH = DATA_DIR / "mail-templates.json"
+MAIL_SIGNATURES_PATH = DATA_DIR / "mail-signatures.json"
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
 STEPPE_ADDRESS_LINES = [
@@ -8285,7 +8286,7 @@ def handle_list_mail_messages(environ, start_response):
     })
 
 
-def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=None, in_reply_to_subject=None, attachments=None, signature_html=""):
+def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=None, in_reply_to_subject=None, attachments=None, signature_html="", body_html=""):
     """Send an email through Gmail SMTP using the connected account's
     app password. to_list/cc_list/bcc_list may be either bare emails or
     'Display Name <addr@x>' style strings — only the bare emails are used
@@ -8316,37 +8317,56 @@ def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, re
         msg["In-Reply-To"] = reply_to_message_id
         msg["References"] = reply_to_message_id
 
-    body_text_part = body or ""
-    if signature_html:
-        # Build a plain-text version of the signature for the text fallback
-        sig_text = re.sub(r"<br\s*/?>", "\n", signature_html, flags=re.IGNORECASE)
-        sig_text = re.sub(r"</p\s*>", "\n\n", sig_text, flags=re.IGNORECASE)
-        sig_text = re.sub(r"<[^>]+>", "", sig_text)
-        sig_text = re.sub(r"&nbsp;", " ", sig_text)
-        sig_text = re.sub(r"&amp;", "&", sig_text)
-        sig_text = re.sub(r"&lt;", "<", sig_text)
-        sig_text = re.sub(r"&gt;", ">", sig_text)
-        sig_text = re.sub(r"&quot;", '"', sig_text)
-        sig_text = re.sub(r"\n{3,}", "\n\n", sig_text).strip()
-        plain_text = f"{body_text_part}\n\n--\n{sig_text}" if sig_text else body_text_part
-        # Build HTML version: escape body, preserve newlines, then signature HTML
-        body_html_escaped = (
-            (body_text_part or "")
+    def html_to_text(html):
+        if not html:
+            return ""
+        t = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
+        t = re.sub(r"</p\s*>", "\n\n", t, flags=re.IGNORECASE)
+        t = re.sub(r"</div\s*>", "\n", t, flags=re.IGNORECASE)
+        t = re.sub(r"<li\b[^>]*>", "• ", t, flags=re.IGNORECASE)
+        t = re.sub(r"</li\s*>", "\n", t, flags=re.IGNORECASE)
+        t = re.sub(r"<[^>]+>", "", t)
+        t = re.sub(r"&nbsp;", " ", t)
+        t = re.sub(r"&amp;", "&", t)
+        t = re.sub(r"&lt;", "<", t)
+        t = re.sub(r"&gt;", ">", t)
+        t = re.sub(r"&quot;", '"', t)
+        t = re.sub(r"\n{3,}", "\n\n", t).strip()
+        return t
+
+    def escape_for_html(text):
+        return (
+            (text or "")
             .replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace("\n", "<br>")
         )
+
+    has_html_body = bool(body_html and body_html.strip())
+    plain_body_part = html_to_text(body_html) if has_html_body else (body or "")
+
+    if signature_html or has_html_body:
+        # Build plain-text fallback
+        sig_text = html_to_text(signature_html) if signature_html else ""
+        plain_text = plain_body_part
+        if sig_text:
+            plain_text = f"{plain_text}\n\n--\n{sig_text}" if plain_text else sig_text
+        # Build HTML version
+        if has_html_body:
+            html_main = body_html
+        else:
+            html_main = escape_for_html(body or "")
         full_html = (
             f"<div style=\"font-family: Arial, sans-serif; font-size: 14px; color: #0f172a;\">"
-            f"{body_html_escaped}"
-            f"<br><br>{signature_html}"
+            f"{html_main}"
+            f"{('<br><br>' + signature_html) if signature_html else ''}"
             f"</div>"
         )
-        msg.set_content(plain_text)
+        msg.set_content(plain_text or " ")
         msg.add_alternative(full_html, subtype="html")
     else:
-        msg.set_content(body_text_part)
+        msg.set_content(body or "")
 
     if attachments:
         for att in attachments:
@@ -8456,13 +8476,28 @@ def handle_send_mail(environ, start_response):
     bcc_list = split_addrs(payload.get("bcc"))
     subject = (payload.get("subject") or "").strip()
     body = payload.get("body") or ""
+    body_html = payload.get("bodyHtml") or ""
     reply_to = (payload.get("replyToMessageId") or "").strip()
-    include_signature = bool(payload.get("includeSignature", True))
-    signature_html = (account.get("signatureHtml") or "") if include_signature else ""
+
+    # Signature: prefer the per-user signatureId chosen in compose. Fall back
+    # to the per-account signature if includeSignature is set (legacy path).
+    signature_id = (payload.get("signatureId") or "").strip()
+    if signature_id:
+        signature_html = _resolve_user_signature_html(actor, signature_id)
+    elif bool(payload.get("includeSignature")):
+        signature_html = account.get("signatureHtml") or ""
+    else:
+        signature_html = ""
+
     if not to_list:
         return json_response(start_response, "400 Bad Request", {"error": "At least one To recipient is required"})
 
-    ok, err, refused = smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=reply_to or None, signature_html=signature_html)
+    ok, err, refused = smtp_send_via_account(
+        account, to_list, cc_list, bcc_list, subject, body,
+        reply_to_message_id=reply_to or None,
+        signature_html=signature_html,
+        body_html=body_html,
+    )
     if not ok:
         return json_response(start_response, "500 Internal Server Error", {"error": err, "refused": refused})
 
@@ -8637,6 +8672,118 @@ def handle_delete_mail_template(environ, start_response, template_id):
         return json_response(start_response, "404 Not Found", {"error": "Template not found"})
     write_mail_templates(new_items)
     return json_response(start_response, "200 OK", {"ok": True})
+
+
+# ── Per-user signatures ────────────────────────────────────────────
+def read_mail_signatures():
+    if not MAIL_SIGNATURES_PATH.exists():
+        return []
+    try:
+        with MAIL_SIGNATURES_PATH.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def write_mail_signatures(items):
+    MAIL_SIGNATURES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = MAIL_SIGNATURES_PATH.with_suffix(".json.tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        json.dump(items, fh, ensure_ascii=False, indent=2)
+    tmp.replace(MAIL_SIGNATURES_PATH)
+
+
+def _actor_user_id(actor):
+    return (actor or {}).get("id") or (actor or {}).get("email") or ""
+
+
+def _user_signatures(actor):
+    uid = _actor_user_id(actor)
+    return [s for s in read_mail_signatures() if s.get("userId") == uid]
+
+
+def handle_list_my_signatures(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    items = _user_signatures(actor)
+    items.sort(key=lambda s: (s.get("name") or "").lower())
+    return json_response(start_response, "200 OK", {"entries": items})
+
+
+def handle_create_my_signature(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
+    record = {
+        "id": uuid4().hex,
+        "userId": _actor_user_id(actor),
+        "name": name,
+        "html": payload.get("html") or "",
+        "createdAt": now_mongolia().isoformat(),
+        "updatedAt": now_mongolia().isoformat(),
+    }
+    items = read_mail_signatures()
+    items.append(record)
+    write_mail_signatures(items)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_update_my_signature(environ, start_response, sig_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    items = read_mail_signatures()
+    uid = _actor_user_id(actor)
+    for i, s in enumerate(items):
+        if s.get("id") == sig_id:
+            if s.get("userId") != uid:
+                return json_response(start_response, "403 Forbidden", {"error": "Not your signature"})
+            updated = dict(s)
+            if "name" in payload:
+                name = (payload.get("name") or "").strip()
+                if not name:
+                    return json_response(start_response, "400 Bad Request", {"error": "Name cannot be empty"})
+                updated["name"] = name
+            if "html" in payload:
+                updated["html"] = payload.get("html") or ""
+            updated["updatedAt"] = now_mongolia().isoformat()
+            items[i] = updated
+            write_mail_signatures(items)
+            return json_response(start_response, "200 OK", {"ok": True, "entry": updated})
+    return json_response(start_response, "404 Not Found", {"error": "Signature not found"})
+
+
+def handle_delete_my_signature(environ, start_response, sig_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    items = read_mail_signatures()
+    uid = _actor_user_id(actor)
+    target = next((s for s in items if s.get("id") == sig_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Signature not found"})
+    if target.get("userId") != uid:
+        return json_response(start_response, "403 Forbidden", {"error": "Not your signature"})
+    new_items = [s for s in items if s.get("id") != sig_id]
+    write_mail_signatures(new_items)
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
+def _resolve_user_signature_html(actor, signature_id):
+    if not signature_id:
+        return ""
+    uid = _actor_user_id(actor)
+    for s in read_mail_signatures():
+        if s.get("id") == signature_id and s.get("userId") == uid:
+            return s.get("html") or ""
+    return ""
 
 
 def _imap_set_seen_flag(account, uid, folder, mark_read):
@@ -12092,6 +12239,21 @@ def _dispatch(environ, start_response):
             return handle_update_mail_template(environ, start_response, template_id)
         if method == "DELETE" and template_id:
             return handle_delete_mail_template(environ, start_response, template_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/mail/my-signatures":
+        if method == "GET":
+            return handle_list_my_signatures(environ, start_response)
+        if method == "POST":
+            return handle_create_my_signature(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/mail/my-signatures/"):
+        sig_id = path.replace("/api/mail/my-signatures/", "", 1).strip("/")
+        if method == "PATCH" and sig_id:
+            return handle_update_my_signature(environ, start_response, sig_id)
+        if method == "DELETE" and sig_id:
+            return handle_delete_my_signature(environ, start_response, sig_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/mail/messages/"):
