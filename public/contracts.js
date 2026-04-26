@@ -921,10 +921,12 @@ const initContractSignPage = async () => {
       </div>
     `;
     const clientPhoneInput = qs("#signer-client-phone");
+    const clientEmailInput = qs("#signer-client-email");
     const emergencyNameInput = qs("#signer-emergency-name");
     const emergencyPhoneInput = qs("#signer-emergency-phone");
     const emergencyRelationInput = qs("#signer-emergency-relation");
     if (clientPhoneInput) clientPhoneInput.value = info.clientPhone || "";
+    if (clientEmailInput) clientEmailInput.value = info.clientEmail || "";
     if (emergencyNameInput) emergencyNameInput.value = info.emergencyContactName || "";
     if (emergencyPhoneInput) emergencyPhoneInput.value = info.emergencyContactPhone || "";
     if (emergencyRelationInput) emergencyRelationInput.value = info.emergencyContactRelation || "";
@@ -942,12 +944,17 @@ const initContractSignPage = async () => {
   qs("#signature-submit")?.addEventListener("click", async () => {
     statusEl.textContent = "Гарын үсгийг хадгалж байна...";
     const clientPhone = normalizeTextValue(qs("#signer-client-phone")?.value || "");
+    const clientEmail = normalizeTextValue(qs("#signer-client-email")?.value || "");
     const emergencyName = normalizeTextValue(qs("#signer-emergency-name")?.value || "");
     const emergencyPhone = normalizeTextValue(qs("#signer-emergency-phone")?.value || "");
     const emergencyRelation = normalizeTextValue(qs("#signer-emergency-relation")?.value || "");
     const accepted = qs("#signer-accept")?.checked || false;
-    if (!clientPhone || !emergencyName || !emergencyPhone || !emergencyRelation) {
+    if (!clientPhone || !clientEmail || !emergencyName || !emergencyPhone || !emergencyRelation) {
       statusEl.textContent = "Бүх холбоо барих мэдээллийг бөглөнө үү.";
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clientEmail)) {
+      statusEl.textContent = "Имэйл хаяг буруу байна.";
       return;
     }
     if (!accepted) {
@@ -964,6 +971,7 @@ const initContractSignPage = async () => {
         method: "POST",
         body: JSON.stringify({
           clientPhone,
+          clientEmail,
           emergencyContactName: emergencyName,
           emergencyContactPhone: emergencyPhone,
           emergencyContactRelation: emergencyRelation,
@@ -971,7 +979,10 @@ const initContractSignPage = async () => {
           accepted,
         }),
       });
-      statusEl.textContent = "Гарын үсэг амжилттай хадгалагдлаа.";
+      const emailSuffix = result.emailSent
+        ? ` Гэрээ болон нэхэмжлэх ${clientEmail} хаяг руу илгээгдлээ.`
+        : "";
+      statusEl.textContent = "Гарын үсэг амжилттай хадгалагдлаа." + emailSuffix;
       if (result.contract?.pdfPath) {
         const pdfSrc = encodeURIComponent(result.contract.pdfPath);
         const pdfTitle = encodeURIComponent(result.contract.data?.contractSerial || "Contract");

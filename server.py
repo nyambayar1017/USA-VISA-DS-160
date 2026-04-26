@@ -8070,14 +8070,17 @@ def handle_sign_contract(environ, start_response, contract_id):
     signature_data = payload.get("signatureData")
     signer_name = normalize_text(payload.get("signerName"))
     client_phone = normalize_text(payload.get("clientPhone"))
+    client_email = normalize_text(payload.get("clientEmail"))
     emergency_name = normalize_text(payload.get("emergencyContactName"))
     emergency_phone = normalize_text(payload.get("emergencyContactPhone"))
     emergency_relation = normalize_text(payload.get("emergencyContactRelation"))
     accepted = bool(payload.get("accepted"))
     if not accepted:
         return json_response(start_response, "400 Bad Request", {"error": "Agreement not accepted"})
-    if not client_phone or not emergency_name or not emergency_phone or not emergency_relation:
+    if not client_phone or not client_email or not emergency_name or not emergency_phone or not emergency_relation:
         return json_response(start_response, "400 Bad Request", {"error": "Missing client contact information"})
+    if "@" not in client_email or "." not in client_email.split("@")[-1]:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid email address"})
 
     contracts = read_contracts()
     for idx, contract in enumerate(contracts):
@@ -8087,6 +8090,7 @@ def handle_sign_contract(environ, start_response, contract_id):
                 return json_response(start_response, "400 Bad Request", {"error": "Invalid signature"})
             data = contract.get("data") or {}
             data["clientPhone"] = client_phone
+            data["clientEmail"] = client_email
             data["emergencyContactName"] = emergency_name
             data["emergencyContactPhone"] = emergency_phone
             data["emergencyContactRelation"] = emergency_relation
@@ -8121,8 +8125,47 @@ def handle_sign_contract(environ, start_response, contract_id):
                         pass
             contracts[idx] = contract
             write_contracts(contracts)
-            return json_response(start_response, "200 OK", {"ok": True, "contract": contract})
+            email_sent = _send_signed_contract_email(contract)
+            return json_response(start_response, "200 OK", {"ok": True, "contract": contract, "emailSent": email_sent})
     return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+
+
+def _send_signed_contract_email(contract):
+    """Auto-send the signed contract PDF + matching invoice PDF to the client
+    (and to info@travelx.mn). Failures are logged and swallowed — a Resend
+    outage must not break the client's signing flow."""
+    try:
+        data = contract.get("data") or {}
+        client_email = (data.get("clientEmail") or "").strip()
+        if not client_email:
+            return False
+        serial = data.get("contractSerial") or contract.get("id")
+        invoice_id = (contract.get("autoInvoiceId") or "").strip()
+        attachments = [{"kind": "contract", "id": contract.get("id")}]
+        if invoice_id:
+            attachments.append({"kind": "invoice", "id": invoice_id})
+        body_lines = [
+            "Сайн байна уу,",
+            "",
+            "Гэрээ амжилттай байгууллаа. Хавсаргав:",
+            f"- Гэрээ {serial}",
+        ]
+        if invoice_id:
+            body_lines.append("- Нэхэмжлэх")
+        body_lines += ["", "Баярлалаа"]
+        args = {
+            "to": [client_email, "info@travelx.mn"],
+            "subject": f"Travelx — Гэрээ {serial}",
+            "body": "\n".join(body_lines),
+            "attachments": attachments,
+        }
+        result = _tool_send_email(args, None)
+        ok = bool(result.get("ok"))
+        print(f"[auto-email] sign-confirmation contract={contract.get('id')} ok={ok} result={result}", flush=True)
+        return ok
+    except Exception as exc:
+        print(f"[auto-email] sign-confirmation crashed: {type(exc).__name__}: {exc}", flush=True)
+        return False
 
 
 def handle_contract_document(environ, start_response, contract_id):
