@@ -111,12 +111,17 @@
     tbody.innerHTML = rows.map((d, idx) => {
       const date = (d.uploadedAt || "").slice(0, 10);
       const ext = fileExt(d.originalName);
-      const downloadUrl = "/trip-uploads/" + encodeURIComponent(d.tripId) + "/" + encodeURIComponent(d.storedName) + "?download=1";
+      const rawUrl = "/trip-uploads/" + encodeURIComponent(d.tripId) + "/" + encodeURIComponent(d.storedName);
+      const downloadUrl = rawUrl + "?download=1";
+      const isPdf = (d.mimeType || "").includes("pdf") || (d.storedName || "").toLowerCase().endsWith(".pdf");
+      const viewUrl = isPdf
+        ? "/pdf-viewer?src=" + encodeURIComponent(rawUrl) + "&title=" + encodeURIComponent(d.originalName || "")
+        : rawUrl;
       const tripUrl = "/trip-detail?tripId=" + encodeURIComponent(d.tripId);
       const uploadedBy = d.uploadedBy?.name || d.uploadedBy?.email || "-";
       return "<tr>" +
         "<td>" + (idx + 1) + "</td>" +
-        "<td><strong>" + escapeHtml(d.originalName || "-") + "</strong></td>" +
+        '<td><a class="doc-file-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(d.originalName || "-") + "</a></td>" +
         "<td>" + escapeHtml(d.touristName || "-") + "</td>" +
         '<td><a class="trip-name-link" href="' + escapeHtml(tripUrl) + '">' + escapeHtml((d.tripSerial || "") + " · " + (d.tripName || "")) + "</a></td>" +
         "<td>" + escapeHtml(d.category || "-") + "</td>" +

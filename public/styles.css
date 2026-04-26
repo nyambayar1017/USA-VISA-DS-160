@@ -9552,28 +9552,35 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #1f2937;
 }
 
-/* Yellow Download button — used on trip-detail doc list AND the global
-   /documents page. Solid amber background with white text per Bataa. */
+/* Download button — matches the Create Trip / brand-accent pill style. */
 .doc-download-btn,
 .doc-download-pill {
-  background: #f59e0b !important;
-  border-color: #d97706 !important;
+  background: var(--accent) !important;
+  border: none !important;
   color: #fff !important;
+  font-weight: 700;
 }
 .doc-download-btn:hover,
 .doc-download-pill:hover {
-  background: #d97706 !important;
-  border-color: #b45309 !important;
+  background: var(--accent-strong) !important;
   color: #fff !important;
 }
 .doc-download-pill {
   display: inline-block;
-  padding: 6px 14px;
+  padding: 6px 18px;
   border-radius: 999px;
   font-size: 13px;
-  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+}
+
+/* File-name as a clickable link that opens the file in view mode. */
+.doc-file-link {
+  font-weight: 700;
+  color: var(--brand);
   text-decoration: none;
 }
+.doc-file-link:hover { text-decoration: underline; }
 
 /* Inline "Related tourist" row inside each uploaded document on a trip. */
 .doc-tourist-row {
