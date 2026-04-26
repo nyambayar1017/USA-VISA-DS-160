@@ -7349,27 +7349,46 @@ def mindee_passport_scan(file_bytes, filename, content_type):
         headers={**auth_headers, "Content-Type": f"multipart/form-data; boundary={boundary}"},
     )
     enqueue_payload = _mindee_v2_open(enqueue_req, "enqueue")
+    try:
+        print(f"[passport-scan] enqueue resp: {json.dumps(enqueue_payload)[:600]}", file=sys.stderr, flush=True)
+    except Exception:
+        pass
     job = enqueue_payload.get("job") or {}
     polling_url = job.get("polling_url")
+    job_id = job.get("id")
     if not polling_url:
         raise RuntimeError(f"Mindee enqueue missing polling_url: {enqueue_payload}")
 
     deadline = time.time() + 60
     result_url = None
+    last_status = None
+    poll_attempts = 0
     while time.time() < deadline:
-        time.sleep(1.5)
+        time.sleep(2.0)
+        poll_attempts += 1
         poll_req = urllib.request.Request(polling_url, headers=auth_headers)
-        poll_payload = _mindee_v2_open(poll_req, "poll")
+        try:
+            poll_payload = _mindee_v2_open(poll_req, "poll")
+        except RuntimeError as exc:
+            msg = str(exc)
+            # Transient 404 right after enqueue — keep waiting
+            if "HTTP 404" in msg and time.time() < deadline:
+                last_status = "404"
+                continue
+            raise
         job = poll_payload.get("job") or {}
-        status = job.get("status")
-        if status == "Failed":
+        last_status = job.get("status")
+        if last_status == "Failed":
             err = job.get("error") or {}
             raise RuntimeError(f"Mindee inference Failed: {err}")
-        if status == "Processed":
+        if last_status == "Processed":
             result_url = job.get("result_url")
             break
     if not result_url:
-        raise RuntimeError("Mindee inference timed out after 60s")
+        raise RuntimeError(
+            f"Mindee inference timed out after 60s (attempts={poll_attempts}, "
+            f"last_status={last_status}, polling_url={polling_url}, job_id={job_id})"
+        )
 
     result_req = urllib.request.Request(result_url, headers=auth_headers)
     result_payload = _mindee_v2_open(result_req, "result")
