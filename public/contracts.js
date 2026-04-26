@@ -24,6 +24,78 @@ const parseDate = (value) => {
   return new Date(Date.UTC(year, month - 1, day));
 };
 
+// Best-effort Latin → Cyrillic transliteration for tourist names, passport
+// register numbers, and destinations on the contract form. Tourists are stored
+// in CAPS Latin (e.g. "BATBAYAR SUKHBAYAR", "UK91101311") but contracts are
+// always rendered in Mongolian Cyrillic. The mapping is lossy (u → у only,
+// not ү/ө) so admins may need to tweak diacritics by hand.
+const CYR_DIGRAPHS = [
+  ["shch", "щ"], ["sch", "щ"],
+  ["kh", "х"], ["ch", "ч"], ["sh", "ш"], ["ts", "ц"],
+  ["yo", "ё"], ["ye", "е"], ["ya", "я"], ["yu", "ю"],
+];
+const CYR_SINGLES = {
+  a: "а", b: "б", v: "в", g: "г", d: "д", e: "е",
+  j: "ж", z: "з", i: "и", y: "й", k: "к", l: "л",
+  m: "м", n: "н", o: "о", p: "п", r: "р", s: "с",
+  t: "т", u: "у", f: "ф", h: "х", c: "ц", q: "к",
+  w: "в", x: "х",
+};
+const DESTINATION_DICT = {
+  singapore: "Сингапур", thailand: "Тайланд", bangkok: "Бангкок",
+  vietnam: "Вьетнам", japan: "Япон", tokyo: "Токио", osaka: "Осака",
+  korea: "Солонгос", "south korea": "Өмнөд Солонгос", seoul: "Сөүл",
+  china: "Хятад", beijing: "Бээжин", shanghai: "Шанхай",
+  "hong kong": "Хонг Конг", taiwan: "Тайвань", taipei: "Тайбэй",
+  malaysia: "Малайз", "kuala lumpur": "Куала Лумпур",
+  indonesia: "Индонез", bali: "Бали", philippines: "Филиппин",
+  india: "Энэтхэг", "sri lanka": "Шри Ланка", maldives: "Мальдив",
+  dubai: "Дубай", uae: "АНЭУ", turkey: "Турк", istanbul: "Истанбул",
+  russia: "Орос", moscow: "Москва", germany: "Герман", france: "Франц",
+  paris: "Парис", italy: "Итали", spain: "Испани", uk: "Их Британи",
+  london: "Лондон", usa: "АНУ", "new york": "Нью Йорк",
+  australia: "Австрали", canada: "Канад", mongolia: "Монгол",
+};
+
+const latinToCyrillic = (input) => {
+  if (!input) return "";
+  const s = String(input).toLowerCase();
+  let out = "";
+  let i = 0;
+  while (i < s.length) {
+    let matched = false;
+    for (const [from, to] of CYR_DIGRAPHS) {
+      if (s.substr(i, from.length) === from) {
+        out += to;
+        i += from.length;
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+    const c = s[i];
+    out += CYR_SINGLES[c] !== undefined ? CYR_SINGLES[c] : c;
+    i += 1;
+  }
+  return out;
+};
+
+const titleCaseCyrillic = (s) => {
+  return String(s || "")
+    .split(/(\s+|-)/)
+    .map((w) => (w && /\S/.test(w) ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join("");
+};
+
+const transliterateName = (s) => titleCaseCyrillic(latinToCyrillic(s));
+const transliterateRegister = (s) => latinToCyrillic(s).toUpperCase();
+const transliterateDestination = (s) => {
+  const key = String(s || "").trim().toLowerCase();
+  if (!key) return "";
+  if (DESTINATION_DICT[key]) return DESTINATION_DICT[key];
+  return titleCaseCyrillic(latinToCyrillic(key));
+};
+
 const formatDuration = (startValue, endValue) => {
   const start = parseDate(startValue);
   const end = parseDate(endValue);
@@ -474,15 +546,15 @@ const initContractForm = () => {
     picker.innerHTML = `<option value="">Сонгох...</option>` + tourists.map((t) => {
       const last = t.lastName || "";
       const first = t.firstName || "";
-      const reg = t.register || t.registerNumber || "";
+      const reg = t.registrationNumber || t.register || t.registerNumber || "";
       return `<option value="${escape(t.id)}" data-last="${escape(last)}" data-first="${escape(first)}" data-register="${escape(reg)}">${escape(`${last} ${first}`.trim() || t.id)}</option>`;
     }).join("");
     picker.onchange = () => {
       const opt = picker.selectedOptions[0];
       if (!opt || !opt.value) return;
-      if (lastInput) lastInput.value = opt.dataset.last || "";
-      if (firstInput) firstInput.value = opt.dataset.first || "";
-      if (regInput) regInput.value = opt.dataset.register || "";
+      if (lastInput) lastInput.value = transliterateName(opt.dataset.last || "");
+      if (firstInput) firstInput.value = transliterateName(opt.dataset.first || "");
+      if (regInput) regInput.value = transliterateRegister(opt.dataset.register || "");
     };
     if (defaultId && [...picker.options].some((o) => o.value === defaultId)) {
       picker.value = defaultId;
@@ -500,8 +572,10 @@ const initContractForm = () => {
     const prefill = opts.prefill || {};
     Object.entries(prefill).forEach(([name, value]) => {
       if (value === null || value === undefined || value === "") return;
+      let v = value;
+      if (name === "destination") v = transliterateDestination(value);
       const input = form.querySelector(`[name="${name}"]`);
-      if (input) input.value = value;
+      if (input) input.value = v;
     });
     // Pre-fill the step-1 setup count (Том хүний тоо) so admins don't retype it.
     if (prefill.adultCount != null) {
@@ -512,6 +586,12 @@ const initContractForm = () => {
       const setupChild = countSetup.querySelector("input[name='setupChildCount']");
       if (setupChild) setupChild.value = String(prefill.childCount);
     }
+    // Trigger trip-date listeners so tripDuration ("8 өдөр 7 шөнө") and
+    // related fields auto-fill from the dates we just wrote.
+    const startInput = form.querySelector("input[name='tripStartDate']");
+    const endInput = form.querySelector("input[name='tripEndDate']");
+    if (startInput?.value) startInput.dispatchEvent(new Event("change"));
+    if (endInput?.value) endInput.dispatchEvent(new Event("change"));
     toggle.click();
   };
 

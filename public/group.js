@@ -351,11 +351,11 @@ if (addContractBtnTop) {
         id: t.id,
         lastName: t.lastName,
         firstName: t.firstName,
-        register: t.register || t.registerNumber,
+        registrationNumber: t.registrationNumber || t.register || t.registerNumber,
       })),
       defaultTouristId: leaderTourist?.id || tourists[0]?.id,
       prefill: {
-        destination: trip?.destination || trip?.country || "",
+        destination: trip?.destination || trip?.tripName || trip?.country || "",
         tripStartDate: trip?.startDate || trip?.tripStartDate || "",
         tripEndDate: trip?.endDate || trip?.tripEndDate || "",
         adultCount,

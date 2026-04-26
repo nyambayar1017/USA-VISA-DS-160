@@ -94,11 +94,11 @@
           id: tt.id,
           lastName: tt.lastName,
           firstName: tt.firstName,
-          register: tt.register || tt.registerNumber,
+          registrationNumber: tt.registrationNumber || tt.register || tt.registerNumber,
         })),
         defaultTouristId: leaderTourist?.id || tourists[0]?.id,
         prefill: {
-          destination: trip?.destination || trip?.country || "",
+          destination: trip?.destination || trip?.tripName || trip?.country || "",
           tripStartDate: trip?.startDate || trip?.tripStartDate || "",
           tripEndDate: trip?.endDate || trip?.tripEndDate || "",
           adultCount,
