@@ -92,7 +92,7 @@ function render() {
   const tripById = Object.fromEntries(trips.map((t) => [t.id, t]));
   listNode.innerHTML = `
     <div class="camp-table-wrap">
-      <table class="camp-table reservation-addon-table tourist-directory-table">
+      <table class="tourist-directory-table">
         <thead>
           <tr>
             <th>Serial</th>
