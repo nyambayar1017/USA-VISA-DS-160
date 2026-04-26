@@ -10892,69 +10892,154 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 /* Rich text editor */
 .rich-editor {
+  position: relative;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   background: #ffffff;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 .rich-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 2px;
   padding: 8px 10px;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
   align-items: center;
+  border-radius: 10px 10px 0 0;
 }
 .rich-toolbar button {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
-  padding: 5px 9px;
+  padding: 6px 7px;
   font: inherit;
   font-size: 0.85rem;
   cursor: pointer;
   color: #334155;
-  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 30px;
 }
 .rich-toolbar button:hover { background: #e2e8f0; border-color: #cbd5e1; }
 .rich-toolbar button:active { background: #cbd5e1; }
+.rich-toolbar button svg { display: block; }
 .rich-toolbar select {
-  padding: 4px 6px;
+  padding: 4px 8px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   font-size: 0.82rem;
   background: #ffffff;
   cursor: pointer;
+  height: 30px;
 }
-.rich-sep { width: 1px; height: 18px; background: #cbd5e1; margin: 0 4px; }
-.rich-color {
+.rich-font-select { min-width: 96px; }
+.rich-size-select { min-width: 76px; }
+.rich-sep { width: 1px; height: 20px; background: #e2e8f0; margin: 0 4px; flex-shrink: 0; }
+
+/* Color picker buttons in toolbar (text + highlight) */
+.rich-color-btn {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  width: 32px;
-  height: 28px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: 6px;
 }
-.rich-color:hover { border-color: #cbd5e1; background: #e2e8f0; }
-.rich-color input[type="color"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  width: 100%;
-  height: 100%;
-}
-.rich-color span {
-  width: 100%;
-  text-align: center;
-  font-weight: 700;
+.rich-color-letter {
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 0.9;
   pointer-events: none;
-  border-bottom: 3px solid currentColor;
+}
+.rich-color-marker {
+  font-size: 1.05rem;
+  line-height: 0.9;
+  background: #fef08a;
+  padding: 0 1px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+.rich-color-bar {
+  display: inline-block;
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Color popover */
+.rich-popover {
+  position: absolute;
+  z-index: 1000;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  padding: 10px;
+}
+.rich-popover[hidden] { display: none; }
+.rich-color-pop { display: flex; flex-direction: column; gap: 4px; min-width: 250px; }
+.rich-color-pop-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.rich-color-pop-head strong { font-size: 0.85rem; color: #0f172a; }
+.rich-color-clear {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #334155;
+}
+.rich-color-clear:hover { background: #e2e8f0; }
+.rich-color-row { display: flex; gap: 4px; }
+.rich-color-swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 100ms ease, border-color 100ms ease;
+}
+.rich-color-swatch:hover {
+  transform: scale(1.15);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+
+/* Table picker popover */
+.rich-table-pop {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 130px;
+}
+.rich-table-grid {
+  display: grid;
+  gap: 2px;
+}
+.rich-table-cell {
+  width: 14px;
+  height: 14px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 1px;
+  padding: 0;
+  cursor: pointer;
+}
+.rich-table-cell.is-hot {
+  background: #bfdbfe;
+  border-color: #2563eb;
+}
+.rich-table-label {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #475569;
+  padding-top: 4px;
+  border-top: 1px solid #e2e8f0;
 }
 .rich-content {
   padding: 14px 16px;
