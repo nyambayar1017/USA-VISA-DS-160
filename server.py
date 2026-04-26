@@ -7627,7 +7627,7 @@ def handle_create_mail_account(environ, start_response):
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     address = (payload.get("address") or "").strip().lower()
-    app_password = (payload.get("appPassword") or "").strip().replace(" ", "")
+    app_password = re.sub(r"\s+", "", payload.get("appPassword") or "")
     display_name = (payload.get("displayName") or "").strip() or address
     workspace = (payload.get("workspace") or "").strip().upper() or "DTX"
     imap_host = (payload.get("imapHost") or "imap.gmail.com").strip()
@@ -7682,7 +7682,7 @@ def handle_update_mail_account(environ, start_response, account_id):
                         updated[key] = int(payload[key])
                     except (TypeError, ValueError):
                         pass
-            new_password = (payload.get("appPassword") or "").strip().replace(" ", "")
+            new_password = re.sub(r"\s+", "", payload.get("appPassword") or "")
             if new_password:
                 updated["appPassword"] = _mail_obfuscate(new_password)
                 updated["status"] = "ok"
@@ -7719,9 +7719,13 @@ def imap_test_connection(account):
     host = account.get("imapHost") or "imap.gmail.com"
     port = int(account.get("imapPort") or 993)
     address = account.get("address")
-    password = get_mail_account_password(account)
+    password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
     if not address or not password:
         return False, "Missing address or password"
+    try:
+        password.encode("ascii")
+    except UnicodeEncodeError:
+        return False, "Password contains non-ASCII characters — re-paste it (Update password)"
     try:
         client = imaplib.IMAP4_SSL(host, port, timeout=20)
         try:
