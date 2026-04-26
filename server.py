@@ -5657,9 +5657,9 @@ def handle_create_tourist(environ, start_response):
         record["photoPath"] = save_tourist_image(payload["photoData"], "tourist-photo", record["id"])
     passport_token = (payload.get("passportFileToken") or "").strip()
     if passport_token:
-        full_name = ((record.get("lastName") or "") + " " + (record.get("firstName") or "")).strip()
+        doc_name = (record.get("firstName") or record.get("lastName") or "passport").strip()
         try:
-            doc = consume_passport_token(passport_token, record.get("tripId"), record["id"], full_name, actor)
+            doc = consume_passport_token(passport_token, record.get("tripId"), record["id"], doc_name, actor)
             if doc:
                 record["passportDocumentId"] = doc["id"]
         except Exception:
