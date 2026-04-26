@@ -8853,10 +8853,10 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 @media (max-width: 520px) {
   /* Bataa chat on phones: behave like the sidebar drawer — slide in
-     from the right, full viewport height, 80 vw wide. Top-to-bottom
-     instead of bottom-anchored card. Use 100 dvh so iOS Safari's
-     bottom URL bar doesn't crop the input row, and add safe-area
-     padding to the input row itself. */
+     from the right, top-to-bottom, 80 vw wide. Sized to 100 svh
+     (smallest viewport height) so iOS Safari's bottom URL bar can't
+     crop the input row, and the keyboard doesn't leave a dead gap
+     above it the way 100 dvh + manual padding did. */
   .agent-panel {
     top: 0 !important;
     right: 0 !important;
@@ -8864,8 +8864,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     left: auto !important;
     width: 80vw !important;
     max-width: 80vw !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
+    height: 100svh !important;
+    max-height: 100svh !important;
     border-radius: 0 !important;
     border-left: 1px solid rgba(15, 23, 42, 0.08) !important;
     border-top: 0 !important;
@@ -8876,17 +8876,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   .agent-panel.is-maximized {
     width: 80vw !important;
     max-width: 80vw !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
+    height: 100svh !important;
+    max-height: 100svh !important;
     top: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
     border-radius: 0 !important;
   }
-  /* Reserve space below the input row for Safari's bottom URL bar,
-     plus the iOS home-indicator safe area. */
+  /* Only honour the iOS home-indicator safe area; do NOT add a manual
+     URL-bar offset — svh already excludes the URL bar. */
   .agent-panel .agent-input-row {
-    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px) + 56px) !important;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .agent-bubble {
     right: 14px;
