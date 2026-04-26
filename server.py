@@ -7340,7 +7340,7 @@ def mindee_passport_scan(file_bytes, filename, content_type):
         b"",
     ]
     body = b"\r\n".join(body_parts)
-    auth_headers = {"Authorization": f"Token {MINDEE_API_KEY}"}
+    auth_headers = {"Authorization": MINDEE_API_KEY}
 
     enqueue_req = urllib.request.Request(
         "https://api-v2.mindee.net/v2/inferences/enqueue",
