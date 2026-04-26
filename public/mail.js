@@ -15,14 +15,19 @@
   let currentFolder = "inbox"; // "inbox" or "sent"
   const checkedKeys = new Set();
 
-  // Read the current workspace (DTX/USM) from localStorage so we can scope
-  // mailboxes and messages to it. App-shell sets WORKSPACE_KEY="travelx_workspace".
+  // Read the current workspace (DTX/USM). App-shell stores it in localStorage
+  // AND a cookie — Safari sometimes clears localStorage between visits while
+  // keeping the cookie, so we have to read both like app-shell.js does.
+  function readCookie(name) {
+    const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+    return m ? decodeURIComponent(m[1]) : "";
+  }
   function currentWorkspace() {
-    try {
-      return localStorage.getItem("travelx_workspace") || "";
-    } catch {
-      return "";
-    }
+    let v = "";
+    try { v = localStorage.getItem("travelx_workspace") || ""; } catch {}
+    if (!v) v = readCookie("travelx_workspace");
+    v = (v || "").toUpperCase();
+    return v === "DTX" || v === "USM" ? v : "";
   }
   function workspaceMatches(account) {
     const ws = currentWorkspace();
@@ -366,34 +371,19 @@
     return t.replace(/\s+/g, " ");
   }
 
-  // Find related messages for a thread: same accountId, same normalized
-  // subject, sorted oldest-first. Falls back to single message when no
-  // matches found.
-  function threadFor(m) {
+  // Fetch the full thread for a message (inbox + sent merged, oldest-first).
+  // Returns Promise<entry[]>. Falls back to [m] if request fails.
+  async function fetchThread(m) {
     if (!m) return [];
-    const norm = normalizeSubject(m.subject);
-    if (!norm) return [m];
-    const related = messages.filter((x) =>
-      x.accountId === m.accountId &&
-      normalizeSubject(x.subject) === norm
-    );
-    if (!related.length) return [m];
-    related.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-    return related;
-  }
-
-  // Fetch full bodies for a list of message stubs (the inbox list only has
-  // headers + snippet). Returns Promise<entry[]>.
-  async function fetchThreadBodies(stubs) {
-    const results = await Promise.all(stubs.map(async (s) => {
-      try {
-        const r = await fetch(`/api/mail/messages/${encodeURIComponent(s.accountId)}/${encodeURIComponent(s.uid)}?folder=${encodeURIComponent(s.folder || currentFolder)}`);
-        if (!r.ok) return null;
-        const data = await r.json();
-        return data.entry;
-      } catch { return null; }
-    }));
-    return results.filter(Boolean);
+    try {
+      const r = await fetch(`/api/mail/messages/${encodeURIComponent(m.accountId)}/${encodeURIComponent(m.uid)}/thread`);
+      if (!r.ok) return [m];
+      const data = await r.json();
+      const entries = Array.isArray(data.entries) ? data.entries : [];
+      return entries.length ? entries : [m];
+    } catch {
+      return [m];
+    }
   }
 
   function isFromMe(entry) {
@@ -446,9 +436,11 @@
          <button type="button" class="secondary-button" data-action="mark-unread">◉ Mark unread</button>
          <button type="button" class="secondary-button danger-button" data-action="delete-msg">Delete</button>`;
 
-    // Look at the inbox/sent list for messages in the same thread.
-    const stubs = threadFor(m);
-    if (stubs.length <= 1) {
+    // Ask the server for the merged inbox+sent thread for this message.
+    // The endpoint also syncs the Sent folder first so our outbound replies
+    // appear inline next to the inbound side, WhatsApp-style.
+    const entries = await fetchThread(m);
+    if (entries.length <= 1) {
       // Single-message render — same layout as before.
       const ini = initials(m.fromName, m.fromEmail);
       const color = colorFor(m.fromEmail || m.from);
@@ -480,28 +472,22 @@
 
     // Conversation render — title + bubbles (oldest → newest), with the
     // existing actions row pinned beneath the latest message.
+    const cleanSubject = (m.subject || "(no subject)").replace(/^((re|fw|fwd|sv|aw|tr|ynt|rv|вн|нэ|fyi)\s*[:\-]\s*)+/i, "") || (m.subject || "(no subject)");
     viewerNode.innerHTML = `
       <div class="mail-viewer-head">
-        <h2>${escapeHtml(normalizeSubject(m.subject) ? m.subject.replace(/^((re|fw|fwd|sv|aw|tr|ynt|rv|вн|нэ|fyi)\s*[:\-]\s*)+/i, "") : (m.subject || "(no subject)"))}</h2>
+        <h2>${escapeHtml(cleanSubject)}</h2>
         <p class="mail-viewer-meta">
-          <small>${stubs.length} messages · via ${escapeHtml(m.accountAddress || "")}</small>
+          <small>${entries.length} messages · via ${escapeHtml(m.accountAddress || "")}</small>
         </p>
         <div class="mail-viewer-actions">
           ${actionsHtml}
         </div>
       </div>
-      <div class="mail-conversation"><p class="empty">Loading conversation…</p></div>
+      <div class="mail-conversation">${renderConversationBubbles(entries, m)}</div>
     `;
-    const entries = await fetchThreadBodies(stubs);
-    const conv = viewerNode.querySelector(".mail-conversation");
-    if (!conv) return;
-    if (!entries.length) {
-      conv.innerHTML = `<p class="empty">Could not load conversation.</p>`;
-      return;
-    }
-    conv.innerHTML = renderConversationBubbles(entries, m);
     // Scroll the most recent bubble into view by default.
-    const last = conv.querySelector(".mail-bubble:last-child");
+    const conv = viewerNode.querySelector(".mail-conversation");
+    const last = conv?.querySelector(".mail-bubble:last-child");
     if (last) last.scrollIntoView({ block: "start", behavior: "auto" });
   }
 
@@ -1205,7 +1191,9 @@
 
   async function bootstrap() {
     try {
-      const r = await fetch("/api/mail/accounts");
+      // ?scope=workspace tells the server to filter mailboxes to the active
+      // workspace too — defense in depth in case localStorage was cleared.
+      const r = await fetch("/api/mail/accounts?scope=workspace");
       const data = await r.json();
       accounts = (data.entries || []).filter(workspaceMatches);
     } catch {

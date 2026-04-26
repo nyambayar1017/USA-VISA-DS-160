@@ -7620,7 +7620,15 @@ def handle_list_mail_accounts(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
         return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    scope = (params.get("scope", [""])[0] or "").strip().lower()
     accounts = [public_mail_account(a) for a in read_mail_accounts()]
+    # The /mail page passes scope=workspace so it only sees mailboxes in the
+    # active workspace. /mail-settings (admin) leaves scope unset and gets all.
+    if scope == "workspace":
+        ws = active_workspace(environ)
+        if ws:
+            accounts = [a for a in accounts if (a.get("workspace") or "DTX").upper() == ws]
     return json_response(start_response, "200 OK", {"entries": accounts})
 
 
@@ -8236,6 +8244,68 @@ def imap_sync_account(account, limit=20, folder="inbox"):
             break
     write_mail_accounts(accounts)
     return new_count, ""
+
+
+_MAIL_SUBJECT_PREFIX_RE = re.compile(
+    r"^(re|fw|fwd|sv|aw|tr|ynt|rv|вн|нэ|fyi)\s*[:\-]\s*",
+    re.IGNORECASE,
+)
+
+def _normalize_mail_subject(s):
+    """Strip Re:/Fwd: (and locale variants) so a thread can be grouped by
+    its base subject. Mirrors the JS helper in mail.js."""
+    t = (s or "").strip().lower()
+    while True:
+        new = _MAIL_SUBJECT_PREFIX_RE.sub("", t).strip()
+        if new == t:
+            break
+        t = new
+    return re.sub(r"\s+", " ", t)
+
+
+def handle_mail_thread(environ, start_response, account_id, uid):
+    """Return the full thread (inbox + sent) for the given message — same
+    accountId, same normalized subject. Used by the conversation viewer
+    so reply emails the user has sent appear inline next to the inbound
+    side, WhatsApp-style."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    accounts = read_mail_accounts()
+    account = next((a for a in accounts if a["id"] == account_id), None)
+    if not account:
+        return json_response(start_response, "404 Not Found", {"error": "Mailbox not found"})
+
+    # Pull a fresh slice of Sent so the user's latest outbound replies show
+    # up alongside the inbound side. Inbox syncs already happen on the list
+    # endpoint; we just need to top up Sent here.
+    try:
+        imap_sync_account(account, limit=20, folder="sent")
+    except Exception:
+        pass
+
+    cache = _read_mail_cache(account_id)
+    target = next((m for m in cache.get("messages", []) if str(m.get("uid")) == str(uid)), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Message not found"})
+
+    norm = _normalize_mail_subject(target.get("subject"))
+    entries = []
+    for msg in cache.get("messages", []):
+        if _normalize_mail_subject(msg.get("subject")) != norm:
+            continue
+        full = dict(msg)
+        # Materialize body from disk (cache stores headers only).
+        body = _load_message_body(account_id, msg.get("folder") or "inbox", msg.get("uid"))
+        if body:
+            full.update(body)
+        full["accountAddress"] = account["address"]
+        full["accountDisplay"] = account.get("displayName") or account["address"]
+        full["workspace"] = account.get("workspace") or "DTX"
+        entries.append(full)
+
+    entries.sort(key=lambda m: m.get("date") or "")
+    return json_response(start_response, "200 OK", {"entries": entries})
 
 
 def handle_mail_unread_summary(environ, start_response):
@@ -12316,6 +12386,8 @@ def _dispatch(environ, start_response):
                 return handle_mark_unread_mail_message(environ, start_response, acc_id, uid)
             if sub == "attachments" and sub_arg and method == "GET":
                 return handle_download_mail_attachment(environ, start_response, acc_id, uid, sub_arg)
+            if sub == "thread" and method == "GET":
+                return handle_mail_thread(environ, start_response, acc_id, uid)
             if not sub and method == "GET":
                 return handle_get_mail_message(environ, start_response, acc_id, uid)
             if not sub and method == "DELETE":

@@ -10314,6 +10314,53 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 .mail-count { color: #64748b; font-size: 0.85rem; margin-left: auto; flex-shrink: 0; }
 
+/* Mobile layout: collapse the two-row toolbar into compact wrapped chips
+   matching the tourist/invoice filter look — rounded pills, flex-wrap, no
+   wide selects sticking off-screen. */
+@media (max-width: 760px) {
+  .mail-toolbar {
+    padding: 12px 12px 10px;
+    gap: 10px;
+  }
+  .mail-toolbar-row,
+  .mail-toolbar-left,
+  .mail-toolbar-right {
+    width: 100%;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+  .mail-toolbar-right { justify-content: stretch; }
+  .mail-toolbar-right select {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  .mail-toolbar-left .primary-pill,
+  .mail-toolbar-left .secondary-button {
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    border-radius: 999px;
+    flex: 0 0 auto;
+  }
+  .mail-folder-tabs { padding: 2px; }
+  .mail-folder-tab { padding: 5px 12px; font-size: 0.8rem; }
+  .mail-toolbar-row--search { flex-wrap: nowrap; }
+  .mail-toolbar-row--search input[type="search"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+  .mail-toolbar-row--search .secondary-button {
+    flex: 0 0 auto;
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    border-radius: 999px;
+  }
+  .mail-count { font-size: 0.78rem; }
+}
+
 /* Folder tabs (Inbox / Sent) */
 .mail-folder-tabs {
   display: inline-flex;
@@ -10786,15 +10833,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   gap: 18px;
 }
 .mail-bubble {
-  max-width: 78%;
+  max-width: 95%;
   border-radius: 16px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: #ffffff;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-  padding: 14px 16px 12px;
+  padding: 14px 18px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: fit-content;
+  min-width: min(640px, 100%);
 }
 .mail-bubble--theirs { align-self: flex-start; }
 .mail-bubble--mine {
@@ -10830,14 +10879,26 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   vertical-align: 1px;
 }
 .mail-bubble-body { line-height: 1.55; }
-.mail-bubble-iframe { width: 100%; min-height: 220px; border: 0; background: transparent; }
+.mail-bubble-iframe {
+  width: 100%;
+  min-width: 580px;
+  height: 460px;
+  min-height: 360px;
+  border: 0;
+  background: transparent;
+  display: block;
+}
 .mail-bubble-text {
   font: inherit;
   white-space: pre-wrap;
   word-wrap: break-word;
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   color: #0f172a;
+}
+@media (max-width: 720px) {
+  .mail-bubble { min-width: 0; max-width: 100%; }
+  .mail-bubble-iframe { min-width: 0; height: 380px; }
 }
 
 /* Compose modal */
