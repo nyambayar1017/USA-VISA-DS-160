@@ -5039,11 +5039,27 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 .pagination-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
+/* Compact Previous/Next pills — same shape as mobile, applied to every
+   pagination row across the site (Trips, Contracts, FIFA admin, etc.).
+   The old 108 px min-width left them looking like primary CTAs. */
 .pagination-actions button {
-  min-width: 108px;
+  min-width: 0;
+  padding: 6px 16px;
+  font-size: 0.78rem;
+  height: 32px;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+.contract-pagination .secondary-button {
+  min-width: 0;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  height: 30px;
+  line-height: 1;
 }
 
 @media (max-width: 900px) {
@@ -8838,7 +8854,9 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 @media (max-width: 520px) {
   /* Bataa chat on phones: behave like the sidebar drawer — slide in
      from the right, full viewport height, 80 vw wide. Top-to-bottom
-     instead of bottom-anchored card. */
+     instead of bottom-anchored card. Use 100 dvh so iOS Safari's
+     bottom URL bar doesn't crop the input row, and add safe-area
+     padding to the input row itself. */
   .agent-panel {
     top: 0 !important;
     right: 0 !important;
@@ -8846,8 +8864,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     left: auto !important;
     width: 80vw !important;
     max-width: 80vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
     border-radius: 0 !important;
     border-left: 1px solid rgba(15, 23, 42, 0.08) !important;
     border-top: 0 !important;
@@ -8858,12 +8876,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   .agent-panel.is-maximized {
     width: 80vw !important;
     max-width: 80vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
     top: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
     border-radius: 0 !important;
+  }
+  /* Reserve space below the input row for Safari's bottom URL bar,
+     plus the iOS home-indicator safe area. */
+  .agent-panel .agent-input-row {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px) + 56px) !important;
   }
   .agent-bubble {
     right: 14px;
@@ -9805,8 +9828,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     font-size: 0.7rem !important;
   }
 
-  /* Previous/Next pagination buttons rendered as huge half-screen pills on
-     phones — shrink to compact text buttons that hug their content. */
+  /* Pagination text/meta still shrinks on phones (the buttons themselves
+     are now small enough globally). */
   .table-pagination {
     gap: 8px !important;
     margin-top: 12px !important;
@@ -9814,23 +9837,5 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
   .table-pagination p {
     font-size: 0.78rem !important;
-  }
-  .pagination-actions {
-    gap: 6px !important;
-  }
-  .pagination-actions button {
-    min-width: 0 !important;
-    padding: 6px 14px !important;
-    font-size: 0.78rem !important;
-    border-radius: 999px !important;
-    height: 32px !important;
-    line-height: 1 !important;
-  }
-  .contract-pagination .secondary-button {
-    min-width: 0 !important;
-    padding: 6px 12px !important;
-    font-size: 0.78rem !important;
-    height: 30px !important;
-    line-height: 1 !important;
   }
 }
