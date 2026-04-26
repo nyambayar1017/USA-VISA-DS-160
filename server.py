@@ -9005,6 +9005,7 @@ def _tool_send_email(args, actor):
             "Content-Type": "application/json",
         },
     )
+    print(f"[send_email] from={sender!r} to={to_list!r} subject={subject!r} attachments={[a['filename'] for a in api_attachments]}", flush=True)
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -9013,8 +9014,10 @@ def _tool_send_email(args, actor):
             err_body = e.read().decode("utf-8")
         except Exception:
             err_body = str(e)
-        return {"error": f"Resend API error {e.code}: {err_body[:400]}"}
+        print(f"[send_email] HTTPError {e.code} body={err_body!r}", flush=True)
+        return {"error": f"Resend API error {e.code}: {err_body[:600]}"}
     except Exception as exc:
+        print(f"[send_email] {type(exc).__name__}: {exc}", flush=True)
         return {"error": f"Email send failed: {type(exc).__name__}: {exc}"}
 
     return {
