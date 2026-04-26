@@ -8852,23 +8852,23 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 
 @media (max-width: 520px) {
-  /* Bataa chat on phones: behave like the sidebar drawer — slide in
-     from the right, top-to-bottom, 80 vw wide. Sized to 100 svh
-     (smallest viewport height) so iOS Safari's bottom URL bar can't
-     crop the input row, and the keyboard doesn't leave a dead gap
-     above it the way 100 dvh + manual padding did. */
+  /* Bataa chat on phones: slide in from the right, 80 vw wide, with a
+     gap above so the iOS status bar / Dynamic Island stays visible
+     and the page peeks through at the top. The top offset gives the
+     header automatic notch clearance, and the rounded top-left corner
+     reads as a drawer rather than a fullscreen takeover. */
   .agent-panel {
-    top: 0 !important;
+    top: max(60px, calc(20px + env(safe-area-inset-top, 0px))) !important;
     right: 0 !important;
     bottom: 0 !important;
     left: auto !important;
     width: 80vw !important;
     max-width: 80vw !important;
-    height: 100svh !important;
-    max-height: 100svh !important;
-    border-radius: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    border-radius: 18px 0 0 0 !important;
     border-left: 1px solid rgba(15, 23, 42, 0.08) !important;
-    border-top: 0 !important;
+    border-top: 1px solid rgba(15, 23, 42, 0.08) !important;
     border-right: 0 !important;
     border-bottom: 0 !important;
     box-shadow: -16px 0 40px rgba(15, 23, 42, 0.18) !important;
@@ -8876,25 +8876,23 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   .agent-panel.is-maximized {
     width: 80vw !important;
     max-width: 80vw !important;
-    height: 100svh !important;
-    max-height: 100svh !important;
-    top: 0 !important;
+    top: max(60px, calc(20px + env(safe-area-inset-top, 0px))) !important;
     right: 0 !important;
     bottom: 0 !important;
-    border-radius: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    border-radius: 18px 0 0 0 !important;
   }
   /* Only honour the iOS home-indicator safe area; do NOT add a manual
      URL-bar offset — svh already excludes the URL bar. */
   .agent-panel .agent-input-row {
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
   }
-  /* Push the header below the iOS status bar / notch so the close (×),
-     Том, Цэвэрлэх and TTS buttons are reachable. The viewport meta tag
-     does not include `viewport-fit=cover`, so env(safe-area-inset-top)
-     resolves to 0 on iOS. Use max() with a 50 px floor so the header
-     clears the status bar / Dynamic Island regardless. */
+  /* Header back to its default padding — the panel itself now sits
+     below the status bar, so the header doesn't need extra top space. */
   .agent-panel .agent-header {
-    padding-top: max(50px, calc(12px + env(safe-area-inset-top, 0px))) !important;
+    padding-top: 12px !important;
+    border-top-left-radius: 18px !important;
   }
   .agent-bubble {
     right: 14px;
