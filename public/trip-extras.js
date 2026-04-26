@@ -562,7 +562,9 @@
       } else if (data.reason === "ocr_disabled") {
         setPassportStatus("Saved. OCR is not configured yet — please type the fields manually.", "warning");
       } else {
-        setPassportStatus("Passport quality is bad. Please type the fields manually.", "warning");
+        const detail = data.debug ? " (" + data.debug + ")" : "";
+        setPassportStatus("Passport quality is bad. Please type the fields manually." + detail, "warning");
+        if (data.debug) console.warn("[passport-scan]", data.debug);
       }
     } catch (err) {
       setPassportStatus("Could not scan the passport: " + (err.message || err) + ". Please type the fields manually.", "error");

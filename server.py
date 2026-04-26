@@ -7326,9 +7326,13 @@ def mindee_passport_scan(file_bytes, filename, content_type):
         with urllib.request.urlopen(req, timeout=45) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"Mindee error {exc.code}") from exc
+        try:
+            body_snippet = exc.read().decode("utf-8", errors="replace")[:400]
+        except Exception:
+            body_snippet = ""
+        raise RuntimeError(f"Mindee HTTP {exc.code}: {body_snippet}") from exc
     except Exception as exc:  # network / json / timeout
-        raise RuntimeError("Mindee request failed") from exc
+        raise RuntimeError(f"Mindee request failed: {exc}") from exc
 
     document = (payload.get("document") or {}).get("inference") or {}
     prediction = (document.get("prediction") or {})
@@ -7395,13 +7399,18 @@ def handle_passport_scan(environ, start_response):
 
     try:
         parsed, min_confidence, _raw = mindee_passport_scan(data, original_name, upload["content_type"])
-    except RuntimeError:
+    except RuntimeError as exc:
+        try:
+            print(f"[passport-scan] Mindee call failed: {exc}", file=sys.stderr, flush=True)
+        except Exception:
+            pass
         return json_response(start_response, "200 OK", {
             "ok": True,
             "token": token,
             "fields": {},
             "qualityOk": False,
             "reason": "ocr_failed",
+            "debug": str(exc)[:400],
             "originalName": original_name,
             "contentType": upload["content_type"],
         })
