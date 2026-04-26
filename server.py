@@ -7766,6 +7766,280 @@ def handle_test_mail_account(environ, start_response, account_id):
     return json_response(start_response, "200 OK" if ok else "200 OK", {"ok": ok, "error": err})
 
 
+# ── Mail message fetch + storage ────────────────────────────────────
+def _decode_header_value(raw):
+    if not raw:
+        return ""
+    try:
+        from email.header import decode_header, make_header
+        return str(make_header(decode_header(raw)))
+    except Exception:
+        return raw
+
+
+def _parse_email_message(msg, account_id, uid):
+    import email
+    from email.utils import parseaddr, parsedate_to_datetime
+
+    from_raw = _decode_header_value(msg.get("From", ""))
+    to_raw = _decode_header_value(msg.get("To", ""))
+    cc_raw = _decode_header_value(msg.get("Cc", ""))
+    subject = _decode_header_value(msg.get("Subject", ""))
+    date_iso = ""
+    try:
+        dt = parsedate_to_datetime(msg.get("Date", ""))
+        if dt:
+            date_iso = dt.isoformat()
+    except Exception:
+        pass
+
+    body_text = ""
+    body_html = ""
+    has_attachment = False
+    if msg.is_multipart():
+        for part in msg.walk():
+            ctype = part.get_content_type()
+            cdisp = (part.get("Content-Disposition") or "").lower()
+            if "attachment" in cdisp:
+                has_attachment = True
+                continue
+            if part.get_filename():
+                has_attachment = True
+                continue
+            if ctype == "text/plain" and not body_text:
+                payload = part.get_payload(decode=True) or b""
+                charset = part.get_content_charset() or "utf-8"
+                try:
+                    body_text = payload.decode(charset, errors="replace")
+                except Exception:
+                    body_text = payload.decode("utf-8", errors="replace")
+            elif ctype == "text/html" and not body_html:
+                payload = part.get_payload(decode=True) or b""
+                charset = part.get_content_charset() or "utf-8"
+                try:
+                    body_html = payload.decode(charset, errors="replace")
+                except Exception:
+                    body_html = payload.decode("utf-8", errors="replace")
+    else:
+        payload = msg.get_payload(decode=True) or b""
+        charset = msg.get_content_charset() or "utf-8"
+        try:
+            body_text = payload.decode(charset, errors="replace")
+        except Exception:
+            body_text = payload.decode("utf-8", errors="replace")
+
+    if not body_text and body_html:
+        # Strip HTML tags for snippet
+        body_text_strip = re.sub(r"<[^>]+>", " ", body_html)
+        body_text_strip = re.sub(r"\s+", " ", body_text_strip).strip()
+    else:
+        body_text_strip = body_text
+
+    snippet = (body_text_strip or "")[:240].strip()
+    from_name, from_email = parseaddr(from_raw)
+    return {
+        "uid": int(uid),
+        "accountId": account_id,
+        "messageId": msg.get("Message-ID", ""),
+        "from": from_raw,
+        "fromName": (from_name or from_email or "").strip(),
+        "fromEmail": (from_email or "").strip().lower(),
+        "to": to_raw,
+        "cc": cc_raw,
+        "subject": subject,
+        "date": date_iso,
+        "snippet": snippet,
+        "bodyText": body_text,
+        "bodyHtml": body_html,
+        "hasAttachment": has_attachment,
+        "fetchedAt": now_mongolia().isoformat(),
+    }
+
+
+def _read_mail_cache(account_id):
+    path = MAIL_MESSAGES_DIR / f"{account_id}.json"
+    if not path.exists():
+        return {"uidvalidity": None, "lastUid": 0, "messages": []}
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not isinstance(data, dict):
+            return {"uidvalidity": None, "lastUid": 0, "messages": []}
+        data.setdefault("uidvalidity", None)
+        data.setdefault("lastUid", 0)
+        data.setdefault("messages", [])
+        return data
+    except Exception:
+        return {"uidvalidity": None, "lastUid": 0, "messages": []}
+
+
+def _write_mail_cache(account_id, cache):
+    path = MAIL_MESSAGES_DIR / f"{account_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        json.dump(cache, fh, ensure_ascii=False, indent=2)
+    tmp.replace(path)
+
+
+def imap_sync_account(account, limit=50):
+    """Fetch most recent messages and append/update the local cache.
+    Returns (new_message_count, error_string_or_empty)."""
+    import imaplib
+    import email as email_mod
+    address = account.get("address")
+    password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
+    host = account.get("imapHost") or "imap.gmail.com"
+    port = int(account.get("imapPort") or 993)
+    if not address or not password:
+        return 0, "Missing address or password"
+    try:
+        password.encode("ascii")
+    except UnicodeEncodeError:
+        return 0, "Password contains non-ASCII characters"
+
+    cache = _read_mail_cache(account["id"])
+    cache_messages = {int(m["uid"]): m for m in cache.get("messages", [])}
+    last_uid = int(cache.get("lastUid") or 0)
+    cached_uidvalidity = cache.get("uidvalidity")
+
+    try:
+        client = imaplib.IMAP4_SSL(host, port, timeout=30)
+        try:
+            client.login(address, password)
+            typ, _ = client.select("INBOX", readonly=True)
+            if typ != "OK":
+                return 0, "Could not select INBOX"
+            typ, data = client.response("UIDVALIDITY")
+            uidvalidity = None
+            if typ == "OK" and data and data[0]:
+                try:
+                    uidvalidity = int(data[0])
+                except Exception:
+                    uidvalidity = None
+
+            if cached_uidvalidity and uidvalidity and cached_uidvalidity != uidvalidity:
+                cache_messages = {}
+                last_uid = 0
+
+            if last_uid > 0:
+                typ, data = client.uid("search", None, f"UID {last_uid + 1}:*")
+            else:
+                typ, data = client.uid("search", None, "ALL")
+            if typ != "OK" or not data:
+                return 0, ""
+            uids = [int(u) for u in (data[0] or b"").split() if u.isdigit()]
+            uids = sorted(uids)
+            if last_uid == 0:
+                uids = uids[-limit:]
+            else:
+                uids = [u for u in uids if u > last_uid]
+
+            new_count = 0
+            for uid in uids:
+                typ, data = client.uid("fetch", str(uid), "(BODY.PEEK[])")
+                if typ != "OK" or not data:
+                    continue
+                raw = None
+                for part in data:
+                    if isinstance(part, tuple) and len(part) >= 2:
+                        raw = part[1]
+                        break
+                if not raw:
+                    continue
+                msg_obj = email_mod.message_from_bytes(raw)
+                parsed = _parse_email_message(msg_obj, account["id"], uid)
+                cache_messages[uid] = parsed
+                new_count += 1
+                if uid > last_uid:
+                    last_uid = uid
+        finally:
+            try:
+                client.logout()
+            except Exception:
+                pass
+            try:
+                client.shutdown()
+            except Exception:
+                pass
+    except Exception as exc:
+        return 0, f"Sync failed: {exc}"
+
+    sorted_messages = sorted(cache_messages.values(), key=lambda m: m.get("date") or "", reverse=True)[:200]
+    _write_mail_cache(account["id"], {
+        "uidvalidity": uidvalidity if uidvalidity else cached_uidvalidity,
+        "lastUid": last_uid,
+        "messages": sorted_messages,
+    })
+
+    accounts = read_mail_accounts()
+    for i, a in enumerate(accounts):
+        if a["id"] == account["id"]:
+            accounts[i] = {**a, "lastSyncedAt": now_mongolia().isoformat(), "status": "ok", "lastError": ""}
+            break
+    write_mail_accounts(accounts)
+    return new_count, ""
+
+
+def handle_list_mail_messages(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    do_sync = (params.get("sync", ["1"])[0] or "1") != "0"
+    account_filter = (params.get("accountId", [""])[0] or "").strip()
+
+    accounts = read_mail_accounts()
+    if account_filter:
+        accounts = [a for a in accounts if a["id"] == account_filter]
+
+    sync_errors = []
+    if do_sync:
+        for a in accounts:
+            _, err = imap_sync_account(a, limit=50)
+            if err:
+                sync_errors.append({"accountId": a["id"], "address": a["address"], "error": err})
+
+    all_messages = []
+    accounts_full = read_mail_accounts()
+    if account_filter:
+        accounts_full = [a for a in accounts_full if a["id"] == account_filter]
+    for a in accounts_full:
+        cache = _read_mail_cache(a["id"])
+        for msg in cache.get("messages", []):
+            slim = {k: v for k, v in msg.items() if k not in ("bodyText", "bodyHtml")}
+            slim["accountAddress"] = a["address"]
+            slim["accountDisplay"] = a.get("displayName") or a["address"]
+            slim["workspace"] = a.get("workspace") or "DTX"
+            all_messages.append(slim)
+
+    all_messages.sort(key=lambda m: m.get("date") or "", reverse=True)
+    return json_response(start_response, "200 OK", {
+        "entries": all_messages,
+        "syncErrors": sync_errors,
+        "syncedAt": now_mongolia().isoformat(),
+    })
+
+
+def handle_get_mail_message(environ, start_response, account_id, uid):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    cache = _read_mail_cache(account_id)
+    try:
+        uid_int = int(uid)
+    except ValueError:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid uid"})
+    msg = next((m for m in cache.get("messages", []) if int(m.get("uid", 0)) == uid_int), None)
+    if not msg:
+        return json_response(start_response, "404 Not Found", {"error": "Message not found"})
+    accounts = read_mail_accounts()
+    account = next((a for a in accounts if a["id"] == account_id), None)
+    if account:
+        msg = {**msg, "accountAddress": account["address"], "accountDisplay": account.get("displayName") or account["address"]}
+    return json_response(start_response, "200 OK", {"entry": msg})
+
+
 def parse_multipart(environ):
     content_type = environ.get("CONTENT_TYPE", "")
     if "multipart/form-data" not in content_type:
@@ -10807,6 +11081,19 @@ def _dispatch(environ, start_response):
             return handle_update_mail_account(environ, start_response, account_id)
         if method == "DELETE" and account_id:
             return handle_delete_mail_account(environ, start_response, account_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/mail/messages":
+        if method == "GET":
+            return handle_list_mail_messages(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/mail/messages/"):
+        tail = path.replace("/api/mail/messages/", "", 1).strip("/")
+        if "/" in tail:
+            acc_id, uid = tail.split("/", 1)
+            if method == "GET":
+                return handle_get_mail_message(environ, start_response, acc_id, uid)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/backoffice/summary":

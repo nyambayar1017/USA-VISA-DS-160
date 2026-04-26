@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-219" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-220" />
   </head>
   <body class="app-body" data-page="mail">
     <div class="workspace-shell">
@@ -19,7 +19,7 @@
           <div>
             <p class="workspace-kicker">Inbox</p>
             <h1>Mail</h1>
-            <p class="workspace-subtitle">Read mail from your connected mailboxes. Filter by account, search by sender or subject, jump into the matching trip.</p>
+            <p class="workspace-subtitle">Read mail from your connected mailboxes. Filter by account, search by sender or subject.</p>
           </div>
           <div class="workspace-profile">
             <span class="workspace-profile-label">Signed in</span>
@@ -35,15 +35,32 @@
           <a class="primary-pill" href="/mail-settings">Open Mail Settings</a>
         </section>
 
-        <section class="card" id="mail-coming-soon" hidden>
-          <div class="mail-empty-illustration">⏳</div>
-          <h2>Inbox loading...</h2>
-          <p>The inbox view is being prepared. Mailboxes connect successfully — message fetching ships in the next update.</p>
+        <section class="card mail-shell" id="mail-shell" hidden>
+          <div class="mail-toolbar">
+            <select id="mail-account-filter" class="trip-filter-input">
+              <option value="">All mailboxes</option>
+            </select>
+            <input id="mail-search" type="search" placeholder="Search sender or subject" autocomplete="off" />
+            <button type="button" id="mail-refresh" class="secondary-button">Refresh</button>
+            <span class="mail-count" id="mail-count"></span>
+          </div>
+
+          <div class="mail-layout">
+            <div class="mail-list" id="mail-list">
+              <p class="empty">Loading...</p>
+            </div>
+            <div class="mail-viewer" id="mail-viewer">
+              <div class="mail-viewer-empty">
+                <div class="mail-empty-illustration mail-empty-illustration--small">✉</div>
+                <p>Select a message to read it.</p>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
     </div>
-    <script src="/app-shell.js?v=workspace-102"></script>
-    <script src="/mail.js?v=workspace-1"></script>
+    <script src="/app-shell.js?v=workspace-103"></script>
+    <script src="/mail.js?v=workspace-2"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
