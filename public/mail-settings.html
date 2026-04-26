@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mail Settings · TravelX</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-219" />
+  </head>
+  <body class="app-body" data-page="mail-settings">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">Mail</p>
+            <h1>Mailbox Settings</h1>
+            <p class="workspace-subtitle">Connect a Google Workspace mailbox by pasting its app password. Each mailbox is read independently and shown on the Mail page.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card mail-settings-help">
+          <h2>How to get an app password</h2>
+          <ol>
+            <li>Sign into the mailbox at <a href="https://mail.google.com" target="_blank" rel="noreferrer">mail.google.com</a></li>
+            <li>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">myaccount.google.com/apppasswords</a> (turn on 2-Step Verification first if prompted)</li>
+            <li>Name it <em>TravelX backoffice</em> and click <strong>Create</strong></li>
+            <li>Copy the 16-character code (with or without spaces — both work) and paste it below</li>
+          </ol>
+        </section>
+
+        <section class="card">
+          <div class="dashboard-head">
+            <h2>Connected mailboxes</h2>
+            <button type="button" id="mail-add-toggle" class="primary-pill">+ Add mailbox</button>
+          </div>
+
+          <form id="mail-add-form" class="mail-add-form is-hidden">
+            <div class="field-grid">
+              <label>
+                Email address
+                <input name="address" type="email" placeholder="info@travelx.mn" required />
+              </label>
+              <label>
+                Display name
+                <input name="displayName" placeholder="TravelX Info" />
+              </label>
+              <label>
+                Workspace
+                <select name="workspace">
+                  <option value="DTX">DTX (TravelX)</option>
+                  <option value="USM">USM (Steppe Mongolia)</option>
+                </select>
+              </label>
+              <label class="full-span">
+                App password (16 characters)
+                <input name="appPassword" type="text" placeholder="abcd efgh ijkl mnop" autocomplete="off" required />
+              </label>
+              <div class="actions full-span">
+                <button type="submit" class="primary-pill">Connect mailbox</button>
+                <button type="button" class="secondary-button" data-action="cancel-add">Cancel</button>
+                <p id="mail-add-status" class="status"></p>
+              </div>
+            </div>
+          </form>
+
+          <div id="mail-account-list" class="mail-account-list">
+            <p class="empty">Loading...</p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/app-shell.js?v=workspace-102"></script>
+    <script src="/mail-settings.js?v=workspace-1"></script>
+    <script src="/ui-dialog.js?v=workspace-1"></script>
+  </body>
+</html>

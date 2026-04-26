@@ -123,6 +123,7 @@ function renderSidebar(user) {
     ${link("contracts", "/contracts", "Contracts")}
     ${link("invoices", "/invoices", "Invoices")}
     ${link("documents", "/documents", "Documents")}
+    ${link("mail", "/mail", "Mail")}
     ${link("todo", "/todo", "To Do")}
     ${link("flight-reservations", "/flight-reservations", "Flight Reservations")}
     ${link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
@@ -140,6 +141,7 @@ function renderSidebar(user) {
     ${link("contracts", "/contracts", "Contracts")}
     ${link("invoices", "/invoices", "Invoices")}
     ${link("documents", "/documents", "Documents")}
+    ${link("mail", "/mail", "Mail")}
     ${link("todo", "/todo", "To Do")}
     ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
   `;

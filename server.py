@@ -65,6 +65,8 @@ BACKUP_WEBHOOK_URL = os.environ.get("BACKUP_WEBHOOK_URL", "").strip()
 BACKUP_TOKEN = os.environ.get("BACKUP_TOKEN", "").strip()
 OCRSPACE_API_KEY = os.environ.get("OCRSPACE_API_KEY", "").strip()
 TOURIST_PASSPORT_TEMP_DIR = DATA_DIR / "tourist-passport-temp"
+MAIL_ACCOUNTS_PATH = DATA_DIR / "mail-accounts.json"
+MAIL_MESSAGES_DIR = DATA_DIR / "mail-messages"
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
 STEPPE_ADDRESS_LINES = [
@@ -109,6 +111,7 @@ def ensure_data_store():
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     TRIP_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     TOURIST_PASSPORT_TEMP_DIR.mkdir(parents=True, exist_ok=True)
+    MAIL_MESSAGES_DIR.mkdir(parents=True, exist_ok=True)
     for file_path in [
         CONTRACTS_FILE,
         DS160_FILE,
@@ -1335,6 +1338,62 @@ def read_notifications():
 
 def write_notifications(records):
     write_json_list(NOTIFICATIONS_FILE, records[:NOTIFICATIONS_MAX])
+
+
+# ── Mail account storage ────────────────────────────────────────────
+# App passwords are obfuscated (not encrypted) so they aren't trivially
+# readable in the JSON file. The persistent disk is private; if an
+# attacker reaches it, they have the SESSION_SECRET too. This is just
+# a defense-in-depth layer against casual disk inspection.
+def _mail_obfuscate(plaintext):
+    if not plaintext:
+        return ""
+    raw = plaintext.encode("utf-8")
+    key_seed = (SESSION_SECRET + ":mail").encode("utf-8")
+    key = hashlib.sha256(key_seed).digest()
+    out = bytes(b ^ key[i % len(key)] for i, b in enumerate(raw))
+    return base64.b64encode(out).decode("ascii")
+
+
+def _mail_deobfuscate(token):
+    if not token:
+        return ""
+    try:
+        raw = base64.b64decode(token.encode("ascii"))
+    except Exception:
+        return ""
+    key_seed = (SESSION_SECRET + ":mail").encode("utf-8")
+    key = hashlib.sha256(key_seed).digest()
+    return bytes(b ^ key[i % len(key)] for i, b in enumerate(raw)).decode("utf-8", errors="replace")
+
+
+def read_mail_accounts():
+    try:
+        if not MAIL_ACCOUNTS_PATH.exists():
+            return []
+        with MAIL_ACCOUNTS_PATH.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def write_mail_accounts(accounts):
+    MAIL_ACCOUNTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = MAIL_ACCOUNTS_PATH.with_suffix(".json.tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        json.dump(accounts, fh, ensure_ascii=False, indent=2)
+    tmp.replace(MAIL_ACCOUNTS_PATH)
+
+
+def public_mail_account(account):
+    """Strip the obfuscated password before sending to client."""
+    return {k: v for k, v in account.items() if k != "appPassword"}
+
+
+def get_mail_account_password(account):
+    """Decode the stored app password for IMAP/SMTP use."""
+    return _mail_deobfuscate(account.get("appPassword") or "")
 
 
 def log_notification(kind, actor, title, detail="", meta=None):
@@ -7551,6 +7610,158 @@ def consume_passport_token(token, trip_id, tourist_id, tourist_name, actor):
     return doc
 
 
+# ── Mail accounts ───────────────────────────────────────────────────
+def handle_list_mail_accounts(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    accounts = [public_mail_account(a) for a in read_mail_accounts()]
+    return json_response(start_response, "200 OK", {"entries": accounts})
+
+
+def handle_create_mail_account(environ, start_response):
+    actor = require_admin(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    address = (payload.get("address") or "").strip().lower()
+    app_password = (payload.get("appPassword") or "").strip().replace(" ", "")
+    display_name = (payload.get("displayName") or "").strip() or address
+    workspace = (payload.get("workspace") or "").strip().upper() or "DTX"
+    imap_host = (payload.get("imapHost") or "imap.gmail.com").strip()
+    imap_port = int(payload.get("imapPort") or 993)
+    smtp_host = (payload.get("smtpHost") or "smtp.gmail.com").strip()
+    smtp_port = int(payload.get("smtpPort") or 465)
+    if not address or "@" not in address:
+        return json_response(start_response, "400 Bad Request", {"error": "Valid email address is required"})
+    if not app_password:
+        return json_response(start_response, "400 Bad Request", {"error": "App password is required"})
+    accounts = read_mail_accounts()
+    if any(a.get("address", "").lower() == address for a in accounts):
+        return json_response(start_response, "409 Conflict", {"error": "Mailbox already configured"})
+    record = {
+        "id": uuid4().hex,
+        "address": address,
+        "displayName": display_name,
+        "workspace": workspace,
+        "imapHost": imap_host,
+        "imapPort": imap_port,
+        "smtpHost": smtp_host,
+        "smtpPort": smtp_port,
+        "appPassword": _mail_obfuscate(app_password),
+        "status": "ok",
+        "lastError": "",
+        "lastSyncedAt": "",
+        "createdAt": now_mongolia().isoformat(),
+        "updatedAt": now_mongolia().isoformat(),
+    }
+    accounts.append(record)
+    write_mail_accounts(accounts)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": public_mail_account(record)})
+
+
+def handle_update_mail_account(environ, start_response, account_id):
+    actor = require_admin(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    accounts = read_mail_accounts()
+    for i, account in enumerate(accounts):
+        if account["id"] == account_id:
+            updated = dict(account)
+            for key in ("displayName", "workspace", "imapHost", "smtpHost"):
+                if key in payload and payload[key] is not None:
+                    updated[key] = str(payload[key]).strip()
+            for key in ("imapPort", "smtpPort"):
+                if key in payload and payload[key]:
+                    try:
+                        updated[key] = int(payload[key])
+                    except (TypeError, ValueError):
+                        pass
+            new_password = (payload.get("appPassword") or "").strip().replace(" ", "")
+            if new_password:
+                updated["appPassword"] = _mail_obfuscate(new_password)
+                updated["status"] = "ok"
+                updated["lastError"] = ""
+            updated["updatedAt"] = now_mongolia().isoformat()
+            accounts[i] = updated
+            write_mail_accounts(accounts)
+            return json_response(start_response, "200 OK", {"ok": True, "entry": public_mail_account(updated)})
+    return json_response(start_response, "404 Not Found", {"error": "Mailbox not found"})
+
+
+def handle_delete_mail_account(environ, start_response, account_id):
+    actor = require_admin(environ, start_response)
+    if not actor:
+        return []
+    accounts = read_mail_accounts()
+    accounts2 = [a for a in accounts if a["id"] != account_id]
+    if len(accounts2) == len(accounts):
+        return json_response(start_response, "404 Not Found", {"error": "Mailbox not found"})
+    write_mail_accounts(accounts2)
+    msg_path = MAIL_MESSAGES_DIR / f"{account_id}.json"
+    try:
+        if msg_path.exists():
+            msg_path.unlink()
+    except Exception:
+        pass
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
+def imap_test_connection(account):
+    """Try to log in via IMAP to verify the app password works.
+    Returns (ok, error_message)."""
+    import imaplib
+    host = account.get("imapHost") or "imap.gmail.com"
+    port = int(account.get("imapPort") or 993)
+    address = account.get("address")
+    password = get_mail_account_password(account)
+    if not address or not password:
+        return False, "Missing address or password"
+    try:
+        client = imaplib.IMAP4_SSL(host, port, timeout=20)
+        try:
+            client.login(address, password)
+            client.select("INBOX", readonly=True)
+            client.logout()
+        finally:
+            try:
+                client.shutdown()
+            except Exception:
+                pass
+    except imaplib.IMAP4.error as exc:
+        return False, f"IMAP login failed: {exc}"
+    except Exception as exc:
+        return False, f"Connection failed: {exc}"
+    return True, ""
+
+
+def handle_test_mail_account(environ, start_response, account_id):
+    actor = require_admin(environ, start_response)
+    if not actor:
+        return []
+    accounts = read_mail_accounts()
+    account = next((a for a in accounts if a["id"] == account_id), None)
+    if not account:
+        return json_response(start_response, "404 Not Found", {"error": "Mailbox not found"})
+    ok, err = imap_test_connection(account)
+    for i, a in enumerate(accounts):
+        if a["id"] == account_id:
+            accounts[i] = {
+                **a,
+                "status": "ok" if ok else "error",
+                "lastError": err,
+                "updatedAt": now_mongolia().isoformat(),
+            }
+            break
+    write_mail_accounts(accounts)
+    return json_response(start_response, "200 OK" if ok else "200 OK", {"ok": ok, "error": err})
+
+
 def parse_multipart(environ):
     content_type = environ.get("CONTENT_TYPE", "")
     if "multipart/form-data" not in content_type:
@@ -10573,6 +10784,27 @@ def _dispatch(environ, start_response):
             return handle_delete_user(environ, start_response, user_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/mail/accounts":
+        if method == "GET":
+            return handle_list_mail_accounts(environ, start_response)
+        if method == "POST":
+            return handle_create_mail_account(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/mail/accounts/"):
+        tail = path.replace("/api/mail/accounts/", "", 1).strip("/")
+        if tail.endswith("/test"):
+            account_id = tail[:-len("/test")]
+            if method == "POST":
+                return handle_test_mail_account(environ, start_response, account_id)
+            return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+        account_id = tail
+        if method == "PATCH" and account_id:
+            return handle_update_mail_account(environ, start_response, account_id)
+        if method == "DELETE" and account_id:
+            return handle_delete_mail_account(environ, start_response, account_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/backoffice/summary":
         if method == "GET":
             if not require_login(environ, start_response):
@@ -11063,6 +11295,19 @@ def _dispatch(environ, start_response):
         if user.get("role") != "admin":
             return text_response(start_response, "403 Forbidden", "Admin access required")
         return file_response(start_response, PUBLIC_DIR / "admin.html")
+
+    if path == "/mail":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "mail.html")
+
+    if path == "/mail-settings":
+        user = current_user(environ)
+        if not user:
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        if user.get("role") != "admin":
+            return text_response(start_response, "403 Forbidden", "Admin access required")
+        return file_response(start_response, PUBLIC_DIR / "mail-settings.html")
 
     if path == "/fifa2026-admin":
         if not current_user(environ):
