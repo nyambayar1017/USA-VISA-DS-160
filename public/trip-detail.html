@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-173" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-174" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -397,6 +397,17 @@
             <button class="doc-filter-tab" data-filter="Contracts">Contracts</button>
             <button class="doc-filter-tab" data-filter="Other">Other</button>
           </nav>
+
+          <div id="doc-email-bar" class="doc-email-bar is-hidden">
+            <div class="doc-email-bar-row">
+              <span class="doc-email-count" id="doc-email-count">0 selected</span>
+              <input type="email" id="doc-email-recipient" placeholder="client@example.com" autocomplete="email" />
+              <input type="text" id="doc-email-name" placeholder="Зөвлөх нэр (optional)" autocomplete="off" />
+              <button type="button" id="doc-email-send" class="secondary-button">Send to client</button>
+              <button type="button" id="doc-email-clear" class="secondary-button" aria-label="Clear selection">Clear</button>
+            </div>
+            <p id="doc-email-status" class="status"></p>
+          </div>
 
           <div id="doc-list" class="doc-list"></div>
         </section>
@@ -1045,7 +1056,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-92"></script>
-    <script src="/camp.js?v=workspace-108"></script>
+    <script src="/camp.js?v=workspace-109"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
     <script src="/trip-extras.js?v=workspace-10"></script>
     <script src="/contracts.js?v=workspace-5"></script>

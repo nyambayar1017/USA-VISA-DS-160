@@ -7229,6 +7229,60 @@ def handle_delete_trip_document(environ, start_response, trip_id, doc_id):
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": doc_id})
 
 
+def handle_email_trip_documents(environ, start_response, trip_id):
+    """POST /api/camp-trips/{tripId}/documents/email — admin selects files and
+    sends them to a client with a Mongolian boilerplate body. Reuses
+    _tool_send_email so the auto-disclaimer footer + signature stay consistent."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    try:
+        body = environ["wsgi.input"].read(int(environ.get("CONTENT_LENGTH") or "0"))
+        data = json.loads(body)
+    except Exception:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid JSON"})
+    recipient = (data.get("recipientEmail") or "").strip()
+    recipient_name = (data.get("recipientName") or "").strip()
+    doc_ids = data.get("docIds") or []
+    if not recipient or "@" not in recipient:
+        return json_response(start_response, "400 Bad Request", {"error": "recipientEmail is required"})
+    if not isinstance(doc_ids, list) or not doc_ids:
+        return json_response(start_response, "400 Bad Request", {"error": "docIds (non-empty list) is required"})
+
+    trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None)
+    if not trip:
+        return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
+
+    docs_by_id = {d.get("id"): d for d in (trip.get("documents") or [])}
+    selected = [docs_by_id[i] for i in doc_ids if i in docs_by_id]
+    if not selected:
+        return json_response(start_response, "400 Bad Request", {"error": "no matching documents on this trip"})
+
+    greet = "Сайн байна уу" + (f", {recipient_name}" if recipient_name else "") + ","
+    body_text = (
+        f"{greet}\n\n"
+        "Танд аяллын баримт бичгүүдийг хавсаргаж илгээж байна. "
+        "Та хавсралтуудыг хүлээн авч, шаардлагатай бол хадгалаад авна уу."
+    )
+    subject = "TravelX — Аяллын баримт бичгүүд"
+    attachments = [{"kind": "trip_document", "tripId": trip_id, "id": d["id"]} for d in selected]
+    result = _tool_send_email({
+        "to": recipient,
+        "subject": subject,
+        "body": body_text,
+        "attachments": attachments,
+    }, actor)
+
+    if result.get("error"):
+        return json_response(start_response, "500 Internal Server Error", {"error": result["error"]})
+    return json_response(start_response, "200 OK", {
+        "ok": True,
+        "messageId": result.get("messageId"),
+        "sent": len(attachments),
+        "warnings": result.get("warnings"),
+    })
+
+
 def handle_rename_trip_document(environ, start_response, trip_id, doc_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -9054,6 +9108,22 @@ def _agent_resolve_attachment(att):
         name = ((tourist.get("lastName") or "") + "-" + (tourist.get("firstName") or "")).strip("-") or tid
         return f"passport-{name}{p.suffix}", p.read_bytes()
 
+    if kind == "trip_document":
+        trip_id = (att.get("tripId") or "").strip()
+        doc_id = (att.get("id") or "").strip()
+        if not trip_id or not doc_id:
+            return None, "trip_document needs tripId and id"
+        trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None)
+        if not trip:
+            return None, f"trip {trip_id} not found"
+        doc = next((d for d in (trip.get("documents") or []) if d.get("id") == doc_id), None)
+        if not doc:
+            return None, f"document {doc_id} not found in trip {trip_id}"
+        fp = (TRIP_UPLOADS_DIR / trip_id / (doc.get("storedName") or "")).resolve()
+        if not str(fp).startswith(str(TRIP_UPLOADS_DIR.resolve())) or not fp.exists():
+            return None, "document file missing on disk"
+        return doc.get("originalName") or fp.name, fp.read_bytes()
+
     return None, f"unknown attachment kind: {kind}"
 
 
@@ -10322,6 +10392,10 @@ def app(environ, start_response):
         if tail.endswith("/documents") and method == "POST":
             trip_id = tail[: -len("/documents")]
             return handle_upload_trip_document(environ, start_response, trip_id)
+        # /api/camp-trips/{id}/documents/email  — bulk email selected docs to a client
+        if tail.endswith("/documents/email") and method == "POST":
+            trip_id = tail[: -len("/documents/email")]
+            return handle_email_trip_documents(environ, start_response, trip_id)
         # /api/camp-trips/{id}/documents/{doc_id}  — delete or rename
         if "/documents/" in tail and method == "DELETE":
             trip_id, doc_id = tail.split("/documents/", 1)

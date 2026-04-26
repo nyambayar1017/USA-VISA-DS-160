@@ -3023,6 +3023,14 @@ const docFileInput = document.getElementById("doc-file-input");
 const docCategorySelect = document.getElementById("doc-category");
 const docUploadStatus = document.getElementById("doc-upload-status");
 const docList = document.getElementById("doc-list");
+const docEmailBar = document.getElementById("doc-email-bar");
+const docEmailCount = document.getElementById("doc-email-count");
+const docEmailRecipient = document.getElementById("doc-email-recipient");
+const docEmailName = document.getElementById("doc-email-name");
+const docEmailSend = document.getElementById("doc-email-send");
+const docEmailClear = document.getElementById("doc-email-clear");
+const docEmailStatus = document.getElementById("doc-email-status");
+const selectedDocIds = new Set();
 
 function docFileIcon(mimeType, name) {
   const ext = (name || "").split(".").pop().toLowerCase();
@@ -3073,8 +3081,12 @@ function renderDocItem(doc, tripId, num) {
   const uploader = doc.uploadedBy ? (doc.uploadedBy.name || doc.uploadedBy.email || "") : "";
   const viewUrl = docViewUrl(doc, tripId);
   const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
+  const checked = selectedDocIds.has(doc.id) ? " checked" : "";
   return (
     '<div class="doc-item">' +
+      '<label class="doc-select" aria-label="Select for email">' +
+        '<input type="checkbox" data-doc-select="' + escapeHtml(doc.id) + '"' + checked + ' />' +
+      '</label>' +
       '<div class="doc-num">' + num + '</div>' +
       '<div class="doc-icon">' + icon + '</div>' +
       '<div class="doc-meta">' +
@@ -3169,6 +3181,68 @@ if (docDropZone && isTripDetailPage()) {
       docFileInput.value = "";
     });
   }
+  function updateDocEmailBar() {
+    if (!docEmailBar || !docEmailCount) return;
+    const n = selectedDocIds.size;
+    docEmailCount.textContent = n + " selected";
+    docEmailBar.classList.toggle("is-hidden", n === 0);
+  }
+
+  if (docList) {
+    docList.addEventListener("change", (e) => {
+      const cb = e.target.closest("[data-doc-select]");
+      if (!cb) return;
+      const id = cb.getAttribute("data-doc-select");
+      if (cb.checked) selectedDocIds.add(id);
+      else selectedDocIds.delete(id);
+      updateDocEmailBar();
+    });
+  }
+
+  if (docEmailClear) {
+    docEmailClear.addEventListener("click", () => {
+      selectedDocIds.clear();
+      docList.querySelectorAll("[data-doc-select]").forEach((cb) => { cb.checked = false; });
+      updateDocEmailBar();
+      if (docEmailStatus) docEmailStatus.textContent = "";
+    });
+  }
+
+  if (docEmailSend) {
+    docEmailSend.addEventListener("click", async () => {
+      if (!activeTripId) { docEmailStatus.textContent = "Open a trip first."; return; }
+      if (!selectedDocIds.size) { docEmailStatus.textContent = "Select at least one file."; return; }
+      const recipient = (docEmailRecipient?.value || "").trim();
+      if (!recipient || !recipient.includes("@")) {
+        docEmailStatus.textContent = "Enter a valid client email.";
+        docEmailRecipient?.focus();
+        return;
+      }
+      const name = (docEmailName?.value || "").trim();
+      docEmailSend.disabled = true;
+      docEmailStatus.textContent = "Илгээж байна...";
+      try {
+        const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipientEmail: recipient, recipientName: name, docIds: [...selectedDocIds] }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || "Send failed");
+        docEmailStatus.textContent = "✔ " + data.sent + " файл амжилттай илгээгдлээ → " + recipient;
+        selectedDocIds.clear();
+        docList.querySelectorAll("[data-doc-select]").forEach((cb) => { cb.checked = false; });
+        updateDocEmailBar();
+        if (docEmailRecipient) docEmailRecipient.value = "";
+        if (docEmailName) docEmailName.value = "";
+      } catch (err) {
+        docEmailStatus.textContent = "Алдаа: " + err.message;
+      } finally {
+        docEmailSend.disabled = false;
+      }
+    });
+  }
+
   if (docList) {
     docList.addEventListener("click", async (e) => {
       const deleteBtn = e.target.closest("[data-doc-delete]");
