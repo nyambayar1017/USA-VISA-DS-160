@@ -5899,6 +5899,13 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   min-width: 980px;
 }
 
+/* Admin variant has 11 columns instead of 8 (3 cat + 1 total replace
+   the old single Availability column), so it needs more horizontal room. */
+.fifa-admin-match-list.fifa-match-accordion--table > .fifa-match-table-head,
+.fifa-admin-match-list.fifa-match-accordion--table > .fifa-match-card {
+  min-width: 1280px;
+}
+
 .fifa-match-table-head {
   display: grid;
   grid-template-columns: 36px 96px 186px minmax(170px, 1fr) 112px 100px 114px 88px;
@@ -5914,6 +5921,10 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.fifa-admin-match-list .fifa-match-table-head {
+  grid-template-columns: 36px 92px 168px 86px 86px 86px 76px 110px 96px 110px 88px;
 }
 
 .fifa-match-card {
@@ -5935,6 +5946,103 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   background: transparent;
   text-align: left;
   cursor: pointer;
+}
+
+.fifa-admin-match-list .fifa-match-toggle {
+  grid-template-columns: 36px 92px 168px 86px 86px 86px 76px 110px 96px 110px 88px;
+}
+
+/* Per-category cell: price on top, available count below. */
+.fifa-match-col--cat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+.fifa-match-col--cat .fifa-cat-price {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1f2d50;
+  white-space: nowrap;
+}
+.fifa-match-col--cat .fifa-cat-available {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.fifa-match-col--cat .fifa-cat-empty {
+  color: rgba(32, 53, 111, 0.3);
+  font-size: 0.78rem;
+}
+
+/* Total cell: clickable details that drops down to per-category breakdown. */
+.fifa-match-col--total {
+  min-width: 0;
+}
+.fifa-total-popover {
+  position: relative;
+}
+.fifa-total-popover > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(37, 58, 119, 0.08);
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.fifa-total-popover > summary::-webkit-details-marker {
+  display: none;
+}
+.fifa-total-popover > summary:hover {
+  background: rgba(37, 58, 119, 0.14);
+}
+.fifa-total-popover[open] > summary {
+  background: rgba(37, 58, 119, 0.16);
+}
+.fifa-total-caret {
+  font-size: 0.7rem;
+  transition: transform 120ms ease;
+}
+.fifa-total-popover[open] .fifa-total-caret {
+  transform: rotate(180deg);
+}
+.fifa-total-popover-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  padding: 10px 12px;
+  border: 1px solid rgba(32, 53, 111, 0.12);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+.fifa-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.78rem;
+}
+.fifa-total-row > :first-child {
+  color: var(--muted);
+  font-weight: 500;
+}
+.fifa-total-row-stats {
+  font-weight: 600;
+  color: #1f2d50;
+}
+.fifa-total-row-empty {
+  color: rgba(32, 53, 111, 0.3);
 }
 
 .fifa-match-toggle:hover {

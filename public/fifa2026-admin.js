@@ -2040,13 +2040,59 @@ function renderTickets() {
     ticketList.innerHTML = '<p class="empty">No saved matches yet.</p>';
     return;
   }
+  const renderCatCell = (group, code) => {
+    const cat = group.categoryBreakdown.find((item) => item.categoryCode === code);
+    if (!cat || cat.total <= 0) {
+      return '<div class="fifa-match-col fifa-match-col--cat"><span class="fifa-cat-empty">—</span></div>';
+    }
+    const priceText = cat.price > 0 ? escapeHtml(formatMoney(cat.price, cat.currency)) : "—";
+    return `
+      <div class="fifa-match-col fifa-match-col--cat">
+        <strong class="fifa-cat-price">${priceText}</strong>
+        <span class="fifa-cat-available">${cat.available}</span>
+      </div>
+    `;
+  };
+  const renderTotalCell = (group) => {
+    const rows = ["1", "2", "3"]
+      .map((code) => {
+        const cat = group.categoryBreakdown.find((item) => item.categoryCode === code);
+        if (!cat || cat.total <= 0) {
+          return `<div class="fifa-total-row"><span>Cat ${code}</span><span class="fifa-total-row-empty">—</span></div>`;
+        }
+        return `
+          <div class="fifa-total-row">
+            <span>Cat ${code}</span>
+            <span class="fifa-total-row-stats">${cat.available} avail · ${cat.sold} sold</span>
+          </div>
+        `;
+      })
+      .join("");
+    return `
+      <div class="fifa-match-col fifa-match-col--total">
+        <details class="fifa-total-popover">
+          <summary>
+            <strong>${group.availableUnits}</strong>
+            <span class="fifa-total-caret">▾</span>
+          </summary>
+          <div class="fifa-total-popover-body">
+            ${rows}
+          </div>
+        </details>
+      </div>
+    `;
+  };
+
   ticketList.innerHTML = `
-    <div class="fifa-match-accordion fifa-match-accordion--table">
+    <div class="fifa-match-accordion fifa-match-accordion--table fifa-admin-match-list">
       <div class="fifa-match-table-head">
         <span>#</span>
         <span>Date</span>
         <span>Match</span>
-        <span>Availability</span>
+        <span>Cat 1</span>
+        <span>Cat 2</span>
+        <span>Cat 3</span>
+        <span>Total</span>
         <span>City</span>
         <span>Group</span>
         <span>Stage</span>
@@ -2056,23 +2102,6 @@ function renderTickets() {
         .map((group, index) => {
           const displayIndex = pagination.startIndex + index + 1;
           const isExpanded = state.expandedMatches.has(group.key);
-          const availabilitySummary = group.categoryBreakdown
-            .map(
-              (item) => `
-                    ${item.available > 0 ? `<span class="fifa-availability-line is-available">CAT ${item.categoryCode} available: ${item.available}</span>` : ""}
-                    ${item.sold > 0 ? `<span class="fifa-availability-line is-sold">CAT ${item.categoryCode} sold: ${item.sold}</span>` : ""}
-              `
-            )
-            .join("");
-          const availabilityBadges = `
-            ${availabilitySummary}
-            <span class="fifa-availability-line is-available">Total available: ${group.availableUnits}</span>
-            ${group.soldUnits > 0 ? `<span class="fifa-availability-line is-sold">Total sold: ${group.soldUnits}</span>` : ""}
-          `;
-          const priceSummary = group.categoryBreakdown
-            .filter((item) => item.price > 0)
-            .map((item) => `<span class="fifa-price-line">Cat ${item.categoryCode}: ${escapeHtml(formatMoney(item.price, item.currency))}</span>`)
-            .join("");
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
               <div class="fifa-match-toggle" data-action="toggle-match" data-match-key="${escapeHtml(group.key)}" role="button" tabindex="0">
@@ -2087,12 +2116,10 @@ function renderTickets() {
                   <strong>${escapeHtml(group.label)}</strong>
                   <span class="fifa-table-sub">${escapeHtml(group.venue || "-")}</span>
                 </div>
-                <div class="fifa-match-col fifa-match-col--availability">
-                  <div class="fifa-availability-block">
-                    ${availabilityBadges}
-                  </div>
-                  ${priceSummary ? `<div class="fifa-price-block">${priceSummary}</div>` : ""}
-                </div>
+                ${renderCatCell(group, "1")}
+                ${renderCatCell(group, "2")}
+                ${renderCatCell(group, "3")}
+                ${renderTotalCell(group)}
                 <div class="fifa-match-col fifa-match-col--city">
                   <strong>${escapeHtml(group.city)}</strong>
                 </div>
@@ -3137,6 +3164,12 @@ ticketList?.addEventListener("click", async (event) => {
 
   const actionColumn = event.target.closest(".fifa-match-col--actions");
   if (actionColumn && !event.target.closest("[data-action]") && !event.target.closest(".trip-menu")) {
+    event.stopPropagation();
+    return;
+  }
+
+  const totalPopover = event.target.closest(".fifa-match-col--total .fifa-total-popover");
+  if (totalPopover) {
     event.stopPropagation();
     return;
   }
