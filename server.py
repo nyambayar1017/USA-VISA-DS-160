@@ -9003,6 +9003,8 @@ def _tool_send_email(args, actor):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "Travelx-Bataa/1.0 (+https://www.backoffice.travelx.mn)",
+            "Accept": "application/json",
         },
     )
     print(f"[send_email] from={sender!r} to={to_list!r} subject={subject!r} attachments={[a['filename'] for a in api_attachments]}", flush=True)
