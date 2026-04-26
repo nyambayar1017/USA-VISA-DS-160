@@ -3094,7 +3094,7 @@ function renderDocFilterCounts(docs) {
 function renderDocItem(doc, tripId, num) {
   const icon = docFileIcon(doc.mimeType || "", doc.originalName);
   const size = docFormatSize(doc.size || 0);
-  const uploadedAt = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "";
+  const uploadedAt = doc.uploadedAt ? String(doc.uploadedAt).split("T")[0] : "";
   const uploader = doc.uploadedBy ? (doc.uploadedBy.name || doc.uploadedBy.email || "") : "";
   const viewUrl = docViewUrl(doc, tripId);
   const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";

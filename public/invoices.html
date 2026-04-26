@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-177" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-178" />
   </head>
   <body class="app-body" data-page="invoices">
     <div class="workspace-shell">
@@ -53,6 +53,13 @@
             <button type="button" class="secondary-button" id="inv-reset">Reset</button>
           </div>
 
+          <div class="invoices-filter-bar">
+            <label class="invoices-daterange-label">Next due between</label>
+            <input id="inv-filter-from" type="date" />
+            <span class="invoices-daterange-sep">→</span>
+            <input id="inv-filter-to" type="date" />
+          </div>
+
           <p class="invoices-count" id="inv-count"></p>
           <div class="invoices-table-wrap">
             <table class="invoices-table" id="inv-table">
@@ -77,6 +84,6 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-95"></script>
-    <script src="/invoices-page.js?v=workspace-2"></script>
+    <script src="/invoices-page.js?v=workspace-3"></script>
   </body>
 </html>

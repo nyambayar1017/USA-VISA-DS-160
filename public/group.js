@@ -307,10 +307,7 @@ function fmtDateOnly(value) {
 }
 function fmtDateShort(value) {
   if (!value) return "-";
-  const d = String(value).split("T")[0];
-  const parts = d.split("-");
-  if (parts.length !== 3) return d;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return String(value).split("T")[0];
 }
 
 // "+ Add contract" opens the modal in-place on the group page (no nav).

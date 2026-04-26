@@ -43,10 +43,7 @@
 
   function fmtDateShort(value) {
     if (!value) return "-";
-    const d = String(value).split("T")[0];
-    const parts = d.split("-");
-    if (parts.length !== 3) return d;
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return String(value).split("T")[0];
   }
 
   async function fetchJson(url, options) {

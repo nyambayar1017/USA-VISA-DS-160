@@ -5,6 +5,8 @@
   const filterDossier = document.getElementById("inv-filter-dossier");
   const filterGroup = document.getElementById("inv-filter-group");
   const filterPayer = document.getElementById("inv-filter-payer");
+  const filterFrom = document.getElementById("inv-filter-from");
+  const filterTo = document.getElementById("inv-filter-to");
   const statusPills = document.getElementById("inv-status-pills");
   const resetBtn = document.getElementById("inv-reset");
   if (!tbody) return;
@@ -34,10 +36,7 @@
 
   function fmtDate(value) {
     if (!value) return "-";
-    const d = String(value).split("T")[0];
-    const parts = d.split("-");
-    if (parts.length !== 3) return d;
-    return parts[2] + "/" + parts[1] + "/" + parts[0];
+    return String(value).split("T")[0];
   }
 
   function todayIso() {
@@ -124,12 +123,22 @@
     const sDossier = filterDossier.value.trim().toLowerCase();
     const sGroup = filterGroup.value.trim().toLowerCase();
     const sPayer = filterPayer.value.trim().toLowerCase();
+    const from = (filterFrom.value || "").trim();
+    const to = (filterTo.value || "").trim();
     return invoices.filter((inv) => {
       if (sSerial && !(inv.serial || "").toLowerCase().includes(sSerial)) return false;
       if (sDossier && !dossierLabel(inv).toLowerCase().includes(sDossier)) return false;
       if (sGroup && !groupLabel(inv).toLowerCase().includes(sGroup)) return false;
       if (sPayer && !(inv.payerName || "").toLowerCase().includes(sPayer)) return false;
       if (activeStatuses.size && !activeStatuses.has(inv._derived.status)) return false;
+      if (from || to) {
+        // Filter by Next due. An invoice with no nextDue is excluded when
+        // a range is set — otherwise the range would be silently ignored.
+        const due = inv._derived.nextDue;
+        if (!due) return false;
+        if (from && due < from) return false;
+        if (to && due > to) return false;
+      }
       return true;
     });
   }
@@ -179,6 +188,9 @@
   [filterSerial, filterDossier, filterGroup, filterPayer].forEach((el) => {
     el.addEventListener("input", render);
   });
+  [filterFrom, filterTo].forEach((el) => {
+    el.addEventListener("change", render);
+  });
 
   statusPills.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-status]");
@@ -215,6 +227,8 @@
       dossier: filterDossier.value,
       group: filterGroup.value,
       payer: filterPayer.value,
+      from: filterFrom.value,
+      to: filterTo.value,
       statuses: [...activeStatuses],
     };
   }
@@ -223,6 +237,8 @@
     filterDossier.value = snap?.dossier || "";
     filterGroup.value = snap?.group || "";
     filterPayer.value = snap?.payer || "";
+    filterFrom.value = snap?.from || "";
+    filterTo.value = snap?.to || "";
     activeStatuses.clear();
     (snap?.statuses || []).forEach((s) => activeStatuses.add(s));
     statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => {
@@ -235,6 +251,8 @@
     filterDossier.value = "";
     filterGroup.value = "";
     filterPayer.value = "";
+    filterFrom.value = "";
+    filterTo.value = "";
     activeStatuses.clear();
     statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => p.classList.remove("is-active"));
     render();
