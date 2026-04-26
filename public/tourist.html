@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-182" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-183" />
   </head>
   <body class="app-body" data-page="tourist">
     <div class="workspace-shell">
@@ -76,10 +76,21 @@
                 <label>To <input id="tourist-filter-dob-to" type="date" /></label>
               </div>
             </details>
+            <details class="trip-filter-pill" id="tourist-age-pill">
+              <summary>
+                <span class="trip-filter-pill-label">Age</span>
+                <span class="trip-filter-pill-count" id="tourist-age-count" hidden>0</span>
+              </summary>
+              <div class="trip-filter-popover trip-filter-popover-date">
+                <label>Min <input id="tourist-filter-age-min" type="number" min="0" max="120" placeholder="0" /></label>
+                <label>Max <input id="tourist-filter-age-max" type="number" min="0" max="120" placeholder="120" /></label>
+              </div>
+            </details>
             <div class="invoices-status-pills" id="tourist-status-pills">
               <button type="button" class="invoices-status-pill" data-status="potential">Potential</button>
               <button type="button" class="invoices-status-pill" data-status="standard">Standard</button>
               <button type="button" class="invoices-status-pill" data-status="vip">VIP</button>
+              <button type="button" class="invoices-status-pill" data-status="child">Child</button>
               <button type="button" class="invoices-status-pill" data-status="do_not_contact">Do not contact</button>
             </div>
           </div>
@@ -119,6 +130,6 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-95"></script>
-    <script src="/tourist.js?v=workspace-3"></script>
+    <script src="/tourist.js?v=workspace-4"></script>
   </body>
 </html>

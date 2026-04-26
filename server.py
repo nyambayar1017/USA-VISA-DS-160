@@ -5316,6 +5316,38 @@ def upper_text(value):
     return normalize_text(value).upper()
 
 
+def _calc_age_from_dob(dob):
+    """Return integer age (full years) from a yyyy-mm-dd dob string, or None."""
+    s = (dob or "").strip()
+    if not s or len(s) < 10:
+        return None
+    try:
+        y, m, d = int(s[0:4]), int(s[5:7]), int(s[8:10])
+    except Exception:
+        return None
+    today = now_mongolia().date()
+    age = today.year - y
+    if (today.month, today.day) < (m, d):
+        age -= 1
+    return age if age >= 0 else None
+
+
+def _resolve_marketing_status(payload_status, dob, prior_status=None):
+    """Children (under 18) are forced to 'child' regardless of input.
+    Adults: use payload status, falling back to prior status, then 'standard'.
+    If a record was previously 'child' and grew up, default back to 'standard'."""
+    raw = (payload_status or "").strip().lower()
+    age = _calc_age_from_dob(dob)
+    if age is not None and age < 18:
+        return "child"
+    if raw and raw != "child":
+        return raw
+    prior = (prior_status or "").strip().lower()
+    if prior and prior != "child":
+        return prior
+    return "standard"
+
+
 def build_tourist(payload, actor=None):
     group_id = normalize_text(payload.get("groupId"))
     group = find_tourist_group(group_id) if group_id else None
@@ -5343,7 +5375,7 @@ def build_tourist(payload, actor=None):
         "registrationNumber": upper_text(payload.get("registrationNumber")),
         "phone": normalize_text(payload.get("phone")),
         "email": normalize_text(payload.get("email")).lower(),
-        "marketingStatus": normalize_text(payload.get("marketingStatus")).lower() or "standard",
+        "marketingStatus": _resolve_marketing_status(payload.get("marketingStatus"), normalize_text(payload.get("dob"))),
         "roomType": normalize_room_type(payload.get("roomType")),
         "roomCode": normalize_text(payload.get("roomCode")),
         "passportScanPath": normalize_text(payload.get("passportScanPath")),
@@ -5536,6 +5568,7 @@ def handle_promo_email(environ, start_response):
     targets = []
     skipped_no_email = 0
     skipped_optout = 0
+    skipped_child = 0
     for tid in ids:
         t = tourists_by_id.get(tid)
         if not t:
@@ -5543,6 +5576,11 @@ def handle_promo_email(environ, start_response):
         status = (t.get("marketingStatus") or "").lower()
         if status == "do_not_contact":
             skipped_optout += 1
+            continue
+        # Defense in depth: never email children even if frontend sent the id.
+        age = _calc_age_from_dob(t.get("dob"))
+        if status == "child" or (age is not None and age < 18):
+            skipped_child += 1
             continue
         email = (t.get("email") or "").strip()
         if not email or "@" not in email:
@@ -5573,6 +5611,7 @@ def handle_promo_email(environ, start_response):
         "sent": sent,
         "skippedNoEmail": skipped_no_email,
         "skippedOptOut": skipped_optout,
+        "skippedChild": skipped_child,
         "failures": failures[:20],
     })
 
@@ -5635,6 +5674,11 @@ def handle_update_tourist(environ, start_response, tourist_id):
             merged["roomType"] = normalize_room_type(payload.get("roomType"))
         if "orderIndex" in payload:
             merged["orderIndex"] = parse_int(payload.get("orderIndex")) or 0
+        merged["marketingStatus"] = _resolve_marketing_status(
+            merged.get("marketingStatus"),
+            merged.get("dob"),
+            prior_status=record.get("marketingStatus"),
+        )
         if payload.get("passportScanData"):
             merged["passportScanPath"] = save_tourist_image(payload["passportScanData"], "tourist-passport", tourist_id)
         if payload.get("photoData"):

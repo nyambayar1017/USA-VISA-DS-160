@@ -8,10 +8,11 @@
   const filterNationality = document.querySelector("#tourist-filter-nationality");
   const filterDobFrom = document.querySelector("#tourist-filter-dob-from");
   const filterDobTo = document.querySelector("#tourist-filter-dob-to");
+  const filterAgeMin = document.querySelector("#tourist-filter-age-min");
+  const filterAgeMax = document.querySelector("#tourist-filter-age-max");
   const statusPills = document.querySelector("#tourist-status-pills");
   const clearFilterBtn = document.querySelector("#tourist-clear-filter-btn");
   const viewPopover = document.querySelector("#tourist-view-popover");
-  const viewDropdown = document.querySelector("#tourist-view-dropdown");
   const promoBtn = document.querySelector("#tourist-promo-btn");
   const promoModal = document.querySelector("#promo-modal");
   const promoTarget = document.querySelector("#promo-modal-target");
@@ -23,24 +24,36 @@
   let groups = [];
   let tourists = [];
   const activeStatuses = new Set();
+  // ids the user has explicitly UNchecked. Anything not in this set, and
+  // currently in the filtered list, counts as selected for the promo send.
+  const deselectedIds = new Set();
 
-  // Column toggle. Status, Email, Age are off-by-default? Default ON for the
-  // marketing-friendly columns so admins see the status at a glance.
+  const STATUS_LABELS = {
+    potential: "Potential",
+    standard: "Standard",
+    vip: "VIP",
+    child: "Child",
+    do_not_contact: "Do not contact",
+  };
+
+  // # column is always shown (not toggleable). Actions column removed —
+  // Trip column already links the way the user wants.
   const ALL_COLUMNS = [
+    { key: "select", label: "", default: true, fixed: true },
+    { key: "rowNum", label: "#", default: true, fixed: true },
     { key: "serial", label: "Serial", default: true },
     { key: "lastName", label: "Last name", default: true },
     { key: "firstName", label: "First name", default: true },
     { key: "age", label: "Age", default: true },
     { key: "trip", label: "Trip", default: true },
     { key: "group", label: "Group", default: true },
-    { key: "nationality", label: "Nationality", default: true },
+    { key: "nationality", label: "Nationality", default: false },
     { key: "passportNumber", label: "Passport #", default: false },
     { key: "passportExpiry", label: "Passport expiry", default: false },
     { key: "registrationNumber", label: "Reg #", default: false },
     { key: "phone", label: "Phone", default: false },
     { key: "email", label: "Email", default: true },
     { key: "marketingStatus", label: "Status", default: true },
-    { key: "actions", label: "Actions", default: true },
   ];
   const VIEW_KEY = "tourists:visibleColumns";
   let visibleColumns = readVisibleColumns();
@@ -50,7 +63,12 @@
       const raw = localStorage.getItem(VIEW_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return new Set(parsed);
+        if (Array.isArray(parsed)) {
+          const set = new Set(parsed);
+          // Always include fixed columns regardless of stored prefs.
+          ALL_COLUMNS.filter((c) => c.fixed).forEach((c) => set.add(c.key));
+          return set;
+        }
       }
     } catch {}
     return new Set(ALL_COLUMNS.filter((c) => c.default).map((c) => c.key));
@@ -70,21 +88,31 @@
   }
 
   function calcAge(dob) {
-    if (!dob) return "";
+    if (!dob) return null;
     const m = String(dob).match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!m) return "";
+    if (!m) return null;
     const today = new Date();
     let age = today.getFullYear() - Number(m[1]);
     const mm = today.getMonth() + 1;
     const dd = today.getDate();
     if (mm < Number(m[2]) || (mm === Number(m[2]) && dd < Number(m[3]))) age -= 1;
-    return age >= 0 ? age : "";
+    return age >= 0 ? age : null;
   }
 
-  function statusPillHtml(status) {
-    const s = String(status || "standard").toLowerCase();
-    const labels = { potential: "Potential", standard: "Standard", vip: "VIP", do_not_contact: "Do not contact" };
-    return '<span class="ts-pill ts-pill-' + s + '">' + (labels[s] || s) + "</span>";
+  function effectiveStatus(t) {
+    const age = calcAge(t.dob);
+    if (age !== null && age < 18) return "child";
+    return String(t.marketingStatus || "standard").toLowerCase();
+  }
+
+  function statusSelectHtml(t) {
+    const status = effectiveStatus(t);
+    const isChild = status === "child";
+    const opts = ["standard", "potential", "vip", "child", "do_not_contact"]
+      .map((v) => `<option value="${v}"${v === status ? " selected" : ""}>${STATUS_LABELS[v]}</option>`)
+      .join("");
+    // disable the inline editor for children — status is computed.
+    return `<select class="ts-status-select ts-pill ts-pill-${status}" data-tourist-id="${escapeHtml(t.id)}"${isChild ? " disabled title=\"Auto-set because age < 18\"" : ""}>${opts}</select>`;
   }
 
   async function fetchJson(url, options) {
@@ -135,12 +163,13 @@
   }
 
   function renderViewToggle() {
-    viewPopover.innerHTML = '<p class="ts-view-title">Toggle columns</p>' + ALL_COLUMNS.map((c) => `
-      <label class="ts-view-row">
-        <input type="checkbox" data-col="${escapeHtml(c.key)}" ${visibleColumns.has(c.key) ? "checked" : ""} />
-        <span>${escapeHtml(c.label)}</span>
-      </label>
-    `).join("");
+    viewPopover.innerHTML = '<p class="ts-view-title">Toggle columns</p>' +
+      ALL_COLUMNS.filter((c) => !c.fixed).map((c) => `
+        <label class="ts-view-row">
+          <input type="checkbox" data-col="${escapeHtml(c.key)}" ${visibleColumns.has(c.key) ? "checked" : ""} />
+          <span>${escapeHtml(c.label)}</span>
+        </label>
+      `).join("");
   }
 
   function getFiltered() {
@@ -151,6 +180,10 @@
     const nat = (filterNationality.value || "").trim().toLowerCase();
     const dobFrom = (filterDobFrom.value || "").trim();
     const dobTo = (filterDobTo.value || "").trim();
+    const ageMinRaw = (filterAgeMin.value || "").trim();
+    const ageMaxRaw = (filterAgeMax.value || "").trim();
+    const ageMin = ageMinRaw === "" ? null : Number(ageMinRaw);
+    const ageMax = ageMaxRaw === "" ? null : Number(ageMaxRaw);
     return tourists.filter((t) => {
       const fullName = ((t.lastName || "") + " " + (t.firstName || "")).toLowerCase();
       if (name && !fullName.includes(name)) return false;
@@ -158,38 +191,72 @@
       if (trip && t.tripId !== trip) return false;
       if (group && t.groupId !== group) return false;
       if (nat && !(t.nationality || "").toLowerCase().includes(nat)) return false;
-      if (activeStatuses.size && !activeStatuses.has(String(t.marketingStatus || "standard").toLowerCase())) return false;
+      if (activeStatuses.size && !activeStatuses.has(effectiveStatus(t))) return false;
       if (dobFrom || dobTo) {
         const dob = t.dob ? String(t.dob).slice(0, 10) : "";
         if (!dob) return false;
         if (dobFrom && dob < dobFrom) return false;
         if (dobTo && dob > dobTo) return false;
       }
+      if (ageMin !== null || ageMax !== null) {
+        const age = calcAge(t.dob);
+        if (age === null) return false;
+        if (ageMin !== null && age < ageMin) return false;
+        if (ageMax !== null && age > ageMax) return false;
+      }
       return true;
     });
   }
 
+  function isPromoEligible(t) {
+    if (deselectedIds.has(t.id)) return false;
+    const status = effectiveStatus(t);
+    if (status === "child" || status === "do_not_contact") return false;
+    return !!(t.email && t.email.includes("@"));
+  }
+
   function render() {
     const rows = getFiltered();
-    countNode.textContent = rows.length + " tourist" + (rows.length === 1 ? "" : "s");
+    const promoEligible = rows.filter(isPromoEligible).length;
+    countNode.textContent =
+      rows.length + " tourist" + (rows.length === 1 ? "" : "s") +
+      " · " + promoEligible + " selectable for promo";
     if (!rows.length) {
       listNode.innerHTML = '<p class="empty">No tourists match the current filters.</p>';
       return;
     }
     const tripById = Object.fromEntries(trips.map((t) => [t.id, t]));
     const cols = ALL_COLUMNS.filter((c) => colVisible(c.key));
-    const headers = cols.map((c) => "<th>" + escapeHtml(c.label) + "</th>").join("");
-    const body = rows.map((t) => {
+    const headers = cols.map((c) => {
+      if (c.key === "select") {
+        return '<th><input type="checkbox" id="tourist-select-all" title="Select all eligible" /></th>';
+      }
+      return "<th>" + escapeHtml(c.label) + "</th>";
+    }).join("");
+    const body = rows.map((t, idx) => {
       const trip = tripById[t.tripId];
       const tripCell = trip
         ? '<a href="/trip-detail?tripId=' + encodeURIComponent(t.tripId) + '" class="trip-name-link">' + escapeHtml(trip.serial || "") + ' · ' + escapeHtml(trip.tripName || "") + "</a>"
         : escapeHtml(t.tripSerial || "-");
       const grpCell = escapeHtml(t.groupSerial || "-") + (t.groupName ? " · " + escapeHtml(t.groupName) : "");
+      const status = effectiveStatus(t);
+      const isChild = status === "child";
+      const isOptOut = status === "do_not_contact";
+      const hasEmail = !!(t.email && t.email.includes("@"));
+      const blocked = isChild || isOptOut || !hasEmail;
+      const checked = !blocked && !deselectedIds.has(t.id);
+      const checkboxTitle = isChild ? "Children cannot receive promos"
+        : isOptOut ? "Do not contact"
+        : !hasEmail ? "No email on file"
+        : "Toggle promo recipient";
+      const age = calcAge(t.dob);
       const cells = {
+        select: `<input type="checkbox" class="ts-row-select" data-tourist-id="${escapeHtml(t.id)}"${checked ? " checked" : ""}${blocked ? " disabled" : ""} title="${escapeHtml(checkboxTitle)}" />`,
+        rowNum: String(idx + 1),
         serial: '<strong>' + escapeHtml(t.serial || "") + "</strong>",
         lastName: escapeHtml(t.lastName || ""),
         firstName: escapeHtml(t.firstName || ""),
-        age: escapeHtml(String(calcAge(t.dob) || "-")),
+        age: age === null ? "-" : String(age),
         trip: tripCell,
         group: grpCell,
         nationality: escapeHtml(t.nationality || "-"),
@@ -198,8 +265,7 @@
         registrationNumber: escapeHtml(t.registrationNumber || "-"),
         phone: escapeHtml(t.phone || "-"),
         email: escapeHtml(t.email || "-"),
-        marketingStatus: statusPillHtml(t.marketingStatus),
-        actions: '<a class="table-link compact secondary" href="/trip-detail?tripId=' + encodeURIComponent(t.tripId) + '#tourists-section">Open trip</a>',
+        marketingStatus: statusSelectHtml(t),
       };
       return "<tr>" + cols.map((c) => "<td>" + cells[c.key] + "</td>").join("") + "</tr>";
     }).join("");
@@ -211,13 +277,92 @@
         </table>
       </div>
     `;
+    syncSelectAll();
   }
+
+  function syncSelectAll() {
+    const master = document.getElementById("tourist-select-all");
+    if (!master) return;
+    const cbs = listNode.querySelectorAll(".ts-row-select:not([disabled])");
+    if (!cbs.length) {
+      master.checked = false;
+      master.indeterminate = false;
+      return;
+    }
+    const checkedCount = [...cbs].filter((c) => c.checked).length;
+    if (checkedCount === 0) { master.checked = false; master.indeterminate = false; }
+    else if (checkedCount === cbs.length) { master.checked = true; master.indeterminate = false; }
+    else { master.checked = false; master.indeterminate = true; }
+  }
+
+  // ── Inline status edit ──────────────────────────────────────────────
+  listNode.addEventListener("change", async (e) => {
+    const sel = e.target.closest(".ts-status-select");
+    if (sel) {
+      const id = sel.dataset.touristId;
+      const value = sel.value;
+      const tourist = tourists.find((t) => t.id === id);
+      if (!tourist) return;
+      // Children are auto-locked; ignore any attempt to edit (select is disabled anyway).
+      const age = calcAge(tourist.dob);
+      if (age !== null && age < 18) return;
+      sel.disabled = true;
+      try {
+        const resp = await fetch("/api/tourists/" + encodeURIComponent(id), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ marketingStatus: value }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || "Update failed");
+        tourist.marketingStatus = data.entry?.marketingStatus || value;
+        // Repaint just this row's status cell to update class colors.
+        const row = sel.closest("tr");
+        if (row) {
+          const newCell = document.createElement("td");
+          newCell.innerHTML = statusSelectHtml(tourist);
+          // Find the status cell — it's the one containing this select.
+          sel.parentElement.replaceWith(newCell);
+        }
+        render();
+      } catch (err) {
+        alert("Алдаа: " + err.message);
+        sel.disabled = false;
+      }
+      return;
+    }
+    const cb = e.target.closest(".ts-row-select");
+    if (cb) {
+      const id = cb.dataset.touristId;
+      if (cb.checked) deselectedIds.delete(id); else deselectedIds.add(id);
+      const promoEligible = getFiltered().filter(isPromoEligible).length;
+      countNode.textContent =
+        getFiltered().length + " tourist" + (getFiltered().length === 1 ? "" : "s") +
+        " · " + promoEligible + " selectable for promo";
+      syncSelectAll();
+      return;
+    }
+    if (e.target.id === "tourist-select-all") {
+      const master = e.target;
+      const cbs = listNode.querySelectorAll(".ts-row-select:not([disabled])");
+      cbs.forEach((c) => {
+        c.checked = master.checked;
+        const id = c.dataset.touristId;
+        if (master.checked) deselectedIds.delete(id); else deselectedIds.add(id);
+      });
+      const promoEligible = getFiltered().filter(isPromoEligible).length;
+      countNode.textContent =
+        getFiltered().length + " tourist" + (getFiltered().length === 1 ? "" : "s") +
+        " · " + promoEligible + " selectable for promo";
+    }
+  });
 
   // ── Filter wiring ────────────────────────────────────────────────────
   [filterName, filterSerial, filterNationality].forEach((el) => el.addEventListener("input", render));
   filterTrip.addEventListener("change", () => { renderGroupOptions(); render(); });
   filterGroup.addEventListener("change", render);
   [filterDobFrom, filterDobTo].forEach((el) => el.addEventListener("change", () => { updateDobCount(); render(); }));
+  [filterAgeMin, filterAgeMax].forEach((el) => el.addEventListener("input", () => { updateAgeCount(); render(); }));
   statusPills.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-status]");
     if (!btn) return;
@@ -232,14 +377,16 @@
     const badge = document.getElementById("tourist-dob-count");
     if (!pill || !badge) return;
     const n = (filterDobFrom.value ? 1 : 0) + (filterDobTo.value ? 1 : 0);
-    if (n > 0) {
-      badge.textContent = String(n);
-      badge.removeAttribute("hidden");
-      pill.classList.add("has-active");
-    } else {
-      badge.setAttribute("hidden", "");
-      pill.classList.remove("has-active");
-    }
+    if (n > 0) { badge.textContent = String(n); badge.removeAttribute("hidden"); pill.classList.add("has-active"); }
+    else { badge.setAttribute("hidden", ""); pill.classList.remove("has-active"); }
+  }
+  function updateAgeCount() {
+    const pill = document.getElementById("tourist-age-pill");
+    const badge = document.getElementById("tourist-age-count");
+    if (!pill || !badge) return;
+    const n = (filterAgeMin.value ? 1 : 0) + (filterAgeMax.value ? 1 : 0);
+    if (n > 0) { badge.textContent = String(n); badge.removeAttribute("hidden"); pill.classList.add("has-active"); }
+    else { badge.setAttribute("hidden", ""); pill.classList.remove("has-active"); }
   }
 
   // ── View column toggle ───────────────────────────────────────────────
@@ -252,7 +399,6 @@
     render();
   });
 
-  // Close any open dropdown when clicking outside
   document.addEventListener("click", (e) => {
     document.querySelectorAll("details[open]").forEach((d) => {
       if (!d.contains(e.target)) d.removeAttribute("open");
@@ -278,6 +424,7 @@
       name: filterName.value, serial: filterSerial.value, trip: filterTrip.value,
       group: filterGroup.value, nationality: filterNationality.value,
       dobFrom: filterDobFrom.value, dobTo: filterDobTo.value,
+      ageMin: filterAgeMin.value, ageMax: filterAgeMax.value,
       statuses: [...activeStatuses],
     };
   }
@@ -290,21 +437,27 @@
     filterNationality.value = snap?.nationality || "";
     filterDobFrom.value = snap?.dobFrom || "";
     filterDobTo.value = snap?.dobTo || "";
+    filterAgeMin.value = snap?.ageMin || "";
+    filterAgeMax.value = snap?.ageMax || "";
     activeStatuses.clear();
     (snap?.statuses || []).forEach((s) => activeStatuses.add(s));
     statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => {
       p.classList.toggle("is-active", activeStatuses.has(p.dataset.status));
     });
     updateDobCount();
+    updateAgeCount();
     render();
   }
   function clearAllFilters() {
     filterName.value = filterSerial.value = filterNationality.value = "";
     filterTrip.value = ""; renderGroupOptions(); filterGroup.value = "";
     filterDobFrom.value = filterDobTo.value = "";
+    filterAgeMin.value = filterAgeMax.value = "";
     activeStatuses.clear();
+    deselectedIds.clear();
     statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => p.classList.remove("is-active"));
     updateDobCount();
+    updateAgeCount();
     render();
   }
   function refreshSavedFiltersDropdown(selectName) {
@@ -375,15 +528,30 @@
   // ── Send promo email ─────────────────────────────────────────────────
   function openPromoModal() {
     const filtered = getFiltered();
-    const recipients = filtered.filter((t) => {
-      const status = String(t.marketingStatus || "standard").toLowerCase();
-      return status !== "do_not_contact" && t.email && t.email.includes("@");
-    });
+    const recipients = filtered.filter(isPromoEligible);
     if (!recipients.length) {
-      alert("No tourists with an email address (and not marked Do not contact) match the current filter.");
+      alert("No selectable recipients. Either no tourists match the filters, or all matches are children, opted-out, missing email, or unchecked.");
       return;
     }
-    promoTarget.textContent = `Recipients: ${recipients.length} (out of ${filtered.length} filtered — ${filtered.length - recipients.length} skipped: no email or Do-not-contact)`;
+    const skippedChild = filtered.filter((t) => effectiveStatus(t) === "child").length;
+    const skippedOptOut = filtered.filter((t) => effectiveStatus(t) === "do_not_contact").length;
+    const skippedNoEmail = filtered.filter((t) => {
+      const s = effectiveStatus(t);
+      return s !== "child" && s !== "do_not_contact" && !(t.email && t.email.includes("@"));
+    }).length;
+    const unchecked = filtered.filter((t) => deselectedIds.has(t.id)
+      && effectiveStatus(t) !== "child"
+      && effectiveStatus(t) !== "do_not_contact"
+      && t.email && t.email.includes("@")).length;
+
+    const skippedParts = [];
+    if (skippedChild) skippedParts.push(`${skippedChild} child`);
+    if (skippedOptOut) skippedParts.push(`${skippedOptOut} opt-out`);
+    if (skippedNoEmail) skippedParts.push(`${skippedNoEmail} no email`);
+    if (unchecked) skippedParts.push(`${unchecked} unchecked`);
+    const skippedSummary = skippedParts.length ? ` — skipped: ${skippedParts.join(", ")}` : "";
+
+    promoTarget.textContent = `Recipients: ${recipients.length} (out of ${filtered.length} filtered${skippedSummary})`;
     promoStatus.textContent = "";
     promoModal.classList.remove("is-hidden");
     promoModal.removeAttribute("hidden");
@@ -420,10 +588,12 @@
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Send failed");
-      const msg = `✔ Амжилттай! ${data.sent} имэйл илгээгдлээ` +
-        (data.skippedNoEmail ? ` · ${data.skippedNoEmail} no email` : "") +
-        (data.skippedOptOut ? ` · ${data.skippedOptOut} opted out` : "") +
-        (data.failures && data.failures.length ? ` · ${data.failures.length} failed` : "");
+      const parts = [`✔ Амжилттай! ${data.sent} имэйл илгээгдлээ`];
+      if (data.skippedChild) parts.push(`${data.skippedChild} child blocked`);
+      if (data.skippedOptOut) parts.push(`${data.skippedOptOut} opt-out`);
+      if (data.skippedNoEmail) parts.push(`${data.skippedNoEmail} no email`);
+      if (data.failures && data.failures.length) parts.push(`${data.failures.length} failed`);
+      const msg = parts.join(" · ");
       alert(msg);
       promoStatus.textContent = msg;
       document.getElementById("promo-subject").value = "";

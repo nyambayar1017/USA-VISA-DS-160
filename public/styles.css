@@ -9458,26 +9458,83 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .ts-pill-potential       { background: #fff7ed; color: #9a3412; }
 .ts-pill-standard        { background: #eff6ff; color: #1e3a8a; }
 .ts-pill-vip             { background: #fef3c7; color: #92400e; }
+.ts-pill-child           { background: #ede9fe; color: #5b21b6; }
 .ts-pill-do_not_contact  { background: #f3f4f6; color: #4b5563; }
 
+/* Inline-editable status select on the tourist directory: looks like a pill,
+   but is actually a <select> so the manager can change the value in place. */
+.ts-status-select {
+  border: none;
+  cursor: pointer;
+  padding: 3px 22px 3px 10px;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 10px) 55%, calc(100% - 6px) 55%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+.ts-status-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+  background-image: none;
+  padding-right: 10px;
+}
+
+/* View column-toggle popover. Override the parent .trip-saved-filter-popover
+   so labels sit FLUSH LEFT next to the checkbox (the saved-filter popover
+   uses a row layout that pushed content to the right and made labels wrap). */
 .tourist-view-popover {
-  min-width: 200px;
-  padding: 8px 0;
+  min-width: 220px;
+  padding: 10px 0;
+  text-align: left;
 }
 .ts-view-title {
   margin: 0 0 6px;
-  padding: 0 14px;
+  padding: 0 16px;
   font-weight: 600;
   font-size: 13px;
   color: #4b5563;
 }
-.ts-view-row {
-  display: flex;
+.tourist-view-popover .ts-view-row {
+  display: flex !important;
+  flex-direction: row !important;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
+  justify-content: flex-start !important;
+  gap: 10px;
+  padding: 7px 16px;
   cursor: pointer;
   font-size: 13px;
+  color: #1f2937;
+  white-space: nowrap;
+  text-align: left;
 }
-.ts-view-row:hover { background: #f9fafb; }
-.ts-view-row input { accent-color: #c64d3a; }
+.tourist-view-popover .ts-view-row:hover { background: #f9fafb; }
+.tourist-view-popover .ts-view-row input {
+  accent-color: #c64d3a;
+  flex: 0 0 auto;
+  margin: 0;
+}
+.tourist-view-popover .ts-view-row span {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+/* Per-row promo selection checkbox + master select-all */
+.tourist-directory-table .ts-row-select,
+.tourist-directory-table #tourist-select-all {
+  accent-color: #c64d3a;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+.tourist-directory-table .ts-row-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.tourist-directory-table th:first-child,
+.tourist-directory-table td:first-child {
+  width: 36px;
+  text-align: center;
+}
