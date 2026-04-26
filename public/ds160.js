@@ -769,12 +769,29 @@ async function loadTeamMembers() {
   }
 }
 
-async function loadEntries() {
-  const entries = await fetchJson("/api/ds160");
+let entriesController = null;
+
+function applyEntries(entries) {
   state.entries = Array.isArray(entries) ? entries : [];
   renderSummary();
   renderManagerOptions();
   renderList();
+}
+
+async function loadEntries() {
+  if (entriesController) {
+    entriesController.invalidate();
+    return entriesController.refresh();
+  }
+  if (window.LiveList) {
+    entriesController = window.LiveList.subscribe("/api/ds160", {
+      cacheKey: "livelist:ds160",
+      onData: applyEntries,
+    });
+    return;
+  }
+  const entries = await fetchJson("/api/ds160");
+  applyEntries(entries);
 }
 
 sendForm.addEventListener("submit", async (event) => {
@@ -946,8 +963,9 @@ document.addEventListener("click", (event) => {
 });
 
 async function init() {
+  loadEntries();
   await loadTeamMembers();
-  await loadEntries();
+  renderManagerOptions();
   renderSummary();
 }
 

@@ -1885,9 +1885,10 @@ async function handleInlinePaymentSubmit(event) {
   }
 }
 
-async function loadTrips() {
-  const payload = await fetchJson("/api/camp-trips");
-  currentTrips = payload.entries || [];
+let tripsController = null;
+
+function applyTripsPayload(payload) {
+  currentTrips = (payload && payload.entries) || [];
   if (activeTripId && !getTripById(activeTripId)) {
     activeTripId = "";
   }
@@ -1895,6 +1896,22 @@ async function loadTrips() {
   refreshFilterPopoverOptions();
   renderTrips();
   renderActiveTrip();
+}
+
+async function loadTrips() {
+  if (tripsController) {
+    tripsController.invalidate();
+    return tripsController.refresh();
+  }
+  if (window.LiveList) {
+    tripsController = window.LiveList.subscribe("/api/camp-trips", {
+      cacheKey: "livelist:camp-trips",
+      onData: applyTripsPayload,
+    });
+    return;
+  }
+  const payload = await fetchJson("/api/camp-trips");
+  applyTripsPayload(payload);
 }
 
 async function loadSettings() {
