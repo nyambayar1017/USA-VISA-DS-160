@@ -3,23 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Invoices</title>
+    <title>Documents</title>
     <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css?v=workspace-186" />
   </head>
-  <body class="app-body" data-page="invoices">
+  <body class="app-body" data-page="documents">
     <div class="workspace-shell">
       <aside class="workspace-sidebar" data-workspace-sidebar></aside>
 
       <main class="workspace-main">
         <section class="workspace-topbar">
           <div>
-            <p class="workspace-kicker">Billing</p>
-            <h1>Invoices</h1>
-            <p class="workspace-subtitle">Every invoice across every trip — search, filter, jump to its dossier or group.</p>
+            <p class="workspace-kicker">Storage</p>
+            <h1>Documents</h1>
+            <p class="workspace-subtitle">Every file uploaded against any trip in this workspace — search, filter, download, jump to its trip.</p>
           </div>
           <div class="workspace-profile">
             <span class="workspace-profile-label">Signed in</span>
@@ -37,57 +37,59 @@
               </summary>
               <div class="trip-saved-filter-popover" data-saved-filter-popover></div>
             </details>
-            <button type="button" id="inv-clear-filter-btn" class="trip-saved-filter-action">Clear</button>
+            <button type="button" id="doc-clear-filter-btn" class="trip-saved-filter-action">Clear</button>
           </div>
 
           <div class="invoices-filter-bar">
-            <input id="inv-filter-serial" type="search" placeholder="Search by serial" autocomplete="off" />
-            <input id="inv-filter-group" type="search" placeholder="Search by group" autocomplete="off" />
-            <input id="inv-filter-payer" type="search" placeholder="Search by payer" autocomplete="off" />
-            <details class="trip-filter-pill trip-filter-pill-date" id="inv-daterange-pill">
+            <input id="doc-filter-name" type="search" placeholder="Search by file name" autocomplete="off" />
+            <select id="doc-filter-trip" class="trip-filter-input">
+              <option value="">All trips</option>
+            </select>
+            <select id="doc-filter-category" class="trip-filter-input">
+              <option value="">All categories</option>
+            </select>
+            <select id="doc-filter-ext" class="trip-filter-input">
+              <option value="">All file types</option>
+            </select>
+            <details class="trip-filter-pill trip-filter-pill-date" id="doc-daterange-pill">
               <summary>
                 <span class="trip-filter-pill-icon trip-filter-date-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
                 </span>
-                <span class="trip-filter-pill-label">Next due between</span>
-                <span class="trip-filter-pill-count" id="inv-daterange-count" hidden>0</span>
+                <span class="trip-filter-pill-label">Uploaded between</span>
+                <span class="trip-filter-pill-count" id="doc-daterange-count" hidden>0</span>
               </summary>
               <div class="trip-filter-popover trip-filter-popover-date">
-                <label>From <input id="inv-filter-from" type="date" /></label>
-                <label>To <input id="inv-filter-to" type="date" /></label>
+                <label>From <input id="doc-filter-from" type="date" /></label>
+                <label>To <input id="doc-filter-to" type="date" /></label>
               </div>
             </details>
-            <div class="invoices-status-pills" id="inv-status-pills">
-              <button type="button" class="invoices-status-pill" data-status="pending">Pending</button>
-              <button type="button" class="invoices-status-pill" data-status="overdue">Overdue</button>
-              <button type="button" class="invoices-status-pill" data-status="paid">Paid</button>
-            </div>
-            <button type="button" class="secondary-button" id="inv-reset">Reset</button>
+            <button type="button" class="secondary-button" id="doc-reset">Reset</button>
           </div>
 
-          <p class="invoices-count" id="inv-count"></p>
+          <p class="invoices-count" id="doc-count"></p>
           <div class="invoices-table-wrap">
-            <table class="invoices-table" id="inv-table">
+            <table class="invoices-table" id="doc-table">
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Serial</th>
-                  <th>Group</th>
-                  <th>Payer</th>
-                  <th>Total</th>
-                  <th>Total paid</th>
-                  <th>Status</th>
-                  <th>Next due</th>
-                  <th>Last paid</th>
+                  <th>File</th>
+                  <th>Trip</th>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Uploaded</th>
+                  <th>By</th>
+                  <th></th>
                 </tr>
               </thead>
-              <tbody id="inv-tbody"></tbody>
+              <tbody id="doc-tbody"></tbody>
             </table>
           </div>
         </section>
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-96"></script>
-    <script src="/invoices-page.js?v=workspace-5"></script>
+    <script src="/documents-page.js?v=workspace-1"></script>
   </body>
 </html>

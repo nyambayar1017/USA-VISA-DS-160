@@ -445,14 +445,35 @@ def write_invoices(records):
     INVOICES_FILE.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def next_invoice_serial():
+def next_invoice_serial(company=None):
+    """Invoice serials are workspace-scoped: USM uses S-NNNNNN, DTX uses
+    T-NNNNNN. Counters are shared across both prefixes (and legacy plain-digit
+    serials) so we never clash with what's already in storage."""
+    company = normalize_company(company) if company else ""
+    prefix = "S-" if company == "USM" else ("T-" if company == "DTX" else "")
     existing = read_invoices()
     max_seq = 0
     for record in existing:
         s = str(record.get("serial") or "")
-        if s.isdigit():
-            max_seq = max(max_seq, int(s))
-    return str(max_seq + 1).zfill(6)
+        core = s
+        for known in ("S-", "T-"):
+            if s.startswith(known):
+                core = s[len(known):]
+                break
+        if core.isdigit():
+            max_seq = max(max_seq, int(core))
+    return f"{prefix}{(max_seq + 1):06d}"
+
+
+def _trip_company_for_invoice(payload):
+    """Resolve a trip's company from an invoice payload's tripId, falling back
+    to whatever the payload already carried so legacy/manual rows aren't
+    re-prefixed accidentally."""
+    trip_id = (payload or {}).get("tripId")
+    if not trip_id:
+        return ""
+    trip = find_camp_trip(trip_id)
+    return normalize_company((trip or {}).get("company")) if trip else ""
 
 
 def build_invoice(payload, actor=None):
@@ -492,7 +513,7 @@ def build_invoice(payload, actor=None):
     total = round(sum(i["total"] for i in items), 2)
     return {
         "id": str(uuid4()),
-        "serial": next_invoice_serial(),
+        "serial": next_invoice_serial(_trip_company_for_invoice(payload)),
         "tripId": normalize_text(payload.get("tripId")),
         "groupId": normalize_text(payload.get("groupId")),
         "payerId": normalize_text(payload.get("payerId")),
@@ -5710,6 +5731,29 @@ def handle_delete_tourist(environ, start_response, tourist_id):
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": tourist_id})
 
 
+def handle_list_documents(environ, start_response):
+    """GET /api/documents — flatten every document attached to every trip in
+    the active workspace, returning enriched rows ({ tripId, tripSerial,
+    tripName, ...doc }) so the global Documents page can show context and
+    filter without N+1 fetches."""
+    if not require_login(environ, start_response):
+        return []
+    workspace = active_workspace(environ)
+    rows = []
+    for trip in read_camp_trips():
+        if workspace and normalize_company(trip.get("company")) != workspace:
+            continue
+        for doc in (trip.get("documents") or []):
+            rows.append({
+                **doc,
+                "tripId": trip.get("id"),
+                "tripSerial": trip.get("serial") or "",
+                "tripName": trip.get("tripName") or "",
+            })
+    rows.sort(key=lambda d: d.get("uploadedAt") or "", reverse=True)
+    return json_response(start_response, "200 OK", {"entries": rows})
+
+
 def handle_list_invoices(environ, start_response):
     if not require_login(environ, start_response):
         return []
@@ -8089,9 +8133,10 @@ def build_invoice_from_contract(contract, actor):
             "status": "pending",
         })
 
+    trip_for_serial = find_camp_trip(trip_id) if trip_id else None
     return {
         "id": str(uuid4()),
-        "serial": next_invoice_serial(),
+        "serial": next_invoice_serial((trip_for_serial or {}).get("company")),
         "tripId": trip_id,
         "groupId": group_id,
         "payerId": "",
@@ -9254,6 +9299,15 @@ def _tool_send_email(args, actor):
     if not api_key:
         return {"error": "Email is not configured. Sign up at resend.com (free, 100 emails/day) and add RESEND_API_KEY to Render → Environment."}
     sender = os.environ.get("EMAIL_FROM", "").strip() or "Travelx <onboarding@resend.dev>"
+    # Per-call friendly-name override: when the caller passes _company_name
+    # (DTX or USM workspace), the inbox shows "Дэлхий Трэвел Икс" /
+    # "Unlock Steppe Mongolia" as the sender name even though the underlying
+    # address (e.g. noreply@travelx.mn) doesn't change.
+    company_name_override = (args.get("_company_name") or "").strip()
+    if company_name_override:
+        m = re.search(r"<([^>]+)>", sender)
+        addr = m.group(1) if m else sender
+        sender = f"{company_name_override} <{addr}>"
     to_raw = args.get("to") or ""
     if isinstance(to_raw, str):
         to_list = [x.strip() for x in to_raw.replace(";", ",").split(",") if x.strip()]
@@ -10132,6 +10186,11 @@ def app(environ, start_response):
             return handle_create_invoice(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/documents":
+        if method == "GET":
+            return handle_list_documents(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path.startswith("/api/invoices/") and path.endswith("/publish"):
         invoice_id = path.replace("/api/invoices/", "", 1).replace("/publish", "", 1).strip("/")
         if method == "POST" and invoice_id:
@@ -10590,6 +10649,11 @@ def app(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "invoices.html")
+
+    if path == "/documents":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "documents.html")
 
     if path == "/pdf-viewer":
         if not current_user(environ):

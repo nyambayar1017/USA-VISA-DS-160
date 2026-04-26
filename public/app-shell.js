@@ -101,7 +101,7 @@ function renderSidebar(user) {
     return `<a class="sidebar-link${activeClass}${extraClass ? ` ${extraClass}` : ""}" href="${href}">${label}</a>`;
   };
 
-  const dtxBlock = isDtx
+  const fifaBlock = isDtx
     ? `
         <div class="sidebar-tree">
           <div class="sidebar-branch">
@@ -111,9 +111,38 @@ function renderSidebar(user) {
             </div>
           </div>
         </div>
-        ${link("ds160", "/ds160", "DS-160")}
       `
     : "";
+
+  // DTX order requested by Bataa: Trip, Tourist, Contracts, Invoices,
+  // Documents, To-Do, Flights, Transfer, Camp, DS-160, FIFA, Team/Admin.
+  // USM keeps the existing reservation-first ordering.
+  const dtxLinks = `
+    ${link("home", "/backoffice", "Home / Trip")}
+    ${link("tourist", "/tourist", "Tourist")}
+    ${link("contracts", "/contracts", "Contracts")}
+    ${link("invoices", "/invoices", "Invoices")}
+    ${link("documents", "/documents", "Documents")}
+    ${link("todo", "/todo", "To Do")}
+    ${link("flight-reservations", "/flight-reservations", "Flight Reservations")}
+    ${link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
+    ${link("camp-reservations", "/camp-reservations", "Camp Reservations")}
+    ${link("ds160", "/ds160", "DS-160")}
+    ${fifaBlock}
+    ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
+  `;
+  const usmLinks = `
+    ${link("home", "/backoffice", "Home / Trip")}
+    ${link("tourist", "/tourist", "Tourist")}
+    ${link("camp-reservations", "/camp-reservations", "Camp Reservations")}
+    ${link("flight-reservations", "/flight-reservations", "Flight Reservations")}
+    ${link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
+    ${link("contracts", "/contracts", "Contracts")}
+    ${link("invoices", "/invoices", "Invoices")}
+    ${link("documents", "/documents", "Documents")}
+    ${link("todo", "/todo", "To Do")}
+    ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
+  `;
 
   sidebar.innerHTML = `
     <button type="button" class="sidebar-close" data-action="close-sidebar" aria-label="Close menu">×</button>
@@ -123,16 +152,7 @@ function renderSidebar(user) {
     <p class="sidebar-workspace-label">${company.name}</p>
     <div class="sidebar-group">
       <p class="sidebar-label">Backoffice</p>
-      ${link("home", "/backoffice", "Home / Trip")}
-      ${link("tourist", "/tourist", "Tourist")}
-      ${isDtx ? "" : link("camp-reservations", "/camp-reservations", "Camp Reservations")}
-      ${isDtx ? "" : link("flight-reservations", "/flight-reservations", "Flight Reservations")}
-      ${isDtx ? "" : link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
-      ${dtxBlock}
-      ${link("contracts", "/contracts", "Contracts")}
-      ${link("invoices", "/invoices", "Invoices")}
-      ${link("todo", "/todo", "To Do")}
-      ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
+      ${isDtx ? dtxLinks : usmLinks}
     </div>
     <div class="sidebar-switch">
       <p class="sidebar-label">Switch workspace</p>
