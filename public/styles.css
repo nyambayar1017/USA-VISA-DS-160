@@ -9291,3 +9291,115 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   width: 36px;
   text-align: center;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   MOBILE-ONLY filter-bar unification (≤ 720 px)
+   The user's reference: Tourist Directory + Invoices filter bars
+   (.invoices-filter-bar with display: flex, flex-wrap: wrap, gap: 10px).
+   Everything below makes Camp/Flight/Transfer/Contracts/DS-160 filter
+   rows behave the same way on phones, fixes the View dropdown overflow
+   on Tourist, allows long table headers to wrap, and collapses the
+   contracts Actions column to its kebab menu only.
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  /* All filter-row containers behave like the Tourist/Invoices reference:
+     flex with wrap, tight gap, no fixed grid columns. */
+  .invoices-filter-bar,
+  .invoices-saved-filter-row,
+  .camp-filters,
+  .contract-filter-grid,
+  .ds160-filter-grid,
+  .manager-filter-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    grid-template-columns: none !important;
+  }
+
+  /* Inputs/selects shrink to fit; grow to share remaining space.
+     The 140 px flex-basis lets two narrow inputs sit side-by-side on
+     a 320-360 px phone, but lets a longer search field wrap to its
+     own line when needed. */
+  .invoices-filter-bar input,
+  .invoices-filter-bar select,
+  .camp-filters input,
+  .camp-filters select,
+  .contract-filter-grid input,
+  .contract-filter-grid select,
+  .ds160-filter-grid input,
+  .ds160-filter-grid select,
+  .manager-filter-row input,
+  .manager-filter-row select,
+  .trip-filter-input {
+    min-width: 0 !important;
+    flex: 1 1 140px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Native date inputs have a ~150 px intrinsic min-width that pushes
+     them out of the card — release it. */
+  input[type="date"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Saved-filter / View / Clear dropdowns: remove the 220 px min-width
+     that overflows Tourist's filter row, let them flex like inputs. */
+  .trip-saved-filter-dropdown,
+  .trip-saved-filter-dropdown > summary {
+    min-width: 0 !important;
+    flex: 1 1 140px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .trip-saved-filter-action {
+    flex: 0 0 auto !important;
+  }
+
+  /* Date-range / Tags / Status / Language filter pills: shrink, allow
+     them to share a row with sibling filters. */
+  .trip-filter-pill,
+  details.trip-filter-pill {
+    flex: 1 1 auto !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Status pills row (Pending/Overdue/Paid, VIP/Child, etc.) — wrap. */
+  .invoices-status-pills {
+    flex-wrap: wrap !important;
+  }
+
+  /* Listing-table headers: allow long titles like "Last name" / "Дуусах
+     огноо" to break onto two lines instead of pushing the column wide.
+     Smaller font on phones too — the user said the headers "are too big". */
+  .invoices-table thead th,
+  .trip-table thead th,
+  .camp-table thead th,
+  .contract-table thead th,
+  .contract-trip-table thead th,
+  .tourist-directory-table thead th,
+  .reservation-addon-table thead th,
+  .camp-reservation-table thead th,
+  .flight-reservation-table thead th,
+  .transfer-reservation-table thead th,
+  .camp-payment-table thead th,
+  .flight-payment-table thead th,
+  .manager-table thead th {
+    white-space: normal !important;
+    font-size: 12px !important;
+    padding: 10px 12px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Contracts Actions column on phones: hide the inline Signed-PDF
+     and Invoice buttons; keep only the ⋯ kebab. PDF/Invoice are still
+     reachable from the contract detail page. */
+  .contract-actions {
+    justify-content: flex-end !important;
+  }
+  .contract-actions > *:not(.trip-menu) {
+    display: none !important;
+  }
+}
