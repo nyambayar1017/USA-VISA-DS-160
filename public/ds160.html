@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-203" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-204" />
   </head>
   <body class="app-body" data-page="ds160">
     <div class="workspace-shell">
@@ -45,33 +45,28 @@
             </div>
           </div>
 
-          <div class="manager-filter-row ds160-filter-grid">
-            <label>
-              Search
-              <input id="ds160-search" type="search" placeholder="Name, email, passport, manager" />
-            </label>
-            <label>
-              Status
-              <select id="ds160-status-filter">
-                <option value="all">All</option>
-                <option value="sent">Sent</option>
-                <option value="submitted">Submitted</option>
-              </select>
-            </label>
-            <label>
-              Manager
-              <select id="ds160-manager-filter">
-                <option value="">All</option>
-              </select>
-            </label>
-            <label>
-              From date
-              <input id="ds160-date-from" type="date" />
-            </label>
-            <label>
-              To date
-              <input id="ds160-date-to" type="date" />
-            </label>
+          <div class="invoices-filter-bar ds160-filter-bar">
+            <input id="ds160-search" type="search" placeholder="Search by name, email, passport, manager" autocomplete="off" />
+            <select id="ds160-status-filter" class="trip-filter-input">
+              <option value="all">All statuses</option>
+              <option value="sent">Sent</option>
+              <option value="submitted">Submitted</option>
+            </select>
+            <select id="ds160-manager-filter" class="trip-filter-input">
+              <option value="">All managers</option>
+            </select>
+            <details class="trip-filter-pill trip-filter-pill-date" id="ds160-date-pill">
+              <summary>
+                <span class="trip-filter-pill-icon trip-filter-date-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+                </span>
+                <span class="trip-filter-pill-label">Sent between</span>
+              </summary>
+              <div class="trip-filter-popover trip-filter-popover-date">
+                <label>From <input id="ds160-date-from" type="date" /></label>
+                <label>To <input id="ds160-date-to" type="date" /></label>
+              </div>
+            </details>
           </div>
 
           <div id="ds160-list" class="manager-table-wrap ds160-list-panel"></div>

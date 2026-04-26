@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-29" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-fifa-30" />
   </head>
   <body class="fifa-public-body">
     <header class="travelx-site-header">
@@ -81,37 +81,29 @@
       </section>
 
       <section class="card fifa-public-panel">
-        <div class="camp-filters fifa-filters">
-          <label>
-            Хайх
-            <input id="public-filter-search" type="search" placeholder="Тоглолт, баг, хот, цэнгэлдэх" />
-          </label>
-          <label>
-            Шат
-            <select id="public-filter-stage">
-              <option value="">Бүх шат</option>
-            </select>
-          </label>
-          <label>
-            Хот
-            <select id="public-filter-city">
-              <option value="">Бүх хот</option>
-            </select>
-          </label>
-          <label>
-            Ангилал
-            <select id="public-filter-category">
-              <option value="">Бүх ангилал</option>
-            </select>
-          </label>
-          <label>
-            Эхлэх огноо
-            <input id="public-filter-date-from" type="date" />
-          </label>
-          <label>
-            Дуусах огноо
-            <input id="public-filter-date-to" type="date" />
-          </label>
+        <div class="invoices-filter-bar fifa-public-filter-bar">
+          <input id="public-filter-search" type="search" placeholder="Тоглолт, баг, хот, цэнгэлдэх" autocomplete="off" />
+          <select id="public-filter-stage" class="trip-filter-input">
+            <option value="">Бүх шат</option>
+          </select>
+          <select id="public-filter-city" class="trip-filter-input">
+            <option value="">Бүх хот</option>
+          </select>
+          <select id="public-filter-category" class="trip-filter-input">
+            <option value="">Бүх ангилал</option>
+          </select>
+          <details class="trip-filter-pill trip-filter-pill-date" id="public-filter-date-pill">
+            <summary>
+              <span class="trip-filter-pill-icon trip-filter-date-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+              </span>
+              <span class="trip-filter-pill-label">Огноо</span>
+            </summary>
+            <div class="trip-filter-popover trip-filter-popover-date">
+              <label>Эхлэх <input id="public-filter-date-from" type="date" /></label>
+              <label>Дуусах <input id="public-filter-date-to" type="date" /></label>
+            </div>
+          </details>
         </div>
 
         <div class="fifa-list-meta">
