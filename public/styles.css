@@ -4987,12 +4987,15 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     grid-template-columns: 1fr;
   }
 
+  /* Don't stretch the Create DS-160 button to full width on mobile —
+     the user wants it inline-sized like the Add buttons on Documents
+     / Invoices / Camp Reservations. */
   .ds160-toolbar-actions {
-    width: 100%;
+    width: auto;
   }
 
   .ds160-create-trigger {
-    width: 100%;
+    width: auto;
   }
 
   .ds160-answer-grid {
@@ -9531,19 +9534,75 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     max-height: none !important;
   }
 
-  /* FIFA admin Ticket Inventory stat cards stacked vertically and ate
-     a full screen of vertical space on phones — pack them into a
-     compact 1-column flow with smaller padding so the filters and
-     table sit closer to the top. */
+  /* Stat cards across To-Do / FIFA admin / FIFA public / Backoffice
+     home took up almost a full screen each on phones. Pack them into
+     a 2-column compact grid with much smaller padding and a smaller
+     stat number so everything reads as a tidy summary band, not as
+     four separate hero panels. */
   .manager-summary-grid {
-    grid-template-columns: 1fr !important;
-    gap: 10px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 0 !important;
   }
   .manager-stat-card {
-    padding: 14px 16px !important;
+    padding: 10px 12px !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+  }
+  .manager-stat-label {
+    font-size: 0.62rem !important;
+    margin-bottom: 4px !important;
+    letter-spacing: 0.08em !important;
   }
   .manager-stat-card strong {
-    font-size: 1.6rem !important;
+    font-size: 1.3rem !important;
+    line-height: 1.1 !important;
+  }
+  .manager-stat-card span {
+    font-size: 0.7rem !important;
+    line-height: 1.3 !important;
+    margin-top: 4px !important;
+  }
+
+  /* FIFA public hero summary: same compact treatment — 3 stats packed
+     into a 3-column row with tiny padding/font instead of full-width
+     single-column with 2-rem headlines. */
+  .fifa-public-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+  }
+  .fifa-public-summary article {
+    padding: 8px 10px !important;
+    border-radius: 14px !important;
+  }
+  .fifa-public-summary span {
+    font-size: 0.6rem !important;
+    letter-spacing: 0.06em !important;
+  }
+  .fifa-public-summary strong {
+    font-size: 1.1rem !important;
+    margin-top: 2px !important;
+  }
+
+  /* Listing-table thead — drop another notch smaller (10 px) since the
+     12 px the previous commit set still felt too big to the user. */
+  .invoices-table thead th,
+  .trip-table thead th,
+  .camp-table thead th,
+  .contract-table thead th,
+  .contract-trip-table thead th,
+  .tourist-directory-table thead th,
+  .reservation-addon-table thead th,
+  .camp-reservation-table thead th,
+  .flight-reservation-table thead th,
+  .transfer-reservation-table thead th,
+  .camp-payment-table thead th,
+  .flight-payment-table thead th,
+  .manager-table thead th {
+    font-size: 10px !important;
+    padding: 8px 10px !important;
+    letter-spacing: 0.04em !important;
   }
 
   /* Sidebar submenu items (e.g. FIFA 2026 → Public Page) should look
