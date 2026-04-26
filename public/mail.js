@@ -118,7 +118,10 @@
     }
   }
 
+  let currentMessage = null;
+
   function renderViewer(m) {
+    currentMessage = m;
     const ini = initials(m.fromName, m.fromEmail);
     const color = colorFor(m.fromEmail || m.from);
     const bodyHtml = m.bodyHtml
@@ -136,10 +139,141 @@
             <small>${escapeHtml(fullTimeFmt(m.date))} · via ${escapeHtml(m.accountAddress || "")}</small>
           </span>
         </p>
+        <div class="mail-viewer-actions">
+          <button type="button" class="secondary-button" data-action="reply">↩ Reply</button>
+          <button type="button" class="secondary-button" data-action="reply-all">↩↩ Reply all</button>
+          <button type="button" class="secondary-button" data-action="forward">→ Forward</button>
+          <button type="button" class="secondary-button danger-button" data-action="delete-msg">Delete</button>
+        </div>
       </div>
       <div class="mail-viewer-body">${bodyHtml}</div>
     `;
   }
+
+  // ── Compose modal ─────────────────────────────────────────────
+  const composeModal = document.getElementById("mail-compose-modal");
+  const composeForm = document.getElementById("mail-compose-form");
+  const composeStatus = document.getElementById("mail-compose-status");
+  const composeBtn = document.getElementById("mail-compose");
+  const composeTitle = document.getElementById("mail-compose-title");
+
+  function openCompose(prefill, title) {
+    if (!accounts.length) {
+      UI?.toast?.("Connect a mailbox first in /mail-settings.", "warning");
+      return;
+    }
+    composeForm.reset();
+    composeTitle.textContent = title || "New message";
+    const fromSel = composeForm.elements.fromAccountId;
+    fromSel.innerHTML = accounts.map((a) =>
+      `<option value="${escapeHtml(a.id)}">${escapeHtml(a.displayName || a.address)} &lt;${escapeHtml(a.address)}&gt;</option>`
+    ).join("");
+    if (prefill) {
+      if (prefill.fromAccountId) fromSel.value = prefill.fromAccountId;
+      if (prefill.to) composeForm.elements.to.value = prefill.to;
+      if (prefill.cc) composeForm.elements.cc.value = prefill.cc;
+      if (prefill.subject) composeForm.elements.subject.value = prefill.subject;
+      if (prefill.body) composeForm.elements.body.value = prefill.body;
+      if (prefill.replyToMessageId) composeForm.elements.replyToMessageId.value = prefill.replyToMessageId;
+      if (prefill.cc || prefill.bcc) composeForm.querySelector(".mail-compose-extra")?.setAttribute("open", "");
+    } else {
+      composeForm.elements.replyToMessageId.value = "";
+    }
+    composeStatus.textContent = "";
+    composeModal.removeAttribute("hidden");
+    setTimeout(() => composeForm.elements.to?.focus(), 50);
+  }
+
+  function closeCompose() {
+    composeModal.setAttribute("hidden", "");
+  }
+
+  composeBtn?.addEventListener("click", () => openCompose(null, "New message"));
+  composeModal?.addEventListener("click", (e) => {
+    if (e.target.dataset.action === "close-compose") closeCompose();
+  });
+
+  composeForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(composeForm);
+    const payload = {
+      fromAccountId: fd.get("fromAccountId"),
+      to: fd.get("to"),
+      cc: fd.get("cc"),
+      bcc: fd.get("bcc"),
+      subject: fd.get("subject"),
+      body: fd.get("body"),
+      replyToMessageId: fd.get("replyToMessageId"),
+    };
+    composeStatus.textContent = "Sending...";
+    try {
+      const r = await fetch("/api/mail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Send failed");
+      UI?.toast?.("Sent.", "success");
+      closeCompose();
+    } catch (err) {
+      composeStatus.textContent = err.message;
+    }
+  });
+
+  // ── Reply / Forward / Delete from viewer ──────────────────────
+  function quoteBody(m) {
+    const stamp = m.date ? new Date(m.date).toLocaleString() : "";
+    const text = (m.bodyText || (m.bodyHtml ? "" : "")).split("\n").map((l) => "> " + l).join("\n");
+    return `\n\n---\nOn ${stamp}, ${m.fromName || m.fromEmail || ""} wrote:\n${text}`;
+  }
+
+  viewerNode?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn || !currentMessage) return;
+    const m = currentMessage;
+    if (btn.dataset.action === "reply") {
+      openCompose({
+        fromAccountId: m.accountId,
+        to: m.fromEmail || m.from,
+        subject: m.subject?.toLowerCase().startsWith("re:") ? m.subject : `Re: ${m.subject || ""}`,
+        body: quoteBody(m),
+        replyToMessageId: m.messageId,
+      }, "Reply");
+    } else if (btn.dataset.action === "reply-all") {
+      const cc = [m.to, m.cc].filter(Boolean).join(", ");
+      openCompose({
+        fromAccountId: m.accountId,
+        to: m.fromEmail || m.from,
+        cc: cc,
+        subject: m.subject?.toLowerCase().startsWith("re:") ? m.subject : `Re: ${m.subject || ""}`,
+        body: quoteBody(m),
+        replyToMessageId: m.messageId,
+      }, "Reply all");
+    } else if (btn.dataset.action === "forward") {
+      openCompose({
+        fromAccountId: m.accountId,
+        subject: m.subject?.toLowerCase().startsWith("fwd:") ? m.subject : `Fwd: ${m.subject || ""}`,
+        body: `\n\n---\nForwarded message:\nFrom: ${m.from || ""}\nDate: ${fullTimeFmt(m.date)}\nSubject: ${m.subject || ""}\nTo: ${m.to || ""}\n\n${m.bodyText || ""}`,
+      }, "Forward");
+    } else if (btn.dataset.action === "delete-msg") {
+      const ok = await UI.confirm("Move this message to Trash?", { dangerous: true });
+      if (!ok) return;
+      try {
+        const r = await fetch(`/api/mail/messages/${encodeURIComponent(m.accountId)}/${encodeURIComponent(m.uid)}`, { method: "DELETE" });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Delete failed");
+        UI?.toast?.("Moved to Trash.", "success");
+        messages = messages.filter((x) => !(x.accountId === m.accountId && x.uid === m.uid));
+        selectedKey = "";
+        currentMessage = null;
+        viewerNode.innerHTML = '<div class="mail-viewer-empty"><div class="mail-empty-illustration mail-empty-illustration--small">✉</div><p>Select a message to read it.</p></div>';
+        renderList();
+      } catch (err) {
+        UI?.toast?.(err.message || "Delete failed", "error");
+      }
+    }
+  });
 
   function selectKey(key) {
     selectedKey = key;

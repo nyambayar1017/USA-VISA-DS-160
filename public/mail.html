@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-220" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-221" />
   </head>
   <body class="app-body" data-page="mail">
     <div class="workspace-shell">
@@ -37,6 +37,7 @@
 
         <section class="card mail-shell" id="mail-shell" hidden>
           <div class="mail-toolbar">
+            <button type="button" id="mail-compose" class="primary-pill">+ Compose</button>
             <select id="mail-account-filter" class="trip-filter-input">
               <option value="">All mailboxes</option>
             </select>
@@ -57,10 +58,50 @@
             </div>
           </div>
         </section>
+
+        <div id="mail-compose-modal" class="mail-compose-modal" hidden>
+          <div class="mail-compose-backdrop" data-action="close-compose"></div>
+          <form id="mail-compose-form" class="mail-compose-card">
+            <header>
+              <h2 id="mail-compose-title">New message</h2>
+              <button type="button" class="mail-compose-close" data-action="close-compose" aria-label="Close">×</button>
+            </header>
+            <label class="mail-compose-row">
+              <span>From</span>
+              <select name="fromAccountId" required></select>
+            </label>
+            <label class="mail-compose-row">
+              <span>To</span>
+              <input name="to" type="text" placeholder="someone@example.com, another@example.com" required />
+            </label>
+            <details class="mail-compose-extra">
+              <summary>Cc / Bcc</summary>
+              <label class="mail-compose-row">
+                <span>Cc</span>
+                <input name="cc" type="text" />
+              </label>
+              <label class="mail-compose-row">
+                <span>Bcc</span>
+                <input name="bcc" type="text" />
+              </label>
+            </details>
+            <label class="mail-compose-row">
+              <span>Subject</span>
+              <input name="subject" type="text" />
+            </label>
+            <textarea name="body" rows="12" placeholder="Write your message..."></textarea>
+            <input type="hidden" name="replyToMessageId" />
+            <footer>
+              <p id="mail-compose-status" class="status"></p>
+              <button type="button" class="secondary-button" data-action="close-compose">Cancel</button>
+              <button type="submit" class="primary-pill" id="mail-compose-send">Send</button>
+            </footer>
+          </form>
+        </div>
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-103"></script>
-    <script src="/mail.js?v=workspace-2"></script>
+    <script src="/mail.js?v=workspace-3"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -8025,6 +8026,172 @@ def handle_list_mail_messages(environ, start_response):
     })
 
 
+def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=None, in_reply_to_subject=None):
+    """Send a plaintext email through Gmail SMTP using the connected account's
+    app password. Also APPENDs the message into Gmail's Sent Mail folder so it
+    shows up in their normal Sent box. Returns (ok, error_message)."""
+    import smtplib
+    from email.message import EmailMessage
+    address = account.get("address")
+    password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
+    smtp_host = account.get("smtpHost") or "smtp.gmail.com"
+    smtp_port = int(account.get("smtpPort") or 465)
+    if not address or not password:
+        return False, "Missing address or password"
+    try:
+        password.encode("ascii")
+    except UnicodeEncodeError:
+        return False, "Password contains non-ASCII characters"
+
+    msg = EmailMessage()
+    display_name = account.get("displayName") or address
+    msg["From"] = f"{display_name} <{address}>"
+    msg["To"] = ", ".join(to_list)
+    if cc_list:
+        msg["Cc"] = ", ".join(cc_list)
+    msg["Subject"] = subject or "(no subject)"
+    if reply_to_message_id:
+        msg["In-Reply-To"] = reply_to_message_id
+        msg["References"] = reply_to_message_id
+    msg.set_content(body or "")
+
+    all_recipients = list(to_list) + list(cc_list or []) + list(bcc_list or [])
+    try:
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as smtp:
+            smtp.login(address, password)
+            smtp.send_message(msg, from_addr=address, to_addrs=all_recipients)
+    except smtplib.SMTPAuthenticationError as exc:
+        return False, f"SMTP auth failed: {exc}"
+    except Exception as exc:
+        return False, f"SMTP send failed: {exc}"
+
+    # Best-effort: append a copy to Gmail's [Gmail]/Sent Mail so the user sees
+    # it in their regular Gmail Sent folder. If it fails, the message was still
+    # sent — we just don't have a Sent record on the server side.
+    try:
+        import imaplib
+        host = account.get("imapHost") or "imap.gmail.com"
+        port = int(account.get("imapPort") or 993)
+        client = imaplib.IMAP4_SSL(host, port, timeout=20)
+        try:
+            client.login(address, password)
+            try:
+                client.append('"[Gmail]/Sent Mail"', "\\Seen", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
+            except Exception:
+                # Try a non-Gmail "Sent" folder name as a fallback
+                try:
+                    client.append('"Sent"', "\\Seen", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
+                except Exception:
+                    pass
+        finally:
+            try: client.logout()
+            except Exception: pass
+    except Exception:
+        pass
+    return True, ""
+
+
+def handle_send_mail(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    account_id = (payload.get("fromAccountId") or "").strip()
+    accounts = read_mail_accounts()
+    account = next((a for a in accounts if a["id"] == account_id), None)
+    if not account:
+        return json_response(start_response, "400 Bad Request", {"error": "Choose a From mailbox"})
+
+    def split_addrs(value):
+        if not value:
+            return []
+        if isinstance(value, list):
+            raw = ", ".join(str(v) for v in value)
+        else:
+            raw = str(value)
+        return [a.strip() for a in raw.replace(";", ",").split(",") if a.strip() and "@" in a]
+
+    to_list = split_addrs(payload.get("to"))
+    cc_list = split_addrs(payload.get("cc"))
+    bcc_list = split_addrs(payload.get("bcc"))
+    subject = (payload.get("subject") or "").strip()
+    body = payload.get("body") or ""
+    reply_to = (payload.get("replyToMessageId") or "").strip()
+    if not to_list:
+        return json_response(start_response, "400 Bad Request", {"error": "At least one To recipient is required"})
+
+    ok, err = smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=reply_to or None)
+    if not ok:
+        return json_response(start_response, "500 Internal Server Error", {"error": err})
+
+    try:
+        log_notification(
+            "mail.sent",
+            actor,
+            "Mail sent",
+            detail=f"{account['address']} → {', '.join(to_list)} · {subject[:80]}",
+            meta={"accountId": account["id"], "to": to_list},
+        )
+    except Exception:
+        pass
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
+def imap_delete_message(account, uid):
+    """Move a message to Trash on Gmail. Returns (ok, error)."""
+    import imaplib
+    address = account.get("address")
+    password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
+    host = account.get("imapHost") or "imap.gmail.com"
+    port = int(account.get("imapPort") or 993)
+    if not address or not password:
+        return False, "Missing address or password"
+    try:
+        client = imaplib.IMAP4_SSL(host, port, timeout=20)
+        try:
+            client.login(address, password)
+            client.select("INBOX")
+            try:
+                client.uid("MOVE", str(uid), '"[Gmail]/Trash"')
+            except Exception:
+                # Fallback: copy + flag deleted + expunge
+                try:
+                    client.uid("COPY", str(uid), '"[Gmail]/Trash"')
+                except Exception:
+                    pass
+                client.uid("STORE", str(uid), "+FLAGS", "(\\Deleted)")
+                client.expunge()
+        finally:
+            try: client.logout()
+            except Exception: pass
+    except Exception as exc:
+        return False, f"Delete failed: {exc}"
+    return True, ""
+
+
+def handle_delete_mail_message(environ, start_response, account_id, uid):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    accounts = read_mail_accounts()
+    account = next((a for a in accounts if a["id"] == account_id), None)
+    if not account:
+        return json_response(start_response, "404 Not Found", {"error": "Mailbox not found"})
+    try:
+        uid_int = int(uid)
+    except ValueError:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid uid"})
+    ok, err = imap_delete_message(account, uid_int)
+    if not ok:
+        return json_response(start_response, "500 Internal Server Error", {"error": err})
+    cache = _read_mail_cache(account_id)
+    cache["messages"] = [m for m in cache.get("messages", []) if int(m.get("uid", 0)) != uid_int]
+    _write_mail_cache(account_id, cache)
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
 def handle_get_mail_message(environ, start_response, account_id, uid):
     actor = require_login(environ, start_response)
     if not actor:
@@ -11097,12 +11264,21 @@ def _dispatch(environ, start_response):
             return handle_list_mail_messages(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/mail/send":
+        if method == "POST":
+            return handle_send_mail(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path.startswith("/api/mail/messages/"):
         tail = path.replace("/api/mail/messages/", "", 1).strip("/")
         if "/" in tail:
-            acc_id, uid = tail.split("/", 1)
+            parts = tail.split("/")
+            acc_id = parts[0]
+            uid = parts[1]
             if method == "GET":
                 return handle_get_mail_message(environ, start_response, acc_id, uid)
+            if method == "DELETE":
+                return handle_delete_mail_message(environ, start_response, acc_id, uid)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/backoffice/summary":
