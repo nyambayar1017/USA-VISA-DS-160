@@ -4081,9 +4081,16 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   bottom: calc(100% + 8px);
 }
 
-.workspace-main .card,
-.manager-table-wrap {
+.workspace-main .card {
   overflow: visible;
+}
+/* Keep popovers/dropdowns escaping vertically (overflow-y: visible) but
+   preserve the horizontal scroll the wrapper sets at line ~3042 — without
+   this split, manager-tables on mobile pushed the whole card past the
+   viewport (FIFA admin Ticket Inventory was the visible regression). */
+.manager-table-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .reservation-inline-modal {
