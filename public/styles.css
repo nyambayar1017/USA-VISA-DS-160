@@ -10433,7 +10433,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 .mail-layout {
   display: grid;
-  grid-template-columns: minmax(380px, 460px) 1fr;
+  grid-template-columns: minmax(440px, 580px) 1fr;
   flex: 1;
   min-height: 0;
 }
@@ -10441,7 +10441,9 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .mail-list {
   border-right: 1px solid rgba(15, 23, 42, 0.06);
   overflow-y: auto;
+  overflow-x: hidden;
   background: #f8fafc;
+  min-width: 0;
 }
 .mail-list .empty { padding: 32px 16px; text-align: center; color: #64748b; }
 
@@ -10597,28 +10599,28 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  flex-shrink: 0;
+  flex-shrink: 1;
   font-size: 0.75rem;
   color: #94a3b8;
   white-space: nowrap;
-  max-width: 50%;
   min-width: 0;
 }
-.mail-list-meta time { font-size: inherit; color: inherit; }
-.mail-list-meta-sep { opacity: 0.6; }
+.mail-list-meta time { font-size: inherit; color: inherit; flex-shrink: 0; }
+.mail-list-meta-sep { opacity: 0.6; flex-shrink: 0; }
 .mail-list-meta-acc {
   font-weight: 600;
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 90px;
+  min-width: 0;
 }
-/* Workspace tint on the account label inline with the date */
-.mail-list-row-wrap[data-workspace="DTX"] .mail-list-meta-acc { color: #1e3a8a; }
-.mail-list-row-wrap[data-workspace="USM"] .mail-list-meta-acc { color: #0f766e; }
-.mail-list-row-wrap.is-read[data-workspace="DTX"] .mail-list-meta-acc { color: #6b7fb8; }
-.mail-list-row-wrap.is-read[data-workspace="USM"] .mail-list-meta-acc { color: #66a89c; }
+/* Workspace tint on the account label inline with the date.
+   Steppe Mongolia (USM) = blue · DTX = orange like the dtx logo. */
+.mail-list-row-wrap[data-workspace="DTX"] .mail-list-meta-acc { color: #ea580c; }
+.mail-list-row-wrap[data-workspace="USM"] .mail-list-meta-acc { color: #1d4ed8; }
+.mail-list-row-wrap.is-read[data-workspace="DTX"] .mail-list-meta-acc { color: #fb923c; }
+.mail-list-row-wrap.is-read[data-workspace="USM"] .mail-list-meta-acc { color: #60a5fa; }
 .mail-list-row-mid { display: flex; gap: 6px; align-items: center; min-width: 0; }
 .mail-list-subject { flex: 1; min-width: 0; font-size: 0.86rem; color: #1e3a8a; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mail-list-attach { font-size: 0.85rem; flex-shrink: 0; }
@@ -10651,11 +10653,12 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   border-color: #f97316;
 }
 
-/* Subtle 3px left stripe on each row indicating workspace */
-.mail-list-row-wrap[data-workspace="DTX"] { box-shadow: inset 3px 0 0 #1e3a8a; }
-.mail-list-row-wrap[data-workspace="USM"] { box-shadow: inset 3px 0 0 #0f766e; }
-.mail-list-row-wrap.is-active[data-workspace="DTX"] { box-shadow: inset 3px 0 0 #1e3a8a, 0 0 0 1px rgba(30, 58, 138, 0.15); background: #eef4ff; }
-.mail-list-row-wrap.is-active[data-workspace="USM"] { box-shadow: inset 3px 0 0 #0f766e, 0 0 0 1px rgba(15, 118, 110, 0.15); background: #ecfdf5; }
+/* Subtle 3px left stripe on each row indicating workspace.
+   Steppe Mongolia (USM) = blue · DTX = orange like the dtx logo. */
+.mail-list-row-wrap[data-workspace="DTX"] { box-shadow: inset 3px 0 0 #ea580c; }
+.mail-list-row-wrap[data-workspace="USM"] { box-shadow: inset 3px 0 0 #2563eb; }
+.mail-list-row-wrap.is-active[data-workspace="DTX"] { box-shadow: inset 3px 0 0 #ea580c, 0 0 0 1px rgba(234, 88, 12, 0.18); background: #fff7ed; }
+.mail-list-row-wrap.is-active[data-workspace="USM"] { box-shadow: inset 3px 0 0 #2563eb, 0 0 0 1px rgba(37, 99, 235, 0.18); background: #eff6ff; }
 .mail-list-row-wrap.is-active { background: #ffffff; }
 
 .mail-viewer {

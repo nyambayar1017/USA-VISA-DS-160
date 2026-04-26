@@ -108,13 +108,15 @@
         : initials(m.fromName, m.fromEmail);
       const color = colorFor(avatarSeed);
       const workspace = (m.workspace || "DTX").toUpperCase();
-      const accountLocal = (m.accountAddress || "").split("@")[0] || (m.accountAddress || "");
+      const accountFull = m.accountAddress || "";
       const dateStr = timeFmt(m.date);
-      // Account info now rides inline with the date as small gray text so
+      // Account info rides inline with the date as small gray text so
       // every row has the exact same three-line layout regardless of
-      // whether the email has a snippet.
-      const metaRight = accountLocal
-        ? `<span class="mail-list-meta" title="${escapeHtml(m.accountAddress || '')}"><time>${escapeHtml(dateStr)}</time><span class="mail-list-meta-sep">·</span><span class="mail-list-meta-acc">${escapeHtml(accountLocal)}</span></span>`
+      // whether the email has a snippet. We show the FULL address because
+      // the user may have multiple addresses sharing a local part
+      // (info@travelx.mn vs info@steppe-mongolia.com).
+      const metaRight = accountFull
+        ? `<span class="mail-list-meta" title="${escapeHtml(accountFull)}"><time>${escapeHtml(dateStr)}</time><span class="mail-list-meta-sep">·</span><span class="mail-list-meta-acc">${escapeHtml(accountFull)}</span></span>`
         : `<span class="mail-list-meta"><time>${escapeHtml(dateStr)}</time></span>`;
       return `
         <div class="mail-list-row-wrap${isActive ? " is-active" : ""}${isUnread ? " is-unread" : " is-read"}${isChecked ? " is-checked" : ""}" data-key="${escapeHtml(key)}" data-workspace="${escapeHtml(workspace)}">
