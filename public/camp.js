@@ -3030,7 +3030,24 @@ const docEmailName = document.getElementById("doc-email-name");
 const docEmailSend = document.getElementById("doc-email-send");
 const docEmailClear = document.getElementById("doc-email-clear");
 const docEmailStatus = document.getElementById("doc-email-status");
+const docSelectAll = document.getElementById("doc-select-all");
 const selectedDocIds = new Set();
+
+function syncSelectAllCheckbox() {
+  if (!docSelectAll || !docList) return;
+  const all = docList.querySelectorAll("[data-doc-select]");
+  const checked = docList.querySelectorAll("[data-doc-select]:checked");
+  if (!all.length || checked.length === 0) {
+    docSelectAll.checked = false;
+    docSelectAll.indeterminate = false;
+  } else if (checked.length === all.length) {
+    docSelectAll.checked = true;
+    docSelectAll.indeterminate = false;
+  } else {
+    docSelectAll.checked = false;
+    docSelectAll.indeterminate = true;
+  }
+}
 
 function docFileIcon(mimeType, name) {
   const ext = (name || "").split(".").pop().toLowerCase();
@@ -3113,6 +3130,7 @@ function renderTripDocuments(docs, tripId) {
   }
   if (activeDocFilter !== "all") {
     docList.innerHTML = filtered.map(function(doc, i) { return renderDocItem(doc, tripId, i + 1); }).join("");
+    syncSelectAllCheckbox();
     return;
   }
   const groups = {};
@@ -3133,6 +3151,7 @@ function renderTripDocuments(docs, tripId) {
     html += '</div>';
   });
   docList.innerHTML = html;
+  syncSelectAllCheckbox();
 }
 
 async function loadTripDocuments(tripId) {
@@ -3186,6 +3205,20 @@ if (docDropZone && isTripDetailPage()) {
     const n = selectedDocIds.size;
     docEmailCount.textContent = n + " selected";
     docEmailBar.classList.toggle("is-hidden", n === 0);
+    syncSelectAllCheckbox();
+  }
+
+  if (docSelectAll) {
+    docSelectAll.addEventListener("change", () => {
+      const want = docSelectAll.checked;
+      docList.querySelectorAll("[data-doc-select]").forEach((cb) => {
+        cb.checked = want;
+        const id = cb.getAttribute("data-doc-select");
+        if (want) selectedDocIds.add(id);
+        else selectedDocIds.delete(id);
+      });
+      updateDocEmailBar();
+    });
   }
 
   if (docList) {
