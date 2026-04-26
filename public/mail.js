@@ -13,6 +13,7 @@
   let messages = [];
   let selectedKey = "";
   let currentFolder = "inbox"; // "inbox" or "sent"
+  let unreadOnly = false;
   const checkedKeys = new Set();
 
   // Read the current workspace (DTX/USM). App-shell stores it in localStorage
@@ -82,6 +83,8 @@
     const acc = accountFilter.value || "";
     return messages.filter((m) => {
       if (acc && m.accountId !== acc) return false;
+      // The unread toggle only applies to inbox; sent has no read/unread.
+      if (unreadOnly && currentFolder === "inbox" && m.isRead) return false;
       if (q) {
         const hay = (m.fromName + " " + m.fromEmail + " " + m.subject + " " + m.snippet).toLowerCase();
         if (!hay.includes(q)) return false;
@@ -1204,7 +1207,15 @@
       return;
     }
     shellNode.removeAttribute("hidden");
-    const wsLabel = currentWorkspace() === "USM" ? "All Steppe Mongolia mailboxes" : "All DTX mailboxes";
+    // Pick the workspace label off the data so it can't drift from what's
+    // actually in the dropdown — if every visible account is USM, label is
+    // "All USM mailboxes"; otherwise default to DTX.
+    const distinctWs = new Set(accounts.map((a) => (a.workspace || "DTX").toUpperCase()));
+    let wsLabel = "All mailboxes";
+    if (distinctWs.size === 1) {
+      const only = [...distinctWs][0];
+      wsLabel = only === "USM" ? "All USM mailboxes" : "All DTX mailboxes";
+    }
     accountFilter.innerHTML = `<option value="">${escapeHtml(wsLabel)}</option>` +
       accounts.map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.address)}</option>`).join("");
     accountFilter.addEventListener("change", renderList);
@@ -1233,6 +1244,13 @@
     });
     document.querySelectorAll(".mail-folder-tab").forEach((t) => {
       t.addEventListener("click", () => setFolder(t.dataset.folder));
+    });
+    const unreadBtn = document.getElementById("mail-unread-toggle");
+    unreadBtn?.addEventListener("click", () => {
+      unreadOnly = !unreadOnly;
+      unreadBtn.classList.toggle("is-active", unreadOnly);
+      unreadBtn.setAttribute("aria-pressed", unreadOnly ? "true" : "false");
+      renderList();
     });
     setupSwipeGestures();
     loadTemplates();

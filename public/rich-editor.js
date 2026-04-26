@@ -361,6 +361,7 @@
     return {
       getHtml: () => content.innerHTML,
       setHtml: (html) => { content.innerHTML = html || ""; },
+      getText: () => (content.innerText || content.textContent || "").trim(),
       focus: () => content.focus(),
       element: wrap,
       contentElement: content,

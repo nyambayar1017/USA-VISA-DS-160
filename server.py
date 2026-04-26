@@ -5646,6 +5646,7 @@ def handle_promo_email(environ, start_response):
     ids = data.get("touristIds") or []
     subject = (data.get("subject") or "").strip()
     body_text = (data.get("body") or "").strip()
+    body_html_in = (data.get("bodyHtml") or "").strip()
     workspace = (data.get("workspace") or "").strip().upper()
     if not isinstance(ids, list) or not ids:
         return json_response(start_response, "400 Bad Request", {"error": "touristIds (non-empty list) is required"})
@@ -5683,12 +5684,19 @@ def handle_promo_email(environ, start_response):
         first = t.get("firstName") or ""
         greet = f"Сайн байна уу{(', ' + first.title()) if first else ''},"
         personalized = f"{greet}\n\n{body_text}"
-        result = _tool_send_email({
+        send_args = {
             "to": email,
             "subject": subject,
             "body": personalized,
             "_company_name": company_name,
-        }, actor)
+        }
+        if body_html_in:
+            # Prepend the personalized greeting as a paragraph above the
+            # rich-editor HTML, then let _tool_send_email use the override
+            # verbatim (instead of escaping the plain body).
+            greet_html = "<p>" + html.escape(greet) + "</p>"
+            send_args["_body_html_override"] = greet_html + body_html_in
+        result = _tool_send_email(send_args, actor)
         if result.get("error"):
             failures.append(f"{email}: {result['error'][:80]}")
         else:
@@ -11360,8 +11368,14 @@ def _tool_send_email(args, actor):
 
     subject = (args.get("subject") or "").strip() or "Travelx документ"
     body = args.get("body") or ""
-    # Treat plain newlines as <br> so the email renders as the agent intended.
-    body_html = "<p>" + html.escape(body).replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    # Callers (e.g. the promo modal with a rich editor) can pass pre-rendered
+    # HTML via _body_html_override and we use it verbatim. Otherwise we treat
+    # plain newlines as <br> so the email renders as the agent intended.
+    body_html_override = args.get("_body_html_override") or ""
+    if body_html_override:
+        body_html = body_html_override
+    else:
+        body_html = "<p>" + html.escape(body).replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
     # Auto-appended footer: small gray italic disclaimer + signature. Server-owned
     # so Bataa can't forget it and styling stays consistent across all sends.
     # Internal callers can pass _skip_footer=True (e.g. when emailing info@travelx.mn

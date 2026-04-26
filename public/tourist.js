@@ -18,6 +18,7 @@
   const promoTarget = document.querySelector("#promo-modal-target");
   const promoForm = document.querySelector("#promo-form");
   const promoStatus = document.querySelector("#promo-status");
+  let promoEditor = null;
   if (!listNode) return;
 
   let trips = [];
@@ -553,6 +554,12 @@
     promoModal.removeAttribute("hidden");
     document.body.classList.add("modal-open");
     promoForm.dataset.recipientIds = recipients.map((r) => r.id).join(",");
+    // Lazy-init the rich editor on first open so we don't pay for it on
+    // every page load.
+    const host = document.getElementById("promo-body-host");
+    if (host && !promoEditor && window.RichEditor) {
+      promoEditor = window.RichEditor.create(host, { minHeight: 260 });
+    }
   }
   function closePromoModal() {
     promoModal.classList.add("is-hidden");
@@ -568,7 +575,8 @@
     const ids = (promoForm.dataset.recipientIds || "").split(",").filter(Boolean);
     if (!ids.length) { promoStatus.textContent = "No recipients."; return; }
     const subject = document.getElementById("promo-subject").value.trim();
-    const body = document.getElementById("promo-body").value.trim();
+    const bodyHtml = (promoEditor?.getHtml() || "").trim();
+    const body = (promoEditor?.getText() || "").trim();
     if (!subject || !body) { promoStatus.textContent = "Subject and body are required."; return; }
     const submitBtn = promoForm.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
@@ -578,7 +586,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          touristIds: ids, subject, body,
+          touristIds: ids, subject, body, bodyHtml,
           workspace: typeof readWorkspace === "function" ? readWorkspace() : "",
         }),
       });
@@ -593,7 +601,7 @@
       alert(msg);
       promoStatus.textContent = msg;
       document.getElementById("promo-subject").value = "";
-      document.getElementById("promo-body").value = "";
+      promoEditor?.setHtml("");
       closePromoModal();
     } catch (err) {
       promoStatus.textContent = "Алдаа: " + err.message;

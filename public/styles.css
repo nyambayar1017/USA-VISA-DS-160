@@ -10388,6 +10388,27 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
+/* Unread-only toggle chip — sits next to the folder tabs. */
+.mail-unread-toggle {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: #475569;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.mail-unread-toggle:hover { color: #0f172a; border-color: rgba(15, 23, 42, 0.2); }
+.mail-unread-toggle.is-active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
 /* Attachment list inside the viewer */
 .mail-attachments {
   margin: 14px 0 6px;

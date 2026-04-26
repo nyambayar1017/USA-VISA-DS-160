@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-236" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-237" />
   </head>
   <body class="app-body" data-page="mail">
     <div class="workspace-shell">
@@ -46,6 +46,7 @@
                   <button type="button" class="mail-folder-tab is-active" data-folder="inbox" role="tab">Inbox</button>
                   <button type="button" class="mail-folder-tab" data-folder="sent" role="tab">Sent</button>
                 </div>
+                <button type="button" id="mail-unread-toggle" class="mail-unread-toggle" aria-pressed="false" title="Show only unread">● Unread</button>
               </div>
               <div class="mail-toolbar-right">
                 <select id="mail-account-filter" class="trip-filter-input">
@@ -240,8 +241,8 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-105"></script>
-    <script src="/rich-editor.js?v=workspace-2"></script>
-    <script src="/mail.js?v=workspace-18"></script>
+    <script src="/rich-editor.js?v=workspace-3"></script>
+    <script src="/mail.js?v=workspace-19"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
