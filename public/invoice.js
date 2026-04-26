@@ -12,6 +12,7 @@
   }
 
   const tripId = new URLSearchParams(window.location.search).get("tripId") || "";
+  let trip = null;
   let groups = [];
   let tourists = [];
   let invoices = [];
@@ -56,20 +57,70 @@
     return data;
   }
 
-  // Wire the contract button — link to /contracts wizard with tripId pre-attached.
+  // "+ Add contract" opens the modal in-place on the trip page (no nav).
+  // Pre-fills destination/dates from trip and shows a tourist picker.
   if (addContractBtn) {
-    addContractBtn.setAttribute("href", `/contracts?openCreate=1&tripId=${encodeURIComponent(tripId)}`);
+    addContractBtn.removeAttribute("href");
+    addContractBtn.setAttribute("role", "button");
+    addContractBtn.style.cursor = "pointer";
+    addContractBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (typeof window.openContractModal !== "function") {
+        window.location.href = `/contracts?openCreate=1&tripId=${encodeURIComponent(tripId)}`;
+        return;
+      }
+      const norm = (s) => String(s || "").trim().toLowerCase();
+      const onlyGroup = groups.length === 1 ? groups[0] : null;
+      const leaderName = norm(onlyGroup?.leaderName);
+      const leaderTourist = leaderName
+        ? tourists.find((tt) => {
+            const a = norm(`${tt.lastName || ""} ${tt.firstName || ""}`);
+            const b = norm(`${tt.firstName || ""} ${tt.lastName || ""}`);
+            return a === leaderName || b === leaderName;
+          })
+        : null;
+      const adultCount = tourists.filter((tt) => {
+        const cat = String(tt.category || tt.ageGroup || "").toLowerCase();
+        return !cat || cat === "adult" || cat === "том";
+      }).length || tourists.length || 1;
+      const childCount = tourists.filter((tt) => {
+        const cat = String(tt.category || tt.ageGroup || "").toLowerCase();
+        return cat === "child" || cat === "хүүхэд";
+      }).length;
+      await window.openContractModal({
+        tripId,
+        groupId: onlyGroup?.id || "",
+        tourists: tourists.map((tt) => ({
+          id: tt.id,
+          lastName: tt.lastName,
+          firstName: tt.firstName,
+          register: tt.register || tt.registerNumber,
+        })),
+        defaultTouristId: leaderTourist?.id || tourists[0]?.id,
+        prefill: {
+          destination: trip?.destination || trip?.country || "",
+          tripStartDate: trip?.startDate || trip?.tripStartDate || "",
+          tripEndDate: trip?.endDate || trip?.tripEndDate || "",
+          adultCount,
+          childCount,
+        },
+        onSuccess: () => loadAll(),
+      });
+    });
   }
 
   async function loadAll() {
     if (!tripId) return;
     try {
-      const [g, t, inv, contractsRes] = await Promise.all([
+      const [tripsRes, g, t, inv, contractsRes] = await Promise.all([
+        fetchJson("/api/camp-trips").catch(() => ({ entries: [] })),
         fetchJson(`/api/tourist-groups?tripId=${encodeURIComponent(tripId)}`),
         fetchJson(`/api/tourists?tripId=${encodeURIComponent(tripId)}`),
         fetchJson(`/api/invoices?tripId=${encodeURIComponent(tripId)}`).catch(() => ({ entries: [] })),
         fetchJson("/api/contracts").catch(() => []),
       ]);
+      const tripsList = Array.isArray(tripsRes) ? tripsRes : (tripsRes.entries || []);
+      trip = tripsList.find((tt) => tt.id === tripId) || null;
       groups = g.entries || [];
       tourists = t.entries || [];
       invoices = inv.entries || [];
