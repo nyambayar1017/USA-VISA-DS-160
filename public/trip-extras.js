@@ -441,6 +441,20 @@
         touristForm.elements.passportIssuePlace.value = "ULAANBAATAR";
       }
     }
+    // Reset the passport upload zone too so a stale token from the
+    // previous tourist isn't sent with the next save.
+    const tk = document.getElementById("tourist-passport-token");
+    if (tk) tk.value = "";
+    const fi = document.getElementById("tourist-passport-file");
+    if (fi) fi.value = "";
+    const pv = document.getElementById("tourist-passport-preview");
+    if (pv) pv.hidden = true;
+    const ps = document.getElementById("tourist-passport-status");
+    if (ps) {
+      ps.textContent = "";
+      ps.hidden = true;
+      ps.className = "tourist-passport-status";
+    }
   }
 
   async function ensureDefaultGroup() {
@@ -476,6 +490,113 @@
 
   touristFormPanel?.addEventListener("click", (e) => {
     if (e.target.dataset?.action === "close-tourist-modal") closeModal(touristFormPanel);
+  });
+
+  // ── Passport scan upload (Mindee OCR auto-fill) ───────────────
+  const passportDropzone = document.getElementById("tourist-passport-dropzone");
+  const passportFileInput = document.getElementById("tourist-passport-file");
+  const passportTokenInput = document.getElementById("tourist-passport-token");
+  const passportStatusEl = document.getElementById("tourist-passport-status");
+  const passportPreviewEl = document.getElementById("tourist-passport-preview");
+  const passportFilenameEl = document.getElementById("tourist-passport-filename");
+
+  function setPassportStatus(text, kind) {
+    if (!passportStatusEl) return;
+    passportStatusEl.textContent = text || "";
+    passportStatusEl.className = "tourist-passport-status" + (kind ? " is-" + kind : "");
+    passportStatusEl.hidden = !text;
+  }
+
+  function clearPassportSelection() {
+    if (passportTokenInput) passportTokenInput.value = "";
+    if (passportFileInput) passportFileInput.value = "";
+    if (passportPreviewEl) passportPreviewEl.hidden = true;
+    if (passportFilenameEl) passportFilenameEl.textContent = "";
+    setPassportStatus("", "");
+    if (passportDropzone) passportDropzone.disabled = false;
+  }
+
+  function applyPassportFields(fields) {
+    if (!fields) return;
+    const fillIfEmpty = (name, value) => {
+      const el = touristForm?.elements?.[name];
+      if (!el || !value) return;
+      if (el.value && el.value.trim()) return;
+      let v = String(value).trim();
+      if (name === "nationality" || name === "lastName" || name === "firstName" || name === "passportNumber") {
+        v = v.toUpperCase();
+      }
+      if ((name === "dob" || name === "passportIssueDate" || name === "passportExpiry") && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        // already ISO yyyy-mm-dd
+      }
+      el.value = v;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    Object.entries(fields).forEach(([k, v]) => fillIfEmpty(k, v));
+  }
+
+  async function scanPassportFile(file) {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    setPassportStatus("Scanning passport…", "");
+    if (passportDropzone) passportDropzone.disabled = true;
+    try {
+      const res = await fetch("/api/tourists/passport-scan", {
+        method: "POST",
+        credentials: "same-origin",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || ("Upload failed (" + res.status + ")"));
+      }
+      if (passportTokenInput) passportTokenInput.value = data.token || "";
+      if (passportPreviewEl && passportFilenameEl) {
+        passportFilenameEl.textContent = file.name;
+        passportPreviewEl.hidden = false;
+      }
+      if (data.qualityOk && data.fields && Object.keys(data.fields).length) {
+        applyPassportFields(data.fields);
+        setPassportStatus("Passport read successfully — please review every field.", "success");
+      } else if (data.reason === "ocr_disabled") {
+        setPassportStatus("Saved. OCR is not configured yet — please type the fields manually.", "warning");
+      } else {
+        setPassportStatus("Passport quality is bad. Please type the fields manually.", "warning");
+      }
+    } catch (err) {
+      setPassportStatus("Could not scan the passport: " + (err.message || err) + ". Please type the fields manually.", "error");
+      if (passportTokenInput) passportTokenInput.value = "";
+    } finally {
+      if (passportDropzone) passportDropzone.disabled = false;
+    }
+  }
+
+  passportDropzone?.addEventListener("click", () => passportFileInput?.click());
+  passportFileInput?.addEventListener("change", () => {
+    const file = passportFileInput.files && passportFileInput.files[0];
+    if (file) scanPassportFile(file);
+  });
+  ["dragenter", "dragover"].forEach((evt) => {
+    passportDropzone?.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      passportDropzone.classList.add("is-dragover");
+    });
+  });
+  ["dragleave", "dragend", "drop"].forEach((evt) => {
+    passportDropzone?.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      passportDropzone.classList.remove("is-dragover");
+    });
+  });
+  passportDropzone?.addEventListener("drop", (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if (file) scanPassportFile(file);
+  });
+  passportPreviewEl?.addEventListener("click", (e) => {
+    if (e.target.dataset.action === "clear-passport") clearPassportSelection();
   });
 
   // Auto-uppercase passport-related inputs on the legacy tourist form

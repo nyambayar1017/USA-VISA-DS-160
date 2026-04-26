@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-214" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-215" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -241,6 +241,24 @@
               </div>
               <form id="tourist-form" class="field-grid">
                 <input type="hidden" name="id" />
+                <input type="hidden" name="passportFileToken" id="tourist-passport-token" />
+                <div class="full-span tourist-passport-upload" id="tourist-passport-upload">
+                  <input type="file" id="tourist-passport-file" accept="image/*,.pdf" hidden />
+                  <button type="button" class="tourist-passport-dropzone" id="tourist-passport-dropzone" data-action="open-passport-picker">
+                    <span class="tourist-passport-dropzone-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M5 11l7-7 7 7"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+                    </span>
+                    <span class="tourist-passport-dropzone-copy">
+                      <strong>Add passport scan</strong>
+                      <span>Drop a passport here or click to upload — fields will fill in automatically</span>
+                    </span>
+                  </button>
+                  <p id="tourist-passport-status" class="tourist-passport-status" hidden></p>
+                  <div id="tourist-passport-preview" class="tourist-passport-preview" hidden>
+                    <span id="tourist-passport-filename"></span>
+                    <button type="button" class="tourist-passport-clear" data-action="clear-passport">Remove</button>
+                  </div>
+                </div>
                 <label>
                   Group
                   <select name="groupId" id="tourist-form-group" required></select>
@@ -1078,7 +1096,7 @@
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/camp.js?v=workspace-116"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
-    <script src="/trip-extras.js?v=workspace-11"></script>
+    <script src="/trip-extras.js?v=workspace-12"></script>
     <script src="/contracts.js?v=workspace-6"></script>
     <script src="/invoice.js?v=workspace-16"></script>
   </body>

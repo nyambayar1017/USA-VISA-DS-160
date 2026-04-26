@@ -63,6 +63,8 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
 BACKUP_WEBHOOK_URL = os.environ.get("BACKUP_WEBHOOK_URL", "").strip()
 BACKUP_TOKEN = os.environ.get("BACKUP_TOKEN", "").strip()
+MINDEE_API_KEY = os.environ.get("MINDEE_API_KEY", "").strip()
+TOURIST_PASSPORT_TEMP_DIR = DATA_DIR / "tourist-passport-temp"
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
 STEPPE_ADDRESS_LINES = [
@@ -106,6 +108,7 @@ def ensure_data_store():
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     TRIP_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    TOURIST_PASSPORT_TEMP_DIR.mkdir(parents=True, exist_ok=True)
     for file_path in [
         CONTRACTS_FILE,
         DS160_FILE,
@@ -5652,6 +5655,15 @@ def handle_create_tourist(environ, start_response):
         record["passportScanPath"] = save_tourist_image(payload["passportScanData"], "tourist-passport", record["id"])
     if payload.get("photoData"):
         record["photoPath"] = save_tourist_image(payload["photoData"], "tourist-photo", record["id"])
+    passport_token = (payload.get("passportFileToken") or "").strip()
+    if passport_token:
+        full_name = ((record.get("lastName") or "") + " " + (record.get("firstName") or "")).strip()
+        try:
+            doc = consume_passport_token(passport_token, record.get("tripId"), record["id"], full_name, actor)
+            if doc:
+                record["passportDocumentId"] = doc["id"]
+        except Exception:
+            pass
     records = read_tourists()
     records.insert(0, record)
     write_tourists(records)
@@ -7267,6 +7279,205 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         write_camp_trips(trips)
         return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
     return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
+
+
+_PASSPORT_FIELD_MAP = {
+    "surname": "lastName",
+    "given_names": "firstName",
+    "gender": "gender",
+    "birth_date": "dob",
+    "country": "nationality",
+    "id_number": "passportNumber",
+    "issuance_date": "passportIssueDate",
+    "expiry_date": "passportExpiry",
+}
+
+
+def mindee_passport_scan(file_bytes, filename, content_type):
+    """Send the uploaded passport to Mindee Passport V1 and return parsed
+    fields. Returns (fields_dict, min_confidence, raw_response). On any
+    network/auth error, raises RuntimeError so the caller can fall back
+    to manual entry. We use the standard library only (urllib) — no new
+    deps. The user's Mindee API key is read from MINDEE_API_KEY env var.
+    """
+    if not MINDEE_API_KEY:
+        raise RuntimeError("MINDEE_API_KEY is not configured")
+    boundary = "----travelxpassport" + uuid4().hex
+    body_parts = [
+        f"--{boundary}".encode(),
+        b'Content-Disposition: form-data; name="document"; filename="' + filename.encode() + b'"',
+        f"Content-Type: {content_type}".encode(),
+        b"",
+        file_bytes,
+        f"--{boundary}--".encode(),
+        b"",
+    ]
+    body = b"\r\n".join(body_parts)
+    req = urllib.request.Request(
+        "https://api.mindee.net/v1/products/mindee/passport/v1/predict",
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Token {MINDEE_API_KEY}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"Mindee error {exc.code}") from exc
+    except Exception as exc:  # network / json / timeout
+        raise RuntimeError("Mindee request failed") from exc
+
+    document = (payload.get("document") or {}).get("inference") or {}
+    prediction = (document.get("prediction") or {})
+    fields = {}
+    confidences = []
+    for source, target in _PASSPORT_FIELD_MAP.items():
+        node = prediction.get(source) or {}
+        value = node.get("value") if isinstance(node, dict) else node
+        confidence = node.get("confidence") if isinstance(node, dict) else None
+        if value:
+            fields[target] = str(value)
+            if isinstance(confidence, (int, float)):
+                confidences.append(float(confidence))
+    if "gender" in fields:
+        g = fields["gender"].strip().upper()
+        if g.startswith("M"):
+            fields["gender"] = "male"
+        elif g.startswith("F"):
+            fields["gender"] = "female"
+        else:
+            fields["gender"] = ""
+    min_confidence = min(confidences) if confidences else 0.0
+    return fields, min_confidence, payload
+
+
+def handle_passport_scan(environ, start_response):
+    """POST /api/tourists/passport-scan — accept a passport image, run
+    Mindee OCR, save the file to the temp passport area keyed by a
+    one-time token, return the parsed fields + token. The client sends
+    the token back when it saves the tourist; that's when the file gets
+    moved into the trip's documents."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    fields, files = parse_multipart(environ)
+    if "file" not in files:
+        return json_response(start_response, "400 Bad Request", {"error": "No file provided"})
+    upload = files["file"]
+    original_name = upload["filename"] or "passport"
+    ext = Path(original_name).suffix.lower() or ".jpg"
+    if ext not in {".pdf", ".jpg", ".jpeg", ".png", ".webp"}:
+        return json_response(start_response, "400 Bad Request", {"error": f"File type {ext} not supported"})
+    data = upload["data"]
+    if not data:
+        return json_response(start_response, "400 Bad Request", {"error": "Empty file"})
+    if len(data) > MAX_UPLOAD_BYTES:
+        return json_response(start_response, "400 Bad Request", {"error": "File too large"})
+
+    token = uuid4().hex
+    ensure_data_store()
+    temp_path = TOURIST_PASSPORT_TEMP_DIR / f"{token}{ext}"
+    temp_path.write_bytes(data)
+
+    if not MINDEE_API_KEY:
+        return json_response(start_response, "200 OK", {
+            "ok": True,
+            "token": token,
+            "fields": {},
+            "qualityOk": False,
+            "reason": "ocr_disabled",
+            "originalName": original_name,
+            "contentType": upload["content_type"],
+        })
+
+    try:
+        parsed, min_confidence, _raw = mindee_passport_scan(data, original_name, upload["content_type"])
+    except RuntimeError:
+        return json_response(start_response, "200 OK", {
+            "ok": True,
+            "token": token,
+            "fields": {},
+            "qualityOk": False,
+            "reason": "ocr_failed",
+            "originalName": original_name,
+            "contentType": upload["content_type"],
+        })
+
+    quality_ok = bool(parsed) and min_confidence >= 0.45
+    return json_response(start_response, "200 OK", {
+        "ok": True,
+        "token": token,
+        "fields": parsed,
+        "minConfidence": min_confidence,
+        "qualityOk": quality_ok,
+        "originalName": original_name,
+        "contentType": upload["content_type"],
+    })
+
+
+def consume_passport_token(token, trip_id, tourist_id, tourist_name, actor):
+    """If a tourist record was saved with a passportFileToken from a
+    prior scan, move the temp file into the trip's documents area as a
+    `Passports & Visas` entry named after the tourist. Returns the new
+    document dict, or None if the token was missing/expired/invalid."""
+    if not token or not trip_id:
+        return None
+    safe_token = "".join(ch for ch in token if ch.isalnum())
+    if not safe_token:
+        return None
+    matches = list(TOURIST_PASSPORT_TEMP_DIR.glob(f"{safe_token}.*"))
+    if not matches:
+        return None
+    src = matches[0]
+    ext = src.suffix.lower()
+    trips = read_camp_trips()
+    trip_index = next((i for i, t in enumerate(trips) if t.get("id") == trip_id), None)
+    if trip_index is None:
+        try:
+            src.unlink()
+        except Exception:
+            pass
+        return None
+    ensure_data_store()
+    doc_id = str(uuid4())
+    trip_upload_dir = TRIP_UPLOADS_DIR / trip_id
+    trip_upload_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = doc_id + ext
+    dest_path = trip_upload_dir / stored_name
+    try:
+        src.rename(dest_path)
+    except OSError:
+        dest_path.write_bytes(src.read_bytes())
+        try:
+            src.unlink()
+        except Exception:
+            pass
+    safe_name = (tourist_name or "passport").strip().replace("/", "-").replace("\\", "-")
+    if not safe_name:
+        safe_name = "passport"
+    original_name = f"{safe_name} passport{ext}"
+    mime_map = {".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    doc = {
+        "id": doc_id,
+        "originalName": original_name,
+        "storedName": stored_name,
+        "mimeType": mime_map.get(ext, "application/octet-stream"),
+        "size": dest_path.stat().st_size,
+        "category": "Passports & Visas",
+        "touristId": tourist_id,
+        "touristName": tourist_name,
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+    trip = trips[trip_index]
+    documents = list(trip.get("documents") or [])
+    documents.append(doc)
+    trips[trip_index] = {**trip, "documents": documents}
+    write_camp_trips(trips)
+    return doc
 
 
 def parse_multipart(environ):
@@ -10208,6 +10419,11 @@ def app(environ, start_response):
     if path == "/api/tourists/export":
         if method == "POST":
             return handle_export_tourists(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/tourists/passport-scan":
+        if method == "POST":
+            return handle_passport_scan(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/tourists/promo-email":
