@@ -3220,6 +3220,8 @@ if (docDropZone && isTripDetailPage()) {
       }
       const name = (docEmailName?.value || "").trim();
       docEmailSend.disabled = true;
+      docEmailStatus.style.color = "";
+      docEmailStatus.style.fontWeight = "";
       docEmailStatus.textContent = "Илгээж байна...";
       try {
         const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/email", {
@@ -3229,7 +3231,11 @@ if (docDropZone && isTripDetailPage()) {
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || "Send failed");
-        docEmailStatus.textContent = "✔ " + data.sent + " файл амжилттай илгээгдлээ → " + recipient;
+        const successMsg = "✔ Амжилттай илгээгдлээ! " + data.sent + " файл → " + recipient;
+        docEmailStatus.textContent = successMsg;
+        docEmailStatus.style.color = "#1a7f3a";
+        docEmailStatus.style.fontWeight = "600";
+        alert(successMsg);
         selectedDocIds.clear();
         docList.querySelectorAll("[data-doc-select]").forEach((cb) => { cb.checked = false; });
         updateDocEmailBar();
