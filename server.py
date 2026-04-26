@@ -8199,6 +8199,7 @@ def handle_generate_contract(environ, start_response):
         contracts = read_contracts()
         record["createdBy"] = actor_snapshot(actor)
         record["updatedBy"] = actor_snapshot(actor)
+        record["company"] = active_workspace(environ) or "DTX"
         attached_trip = normalize_text(payload.get("attachedTripId"))
         attached_group = normalize_text(payload.get("attachedGroupId"))
         if attached_trip:
@@ -8237,8 +8238,17 @@ def handle_generate_contract(environ, start_response):
         return json_response(start_response, "500 Internal Server Error", {"error": f"Could not generate contract: {exc}"})
 
 
-def handle_list_contracts(start_response):
-    return json_response(start_response, "200 OK", read_contracts())
+def handle_list_contracts(environ, start_response):
+    workspace = active_workspace(environ)
+    contracts = read_contracts()
+    if workspace:
+        # Legacy contracts written before workspace stamping default to "DTX"
+        # (every existing contract was created under DTX per the team's confirmation).
+        contracts = [
+            c for c in contracts
+            if (str(c.get("company") or "DTX")).strip().upper() == workspace
+        ]
+    return json_response(start_response, "200 OK", contracts)
 
 
 def find_contract(contract_id):
@@ -10359,7 +10369,7 @@ def app(environ, start_response):
         if method == "GET":
             if not require_login(environ, start_response):
                 return []
-            return handle_list_contracts(start_response)
+            return handle_list_contracts(environ, start_response)
         if method == "POST":
             if not require_login(environ, start_response):
                 return []

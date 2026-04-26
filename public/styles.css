@@ -3288,258 +3288,15 @@ time {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.reservation-addon-table {
-  table-layout: auto;
-  min-width: 0;
-}
+/* Reservation/payment tables now share the unified Tourist-Directory layout
+   (see the rule block near the bottom of this file). The bespoke per-column
+   widths and 12 px font sizes that used to live here were intentionally
+   removed so flight/transfer/camp tables breathe like Tourist Directory.
+   Only behavior-only rules (text alignment, status-pill helpers) remain. */
 
 .reservation-addon-table th,
 .reservation-addon-table td {
   vertical-align: middle;
-  overflow-wrap: normal;
-  word-break: normal;
-}
-
-.reservation-addon-table th,
-.reservation-addon-table td {
-  padding: 8px 8px;
-}
-
-.reservation-addon-table td {
-  white-space: nowrap;
-}
-
-.reservation-addon-table th {
-  white-space: normal;
-}
-
-.reservation-addon-table th:nth-child(1),
-.reservation-addon-table td:nth-child(1) {
-  width: 42px;
-  min-width: 42px;
-  max-width: 42px;
-  padding-left: 6px;
-  padding-right: 6px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.reservation-addon-table th:nth-child(2),
-.reservation-addon-table td:nth-child(2) {
-  min-width: 150px;
-}
-
-.flight-reservation-table th,
-.flight-reservation-table td {
-  font-size: 12px;
-  line-height: 1.2;
-}
-
-.flight-reservation-table th {
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: normal;
-  line-height: 1.15;
-}
-
-.flight-reservation-table th:nth-child(3),
-.flight-reservation-table td:nth-child(3) {
-  min-width: 92px;
-  white-space: nowrap;
-}
-
-.flight-reservation-table th:nth-child(4),
-.flight-reservation-table td:nth-child(4) {
-  min-width: 80px;
-}
-
-.flight-reservation-table th:nth-child(5),
-.flight-reservation-table td:nth-child(5),
-.flight-reservation-table th:nth-child(6),
-.flight-reservation-table td:nth-child(6) {
-  min-width: 108px;
-  white-space: nowrap;
-}
-
-.flight-reservation-table th:nth-child(7),
-.flight-reservation-table td:nth-child(7) {
-  min-width: 44px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.flight-reservation-table th:nth-child(8),
-.flight-reservation-table td:nth-child(8) {
-  min-width: 48px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.flight-reservation-table th:nth-child(9),
-.flight-reservation-table td:nth-child(9) {
-  min-width: 96px;
-  text-align: center;
-  white-space: normal;
-}
-
-.flight-reservation-table th:nth-child(10),
-.flight-reservation-table td:nth-child(10) {
-  min-width: 96px;
-  text-align: center;
-  white-space: normal;
-}
-
-.flight-reservation-table th:nth-child(11),
-.flight-reservation-table td:nth-child(11),
-.flight-reservation-table th:nth-child(12),
-.flight-reservation-table td:nth-child(12) {
-  min-width: 110px;
-  text-align: center;
-  white-space: normal;
-}
-
-.flight-payment-table th,
-.flight-payment-table td {
-  font-size: 12px;
-  line-height: 1.2;
-}
-
-.flight-payment-table th:nth-child(3),
-.flight-payment-table td:nth-child(3) {
-  min-width: 92px;
-  white-space: nowrap;
-}
-
-.flight-payment-table th:nth-child(4),
-.flight-payment-table td:nth-child(4) {
-  min-width: 104px;
-  text-align: right;
-}
-
-.flight-payment-table th:nth-child(5),
-.flight-payment-table td:nth-child(5) {
-  min-width: 112px;
-  text-align: right;
-}
-
-.flight-payment-table th:nth-child(6),
-.flight-payment-table td:nth-child(6) {
-  min-width: 92px;
-  text-align: center;
-}
-
-.flight-payment-table th:nth-child(7),
-.flight-payment-table td:nth-child(7),
-.flight-payment-table th:nth-child(8),
-.flight-payment-table td:nth-child(8),
-.flight-payment-table th:nth-child(9),
-.flight-payment-table td:nth-child(9) {
-  min-width: 96px;
-}
-
-.flight-payment-table th:nth-child(10),
-.flight-payment-table td:nth-child(10) {
-  min-width: 150px;
-  white-space: normal;
-}
-
-.flight-payment-table th:nth-child(11),
-.flight-payment-table td:nth-child(11) {
-  min-width: 78px;
-}
-
-.transfer-reservation-table {
-  table-layout: fixed;
-  width: max-content;
-  min-width: 100%;
-}
-
-.transfer-reservation-table th,
-.transfer-reservation-table td {
-  padding-inline: 10px;
-}
-
-.transfer-col-index {
-  width: 44px;
-}
-
-.transfer-col-trip {
-  width: 210px;
-}
-
-.transfer-col-type {
-  width: 108px;
-}
-
-.transfer-col-pickup,
-.transfer-col-dropoff {
-  width: 82px;
-}
-
-.transfer-col-date {
-  width: 124px;
-}
-
-.transfer-col-pax {
-  width: 54px;
-}
-
-.transfer-col-driver {
-  width: 150px;
-}
-
-.transfer-col-vehicle {
-  width: 108px;
-}
-
-.transfer-col-salary {
-  width: 132px;
-}
-
-.transfer-col-payment {
-  width: 100px;
-}
-
-.transfer-col-notes {
-  width: 150px;
-}
-
-.transfer-col-actions {
-  width: 70px;
-}
-
-.transfer-reservation-table th:nth-child(4),
-.transfer-reservation-table td:nth-child(4),
-.transfer-reservation-table th:nth-child(5),
-.transfer-reservation-table td:nth-child(5),
-.transfer-reservation-table th:nth-child(7),
-.transfer-reservation-table td:nth-child(7),
-.transfer-reservation-table th:nth-child(13),
-.transfer-reservation-table td:nth-child(13) {
-  text-align: center;
-}
-
-.transfer-reservation-table th:nth-child(6),
-.transfer-reservation-table td:nth-child(6),
-.transfer-reservation-table th:nth-child(10),
-.transfer-reservation-table td:nth-child(10),
-.transfer-reservation-table th:nth-child(11),
-.transfer-reservation-table td:nth-child(11) {
-  white-space: nowrap;
-}
-
-.transfer-reservation-table th:nth-child(10),
-.transfer-reservation-table td:nth-child(10) {
-  text-align: right;
-}
-
-.transfer-reservation-table th:nth-child(8),
-.transfer-reservation-table td:nth-child(8),
-.transfer-reservation-table th:nth-child(12),
-.transfer-reservation-table td:nth-child(12) {
-  white-space: normal;
-  word-break: normal;
-  overflow-wrap: anywhere;
 }
 
 .reservation-addon-table .status-pill {
@@ -9413,6 +9170,27 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   font-family: inherit !important;
   font-size: 14px !important;
   white-space: nowrap;
+}
+
+/* `#` row-counter column: pin to its content width on every unified
+   listing table so the auto-layout algorithm can't bloat it (the bug
+   that left a "huge gap" between # and Serial on Trips/Flight/Transfer
+   /Camp/Contracts when the table had columns of mostly short content). */
+.invoices-table th:first-child, .invoices-table td:first-child,
+.trip-table th:first-child, .trip-table td:first-child,
+.camp-table th:first-child, .camp-table td:first-child,
+.contract-table th:first-child, .contract-table td:first-child,
+.contract-trip-table th:first-child, .contract-trip-table td:first-child,
+.tourist-directory-table th:first-child, .tourist-directory-table td:first-child,
+.reservation-addon-table th:first-child, .reservation-addon-table td:first-child,
+.camp-reservation-table th:first-child, .camp-reservation-table td:first-child,
+.flight-reservation-table th:first-child, .flight-reservation-table td:first-child,
+.transfer-reservation-table th:first-child, .transfer-reservation-table td:first-child,
+.camp-payment-table th:first-child, .camp-payment-table td:first-child,
+.flight-payment-table th:first-child, .flight-payment-table td:first-child,
+.manager-table th:first-child, .manager-table td:first-child {
+  width: 1% !important;
+  white-space: nowrap !important;
 }
 
 /* Tourist Directory: marketing status pill + view-toggle popover */
