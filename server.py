@@ -3680,7 +3680,7 @@ def build_invoice_html(record, asset_mode="web"):
           <tr>
             <th>№</th>
             <th>Утга</th>
-            <th>Тоо ширхэг</th>
+            <th>Аялагч</th>
             <th>Нэгжийн үнэ</th>
             <th>Нийт үнэ</th>
           </tr>
@@ -3772,10 +3772,16 @@ def build_standalone_invoice_html(invoice):
     customer = html.escape(str((invoice.get("payerName") or "CLIENT")).upper())
     items = invoice.get("items") or []
     grand = sum((float(it.get("qty") or 0) * float(it.get("price") or 0)) for it in items)
+    def _fmt_qty(q):
+        try:
+            f = float(q or 0)
+        except (TypeError, ValueError):
+            return html.escape(str(q or 0))
+        return str(int(f)) if f.is_integer() else str(f)
     items_rows = "".join(
         f"<tr><td>{i+1}</td>"
         f"<td>{html.escape(str(it.get('description') or ''))}</td>"
-        f"<td>{html.escape(str(it.get('qty') or 0))}</td>"
+        f"<td>{_fmt_qty(it.get('qty'))}</td>"
         f"<td>{_fmt_money(it.get('price'))}</td>"
         f"<td>{_fmt_money(float(it.get('qty') or 0) * float(it.get('price') or 0))}</td></tr>"
         for i, it in enumerate(items)
@@ -3882,7 +3888,7 @@ def build_standalone_invoice_html(invoice):
   </div>
   <p class="section-title">Үнийн мэдээлэл</p>
   <table class="invoice-items-table">
-    <thead><tr><th>№</th><th>Утга</th><th>Тоо ширхэг</th><th>Нэгжийн үнэ</th><th>Нийт үнэ</th></tr></thead>
+    <thead><tr><th>№</th><th>Утга</th><th>Аялагч</th><th>Нэгжийн үнэ</th><th>Нийт үнэ</th></tr></thead>
     <tbody>{items_rows}<tr class="total-row"><td colspan="4">Нийт үнэ</td><td>{_fmt_money(grand)}</td></tr></tbody>
   </table>
   <p class="section-title">Төлбөрийн хуваарь</p>
