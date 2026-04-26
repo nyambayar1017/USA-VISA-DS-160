@@ -4118,16 +4118,13 @@ body.modal-open {
 
 .camp-table {
   width: 100%;
-  min-width: 1780px;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 13px;
+  /* min-width / table-layout removed — they fought the unified auto-layout
+     and forced columns into 34 px slots that wrapped YYYY-MM-DD. */
 }
 
 .trip-table {
-  width: max-content;
-  min-width: 100%;
-  table-layout: fixed;
+  width: 100%;
 }
 
 .camp-table th,
