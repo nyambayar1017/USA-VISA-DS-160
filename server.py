@@ -8965,6 +8965,16 @@ def _tool_send_email(args, actor):
     body = args.get("body") or ""
     # Treat plain newlines as <br> so the email renders as the agent intended.
     body_html = "<p>" + html.escape(body).replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    # Auto-appended footer: small gray italic disclaimer + signature. Server-owned
+    # so Bataa can't forget it and styling stays consistent across all sends.
+    body_html += (
+        '<p style="color:#888;font-style:italic;font-size:12px;margin-top:20px">'
+        'Энэ имэйл нь автомат илгээгдсэн тул буцааж хариу бичихгүй байхыг хүсье. '
+        'Шаардлагатай бол <a href="mailto:info@travelx.mn" style="color:#888">info@travelx.mn</a> '
+        'эсвэл <a href="tel:+97672007722" style="color:#888">72007722</a> дугаараар холбогдоорой.'
+        '</p>'
+        '<p style="margin-top:8px">Хүндэтгэсэн,<br>Дэлхий Трэвел Икс</p>'
+    )
 
     raw_attachments = args.get("attachments") or []
     if not isinstance(raw_attachments, list):
@@ -9421,6 +9431,7 @@ Email:
 - Attach files by reference. For each attachment pass an object with a `kind` field plus the right id/path: kind="invoice" with id=<invoice id>; kind="contract" with id=<contract id>; kind="tourist_passport" with id=<tourist id>; kind="file" with path="/generated/...". The server fetches and renders the right file — you do not need to know the underlying path.
 - Default subject in Mongolian unless admin specified otherwise. Always confirm to the admin which addresses received the mail and which files were attached.
 - If a field is unclear or partially obscured, say so rather than guessing.
+- DO NOT write a closing signature ("Хүндэтгэсэн", "Дэлхий Трэвел Икс", "Travelx team", company name, contact info, "автомат имэйл" disclaimer, etc.) at the end of `body`. The server appends a fixed gray-italic disclaimer and the company signature automatically. Just write greeting → content → "Баярлалаа" (or similar short close), and stop.
 """
 
 
