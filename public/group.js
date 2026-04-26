@@ -1399,8 +1399,9 @@ participantsList.addEventListener("click", async (e) => {
       "firstName", "lastName", "gender", "dob", "nationality",
       "passportNumber", "passportIssueDate", "passportExpiry", "passportIssuePlace",
       "registrationNumber", "phone", "email", "notes", "roomType", "roomCode",
+      "marketingStatus",
     ].forEach((key) => {
-      if (form.elements[key]) form.elements[key].value = t[key] || "";
+      if (form.elements[key]) form.elements[key].value = t[key] || (key === "marketingStatus" ? "standard" : "");
     });
     formTitle.textContent = `Edit ${t.serial}`;
     openModal();

@@ -5343,6 +5343,7 @@ def build_tourist(payload, actor=None):
         "registrationNumber": upper_text(payload.get("registrationNumber")),
         "phone": normalize_text(payload.get("phone")),
         "email": normalize_text(payload.get("email")).lower(),
+        "marketingStatus": normalize_text(payload.get("marketingStatus")).lower() or "standard",
         "roomType": normalize_room_type(payload.get("roomType")),
         "roomCode": normalize_text(payload.get("roomCode")),
         "passportScanPath": normalize_text(payload.get("passportScanPath")),
@@ -5509,6 +5510,73 @@ def handle_list_tourists(environ, start_response):
     return json_response(start_response, "200 OK", {"entries": tourists})
 
 
+def handle_promo_email(environ, start_response):
+    """POST /api/tourists/promo-email — admin-driven marketing send. Body:
+    {touristIds: [...], subject, body, workspace?}. Sends an individual email
+    per tourist (so they can't see each other), filtering out anyone with
+    marketingStatus="do_not_contact" or no email on file."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    try:
+        body_raw = environ["wsgi.input"].read(int(environ.get("CONTENT_LENGTH") or "0"))
+        data = json.loads(body_raw)
+    except Exception:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid JSON"})
+    ids = data.get("touristIds") or []
+    subject = (data.get("subject") or "").strip()
+    body_text = (data.get("body") or "").strip()
+    workspace = (data.get("workspace") or "").strip().upper()
+    if not isinstance(ids, list) or not ids:
+        return json_response(start_response, "400 Bad Request", {"error": "touristIds (non-empty list) is required"})
+    if not subject or not body_text:
+        return json_response(start_response, "400 Bad Request", {"error": "subject and body are required"})
+
+    tourists_by_id = {t.get("id"): t for t in read_tourists()}
+    targets = []
+    skipped_no_email = 0
+    skipped_optout = 0
+    for tid in ids:
+        t = tourists_by_id.get(tid)
+        if not t:
+            continue
+        status = (t.get("marketingStatus") or "").lower()
+        if status == "do_not_contact":
+            skipped_optout += 1
+            continue
+        email = (t.get("email") or "").strip()
+        if not email or "@" not in email:
+            skipped_no_email += 1
+            continue
+        targets.append((t, email))
+
+    company_name = "Unlock Steppe Mongolia" if workspace == "USM" else "Дэлхий Трэвел Икс"
+    sent = 0
+    failures = []
+    for t, email in targets:
+        first = t.get("firstName") or ""
+        greet = f"Сайн байна уу{(', ' + first.title()) if first else ''},"
+        personalized = f"{greet}\n\n{body_text}"
+        result = _tool_send_email({
+            "to": email,
+            "subject": subject,
+            "body": personalized,
+            "_company_name": company_name,
+        }, actor)
+        if result.get("error"):
+            failures.append(f"{email}: {result['error'][:80]}")
+        else:
+            sent += 1
+
+    return json_response(start_response, "200 OK", {
+        "ok": True,
+        "sent": sent,
+        "skippedNoEmail": skipped_no_email,
+        "skippedOptOut": skipped_optout,
+        "failures": failures[:20],
+    })
+
+
 def handle_create_tourist(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -5553,7 +5621,7 @@ def handle_update_tourist(environ, start_response, tourist_id):
             continue
         merged = {**record}
         upper_keys = {"firstName", "lastName", "nationality", "passportNumber", "passportIssuePlace", "registrationNumber"}
-        for key in ["firstName", "lastName", "gender", "dob", "nationality", "passportNumber", "passportIssueDate", "passportExpiry", "passportIssuePlace", "registrationNumber", "phone", "email", "notes", "roomCode"]:
+        for key in ["firstName", "lastName", "gender", "dob", "nationality", "passportNumber", "passportIssueDate", "passportExpiry", "passportIssuePlace", "registrationNumber", "phone", "email", "notes", "roomCode", "marketingStatus"]:
             if key in payload:
                 value = normalize_text(payload.get(key))
                 if key == "email":
@@ -10006,6 +10074,11 @@ def app(environ, start_response):
     if path == "/api/tourists/export":
         if method == "POST":
             return handle_export_tourists(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/tourists/promo-email":
+        if method == "POST":
+            return handle_promo_email(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/invoices":

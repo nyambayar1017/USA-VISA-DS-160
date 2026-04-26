@@ -9446,3 +9446,38 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   font-size: 14px !important;
   white-space: nowrap;
 }
+
+/* Tourist Directory: marketing status pill + view-toggle popover */
+.ts-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ts-pill-potential       { background: #fff7ed; color: #9a3412; }
+.ts-pill-standard        { background: #eff6ff; color: #1e3a8a; }
+.ts-pill-vip             { background: #fef3c7; color: #92400e; }
+.ts-pill-do_not_contact  { background: #f3f4f6; color: #4b5563; }
+
+.tourist-view-popover {
+  min-width: 200px;
+  padding: 8px 0;
+}
+.ts-view-title {
+  margin: 0 0 6px;
+  padding: 0 14px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #4b5563;
+}
+.ts-view-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.ts-view-row:hover { background: #f9fafb; }
+.ts-view-row input { accent-color: #c64d3a; }

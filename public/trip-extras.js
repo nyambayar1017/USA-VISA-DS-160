@@ -526,8 +526,9 @@
         "firstName", "lastName", "gender", "dob", "nationality",
         "passportNumber", "passportIssueDate", "passportExpiry", "passportIssuePlace",
         "registrationNumber", "phone", "email", "notes", "roomType", "roomCode",
+        "marketingStatus",
       ].forEach((key) => {
-        if (touristForm.elements[key]) touristForm.elements[key].value = tourist[key] || "";
+        if (touristForm.elements[key]) touristForm.elements[key].value = tourist[key] || (key === "marketingStatus" ? "standard" : "");
       });
       touristForm.elements.groupId.value = tourist.groupId || "";
       if (touristFormTitle) touristFormTitle.textContent = `Edit tourist ${tourist.serial}`;

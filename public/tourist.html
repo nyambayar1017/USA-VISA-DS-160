@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TravelX Tourist</title>
+    <title>Tourists</title>
     <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-181" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-182" />
   </head>
   <body class="app-body" data-page="tourist">
     <div class="workspace-shell">
@@ -26,20 +26,62 @@
 
         <section class="card" id="tourist-section">
           <div class="section-head">
-            <h2>Tourist Directory</h2>
-            <p>Every tourist across every trip in this workspace, with serials, passports, and group links.</p>
+            <div>
+              <h2>Tourist Directory</h2>
+              <p>Every tourist across every trip in this workspace, with serials, passports, and group links.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="tourist-promo-btn" class="header-action-btn">+ Send promo</button>
+            </div>
           </div>
 
-          <div class="tourist-filter-bar">
-            <input id="tourist-filter-name" type="search" placeholder="Search by name" class="trip-filter-input" autocomplete="off" />
-            <input id="tourist-filter-serial" type="search" placeholder="Search by serial" class="trip-filter-input" autocomplete="off" />
+          <div class="invoices-saved-filter-row">
+            <details class="trip-saved-filter-dropdown" data-saved-filter-dropdown>
+              <summary>
+                <span data-saved-filter-current>Select saved filter</span>
+                <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </summary>
+              <div class="trip-saved-filter-popover" data-saved-filter-popover></div>
+            </details>
+            <button type="button" id="tourist-clear-filter-btn" class="trip-saved-filter-action">Clear</button>
+            <details class="trip-saved-filter-dropdown" id="tourist-view-dropdown">
+              <summary>
+                <span>View</span>
+                <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </summary>
+              <div class="trip-saved-filter-popover tourist-view-popover" id="tourist-view-popover"></div>
+            </details>
+          </div>
+
+          <div class="invoices-filter-bar">
+            <input id="tourist-filter-name" type="search" placeholder="Search by name" autocomplete="off" />
+            <input id="tourist-filter-serial" type="search" placeholder="Search by serial" autocomplete="off" />
             <select id="tourist-filter-trip" class="trip-filter-input">
               <option value="">All trips</option>
             </select>
             <select id="tourist-filter-group" class="trip-filter-input">
               <option value="">All groups</option>
             </select>
-            <input id="tourist-filter-nationality" type="search" placeholder="Nationality" class="trip-filter-input" autocomplete="off" />
+            <input id="tourist-filter-nationality" type="search" placeholder="Nationality" autocomplete="off" />
+            <details class="trip-filter-pill trip-filter-pill-date" id="tourist-dob-pill">
+              <summary>
+                <span class="trip-filter-pill-icon trip-filter-date-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+                </span>
+                <span class="trip-filter-pill-label">DOB between</span>
+                <span class="trip-filter-pill-count" id="tourist-dob-count" hidden>0</span>
+              </summary>
+              <div class="trip-filter-popover trip-filter-popover-date">
+                <label>From <input id="tourist-filter-dob-from" type="date" /></label>
+                <label>To <input id="tourist-filter-dob-to" type="date" /></label>
+              </div>
+            </details>
+            <div class="invoices-status-pills" id="tourist-status-pills">
+              <button type="button" class="invoices-status-pill" data-status="potential">Potential</button>
+              <button type="button" class="invoices-status-pill" data-status="standard">Standard</button>
+              <button type="button" class="invoices-status-pill" data-status="vip">VIP</button>
+              <button type="button" class="invoices-status-pill" data-status="do_not_contact">Do not contact</button>
+            </div>
           </div>
 
           <p class="tourist-count" id="tourist-count"></p>
@@ -47,7 +89,36 @@
         </section>
       </main>
     </div>
+
+    <div id="promo-modal" class="camp-modal workspace-form-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-promo-modal"></div>
+      <div class="camp-modal-dialog workspace-form-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Send promotional email</h2>
+            <p class="camp-modal-copy" id="promo-modal-target">Recipients: 0</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-promo-modal" aria-label="Close">×</button>
+        </div>
+        <form id="promo-form" class="field-grid">
+          <label class="full-span">
+            Subject
+            <input id="promo-subject" type="text" placeholder="Шинэ аялал — Dubai 2026" required />
+          </label>
+          <label class="full-span">
+            Message body (Mongolian or English)
+            <textarea id="promo-body" rows="8" required placeholder="Сайн байна уу,&#10;&#10;Бид танд шинэ аяллын хөтөлбөр санал болгож байна..."></textarea>
+          </label>
+          <div class="actions full-span">
+            <button type="submit">Send to filtered tourists</button>
+            <button type="button" class="secondary-button" data-action="close-promo-modal">Cancel</button>
+            <p id="promo-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script src="/app-shell.js?v=workspace-95"></script>
-    <script src="/tourist.js?v=workspace-2"></script>
+    <script src="/tourist.js?v=workspace-3"></script>
   </body>
 </html>
