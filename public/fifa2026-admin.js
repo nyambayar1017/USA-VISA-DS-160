@@ -2089,10 +2089,10 @@ function renderTickets() {
         <span>#</span>
         <span>Date</span>
         <span>Match</span>
+        <span>Total</span>
         <span>Cat 1</span>
         <span>Cat 2</span>
         <span>Cat 3</span>
-        <span>Total</span>
         <span>City</span>
         <span>Group</span>
         <span>Stage</span>
@@ -2116,10 +2116,10 @@ function renderTickets() {
                   <strong>${escapeHtml(group.label)}</strong>
                   <span class="fifa-table-sub">${escapeHtml(group.venue || "-")}</span>
                 </div>
+                ${renderTotalCell(group)}
                 ${renderCatCell(group, "1")}
                 ${renderCatCell(group, "2")}
                 ${renderCatCell(group, "3")}
-                ${renderTotalCell(group)}
                 <div class="fifa-match-col fifa-match-col--city">
                   <strong>${escapeHtml(group.city)}</strong>
                 </div>

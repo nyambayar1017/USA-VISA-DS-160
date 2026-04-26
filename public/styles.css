@@ -5899,11 +5899,22 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   min-width: 980px;
 }
 
-/* Admin variant has 11 columns instead of 8 (3 cat + 1 total replace
-   the old single Availability column), so it needs more horizontal room. */
+/* Admin variant has 11 columns. Min-width covers all fixed cells +
+   the Match column's intrinsic minimum (180 px) + gaps. The Match
+   column itself is `minmax(180px, 1fr)` in the grid, so on wider
+   screens it expands and the whole table fills the workspace card
+   instead of looking half-width. */
 .fifa-admin-match-list.fifa-match-accordion--table > .fifa-match-table-head,
 .fifa-admin-match-list.fifa-match-accordion--table > .fifa-match-card {
-  min-width: 1280px;
+  min-width: 1180px;
+}
+
+/* Public variant also has 11 columns now (Билет column was replaced
+   by Cat 1 / Cat 2 / Cat 3 / Total). Slightly tighter than admin
+   because the Cat cells just hold a number, no price + count. */
+.fifa-public-match-list.fifa-match-accordion--table > .fifa-match-table-head,
+.fifa-public-match-list.fifa-match-accordion--table > .fifa-match-card {
+  min-width: 1120px;
 }
 
 .fifa-match-table-head {
@@ -5924,7 +5935,38 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 
 .fifa-admin-match-list .fifa-match-table-head {
-  grid-template-columns: 36px 92px 168px 86px 86px 86px 76px 110px 96px 110px 88px;
+  grid-template-columns: 36px 92px minmax(180px, 1fr) 76px 86px 86px 86px 110px 96px 110px 88px;
+}
+
+/* Public list: same 11-column shape but no Total-popover, no prices —
+   each Cat cell is just an availability number, Total is also a plain
+   number, all positioned after the Cat columns. */
+.fifa-public-match-list .fifa-match-table-head,
+.fifa-public-match-list .fifa-match-toggle {
+  grid-template-columns: 36px 92px minmax(180px, 1fr) 64px 64px 64px 76px 110px 96px 110px 110px !important;
+}
+
+.fifa-public-match-list .fifa-match-col--cat strong {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #1f2d50;
+}
+.fifa-public-match-list .fifa-match-col--cat strong.fifa-cat-empty {
+  color: rgba(32, 53, 111, 0.3);
+  font-weight: 500;
+}
+.fifa-public-match-list .fifa-match-col--total strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(37, 58, 119, 0.08);
+  color: var(--brand);
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .fifa-match-card {
@@ -5949,7 +5991,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 
 .fifa-admin-match-list .fifa-match-toggle {
-  grid-template-columns: 36px 92px 168px 86px 86px 86px 76px 110px 96px 110px 88px;
+  grid-template-columns: 36px 92px minmax(180px, 1fr) 76px 86px 86px 86px 110px 96px 110px 88px;
 }
 
 /* Per-category cell: price on top, available count below. */
@@ -9847,6 +9889,21 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
   .fifa-public-match-list.fifa-match-accordion--table {
     overflow-x: visible !important;
+  }
+
+  /* FIFA admin Ticket Inventory list on phones: the 1180-px wide grid
+     was pushing the card past the viewport. Constrain the wrapper and
+     force horizontal scroll on the accordion itself with iOS smooth
+     scrolling. (Avoid `overflow-x: hidden` on the wrapper — that would
+     also collapse `overflow-y: visible` to auto and clip the kebab
+     popover.) */
+  #fifa-ticket-inventory-view {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  .fifa-admin-match-list.fifa-match-accordion--table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
   /* Pagination text/meta still shrinks on phones (the buttons themselves

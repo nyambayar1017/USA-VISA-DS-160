@@ -609,13 +609,28 @@ function renderPublicTickets() {
     return;
   }
 
+  const renderCatNumberCell = (row, code) => {
+    const cat = row.categoryBreakdown.find((item) => item.categoryCode === code);
+    const available = cat ? Number(cat.available || 0) : 0;
+    const display = available > 0 ? String(available) : "—";
+    const emptyClass = available > 0 ? "" : "fifa-cat-empty";
+    return `
+      <div class="fifa-match-col fifa-match-col--cat">
+        <strong class="${emptyClass}">${display}</strong>
+      </div>
+    `;
+  };
+
   publicList.innerHTML = `
     <div class="fifa-match-accordion fifa-match-accordion--table fifa-public-match-list">
       <div class="fifa-match-table-head">
         <span>#</span>
         <span>Огноо</span>
         <span>Тоглолт</span>
-        <span>Билет</span>
+        <span>Кат 1</span>
+        <span>Кат 2</span>
+        <span>Кат 3</span>
+        <span>Нийт</span>
         <span>Хот</span>
         <span>Хэсэг</span>
         <span>Шат</span>
@@ -624,10 +639,6 @@ function renderPublicTickets() {
       ${pagination.items
         .map((row) => {
           const isExpanded = state.expandedMatches.has(row.key);
-          const availabilitySummary = row.categoryBreakdown
-            .filter((item) => item.available > 0)
-            .map((item) => `${ticketCategoryLabel(item.categoryCode)}: ${item.available}`)
-            .join(" · ");
           const totalAvailable = row.categoryBreakdown.reduce((sum, item) => sum + Number(item.available || 0), 0);
           return `
             <article class="fifa-match-card ${isExpanded ? "is-open" : ""}">
@@ -643,9 +654,11 @@ function renderPublicTickets() {
                   <strong>${escapeHtml(row.label || "Тоглолтын мэдээлэлгүй")}</strong>
                   <span class="fifa-table-sub">${escapeHtml(row.venue || "Цэнгэлдэх мэдээлэлгүй")}</span>
                 </div>
-                <div class="fifa-match-col fifa-match-col--availability">
-                  <strong>${escapeHtml(availabilitySummary || "Боломжит билет алга")}</strong>
-                  <span class="fifa-table-sub">${escapeHtml(String(totalAvailable))} боломжтой билет</span>
+                ${renderCatNumberCell(row, "1")}
+                ${renderCatNumberCell(row, "2")}
+                ${renderCatNumberCell(row, "3")}
+                <div class="fifa-match-col fifa-match-col--total">
+                  <strong>${totalAvailable}</strong>
                 </div>
                 <div class="fifa-match-col">
                   <strong>${escapeHtml(row.city || "-")}</strong>
