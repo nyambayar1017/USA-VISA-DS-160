@@ -8836,12 +8836,34 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 
 @media (max-width: 520px) {
+  /* Bataa chat on phones: behave like the sidebar drawer — slide in
+     from the right, full viewport height, 80 vw wide. Top-to-bottom
+     instead of bottom-anchored card. */
   .agent-panel {
-    right: 10px;
-    left: 10px;
-    width: auto;
-    bottom: 84px;
-    height: 70vh;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: auto !important;
+    width: 80vw !important;
+    max-width: 80vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    border-left: 1px solid rgba(15, 23, 42, 0.08) !important;
+    border-top: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: -16px 0 40px rgba(15, 23, 42, 0.18) !important;
+  }
+  .agent-panel.is-maximized {
+    width: 80vw !important;
+    max-width: 80vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    border-radius: 0 !important;
   }
   .agent-bubble {
     right: 14px;
@@ -9781,5 +9803,34 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
   .fifa-public-match-list .fifa-nested-table {
     font-size: 0.7rem !important;
+  }
+
+  /* Previous/Next pagination buttons rendered as huge half-screen pills on
+     phones — shrink to compact text buttons that hug their content. */
+  .table-pagination {
+    gap: 8px !important;
+    margin-top: 12px !important;
+    flex-wrap: wrap !important;
+  }
+  .table-pagination p {
+    font-size: 0.78rem !important;
+  }
+  .pagination-actions {
+    gap: 6px !important;
+  }
+  .pagination-actions button {
+    min-width: 0 !important;
+    padding: 6px 14px !important;
+    font-size: 0.78rem !important;
+    border-radius: 999px !important;
+    height: 32px !important;
+    line-height: 1 !important;
+  }
+  .contract-pagination .secondary-button {
+    min-width: 0 !important;
+    padding: 6px 12px !important;
+    font-size: 0.78rem !important;
+    height: 30px !important;
+    line-height: 1 !important;
   }
 }
