@@ -394,6 +394,13 @@
     render();
   }
 
+  function handleOutsideClick(e) {
+    if (!panelOpen) return;
+    if (panel.contains(e.target)) return;
+    if (bubble.contains(e.target)) return;
+    togglePanel(false);
+  }
+
   function togglePanel(open) {
     panelOpen = typeof open === "boolean" ? open : !panelOpen;
     panel.classList.toggle("is-open", panelOpen);
@@ -401,6 +408,9 @@
     if (panelOpen) {
       setTimeout(() => inputEl && inputEl.focus(), 50);
       if (!messages.length) loadHistory();
+      setTimeout(() => document.addEventListener("click", handleOutsideClick), 0);
+    } else {
+      document.removeEventListener("click", handleOutsideClick);
     }
   }
 
