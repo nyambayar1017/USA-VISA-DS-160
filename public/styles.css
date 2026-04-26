@@ -9396,12 +9396,16 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .invoices-pill-overdue { background: #fee2e2; color: #991b1b; }
 .invoices-pill-paid    { background: #d1fae5; color: #065f46; }
 
-/* Unified data-table look — matches the /invoices table everywhere a
-   listing exists (Trips, Tourist Directory, Camp/Flight/Transfer
-   Reservations, payment lists). Detail/edit tables (.camp-table-detail)
-   are intentionally excluded so inline-edit inputs keep their layout. */
+/* Unified data-table look — every list/table on the site mirrors the
+   Tourist Directory layout Bataa approved: airy padding, soft grey header,
+   no per-cell borders, hover row, 14 px font. Detail/edit tables
+   (.camp-table-detail) are intentionally excluded so inline-edit inputs
+   keep their layout. */
 .invoices-table,
 .trip-table,
+.camp-table,
+.contract-table,
+.contract-trip-table,
 .tourist-directory-table,
 .reservation-addon-table,
 .camp-reservation-table,
@@ -9417,6 +9421,9 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 .invoices-table thead th,
 .trip-table thead th,
+.camp-table thead th,
+.contract-table thead th,
+.contract-trip-table thead th,
 .tourist-directory-table thead th,
 .reservation-addon-table thead th,
 .camp-reservation-table thead th,
@@ -9428,13 +9435,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #4b5563 !important;
   font-weight: 600 !important;
   text-align: left !important;
-  padding: 10px 12px !important;
+  padding: 14px 16px !important;
   border: none !important;
   border-bottom: 2px solid #e5e7eb !important;
   white-space: nowrap;
+  font-size: 13px !important;
 }
 .invoices-table tbody td,
 .trip-table tbody td,
+.camp-table tbody td,
+.contract-table tbody td,
+.contract-trip-table tbody td,
 .tourist-directory-table tbody td,
 .reservation-addon-table tbody td,
 .camp-reservation-table tbody td,
@@ -9442,16 +9453,20 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .transfer-reservation-table tbody td,
 .camp-payment-table tbody td,
 .flight-payment-table tbody td {
-  padding: 10px 12px !important;
+  padding: 14px 16px !important;
   border: none !important;
   border-bottom: 1px solid #f1f5f9 !important;
   text-align: left !important;
   background: transparent !important;
   vertical-align: middle !important;
   font-size: 14px !important;
+  color: #1f2937 !important;
 }
 .invoices-table tbody tr:hover td,
 .trip-table tbody tr:hover td,
+.camp-table tbody tr:hover td,
+.contract-table tbody tr:hover td,
+.contract-trip-table tbody tr:hover td,
 .tourist-directory-table tbody tr:hover td,
 .reservation-addon-table tbody tr:hover td,
 .camp-reservation-table tbody tr:hover td,
