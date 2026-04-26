@@ -10528,8 +10528,11 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .mail-bulk-bar > span + button { margin-left: auto; }
 
 /* Swipe affordance on mobile: only rendered during an active touch swipe.
-   The overlay sits beneath the row content; the content is translated. */
-.mail-list-row-wrap { overflow: hidden; }
+   The overlay sits beneath the row content; the content is translated.
+   At rest we keep overflow visible so the row can size to its content
+   without clipping the date column at narrow widths. */
+.mail-list-row-wrap.is-swiping,
+.mail-list-row-wrap.is-snapping { overflow: hidden; }
 .mail-swipe-actions {
   position: absolute;
   inset: 0;
@@ -10582,9 +10585,35 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 
 .mail-list-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.mail-list-row-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.mail-list-row-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; min-width: 0; }
 .mail-list-row-top strong { flex: 1; min-width: 0; font-size: 0.92rem; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mail-list-row-top time { font-size: 0.75rem; color: #94a3b8; flex-shrink: 0; white-space: nowrap; }
+.mail-list-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  max-width: 50%;
+  min-width: 0;
+}
+.mail-list-meta time { font-size: inherit; color: inherit; }
+.mail-list-meta-sep { opacity: 0.6; }
+.mail-list-meta-acc {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+/* Workspace tint on the account label inline with the date */
+.mail-list-row-wrap[data-workspace="DTX"] .mail-list-meta-acc { color: #1e3a8a; }
+.mail-list-row-wrap[data-workspace="USM"] .mail-list-meta-acc { color: #0f766e; }
+.mail-list-row-wrap.is-read[data-workspace="DTX"] .mail-list-meta-acc { color: #6b7fb8; }
+.mail-list-row-wrap.is-read[data-workspace="USM"] .mail-list-meta-acc { color: #66a89c; }
 .mail-list-row-mid { display: flex; gap: 6px; align-items: center; min-width: 0; }
 .mail-list-subject { flex: 1; min-width: 0; font-size: 0.86rem; color: #1e3a8a; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mail-list-attach { font-size: 0.85rem; flex-shrink: 0; }

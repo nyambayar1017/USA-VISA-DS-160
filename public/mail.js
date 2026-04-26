@@ -108,12 +108,14 @@
         : initials(m.fromName, m.fromEmail);
       const color = colorFor(avatarSeed);
       const workspace = (m.workspace || "DTX").toUpperCase();
-      // Show just the local part (before @) so the pill stays compact and
-      // the date never gets clipped. Hover gives the full address.
       const accountLocal = (m.accountAddress || "").split("@")[0] || (m.accountAddress || "");
-      const accountTag = m.accountAddress
-        ? `<span class="mail-list-account-tag mail-list-account-tag--${workspace.toLowerCase()}" title="${escapeHtml(m.accountAddress)}">${escapeHtml(accountLocal)}</span>`
-        : "";
+      const dateStr = timeFmt(m.date);
+      // Account info now rides inline with the date as small gray text so
+      // every row has the exact same three-line layout regardless of
+      // whether the email has a snippet.
+      const metaRight = accountLocal
+        ? `<span class="mail-list-meta" title="${escapeHtml(m.accountAddress || '')}"><time>${escapeHtml(dateStr)}</time><span class="mail-list-meta-sep">·</span><span class="mail-list-meta-acc">${escapeHtml(accountLocal)}</span></span>`
+        : `<span class="mail-list-meta"><time>${escapeHtml(dateStr)}</time></span>`;
       return `
         <div class="mail-list-row-wrap${isActive ? " is-active" : ""}${isUnread ? " is-unread" : " is-read"}${isChecked ? " is-checked" : ""}" data-key="${escapeHtml(key)}" data-workspace="${escapeHtml(workspace)}">
           <label class="mail-list-check">
@@ -124,7 +126,7 @@
             <div class="mail-list-body">
               <div class="mail-list-row-top">
                 <strong>${escapeHtml(headline)}</strong>
-                <time>${escapeHtml(timeFmt(m.date))}</time>
+                ${metaRight}
               </div>
               <div class="mail-list-row-mid">
                 <span class="mail-list-subject">${escapeHtml(m.subject || "(no subject)")}</span>
@@ -132,7 +134,6 @@
               </div>
               <div class="mail-list-row-bottom">
                 <span class="mail-list-snippet">${escapeHtml((m.snippet || "").slice(0, 140))}</span>
-                ${accountTag}
               </div>
             </div>
           </button>
