@@ -287,7 +287,7 @@ const renderContractsTable = (contracts) => {
 
   qsa("[data-delete-id]", container).forEach((button) => {
     button.addEventListener("click", async () => {
-      if (!confirm("Delete this contract?")) return;
+      if (!(await UI.confirm("Delete this contract?", { dangerous: true }))) return;
       await apiRequest(`${CONTRACTS_ENDPOINT}/${button.dataset.deleteId}`, { method: "DELETE" });
       loadContracts();
     });

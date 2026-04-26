@@ -342,7 +342,7 @@
       const msg = inGroup
         ? `Delete group "${group.name}" and its ${inGroup} tourist${inGroup === 1 ? "" : "s"}?`
         : `Delete group "${group.name}"?`;
-      if (!confirm(msg)) return;
+      if (!(await UI.confirm(msg, { dangerous: true }))) return;
       try {
         await fetchJson(`/api/tourist-groups/${id}`, { method: "DELETE" });
         closeModal(groupFormPanel);
@@ -407,7 +407,7 @@
       const msg = inGroup
         ? `Delete group "${group.name}" and its ${inGroup} tourist${inGroup === 1 ? "" : "s"}?`
         : `Delete group "${group.name}"?`;
-      if (!confirm(msg)) return;
+      if (!(await UI.confirm(msg, { dangerous: true }))) return;
       try {
         await fetchJson(`/api/tourist-groups/${id}`, { method: "DELETE" });
         await loadGroupsAndTourists(tripId);
@@ -657,7 +657,7 @@
       if (touristFormTitle) touristFormTitle.textContent = `Edit tourist ${tourist.serial}`;
       openModal(touristFormPanel);
     } else if (action === "delete") {
-      if (!confirm(`Delete tourist ${tourist.serial}?`)) return;
+      if (!(await UI.confirm(`Delete tourist ${tourist.serial}?`, { dangerous: true }))) return;
       try {
         await fetchJson(`/api/tourists/${id}`, { method: "DELETE" });
         await loadGroupsAndTourists(tripId);

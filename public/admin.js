@@ -216,7 +216,7 @@ userList.addEventListener("click", async (event) => {
   }
   const payload = {};
   if (button.dataset.resetPassword) {
-    const nextPassword = window.prompt("Enter the new password for this user:");
+    const nextPassword = await UI.prompt("Enter the new password for this user:");
     if (!nextPassword) {
       return;
     }
@@ -231,7 +231,7 @@ userList.addEventListener("click", async (event) => {
   }
   try {
     if (button.dataset.deleteUser) {
-      if (!window.confirm("Delete this user request?")) {
+      if (!(await UI.confirm("Delete this user request?", { dangerous: true }))) {
         return;
       }
       await fetchJson(`/api/users/${button.dataset.id}`, {

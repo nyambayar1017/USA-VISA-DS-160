@@ -10410,6 +10410,23 @@ def _summarize_tool_output(name, out):
 
 
 def app(environ, start_response):
+    try:
+        return _dispatch(environ, start_response)
+    except Exception as exc:
+        try:
+            print(f"[server] unhandled error on {environ.get('REQUEST_METHOD')} {environ.get('PATH_INFO')}: {exc}", file=sys.stderr, flush=True)
+            import traceback as _tb
+            _tb.print_exc()
+        except Exception:
+            pass
+        try:
+            return json_response(start_response, "500 Internal Server Error", {"error": f"Server error: {type(exc).__name__}: {str(exc)[:200]}"})
+        except Exception:
+            start_response("500 Internal Server Error", [("Content-Type", "text/plain; charset=utf-8")])
+            return [b"Server error"]
+
+
+def _dispatch(environ, start_response):
     ensure_data_store()
 
     method = environ["REQUEST_METHOD"]

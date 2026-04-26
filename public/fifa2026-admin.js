@@ -3231,7 +3231,7 @@ ticketList?.addEventListener("click", async (event) => {
     event.stopPropagation();
     const group = buildTicketGroups().find((item) => item.key === target.dataset.matchKey);
     if (!group || !group.tickets.length) return;
-    if (!window.confirm(`Delete match ${group.matchNumber} with all of its sales and tickets?`)) return;
+    if (!(await UI.confirm(`Delete match ${group.matchNumber} with all of its sales and tickets?`, { dangerous: true }))) return;
     try {
       const relatedTicketIds = new Set(group.tickets.map((item) => item.id));
       const relatedSales = state.sales.filter((sale) => {
@@ -3289,7 +3289,7 @@ ticketList?.addEventListener("click", async (event) => {
     return;
   }
   if (target.dataset.action === "delete-ticket") {
-    if (!window.confirm("Delete this ticket lot?")) return;
+    if (!(await UI.confirm("Delete this ticket lot?", { dangerous: true }))) return;
     try {
       await fetchJson(`/api/fifa2026/tickets/${ticketId}`, { method: "DELETE" });
       await loadDashboard();
@@ -3427,7 +3427,7 @@ saleList?.addEventListener("click", async (event) => {
     return;
   }
   if (target.dataset.action === "delete-sale") {
-    if (!window.confirm("Delete this sale permanently?")) return;
+    if (!(await UI.confirm("Delete this sale permanently?", { dangerous: true }))) return;
     try {
       await fetchJson(`/api/fifa2026/sales/${saleId}`, { method: "DELETE" });
       await loadDashboard();

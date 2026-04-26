@@ -456,7 +456,7 @@
     } catch (err) { alert(err.message || "Publish failed"); }
   }
   async function deleteInvoice(id) {
-    if (!confirm("Delete this invoice?")) return;
+    if (!(await UI.confirm("Delete this invoice?", { dangerous: true }))) return;
     try {
       await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
       closeSidePanel();
@@ -465,7 +465,7 @@
   }
   async function registerPayment(idx) {
     if (!sidePanelInvoice) return;
-    const dt = prompt("Paid date (YYYY-MM-DD):", new Date().toISOString().slice(0, 10));
+    const dt = await UI.prompt("Paid date (YYYY-MM-DD):", { defaultValue: new Date().toISOString().slice(0, 10) });
     if (!dt) return;
     try {
       await fetchJson(`/api/invoices/${sidePanelInvoice.id}/payment`, {
@@ -1170,7 +1170,7 @@
     }
     if (action === "delete" && invoice) {
       btn.closest("details.inv-row-menu")?.removeAttribute("open");
-      if (!confirm(`Delete invoice #${invoice.serial || invoice.id}?`)) return;
+      if (!(await UI.confirm(`Delete invoice #${invoice.serial || invoice.id}?`, { dangerous: true }))) return;
       try {
         await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
         await loadAll();
@@ -1199,7 +1199,7 @@
     }
     const id = btn.dataset.id;
     if (action === "delete") {
-      if (!confirm("Delete this contract?")) return;
+      if (!(await UI.confirm("Delete this contract?", { dangerous: true }))) return;
       try {
         await fetchJson(`/api/contracts/${id}`, { method: "DELETE" });
         await loadAll();

@@ -734,7 +734,7 @@ function renderList() {
     button.addEventListener("click", async () => {
       const entry = state.entries.find((item) => item.id === button.dataset.id);
       if (!entry) return;
-      const confirmed = window.confirm(`Delete DS-160 record for ${entry.clientName || entry.clientEmail || "this client"}?`);
+      const confirmed = await UI.confirm(`Delete DS-160 record for ${entry.clientName || entry.clientEmail || "this client"}?`, { dangerous: true });
       if (!confirmed) return;
       try {
         await fetchJson(`/api/ds160/${encodeURIComponent(entry.id)}`, {

@@ -10033,3 +10033,154 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     font-size: 0.78rem !important;
   }
 }
+
+/* ── UI Dialog: toast + modal (replaces native alert/confirm/prompt) ── */
+.ui-toast-stack {
+  position: fixed;
+  top: max(20px, env(safe-area-inset-top, 20px));
+  right: 20px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  max-width: calc(100vw - 40px);
+}
+.ui-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 280px;
+  max-width: 420px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  font-family: "Montserrat", system-ui, sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: #0f172a;
+  transform: translateX(110%);
+  opacity: 0;
+  transition: transform 200ms ease, opacity 200ms ease;
+  pointer-events: auto;
+}
+.ui-toast.is-shown { transform: translateX(0); opacity: 1; }
+.ui-toast.is-leaving { transform: translateX(40px); opacity: 0; }
+.ui-toast__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  background: #e0e7ff;
+  color: #1e3a8a;
+}
+.ui-toast__body { flex: 1; word-break: break-word; padding-top: 2px; }
+.ui-toast__close {
+  background: transparent;
+  border: 0;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0 2px;
+  margin-top: -2px;
+}
+.ui-toast__close:hover { color: #0f172a; }
+.ui-toast--success .ui-toast__icon { background: #dcfce7; color: #166534; }
+.ui-toast--success { border-left: 4px solid #16a34a; }
+.ui-toast--error .ui-toast__icon, .ui-toast--danger .ui-toast__icon { background: #fee2e2; color: #b91c1c; }
+.ui-toast--error, .ui-toast--danger { border-left: 4px solid #dc2626; }
+.ui-toast--warning .ui-toast__icon, .ui-toast--warn .ui-toast__icon { background: #fef3c7; color: #92400e; }
+.ui-toast--warning, .ui-toast--warn { border-left: 4px solid #f59e0b; }
+.ui-toast--info { border-left: 4px solid #3b82f6; }
+
+.ui-modal-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 99998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.ui-modal-back.is-shown { opacity: 1; }
+.ui-modal-back.is-leaving { opacity: 0; }
+.ui-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  font-family: "Montserrat", system-ui, sans-serif;
+  color: #0f172a;
+  transform: scale(0.96);
+  transition: transform 160ms ease;
+}
+.ui-modal-back.is-shown .ui-modal-card { transform: scale(1); }
+.ui-modal-head {
+  padding: 18px 22px 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.ui-modal-card--danger .ui-modal-head { color: #b91c1c; }
+.ui-modal-body { padding: 4px 22px 16px; }
+.ui-modal-msg { margin: 0 0 12px; font-size: 0.95rem; line-height: 1.45; color: #334155; white-space: pre-wrap; }
+.ui-modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+.ui-modal-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+.ui-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 18px 18px;
+}
+.ui-modal-btn {
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, transform 80ms ease;
+}
+.ui-modal-btn:active { transform: scale(0.97); }
+.ui-modal-btn--ghost {
+  background: #f1f5f9;
+  color: #334155;
+}
+.ui-modal-btn--ghost:hover { background: #e2e8f0; }
+.ui-modal-btn--primary {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  color: #ffffff;
+}
+.ui-modal-btn--primary:hover { filter: brightness(1.08); }
+.ui-modal-btn--danger {
+  background: linear-gradient(135deg, #b91c1c, #dc2626);
+  color: #ffffff;
+}
+.ui-modal-btn--danger:hover { filter: brightness(1.08); }
+
+@media (max-width: 540px) {
+  .ui-toast-stack { right: 12px; left: 12px; max-width: none; }
+  .ui-toast { min-width: 0; max-width: none; }
+  .ui-modal-card { max-width: 100%; }
+}

@@ -386,7 +386,7 @@
   }
 
   async function clearHistory() {
-    if (!confirm("Чатын түүхийг устгах уу?")) return;
+    if (!(await UI.confirm("Чатын түүхийг устгах уу?", { dangerous: true }))) return;
     try {
       await fetch(ENDPOINT, { method: "DELETE", credentials: "same-origin" });
     } catch (e) {}

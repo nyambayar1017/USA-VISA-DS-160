@@ -309,7 +309,7 @@
   }
 
   const dropdown = document.querySelector("[data-saved-filter-dropdown]");
-  dropdown?.addEventListener("click", (event) => {
+  dropdown?.addEventListener("click", async (event) => {
     const target = event.target.closest("[data-saved-action]");
     if (!target) return;
     event.preventDefault();
@@ -322,13 +322,13 @@
       refreshSavedFiltersDropdown(name);
       applyFilterStateFromSnapshot(found.state);
     } else if (action === "delete") {
-      if (!window.confirm(`Delete saved filter "${name}"?`)) return;
+      if (!(await UI.confirm(`Delete saved filter "${name}"?`, { dangerous: true }))) return;
       const list = readSavedFilters().filter((f) => f.name !== name);
       writeSavedFilters(list);
       refreshSavedFiltersDropdown(activeSavedFilterName === name ? "" : activeSavedFilterName);
     } else if (action === "save") {
       dropdown.removeAttribute("open");
-      const newName = (window.prompt("Save filter as:") || "").trim();
+      const newName = ((await UI.prompt("Save filter as:")) || "").trim();
       if (!newName) return;
       const list = readSavedFilters().filter((f) => f.name !== newName);
       list.push({ name: newName, state: snapshotFilterState() });

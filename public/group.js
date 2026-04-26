@@ -652,7 +652,7 @@ async function publishInvoice(id) {
   } catch (err) { alert(err.message || "Publish failed"); }
 }
 async function deleteInvoice(id) {
-  if (!confirm("Delete this invoice?")) return;
+  if (!(await UI.confirm("Delete this invoice?", { dangerous: true }))) return;
   try {
     await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
     closeSidePanel();
@@ -661,7 +661,7 @@ async function deleteInvoice(id) {
 }
 async function registerPayment(idx) {
   if (!sidePanelInvoice) return;
-  const dt = prompt("Paid date (YYYY-MM-DD):", new Date().toISOString().slice(0, 10));
+  const dt = await UI.prompt("Paid date (YYYY-MM-DD):", { defaultValue: new Date().toISOString().slice(0, 10) });
   if (!dt) return;
   try {
     await fetchJson(`/api/invoices/${sidePanelInvoice.id}/payment`, {
@@ -988,7 +988,7 @@ contractsListNode?.addEventListener("click", async (e) => {
   }
   const id = btn.dataset.id;
   if (action === "delete") {
-    if (!confirm("Delete this contract?")) return;
+    if (!(await UI.confirm("Delete this contract?", { dangerous: true }))) return;
     try { await fetchJson(`/api/contracts/${id}`, { method: "DELETE" }); await loadAll(); }
     catch (err) { alert(err.message || "Could not delete contract."); }
   } else if (action === "edit") {
@@ -1032,7 +1032,7 @@ invoicesList.addEventListener("click", async (e) => {
   }
   if (action === "delete" && invoice) {
     btn.closest("details.inv-row-menu")?.removeAttribute("open");
-    if (!confirm(`Delete invoice #${invoice.serial || invoice.id}?`)) return;
+    if (!(await UI.confirm(`Delete invoice #${invoice.serial || invoice.id}?`, { dangerous: true }))) return;
     try {
       await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
       await loadAll();
@@ -1406,7 +1406,7 @@ participantsList.addEventListener("click", async (e) => {
     formTitle.textContent = `Edit ${t.serial}`;
     openModal();
   } else if (btn.dataset.action === "delete") {
-    if (!confirm(`Delete ${t.serial} ${t.lastName} ${t.firstName}?`)) return;
+    if (!(await UI.confirm(`Delete ${t.serial} ${t.lastName} ${t.firstName}?`, { dangerous: true }))) return;
     try {
       await fetchJson(`/api/tourists/${id}`, { method: "DELETE" });
       await loadAll();
@@ -1496,7 +1496,7 @@ groupEditForm?.addEventListener("submit", async (e) => {
   }
 });
 document.getElementById("group-edit-delete")?.addEventListener("click", async () => {
-  if (!confirm(`Delete group "${group?.name || ""}"? This cannot be undone.`)) return;
+  if (!(await UI.confirm(`Delete group "${group?.name || ""}"? This cannot be undone.`, { dangerous: true }))) return;
   try {
     await fetchJson(`/api/tourist-groups/${groupId}`, { method: "DELETE" });
     window.location.href = `/trip-detail?tripId=${encodeURIComponent(tripId)}`;

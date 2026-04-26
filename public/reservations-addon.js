@@ -685,7 +685,8 @@
       openPanel(flightFormPanel);
       return;
     }
-    if (target.dataset.action === "delete-flight" && window.confirm("Delete this flight reservation?")) {
+    if (target.dataset.action === "delete-flight") {
+      if (!(await UI.confirm("Delete this flight reservation?", { dangerous: true }))) return;
       try {
         await fetchJson(`/api/flight-reservations/${entry.id}`, { method: "DELETE" });
         await loadFlights();
@@ -734,7 +735,8 @@
       openPanel(transferFormPanel);
       return;
     }
-    if (target.dataset.action === "delete-transfer" && window.confirm("Delete this transfer?")) {
+    if (target.dataset.action === "delete-transfer") {
+      if (!(await UI.confirm("Delete this transfer?", { dangerous: true }))) return;
       try {
         await fetchJson(`/api/transfer-reservations/${entry.id}`, { method: "DELETE" });
         await loadTransfers();

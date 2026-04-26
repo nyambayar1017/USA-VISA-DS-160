@@ -2526,7 +2526,7 @@ campToggleForm.addEventListener("click", () => {
   startReservationCreate(activeTripId || filterTripName.value || "");
 });
 
-tripList.addEventListener("click", (event) => {
+tripList.addEventListener("click", async (event) => {
   const actionTarget = event.target.closest("[data-action]");
   if (!actionTarget) {
     return;
@@ -2568,9 +2568,8 @@ tripList.addEventListener("click", (event) => {
   }
 
   if (actionTarget.dataset.action === "delete-trip") {
-    if (window.confirm("Delete this trip and all linked reservations?")) {
-      deleteTrip(actionTarget.dataset.tripId);
-    }
+    const ok = await UI.confirm("Delete this trip and all linked reservations?", { dangerous: true });
+    if (ok) deleteTrip(actionTarget.dataset.tripId);
   }
 });
 
@@ -2582,7 +2581,7 @@ tripList.addEventListener("change", (event) => {
   updateTripStatus(select.dataset.tripId, select.value);
 });
 
-function handleCampTableClick(event) {
+async function handleCampTableClick(event) {
   const menuTrigger = event.target.closest(".trip-menu summary");
   if (menuTrigger) {
     event.stopPropagation();
@@ -2634,9 +2633,8 @@ function handleCampTableClick(event) {
     return;
   }
   if (action === "delete-reservation") {
-    if (window.confirm("Delete this reservation?")) {
-      deleteReservation(target.dataset.id);
-    }
+    const ok = await UI.confirm("Delete this reservation?", { dangerous: true });
+    if (ok) deleteReservation(target.dataset.id);
     return;
   }
   if (action === "select-camp") {
@@ -3344,7 +3342,7 @@ if (docDropZone && isTripDetailPage()) {
       if (deleteBtn) {
         const docId = deleteBtn.dataset.docDelete;
         const docName = deleteBtn.dataset.docName || "this file";
-        if (!window.confirm('Delete "' + docName + '"?')) return;
+        if (!(await UI.confirm('Delete "' + docName + '"?', { dangerous: true }))) return;
         try {
           const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/" + docId, { method: "DELETE" });
           if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Delete failed"); }
@@ -3358,7 +3356,7 @@ if (docDropZone && isTripDetailPage()) {
       if (renameBtn) {
         const docId = renameBtn.dataset.docRename;
         const currentName = renameBtn.dataset.docName || "";
-        const newName = window.prompt("New file name:", currentName);
+        const newName = await UI.prompt("New file name:", { defaultValue: currentName });
         if (!newName || newName.trim() === currentName.trim()) return;
         try {
           const resp = await fetch("/api/camp-trips/" + activeTripId + "/documents/" + docId, {
@@ -3621,7 +3619,7 @@ function setupTripFilterBar() {
   });
 
   const dropdown = document.querySelector("[data-saved-filter-dropdown]");
-  dropdown?.addEventListener("click", (event) => {
+  dropdown?.addEventListener("click", async (event) => {
     const target = event.target.closest("[data-saved-action]");
     if (!target) return;
     event.preventDefault();
@@ -3634,13 +3632,13 @@ function setupTripFilterBar() {
       refreshSavedFiltersDropdown(name);
       applyFilterStateFromSnapshot(found.state);
     } else if (action === "delete") {
-      if (!window.confirm(`Delete saved filter "${name}"?`)) return;
+      if (!(await UI.confirm(`Delete saved filter "${name}"?`, { dangerous: true }))) return;
       const list = readSavedFilters().filter((f) => f.name !== name);
       writeSavedFilters(list);
       refreshSavedFiltersDropdown(activeSavedFilterName === name ? "" : activeSavedFilterName);
     } else if (action === "save") {
       dropdown.removeAttribute("open");
-      const newName = (window.prompt("Save filter as:") || "").trim();
+      const newName = ((await UI.prompt("Save filter as:")) || "").trim();
       if (!newName) return;
       const list = readSavedFilters().filter((f) => f.name !== newName);
       list.push({ name: newName, state: snapshotFilterState() });
