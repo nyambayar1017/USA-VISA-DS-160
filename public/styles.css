@@ -10276,6 +10276,24 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 .mail-list-row:hover { background: rgba(255, 255, 255, 0.7); }
 .mail-list-row.is-active { background: #ffffff; box-shadow: inset 3px 0 0 #2563eb; }
+.mail-list-row.is-read .mail-list-row-top strong { font-weight: 500; color: #475569; }
+.mail-list-row.is-read .mail-list-subject { font-weight: 500; color: #64748b; }
+.mail-list-row.is-read .mail-list-snippet { color: #94a3b8; }
+.mail-list-row.is-unread { background: #ffffff; }
+.mail-list-row.is-unread .mail-list-row-top strong { font-weight: 700; color: #0f172a; }
+.mail-list-row.is-unread .mail-list-subject { font-weight: 700; color: #0f172a; }
+.mail-list-row.is-unread::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+}
+.mail-list-row { position: relative; padding-left: 22px; }
 
 .mail-list-avatar {
   width: 36px;

@@ -78,13 +78,14 @@
     listNode.innerHTML = rows.map((m) => {
       const key = getKey(m);
       const isActive = key === selectedKey;
+      const isUnread = !m.isRead;
       const ini = initials(m.fromName, m.fromEmail);
       const color = colorFor(m.fromEmail || m.from);
       const accountTag = m.accountAddress
         ? `<span class="mail-list-account-tag mail-list-account-tag--${(m.workspace || "DTX").toLowerCase()}">${escapeHtml(m.accountAddress)}</span>`
         : "";
       return `
-        <button type="button" class="mail-list-row${isActive ? " is-active" : ""}" data-key="${escapeHtml(key)}">
+        <button type="button" class="mail-list-row${isActive ? " is-active" : ""}${isUnread ? " is-unread" : " is-read"}" data-key="${escapeHtml(key)}">
           <span class="mail-list-avatar" style="background:${color}">${escapeHtml(ini)}</span>
           <div class="mail-list-body">
             <div class="mail-list-row-top">
@@ -277,8 +278,18 @@
 
   function selectKey(key) {
     selectedKey = key;
+    if (key) {
+      // Optimistically mark read locally
+      const [accountId, uid] = key.split(":");
+      const m = messages.find((x) => x.accountId === accountId && String(x.uid) === uid);
+      if (m && !m.isRead) {
+        m.isRead = true;
+        // Fire-and-forget mark-read on server (also flags it \Seen on Gmail)
+        fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}/read`, { method: "POST" }).catch(() => {});
+      }
+      loadMessage(key);
+    }
     renderList();
-    if (key) loadMessage(key);
     document.querySelector(".mail-layout")?.classList.toggle("is-viewing", !!key);
   }
 
@@ -321,6 +332,17 @@
       if (btn) selectKey(btn.dataset.key);
     });
     await loadInbox(true);
+
+    // Auto-poll every 60s while the page is visible. Pause when hidden
+    // so we don't burn cycles on a backgrounded tab.
+    setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadInbox(false);
+      }
+    }, 60000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") loadInbox(false);
+    });
   }
 
   bootstrap();

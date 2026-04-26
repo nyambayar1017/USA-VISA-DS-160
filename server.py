@@ -7942,22 +7942,56 @@ def imap_sync_account(account, limit=50):
 
             new_count = 0
             for uid in uids:
-                typ, data = client.uid("fetch", str(uid), "(BODY.PEEK[])")
+                typ, data = client.uid("fetch", str(uid), "(FLAGS BODY.PEEK[])")
                 if typ != "OK" or not data:
                     continue
                 raw = None
+                flags_str = ""
                 for part in data:
                     if isinstance(part, tuple) and len(part) >= 2:
-                        raw = part[1]
-                        break
+                        # Header part contains FLAGS info; tuple[0] looks like:
+                        # b'1234 (FLAGS (\\Seen) UID 99 BODY[] {bytes}'
+                        if not raw:
+                            raw = part[1]
+                            try:
+                                flags_str = part[0].decode("utf-8", errors="replace")
+                            except Exception:
+                                flags_str = ""
                 if not raw:
                     continue
                 msg_obj = email_mod.message_from_bytes(raw)
                 parsed = _parse_email_message(msg_obj, account["id"], uid)
+                parsed["isRead"] = "\\Seen" in flags_str
                 cache_messages[uid] = parsed
                 new_count += 1
                 if uid > last_uid:
                     last_uid = uid
+
+            # Refresh flags for already-cached messages too, so things
+            # marked read in Gmail (or by another client) get updated.
+            existing_uids = [u for u in cache_messages.keys() if u not in uids]
+            if existing_uids:
+                # Batch in chunks
+                for i in range(0, len(existing_uids), 100):
+                    batch = existing_uids[i:i+100]
+                    uid_set = ",".join(str(u) for u in batch)
+                    typ, data = client.uid("fetch", uid_set, "(FLAGS)")
+                    if typ != "OK" or not data:
+                        continue
+                    for entry in data:
+                        if not entry:
+                            continue
+                        line = entry if isinstance(entry, bytes) else (entry[0] if isinstance(entry, tuple) else b"")
+                        if isinstance(line, bytes):
+                            line_str = line.decode("utf-8", errors="replace")
+                        else:
+                            line_str = str(line)
+                        m = re.search(r"UID\s+(\d+).*FLAGS\s*\(([^)]*)\)", line_str)
+                        if m:
+                            u_int = int(m.group(1))
+                            flags = m.group(2)
+                            if u_int in cache_messages:
+                                cache_messages[u_int]["isRead"] = "\\Seen" in flags
         finally:
             try:
                 client.logout()
@@ -8137,6 +8171,51 @@ def handle_send_mail(environ, start_response):
     except Exception:
         pass
     return json_response(start_response, "200 OK", {"ok": True})
+
+
+def imap_mark_read(account, uid):
+    """Set the \\Seen flag on a message so Gmail also marks it read."""
+    import imaplib
+    address = account.get("address")
+    password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
+    host = account.get("imapHost") or "imap.gmail.com"
+    port = int(account.get("imapPort") or 993)
+    if not address or not password:
+        return False, "Missing address or password"
+    try:
+        client = imaplib.IMAP4_SSL(host, port, timeout=20)
+        try:
+            client.login(address, password)
+            client.select("INBOX")
+            client.uid("STORE", str(uid), "+FLAGS", "(\\Seen)")
+        finally:
+            try: client.logout()
+            except Exception: pass
+    except Exception as exc:
+        return False, f"Mark-read failed: {exc}"
+    return True, ""
+
+
+def handle_mark_read_mail_message(environ, start_response, account_id, uid):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    accounts = read_mail_accounts()
+    account = next((a for a in accounts if a["id"] == account_id), None)
+    if not account:
+        return json_response(start_response, "404 Not Found", {"error": "Mailbox not found"})
+    try:
+        uid_int = int(uid)
+    except ValueError:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid uid"})
+    ok, err = imap_mark_read(account, uid_int)
+    cache = _read_mail_cache(account_id)
+    for m in cache.get("messages", []):
+        if int(m.get("uid", 0)) == uid_int:
+            m["isRead"] = True
+            break
+    _write_mail_cache(account_id, cache)
+    return json_response(start_response, "200 OK", {"ok": ok, "error": err})
 
 
 def imap_delete_message(account, uid):
@@ -11275,9 +11354,12 @@ def _dispatch(environ, start_response):
             parts = tail.split("/")
             acc_id = parts[0]
             uid = parts[1]
-            if method == "GET":
+            sub = parts[2] if len(parts) > 2 else ""
+            if sub == "read" and method == "POST":
+                return handle_mark_read_mail_message(environ, start_response, acc_id, uid)
+            if not sub and method == "GET":
                 return handle_get_mail_message(environ, start_response, acc_id, uid)
-            if method == "DELETE":
+            if not sub and method == "DELETE":
                 return handle_delete_mail_message(environ, start_response, acc_id, uid)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
