@@ -940,8 +940,17 @@ function renderActiveTrip() {
   }
   const trip = getTripById(activeTripId);
   if (!trip) {
-    activeTripBox.className = "is-hidden";
-    activeTripBox.innerHTML = "";
+    if (isTripDetailPage() && activeTripId && entries.length >= 0 && trips.length > 0) {
+      activeTripBox.className = "card";
+      activeTripBox.innerHTML = '<p class="empty">This trip has been deleted.</p>';
+      if (!activeTripBox.dataset.deletedToastShown) {
+        activeTripBox.dataset.deletedToastShown = "1";
+        try { UI?.toast?.("This trip has been deleted.", "warning"); } catch {}
+      }
+    } else {
+      activeTripBox.className = "is-hidden";
+      activeTripBox.innerHTML = "";
+    }
     return;
   }
   activeTripBox.className = "card trip-summary-card";

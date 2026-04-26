@@ -141,6 +141,12 @@ async function loadAll() {
     ]);
     trip = (tripData.entries || []).find((t) => t.id === tripId) || null;
     group = (groupData.entries || []).find((g) => g.id === groupId) || null;
+    if (!trip || !group) {
+      const what = !trip && !group ? "trip and group" : !trip ? "trip" : "group";
+      summaryNode.innerHTML = `<p class="empty">This ${what} has been deleted.</p>`;
+      try { UI?.toast?.(`This ${what} has been deleted.`, "warning"); } catch {}
+      return;
+    }
     tourists = (touristData.entries || []).slice().sort(sortTourists);
     flights = (flightData.entries || []).filter((f) => f.tripId === tripId);
     transfers = (transferData.entries || []).filter((t) => t.tripId === tripId);

@@ -451,11 +451,11 @@ function notificationTargetUrl(entry) {
   const meta = entry?.meta || {};
   const tripId = meta.tripId || (kind.startsWith("trip") ? meta.id : "");
   if (kind === "tourist.created") {
-    if (meta.groupId && tripId) return `/group?id=${encodeURIComponent(meta.groupId)}&tripId=${encodeURIComponent(tripId)}`;
+    if (meta.groupId && tripId) return `/group?groupId=${encodeURIComponent(meta.groupId)}&tripId=${encodeURIComponent(tripId)}`;
     if (tripId) return `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
   }
   if (kind === "group.created") {
-    if (meta.id && tripId) return `/group?id=${encodeURIComponent(meta.id)}&tripId=${encodeURIComponent(tripId)}`;
+    if (meta.id && tripId) return `/group?groupId=${encodeURIComponent(meta.id)}&tripId=${encodeURIComponent(tripId)}`;
     if (tripId) return `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
   }
   if (kind === "trip.created" && meta.id) return `/trip-detail?tripId=${encodeURIComponent(meta.id)}`;
