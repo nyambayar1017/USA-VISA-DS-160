@@ -5945,8 +5945,9 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   letter-spacing: 0.06em;
 }
 
-.fifa-admin-match-list .fifa-match-table-head {
-  grid-template-columns: 36px 92px minmax(180px, 1fr) 76px 86px 86px 86px 110px 96px 110px 88px;
+.fifa-admin-match-list .fifa-match-table-head,
+.fifa-admin-match-list .fifa-match-toggle {
+  grid-template-columns: 40px 96px minmax(220px, 280px) 80px 96px 96px 96px minmax(110px, 1fr) minmax(96px, 1fr) minmax(110px, 1fr) 56px !important;
 }
 
 /* Public list: same 11-column shape but no Total-popover, no prices —
@@ -6002,7 +6003,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 
 .fifa-admin-match-list .fifa-match-toggle {
-  grid-template-columns: 36px 92px minmax(180px, 1fr) 76px 86px 86px 86px 110px 96px 110px 88px;
+  grid-template-columns: 40px 96px minmax(220px, 280px) 80px 96px 96px 96px minmax(110px, 1fr) minmax(96px, 1fr) minmax(110px, 1fr) 56px;
 }
 
 /* Per-category cell: price on top, available count below. */
@@ -10194,4 +10195,35 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   .ui-toast-stack { right: 12px; left: 12px; max-width: none; }
   .ui-toast { min-width: 0; max-width: none; }
   .ui-modal-card { max-width: 100%; }
+}
+
+/* Centered "this record was deleted" banner — used by trip-detail and
+   group pages when the linked record has been removed. */
+.deleted-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 60px 24px;
+  text-align: center;
+  font-family: "Montserrat", system-ui, sans-serif;
+}
+.deleted-banner > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+.deleted-banner > strong {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #b91c1c;
+  letter-spacing: 0.01em;
 }

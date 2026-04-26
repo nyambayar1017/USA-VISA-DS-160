@@ -940,13 +940,9 @@ function renderActiveTrip() {
   }
   const trip = getTripById(activeTripId);
   if (!trip) {
-    if (isTripDetailPage() && activeTripId && entries.length >= 0 && trips.length > 0) {
+    if (isTripDetailPage() && activeTripId && trips.length > 0) {
       activeTripBox.className = "card";
-      activeTripBox.innerHTML = '<p class="empty">This trip has been deleted.</p>';
-      if (!activeTripBox.dataset.deletedToastShown) {
-        activeTripBox.dataset.deletedToastShown = "1";
-        try { UI?.toast?.("This trip has been deleted.", "warning"); } catch {}
-      }
+      activeTripBox.innerHTML = '<div class="deleted-banner"><span>!</span><strong>This trip has been deleted.</strong></div>';
     } else {
       activeTripBox.className = "is-hidden";
       activeTripBox.innerHTML = "";
