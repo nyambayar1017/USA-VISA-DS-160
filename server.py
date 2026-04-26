@@ -5609,6 +5609,13 @@ def handle_list_invoices(environ, start_response):
         records = [r for r in records if r.get("tripId") == trip_id]
     if group_id:
         records = [r for r in records if r.get("groupId") == group_id]
+    # Scope by active workspace so DTX admins don't see USM invoices and vice
+    # versa. Invoices don't carry their own `company` field — they're tied to
+    # a trip, and the trip carries the workspace. So filter via the trip set.
+    workspace = active_workspace(environ)
+    if workspace and not trip_id:
+        ws_trip_ids = {t["id"] for t in read_camp_trips() if normalize_company(t.get("company")) == workspace}
+        records = [r for r in records if r.get("tripId") in ws_trip_ids]
     records.sort(key=lambda r: r.get("createdAt") or "", reverse=True)
     return json_response(start_response, "200 OK", {"entries": records})
 
