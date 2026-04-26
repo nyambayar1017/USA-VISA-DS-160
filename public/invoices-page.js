@@ -2,7 +2,6 @@
   const tbody = document.getElementById("inv-tbody");
   const countNode = document.getElementById("inv-count");
   const filterSerial = document.getElementById("inv-filter-serial");
-  const filterDossier = document.getElementById("inv-filter-dossier");
   const filterGroup = document.getElementById("inv-filter-group");
   const filterPayer = document.getElementById("inv-filter-payer");
   const filterFrom = document.getElementById("inv-filter-from");
@@ -101,7 +100,7 @@
       groups.forEach((g) => groupById.set(g.id, g));
       render();
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="10" class="empty">Could not load invoices: ' + escapeHtml(err.message) + "</td></tr>";
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">Could not load invoices: ' + escapeHtml(err.message) + "</td></tr>";
     }
   }
 
@@ -120,14 +119,12 @@
 
   function getFiltered() {
     const sSerial = filterSerial.value.trim().toLowerCase();
-    const sDossier = filterDossier.value.trim().toLowerCase();
     const sGroup = filterGroup.value.trim().toLowerCase();
     const sPayer = filterPayer.value.trim().toLowerCase();
     const from = (filterFrom.value || "").trim();
     const to = (filterTo.value || "").trim();
     return invoices.filter((inv) => {
       if (sSerial && !(inv.serial || "").toLowerCase().includes(sSerial)) return false;
-      if (sDossier && !dossierLabel(inv).toLowerCase().includes(sDossier)) return false;
       if (sGroup && !groupLabel(inv).toLowerCase().includes(sGroup)) return false;
       if (sPayer && !(inv.payerName || "").toLowerCase().includes(sPayer)) return false;
       if (activeStatuses.size && !activeStatuses.has(inv._derived.status)) return false;
@@ -152,17 +149,12 @@
     const list = getFiltered();
     countNode.textContent = list.length + " invoice" + (list.length === 1 ? "" : "s");
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="empty">No invoices match the current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">No invoices match the current filters.</td></tr>';
       return;
     }
     tbody.innerHTML = list.map((inv, i) => {
-      const trip = tripById.get(inv.tripId);
       const group = groupById.get(inv.groupId);
-      const dossier = dossierLabel(inv);
       const grp = groupLabel(inv);
-      const dossierCell = trip
-        ? '<a href="/trip-detail?tripId=' + encodeURIComponent(inv.tripId) + '">' + escapeHtml(dossier) + "</a>"
-        : "-";
       const groupCell = group
         ? '<a href="/group?tripId=' + encodeURIComponent(inv.tripId) + "&groupId=" + encodeURIComponent(inv.groupId) + '">' + escapeHtml(grp) + "</a>"
         : "-";
@@ -172,7 +164,6 @@
         "<tr>" +
         "<td>" + (i + 1) + "</td>" +
         "<td>" + serialCell + "</td>" +
-        "<td>" + dossierCell + "</td>" +
         "<td>" + groupCell + "</td>" +
         "<td>" + escapeHtml(inv.payerName || "-") + "</td>" +
         "<td>" + fmtMoney(inv.total, inv.currency) + "</td>" +
@@ -185,7 +176,7 @@
     }).join("");
   }
 
-  [filterSerial, filterDossier, filterGroup, filterPayer].forEach((el) => {
+  [filterSerial, filterGroup, filterPayer].forEach((el) => {
     el.addEventListener("input", render);
   });
   [filterFrom, filterTo].forEach((el) => {
@@ -224,7 +215,6 @@
   function snapshotFilterState() {
     return {
       serial: filterSerial.value,
-      dossier: filterDossier.value,
       group: filterGroup.value,
       payer: filterPayer.value,
       from: filterFrom.value,
@@ -234,7 +224,6 @@
   }
   function applyFilterStateFromSnapshot(snap) {
     filterSerial.value = snap?.serial || "";
-    filterDossier.value = snap?.dossier || "";
     filterGroup.value = snap?.group || "";
     filterPayer.value = snap?.payer || "";
     filterFrom.value = snap?.from || "";
@@ -248,7 +237,6 @@
   }
   function clearAllFilters() {
     filterSerial.value = "";
-    filterDossier.value = "";
     filterGroup.value = "";
     filterPayer.value = "";
     filterFrom.value = "";

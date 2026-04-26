@@ -9369,3 +9369,34 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .invoices-pill-pending { background: #fef3c7; color: #92400e; }
 .invoices-pill-overdue { background: #fee2e2; color: #991b1b; }
 .invoices-pill-paid    { background: #d1fae5; color: #065f46; }
+
+/* Match the cleaner invoices-table look on the Trips list */
+.trip-table {
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 100%;
+}
+.trip-table thead th {
+  background: #fafbfc !important;
+  color: #4b5563 !important;
+  font-weight: 600;
+  text-align: left !important;
+  padding: 10px 12px !important;
+  border: none !important;
+  border-bottom: 2px solid #e5e7eb !important;
+  white-space: nowrap;
+}
+.trip-table tbody td {
+  padding: 10px 12px !important;
+  border: none !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  text-align: left !important;
+  background: transparent !important;
+  vertical-align: middle;
+}
+.trip-table tbody tr:hover td {
+  background: #f9fafb !important;
+}
+.trip-table tbody tr.is-trip-active td {
+  background: #eff4ff !important;
+}
