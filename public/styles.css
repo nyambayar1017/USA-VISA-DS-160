@@ -4287,109 +4287,12 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #2f6c45;
 }
 
-.camp-table th:nth-child(1),
-.camp-table td:nth-child(1) {
-  padding-left: 12px;
-  white-space: nowrap;
-  width: 220px;
-}
-
-.camp-table th:nth-child(2),
-.camp-table td:nth-child(2) {
-  width: 220px;
-  white-space: nowrap;
-}
-
-.camp-table th:nth-child(3),
-.camp-table td:nth-child(3) {
-  width: 80px;
-  text-align: center;
-}
-
-.camp-table th:nth-child(4),
-.camp-table td:nth-child(4) {
-  width: 170px;
-}
-
-.camp-table th:nth-child(5),
-.camp-table td:nth-child(5) {
-  width: 170px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.camp-table th:nth-child(6),
-.camp-table td:nth-child(6) {
-  width: 88px;
-}
-
-.camp-table th:nth-child(7),
-.camp-table td:nth-child(7),
-.camp-table th:nth-child(8),
-.camp-table td:nth-child(8),
-.camp-table th:nth-child(10),
-.camp-table td:nth-child(10),
-.camp-table th:nth-child(12),
-.camp-table td:nth-child(12) {
-  width: 52px;
-  text-align: center;
-}
-
-.camp-table th:nth-child(9),
-.camp-table td:nth-child(9),
-.camp-table th:nth-child(11),
-.camp-table td:nth-child(11) {
-  width: 110px;
-}
-
-.camp-table th:nth-child(13),
-.camp-table td:nth-child(13) {
-  width: 180px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.camp-table th:nth-child(14),
-.camp-table td:nth-child(14) {
-  width: 150px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.camp-table th:nth-child(15),
-.camp-table td:nth-child(15) {
-  width: 128px;
-}
-
-.camp-table th:nth-child(16),
-.camp-table td:nth-child(16) {
-  width: 124px;
-}
-
-.camp-table th:nth-child(17),
-.camp-table td:nth-child(17) {
-  width: 150px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.camp-table th:nth-child(18),
-.camp-table td:nth-child(18) {
-  width: 136px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.camp-table th:nth-child(19),
-.camp-table td:nth-child(19) {
-  width: 180px;
-}
-
-.camp-table tbody td {
-  font-size: 13px;
-  line-height: 1.35;
-  vertical-align: top;
-}
+/* The .camp-table previously carried 19 nth-child width rules plus
+   `white-space: normal; overflow-wrap: anywhere` overrides on Start (col 5),
+   Notes (col 13/14/17/18). On narrow viewports those overrides made dates
+   like "2026-05-07" break character-by-character. The unified Tourist
+   Directory layout governs widths and wrapping now — this leftover
+   trip-table override block is intentionally empty. */
 
 .table-checkbox {
   display: none;
