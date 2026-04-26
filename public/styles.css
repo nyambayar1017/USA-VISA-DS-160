@@ -9906,6 +9906,31 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     -webkit-overflow-scrolling: touch !important;
   }
 
+  /* Kebab popover (Edit / Add Ticket / Delete) inside the FIFA admin
+     row. On phones the row's wide grid scrolls horizontally, so an
+     absolutely-positioned popover anchored to the kebab ends up
+     floating mid-table and looking detached. Promote it to a fixed
+     bottom-sheet that sits clearly above everything, with a strong
+     shadow and high z-index. Close by tapping the same kebab again. */
+  .fifa-admin-match-list .fifa-action-menu[open] > .trip-menu-popover {
+    position: fixed !important;
+    top: auto !important;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 16px !important;
+    right: 16px !important;
+    width: auto !important;
+    max-width: none !important;
+    z-index: 9999 !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(15, 23, 42, 0.12) !important;
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.32) !important;
+    padding: 14px !important;
+  }
+  .fifa-admin-match-list .fifa-action-menu[open] > .trip-menu-popover .trip-menu-item {
+    padding: 14px 16px !important;
+    font-size: 0.95rem !important;
+  }
+
   /* Pagination text/meta still shrinks on phones (the buttons themselves
      are now small enough globally). */
   .table-pagination {
