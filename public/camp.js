@@ -920,7 +920,7 @@ function renderTrips() {
                   <td>
                     <div class="trip-row-actions trip-row-actions-inline">
                       <details class="trip-menu trip-page-menu">
-                        <summary class="trip-menu-trigger" aria-label="Trip actions">⋮</summary>
+                        <summary class="trip-menu-trigger" aria-label="Trip actions">⋯</summary>
                         <div class="trip-menu-popover">
                           <button type="button" class="trip-menu-item" data-action="select-trip" data-trip-id="${trip.id}">View</button>
                           <button type="button" class="trip-menu-item" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
@@ -1291,7 +1291,7 @@ function renderReadOnlyRow(entry, index, options = {}) {
       <td>${escapeHtml(meals || "-")}</td>
       <td class="camp-row-actions compact">
         <details class="trip-menu row-action-menu">
-          <summary class="trip-menu-trigger" aria-label="Camp reservation actions">⋮</summary>
+          <summary class="trip-menu-trigger" aria-label="Camp reservation actions">⋯</summary>
           <div class="trip-menu-popover">
             <button type="button" class="trip-menu-item" data-action="edit" data-id="${entry.id}">Edit</button>
             <button type="button" class="trip-menu-item" data-action="view-pdf" data-id="${entry.id}">View</button>

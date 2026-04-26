@@ -658,7 +658,7 @@ function renderList() {
                 <td>${escapeHtml(formatAppointment(entry.appointmentDate, entry.appointmentTime))}</td>
                 <td class="ds160-actions-cell">
                   <details class="trip-menu row-action-menu ds160-action-menu">
-                    <summary class="trip-menu-trigger" aria-label="DS-160 actions">⋮</summary>
+                    <summary class="trip-menu-trigger" aria-label="DS-160 actions">⋯</summary>
                     <div class="trip-menu-popover">
                       <button type="button" class="trip-menu-item" data-action="see-answers" data-id="${escapeHtml(entry.id)}">See Answers</button>
                       <button type="button" class="trip-menu-item" data-action="download-pdf" data-id="${escapeHtml(entry.id)}">Download PDF</button>

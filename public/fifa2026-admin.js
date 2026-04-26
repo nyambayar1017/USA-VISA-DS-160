@@ -2104,7 +2104,7 @@ function renderTickets() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--actions">
                   <details class="trip-menu fifa-action-menu">
-                    <summary class="trip-menu-trigger" data-action="toggle-match-menu" aria-label="Match actions">⋮</summary>
+                    <summary class="trip-menu-trigger" data-action="toggle-match-menu" aria-label="Match actions">⋯</summary>
                     <div class="trip-menu-popover">
                       <button type="button" class="trip-menu-item" data-action="edit-match" data-match-number="${escapeHtml(group.matchNumber)}">Edit</button>
                       <button type="button" class="trip-menu-item" data-action="add-ticket-match" data-match-number="${escapeHtml(group.matchNumber)}">Add Ticket</button>
@@ -2437,7 +2437,7 @@ function renderSales() {
                 </div>
                 <div class="fifa-match-col fifa-match-col--actions">
                   <details class="trip-menu fifa-action-menu">
-                    <summary class="trip-menu-trigger" aria-label="Sale actions">⋮</summary>
+                    <summary class="trip-menu-trigger" aria-label="Sale actions">⋯</summary>
                     <div class="trip-menu-popover">
                       <button type="button" class="trip-menu-item" data-action="view-sale" data-id="${escapeHtml(sale.id)}">View</button>
                       <button type="button" class="trip-menu-item" data-action="edit-sale" data-id="${escapeHtml(sale.id)}">Edit</button>

@@ -313,7 +313,7 @@
                     <td><span class="status-pill is-${escapeHtml(entry.guideTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.guideTicketStatus || "pending"))}</span></td>
                     <td>
                       <details class="trip-menu row-action-menu">
-                        <summary class="trip-menu-trigger" aria-label="Flight reservation actions">⋮</summary>
+                        <summary class="trip-menu-trigger" aria-label="Flight reservation actions">⋯</summary>
                         <div class="trip-menu-popover">
                           <button type="button" class="trip-menu-item" data-action="edit-flight" data-id="${escapeHtml(entry.id)}">Edit</button>
                           <button type="button" class="trip-menu-item is-danger" data-action="delete-flight" data-id="${escapeHtml(entry.id)}">Delete</button>
@@ -445,7 +445,7 @@
                     <td>${escapeHtml(entry.notes || "-")}</td>
                     <td>
                       <details class="trip-menu row-action-menu">
-                        <summary class="trip-menu-trigger" aria-label="Transfer reservation actions">⋮</summary>
+                        <summary class="trip-menu-trigger" aria-label="Transfer reservation actions">⋯</summary>
                         <div class="trip-menu-popover">
                           <button type="button" class="trip-menu-item" data-action="edit-transfer" data-id="${escapeHtml(entry.id)}">Edit</button>
                           <button type="button" class="trip-menu-item is-danger" data-action="delete-transfer" data-id="${escapeHtml(entry.id)}">Delete</button>

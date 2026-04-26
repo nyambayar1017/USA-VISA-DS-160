@@ -212,7 +212,8 @@ const renderContractsTable = (contracts) => {
           <tr>
             <th>#</th>
             <th>Serial</th>
-            <th>Tourist</th>
+            <th>Last name</th>
+            <th>First name</th>
             <th>Manager</th>
             <th>Destination</th>
             <th>Starting Date</th>
@@ -225,7 +226,8 @@ const renderContractsTable = (contracts) => {
           ${contracts
             .map((entry, index) => {
               const data = entry.data || {};
-              const tourist = `${data.touristLastName || ""} ${data.touristFirstName || ""}`.trim();
+              const lastName = data.touristLastName || "";
+              const firstName = data.touristFirstName || "";
               const creatorName = getCreatorName(entry);
               const status = entry.status || "pending";
               const statusLabel = status === "signed" ? "Signed" : "Pending";
@@ -233,11 +235,18 @@ const renderContractsTable = (contracts) => {
               const pdfReady = entry.pdfPath && entry.pdfPath.endsWith(".pdf");
               const shareLink = `${location.origin}/contract/${entry.id}`;
               const signed = status === "signed";
+              const pdfHref = pdfReady
+                ? '/pdf-viewer?src=' + encodeURIComponent('/api/contracts/' + entry.id + '/document?mode=download') + '&title=' + encodeURIComponent(data.contractSerial || 'Contract')
+                : '';
+              const pdfButton = pdfReady
+                ? `<a class="secondary-button ${signed ? "success-button" : ""}" href="${pdfHref}" target="_blank" rel="noreferrer">${signed ? "Signed PDF" : "PDF"}</a>`
+                : `<span class="muted">PDF pending</span>`;
               return `
                 <tr>
                   <td>${(contractsCurrentPage - 1) * CONTRACTS_PAGE_SIZE + index + 1}</td>
                   <td>${data.contractSerial || "-"}</td>
-                  <td>${tourist || "-"}</td>
+                  <td>${lastName || "-"}</td>
+                  <td>${firstName || "-"}</td>
                   <td>${creatorName || "-"}</td>
                   <td>${data.destination || "-"}</td>
                   <td>${contractsFormatDate(data.tripStartDate || data.contractDate)}</td>
@@ -245,13 +254,18 @@ const renderContractsTable = (contracts) => {
                   <td>${contractsFormatDate(entry.createdAt)}</td>
                   <td>
                     <div class="contract-actions">
-                      <a class="secondary-button" href="/api/contracts/${entry.id}/document?mode=view" target="_blank">View</a>
-                      <button class="secondary-button" data-edit-id="${entry.id}" ${signed ? "disabled" : ""}>Edit</button>
-                      <a class="secondary-button" href="${entry.docxPath}" download>Word</a>
-                      ${pdfReady ? '<a class="secondary-button ' + (signed ? "success-button" : "") + '" href="/pdf-viewer?src=' + encodeURIComponent('/api/contracts/' + entry.id + '/document?mode=download') + '&title=' + encodeURIComponent(data.contractSerial || 'Contract') + '" target="_blank" rel="noreferrer">' + (signed ? "Signed PDF" : "PDF") + "</a>" : '<span class="muted">PDF pending</span>'}
+                      ${pdfButton}
                       <a class="secondary-button" href="/api/contracts/${entry.id}/invoice?mode=view" target="_blank">Invoice</a>
-                      <button class="secondary-button" data-copy-link="${shareLink}">Copy link</button>
-                      <button class="secondary-button danger-button" data-delete-id="${entry.id}">Delete</button>
+                      <details class="trip-menu trip-page-menu">
+                        <summary class="trip-menu-trigger" aria-label="Contract actions">⋯</summary>
+                        <div class="trip-menu-popover">
+                          <a class="trip-menu-item" href="/api/contracts/${entry.id}/document?mode=view" target="_blank">View</a>
+                          <button type="button" class="trip-menu-item" data-edit-id="${entry.id}" ${signed ? "disabled" : ""}>Edit</button>
+                          <a class="trip-menu-item" href="${entry.docxPath}" download>Word</a>
+                          <button type="button" class="trip-menu-item" data-copy-link="${shareLink}">Copy link</button>
+                          <button type="button" class="trip-menu-item is-danger" data-delete-id="${entry.id}">Delete</button>
+                        </div>
+                      </details>
                     </div>
                   </td>
                 </tr>
