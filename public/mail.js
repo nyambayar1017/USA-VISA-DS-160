@@ -382,6 +382,42 @@
   const composeStatus = document.getElementById("mail-compose-status");
   const composeBtn = document.getElementById("mail-compose");
   const composeTitle = document.getElementById("mail-compose-title");
+  const composeTemplateSel = document.getElementById("mail-compose-template");
+  let templates = [];
+
+  function htmlToPlain(html) {
+    if (!html) return "";
+    const div = document.createElement("div");
+    div.innerHTML = html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p\s*>/gi, "\n\n")
+      .replace(/<\/div\s*>/gi, "\n");
+    return (div.textContent || div.innerText || "").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  async function loadTemplates() {
+    try {
+      const r = await fetch("/api/mail/templates");
+      const data = await r.json();
+      if (r.ok) templates = data.entries || [];
+    } catch {
+      templates = [];
+    }
+    if (!composeTemplateSel) return;
+    composeTemplateSel.innerHTML = '<option value="">📄 Templates...</option>' +
+      templates.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join("");
+  }
+
+  composeTemplateSel?.addEventListener("change", () => {
+    const id = composeTemplateSel.value;
+    if (!id) return;
+    const tpl = templates.find((t) => t.id === id);
+    if (!tpl) return;
+    if (tpl.subject) composeForm.elements.subject.value = tpl.subject;
+    composeForm.elements.body.value = htmlToPlain(tpl.bodyHtml || "");
+    composeTemplateSel.value = "";
+    UI?.toast?.(`Applied template: ${tpl.name}`, "info");
+  });
 
   function openCompose(prefill, title) {
     if (!accounts.length) {
@@ -389,7 +425,10 @@
       return;
     }
     composeForm.reset();
+    if (composeForm.elements.includeSignature) composeForm.elements.includeSignature.checked = true;
     composeTitle.textContent = title || "New message";
+    // Refresh templates list in case the user just edited them in another tab
+    loadTemplates();
     const fromSel = composeForm.elements.fromAccountId;
     fromSel.innerHTML = accounts.map((a) =>
       `<option value="${escapeHtml(a.id)}">${escapeHtml(a.displayName || a.address)} &lt;${escapeHtml(a.address)}&gt;</option>`
@@ -430,6 +469,7 @@
       subject: fd.get("subject"),
       body: fd.get("body"),
       replyToMessageId: fd.get("replyToMessageId"),
+      includeSignature: composeForm.elements.includeSignature?.checked ?? true,
     };
     composeStatus.textContent = "Sending...";
     try {
@@ -754,6 +794,7 @@
       t.addEventListener("click", () => setFolder(t.dataset.folder));
     });
     setupSwipeGestures();
+    loadTemplates();
     await loadInbox(true);
 
     // Auto-poll every 30s while the page is visible. Pause when hidden

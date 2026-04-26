@@ -68,6 +68,8 @@ OCRSPACE_API_KEY = os.environ.get("OCRSPACE_API_KEY", "").strip()
 TOURIST_PASSPORT_TEMP_DIR = DATA_DIR / "tourist-passport-temp"
 MAIL_ACCOUNTS_PATH = DATA_DIR / "mail-accounts.json"
 MAIL_MESSAGES_DIR = DATA_DIR / "mail-messages"
+MAIL_UPLOADS_DIR = DATA_DIR / "mail-uploads"
+MAIL_TEMPLATES_PATH = DATA_DIR / "mail-templates.json"
 STEPPE_COMPANY_NAME = "“АНЛОК СТЕП МОНГОЛИА” ХХК"
 STEPPE_CITY = "Улаанбаатар хот"
 STEPPE_ADDRESS_LINES = [
@@ -113,6 +115,7 @@ def ensure_data_store():
     TRIP_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     TOURIST_PASSPORT_TEMP_DIR.mkdir(parents=True, exist_ok=True)
     MAIL_MESSAGES_DIR.mkdir(parents=True, exist_ok=True)
+    MAIL_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     for file_path in [
         CONTRACTS_FILE,
         DS160_FILE,
@@ -7652,6 +7655,7 @@ def handle_create_mail_account(environ, start_response):
         "smtpHost": smtp_host,
         "smtpPort": smtp_port,
         "appPassword": _mail_obfuscate(app_password),
+        "signatureHtml": (payload.get("signatureHtml") or "").strip(),
         "status": "ok",
         "lastError": "",
         "lastSyncedAt": "",
@@ -7677,6 +7681,9 @@ def handle_update_mail_account(environ, start_response, account_id):
             for key in ("displayName", "workspace", "imapHost", "smtpHost"):
                 if key in payload and payload[key] is not None:
                     updated[key] = str(payload[key]).strip()
+            if "signatureHtml" in payload:
+                # Trust admin-authored HTML; mail clients sanitize on render.
+                updated["signatureHtml"] = str(payload.get("signatureHtml") or "")
             for key in ("imapPort", "smtpPort"):
                 if key in payload and payload[key]:
                     try:
@@ -8278,7 +8285,7 @@ def handle_list_mail_messages(environ, start_response):
     })
 
 
-def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=None, in_reply_to_subject=None, attachments=None):
+def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=None, in_reply_to_subject=None, attachments=None, signature_html=""):
     """Send an email through Gmail SMTP using the connected account's
     app password. to_list/cc_list/bcc_list may be either bare emails or
     'Display Name <addr@x>' style strings — only the bare emails are used
@@ -8308,7 +8315,38 @@ def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, re
     if reply_to_message_id:
         msg["In-Reply-To"] = reply_to_message_id
         msg["References"] = reply_to_message_id
-    msg.set_content(body or "")
+
+    body_text_part = body or ""
+    if signature_html:
+        # Build a plain-text version of the signature for the text fallback
+        sig_text = re.sub(r"<br\s*/?>", "\n", signature_html, flags=re.IGNORECASE)
+        sig_text = re.sub(r"</p\s*>", "\n\n", sig_text, flags=re.IGNORECASE)
+        sig_text = re.sub(r"<[^>]+>", "", sig_text)
+        sig_text = re.sub(r"&nbsp;", " ", sig_text)
+        sig_text = re.sub(r"&amp;", "&", sig_text)
+        sig_text = re.sub(r"&lt;", "<", sig_text)
+        sig_text = re.sub(r"&gt;", ">", sig_text)
+        sig_text = re.sub(r"&quot;", '"', sig_text)
+        sig_text = re.sub(r"\n{3,}", "\n\n", sig_text).strip()
+        plain_text = f"{body_text_part}\n\n--\n{sig_text}" if sig_text else body_text_part
+        # Build HTML version: escape body, preserve newlines, then signature HTML
+        body_html_escaped = (
+            (body_text_part or "")
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\n", "<br>")
+        )
+        full_html = (
+            f"<div style=\"font-family: Arial, sans-serif; font-size: 14px; color: #0f172a;\">"
+            f"{body_html_escaped}"
+            f"<br><br>{signature_html}"
+            f"</div>"
+        )
+        msg.set_content(plain_text)
+        msg.add_alternative(full_html, subtype="html")
+    else:
+        msg.set_content(body_text_part)
 
     if attachments:
         for att in attachments:
@@ -8402,10 +8440,12 @@ def handle_send_mail(environ, start_response):
     subject = (payload.get("subject") or "").strip()
     body = payload.get("body") or ""
     reply_to = (payload.get("replyToMessageId") or "").strip()
+    include_signature = bool(payload.get("includeSignature", True))
+    signature_html = (account.get("signatureHtml") or "") if include_signature else ""
     if not to_list:
         return json_response(start_response, "400 Bad Request", {"error": "At least one To recipient is required"})
 
-    ok, err = smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=reply_to or None)
+    ok, err = smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=reply_to or None, signature_html=signature_html)
     if not ok:
         return json_response(start_response, "500 Internal Server Error", {"error": err})
 
@@ -8419,6 +8459,166 @@ def handle_send_mail(environ, start_response):
         )
     except Exception:
         pass
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
+# ── Signature image upload + serving ───────────────────────────────
+_SIG_IMG_EXT_BY_TYPE = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+}
+_SIG_IMG_TYPE_BY_EXT = {v: k for k, v in _SIG_IMG_EXT_BY_TYPE.items()}
+_SIG_MAX_BYTES = 4 * 1024 * 1024  # 4MB ceiling per image
+
+
+def handle_upload_signature_image(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    fields, files = parse_multipart(environ)
+    upload = files.get("image")
+    if not upload:
+        return json_response(start_response, "400 Bad Request", {"error": "No image uploaded"})
+    data = upload.get("data") or b""
+    if len(data) > _SIG_MAX_BYTES:
+        return json_response(start_response, "413 Payload Too Large", {"error": "Image too large (max 4MB)"})
+    ctype = (upload.get("content_type") or "").lower().split(";")[0].strip()
+    ext = _SIG_IMG_EXT_BY_TYPE.get(ctype)
+    if not ext:
+        # Fallback: trust the file extension
+        fname = upload.get("filename") or ""
+        guess = os.path.splitext(fname)[1].lower()
+        if guess in _SIG_IMG_TYPE_BY_EXT:
+            ext = guess
+            ctype = _SIG_IMG_TYPE_BY_EXT[ext]
+    if not ext:
+        return json_response(start_response, "400 Bad Request", {"error": "Unsupported image type"})
+    name = f"sig-{uuid4().hex}{ext}"
+    path = MAIL_UPLOADS_DIR / name
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as fh:
+            fh.write(data)
+    except Exception as exc:
+        return json_response(start_response, "500 Internal Server Error", {"error": f"Save failed: {exc}"})
+    return json_response(start_response, "200 OK", {"ok": True, "url": f"/mail-uploads/{name}"})
+
+
+def handle_serve_mail_upload(environ, start_response, filename):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    safe = re.sub(r"[^A-Za-z0-9._-]", "", filename or "")
+    if not safe or safe.startswith(".") or "/" in safe or ".." in safe:
+        return json_response(start_response, "400 Bad Request", {"error": "Bad filename"})
+    path = MAIL_UPLOADS_DIR / safe
+    if not path.exists() or not path.is_file():
+        return json_response(start_response, "404 Not Found", {"error": "Not found"})
+    ext = os.path.splitext(safe)[1].lower()
+    ctype = _SIG_IMG_TYPE_BY_EXT.get(ext) or mimetypes.guess_type(safe)[0] or "application/octet-stream"
+    try:
+        with path.open("rb") as fh:
+            payload = fh.read()
+    except Exception:
+        return json_response(start_response, "500 Internal Server Error", {"error": "Read failed"})
+    headers = [
+        ("Content-Type", ctype),
+        ("Content-Length", str(len(payload))),
+        ("Cache-Control", "private, max-age=86400"),
+    ]
+    start_response("200 OK", headers)
+    return [payload]
+
+
+# ── Mail templates CRUD ────────────────────────────────────────────
+def read_mail_templates():
+    if not MAIL_TEMPLATES_PATH.exists():
+        return []
+    try:
+        with MAIL_TEMPLATES_PATH.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def write_mail_templates(items):
+    MAIL_TEMPLATES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = MAIL_TEMPLATES_PATH.with_suffix(".json.tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        json.dump(items, fh, ensure_ascii=False, indent=2)
+    tmp.replace(MAIL_TEMPLATES_PATH)
+
+
+def handle_list_mail_templates(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    items = read_mail_templates()
+    items.sort(key=lambda t: (t.get("name") or "").lower())
+    return json_response(start_response, "200 OK", {"entries": items})
+
+
+def handle_create_mail_template(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
+    record = {
+        "id": uuid4().hex,
+        "name": name,
+        "subject": (payload.get("subject") or "").strip(),
+        "bodyHtml": payload.get("bodyHtml") or "",
+        "createdAt": now_mongolia().isoformat(),
+        "updatedAt": now_mongolia().isoformat(),
+    }
+    items = read_mail_templates()
+    items.append(record)
+    write_mail_templates(items)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_update_mail_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    items = read_mail_templates()
+    for i, t in enumerate(items):
+        if t.get("id") == template_id:
+            updated = dict(t)
+            if "name" in payload:
+                name = (payload.get("name") or "").strip()
+                if not name:
+                    return json_response(start_response, "400 Bad Request", {"error": "Name cannot be empty"})
+                updated["name"] = name
+            if "subject" in payload:
+                updated["subject"] = (payload.get("subject") or "").strip()
+            if "bodyHtml" in payload:
+                updated["bodyHtml"] = payload.get("bodyHtml") or ""
+            updated["updatedAt"] = now_mongolia().isoformat()
+            items[i] = updated
+            write_mail_templates(items)
+            return json_response(start_response, "200 OK", {"ok": True, "entry": updated})
+    return json_response(start_response, "404 Not Found", {"error": "Template not found"})
+
+
+def handle_delete_mail_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    items = read_mail_templates()
+    new_items = [t for t in items if t.get("id") != template_id]
+    if len(new_items) == len(items):
+        return json_response(start_response, "404 Not Found", {"error": "Template not found"})
+    write_mail_templates(new_items)
     return json_response(start_response, "200 OK", {"ok": True})
 
 
@@ -11849,6 +12049,32 @@ def _dispatch(environ, start_response):
     if path == "/api/mail/send":
         if method == "POST":
             return handle_send_mail(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/mail/signature-image":
+        if method == "POST":
+            return handle_upload_signature_image(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/mail-uploads/"):
+        if method == "GET":
+            filename = path.replace("/mail-uploads/", "", 1).strip("/")
+            return handle_serve_mail_upload(environ, start_response, filename)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/mail/templates":
+        if method == "GET":
+            return handle_list_mail_templates(environ, start_response)
+        if method == "POST":
+            return handle_create_mail_template(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/mail/templates/"):
+        template_id = path.replace("/api/mail/templates/", "", 1).strip("/")
+        if method == "PATCH" and template_id:
+            return handle_update_mail_template(environ, start_response, template_id)
+        if method == "DELETE" and template_id:
+            return handle_delete_mail_template(environ, start_response, template_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/mail/messages/"):

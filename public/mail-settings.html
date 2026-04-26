@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-224" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-228" />
   </head>
   <body class="app-body" data-page="mail-settings">
     <div class="workspace-shell">
@@ -84,10 +84,41 @@
             <p class="empty">Loading...</p>
           </div>
         </section>
+
+        <section class="card">
+          <div class="dashboard-head">
+            <h2>Email templates</h2>
+            <button type="button" id="tpl-add-toggle" class="primary-pill">+ New template</button>
+          </div>
+          <p style="margin: 0 0 12px; color: #475569;">Reusable subject + body presets. Pick one in Compose to fill the form.</p>
+          <div id="mail-templates-list" class="mail-templates-list">
+            <p class="empty">Loading...</p>
+          </div>
+        </section>
+
+        <!-- Reusable signature/template editor modal -->
+        <div id="mail-editor-modal" class="mail-editor-modal" hidden>
+          <div class="mail-editor-backdrop" data-action="close-editor"></div>
+          <div class="mail-editor-card">
+            <header>
+              <strong id="mail-editor-title">Edit</strong>
+              <button type="button" class="mail-editor-close" data-action="close-editor" aria-label="Close">×</button>
+            </header>
+            <div class="mail-editor-body">
+              <div id="mail-editor-extra"></div>
+              <div id="mail-editor-host"></div>
+            </div>
+            <footer>
+              <p id="mail-editor-status" class="status"></p>
+              <button type="button" class="secondary-button" data-action="close-editor">Cancel</button>
+              <button type="button" class="primary-pill" id="mail-editor-save">Save</button>
+            </footer>
+          </div>
+        </div>
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-102"></script>
-    <script src="/mail-settings.js?v=workspace-1"></script>
+    <script src="/mail-settings.js?v=workspace-2"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
