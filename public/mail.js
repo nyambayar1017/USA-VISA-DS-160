@@ -480,8 +480,20 @@
         body: JSON.stringify(payload),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Send failed");
-      UI?.toast?.("Sent.", "success");
+      if (!r.ok) {
+        if (data.refused && data.refused.length) {
+          const list = data.refused.map((x) => `${x.address} (${x.code})`).join(", ");
+          throw new Error(`${data.error || "Send failed"} — refused: ${list}`);
+        }
+        throw new Error(data.error || "Send failed");
+      }
+      if (data.refused && data.refused.length) {
+        // Some addresses were refused but the message went out to the rest.
+        const list = data.refused.map((x) => x.address).join(", ");
+        UI?.toast?.(`Sent — but Gmail refused these addresses: ${list}. Check for typos.`, "warning");
+      } else {
+        UI?.toast?.("Sent.", "success");
+      }
       closeCompose();
     } catch (err) {
       composeStatus.textContent = err.message;

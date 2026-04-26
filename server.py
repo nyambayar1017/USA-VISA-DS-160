@@ -8378,26 +8378,43 @@ def smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, re
             seen.add(key)
             all_recipients.append(email_addr.strip())
     if not all_recipients:
-        return False, "No valid recipients"
+        return False, "No valid recipients", []
+    refused_recipients = []
     try:
         with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as smtp:
             smtp.login(address, password)
-            smtp.send_message(msg, from_addr=address, to_addrs=all_recipients)
+            # send_message returns a dict {refused_addr: (code, msg)} for any
+            # recipients the server rejected at RCPT TO time. If ALL fail,
+            # SMTPRecipientsRefused is raised instead.
+            result = smtp.send_message(msg, from_addr=address, to_addrs=all_recipients) or {}
+            for addr, (code, reason) in result.items():
+                try:
+                    reason_str = reason.decode("utf-8", errors="replace") if isinstance(reason, bytes) else str(reason)
+                except Exception:
+                    reason_str = str(reason)
+                refused_recipients.append({"address": addr, "code": code, "reason": reason_str})
     except smtplib.SMTPAuthenticationError as exc:
-        return False, f"SMTP auth failed: {exc}"
+        return False, f"SMTP auth failed: {exc}", []
     except smtplib.SMTPRecipientsRefused as exc:
-        return False, f"Recipients refused: {exc.recipients}"
+        # ALL recipients refused — surface them all
+        for addr, (code, reason) in (exc.recipients or {}).items():
+            try:
+                reason_str = reason.decode("utf-8", errors="replace") if isinstance(reason, bytes) else str(reason)
+            except Exception:
+                reason_str = str(reason)
+            refused_recipients.append({"address": addr, "code": code, "reason": reason_str})
+        return False, "All recipients refused by Gmail", refused_recipients
     except smtplib.SMTPSenderRefused as exc:
-        return False, f"Sender refused: {exc.smtp_error}"
+        return False, f"Sender refused: {exc.smtp_error}", []
     except smtplib.SMTPDataError as exc:
-        return False, f"SMTP data error: {exc.smtp_error}"
+        return False, f"SMTP data error: {exc.smtp_error}", []
     except Exception as exc:
-        return False, f"SMTP send failed: {exc}"
+        return False, f"SMTP send failed: {exc}", []
 
     # Gmail SMTP automatically saves sent messages to [Gmail]/Sent Mail.
     # We deliberately do NOT IMAP APPEND a copy ourselves — that would
     # produce a duplicate in the sender's Sent folder.
-    return True, ""
+    return True, "", refused_recipients
 
 
 def handle_send_mail(environ, start_response):
@@ -8445,9 +8462,9 @@ def handle_send_mail(environ, start_response):
     if not to_list:
         return json_response(start_response, "400 Bad Request", {"error": "At least one To recipient is required"})
 
-    ok, err = smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=reply_to or None, signature_html=signature_html)
+    ok, err, refused = smtp_send_via_account(account, to_list, cc_list, bcc_list, subject, body, reply_to_message_id=reply_to or None, signature_html=signature_html)
     if not ok:
-        return json_response(start_response, "500 Internal Server Error", {"error": err})
+        return json_response(start_response, "500 Internal Server Error", {"error": err, "refused": refused})
 
     try:
         log_notification(
@@ -8459,7 +8476,7 @@ def handle_send_mail(environ, start_response):
         )
     except Exception:
         pass
-    return json_response(start_response, "200 OK", {"ok": True})
+    return json_response(start_response, "200 OK", {"ok": True, "refused": refused})
 
 
 # ── Signature image upload + serving ───────────────────────────────
