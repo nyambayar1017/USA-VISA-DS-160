@@ -9511,14 +9511,19 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   text-align: left;
 }
 .tourist-view-popover .ts-view-row:hover { background: #f9fafb; }
-.tourist-view-popover .ts-view-row input {
+.tourist-view-popover .ts-view-row input[type="checkbox"] {
   accent-color: #c64d3a;
   flex: 0 0 auto;
+  width: 16px !important;
+  height: 16px;
+  min-width: 16px;
+  padding: 0 !important;
   margin: 0;
 }
 .tourist-view-popover .ts-view-row span {
   flex: 1 1 auto;
   text-align: left;
+  color: #1f2937;
 }
 
 /* Per-row promo selection checkbox + master select-all */
