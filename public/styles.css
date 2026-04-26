@@ -9460,4 +9460,110 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   .ds160-toolbar-actions > * {
     flex: 1 1 auto !important;
   }
+
+  /* Stop the parent flex container from stretching children to fill
+     the row height — that was the bug that made each "All trips" /
+     "All statuses" box render as a 140-px-tall square on phones. */
+  .invoices-filter-bar,
+  .invoices-saved-filter-row,
+  .camp-filters,
+  .contract-filter-grid,
+  .ds160-filter-grid,
+  .manager-filter-row,
+  .fifa-filters,
+  .fifa-public-panel .fifa-filters,
+  .field-grid,
+  .contract-grid {
+    align-items: flex-start !important;
+    align-content: flex-start !important;
+  }
+
+  /* Force one consistent compact height (40 px) on every filter /
+     form input, select, textarea, and date input across the affected
+     pages — Tourist/Invoices/Documents already render this way; the
+     other pages now match. */
+  .invoices-filter-bar input,
+  .invoices-filter-bar select,
+  .invoices-filter-bar textarea,
+  .camp-filters input,
+  .camp-filters select,
+  .camp-filters textarea,
+  .contract-filter-grid input,
+  .contract-filter-grid select,
+  .contract-filter-grid textarea,
+  .contract-grid input,
+  .contract-grid select,
+  .contract-grid textarea,
+  .ds160-filter-grid input,
+  .ds160-filter-grid select,
+  .ds160-filter-grid textarea,
+  .manager-filter-row input,
+  .manager-filter-row select,
+  .manager-filter-row textarea,
+  .fifa-filters input,
+  .fifa-filters select,
+  .fifa-filters textarea,
+  .fifa-public-panel .fifa-filters input,
+  .fifa-public-panel .fifa-filters select,
+  .fifa-public-panel .fifa-filters textarea,
+  .field-grid input,
+  .field-grid select,
+  .field-grid textarea {
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    padding: 8px 12px !important;
+    box-sizing: border-box !important;
+    line-height: 1.2 !important;
+  }
+  /* Textareas keep their own height — exclude from the cap above */
+  .invoices-filter-bar textarea,
+  .camp-filters textarea,
+  .contract-filter-grid textarea,
+  .contract-grid textarea,
+  .ds160-filter-grid textarea,
+  .manager-filter-row textarea,
+  .fifa-filters textarea,
+  .fifa-public-panel .fifa-filters textarea,
+  .field-grid textarea {
+    height: auto !important;
+    min-height: 80px !important;
+    max-height: none !important;
+  }
+
+  /* FIFA admin Ticket Inventory stat cards stacked vertically and ate
+     a full screen of vertical space on phones — pack them into a
+     compact 1-column flow with smaller padding so the filters and
+     table sit closer to the top. */
+  .manager-summary-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .manager-stat-card {
+    padding: 14px 16px !important;
+  }
+  .manager-stat-card strong {
+    font-size: 1.6rem !important;
+  }
+
+  /* Sidebar submenu items (e.g. FIFA 2026 → Public Page) should look
+     like children, not equals — smaller font, lighter weight. */
+  .sidebar-sublink {
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    color: rgba(34, 45, 76, 0.7) !important;
+  }
+  .sidebar-children {
+    gap: 8px !important;
+    margin: 6px 0 8px 18px !important;
+    padding: 8px 0 2px 14px !important;
+  }
+}
+
+/* Apply the smaller submenu styling on desktop too — the user said
+   submenus must look smaller than general menu items everywhere. */
+.sidebar-sublink {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(34, 45, 76, 0.78);
 }
