@@ -150,6 +150,38 @@
     }
   }
 
+  async function markUnread(key) {
+    const [accountId, uid] = key.split(":");
+    const m = messages.find((x) => x.accountId === accountId && String(x.uid) === uid);
+    if (m) m.isRead = false;
+    renderList();
+    try {
+      const r = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}/unread?folder=${encodeURIComponent(currentFolder)}`, { method: "POST" });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.error || "Mark unread failed");
+      }
+      return true;
+    } catch (err) {
+      UI?.toast?.(err.message || "Mark unread failed", "error");
+      return false;
+    }
+  }
+
+  async function bulkMarkUnread() {
+    if (checkedKeys.size === 0) return;
+    const keys = Array.from(checkedKeys);
+    let okCount = 0, failCount = 0;
+    for (const key of keys) {
+      const ok = await markUnread(key);
+      if (ok) okCount++; else failCount++;
+    }
+    checkedKeys.clear();
+    renderList();
+    if (failCount) UI?.toast?.(`${okCount} marked unread, ${failCount} failed.`, "warning");
+    else UI?.toast?.(`${okCount} marked unread.`, "success");
+  }
+
   async function bulkDelete() {
     if (checkedKeys.size === 0) return;
     const ok = await UI.confirm(`Move ${checkedKeys.size} message${checkedKeys.size === 1 ? "" : "s"} to Trash?`, { dangerous: true });
@@ -241,6 +273,7 @@
       : `<button type="button" class="secondary-button" data-action="reply">↩ Reply</button>
          <button type="button" class="secondary-button" data-action="reply-all">↩↩ Reply all</button>
          <button type="button" class="secondary-button" data-action="forward">→ Forward</button>
+         <button type="button" class="secondary-button" data-action="mark-unread">◉ Mark unread</button>
          <button type="button" class="secondary-button danger-button" data-action="delete-msg">Delete</button>`;
     viewerNode.innerHTML = `
       <div class="mail-viewer-head">
@@ -363,6 +396,16 @@
         subject: m.subject?.toLowerCase().startsWith("fwd:") ? m.subject : `Fwd: ${m.subject || ""}`,
         body: "",
       }, "Forward");
+    } else if (btn.dataset.action === "mark-unread") {
+      const ok = await markUnread(getKey(m));
+      if (ok) {
+        UI?.toast?.("Marked unread.", "success");
+        // Close the viewer so the unread state is obvious in the list
+        selectedKey = "";
+        currentMessage = null;
+        viewerNode.innerHTML = '<div class="mail-viewer-empty"><div class="mail-empty-illustration mail-empty-illustration--small">✉</div><p>Select a message to read it.</p></div>';
+        document.querySelector(".mail-layout")?.classList.remove("is-viewing");
+      }
     } else if (btn.dataset.action === "delete-msg") {
       const ok = await UI.confirm("Move this message to Trash?", { dangerous: true });
       if (!ok) return;
@@ -431,6 +474,142 @@
     loadInbox(true);
   }
 
+  function setupSwipeGestures() {
+    // Touch-only gestures: enabled when the device supports touch (we still
+    // listen on desktop too, but mouse drag is intentionally not bound).
+    let active = null; // { wrap, key, startX, startY, dx, started, contentEls, overlayEl }
+    const SWIPE_THRESHOLD = 80; // px before an action commits
+    const MAX_TRAVEL = 140;     // px the row can be dragged
+
+    function getTargetWrap(target) {
+      const wrap = target.closest(".mail-list-row-wrap");
+      if (!wrap) return null;
+      // Don't start swipe if the touch began on the checkbox label
+      if (target.closest(".mail-list-check")) return null;
+      return wrap;
+    }
+
+    function ensureOverlay(wrap) {
+      let overlay = wrap.querySelector(".mail-swipe-actions");
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.className = "mail-swipe-actions";
+        overlay.innerHTML = `
+          <span class="swipe-left">◉ Mark unread</span>
+          <span class="swipe-right">🗑 Delete</span>
+        `;
+        wrap.insertBefore(overlay, wrap.firstChild);
+      }
+      return overlay;
+    }
+
+    function onTouchStart(e) {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const wrap = getTargetWrap(t.target);
+      if (!wrap) return;
+      const key = wrap.dataset.key;
+      if (!key) return;
+      active = {
+        wrap,
+        key,
+        startX: t.clientX,
+        startY: t.clientY,
+        dx: 0,
+        started: false,
+        overlayEl: null,
+        contentEls: Array.from(wrap.querySelectorAll(".mail-list-check, .mail-list-row")),
+      };
+    }
+
+    function onTouchMove(e) {
+      if (!active) return;
+      const t = e.touches[0];
+      const dx = t.clientX - active.startX;
+      const dy = t.clientY - active.startY;
+      if (!active.started) {
+        // Only commit to a horizontal swipe once it's clearly horizontal
+        if (Math.abs(dx) < 10) return;
+        if (Math.abs(dy) > Math.abs(dx)) {
+          // Vertical scroll wins — abort the swipe
+          active = null;
+          return;
+        }
+        active.started = true;
+        active.overlayEl = ensureOverlay(active.wrap);
+        active.wrap.classList.add("is-swiping");
+      }
+      e.preventDefault(); // we own the gesture now
+      const clamped = Math.max(-MAX_TRAVEL, Math.min(MAX_TRAVEL, dx));
+      active.dx = clamped;
+      const t3d = `translateX(${clamped}px)`;
+      active.contentEls.forEach((el) => { el.style.transform = t3d; });
+    }
+
+    function snapBack(wrap, contentEls) {
+      // Animate the row's content back to translateX(0), then strip the
+      // swipe overlay + classes.
+      wrap.classList.remove("is-swiping");
+      wrap.classList.add("is-snapping");
+      contentEls.forEach((el) => { el.style.transform = ""; });
+      setTimeout(() => {
+        wrap.classList.remove("is-snapping");
+        contentEls.forEach((el) => { el.style.transform = ""; });
+        wrap.querySelector(".mail-swipe-actions")?.remove();
+      }, 240);
+    }
+
+    async function onTouchEnd() {
+      if (!active) return;
+      const a = active;
+      active = null;
+      if (!a.started) return;
+      const dx = a.dx;
+      snapBack(a.wrap, a.contentEls);
+      if (Math.abs(dx) < SWIPE_THRESHOLD) return;
+      if (dx < 0) {
+        // Swipe left → Delete (always confirm)
+        const ok = await UI.confirm("Move this message to Trash?", { dangerous: true });
+        if (!ok) return;
+        const [accountId, uid] = a.key.split(":");
+        try {
+          const r = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}?folder=${encodeURIComponent(currentFolder)}`, { method: "DELETE" });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || "Delete failed");
+          UI?.toast?.("Moved to Trash.", "success");
+          messages = messages.filter((x) => !(x.accountId === accountId && String(x.uid) === uid));
+          if (selectedKey === a.key) {
+            selectedKey = "";
+            currentMessage = null;
+            viewerNode.innerHTML = '<div class="mail-viewer-empty"><div class="mail-empty-illustration mail-empty-illustration--small">✉</div><p>Select a message to read it.</p></div>';
+            document.querySelector(".mail-layout")?.classList.remove("is-viewing");
+          }
+          renderList();
+        } catch (err) {
+          UI?.toast?.(err.message || "Delete failed", "error");
+        }
+      } else {
+        // Swipe right → Mark unread
+        if (currentFolder === "sent") {
+          UI?.toast?.("Sent items are always read.", "info");
+          return;
+        }
+        const ok = await markUnread(a.key);
+        if (ok) UI?.toast?.("Marked unread.", "success");
+      }
+    }
+
+    listNode.addEventListener("touchstart", onTouchStart, { passive: true });
+    listNode.addEventListener("touchmove", onTouchMove, { passive: false });
+    listNode.addEventListener("touchend", onTouchEnd, { passive: true });
+    listNode.addEventListener("touchcancel", () => {
+      if (!active) return;
+      const a = active;
+      active = null;
+      if (a.started) snapBack(a.wrap, a.contentEls);
+    }, { passive: true });
+  }
+
   async function bootstrap() {
     try {
       const r = await fetch("/api/mail/accounts");
@@ -465,6 +644,7 @@
       if (btn) selectKey(btn.dataset.key);
     });
     document.getElementById("mail-bulk-delete")?.addEventListener("click", bulkDelete);
+    document.getElementById("mail-bulk-unread")?.addEventListener("click", bulkMarkUnread);
     document.getElementById("mail-bulk-clear")?.addEventListener("click", () => {
       checkedKeys.clear();
       renderList();
@@ -472,6 +652,7 @@
     document.querySelectorAll(".mail-folder-tab").forEach((t) => {
       t.addEventListener("click", () => setFolder(t.dataset.folder));
     });
+    setupSwipeGestures();
     await loadInbox(true);
 
     // Auto-poll every 20s while the page is visible. Pause when hidden

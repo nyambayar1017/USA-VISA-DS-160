@@ -8312,8 +8312,8 @@ def handle_send_mail(environ, start_response):
     return json_response(start_response, "200 OK", {"ok": True})
 
 
-def imap_mark_read(account, uid, folder="inbox"):
-    """Set the \\Seen flag on a message so Gmail also marks it read."""
+def _imap_set_seen_flag(account, uid, folder, mark_read):
+    """Set or clear the \\Seen flag. mark_read=True adds it, False removes it."""
     import imaplib
     address = account.get("address")
     password = re.sub(r"\s+", "", get_mail_account_password(account) or "")
@@ -8321,6 +8321,7 @@ def imap_mark_read(account, uid, folder="inbox"):
     port = int(account.get("imapPort") or 993)
     if not address or not password:
         return False, "Missing address or password"
+    op = "+FLAGS" if mark_read else "-FLAGS"
     try:
         client = imaplib.IMAP4_SSL(host, port, timeout=20)
         try:
@@ -8332,16 +8333,25 @@ def imap_mark_read(account, uid, folder="inbox"):
                         break
                 except Exception:
                     continue
-            client.uid("STORE", str(uid), "+FLAGS", "(\\Seen)")
+            client.uid("STORE", str(uid), op, "(\\Seen)")
         finally:
             try: client.logout()
             except Exception: pass
     except Exception as exc:
-        return False, f"Mark-read failed: {exc}"
+        verb = "Mark-read" if mark_read else "Mark-unread"
+        return False, f"{verb} failed: {exc}"
     return True, ""
 
 
-def handle_mark_read_mail_message(environ, start_response, account_id, uid):
+def imap_mark_read(account, uid, folder="inbox"):
+    return _imap_set_seen_flag(account, uid, folder, True)
+
+
+def imap_mark_unread(account, uid, folder="inbox"):
+    return _imap_set_seen_flag(account, uid, folder, False)
+
+
+def _handle_set_read_state(environ, start_response, account_id, uid, mark_read):
     actor = require_login(environ, start_response)
     if not actor:
         return []
@@ -8357,14 +8367,22 @@ def handle_mark_read_mail_message(environ, start_response, account_id, uid):
     folder = (params.get("folder", ["inbox"])[0] or "inbox").strip().lower()
     if folder not in ("inbox", "sent"):
         folder = "inbox"
-    ok, err = imap_mark_read(account, uid_int, folder=folder)
+    ok, err = _imap_set_seen_flag(account, uid_int, folder, mark_read)
     cache = _read_mail_cache(account_id)
     for m in cache.get("messages", []):
         if int(m.get("uid", 0)) == uid_int and (m.get("folder") or "inbox") == folder:
-            m["isRead"] = True
+            m["isRead"] = bool(mark_read)
             break
     _write_mail_cache(account_id, cache)
     return json_response(start_response, "200 OK", {"ok": ok, "error": err})
+
+
+def handle_mark_read_mail_message(environ, start_response, account_id, uid):
+    return _handle_set_read_state(environ, start_response, account_id, uid, True)
+
+
+def handle_mark_unread_mail_message(environ, start_response, account_id, uid):
+    return _handle_set_read_state(environ, start_response, account_id, uid, False)
 
 
 def imap_delete_message(account, uid, folder="inbox"):
@@ -11700,6 +11718,8 @@ def _dispatch(environ, start_response):
             sub_arg = parts[3] if len(parts) > 3 else ""
             if sub == "read" and method == "POST":
                 return handle_mark_read_mail_message(environ, start_response, acc_id, uid)
+            if sub == "unread" and method == "POST":
+                return handle_mark_unread_mail_message(environ, start_response, acc_id, uid)
             if sub == "attachments" and sub_arg and method == "GET":
                 return handle_download_mail_attachment(environ, start_response, acc_id, uid, sub_arg)
             if not sub and method == "GET":

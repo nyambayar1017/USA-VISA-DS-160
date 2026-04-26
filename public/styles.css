@@ -10405,8 +10405,49 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #92400e;
 }
 .mail-bulk-bar > span { font-weight: 600; }
-.mail-bulk-bar button { margin-left: auto; }
-.mail-bulk-bar button:first-of-type { margin-left: auto; }
+.mail-bulk-bar button { margin-left: 0; }
+.mail-bulk-bar > span + button { margin-left: auto; }
+
+/* Swipe affordance on mobile: only rendered during an active touch swipe.
+   The overlay sits beneath the row content; the content is translated. */
+.mail-list-row-wrap { overflow: hidden; }
+.mail-swipe-actions {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  pointer-events: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  z-index: 0;
+}
+.mail-swipe-actions .swipe-left,
+.mail-swipe-actions .swipe-right {
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  flex: 1;
+}
+.mail-swipe-actions .swipe-left { background: #2563eb; justify-content: flex-start; }
+.mail-swipe-actions .swipe-right { background: #dc2626; justify-content: flex-end; }
+.mail-list-row-wrap.is-swiping .mail-list-check,
+.mail-list-row-wrap.is-swiping .mail-list-row {
+  position: relative;
+  z-index: 1;
+  background: #ffffff;
+  transition: transform 0s;
+}
+.mail-list-row-wrap.is-swiping.is-checked .mail-list-check,
+.mail-list-row-wrap.is-swiping.is-checked .mail-list-row { background: #fef3c7; }
+.mail-list-row-wrap.is-snapping .mail-list-check,
+.mail-list-row-wrap.is-snapping .mail-list-row {
+  position: relative;
+  z-index: 1;
+  background: #ffffff;
+  transition: transform 220ms ease;
+}
 
 .mail-list-avatar {
   width: 36px;
