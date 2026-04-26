@@ -8916,18 +8916,33 @@ def _agent_resolve_attachment(att):
 
     if kind == "contract":
         cid = (att.get("id") or "").strip()
-        contract = next((c for c in read_contracts() if c.get("id") == cid), None)
+        contracts = read_contracts()
+        contract = None
+        contract_index = None
+        for idx, c in enumerate(contracts):
+            if c.get("id") == cid:
+                contract = c
+                contract_index = idx
+                break
         if not contract:
             return None, f"contract {cid} not found"
-        # Prefer the PDF if present, otherwise the docx.
-        rel = contract.get("pdfPath") or contract.get("docxPath") or ""
-        if not rel:
-            return None, "contract has no saved file"
-        p = GENERATED_DIR / rel.replace("/generated/", "", 1)
-        if not p.exists():
-            return None, f"contract file not found on disk: {rel}"
+        # Always attach as PDF. Render on demand if not already saved (or if the
+        # saved pdfPath points at the html fallback / a missing file). DOCX is
+        # never used as the email attachment — clients expect PDFs.
+        rel = contract.get("pdfPath") or ""
+        p = GENERATED_DIR / rel.replace("/generated/", "", 1) if rel.startswith("/generated/") else None
+        if not (rel.endswith(".pdf") and p and p.exists()):
+            try:
+                rel = save_contract_pdf(contract)
+            except Exception as exc:
+                return None, f"contract PDF render failed: {exc}"
+            contract["pdfPath"] = rel
+            if contract_index is not None:
+                contracts[contract_index] = contract
+                write_contracts(contracts)
+            p = GENERATED_DIR / rel.replace("/generated/", "", 1)
         serial = (contract.get("data") or {}).get("contractSerial") or cid
-        return f"contract-{serial}{p.suffix}", p.read_bytes()
+        return f"contract-{serial}.pdf", p.read_bytes()
 
     if kind == "tourist_passport":
         tid = (att.get("id") or "").strip()
