@@ -309,7 +309,7 @@
       sel.disabled = true;
       try {
         const resp = await fetch("/api/tourists/" + encodeURIComponent(id), {
-          method: "PATCH",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ marketingStatus: value }),
         });
