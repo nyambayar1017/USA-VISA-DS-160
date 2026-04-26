@@ -180,7 +180,33 @@
     el.addEventListener("input", render);
   });
   [filterFrom, filterTo].forEach((el) => {
-    el.addEventListener("change", render);
+    el.addEventListener("change", () => {
+      updateDateRangeCount();
+      render();
+    });
+  });
+
+  function updateDateRangeCount() {
+    const pill = document.getElementById("inv-daterange-pill");
+    const badge = document.getElementById("inv-daterange-count");
+    if (!pill || !badge) return;
+    const n = (filterFrom.value ? 1 : 0) + (filterTo.value ? 1 : 0);
+    if (n > 0) {
+      badge.textContent = String(n);
+      badge.removeAttribute("hidden");
+      pill.classList.add("has-active");
+    } else {
+      badge.setAttribute("hidden", "");
+      pill.classList.remove("has-active");
+    }
+  }
+
+  // Close the date-range popover when clicking outside.
+  document.addEventListener("click", (event) => {
+    const pill = document.getElementById("inv-daterange-pill");
+    if (pill && pill.hasAttribute("open") && !pill.contains(event.target)) {
+      pill.removeAttribute("open");
+    }
   });
 
   statusPills.addEventListener("click", (e) => {
@@ -233,6 +259,7 @@
     statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => {
       p.classList.toggle("is-active", activeStatuses.has(p.dataset.status));
     });
+    updateDateRangeCount();
     render();
   }
   function clearAllFilters() {
@@ -243,6 +270,7 @@
     filterTo.value = "";
     activeStatuses.clear();
     statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => p.classList.remove("is-active"));
+    updateDateRangeCount();
     render();
   }
   function refreshSavedFiltersDropdown(selectName) {

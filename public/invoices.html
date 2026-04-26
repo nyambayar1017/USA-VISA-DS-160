@@ -44,19 +44,25 @@
             <input id="inv-filter-serial" type="search" placeholder="Search by serial" autocomplete="off" />
             <input id="inv-filter-group" type="search" placeholder="Search by group" autocomplete="off" />
             <input id="inv-filter-payer" type="search" placeholder="Search by payer" autocomplete="off" />
+            <details class="trip-filter-pill trip-filter-pill-date" id="inv-daterange-pill">
+              <summary>
+                <span class="trip-filter-pill-icon trip-filter-date-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+                </span>
+                <span class="trip-filter-pill-label">Next due between</span>
+                <span class="trip-filter-pill-count" id="inv-daterange-count" hidden>0</span>
+              </summary>
+              <div class="trip-filter-popover trip-filter-popover-date">
+                <label>From <input id="inv-filter-from" type="date" /></label>
+                <label>To <input id="inv-filter-to" type="date" /></label>
+              </div>
+            </details>
             <div class="invoices-status-pills" id="inv-status-pills">
               <button type="button" class="invoices-status-pill" data-status="pending">Pending</button>
               <button type="button" class="invoices-status-pill" data-status="overdue">Overdue</button>
               <button type="button" class="invoices-status-pill" data-status="paid">Paid</button>
             </div>
             <button type="button" class="secondary-button" id="inv-reset">Reset</button>
-          </div>
-
-          <div class="invoices-filter-bar">
-            <label class="invoices-daterange-label">Next due between</label>
-            <input id="inv-filter-from" type="date" />
-            <span class="invoices-daterange-sep">→</span>
-            <input id="inv-filter-to" type="date" />
           </div>
 
           <p class="invoices-count" id="inv-count"></p>
@@ -82,6 +88,6 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-95"></script>
-    <script src="/invoices-page.js?v=workspace-4"></script>
+    <script src="/invoices-page.js?v=workspace-5"></script>
   </body>
 </html>
