@@ -7346,6 +7346,14 @@ def handle_upload_trip_document(environ, start_response, trip_id):
     if len(data) > MAX_UPLOAD_BYTES:
         return json_response(start_response, "400 Bad Request", {"error": "File too large (max 10 MB)"})
     category = fields.get("category", "Other") or "Other"
+    tourist_id = (fields.get("touristId") or "").strip()
+    tourist_name = ""
+    if tourist_id:
+        t = next((x for x in read_tourists() if x.get("id") == tourist_id), None)
+        if t:
+            tourist_name = (
+                (t.get("lastName") or "") + " " + (t.get("firstName") or "")
+            ).strip()
     ensure_data_store()
     doc_id = str(uuid4())
     trip_upload_dir = TRIP_UPLOADS_DIR / trip_id
@@ -7360,6 +7368,8 @@ def handle_upload_trip_document(environ, start_response, trip_id):
         "mimeType": upload["content_type"],
         "size": len(data),
         "category": category,
+        "touristId": tourist_id,
+        "touristName": tourist_name,
         "uploadedAt": now_mongolia().isoformat(),
         "uploadedBy": actor_snapshot(actor),
     }
@@ -7467,10 +7477,26 @@ def handle_rename_trip_document(environ, start_response, trip_id, doc_id):
         data = json.loads(body)
     except Exception:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid JSON"})
-    new_name = (data.get("name") or "").strip()
-    if not new_name:
-        return json_response(start_response, "400 Bad Request", {"error": "Name cannot be empty"})
-    documents[doc_index] = {**documents[doc_index], "originalName": new_name}
+    updates = {}
+    if "name" in data:
+        new_name = (data.get("name") or "").strip()
+        if not new_name:
+            return json_response(start_response, "400 Bad Request", {"error": "Name cannot be empty"})
+        updates["originalName"] = new_name
+    if "touristId" in data:
+        tourist_id = (data.get("touristId") or "").strip()
+        tourist_name = ""
+        if tourist_id:
+            t = next((x for x in read_tourists() if x.get("id") == tourist_id), None)
+            if t:
+                tourist_name = (
+                    (t.get("lastName") or "") + " " + (t.get("firstName") or "")
+                ).strip()
+        updates["touristId"] = tourist_id
+        updates["touristName"] = tourist_name
+    if not updates:
+        return json_response(start_response, "400 Bad Request", {"error": "No fields to update"})
+    documents[doc_index] = {**documents[doc_index], **updates}
     trips[trip_index] = {**trip, "documents": documents}
     write_camp_trips(trips)
     return json_response(start_response, "200 OK", {"ok": True, "document": documents[doc_index]})

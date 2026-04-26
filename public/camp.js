@@ -3016,7 +3016,9 @@ const docDropZone = document.getElementById("doc-drop-zone");
 const docDropInner = document.getElementById("doc-drop-inner");
 const docFileInput = document.getElementById("doc-file-input");
 const docCategorySelect = document.getElementById("doc-category");
+const docTouristSelect = document.getElementById("doc-tourist");
 const docUploadStatus = document.getElementById("doc-upload-status");
+let docTouristCache = []; // tourists for the active trip, used by upload picker AND inline-edit selects
 const docList = document.getElementById("doc-list");
 const docEmailBar = document.getElementById("doc-email-bar");
 const docEmailCount = document.getElementById("doc-email-count");
@@ -3086,6 +3088,19 @@ function renderDocFilterCounts(docs) {
   });
 }
 
+function renderTouristPickerOptions(selectedId) {
+  // Re-used by both the upload picker and the inline-edit select on each
+  // doc row, so the option list stays in sync as the trip's tourists change.
+  const opts = ['<option value="">— None —</option>'].concat(
+    docTouristCache.map(function (t) {
+      const label = ((t.lastName || "") + " " + (t.firstName || "")).trim() || "(unnamed)";
+      const sel = t.id === selectedId ? " selected" : "";
+      return '<option value="' + escapeHtml(t.id) + '"' + sel + ">" + escapeHtml(label) + "</option>";
+    })
+  );
+  return opts.join("");
+}
+
 function renderDocItem(doc, tripId, num) {
   const icon = docFileIcon(doc.mimeType || "", doc.originalName);
   const size = docFormatSize(doc.size || 0);
@@ -3094,6 +3109,7 @@ function renderDocItem(doc, tripId, num) {
   const viewUrl = docViewUrl(doc, tripId);
   const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
   const checked = selectedDocIds.has(doc.id) ? " checked" : "";
+  const touristLabel = doc.touristName ? doc.touristName : "";
   return (
     '<div class="doc-item">' +
       '<label class="doc-select" aria-label="Select for email">' +
@@ -3104,10 +3120,17 @@ function renderDocItem(doc, tripId, num) {
       '<div class="doc-meta">' +
         '<div class="doc-name" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</div>' +
         '<div class="doc-info">' + escapeHtml(size) + (uploadedAt ? ' · ' + uploadedAt : '') + (uploader ? ' · ' + escapeHtml(uploader) : '') + '</div>' +
+        '<div class="doc-tourist-row">' +
+          '<span class="doc-tourist-label">Tourist:</span> ' +
+          '<select class="doc-tourist-select" data-doc-tourist="' + escapeHtml(doc.id) + '">' +
+            renderTouristPickerOptions(doc.touristId || "") +
+          '</select>' +
+          (touristLabel ? '' : '<span class="doc-tourist-empty">not linked</span>') +
+        '</div>' +
       '</div>' +
       '<div class="doc-actions">' +
         '<a class="secondary-button" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">View</a>' +
-        '<a class="secondary-button" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
+        '<a class="secondary-button doc-download-btn" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
         '<button class="secondary-button" data-doc-rename="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Rename</button>' +
         '<button class="secondary-button danger-button" data-doc-delete="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Delete</button>' +
       '</div>' +
@@ -3152,8 +3175,15 @@ function renderTripDocuments(docs, tripId) {
 async function loadTripDocuments(tripId) {
   if (!docList || !isTripDetailPage()) return;
   try {
-    const trips = await fetchJson("/api/camp-trips");
+    const [trips, touristsResp] = await Promise.all([
+      fetchJson("/api/camp-trips"),
+      fetchJson("/api/tourists"),
+    ]);
     const trip = (trips.entries || trips).find((t) => t.id === tripId);
+    docTouristCache = (touristsResp.entries || []).filter((t) => t.tripId === tripId);
+    if (docTouristSelect) {
+      docTouristSelect.innerHTML = renderTouristPickerOptions("");
+    }
     renderTripDocuments(trip ? (trip.documents || []) : [], tripId);
   } catch (_) {
     // silently fail — documents are non-critical
@@ -3163,11 +3193,13 @@ async function loadTripDocuments(tripId) {
 async function uploadFiles(tripId, files) {
   if (!tripId) { if (docUploadStatus) docUploadStatus.textContent = "Select a trip first."; return; }
   const category = (docCategorySelect && docCategorySelect.value) || "Other";
+  const touristId = (docTouristSelect && docTouristSelect.value) || "";
   for (const file of files) {
     if (docUploadStatus) docUploadStatus.textContent = "Uploading " + file.name + "…";
     const form = new FormData();
     form.append("file", file);
     form.append("category", category);
+    if (touristId) form.append("touristId", touristId);
     try {
       const resp = await fetch("/api/camp-trips/" + tripId + "/documents", { method: "POST", body: form });
       const data = await resp.json();
@@ -3217,13 +3249,35 @@ if (docDropZone && isTripDetailPage()) {
   }
 
   if (docList) {
-    docList.addEventListener("change", (e) => {
+    docList.addEventListener("change", async (e) => {
       const cb = e.target.closest("[data-doc-select]");
-      if (!cb) return;
-      const id = cb.getAttribute("data-doc-select");
-      if (cb.checked) selectedDocIds.add(id);
-      else selectedDocIds.delete(id);
-      updateDocEmailBar();
+      if (cb) {
+        const id = cb.getAttribute("data-doc-select");
+        if (cb.checked) selectedDocIds.add(id);
+        else selectedDocIds.delete(id);
+        updateDocEmailBar();
+        return;
+      }
+      const ts = e.target.closest("[data-doc-tourist]");
+      if (ts) {
+        const docId = ts.getAttribute("data-doc-tourist");
+        const tripId = activeTripId;
+        if (!tripId) return;
+        ts.disabled = true;
+        try {
+          const resp = await fetch("/api/camp-trips/" + tripId + "/documents/" + docId, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ touristId: ts.value }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Update failed");
+          await loadTripDocuments(tripId);
+        } catch (err) {
+          alert("Алдаа: " + err.message);
+          ts.disabled = false;
+        }
+      }
     });
   }
 

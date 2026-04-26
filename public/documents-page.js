@@ -2,6 +2,7 @@
   const tbody = document.getElementById("doc-tbody");
   const countNode = document.getElementById("doc-count");
   const filterName = document.getElementById("doc-filter-name");
+  const filterTourist = document.getElementById("doc-filter-tourist");
   const filterTrip = document.getElementById("doc-filter-trip");
   const filterCategory = document.getElementById("doc-filter-category");
   const filterExt = document.getElementById("doc-filter-ext");
@@ -78,6 +79,7 @@
 
   function getFiltered() {
     const name = (filterName.value || "").trim().toLowerCase();
+    const tourist = (filterTourist.value || "").trim().toLowerCase();
     const trip = filterTrip.value;
     const cat = filterCategory.value;
     const ext = filterExt.value;
@@ -85,6 +87,7 @@
     const to = (filterTo.value || "").trim();
     return docs.filter((d) => {
       if (name && !((d.originalName || "").toLowerCase().includes(name))) return false;
+      if (tourist && !((d.touristName || "").toLowerCase().includes(tourist))) return false;
       if (trip && d.tripId !== trip) return false;
       if (cat && d.category !== cat) return false;
       if (ext && fileExt(d.originalName) !== ext) return false;
@@ -102,7 +105,7 @@
     const rows = getFiltered();
     countNode.textContent = rows.length + " document" + (rows.length === 1 ? "" : "s");
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty">No documents match the current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="empty">No documents match the current filters.</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map((d, idx) => {
@@ -114,13 +117,14 @@
       return "<tr>" +
         "<td>" + (idx + 1) + "</td>" +
         "<td><strong>" + escapeHtml(d.originalName || "-") + "</strong></td>" +
+        "<td>" + escapeHtml(d.touristName || "-") + "</td>" +
         '<td><a class="trip-name-link" href="' + escapeHtml(tripUrl) + '">' + escapeHtml((d.tripSerial || "") + " · " + (d.tripName || "")) + "</a></td>" +
         "<td>" + escapeHtml(d.category || "-") + "</td>" +
         "<td>" + (ext ? "." + escapeHtml(ext) : "-") + "</td>" +
         "<td>" + escapeHtml(fmtSize(d.size)) + "</td>" +
         "<td>" + escapeHtml(date || "-") + "</td>" +
         "<td>" + escapeHtml(uploadedBy) + "</td>" +
-        '<td><a class="table-link compact" href="' + escapeHtml(downloadUrl) + '" download>Download</a></td>' +
+        '<td><a class="doc-download-pill" href="' + escapeHtml(downloadUrl) + '" download>Download</a></td>' +
         "</tr>";
     }).join("");
   }
@@ -134,11 +138,12 @@
     else { badge.setAttribute("hidden", ""); pill.classList.remove("has-active"); }
   }
 
-  filterName.addEventListener("input", render);
+  [filterName, filterTourist].forEach((el) => el.addEventListener("input", render));
   [filterTrip, filterCategory, filterExt].forEach((el) => el.addEventListener("change", render));
   [filterFrom, filterTo].forEach((el) => el.addEventListener("change", () => { updateDateCount(); render(); }));
   resetBtn.addEventListener("click", () => {
     filterName.value = "";
+    filterTourist.value = "";
     filterTrip.value = "";
     filterCategory.value = "";
     filterExt.value = "";
@@ -170,13 +175,15 @@
   }
   function snapshotFilterState() {
     return {
-      name: filterName.value, trip: filterTrip.value,
+      name: filterName.value, tourist: filterTourist.value,
+      trip: filterTrip.value,
       category: filterCategory.value, ext: filterExt.value,
       from: filterFrom.value, to: filterTo.value,
     };
   }
   function applyFilterStateFromSnapshot(s) {
     filterName.value = s?.name || "";
+    filterTourist.value = s?.tourist || "";
     filterTrip.value = s?.trip || "";
     filterCategory.value = s?.category || "";
     filterExt.value = s?.ext || "";
@@ -243,7 +250,7 @@
     }
   });
   clearFilterBtn?.addEventListener("click", () => {
-    filterName.value = filterTrip.value = filterCategory.value = filterExt.value = "";
+    filterName.value = filterTourist.value = filterTrip.value = filterCategory.value = filterExt.value = "";
     filterFrom.value = filterTo.value = "";
     updateDateCount();
     render();
