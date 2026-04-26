@@ -4021,13 +4021,13 @@ body.modal-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 28px;
+  height: 28px;
   border: 1px solid rgba(32, 53, 111, 0.12);
   border-radius: 999px;
   background: rgba(22, 44, 84, 0.06);
   color: var(--brand);
-  font-size: 1.3rem;
+  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
 }
@@ -4060,8 +4060,8 @@ body.modal-open {
 }
 
 .row-action-menu .trip-menu-trigger {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
 }
 
 .row-action-menu[open] .trip-menu-popover,
@@ -9401,5 +9401,63 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
   .contract-actions > *:not(.trip-menu) {
     display: none !important;
+  }
+
+  /* DS-160, FIFA admin, Camp/Flight/Transfer reservations all wrap
+     each filter input in `<label>Caption <input/></label>`. On mobile
+     the captions stack the layout and look ugly — collapse them to
+     just the inputs (placeholders / default options describe the
+     field). Trick: font-size: 0 on the label hides the text node
+     children, and we restore font-size on the actual inputs/selects. */
+  .ds160-filter-grid label,
+  .camp-filters label,
+  .fifa-filters label,
+  .manager-filter-row > label {
+    font-size: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 140px !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .ds160-filter-grid label > input,
+  .ds160-filter-grid label > select,
+  .ds160-filter-grid label > textarea,
+  .camp-filters label > input,
+  .camp-filters label > select,
+  .camp-filters label > textarea,
+  .fifa-filters label > input,
+  .fifa-filters label > select,
+  .fifa-filters label > textarea,
+  .manager-filter-row > label > input,
+  .manager-filter-row > label > select,
+  .manager-filter-row > label > textarea {
+    font-size: 14px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Strip the DS-160 filter panel's blue-tinted background + border
+     on mobile so it looks like the Tourist Directory filter row
+     (transparent, sits flush against the card). */
+  .ds160-filter-grid {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Camp Reservations toolbar (View / Download all / Add camp): wrap
+     and let buttons breathe on phones. */
+  .camp-toolbar-actions,
+  .ds160-toolbar-actions {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .camp-toolbar-actions > *,
+  .ds160-toolbar-actions > * {
+    flex: 1 1 auto !important;
   }
 }
