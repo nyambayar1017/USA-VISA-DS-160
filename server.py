@@ -7824,9 +7824,13 @@ def _parse_email_message(msg, account_id, uid):
         payload = msg.get_payload(decode=True) or b""
         charset = msg.get_content_charset() or "utf-8"
         try:
-            body_text = payload.decode(charset, errors="replace")
+            decoded = payload.decode(charset, errors="replace")
         except Exception:
-            body_text = payload.decode("utf-8", errors="replace")
+            decoded = payload.decode("utf-8", errors="replace")
+        if msg.get_content_type() == "text/html":
+            body_html = decoded
+        else:
+            body_text = decoded
 
     if not body_text and body_html:
         # Strip HTML tags for snippet
@@ -8033,6 +8037,11 @@ def handle_get_mail_message(environ, start_response, account_id, uid):
     msg = next((m for m in cache.get("messages", []) if int(m.get("uid", 0)) == uid_int), None)
     if not msg:
         return json_response(start_response, "404 Not Found", {"error": "Message not found"})
+    # Heal cached messages where HTML was misclassified into bodyText.
+    body_text = msg.get("bodyText") or ""
+    body_html = msg.get("bodyHtml") or ""
+    if not body_html and body_text and body_text.lstrip()[:1] == "<" and re.search(r"<\s*(html|body|table|div|p|span|td)\b", body_text, re.IGNORECASE):
+        msg = {**msg, "bodyHtml": body_text, "bodyText": ""}
     accounts = read_mail_accounts()
     account = next((a for a in accounts if a["id"] == account_id), None)
     if account:
