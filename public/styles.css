@@ -4661,7 +4661,14 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 .ds160-list-panel {
   min-width: 0;
-  overflow: visible;
+  /* Was `overflow: visible` — that override killed the
+     `.manager-table-wrap { overflow-x: auto }` set elsewhere on the
+     same element, so the DS-160 list table couldn't scroll horizontally
+     and the rightmost columns (Status / Manager / Date / Actions) were
+     unreachable. Split x/y like .manager-table-wrap does so popovers
+     and dropdowns still escape vertically. */
+  overflow-x: auto;
+  overflow-y: visible;
   border: 1px solid rgba(32, 53, 111, 0.08);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.96);
