@@ -8599,11 +8599,13 @@ def handle_download_mail_attachment(environ, start_response, account_id, uid, id
 
     fname = att.get("filename") or f"attachment-{idx_int}"
     ctype = att.get("contentType") or "application/octet-stream"
+    inline = (params.get("inline", ["0"])[0] or "0") == "1"
+    disposition = "inline" if inline else "attachment"
     safe_fname = fname.encode("utf-8", errors="replace").decode("ascii", errors="replace")
     headers = [
         ("Content-Type", ctype),
         ("Content-Length", str(len(payload))),
-        ("Content-Disposition", f'attachment; filename="{safe_fname}"; filename*=UTF-8\'\'{quote(fname)}'),
+        ("Content-Disposition", f'{disposition}; filename="{safe_fname}"; filename*=UTF-8\'\'{quote(fname)}'),
         ("Cache-Control", "private, max-age=3600"),
     ]
     start_response("200 OK", headers)

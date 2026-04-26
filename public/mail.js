@@ -108,8 +108,11 @@
         : initials(m.fromName, m.fromEmail);
       const color = colorFor(avatarSeed);
       const workspace = (m.workspace || "DTX").toUpperCase();
+      // Show just the local part (before @) so the pill stays compact and
+      // the date never gets clipped. Hover gives the full address.
+      const accountLocal = (m.accountAddress || "").split("@")[0] || (m.accountAddress || "");
       const accountTag = m.accountAddress
-        ? `<span class="mail-list-account-tag mail-list-account-tag--${workspace.toLowerCase()}">${escapeHtml(m.accountAddress)}</span>`
+        ? `<span class="mail-list-account-tag mail-list-account-tag--${workspace.toLowerCase()}" title="${escapeHtml(m.accountAddress)}">${escapeHtml(accountLocal)}</span>`
         : "";
       return `
         <div class="mail-list-row-wrap${isActive ? " is-active" : ""}${isUnread ? " is-unread" : " is-read"}${isChecked ? " is-checked" : ""}" data-key="${escapeHtml(key)}" data-workspace="${escapeHtml(workspace)}">
@@ -242,18 +245,94 @@
     return "📎";
   }
 
+  function attachmentUrl(m, idx, inline) {
+    const base = `/api/mail/messages/${encodeURIComponent(m.accountId)}/${encodeURIComponent(m.uid)}/attachments/${encodeURIComponent(idx)}`;
+    const qs = `folder=${encodeURIComponent(currentFolder)}${inline ? "&inline=1" : ""}`;
+    return `${base}?${qs}`;
+  }
+
+  function isPreviewable(ctype) {
+    const t = (ctype || "").toLowerCase();
+    return t.startsWith("image/") || t === "application/pdf" || t.startsWith("text/") || t === "application/json";
+  }
+
   function renderAttachments(m) {
     const list = m.attachments || [];
     if (!list.length) return "";
     const items = list.map((a) => {
-      const url = `/api/mail/messages/${encodeURIComponent(m.accountId)}/${encodeURIComponent(m.uid)}/attachments/${encodeURIComponent(a.idx)}?folder=${encodeURIComponent(currentFolder)}`;
-      return `<a class="mail-attachment" href="${url}" target="_blank" rel="noopener" download="${escapeHtml(a.filename || '')}">
-        <span class="mail-attachment-icon">${attachmentIcon(a.contentType)}</span>
-        <span class="mail-attachment-name">${escapeHtml(a.filename || 'attachment')}</span>
-        <span class="mail-attachment-size">${escapeHtml(fmtSize(a.size))}</span>
-      </a>`;
+      const previewable = isPreviewable(a.contentType);
+      const downloadUrl = attachmentUrl(m, a.idx, false);
+      const previewUrl = attachmentUrl(m, a.idx, true);
+      return `<div class="mail-attachment" data-idx="${escapeHtml(String(a.idx))}">
+        <button type="button" class="mail-attachment-main"
+                data-action="${previewable ? 'preview-attachment' : 'download-attachment'}"
+                data-preview-url="${escapeHtml(previewUrl)}"
+                data-download-url="${escapeHtml(downloadUrl)}"
+                data-filename="${escapeHtml(a.filename || 'attachment')}"
+                data-ctype="${escapeHtml(a.contentType || '')}"
+                title="${previewable ? 'Click to preview' : 'Click to download'}">
+          <span class="mail-attachment-icon">${attachmentIcon(a.contentType)}</span>
+          <span class="mail-attachment-name">${escapeHtml(a.filename || 'attachment')}</span>
+          <span class="mail-attachment-size">${escapeHtml(fmtSize(a.size))}</span>
+        </button>
+        <a class="mail-attachment-dl" href="${downloadUrl}" download="${escapeHtml(a.filename || '')}" title="Download">⬇</a>
+      </div>`;
     }).join("");
     return `<div class="mail-attachments">${items}</div>`;
+  }
+
+  // ── Attachment preview modal ───────────────────────────────────
+  function openAttachmentPreview({ previewUrl, downloadUrl, filename, ctype }) {
+    let modal = document.getElementById("mail-attachment-preview");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "mail-attachment-preview";
+      modal.className = "mail-preview-modal";
+      modal.innerHTML = `
+        <div class="mail-preview-backdrop" data-action="close-preview"></div>
+        <div class="mail-preview-card">
+          <header>
+            <strong class="mail-preview-name"></strong>
+            <span class="mail-preview-actions">
+              <a class="primary-pill mail-preview-download" download>⬇ Download</a>
+              <button type="button" class="mail-preview-close" data-action="close-preview" aria-label="Close">×</button>
+            </span>
+          </header>
+          <div class="mail-preview-body"></div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.addEventListener("click", (e) => {
+        if (e.target.dataset.action === "close-preview") closeAttachmentPreview();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !modal.hasAttribute("hidden")) closeAttachmentPreview();
+      });
+    }
+    modal.querySelector(".mail-preview-name").textContent = filename || "Attachment";
+    const dl = modal.querySelector(".mail-preview-download");
+    dl.href = downloadUrl;
+    dl.setAttribute("download", filename || "attachment");
+    const body = modal.querySelector(".mail-preview-body");
+    const t = (ctype || "").toLowerCase();
+    if (t.startsWith("image/")) {
+      body.innerHTML = `<img class="mail-preview-img" src="${previewUrl}" alt="${escapeHtml(filename || '')}"/>`;
+    } else if (t === "application/pdf") {
+      body.innerHTML = `<iframe class="mail-preview-iframe" src="${previewUrl}"></iframe>`;
+    } else if (t === "text/html") {
+      // Sandbox HTML attachments so they can't run scripts or break out
+      body.innerHTML = `<iframe class="mail-preview-iframe" sandbox="" src="${previewUrl}"></iframe>`;
+    } else if (t.startsWith("text/") || t === "application/json") {
+      body.innerHTML = `<iframe class="mail-preview-iframe" src="${previewUrl}"></iframe>`;
+    } else {
+      body.innerHTML = `<p class="mail-preview-empty">No preview available for this file type. <a href="${downloadUrl}" download="${escapeHtml(filename || '')}">Download</a> to view it.</p>`;
+    }
+    modal.removeAttribute("hidden");
+  }
+
+  function closeAttachmentPreview() {
+    const modal = document.getElementById("mail-attachment-preview");
+    if (modal) modal.setAttribute("hidden", "");
   }
 
   let currentMessage = null;
@@ -367,10 +446,31 @@
     }
   });
 
-  // ── Reply / Forward / Delete from viewer ──────────────────────
+  // ── Reply / Forward / Delete / Attachment from viewer ─────────
   viewerNode?.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn || !currentMessage) return;
+    if (btn.dataset.action === "preview-attachment") {
+      e.preventDefault();
+      openAttachmentPreview({
+        previewUrl: btn.dataset.previewUrl,
+        downloadUrl: btn.dataset.downloadUrl,
+        filename: btn.dataset.filename,
+        ctype: btn.dataset.ctype,
+      });
+      return;
+    }
+    if (btn.dataset.action === "download-attachment") {
+      // Let the inline <a class="mail-attachment-dl"> handle the actual
+      // download — the chip click on a non-previewable type just opens
+      // the download via a programmatic anchor for parity.
+      e.preventDefault();
+      const a = document.createElement("a");
+      a.href = btn.dataset.downloadUrl;
+      a.download = btn.dataset.filename || "attachment";
+      a.click();
+      return;
+    }
     const m = currentMessage;
     if (btn.dataset.action === "reply") {
       openCompose({
