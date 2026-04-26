@@ -191,6 +191,46 @@
   });
 
   resetBtn.addEventListener("click", () => {
+    clearAllFilters();
+    refreshSavedFiltersDropdown("");
+  });
+
+  // ── Saved filters (mirrors the Trips page UX) ─────────────────────────
+  const SAVED_FILTERS_KEY = "invoices:savedFilters";
+  let activeSavedFilterName = "";
+
+  function readSavedFilters() {
+    try {
+      const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+  function writeSavedFilters(list) {
+    try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list)); } catch {}
+  }
+  function snapshotFilterState() {
+    return {
+      serial: filterSerial.value,
+      dossier: filterDossier.value,
+      group: filterGroup.value,
+      payer: filterPayer.value,
+      statuses: [...activeStatuses],
+    };
+  }
+  function applyFilterStateFromSnapshot(snap) {
+    filterSerial.value = snap?.serial || "";
+    filterDossier.value = snap?.dossier || "";
+    filterGroup.value = snap?.group || "";
+    filterPayer.value = snap?.payer || "";
+    activeStatuses.clear();
+    (snap?.statuses || []).forEach((s) => activeStatuses.add(s));
+    statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => {
+      p.classList.toggle("is-active", activeStatuses.has(p.dataset.status));
+    });
+    render();
+  }
+  function clearAllFilters() {
     filterSerial.value = "";
     filterDossier.value = "";
     filterGroup.value = "";
@@ -198,7 +238,81 @@
     activeStatuses.clear();
     statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => p.classList.remove("is-active"));
     render();
+  }
+  function refreshSavedFiltersDropdown(selectName) {
+    const dropdown = document.querySelector("[data-saved-filter-dropdown]");
+    const popover = document.querySelector("[data-saved-filter-popover]");
+    const label = document.querySelector("[data-saved-filter-current]");
+    if (!dropdown || !popover || !label) return;
+    const list = readSavedFilters();
+    const next = selectName !== undefined ? selectName : activeSavedFilterName;
+    if (next && list.some((f) => f.name === next)) {
+      activeSavedFilterName = next;
+      label.textContent = next;
+      dropdown.classList.add("has-active");
+    } else {
+      activeSavedFilterName = "";
+      label.textContent = "Select saved filter";
+      dropdown.classList.remove("has-active");
+    }
+    const items = list.length
+      ? list.map((f) => `
+          <div class="trip-saved-filter-item ${f.name === activeSavedFilterName ? "is-active" : ""}">
+            <button type="button" class="trip-saved-filter-name" data-saved-action="apply" data-name="${escapeHtml(f.name)}">${escapeHtml(f.name)}</button>
+            <button type="button" class="trip-saved-filter-remove" data-saved-action="delete" data-name="${escapeHtml(f.name)}" aria-label="Delete ${escapeHtml(f.name)}">×</button>
+          </div>
+        `).join("")
+      : '<p class="trip-saved-filter-empty">No saved filters yet.</p>';
+    const updateBtn = activeSavedFilterName
+      ? `<button type="button" class="trip-saved-filter-save trip-saved-filter-update" data-saved-action="update" data-name="${escapeHtml(activeSavedFilterName)}">↻ Update "${escapeHtml(activeSavedFilterName)}"</button>`
+      : "";
+    popover.innerHTML = `
+      ${items}
+      <div class="trip-saved-filter-divider"></div>
+      ${updateBtn}
+      <button type="button" class="trip-saved-filter-save" data-saved-action="save">+ Save current as…</button>
+    `;
+  }
+
+  const dropdown = document.querySelector("[data-saved-filter-dropdown]");
+  dropdown?.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-saved-action]");
+    if (!target) return;
+    event.preventDefault();
+    const action = target.dataset.savedAction;
+    const name = target.dataset.name || "";
+    if (action === "apply") {
+      const found = readSavedFilters().find((f) => f.name === name);
+      if (!found) return;
+      dropdown.removeAttribute("open");
+      refreshSavedFiltersDropdown(name);
+      applyFilterStateFromSnapshot(found.state);
+    } else if (action === "delete") {
+      if (!window.confirm(`Delete saved filter "${name}"?`)) return;
+      const list = readSavedFilters().filter((f) => f.name !== name);
+      writeSavedFilters(list);
+      refreshSavedFiltersDropdown(activeSavedFilterName === name ? "" : activeSavedFilterName);
+    } else if (action === "save") {
+      dropdown.removeAttribute("open");
+      const newName = (window.prompt("Save filter as:") || "").trim();
+      if (!newName) return;
+      const list = readSavedFilters().filter((f) => f.name !== newName);
+      list.push({ name: newName, state: snapshotFilterState() });
+      writeSavedFilters(list);
+      refreshSavedFiltersDropdown(newName);
+    } else if (action === "update") {
+      dropdown.removeAttribute("open");
+      const list = readSavedFilters().map((f) => f.name === name ? { name, state: snapshotFilterState() } : f);
+      writeSavedFilters(list);
+      refreshSavedFiltersDropdown(name);
+    }
   });
 
+  document.getElementById("inv-clear-filter-btn")?.addEventListener("click", () => {
+    clearAllFilters();
+    refreshSavedFiltersDropdown("");
+  });
+
+  refreshSavedFiltersDropdown();
   loadAll();
 })();

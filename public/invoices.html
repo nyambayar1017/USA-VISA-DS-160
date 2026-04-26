@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-176" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-177" />
   </head>
   <body class="app-body" data-page="invoices">
     <div class="workspace-shell">
@@ -29,6 +29,17 @@
         </section>
 
         <section class="card">
+          <div class="invoices-saved-filter-row">
+            <details class="trip-saved-filter-dropdown" data-saved-filter-dropdown>
+              <summary>
+                <span data-saved-filter-current>Select saved filter</span>
+                <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </summary>
+              <div class="trip-saved-filter-popover" data-saved-filter-popover></div>
+            </details>
+            <button type="button" id="inv-clear-filter-btn" class="trip-saved-filter-action">Clear</button>
+          </div>
+
           <div class="invoices-filter-bar">
             <input id="inv-filter-serial" type="search" placeholder="Search by serial" autocomplete="off" />
             <input id="inv-filter-dossier" type="search" placeholder="Search by dossier" autocomplete="off" />
@@ -66,6 +77,6 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-95"></script>
-    <script src="/invoices-page.js?v=workspace-1"></script>
+    <script src="/invoices-page.js?v=workspace-2"></script>
   </body>
 </html>
