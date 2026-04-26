@@ -130,7 +130,6 @@ function renderSidebar(user) {
       ${isDtx ? "" : link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
       ${dtxBlock}
       ${link("contracts", "/contracts", "Contracts")}
-      <a class="sidebar-link" href="https://app.ninepax.com/mn2/dossier" target="_blank" rel="noreferrer">Ninepax</a>
       ${link("todo", "/todo", "To Do")}
       ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
     </div>
