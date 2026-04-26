@@ -10233,12 +10233,21 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 .mail-toolbar {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+.mail-toolbar-row {
+  display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 18px;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
   flex-wrap: wrap;
 }
+.mail-toolbar-row--top { justify-content: space-between; }
+.mail-toolbar-left { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mail-toolbar-right { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.mail-toolbar-row--search { gap: 10px; }
 .mail-toolbar select, .mail-toolbar input[type="search"] {
   padding: 8px 12px;
   border: 1px solid rgba(15, 23, 42, 0.12);
@@ -10247,12 +10256,13 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   font-size: 0.9rem;
   outline: none;
 }
-.mail-toolbar input[type="search"] { flex: 1; min-width: 200px; }
+.mail-toolbar-right select { min-width: 180px; }
+.mail-toolbar-row--search input[type="search"] { flex: 1; min-width: 200px; }
 .mail-toolbar input[type="search"]:focus, .mail-toolbar select:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
-.mail-count { color: #64748b; font-size: 0.85rem; margin-left: auto; }
+.mail-count { color: #64748b; font-size: 0.85rem; margin-left: auto; flex-shrink: 0; }
 
 /* Folder tabs (Inbox / Sent) */
 .mail-folder-tabs {
@@ -10433,7 +10443,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 .mail-layout {
   display: grid;
-  grid-template-columns: minmax(440px, 580px) 1fr;
+  grid-template-columns: minmax(480px, 660px) 1fr;
   flex: 1;
   min-height: 0;
 }
@@ -10598,16 +10608,16 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 /* Account chip on the bottom row, colored by workspace.
    Steppe Mongolia (USM) = blue · DTX = orange. */
 .mail-list-chip {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   flex-shrink: 0;
-  max-width: 220px;
+  max-width: 240px;
   border: 1px solid transparent;
 }
 .mail-list-chip--dtx {

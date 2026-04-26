@@ -587,6 +587,130 @@
     }
   });
 
+  // ── Templates manager + sub-editor ───────────────────────────
+  const tplsModal = document.getElementById("mail-templates-modal");
+  const tplListHost = document.getElementById("mail-tpl-list-host");
+  const tplsOpenBtn = document.getElementById("mail-templates-open");
+  const tplNewBtn = document.getElementById("mail-tpl-new");
+  const tplEditorModal = document.getElementById("mail-tpl-editor-modal");
+  const tplEditorTitle = document.getElementById("mail-tpl-editor-title");
+  const tplEditorName = document.getElementById("mail-tpl-editor-name");
+  const tplEditorSubject = document.getElementById("mail-tpl-editor-subject");
+  const tplEditorHost = document.getElementById("mail-tpl-editor-host");
+  const tplEditorStatus = document.getElementById("mail-tpl-editor-status");
+  const tplEditorSaveBtn = document.getElementById("mail-tpl-editor-save");
+  let tplEditor = null;
+  let tplEditingId = null;
+
+  function renderTplList() {
+    if (!templates.length) {
+      tplListHost.innerHTML = '<p class="empty">No templates yet. Click "+ New template" to create one.</p>';
+      return;
+    }
+    tplListHost.innerHTML = templates.map((t) => `
+      <article class="mail-sig-card" data-tpl-id="${escapeHtml(t.id)}">
+        <header>
+          <strong>${escapeHtml(t.name)}</strong>
+          <span class="mail-sig-actions">
+            <button type="button" class="secondary-button" data-tpl-action="edit">Edit</button>
+            <button type="button" class="secondary-button danger-button" data-tpl-action="delete">Delete</button>
+          </span>
+        </header>
+        <p style="margin: 0 0 6px; color: #64748b; font-size: 0.82rem;">${escapeHtml(t.subject || "(no subject)")}</p>
+        <div class="mail-sig-preview">${t.bodyHtml || '<em>(empty)</em>'}</div>
+      </article>
+    `).join("");
+  }
+
+  async function openTemplatesModal() {
+    await loadTemplates();
+    renderTplList();
+    tplsModal.removeAttribute("hidden");
+  }
+  function closeTemplatesModal() { tplsModal.setAttribute("hidden", ""); }
+
+  function openTplEditor(tpl) {
+    tplEditingId = tpl?.id || null;
+    tplEditorTitle.textContent = tpl ? `Edit: ${tpl.name}` : "New template";
+    tplEditorName.value = tpl?.name || "";
+    tplEditorSubject.value = tpl?.subject || "";
+    tplEditor = window.RichEditor.create(tplEditorHost, { initialHtml: tpl?.bodyHtml || "", minHeight: 240 });
+    tplEditorStatus.textContent = "";
+    tplEditorModal.removeAttribute("hidden");
+    setTimeout(() => tplEditorName.focus(), 50);
+  }
+  function closeTplEditor() {
+    tplEditorModal.setAttribute("hidden", "");
+    tplEditorHost.innerHTML = "";
+    tplEditor = null;
+    tplEditingId = null;
+  }
+
+  tplsOpenBtn?.addEventListener("click", openTemplatesModal);
+  tplNewBtn?.addEventListener("click", () => openTplEditor(null));
+  tplsModal?.addEventListener("click", async (e) => {
+    if (e.target.dataset.action === "close-tpls") return closeTemplatesModal();
+    const btn = e.target.closest("[data-tpl-action]");
+    if (!btn) return;
+    const card = btn.closest("[data-tpl-id]");
+    const id = card?.dataset.tplId;
+    const tpl = templates.find((t) => t.id === id);
+    if (!tpl) return;
+    if (btn.dataset.tplAction === "edit") {
+      openTplEditor(tpl);
+    } else if (btn.dataset.tplAction === "delete") {
+      const ok = await UI.confirm(`Delete template "${tpl.name}"?`, { dangerous: true });
+      if (!ok) return;
+      try {
+        const r = await fetch(`/api/mail/templates/${encodeURIComponent(id)}`, { method: "DELETE" });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Delete failed");
+        UI?.toast?.("Deleted.", "success");
+        await loadTemplates();
+        renderTplList();
+      } catch (err) {
+        UI?.toast?.(err.message || "Delete failed", "error");
+      }
+    }
+  });
+
+  tplEditorModal?.addEventListener("click", (e) => {
+    if (e.target.dataset.action === "close-tpl-editor") closeTplEditor();
+  });
+
+  tplEditorSaveBtn?.addEventListener("click", async () => {
+    const name = (tplEditorName.value || "").trim();
+    if (!name) {
+      tplEditorStatus.textContent = "Name is required";
+      return;
+    }
+    const subject = (tplEditorSubject.value || "").trim();
+    const bodyHtml = tplEditor?.getHtml() || "";
+    tplEditorStatus.textContent = "Saving...";
+    tplEditorSaveBtn.disabled = true;
+    try {
+      const url = tplEditingId
+        ? `/api/mail/templates/${encodeURIComponent(tplEditingId)}`
+        : "/api/mail/templates";
+      const method = tplEditingId ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, subject, bodyHtml }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Save failed");
+      UI?.toast?.("Saved.", "success");
+      closeTplEditor();
+      await loadTemplates();
+      renderTplList();
+    } catch (err) {
+      tplEditorStatus.textContent = err.message || "Save failed";
+    } finally {
+      tplEditorSaveBtn.disabled = false;
+    }
+  });
+
   function openCompose(prefill, title) {
     if (!accounts.length) {
       UI?.toast?.("Connect a mailbox first in /mail-settings.", "warning");

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-231" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-232" />
   </head>
   <body class="app-body" data-page="mail">
     <div class="workspace-shell">
@@ -37,18 +37,27 @@
 
         <section class="card mail-shell" id="mail-shell" hidden>
           <div class="mail-toolbar">
-            <button type="button" id="mail-compose" class="primary-pill">+ Compose</button>
-            <button type="button" id="mail-signatures-open" class="secondary-button" title="Manage your signatures">✍ My signatures</button>
-            <div class="mail-folder-tabs" role="tablist">
-              <button type="button" class="mail-folder-tab is-active" data-folder="inbox" role="tab">Inbox</button>
-              <button type="button" class="mail-folder-tab" data-folder="sent" role="tab">Sent</button>
+            <div class="mail-toolbar-row mail-toolbar-row--top">
+              <div class="mail-toolbar-left">
+                <button type="button" id="mail-compose" class="primary-pill">+ Compose</button>
+                <button type="button" id="mail-signatures-open" class="secondary-button" title="Manage your signatures">✍ My signatures</button>
+                <button type="button" id="mail-templates-open" class="secondary-button" title="Manage templates">📄 Templates</button>
+                <div class="mail-folder-tabs" role="tablist">
+                  <button type="button" class="mail-folder-tab is-active" data-folder="inbox" role="tab">Inbox</button>
+                  <button type="button" class="mail-folder-tab" data-folder="sent" role="tab">Sent</button>
+                </div>
+              </div>
+              <div class="mail-toolbar-right">
+                <select id="mail-account-filter" class="trip-filter-input">
+                  <option value="">All mailboxes</option>
+                </select>
+              </div>
             </div>
-            <select id="mail-account-filter" class="trip-filter-input">
-              <option value="">All mailboxes</option>
-            </select>
-            <input id="mail-search" type="search" placeholder="Search sender or subject" autocomplete="off" />
-            <button type="button" id="mail-refresh" class="secondary-button">Refresh</button>
-            <span class="mail-count" id="mail-count"></span>
+            <div class="mail-toolbar-row mail-toolbar-row--search">
+              <input id="mail-search" type="search" placeholder="Search sender or subject" autocomplete="off" />
+              <button type="button" id="mail-refresh" class="secondary-button">Refresh</button>
+              <span class="mail-count" id="mail-count"></span>
+            </div>
           </div>
 
           <div class="mail-bulk-bar" id="mail-bulk-bar" hidden>
@@ -160,6 +169,52 @@
           </div>
         </div>
 
+        <!-- Templates manager -->
+        <div id="mail-templates-modal" class="mail-pick-modal" hidden>
+          <div class="mail-pick-backdrop" data-action="close-tpls"></div>
+          <div class="mail-pick-card mail-pick-card--lg">
+            <header>
+              <strong>Templates</strong>
+              <span class="mail-pick-actions">
+                <button type="button" class="primary-pill" id="mail-tpl-new">+ New template</button>
+                <button type="button" class="mail-pick-close" data-action="close-tpls" aria-label="Close">×</button>
+              </span>
+            </header>
+            <div class="mail-pick-body">
+              <div id="mail-tpl-list-host" class="mail-pick-list">
+                <p class="empty">Loading…</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Template editor (sub-modal of templates manager) -->
+        <div id="mail-tpl-editor-modal" class="mail-editor-modal" hidden>
+          <div class="mail-editor-backdrop" data-action="close-tpl-editor"></div>
+          <div class="mail-editor-card">
+            <header>
+              <strong id="mail-tpl-editor-title">New template</strong>
+              <button type="button" class="mail-editor-close" data-action="close-tpl-editor" aria-label="Close">×</button>
+            </header>
+            <div class="mail-editor-body">
+              <label class="rich-extra-row">
+                <span>Name</span>
+                <input type="text" id="mail-tpl-editor-name" placeholder="e.g. Booking confirmation" required/>
+              </label>
+              <label class="rich-extra-row">
+                <span>Subject</span>
+                <input type="text" id="mail-tpl-editor-subject" placeholder="Email subject"/>
+              </label>
+              <div id="mail-tpl-editor-host"></div>
+            </div>
+            <footer>
+              <p id="mail-tpl-editor-status" class="status"></p>
+              <button type="button" class="secondary-button" data-action="close-tpl-editor">Cancel</button>
+              <button type="button" class="primary-pill" id="mail-tpl-editor-save">Save</button>
+            </footer>
+          </div>
+        </div>
+
         <!-- Signature editor (sub-modal of signatures manager) -->
         <div id="mail-sig-editor-modal" class="mail-editor-modal" hidden>
           <div class="mail-editor-backdrop" data-action="close-sig-editor"></div>
@@ -186,7 +241,7 @@
     </div>
     <script src="/app-shell.js?v=workspace-103"></script>
     <script src="/rich-editor.js?v=workspace-1"></script>
-    <script src="/mail.js?v=workspace-15"></script>
+    <script src="/mail.js?v=workspace-16"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
