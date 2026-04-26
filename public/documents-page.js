@@ -109,7 +109,7 @@
       return;
     }
     tbody.innerHTML = rows.map((d, idx) => {
-      const date = (d.uploadedAt || "").slice(0, 10);
+      const dateTime = (d.uploadedAt || "").slice(0, 16).replace("T", " ");
       const ext = fileExt(d.originalName);
       const rawUrl = "/trip-uploads/" + encodeURIComponent(d.tripId) + "/" + encodeURIComponent(d.storedName);
       const downloadUrl = rawUrl + "?download=1";
@@ -127,7 +127,7 @@
         "<td>" + escapeHtml(d.category || "-") + "</td>" +
         "<td>" + (ext ? "." + escapeHtml(ext) : "-") + "</td>" +
         "<td>" + escapeHtml(fmtSize(d.size)) + "</td>" +
-        "<td>" + escapeHtml(date || "-") + "</td>" +
+        "<td>" + escapeHtml(dateTime || "-") + "</td>" +
         "<td>" + escapeHtml(uploadedBy) + "</td>" +
         '<td><a class="doc-download-pill" href="' + escapeHtml(downloadUrl) + '" download>Download</a></td>' +
         "</tr>";
