@@ -8888,6 +8888,11 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   .agent-panel .agent-input-row {
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
   }
+  /* Push the header below the iOS status bar / notch so the close (×),
+     Том, Цэвэрлэх and TTS buttons are reachable. */
+  .agent-panel .agent-header {
+    padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+  }
   .agent-bubble {
     right: 14px;
     bottom: 14px;
