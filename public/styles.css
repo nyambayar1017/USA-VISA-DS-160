@@ -6979,21 +6979,34 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 
 .fifa-public-match-list .fifa-match-col--actions .button-secondary {
-  padding: 4px 6px;
+  padding: 6px 14px;
   border-radius: 999px;
-  font-size: 0.56rem;
+  font-size: 0.7rem;
   line-height: 1.1;
   min-height: auto;
-  font-weight: 400;
-  color: #f0a15d;
-  background: rgba(240, 161, 93, 0.14);
-  border-color: rgba(240, 161, 93, 0.28);
+  font-weight: 600;
+  color: #fff;
+  background: #f0a15d;
+  border: 1px solid #f0a15d;
+  box-shadow: 0 2px 6px rgba(240, 161, 93, 0.24);
+  transition: background 120ms ease, transform 120ms ease;
 }
 
 .fifa-public-match-list .fifa-match-col--actions .button-secondary:hover {
-  color: #e58d40;
-  background: rgba(240, 161, 93, 0.2);
-  border-color: rgba(240, 161, 93, 0.34);
+  color: #fff;
+  background: #e58d40;
+  border-color: #e58d40;
+  transform: translateY(-1px);
+}
+
+.fifa-public-match-list .fifa-match-col--actions .button-secondary:active {
+  transform: translateY(0);
+}
+
+/* Make sure date / match-number text stays dark on mobile — was the
+   "white text on white background" bug the user hit before the redesign. */
+.fifa-public-match-list .fifa-match-col strong {
+  color: #1f2d50;
 }
 
 .fifa-public-shell {
@@ -9823,123 +9836,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     font-size: 1.1rem !important;
   }
 
-  /* FIFA public list wrap: don't double-scroll — outer wrap is overflow
-     hidden so only the inner accordion handles horizontal layout, and on
-     mobile we kill the inner min-width so it fits the viewport. */
+  /* FIFA public match list keeps the desktop wide-grid layout on mobile,
+     scrolling horizontally inside its card. Don't double-scroll — let
+     `.fifa-match-accordion--table` (the inner) own the horizontal scroll
+     and keep the outer wrap visible so vertical popovers can escape. */
   .fifa-public-table-wrap {
-    overflow: visible !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
   }
-
-  /* Drop the 980 px min-width that forced horizontal scrolling and hid
-     the date column off-screen. Switch to natural width. */
-  .fifa-match-accordion--table {
-    overflow: visible !important;
-    gap: 10px !important;
-  }
-  .fifa-match-accordion--table > .fifa-match-table-head {
-    display: none !important;
-  }
-  .fifa-match-accordion--table > .fifa-match-card {
-    min-width: 0 !important;
-  }
-
-  /* Cards become single-column stacked tiles. Each row in the toggle
-     becomes its own line so the date is always visible. */
-  .fifa-public-match-list .fifa-match-card {
-    border-radius: 14px !important;
-    padding: 4px !important;
-  }
-  .fifa-public-match-list .fifa-match-toggle {
-    grid-template-columns: 28px 1fr auto !important;
-    grid-template-areas:
-      "num teams stage"
-      "num date  date"
-      "num city  group"
-      "num avail avail"
-      "act act   act" !important;
-    gap: 4px 10px !important;
-    padding: 10px !important;
-    align-items: start !important;
-  }
-  .fifa-public-match-list .fifa-match-col--number {
-    grid-area: num !important;
-  }
-  .fifa-public-match-list .fifa-match-col--teams {
-    grid-area: teams !important;
-  }
-  .fifa-public-match-list .fifa-match-col--teams strong {
-    font-size: 0.95rem !important;
-    font-weight: 600 !important;
-  }
-  .fifa-public-match-list .fifa-match-col--teams .fifa-table-sub {
-    font-size: 0.7rem !important;
-  }
-  /* Date column = 2nd .fifa-match-col (no modifier class) */
-  .fifa-public-match-list .fifa-match-toggle > .fifa-match-col:nth-child(2) {
-    grid-area: date !important;
-  }
-  .fifa-public-match-list .fifa-match-toggle > .fifa-match-col:nth-child(2) strong {
-    font-size: 0.78rem !important;
-    color: var(--brand) !important;
-    font-weight: 500 !important;
-  }
-  .fifa-public-match-list .fifa-match-toggle > .fifa-match-col:nth-child(2) .fifa-table-sub {
-    font-size: 0.65rem !important;
-  }
-  .fifa-public-match-list .fifa-match-col--availability {
-    grid-area: avail !important;
-  }
-  .fifa-public-match-list .fifa-match-col--availability strong,
-  .fifa-public-match-list .fifa-match-col--availability .fifa-table-sub {
-    font-size: 0.72rem !important;
-  }
-  /* City column = 5th .fifa-match-col (no modifier class) */
-  .fifa-public-match-list .fifa-match-toggle > .fifa-match-col:nth-child(5) {
-    grid-area: city !important;
-  }
-  .fifa-public-match-list .fifa-match-toggle > .fifa-match-col:nth-child(5) strong {
-    font-size: 0.72rem !important;
-    font-weight: 500 !important;
-  }
-  .fifa-public-match-list .fifa-match-col--group {
-    grid-area: group !important;
-    text-align: right !important;
-  }
-  .fifa-public-match-list .fifa-match-col--group strong {
-    font-size: 0.72rem !important;
-    font-weight: 500 !important;
-    color: var(--muted) !important;
-  }
-  /* Stage column = 7th .fifa-match-col (no modifier class) */
-  .fifa-public-match-list .fifa-match-toggle > .fifa-match-col:nth-child(7) {
-    grid-area: stage !important;
-    justify-self: end !important;
-  }
-  .fifa-public-match-list .fifa-match-toggle > .fifa-match-col:nth-child(7) strong {
-    font-size: 0.65rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.04em !important;
-    color: var(--muted) !important;
-    font-weight: 600 !important;
-  }
-  .fifa-public-match-list .fifa-match-col--actions {
-    grid-area: act !important;
-    margin-top: 4px !important;
-  }
-  .fifa-public-match-list .fifa-match-col--actions .button-secondary {
-    width: 100% !important;
-    font-size: 0.78rem !important;
-    padding: 8px 10px !important;
-  }
-
-  /* Nested ticket table within the expanded card — already handled by
-     the .fifa-public-body .manager-table.fifa-table block above; keep
-     it readable inside the narrower card. */
-  .fifa-public-match-list .fifa-match-details {
-    padding: 4px 6px 8px !important;
-  }
-  .fifa-public-match-list .fifa-nested-table {
-    font-size: 0.7rem !important;
+  .fifa-public-match-list.fifa-match-accordion--table {
+    overflow-x: visible !important;
   }
 
   /* Pagination text/meta still shrinks on phones (the buttons themselves
