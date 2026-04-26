@@ -9552,6 +9552,25 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #1f2937;
 }
 
+/* Trips table: per Bataa, the table should look "calm" — no chip styling
+   on Type/Tags, no underline on the Serial link (just blue), and the
+   inline-edit Status dropdown was removed entirely so the row isn't wide. */
+.trip-table .trip-type-pill,
+.trip-table .trip-tag {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border-radius: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+}
+.trip-table .trip-tag + .trip-tag::before { content: ", "; color: #6b7280; }
+.trip-table .trip-name-link { text-decoration: none; }
+.trip-table .trip-name-link:hover { text-decoration: underline; }
+
 /* Per-row promo selection checkbox + master select-all */
 .tourist-directory-table .ts-row-select,
 .tourist-directory-table #tourist-select-all {

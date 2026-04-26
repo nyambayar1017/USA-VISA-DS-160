@@ -879,7 +879,7 @@ function renderTrips() {
           <col style="width: 96px" />
           <col style="width: 128px" />
           <col style="width: 120px" />
-          <col style="width: 280px" />
+          <col style="width: 56px" />
         </colgroup>
         <thead>
           <tr>
@@ -919,11 +919,6 @@ function renderTrips() {
                   <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
                   <td>
                     <div class="trip-row-actions trip-row-actions-inline">
-                      <select class="inline-status-select" data-action="trip-status" data-trip-id="${trip.id}">
-                        ${TRIP_STATUS_OPTIONS
-                          .map(([value, label]) => `<option value="${value}" ${trip.status === value ? "selected" : ""}>${label}</option>`)
-                          .join("")}
-                      </select>
                       <details class="trip-menu trip-page-menu">
                         <summary class="trip-menu-trigger" aria-label="Trip actions">⋮</summary>
                         <div class="trip-menu-popover">

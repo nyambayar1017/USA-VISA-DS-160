@@ -24,9 +24,10 @@
   let groups = [];
   let tourists = [];
   const activeStatuses = new Set();
-  // ids the user has explicitly UNchecked. Anything not in this set, and
-  // currently in the filtered list, counts as selected for the promo send.
-  const deselectedIds = new Set();
+  // Opt-in selection: only ids in this set are sent to the promo modal.
+  // (Bataa explicitly wanted nothing pre-checked — manager must opt-in to
+  // every recipient.)
+  const selectedIds = new Set();
 
   const STATUS_LABELS = {
     potential: "Potential",
@@ -208,19 +209,24 @@
     });
   }
 
-  function isPromoEligible(t) {
-    if (deselectedIds.has(t.id)) return false;
+  function isEligibleForPromo(t) {
     const status = effectiveStatus(t);
     if (status === "child" || status === "do_not_contact") return false;
     return !!(t.email && t.email.includes("@"));
   }
+  // A row counts as a "promo recipient" only if it's eligible AND the user
+  // has explicitly checked it (selectedIds).
+  function isPromoSelected(t) {
+    return selectedIds.has(t.id) && isEligibleForPromo(t);
+  }
 
   function render() {
     const rows = getFiltered();
-    const promoEligible = rows.filter(isPromoEligible).length;
+    const eligible = rows.filter(isEligibleForPromo).length;
+    const selected = rows.filter(isPromoSelected).length;
     countNode.textContent =
       rows.length + " tourist" + (rows.length === 1 ? "" : "s") +
-      " · " + promoEligible + " selectable for promo";
+      " · " + selected + " selected (of " + eligible + " eligible)";
     if (!rows.length) {
       listNode.innerHTML = '<p class="empty">No tourists match the current filters.</p>';
       return;
@@ -244,7 +250,7 @@
       const isOptOut = status === "do_not_contact";
       const hasEmail = !!(t.email && t.email.includes("@"));
       const blocked = isChild || isOptOut || !hasEmail;
-      const checked = !blocked && !deselectedIds.has(t.id);
+      const checked = !blocked && selectedIds.has(t.id);
       const checkboxTitle = isChild ? "Children cannot receive promos"
         : isOptOut ? "Do not contact"
         : !hasEmail ? "No email on file"
@@ -334,11 +340,8 @@
     const cb = e.target.closest(".ts-row-select");
     if (cb) {
       const id = cb.dataset.touristId;
-      if (cb.checked) deselectedIds.delete(id); else deselectedIds.add(id);
-      const promoEligible = getFiltered().filter(isPromoEligible).length;
-      countNode.textContent =
-        getFiltered().length + " tourist" + (getFiltered().length === 1 ? "" : "s") +
-        " · " + promoEligible + " selectable for promo";
+      if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+      updateRowCount();
       syncSelectAll();
       return;
     }
@@ -348,14 +351,20 @@
       cbs.forEach((c) => {
         c.checked = master.checked;
         const id = c.dataset.touristId;
-        if (master.checked) deselectedIds.delete(id); else deselectedIds.add(id);
+        if (master.checked) selectedIds.add(id); else selectedIds.delete(id);
       });
-      const promoEligible = getFiltered().filter(isPromoEligible).length;
-      countNode.textContent =
-        getFiltered().length + " tourist" + (getFiltered().length === 1 ? "" : "s") +
-        " · " + promoEligible + " selectable for promo";
+      updateRowCount();
     }
   });
+
+  function updateRowCount() {
+    const rows = getFiltered();
+    const eligible = rows.filter(isEligibleForPromo).length;
+    const selected = rows.filter(isPromoSelected).length;
+    countNode.textContent =
+      rows.length + " tourist" + (rows.length === 1 ? "" : "s") +
+      " · " + selected + " selected (of " + eligible + " eligible)";
+  }
 
   // ── Filter wiring ────────────────────────────────────────────────────
   [filterName, filterSerial, filterNationality].forEach((el) => el.addEventListener("input", render));
@@ -454,7 +463,7 @@
     filterDobFrom.value = filterDobTo.value = "";
     filterAgeMin.value = filterAgeMax.value = "";
     activeStatuses.clear();
-    deselectedIds.clear();
+    selectedIds.clear();
     statusPills.querySelectorAll(".invoices-status-pill").forEach((p) => p.classList.remove("is-active"));
     updateDobCount();
     updateAgeCount();
@@ -528,30 +537,17 @@
   // ── Send promo email ─────────────────────────────────────────────────
   function openPromoModal() {
     const filtered = getFiltered();
-    const recipients = filtered.filter(isPromoEligible);
+    const recipients = filtered.filter(isPromoSelected);
     if (!recipients.length) {
-      alert("No selectable recipients. Either no tourists match the filters, or all matches are children, opted-out, missing email, or unchecked.");
+      const eligible = filtered.filter(isEligibleForPromo).length;
+      if (!eligible) {
+        alert("No tourists in the current filter are eligible for promo (children, opt-outs, and rows without an email are excluded).");
+      } else {
+        alert(`Tick the checkbox on the rows you want to email. ${eligible} of the ${filtered.length} filtered tourists are eligible.`);
+      }
       return;
     }
-    const skippedChild = filtered.filter((t) => effectiveStatus(t) === "child").length;
-    const skippedOptOut = filtered.filter((t) => effectiveStatus(t) === "do_not_contact").length;
-    const skippedNoEmail = filtered.filter((t) => {
-      const s = effectiveStatus(t);
-      return s !== "child" && s !== "do_not_contact" && !(t.email && t.email.includes("@"));
-    }).length;
-    const unchecked = filtered.filter((t) => deselectedIds.has(t.id)
-      && effectiveStatus(t) !== "child"
-      && effectiveStatus(t) !== "do_not_contact"
-      && t.email && t.email.includes("@")).length;
-
-    const skippedParts = [];
-    if (skippedChild) skippedParts.push(`${skippedChild} child`);
-    if (skippedOptOut) skippedParts.push(`${skippedOptOut} opt-out`);
-    if (skippedNoEmail) skippedParts.push(`${skippedNoEmail} no email`);
-    if (unchecked) skippedParts.push(`${unchecked} unchecked`);
-    const skippedSummary = skippedParts.length ? ` — skipped: ${skippedParts.join(", ")}` : "";
-
-    promoTarget.textContent = `Recipients: ${recipients.length} (out of ${filtered.length} filtered${skippedSummary})`;
+    promoTarget.textContent = `Recipients: ${recipients.length} (manually selected)`;
     promoStatus.textContent = "";
     promoModal.classList.remove("is-hidden");
     promoModal.removeAttribute("hidden");
