@@ -4,13 +4,13 @@ const CONTRACTS_PAGE_SIZE = 15;
 let contractsPollHandle = null;
 let latestContractsSignature = "";
 let allContracts = [];
-let currentPage = 1;
+let contractsCurrentPage = 1;
 let editingContractId = null;
 
 const qs = (selector, root = document) => root.querySelector(selector);
 const qsa = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
-const formatDate = (value) => {
+const contractsFormatDate = (value) => {
   if (!value) return "-";
   return value.split("T")[0];
 };
@@ -103,7 +103,7 @@ const renderPagination = (contracts) => {
   const container = qs("#contract-pagination");
   if (!container) return;
   const totalPages = Math.max(1, Math.ceil(contracts.length / CONTRACTS_PAGE_SIZE));
-  if (currentPage > totalPages) currentPage = totalPages;
+  if (contractsCurrentPage > totalPages) contractsCurrentPage = totalPages;
   if (totalPages <= 1) {
     container.innerHTML = "";
     return;
@@ -112,13 +112,13 @@ const renderPagination = (contracts) => {
   const buttons = [];
   for (let page = 1; page <= totalPages; page += 1) {
     buttons.push(
-      `<button type="button" class="secondary-button ${page === currentPage ? "is-active" : ""}" data-contract-page="${page}">${page}</button>`
+      `<button type="button" class="secondary-button ${page === contractsCurrentPage ? "is-active" : ""}" data-contract-page="${page}">${page}</button>`
     );
   }
   container.innerHTML = buttons.join("");
   qsa("[data-contract-page]", container).forEach((button) => {
     button.addEventListener("click", () => {
-      currentPage = Number(button.dataset.contractPage || "1");
+      contractsCurrentPage = Number(button.dataset.contractPage || "1");
       renderContractsView();
     });
   });
@@ -163,14 +163,14 @@ const renderContractsTable = (contracts) => {
               const signed = status === "signed";
               return `
                 <tr>
-                  <td>${(currentPage - 1) * CONTRACTS_PAGE_SIZE + index + 1}</td>
+                  <td>${(contractsCurrentPage - 1) * CONTRACTS_PAGE_SIZE + index + 1}</td>
                   <td>${data.contractSerial || "-"}</td>
                   <td>${tourist || "-"}</td>
                   <td>${creatorName || "-"}</td>
                   <td>${data.destination || "-"}</td>
-                  <td>${formatDate(data.tripStartDate || data.contractDate)}</td>
+                  <td>${contractsFormatDate(data.tripStartDate || data.contractDate)}</td>
                   <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
-                  <td>${formatDate(entry.createdAt)}</td>
+                  <td>${contractsFormatDate(entry.createdAt)}</td>
                   <td>
                     <div class="contract-actions">
                       <a class="secondary-button" href="/api/contracts/${entry.id}/document?mode=view" target="_blank">View</a>
@@ -250,7 +250,7 @@ const loadContracts = async ({ silent = false } = {}) => {
 
 const renderContractsView = () => {
   const filteredContracts = getFilteredContracts();
-  const start = (currentPage - 1) * CONTRACTS_PAGE_SIZE;
+  const start = (contractsCurrentPage - 1) * CONTRACTS_PAGE_SIZE;
   const pageContracts = filteredContracts.slice(start, start + CONTRACTS_PAGE_SIZE);
   renderContractsTable(pageContracts);
   renderPagination(filteredContracts);
@@ -646,7 +646,7 @@ const initContractForm = () => {
     }
   };
 
-  const formatDateInputValue = (date) => {
+  const contractsFormatDateInputValue = (date) => {
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, "0");
     const day = String(date.getUTCDate()).padStart(2, "0");
@@ -657,7 +657,7 @@ const initContractForm = () => {
     const parsed = parseDate(value);
     if (!parsed) return "";
     parsed.setUTCDate(parsed.getUTCDate() - days);
-    return formatDateInputValue(parsed);
+    return contractsFormatDateInputValue(parsed);
   };
 
   const updateDepositDueDate = () => {
@@ -863,11 +863,11 @@ const initContractForm = () => {
   ].filter(Boolean);
   filterInputs.forEach((input) => {
     input.addEventListener("input", () => {
-      currentPage = 1;
+      contractsCurrentPage = 1;
       renderContractsView();
     });
     input.addEventListener("change", () => {
-      currentPage = 1;
+      contractsCurrentPage = 1;
       renderContractsView();
     });
   });
