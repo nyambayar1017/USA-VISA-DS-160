@@ -9412,7 +9412,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .flight-reservation-table,
 .transfer-reservation-table,
 .camp-payment-table,
-.flight-payment-table {
+.flight-payment-table,
+.manager-table {
   border-collapse: collapse !important;
   font-size: 14px !important;
   width: 100% !important;
@@ -9430,7 +9431,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .flight-reservation-table thead th,
 .transfer-reservation-table thead th,
 .camp-payment-table thead th,
-.flight-payment-table thead th {
+.flight-payment-table thead th,
+.manager-table thead th {
   background: #fafbfc !important;
   color: #4b5563 !important;
   font-weight: 600 !important;
@@ -9452,7 +9454,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .flight-reservation-table tbody td,
 .transfer-reservation-table tbody td,
 .camp-payment-table tbody td,
-.flight-payment-table tbody td {
+.flight-payment-table tbody td,
+.manager-table tbody td {
   padding: 14px 16px !important;
   border: none !important;
   border-bottom: 1px solid #f1f5f9 !important;
@@ -9473,7 +9476,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .flight-reservation-table tbody tr:hover td,
 .transfer-reservation-table tbody tr:hover td,
 .camp-payment-table tbody tr:hover td,
-.flight-payment-table tbody tr:hover td {
+.flight-payment-table tbody tr:hover td,
+.manager-table tbody tr:hover td {
   background: #f9fafb !important;
 }
 .trip-table tbody tr.is-trip-active td {
