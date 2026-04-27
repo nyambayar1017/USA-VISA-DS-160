@@ -3,6 +3,7 @@
   const countNode = document.getElementById("doc-count");
   const filterName = document.getElementById("doc-filter-name");
   const filterTourist = document.getElementById("doc-filter-tourist");
+  const filterDestination = document.getElementById("doc-filter-destination");
   const filterTrip = document.getElementById("doc-filter-trip");
   const filterCategory = document.getElementById("doc-filter-category");
   const filterExt = document.getElementById("doc-filter-ext");
@@ -85,9 +86,14 @@
     const ext = filterExt.value;
     const from = (filterFrom.value || "").trim();
     const to = (filterTo.value || "").trim();
+    const destination = (filterDestination?.value || "").trim().toLowerCase();
     return docs.filter((d) => {
       if (name && !((d.originalName || "").toLowerCase().includes(name))) return false;
       if (tourist && !((d.touristName || "").toLowerCase().includes(tourist))) return false;
+      if (destination) {
+        const dests = Array.isArray(d.destinations) ? d.destinations : [];
+        if (!dests.some((x) => String(x || "").toLowerCase().includes(destination))) return false;
+      }
       if (trip && d.tripId !== trip) return false;
       if (cat && d.category !== cat) return false;
       if (ext && fileExt(d.originalName) !== ext) return false;
@@ -105,7 +111,7 @@
     const rows = getFiltered();
     countNode.textContent = rows.length + " document" + (rows.length === 1 ? "" : "s");
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="empty">No documents match the current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="empty">No documents match the current filters.</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map((d, idx) => {
@@ -119,11 +125,16 @@
         : rawUrl;
       const tripUrl = "/trip-detail?tripId=" + encodeURIComponent(d.tripId);
       const uploadedBy = d.uploadedBy?.name || d.uploadedBy?.email || "-";
+      const dests = Array.isArray(d.destinations) ? d.destinations : [];
+      const destChips = dests.length
+        ? dests.map((x) => '<span class="tourist-tag-chip">' + escapeHtml(x) + '</span>').join(" ")
+        : '<span class="tourist-tag-empty">—</span>';
       return "<tr>" +
         "<td>" + (idx + 1) + "</td>" +
         '<td><a class="doc-file-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(d.originalName || "-") + "</a></td>" +
         "<td>" + escapeHtml(d.touristName || "-") + "</td>" +
         '<td><a class="trip-name-link" href="' + escapeHtml(tripUrl) + '">' + escapeHtml((d.tripSerial || "") + " · " + (d.tripName || "")) + "</a></td>" +
+        "<td>" + destChips + "</td>" +
         "<td>" + escapeHtml(d.category || "-") + "</td>" +
         "<td>" + (ext ? "." + escapeHtml(ext) : "-") + "</td>" +
         "<td>" + escapeHtml(fmtSize(d.size)) + "</td>" +
@@ -143,12 +154,13 @@
     else { badge.setAttribute("hidden", ""); pill.classList.remove("has-active"); }
   }
 
-  [filterName, filterTourist].forEach((el) => el.addEventListener("input", render));
+  [filterName, filterTourist, filterDestination].filter(Boolean).forEach((el) => el.addEventListener("input", render));
   [filterTrip, filterCategory, filterExt].forEach((el) => el.addEventListener("change", render));
   [filterFrom, filterTo].forEach((el) => el.addEventListener("change", () => { updateDateCount(); render(); }));
   resetBtn.addEventListener("click", () => {
     filterName.value = "";
     filterTourist.value = "";
+    if (filterDestination) filterDestination.value = "";
     filterTrip.value = "";
     filterCategory.value = "";
     filterExt.value = "";

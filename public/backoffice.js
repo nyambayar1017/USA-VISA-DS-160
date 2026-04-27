@@ -153,6 +153,10 @@ function resetContactForm() {
   contactForm.reset();
   contactForm.elements.id.value = "";
   state.editingContactId = "";
+  if (contactForm.elements.destinations) {
+    contactForm.elements.destinations.value = "";
+    contactForm.elements.destinations.dispatchEvent(new CustomEvent("destinations:set"));
+  }
   contactSubmitButton.textContent = "Save contact";
   clearStatus(contactStatusNode);
 }
@@ -208,6 +212,11 @@ function startContactEdit(contactId) {
   contactForm.elements.type.value = contact.type || "client";
   contactForm.elements.status.value = contact.status || "priority";
   contactForm.elements.lastContacted.value = contact.lastContacted || "";
+  if (contactForm.elements.destinations) {
+    const dests = Array.isArray(contact.destinations) ? contact.destinations : [];
+    contactForm.elements.destinations.value = dests.join(", ");
+    contactForm.elements.destinations.dispatchEvent(new CustomEvent("destinations:set"));
+  }
   contactForm.elements.note.value = contact.note || "";
   contactSubmitButton.textContent = "Update contact";
   setStatus(contactStatusNode, "Editing contact.");
@@ -252,7 +261,8 @@ function applyFilters(items) {
         String(v || "").toLowerCase().includes(query)
       );
     }
-    return [item.data.name, item.data.phone, item.data.note].some((v) =>
+    const dests = Array.isArray(item.data.destinations) ? item.data.destinations.join(" ") : "";
+    return [item.data.name, item.data.phone, item.data.note, dests].some((v) =>
       String(v || "").toLowerCase().includes(query)
     );
   });
@@ -308,6 +318,7 @@ function renderTaskRow(task) {
 }
 
 function renderContactRow(contact) {
+  const dests = Array.isArray(contact.destinations) ? contact.destinations : [];
   return `
     <div class="todo-row todo-row--contact" data-contact-id="${escapeHtml(contact.id)}">
       <div class="todo-row-main">
@@ -320,6 +331,7 @@ function renderContactRow(contact) {
           <span class="todo-badge contact-${escapeHtml(contact.type || "client")}">${escapeHtml(contact.type || "client")}</span>
           <span class="todo-badge status-${escapeHtml(contact.status || "new")}">${escapeHtml(contact.status || "new")}</span>
           ${contact.lastContacted ? `<span>🕒 ${escapeHtml(formatDate(contact.lastContacted))}</span>` : ""}
+          ${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join("") : ""}
           ${contact.note ? `<span class="todo-note">📝 ${escapeHtml(contact.note)}</span>` : ""}
         </div>
       </div>
@@ -527,6 +539,7 @@ todoStatusPills?.addEventListener("click", (event) => {
 
 renderStatusPills();
 loadDashboard();
+if (window.DestinationsMulti) window.DestinationsMulti.attachAll(document);
 
 // Refresh overdue countdowns every minute.
 setInterval(renderList, 60 * 1000);

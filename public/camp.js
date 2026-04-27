@@ -874,7 +874,7 @@ function renderTrips() {
             <th>Trip</th>
             <th>Start</th>
             <th>End</th>
-            <th>Tags</th>
+            <th>Destinations</th>
             <th>Pax</th>
             <th>Staff</th>
             <th>Status</th>
@@ -1996,6 +1996,7 @@ function startTripEdit(id) {
   tripForm.elements.status.value = trip.status || "planning";
   if (tripForm.elements.tags) {
     tripForm.elements.tags.value = Array.isArray(trip.tags) ? trip.tags.join(", ") : "";
+    tripForm.elements.tags.dispatchEvent(new CustomEvent("destinations:set"));
   }
   tripStatus.textContent = `Editing trip: ${trip.tripName}`;
   if (tripForm.elements.guideName) tripForm.elements.guideName.value = trip.guideName || "";
@@ -3700,6 +3701,7 @@ async function init() {
   }
   syncCheckoutFromStay();
   updateReservationUnitLabels(campForm);
+  if (window.DestinationsMulti) window.DestinationsMulti.attachAll(document);
 }
 
 init();

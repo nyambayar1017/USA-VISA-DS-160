@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-238" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-239" />
   </head>
   <body class="app-body" data-page="todo">
     <div class="workspace-shell">
@@ -165,6 +165,10 @@
                 <input name="lastContacted" type="date" />
               </label>
               <label class="full-span">
+                Destinations
+                <input name="destinations" data-destinations-multi value="" />
+              </label>
+              <label class="full-span">
                 Note
                 <textarea name="note" rows="2"></textarea>
               </label>
@@ -179,8 +183,9 @@
 
       </main>
     </div>
-    <script src="/app-shell.js?v=workspace-105"></script>
-    <script src="/backoffice.js?v=workspace-61"></script>
+    <script src="/app-shell.js?v=workspace-106"></script>
+    <script src="/destinations-multi.js?v=workspace-1"></script>
+    <script src="/backoffice.js?v=workspace-62"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings · TravelX</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-238" />
+  </head>
+  <body class="app-body" data-page="settings">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">Workspace</p>
+            <h1>Settings</h1>
+            <p class="workspace-subtitle">Destinations, camps, and other shared lists used across pages.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="settings-tabs" id="settings-tabs">
+            <button type="button" class="settings-tab is-active" data-tab="destinations">Destinations</button>
+            <button type="button" class="settings-tab" data-tab="camps">Camps</button>
+          </div>
+
+          <div class="settings-panel" data-panel="destinations">
+            <div class="section-head">
+              <div>
+                <h2>Destinations</h2>
+                <p>Used in dropdowns on Tourist, Contact, and Trip forms. Add new entries or remove ones you no longer use.</p>
+              </div>
+            </div>
+
+            <form id="destination-form" class="settings-add-row">
+              <input id="destination-input" type="text" placeholder="Add destination (e.g. Дубай)" autocomplete="off" required />
+              <button type="submit" class="primary-pill">+ Add</button>
+            </form>
+
+            <div id="destination-list" class="setting-pill-list"></div>
+            <p id="destinations-status" class="status"></p>
+          </div>
+
+          <div class="settings-panel is-hidden" data-panel="camps">
+            <div class="section-head">
+              <div>
+                <h2>Camps</h2>
+                <p>Camp names, locations, prices, and contracts used in the Camp Reservations dropdown.</p>
+              </div>
+            </div>
+
+            <form id="camp-form" class="settings-camp-form">
+              <input type="hidden" name="originalName" />
+              <div class="settings-camp-grid">
+                <label>
+                  Camp name
+                  <input name="campName" placeholder="e.g. Khustai camp" required />
+                </label>
+                <label>
+                  Location
+                  <input name="campLocation" placeholder="e.g. Khustai" />
+                </label>
+                <label class="full-span">
+                  Prices (paste from PDF, free text)
+                  <textarea name="price" rows="6" placeholder="Гэр (өглөөний цай) — 140,000&#10;Люкс гэр — 250,000&#10;..."></textarea>
+                </label>
+                <label class="full-span">
+                  Contract document (PDF / image)
+                  <input name="contractFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+                  <span id="camp-contract-current" class="settings-camp-contract-current"></span>
+                </label>
+              </div>
+              <div class="actions">
+                <button type="submit" class="primary-pill" id="camp-submit-button">Add camp</button>
+                <button type="button" class="secondary-button" id="camp-cancel-button">Cancel</button>
+                <p id="camp-status" class="status"></p>
+              </div>
+            </form>
+
+            <div id="camp-list" class="settings-camp-list"></div>
+
+            <div class="settings-camp-aux">
+              <form class="camp-setting-card" data-aux-group="staffAssignments">
+                <div class="camp-setting-head"><h3>Staff assignment</h3></div>
+                <div class="camp-setting-inline">
+                  <input name="value" placeholder="Add staff name" />
+                  <button type="submit">Add</button>
+                </div>
+                <div class="camp-setting-list" id="settings-staffAssignments"></div>
+              </form>
+              <form class="camp-setting-card" data-aux-group="roomChoices">
+                <div class="camp-setting-head"><h3>Ger / Room choices</h3></div>
+                <div class="camp-setting-inline">
+                  <input name="value" placeholder="Add room choice" />
+                  <button type="submit">Add</button>
+                </div>
+                <div class="camp-setting-list" id="settings-roomChoices"></div>
+              </form>
+            </div>
+            <p id="camps-status" class="status"></p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/app-shell.js?v=workspace-106"></script>
+    <script src="/settings.js?v=workspace-1"></script>
+    <script src="/ui-dialog.js?v=workspace-1"></script>
+  </body>
+</html>

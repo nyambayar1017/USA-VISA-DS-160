@@ -50,7 +50,7 @@
     { key: "trip", label: "Trip", default: true },
     { key: "group", label: "Group", default: true },
     { key: "nationality", label: "Nationality", default: false },
-    { key: "tags", label: "Tags", default: true },
+    { key: "tags", label: "Destinations", default: true },
     { key: "passportNumber", label: "Passport #", default: false },
     { key: "passportExpiry", label: "Passport expiry", default: false },
     { key: "registrationNumber", label: "Reg #", default: false },
@@ -389,7 +389,12 @@
     const tourist = tourists.find((t) => t.id === id);
     if (!tourist) return;
     const current = Array.isArray(tourist.tags) ? tourist.tags.join(", ") : "";
-    const next = window.prompt("Tags (comma-separated):", current);
+    let suggest = "";
+    try {
+      const list = await (window.DestinationsMulti?.loadDestinations?.() || Promise.resolve([]));
+      if (list.length) suggest = "\nAvailable: " + list.join(", ");
+    } catch {}
+    const next = window.prompt("Destinations (comma-separated):" + suggest, current);
     if (next === null) return;
     btn.disabled = true;
     try {

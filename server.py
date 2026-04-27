@@ -46,6 +46,8 @@ TRIP_UPLOADS_DIR = DATA_DIR / "trip-uploads"
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".txt"}
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
+SETTINGS_FILE = DATA_DIR / "settings.json"
+CAMP_CONTRACTS_DIR = DATA_DIR / "camp-contracts"
 FIFA2026_FILE = DATA_DIR / "fifa2026.json"
 FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
@@ -654,17 +656,58 @@ def read_camp_settings():
     camp_locations = normalize_camp_location_map(payload.get("campLocations"), camp_names)
     location_names = normalize_option_list(payload.get("locationNames")) or ["Khustai"]
     location_names = normalize_option_list(location_names + [value for value in camp_locations.values() if value])
+    raw_details = payload.get("campDetails") or {}
+    camp_details = {}
+    if isinstance(raw_details, dict):
+        for name, value in raw_details.items():
+            key = normalize_text(name)
+            if not key or not isinstance(value, dict):
+                continue
+            camp_details[key] = {
+                "price": normalize_text(value.get("price")),
+                "contractPath": normalize_text(value.get("contractPath")),
+            }
+    for name in camp_names:
+        camp_details.setdefault(name, {"price": "", "contractPath": ""})
     return {
         "campNames": camp_names,
         "locationNames": location_names,
         "staffAssignments": normalize_option_list(payload.get("staffAssignments")) or [STEPPE_MANAGER],
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
         "campLocations": camp_locations,
+        "campDetails": camp_details,
     }
 
 
 def write_camp_settings(payload):
     write_json_object(CAMP_SETTINGS_FILE, payload)
+
+
+# Pre-seeded destinations from Bataa's reference list. Settings page lets
+# admins add/remove on top of this; the seed only fires when settings.json
+# doesn't exist yet.
+DEFAULT_DESTINATIONS = [
+    "Ази", "Африк", "Европ", "Араб", "Гэр бүл", "Фу Куок", "Хайнан",
+    "Дубай", "Вьетнам", "Круйз", "Сингапур", "Малайз", "Бали", "Жэжү",
+    "Египет", "Турк", "Хятад", "Бангкок Паттаяа", "Пукет", "Тайланд",
+    "Шанхай", "Америк",
+]
+
+
+def default_settings():
+    return {"destinations": list(DEFAULT_DESTINATIONS)}
+
+
+def read_settings():
+    payload = read_json_object(SETTINGS_FILE, default_settings())
+    destinations = normalize_option_list(payload.get("destinations"))
+    if not destinations:
+        destinations = list(DEFAULT_DESTINATIONS)
+    return {"destinations": destinations}
+
+
+def write_settings(payload):
+    write_json_object(SETTINGS_FILE, payload)
 
 
 def default_fifa2026_data():
@@ -5840,6 +5883,7 @@ def handle_list_documents(environ, start_response):
                 "tripId": trip.get("id"),
                 "tripSerial": trip.get("serial") or "",
                 "tripName": trip.get("tripName") or "",
+                "destinations": list(trip.get("tags") or []),
             })
     rows.sort(key=lambda d: d.get("uploadedAt") or "", reverse=True)
     return json_response(start_response, "200 OK", {"entries": rows})
@@ -6312,6 +6356,7 @@ def build_manager_task(payload):
         "status": normalize_text(payload.get("status")).lower() or "todo",
         "dueDate": normalize_text(payload.get("dueDate")),
         "dueTime": normalize_text(payload.get("dueTime")),
+        "destinations": normalize_tag_list(payload.get("destinations")),
         "note": normalize_text(payload.get("note")),
         "reminderSentAt": normalize_text(payload.get("reminderSentAt")),
         "createdAt": now_mongolia().isoformat(),
@@ -6369,6 +6414,7 @@ def build_manager_contact(payload):
         "type": normalize_text(payload.get("type")).lower() or "client",
         "status": normalize_text(payload.get("status")).lower() or "new",
         "lastContacted": normalize_text(payload.get("lastContacted")),
+        "destinations": normalize_tag_list(payload.get("destinations")),
         "note": normalize_text(payload.get("note")),
         "createdAt": now_mongolia().isoformat(),
         "updatedAt": now_mongolia().isoformat(),
@@ -7398,6 +7444,23 @@ def handle_list_camp_settings(start_response):
     return json_response(start_response, "200 OK", {"entry": read_camp_settings()})
 
 
+def _normalize_camp_details(payload, camp_names):
+    """Per-camp price + contract path. Keyed by camp name."""
+    details = {}
+    if isinstance(payload, dict):
+        for name, value in payload.items():
+            name_clean = normalize_text(name)
+            if not name_clean or not isinstance(value, dict):
+                continue
+            details[name_clean] = {
+                "price": normalize_text(value.get("price")),
+                "contractPath": normalize_text(value.get("contractPath")),
+            }
+    for name in camp_names or []:
+        details.setdefault(name, {"price": "", "contractPath": ""})
+    return details
+
+
 def handle_update_camp_settings(environ, start_response):
     admin = require_admin(environ, start_response)
     if not admin:
@@ -7406,12 +7469,25 @@ def handle_update_camp_settings(environ, start_response):
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     camp_names = normalize_option_list(payload.get("campNames"))
+    existing = read_camp_settings()
+    existing_details = existing.get("campDetails") or {}
+    incoming_details = payload.get("campDetails")
+    if incoming_details is None:
+        merged_details = existing_details
+    else:
+        merged_details = {**existing_details}
+        if isinstance(incoming_details, dict):
+            for name, value in incoming_details.items():
+                key = normalize_text(name)
+                if key:
+                    merged_details[key] = value
     settings = {
         "campNames": camp_names,
         "locationNames": normalize_option_list(payload.get("locationNames")),
         "staffAssignments": normalize_option_list(payload.get("staffAssignments")),
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
         "campLocations": normalize_camp_location_map(payload.get("campLocations"), camp_names),
+        "campDetails": _normalize_camp_details(merged_details, camp_names),
     }
     if not settings["campNames"]:
         settings["campNames"] = ["Khustai camp"]
@@ -7422,6 +7498,70 @@ def handle_update_camp_settings(environ, start_response):
     settings["locationNames"] = normalize_option_list(settings["locationNames"] + [value for value in settings["campLocations"].values() if value])
     write_camp_settings(settings)
     return json_response(start_response, "200 OK", {"ok": True, "entry": settings})
+
+
+def handle_get_settings(environ, start_response):
+    if not require_login(environ, start_response):
+        return []
+    return json_response(start_response, "200 OK", {"entry": read_settings()})
+
+
+def handle_update_settings_destinations(environ, start_response):
+    """POST /api/settings/destinations — admin sets the full destinations list.
+
+    Body: {"destinations": ["...", "..."]}. We replace the saved list verbatim,
+    so the page can reorder + remove entries with one round-trip.
+    """
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    destinations = normalize_option_list(payload.get("destinations"))
+    settings = read_settings()
+    settings["destinations"] = destinations
+    write_settings(settings)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": settings})
+
+
+def handle_upload_camp_contract(environ, start_response):
+    """POST /api/camp-settings/contract — accepts {"campName": "...", "data": "data:application/pdf;base64,..."}
+    Saves under camp-contracts/ and returns the relative path to store on the camp record.
+    """
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    camp_name = normalize_text(payload.get("campName"))
+    data_url = payload.get("data") or ""
+    if not camp_name:
+        return json_response(start_response, "400 Bad Request", {"error": "campName is required"})
+    if "base64," not in data_url:
+        return json_response(start_response, "400 Bad Request", {"error": "data must be a base64 data URL"})
+    header, encoded = data_url.split("base64,", 1)
+    ext = "pdf"
+    if "image/jpeg" in header or "image/jpg" in header:
+        ext = "jpg"
+    elif "image/png" in header:
+        ext = "png"
+    elif "msword" in header or "officedocument" in header:
+        ext = "docx"
+    try:
+        binary = base64.b64decode(encoded)
+    except Exception:
+        return json_response(start_response, "400 Bad Request", {"error": "Could not decode upload"})
+    if len(binary) > MAX_UPLOAD_BYTES:
+        return json_response(start_response, "400 Bad Request", {"error": "File too large (max 10MB)"})
+    CAMP_CONTRACTS_DIR.mkdir(parents=True, exist_ok=True)
+    safe_slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", camp_name).strip("-").lower() or "camp"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    filename = f"{safe_slug}-{timestamp}.{ext}"
+    target = CAMP_CONTRACTS_DIR / filename
+    target.write_bytes(binary)
+    return json_response(start_response, "200 OK", {"ok": True, "path": f"/camp-contracts/{filename}"})
 
 
 def handle_create_camp_trip(environ, start_response):
@@ -12803,6 +12943,21 @@ def _dispatch(environ, start_response):
             return handle_update_camp_settings(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/camp-settings/contract":
+        if method == "POST":
+            return handle_upload_camp_contract(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/settings":
+        if method == "GET":
+            return handle_get_settings(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/settings/destinations":
+        if method == "POST":
+            return handle_update_settings_destinations(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/fifa2026":
         if method == "GET":
             if not require_login(environ, start_response):
@@ -12951,6 +13106,11 @@ def _dispatch(environ, start_response):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "backoffice.html")
 
+    if path == "/settings":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "settings.html")
+
     if path == "/contracts":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
@@ -13073,6 +13233,17 @@ def _dispatch(environ, start_response):
         rel = unquote(path.replace("/trip-uploads/", "", 1))
         safe_path = (TRIP_UPLOADS_DIR / rel).resolve()
         if not str(safe_path).startswith(str(TRIP_UPLOADS_DIR.resolve())) or not safe_path.exists():
+            return json_response(start_response, "404 Not Found", {"error": "Not found"})
+        params = parse_qs(environ.get("QUERY_STRING", ""))
+        extra_headers = generated_download_headers(safe_path) if params.get("download", ["0"])[0] == "1" else None
+        return file_response(start_response, safe_path, extra_headers=extra_headers)
+
+    if path.startswith("/camp-contracts/"):
+        if not current_user(environ):
+            return json_response(start_response, "401 Unauthorized", {"error": "Login required"})
+        rel = unquote(path.replace("/camp-contracts/", "", 1))
+        safe_path = (CAMP_CONTRACTS_DIR / rel).resolve()
+        if not str(safe_path).startswith(str(CAMP_CONTRACTS_DIR.resolve())) or not safe_path.exists():
             return json_response(start_response, "404 Not Found", {"error": "Not found"})
         params = parse_qs(environ.get("QUERY_STRING", ""))
         extra_headers = generated_download_headers(safe_path) if params.get("download", ["0"])[0] == "1" else None

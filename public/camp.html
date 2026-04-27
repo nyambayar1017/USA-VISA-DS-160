@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-237" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-239" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -141,7 +141,7 @@
                 </label>
                 <label class="full-span">
                   Tags
-                  <input name="tags" placeholder="Comma-separated tags (e.g. VIP, Honeymoon)" />
+                  <input name="tags" data-destinations-multi placeholder="Choose destinations" />
                 </label>
                 <div class="full-span trip-flights-block">
                   <div class="trip-flights-head">
@@ -731,52 +731,11 @@
           <div id="camp-payment-list" class="submission-list"></div>
         </section>
 
-        <section class="card page-hidden-section" id="settings-section">
-          <div class="section-head">
-            <h2>Camp Settings</h2>
-            <p>Manage camp names, locations, staff, and room types used in the camp reservation tab.</p>
-          </div>
-          <div class="camp-settings-grid">
-            <form class="camp-setting-card" data-settings-group="campNames">
-              <div class="camp-setting-head">
-                <h3>Camp names</h3>
-              </div>
-              <div class="camp-setting-inline">
-                <input name="campName" placeholder="Add camp name" />
-                <input name="campLocation" placeholder="Add location" />
-                <button type="submit">Add</button>
-              </div>
-              <div class="camp-setting-list" id="settings-campNames"></div>
-            </form>
-
-            <form class="camp-setting-card" data-settings-group="staffAssignments">
-              <div class="camp-setting-head">
-                <h3>Staff assignment</h3>
-              </div>
-              <div class="camp-setting-inline">
-                <input name="value" placeholder="Add staff name" />
-                <button type="submit">Add</button>
-              </div>
-              <div class="camp-setting-list" id="settings-staffAssignments"></div>
-            </form>
-
-            <form class="camp-setting-card" data-settings-group="roomChoices">
-              <div class="camp-setting-head">
-                <h3>Ger / Room choices</h3>
-              </div>
-              <div class="camp-setting-inline">
-                <input name="value" placeholder="Add room choice" />
-                <button type="submit">Add</button>
-              </div>
-              <div class="camp-setting-list" id="settings-roomChoices"></div>
-            </form>
-          </div>
-          <p id="settings-status" class="status"></p>
-        </section>
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-105"></script>
+    <script src="/app-shell.js?v=workspace-106"></script>
+    <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/camp.js?v=workspace-118"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
