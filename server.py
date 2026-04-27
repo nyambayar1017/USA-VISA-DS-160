@@ -185,6 +185,43 @@ def read_json_list(file_path):
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
+        # "Extra data" specifically means the parser saw a complete, valid JSON
+        # value followed by trailing garbage — i.e. a concurrent-write
+        # collision where two workers raced on the same file. The valid prefix
+        # IS the recoverable data; tear off the trailing junk and persist the
+        # clean version (atomically) instead of returning an empty list.
+        if "Extra data" in str(exc):
+            try:
+                decoder = json.JSONDecoder()
+                data, idx = decoder.raw_decode(text)
+                print(
+                    f"[read_json_list] recovered {file_path} prefix: {idx} of {len(text)} bytes",
+                    flush=True,
+                )
+                # Snapshot the corrupted copy first in case manual review is wanted,
+                # then atomically rewrite the clean version.
+                try:
+                    backup_path = file_path.with_suffix(file_path.suffix + ".corrupt")
+                    backup_path.write_text(text, encoding="utf-8")
+                except Exception:
+                    pass
+                try:
+                    tmp_path = file_path.with_suffix(file_path.suffix + ".tmp")
+                    tmp_path.write_text(
+                        json.dumps(data, indent=2, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+                    os.replace(tmp_path, file_path)
+                except Exception as werr:
+                    print(
+                        f"[read_json_list] could not persist recovery for {file_path}: {werr}",
+                        flush=True,
+                    )
+                if isinstance(data, list):
+                    return data
+                return []
+            except Exception:
+                pass
         print(f"[read_json_list] JSON decode failed on {file_path}: {exc}", flush=True)
         # Stash the bad copy so we can inspect it later, then start clean.
         try:
