@@ -244,9 +244,9 @@ td {
   height: 40px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #3a4457;
+  border: 1px solid rgba(32, 53, 111, 0.18);
+  background: rgba(238, 243, 255, 0.6);
+  color: var(--brand);
   cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
@@ -254,11 +254,12 @@ td {
 .workspace-bell svg {
   width: 22px;
   height: 22px;
+  stroke-width: 2;
 }
 
 .workspace-bell:hover {
-  background: rgba(22, 44, 84, 0.06);
-  border-color: rgba(22, 44, 84, 0.08);
+  background: rgba(32, 53, 111, 0.12);
+  border-color: rgba(32, 53, 111, 0.32);
   color: var(--brand);
 }
 
