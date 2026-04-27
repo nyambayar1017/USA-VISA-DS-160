@@ -443,20 +443,6 @@
         </div>
         ${installmentCards}
       </div>
-      ${(() => {
-        const b = inv.bankAccount;
-        if (!b) return "";
-        return `
-          <div class="inv-side-card">
-            <div class="inv-side-card-head"><h3>Bank account</h3></div>
-            <div class="inv-side-row"><div class="inv-side-row-label">${escapeHtml(b.label || b.bankName || "")}</div><div class="inv-side-row-value">${escapeHtml(b.currency || "")}</div></div>
-            <div class="inv-side-row"><div class="inv-side-row-label">Bank</div><div class="inv-side-row-value">${escapeHtml(b.bankName || "-")}</div></div>
-            ${b.accountName ? `<div class="inv-side-row"><div class="inv-side-row-label">Account name</div><div class="inv-side-row-value">${escapeHtml(b.accountName)}</div></div>` : ""}
-            ${b.accountNumber ? `<div class="inv-side-row"><div class="inv-side-row-label">Account #</div><div class="inv-side-row-value">${escapeHtml(b.accountNumber)}</div></div>` : ""}
-            ${b.swift ? `<div class="inv-side-row"><div class="inv-side-row-label">SWIFT</div><div class="inv-side-row-value">${escapeHtml(b.swift)}</div></div>` : ""}
-          </div>
-        `;
-      })()}
     `;
   }
 
