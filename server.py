@@ -1015,6 +1015,10 @@ def handle_list_notifications(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
         return []
+    try:
+        scan_task_reminders()
+    except Exception as exc:
+        print(f"[task-reminder] scan error: {exc}", flush=True)
     params = parse_qs(environ.get("QUERY_STRING", ""))
     try:
         limit = int(params.get("limit", ["50"])[0])
@@ -5464,6 +5468,7 @@ def build_tourist(payload, actor=None):
         "phone": normalize_text(payload.get("phone")),
         "email": normalize_text(payload.get("email")).lower(),
         "marketingStatus": _resolve_marketing_status(payload.get("marketingStatus"), normalize_text(payload.get("dob"))),
+        "tags": normalize_tag_list(payload.get("tags")),
         "roomType": normalize_room_type(payload.get("roomType")),
         "roomCode": normalize_text(payload.get("roomCode")),
         "passportScanPath": normalize_text(payload.get("passportScanPath")),
@@ -5777,6 +5782,8 @@ def handle_update_tourist(environ, start_response, tourist_id):
                 merged[key] = value
         if "roomType" in payload:
             merged["roomType"] = normalize_room_type(payload.get("roomType"))
+        if "tags" in payload:
+            merged["tags"] = normalize_tag_list(payload.get("tags"))
         if "orderIndex" in payload:
             merged["orderIndex"] = parse_int(payload.get("orderIndex")) or 0
         merged["marketingStatus"] = _resolve_marketing_status(
@@ -6160,7 +6167,131 @@ def build_manager_summary(store):
     }
 
 
+def _task_due_datetime(task):
+    """Compose dueDate + dueTime (default 09:00) into a Mongolia-aware datetime, or None."""
+    raw_date = normalize_text(task.get("dueDate"))[:10]
+    if not raw_date or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw_date):
+        return None
+    due_time = normalize_text(task.get("dueTime")) or "09:00"
+    if not re.fullmatch(r"\d{2}:\d{2}", due_time):
+        due_time = "09:00"
+    try:
+        return datetime.fromisoformat(f"{raw_date}T{due_time}:00").replace(tzinfo=MONGOLIA_TZ)
+    except Exception:
+        return None
+
+
+def _find_user_by_name(name):
+    target = normalize_text(name).lower()
+    if not target:
+        return None
+    for user in read_users():
+        if user.get("status") != "approved":
+            continue
+        if normalize_text(user.get("fullName")).lower() == target:
+            return user
+    return None
+
+
+_TASK_REMINDER_SCAN_AT = [0.0]
+_TASK_REMINDER_MIN_INTERVAL_SEC = 60
+
+
+def scan_task_reminders():
+    """Send 6h-before-due email + bell notification for tasks. Idempotent via reminderSentAt.
+
+    Triggered inline on dashboard/notification reads. Throttled to once per minute per worker
+    to keep request latency low when many polls overlap.
+    """
+    nowmono = time.monotonic()
+    if nowmono - _TASK_REMINDER_SCAN_AT[0] < _TASK_REMINDER_MIN_INTERVAL_SEC:
+        return
+    _TASK_REMINDER_SCAN_AT[0] = nowmono
+
+    try:
+        store = read_manager_dashboard()
+    except Exception:
+        return
+    tasks = store.get("tasks") or []
+    if not tasks:
+        return
+
+    now_local = now_mongolia()
+    horizon = timedelta(hours=6)
+    changed = False
+
+    for task in tasks:
+        if task.get("status") in {"done", "cancelled"}:
+            continue
+        if normalize_text(task.get("reminderSentAt")):
+            continue
+        due_dt = _task_due_datetime(task)
+        if not due_dt:
+            continue
+        delta = due_dt - now_local
+        # Fire when due is within the next 6 hours (and not yet past).
+        if delta <= timedelta(seconds=0) or delta > horizon:
+            continue
+
+        owner_name = normalize_text(task.get("owner"))
+        user = _find_user_by_name(owner_name)
+        owner_email = normalize_text(user.get("email")) if user else ""
+
+        title = normalize_text(task.get("title")) or "Untitled task"
+        due_label = due_dt.strftime("%Y-%m-%d %H:%M")
+        note_html = ""
+        note = normalize_text(task.get("note"))
+        if note:
+            note_html = f"<p style=\"margin-top:12px;color:#475569\">{html.escape(note)}</p>"
+
+        body_html = (
+            f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
+            f"<p>Танд <strong>{html.escape(title)}</strong> гэсэн ажил <strong>{html.escape(due_label)}</strong>-д дуусах хугацаатай байна. "
+            "Энэ цагаас өмнө гүйцэтгэхээ мартахгүй байгаарай.</p>"
+            f"{note_html}"
+        )
+
+        if owner_email:
+            try:
+                _tool_send_email(
+                    {
+                        "to": owner_email,
+                        "subject": "REMINDER TASK",
+                        "body": "",
+                        "_body_html_override": body_html,
+                        "_skip_footer": True,
+                    },
+                    None,
+                )
+            except Exception as exc:
+                print(f"[task-reminder] email failed for {owner_email}: {exc}", flush=True)
+
+        try:
+            log_notification(
+                "task.reminder",
+                {"id": "system", "email": "noreply", "name": "TravelX"},
+                f"REMINDER TASK · {title}",
+                detail=f"Due {due_label}" + (f" · {owner_name}" if owner_name else ""),
+                meta={"id": task.get("id"), "key": "tasks", "userId": (user or {}).get("id") or ""},
+            )
+        except Exception:
+            pass
+
+        task["reminderSentAt"] = now_local.isoformat()
+        changed = True
+
+    if changed:
+        try:
+            write_manager_dashboard(store)
+        except Exception as exc:
+            print(f"[task-reminder] write failed: {exc}", flush=True)
+
+
 def handle_get_manager_dashboard(start_response):
+    try:
+        scan_task_reminders()
+    except Exception as exc:
+        print(f"[task-reminder] scan error: {exc}", flush=True)
     store = read_manager_dashboard()
     return json_response(
         start_response,
@@ -6180,7 +6311,9 @@ def build_manager_task(payload):
         "priority": normalize_text(payload.get("priority")).lower() or "medium",
         "status": normalize_text(payload.get("status")).lower() or "todo",
         "dueDate": normalize_text(payload.get("dueDate")),
+        "dueTime": normalize_text(payload.get("dueTime")),
         "note": normalize_text(payload.get("note")),
+        "reminderSentAt": normalize_text(payload.get("reminderSentAt")),
         "createdAt": now_mongolia().isoformat(),
         "updatedAt": now_mongolia().isoformat(),
     }
@@ -6191,10 +6324,13 @@ def validate_manager_task(task):
         return "Task title must be at least 2 characters"
     if task.get("priority") not in {"low", "medium", "high"}:
         return "Task priority is invalid"
-    if task.get("status") not in {"todo", "in-progress", "done"}:
+    if task.get("status") not in {"todo", "in-progress", "done", "cancelled"}:
         return "Task status is invalid"
     if task.get("dueDate") and not parse_date_input(task.get("dueDate")):
         return "Task due date must be in YYYY-MM-DD format"
+    due_time = task.get("dueTime")
+    if due_time and not re.fullmatch(r"\d{2}:\d{2}", due_time):
+        return "Task due time must be HH:MM"
     return None
 
 

@@ -10,52 +10,42 @@ const contactSubmitButton = document.querySelector("#contact-submit-button");
 const taskCancelButton = document.querySelector("#task-cancel-button");
 const contactCancelButton = document.querySelector("#contact-cancel-button");
 
-const taskList = document.querySelector("#task-list");
-const contactList = document.querySelector("#contact-list");
+const todoList = document.querySelector("#todo-list");
+const todoCount = document.querySelector("#todo-count");
+const todoSearch = document.querySelector("#todo-search");
+const todoTypeFilter = document.querySelector("#todo-type-filter");
+const todoPriorityFilter = document.querySelector("#todo-priority-filter");
+const todoStatusPills = document.querySelector("#todo-status-pills");
 
 const taskStatusNode = document.querySelector("#task-status");
 const contactStatusNode = document.querySelector("#contact-status");
 
-const summaryOpenTasks = document.querySelector("#summary-open-tasks");
-const summaryPriorityContacts = document.querySelector("#summary-priority-contacts");
-const summaryTotalContacts = document.querySelector("#summary-total-contacts");
-const summaryDoneTasks = document.querySelector("#summary-done-tasks");
-
-const filters = {
-  taskSearch: document.querySelector("#task-search"),
-  taskStatus: document.querySelector("#task-status-filter"),
-  taskPriority: document.querySelector("#task-priority-filter"),
-  contactSearch: document.querySelector("#contact-search"),
-  contactType: document.querySelector("#contact-type-filter"),
-  contactStatus: document.querySelector("#contact-status-filter"),
-};
-
 const state = {
   tasks: [],
-  reminders: [],
   contacts: [],
   teamMembers: [],
   editingTaskId: "",
   editingContactId: "",
-  summary: {
-    tasks: { open: 0, done: 0 },
-    reminders: { today: 0 },
-    contacts: { priority: 0 },
-  },
+  activeStatus: "all",
+};
+
+const STATUS_LABEL = {
+  todo: "Pending",
+  pending: "Pending",
+  "in-progress": "In progress",
+  done: "Done",
+  cancelled: "Cancelled",
+  overdue: "Overdue",
 };
 
 function setStatus(node, message, isError = false) {
-  if (!node) {
-    return;
-  }
+  if (!node) return;
   node.textContent = message;
   node.dataset.tone = isError ? "error" : "ok";
 }
 
 function clearStatus(node) {
-  if (!node) {
-    return;
-  }
+  if (!node) return;
   node.textContent = "";
   delete node.dataset.tone;
 }
@@ -78,10 +68,7 @@ function escapeHtml(value) {
 }
 
 function formatDate(value) {
-  if (!value) {
-    return "-";
-  }
-  // Standardize on ISO yyyy-mm-dd everywhere across DTX + USM.
+  if (!value) return "-";
   const iso = String(value).split("T")[0];
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
   const parsed = new Date(value);
@@ -92,51 +79,49 @@ function formatDate(value) {
   return `${y}-${m}-${d}`;
 }
 
-function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value.replace("T", " ");
-  }
-  return parsed.toLocaleString();
+// Compose dueDate (YYYY-MM-DD) + optional dueTime (HH:MM, default 09:00) into a Date.
+function taskDueDateObj(task) {
+  if (!task.dueDate) return null;
+  const iso = String(task.dueDate).split("T")[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const time = /^\d{2}:\d{2}$/.test(task.dueTime || "") ? task.dueTime : "09:00";
+  const dt = new Date(`${iso}T${time}:00`);
+  return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+// Returns {label, tone}: tone is "overdue" (past), "soon" (≤24h), or "ok".
+function dueState(task) {
+  if (!task.dueDate || ["done", "cancelled"].includes(task.status)) {
+    return { label: task.dueDate ? formatDate(task.dueDate) : "—", tone: "ok" };
+  }
+  const due = taskDueDateObj(task);
+  if (!due) return { label: formatDate(task.dueDate), tone: "ok" };
+
+  const now = new Date();
+  const diffMs = due.getTime() - now.getTime();
+  const oneDay = 24 * 60 * 60 * 1000;
+
+  if (diffMs < 0) {
+    const days = Math.floor(-diffMs / oneDay);
+    if (days >= 1) return { label: `-${days} day${days === 1 ? "" : "s"}`, tone: "overdue" };
+    const hours = Math.max(1, Math.floor(-diffMs / (60 * 60 * 1000)));
+    return { label: `-${hours}h`, tone: "overdue" };
+  }
+  if (diffMs <= oneDay) {
+    const hours = Math.max(1, Math.round(diffMs / (60 * 60 * 1000)));
+    return { label: `${hours}h left`, tone: "soon" };
+  }
+  return { label: formatDate(task.dueDate), tone: "ok" };
 }
 
-function reminderTiming(reminder) {
-  const dateKey = String(reminder.reminderDate || "").slice(0, 10);
-  if (!dateKey) {
-    return "unscheduled";
-  }
-  if (dateKey === todayKey()) {
-    return "today";
-  }
-  if (dateKey < todayKey()) {
-    return "overdue";
-  }
-  return "upcoming";
-}
-
-function applySummary(summary) {
-  state.summary = summary || state.summary;
-  summaryOpenTasks.textContent = state.summary.tasks?.open ?? 0;
-  summaryPriorityContacts.textContent = state.summary.contacts?.priority ?? 0;
-  summaryTotalContacts.textContent = state.summary.contacts?.total ?? 0;
-  summaryDoneTasks.textContent = state.summary.tasks?.done ?? 0;
-}
-
-function renderEmpty(node, message) {
-  node.innerHTML = `<p class="empty">${message}</p>`;
+function isTaskOverdue(task) {
+  if (["done", "cancelled"].includes(task.status)) return false;
+  const due = taskDueDateObj(task);
+  return !!(due && due.getTime() < Date.now());
 }
 
 function renderManagerOptions() {
-  if (!taskManagerSelect) {
-    return;
-  }
+  if (!taskManagerSelect) return;
   const currentValue = taskManagerSelect.value;
   const options = state.teamMembers.length
     ? state.teamMembers
@@ -180,23 +165,17 @@ function syncBodyModalState() {
 }
 
 function openPanel(panel) {
-  if (!panel) {
-    return;
-  }
+  if (!panel) return;
   panel.classList.remove("is-hidden");
   panel.removeAttribute("hidden");
   syncBodyModalState();
   panel.scrollTop = 0;
   const dialog = panel.querySelector(".camp-modal-dialog");
-  if (dialog) {
-    dialog.scrollTop = 0;
-  }
+  if (dialog) dialog.scrollTop = 0;
 }
 
 function closePanel(panel) {
-  if (!panel) {
-    return;
-  }
+  if (!panel) return;
   panel.classList.add("is-hidden");
   panel.setAttribute("hidden", "");
   syncBodyModalState();
@@ -204,15 +183,15 @@ function closePanel(panel) {
 
 function startTaskEdit(taskId) {
   const task = state.tasks.find((item) => item.id === taskId);
-  if (!task) {
-    return;
-  }
+  if (!task) return;
   state.editingTaskId = taskId;
   taskForm.elements.id.value = task.id;
   taskForm.elements.title.value = task.title || "";
   taskForm.elements.owner.value = task.owner || "";
   taskForm.elements.priority.value = task.priority || "medium";
+  taskForm.elements.status.value = task.status || "todo";
   taskForm.elements.dueDate.value = task.dueDate || "";
+  taskForm.elements.dueTime.value = task.dueTime || "";
   taskForm.elements.note.value = task.note || "";
   taskSubmitButton.textContent = "Update task";
   setStatus(taskStatusNode, "Editing task.");
@@ -221,9 +200,7 @@ function startTaskEdit(taskId) {
 
 function startContactEdit(contactId) {
   const contact = state.contacts.find((item) => item.id === contactId);
-  if (!contact) {
-    return;
-  }
+  if (!contact) return;
   state.editingContactId = contactId;
   contactForm.elements.id.value = contact.id;
   contactForm.elements.name.value = contact.name || "";
@@ -237,181 +214,164 @@ function startContactEdit(contactId) {
   openPanel(contactFormPanel);
 }
 
-function filteredTasks() {
-  const query = filters.taskSearch.value.trim().toLowerCase();
-  const status = filters.taskStatus.value;
-  const priority = filters.taskPriority.value;
-
-  return [...state.tasks]
-    .filter((task) => {
-      if (status !== "all" && task.status !== status) {
-        return false;
-      }
-      if (priority !== "all" && task.priority !== priority) {
-        return false;
-      }
-      if (!query) {
-        return true;
-      }
-      return [task.title, task.owner, task.note].some((value) =>
-        String(value || "").toLowerCase().includes(query)
-      );
-    })
-    .sort((a, b) => {
-      if (a.status === "done" && b.status !== "done") {
-        return 1;
-      }
-      if (a.status !== "done" && b.status === "done") {
-        return -1;
-      }
-      return String(a.dueDate || "").localeCompare(String(b.dueDate || ""));
-    });
+function statusKey(task) {
+  // Map "todo" → "pending" for display/filter purposes; overdue is computed.
+  if (isTaskOverdue(task)) return "overdue";
+  if (task.status === "todo") return "pending";
+  return task.status || "pending";
 }
 
-function filteredContacts() {
-  const query = filters.contactSearch.value.trim().toLowerCase();
-  const type = filters.contactType.value;
-  const status = filters.contactStatus.value;
-
-  return [...state.contacts]
-    .filter((contact) => {
-      if (type !== "all" && contact.type !== type) {
-        return false;
-      }
-      if (status !== "all" && contact.status !== status) {
-        return false;
-      }
-      if (!query) {
-      return true;
-      }
-      return [contact.name, contact.phone, contact.note].some((value) =>
-        String(value || "").toLowerCase().includes(query)
-      );
-    })
-    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+function buildItems() {
+  const tasks = state.tasks.map((t) => ({ kind: "task", data: t }));
+  const contacts = state.contacts.map((c) => ({ kind: "contact", data: c }));
+  return [...tasks, ...contacts];
 }
 
-function renderTasks() {
-  const tasks = filteredTasks();
-  if (!tasks.length) {
-    renderEmpty(taskList, "No tasks match these filters yet.");
-    return;
-  }
+function applyFilters(items) {
+  const query = (todoSearch?.value || "").trim().toLowerCase();
+  const typeFilter = todoTypeFilter?.value || "all";
+  const priority = todoPriorityFilter?.value || "all";
+  const status = state.activeStatus;
 
-  taskList.innerHTML = `
-    <table class="manager-table">
-      <thead>
-        <tr>
-          <th>Task</th>
-          <th>Manager</th>
-          <th>Priority</th>
-          <th>Status</th>
-          <th>Due</th>
-          <th>Note</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tasks
-          .map(
-            (task) => `
-              <tr>
-                <td>${escapeHtml(task.title)}</td>
-                <td>${escapeHtml(task.owner || "-")}</td>
-                <td><span class="manager-badge priority-${escapeHtml(task.priority)}">${escapeHtml(task.priority)}</span></td>
-                <td><span class="manager-badge status-${escapeHtml(task.status)}">${escapeHtml(task.status)}</span></td>
-                <td>${escapeHtml(formatDate(task.dueDate))}</td>
-                <td>${escapeHtml(task.note || "-")}</td>
-                <td>
-                  <div class="manager-inline-actions manager-inline-actions-compact">
-                    <button type="button" data-task-edit="${task.id}">Edit</button>
-                    <button type="button" data-task-progress="${task.id}">Start</button>
-                    <button type="button" data-task-done="${task.id}">Done</button>
-                    <button type="button" data-task-delete="${task.id}" class="button-secondary">Delete</button>
-                  </div>
-                </td>
-              </tr>
-            `
-          )
-          .join("")}
-      </tbody>
-    </table>
+  return items.filter((item) => {
+    if (typeFilter === "task" && item.kind !== "task") return false;
+    if (typeFilter === "contact" && item.kind !== "contact") return false;
+
+    if (item.kind === "task") {
+      if (priority !== "all" && item.data.priority !== priority) return false;
+      if (status !== "all" && statusKey(item.data) !== status) return false;
+    } else {
+      // Contacts don't have task-statuses; hide them when a task-only status pill is active.
+      if (status !== "all") return false;
+      if (priority !== "all") return false;
+    }
+
+    if (!query) return true;
+    if (item.kind === "task") {
+      return [item.data.title, item.data.owner, item.data.note].some((v) =>
+        String(v || "").toLowerCase().includes(query)
+      );
+    }
+    return [item.data.name, item.data.phone, item.data.note].some((v) =>
+      String(v || "").toLowerCase().includes(query)
+    );
+  });
+}
+
+function sortItems(items) {
+  // Tasks first, sorted: overdue → soon → pending → in-progress → done/cancelled, then by due asc.
+  const rank = (it) => {
+    if (it.kind !== "task") return 100;
+    const s = statusKey(it.data);
+    const map = { overdue: 0, "in-progress": 1, pending: 2, done: 9, cancelled: 9 };
+    return map[s] ?? 5;
+  };
+  return [...items].sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === "task" ? -1 : 1;
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    if (a.kind === "task") {
+      return String(a.data.dueDate || "").localeCompare(String(b.data.dueDate || ""));
+    }
+    return String(a.data.name || "").localeCompare(String(b.data.name || ""));
+  });
+}
+
+function renderTaskRow(task) {
+  const due = dueState(task);
+  const sKey = statusKey(task);
+  const sLabel = STATUS_LABEL[sKey] || sKey;
+  return `
+    <div class="todo-row todo-row--task" data-task-id="${escapeHtml(task.id)}">
+      <div class="todo-row-main">
+        <div class="todo-row-title">
+          <span class="todo-row-kind">Task</span>
+          <strong>${escapeHtml(task.title)}</strong>
+        </div>
+        <div class="todo-row-meta">
+          <span>👤 ${escapeHtml(task.owner || "Unassigned")}</span>
+          <span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span>
+          <span class="todo-badge status-${escapeHtml(sKey)}">${escapeHtml(sLabel)}</span>
+          <span class="todo-due todo-due--${due.tone}">📅 ${escapeHtml(due.label)}${task.dueTime ? ` ${escapeHtml(task.dueTime)}` : ""}</span>
+          ${task.note ? `<span class="todo-note">📝 ${escapeHtml(task.note)}</span>` : ""}
+        </div>
+      </div>
+      <div class="todo-row-actions">
+        <button type="button" data-task-edit="${escapeHtml(task.id)}">Edit</button>
+        ${task.status !== "in-progress" && task.status !== "done" ? `<button type="button" data-task-progress="${escapeHtml(task.id)}">Start</button>` : ""}
+        ${task.status !== "done" ? `<button type="button" data-task-done="${escapeHtml(task.id)}">Done</button>` : ""}
+        <button type="button" data-task-delete="${escapeHtml(task.id)}" class="button-secondary">Delete</button>
+      </div>
+    </div>
   `;
 }
 
-function renderContacts() {
-  const contacts = filteredContacts();
-  if (!contacts.length) {
-    renderEmpty(contactList, "No contacts match these filters yet.");
-    return;
-  }
-
-  contactList.innerHTML = `
-    <table class="manager-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Phone</th>
-          <th>Type</th>
-          <th>Status</th>
-          <th>Last Contacted</th>
-          <th>Note</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${contacts
-          .map(
-            (contact) => `
-              <tr>
-                <td>${escapeHtml(contact.name)}</td>
-                <td><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></td>
-                <td><span class="manager-badge contact-${escapeHtml(contact.type)}">${escapeHtml(contact.type)}</span></td>
-                <td><span class="manager-badge status-${escapeHtml(contact.status)}">${escapeHtml(contact.status)}</span></td>
-                <td>${escapeHtml(formatDate(contact.lastContacted))}</td>
-                <td>${escapeHtml(contact.note || "-")}</td>
-                <td>
-                  <div class="manager-inline-actions manager-inline-actions-compact">
-                    <button type="button" data-contact-edit="${contact.id}">Edit</button>
-                    <button type="button" data-contact-priority="${contact.id}">
-                      ${contact.status === "priority" ? "Warm" : "Priority"}
-                    </button>
-                    <button type="button" data-contact-delete="${contact.id}" class="button-secondary">Delete</button>
-                  </div>
-                </td>
-              </tr>
-            `
-          )
-          .join("")}
-      </tbody>
-    </table>
+function renderContactRow(contact) {
+  return `
+    <div class="todo-row todo-row--contact" data-contact-id="${escapeHtml(contact.id)}">
+      <div class="todo-row-main">
+        <div class="todo-row-title">
+          <span class="todo-row-kind todo-row-kind--contact">Contact</span>
+          <strong>${escapeHtml(contact.name)}</strong>
+        </div>
+        <div class="todo-row-meta">
+          <span>📞 <a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></span>
+          <span class="todo-badge contact-${escapeHtml(contact.type || "client")}">${escapeHtml(contact.type || "client")}</span>
+          <span class="todo-badge status-${escapeHtml(contact.status || "new")}">${escapeHtml(contact.status || "new")}</span>
+          ${contact.lastContacted ? `<span>🕒 ${escapeHtml(formatDate(contact.lastContacted))}</span>` : ""}
+          ${contact.note ? `<span class="todo-note">📝 ${escapeHtml(contact.note)}</span>` : ""}
+        </div>
+      </div>
+      <div class="todo-row-actions">
+        <button type="button" data-contact-edit="${escapeHtml(contact.id)}">Edit</button>
+        <button type="button" data-contact-priority="${escapeHtml(contact.id)}">${contact.status === "priority" ? "Warm" : "Priority"}</button>
+        <button type="button" data-contact-delete="${escapeHtml(contact.id)}" class="button-secondary">Delete</button>
+      </div>
+    </div>
   `;
 }
 
-function renderAll() {
-  renderTasks();
-  renderContacts();
+function renderList() {
+  const items = sortItems(applyFilters(buildItems()));
+  if (!items.length) {
+    todoList.innerHTML = `<p class="empty">No items match these filters yet.</p>`;
+    if (todoCount) todoCount.textContent = "0 items";
+    return;
+  }
+
+  const taskCount = items.filter((i) => i.kind === "task").length;
+  const contactCount = items.filter((i) => i.kind === "contact").length;
+  if (todoCount) {
+    todoCount.textContent = `${items.length} item${items.length === 1 ? "" : "s"} · ${taskCount} task${taskCount === 1 ? "" : "s"}, ${contactCount} contact${contactCount === 1 ? "" : "s"}`;
+  }
+
+  todoList.innerHTML = items
+    .map((item) => (item.kind === "task" ? renderTaskRow(item.data) : renderContactRow(item.data)))
+    .join("");
+}
+
+function renderStatusPills() {
+  if (!todoStatusPills) return;
+  todoStatusPills.querySelectorAll(".invoices-status-pill").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.status === state.activeStatus);
+  });
 }
 
 async function loadDashboard() {
-  taskList.innerHTML = '<p class="empty">Loading tasks...</p>';
-  contactList.innerHTML = '<p class="empty">Loading contacts...</p>';
-
+  todoList.innerHTML = '<p class="empty">Loading...</p>';
   try {
     const [payload, teamMembersPayload] = await Promise.all([
       fetchJson("/api/manager-dashboard"),
       fetchJson("/api/team-members"),
     ]);
     state.tasks = payload.tasks || [];
-    state.reminders = payload.reminders || [];
     state.contacts = payload.contacts || [];
     state.teamMembers = teamMembersPayload.entries || [];
-    applySummary(payload.summary || {});
     renderManagerOptions();
-    renderAll();
+    renderList();
   } catch (error) {
-    renderEmpty(taskList, error.message);
-    renderEmpty(contactList, error.message);
+    todoList.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
     setStatus(taskStatusNode, error.message, true);
   }
 }
@@ -441,9 +401,7 @@ taskForm.addEventListener("submit", async (event) => {
   const taskId = taskForm.elements.id.value;
   const url = taskId ? `/api/manager-dashboard/tasks/${taskId}` : "/api/manager-dashboard/tasks";
   const saved = await submitForm(taskForm, url, taskStatusNode, resetTaskForm);
-  if (saved) {
-    closePanel(taskFormPanel);
-  }
+  if (saved) closePanel(taskFormPanel);
 });
 
 contactForm.addEventListener("submit", async (event) => {
@@ -451,24 +409,26 @@ contactForm.addEventListener("submit", async (event) => {
   const contactId = contactForm.elements.id.value;
   const url = contactId ? `/api/manager-dashboard/contacts/${contactId}` : "/api/manager-dashboard/contacts";
   const saved = await submitForm(contactForm, url, contactStatusNode, resetContactForm);
-  if (saved) {
-    closePanel(contactFormPanel);
-  }
+  if (saved) closePanel(contactFormPanel);
 });
 
-taskList.addEventListener("click", async (event) => {
-  const taskEditButton = event.target.closest("[data-task-edit]");
-  const taskProgressButton = event.target.closest("[data-task-progress]");
-  const taskDoneButton = event.target.closest("[data-task-done]");
-  const taskDeleteButton = event.target.closest("[data-task-delete]");
+todoList.addEventListener("click", async (event) => {
+  const target = event.target;
+  const taskEdit = target.closest("[data-task-edit]");
+  const taskProgress = target.closest("[data-task-progress]");
+  const taskDone = target.closest("[data-task-done]");
+  const taskDelete = target.closest("[data-task-delete]");
+  const contactEdit = target.closest("[data-contact-edit]");
+  const contactPriority = target.closest("[data-contact-priority]");
+  const contactDelete = target.closest("[data-contact-delete]");
 
   try {
-    if (taskEditButton) {
-      startTaskEdit(taskEditButton.dataset.taskEdit);
+    if (taskEdit) {
+      startTaskEdit(taskEdit.dataset.taskEdit);
       return;
     }
-    if (taskProgressButton) {
-      await fetchJson(`/api/manager-dashboard/tasks/${taskProgressButton.dataset.taskProgress}`, {
+    if (taskProgress) {
+      await fetchJson(`/api/manager-dashboard/tasks/${taskProgress.dataset.taskProgress}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "in-progress" }),
@@ -476,8 +436,8 @@ taskList.addEventListener("click", async (event) => {
       await loadDashboard();
       return;
     }
-    if (taskDoneButton) {
-      await fetchJson(`/api/manager-dashboard/tasks/${taskDoneButton.dataset.taskDone}`, {
+    if (taskDone) {
+      await fetchJson(`/api/manager-dashboard/tasks/${taskDone.dataset.taskDone}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "done" }),
@@ -485,31 +445,21 @@ taskList.addEventListener("click", async (event) => {
       await loadDashboard();
       return;
     }
-    if (taskDeleteButton) {
-      await fetchJson(`/api/manager-dashboard/tasks/${taskDeleteButton.dataset.taskDelete}`, {
+    if (taskDelete) {
+      await fetchJson(`/api/manager-dashboard/tasks/${taskDelete.dataset.taskDelete}`, {
         method: "DELETE",
       });
       await loadDashboard();
-    }
-  } catch (error) {
-    setStatus(taskStatusNode, error.message, true);
-  }
-});
-
-contactList.addEventListener("click", async (event) => {
-  const editButton = event.target.closest("[data-contact-edit]");
-  const priorityButton = event.target.closest("[data-contact-priority]");
-  const deleteButton = event.target.closest("[data-contact-delete]");
-
-  try {
-    if (editButton) {
-      startContactEdit(editButton.dataset.contactEdit);
       return;
     }
-    if (priorityButton) {
-      const contact = state.contacts.find((item) => item.id === priorityButton.dataset.contactPriority);
+    if (contactEdit) {
+      startContactEdit(contactEdit.dataset.contactEdit);
+      return;
+    }
+    if (contactPriority) {
+      const contact = state.contacts.find((item) => item.id === contactPriority.dataset.contactPriority);
       const nextStatus = contact?.status === "priority" ? "warm" : "priority";
-      await fetchJson(`/api/manager-dashboard/contacts/${priorityButton.dataset.contactPriority}`, {
+      await fetchJson(`/api/manager-dashboard/contacts/${contactPriority.dataset.contactPriority}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
@@ -517,14 +467,14 @@ contactList.addEventListener("click", async (event) => {
       await loadDashboard();
       return;
     }
-    if (deleteButton) {
-      await fetchJson(`/api/manager-dashboard/contacts/${deleteButton.dataset.contactDelete}`, {
+    if (contactDelete) {
+      await fetchJson(`/api/manager-dashboard/contacts/${contactDelete.dataset.contactDelete}`, {
         method: "DELETE",
       });
       await loadDashboard();
     }
   } catch (error) {
-    setStatus(contactStatusNode, error.message, true);
+    setStatus(taskStatusNode, error.message, true);
   }
 });
 
@@ -561,9 +511,22 @@ contactToggleForm?.addEventListener("click", () => {
   });
 });
 
-Object.values(filters).forEach((node) => {
-  node.addEventListener("input", renderAll);
-  node.addEventListener("change", renderAll);
+[todoSearch, todoTypeFilter, todoPriorityFilter].forEach((node) => {
+  node?.addEventListener("input", renderList);
+  node?.addEventListener("change", renderList);
 });
 
+todoStatusPills?.addEventListener("click", (event) => {
+  const pill = event.target.closest(".invoices-status-pill");
+  if (!pill) return;
+  const status = pill.dataset.status;
+  state.activeStatus = state.activeStatus === status ? "all" : status;
+  renderStatusPills();
+  renderList();
+});
+
+renderStatusPills();
 loadDashboard();
+
+// Refresh overdue countdowns every minute.
+setInterval(renderList, 60 * 1000);

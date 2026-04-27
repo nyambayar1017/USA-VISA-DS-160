@@ -5,7 +5,7 @@
   const filterSerial = document.querySelector("#tourist-filter-serial");
   const filterTrip = document.querySelector("#tourist-filter-trip");
   const filterGroup = document.querySelector("#tourist-filter-group");
-  const filterNationality = document.querySelector("#tourist-filter-nationality");
+  const filterTag = document.querySelector("#tourist-filter-tag");
   const filterDobFrom = document.querySelector("#tourist-filter-dob-from");
   const filterDobTo = document.querySelector("#tourist-filter-dob-to");
   const filterAgeMin = document.querySelector("#tourist-filter-age-min");
@@ -50,6 +50,7 @@
     { key: "trip", label: "Trip", default: true },
     { key: "group", label: "Group", default: true },
     { key: "nationality", label: "Nationality", default: false },
+    { key: "tags", label: "Tags", default: true },
     { key: "passportNumber", label: "Passport #", default: false },
     { key: "passportExpiry", label: "Passport expiry", default: false },
     { key: "registrationNumber", label: "Reg #", default: false },
@@ -123,6 +124,14 @@
     return res.json();
   }
 
+  function renderTagsCell(t) {
+    const tags = Array.isArray(t.tags) ? t.tags : [];
+    const chips = tags.length
+      ? tags.map((tag) => '<span class="tourist-tag-chip">' + escapeHtml(tag) + '</span>').join("")
+      : '<span class="tourist-tag-empty">—</span>';
+    return '<button type="button" class="tourist-tag-cell" data-tags-edit="' + escapeHtml(t.id) + '" title="Click to edit tags">' + chips + '</button>';
+  }
+
   async function loadAll() {
     try {
       const [tripData, groupData, touristData] = await Promise.all([
@@ -179,7 +188,7 @@
     const serial = (filterSerial.value || "").trim().toLowerCase();
     const trip = filterTrip.value;
     const group = filterGroup.value;
-    const nat = (filterNationality.value || "").trim().toLowerCase();
+    const tagQuery = (filterTag.value || "").trim().toLowerCase();
     const dobFrom = (filterDobFrom.value || "").trim();
     const dobTo = (filterDobTo.value || "").trim();
     const ageMinRaw = (filterAgeMin.value || "").trim();
@@ -192,7 +201,10 @@
       if (serial && !(t.serial || "").toLowerCase().includes(serial)) return false;
       if (trip && t.tripId !== trip) return false;
       if (group && t.groupId !== group) return false;
-      if (nat && !(t.nationality || "").toLowerCase().includes(nat)) return false;
+      if (tagQuery) {
+        const tags = Array.isArray(t.tags) ? t.tags : [];
+        if (!tags.some((tag) => String(tag || "").toLowerCase().includes(tagQuery))) return false;
+      }
       if (activeStatuses.size && !activeStatuses.has(effectiveStatus(t))) return false;
       if (dobFrom || dobTo) {
         const dob = t.dob ? String(t.dob).slice(0, 10) : "";
@@ -267,6 +279,7 @@
         trip: tripCell,
         group: grpCell,
         nationality: escapeHtml(t.nationality || "-"),
+        tags: renderTagsCell(t),
         passportNumber: escapeHtml(t.passportNumber || "-"),
         passportExpiry: escapeHtml(t.passportExpiry || "-"),
         registrationNumber: escapeHtml(t.registrationNumber || "-"),
@@ -367,8 +380,36 @@
       " · " + selected + " selected (of " + eligible + " eligible)";
   }
 
+  // ── Inline tag edit ──────────────────────────────────────────────────
+  listNode.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-tags-edit]");
+    if (!btn) return;
+    e.preventDefault();
+    const id = btn.dataset.tagsEdit;
+    const tourist = tourists.find((t) => t.id === id);
+    if (!tourist) return;
+    const current = Array.isArray(tourist.tags) ? tourist.tags.join(", ") : "";
+    const next = window.prompt("Tags (comma-separated):", current);
+    if (next === null) return;
+    btn.disabled = true;
+    try {
+      const resp = await fetch("/api/tourists/" + encodeURIComponent(id), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: next }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Update failed");
+      tourist.tags = data.entry?.tags || [];
+      render();
+    } catch (err) {
+      alert("Алдаа: " + err.message);
+      btn.disabled = false;
+    }
+  });
+
   // ── Filter wiring ────────────────────────────────────────────────────
-  [filterName, filterSerial, filterNationality].forEach((el) => el.addEventListener("input", render));
+  [filterName, filterSerial, filterTag].forEach((el) => el.addEventListener("input", render));
   filterTrip.addEventListener("change", () => { renderGroupOptions(); render(); });
   filterGroup.addEventListener("change", render);
   [filterDobFrom, filterDobTo].forEach((el) => el.addEventListener("change", () => { updateDobCount(); render(); }));
@@ -432,7 +473,7 @@
   function snapshotFilterState() {
     return {
       name: filterName.value, serial: filterSerial.value, trip: filterTrip.value,
-      group: filterGroup.value, nationality: filterNationality.value,
+      group: filterGroup.value, tag: filterTag.value,
       dobFrom: filterDobFrom.value, dobTo: filterDobTo.value,
       ageMin: filterAgeMin.value, ageMax: filterAgeMax.value,
       statuses: [...activeStatuses],
@@ -444,7 +485,7 @@
     filterTrip.value = snap?.trip || "";
     renderGroupOptions();
     filterGroup.value = snap?.group || "";
-    filterNationality.value = snap?.nationality || "";
+    filterTag.value = snap?.tag || snap?.nationality || "";
     filterDobFrom.value = snap?.dobFrom || "";
     filterDobTo.value = snap?.dobTo || "";
     filterAgeMin.value = snap?.ageMin || "";
@@ -459,7 +500,7 @@
     render();
   }
   function clearAllFilters() {
-    filterName.value = filterSerial.value = filterNationality.value = "";
+    filterName.value = filterSerial.value = filterTag.value = "";
     filterTrip.value = ""; renderGroupOptions(); filterGroup.value = "";
     filterDobFrom.value = filterDobTo.value = "";
     filterAgeMin.value = filterAgeMax.value = "";

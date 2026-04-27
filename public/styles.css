@@ -9197,6 +9197,148 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #fff;
   border-color: #dc2626;
 }
+.invoices-status-pill.is-active[data-status="in-progress"] {
+  background: #93c5fd;
+  color: #1e3a8a;
+  border-color: #3b82f6;
+}
+.invoices-status-pill.is-active[data-status="done"] {
+  background: #10b981;
+  color: #fff;
+  border-color: #059669;
+}
+.invoices-status-pill.is-active[data-status="cancelled"] {
+  background: #d1d5db;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
+/* ── To-Do page rows ───────────────────────────────────────────────── */
+.todo-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid #e2e6ee;
+  margin-bottom: 10px;
+  background: #fff;
+}
+.todo-row--task { background: #fffaf1; border-color: #f3e6c7; }
+.todo-row--contact { background: #f1f7ff; border-color: #c9def7; }
+.todo-row-main { flex: 1; min-width: 0; }
+.todo-row-title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.todo-row-title strong { font-size: 15px; color: #1f2937; }
+.todo-row-kind {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fde68a;
+  color: #78350f;
+}
+.todo-row-kind--contact { background: #bfdbfe; color: #1e3a8a; }
+.todo-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #4b5563;
+}
+.todo-row-meta a { color: inherit; text-decoration: underline; }
+.todo-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #374151;
+  text-transform: capitalize;
+}
+.todo-badge.priority-high { background: #fee2e2; color: #991b1b; }
+.todo-badge.priority-medium { background: #fef3c7; color: #78350f; }
+.todo-badge.priority-low { background: #dcfce7; color: #166534; }
+.todo-badge.status-pending,
+.todo-badge.status-todo { background: #fef3c7; color: #78350f; }
+.todo-badge.status-in-progress { background: #dbeafe; color: #1e3a8a; }
+.todo-badge.status-done { background: #dcfce7; color: #166534; }
+.todo-badge.status-cancelled { background: #e5e7eb; color: #374151; }
+.todo-badge.status-overdue { background: #fee2e2; color: #991b1b; }
+.todo-badge.status-priority { background: #fee2e2; color: #991b1b; }
+.todo-badge.status-warm { background: #ffedd5; color: #9a3412; }
+.todo-badge.status-new { background: #dbeafe; color: #1e3a8a; }
+.todo-badge.status-inactive { background: #e5e7eb; color: #374151; }
+.todo-badge.contact-client { background: #dbeafe; color: #1e3a8a; }
+.todo-badge.contact-staff { background: #ede9fe; color: #5b21b6; }
+.todo-badge.contact-partner { background: #dcfce7; color: #166534; }
+.todo-badge.contact-vendor { background: #fef3c7; color: #78350f; }
+.todo-due {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.todo-due--ok { color: #4b5563; font-weight: 500; }
+.todo-due--soon { color: #b45309; }
+.todo-due--overdue { color: #b91c1c; }
+.todo-note {
+  color: #6b7280;
+  font-style: italic;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.todo-row-actions button {
+  padding: 6px 12px;
+  border: 1px solid #d0d7e8;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 13px;
+  cursor: pointer;
+}
+.todo-row-actions button:hover { background: #f9fafb; }
+.todo-row-actions button.button-secondary { color: #6b7280; }
+@media (max-width: 720px) {
+  .todo-row { flex-direction: column; align-items: stretch; }
+  .todo-row-actions { justify-content: flex-end; }
+}
+
+/* ── Tourist tag chips ─────────────────────────────────────────────── */
+.tourist-tag-cell {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.tourist-tag-cell:hover { border-color: #c0c8d8; background: #f9fafb; }
+.tourist-tag-chip {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tourist-tag-empty { color: #9ca3af; font-size: 12px; }
 .invoices-saved-filter-row {
   display: flex;
   align-items: center;

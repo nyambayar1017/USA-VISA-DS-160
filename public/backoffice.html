@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-237" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-238" />
   </head>
   <body class="app-body" data-page="todo">
     <div class="workspace-shell">
@@ -16,14 +16,7 @@
 
       <main class="workspace-main">
         <section class="workspace-topbar">
-          <div>
-            <p class="workspace-kicker">TravelX Backoffice</p>
-            <h1>To Do — Tasks &amp; Reminders</h1>
-            <p class="workspace-subtitle">
-              Keep everyone aligned with one page for tasks, reminders,
-              important phone numbers, and quick access to the main modules.
-            </p>
-          </div>
+          <div></div>
           <div class="workspace-profile">
             <span class="workspace-profile-label">Signed in</span>
             <strong data-profile-name>TravelX Staff</strong>
@@ -31,115 +24,42 @@
           </div>
         </section>
 
-        <section class="manager-summary-grid" id="manager-summary">
-          <article class="manager-stat-card">
-            <p class="manager-stat-label">Open Tasks</p>
-            <strong id="summary-open-tasks">0</strong>
-            <span>What still needs action from the team.</span>
-          </article>
-          <article class="manager-stat-card">
-            <p class="manager-stat-label">Priority Contacts</p>
-            <strong id="summary-priority-contacts">0</strong>
-            <span>Important numbers to keep close and revisit fast.</span>
-          </article>
-          <article class="manager-stat-card">
-            <p class="manager-stat-label">Contact Total</p>
-            <strong id="summary-total-contacts">0</strong>
-            <span>Saved numbers your team can access from one place.</span>
-          </article>
-          <article class="manager-stat-card">
-            <p class="manager-stat-label">Completed Tasks</p>
-            <strong id="summary-done-tasks">0</strong>
-            <span>Quick view of finished work on the homepage.</span>
-          </article>
-        </section>
-
-        <section class="manager-dashboard-grid">
-          <article class="card manager-panel">
-            <div class="dashboard-head">
-              <div>
-                <h2>To-Do List</h2>
-                <p class="workspace-subtitle manager-panel-copy">
-                  Track work for managers and staff with status and priority
-                  filters.
-                </p>
-              </div>
-              <div class="camp-toolbar">
-                <button type="button" id="task-toggle-form">Add Task</button>
-              </div>
+        <section class="card" id="todo-section">
+          <div class="section-head">
+            <div>
+              <h2>To-Do List</h2>
+              <p>Tasks and contacts in one place. Tasks turn red when overdue and remind the manager 6 hours before due.</p>
             </div>
-
-            <div class="manager-filter-row">
-              <label>
-                Search
-                <input id="task-search" type="search" placeholder="Search task or manager" />
-              </label>
-              <label>
-                Status
-                <select id="task-status-filter">
-                  <option value="all">All</option>
-                  <option value="todo">To do</option>
-                  <option value="in-progress">In progress</option>
-                  <option value="done">Done</option>
-                </select>
-              </label>
-              <label>
-                Priority
-                <select id="task-priority-filter">
-                  <option value="all">All</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </label>
+            <div class="camp-toolbar">
+              <button type="button" id="task-toggle-form" class="header-action-btn">+ Add task</button>
+              <button type="button" id="contact-toggle-form" class="header-action-btn">+ Add contact</button>
             </div>
+          </div>
 
-            <div id="task-list" class="manager-table-wrap"></div>
-          </article>
-
-          <article class="card manager-panel">
-            <div class="dashboard-head">
-              <div>
-                <h2>Contact Numbers</h2>
-                <p class="workspace-subtitle manager-panel-copy">
-                  Keep important phone numbers for clients, staff, vendors, and
-                  partners with filters.
-                </p>
-              </div>
-              <div class="camp-toolbar">
-                <button type="button" id="contact-toggle-form">Add Contact</button>
-              </div>
+          <div class="invoices-filter-bar">
+            <input id="todo-search" type="search" placeholder="Search title, manager, phone, note" autocomplete="off" />
+            <select id="todo-type-filter" class="trip-filter-input">
+              <option value="all">Tasks &amp; contacts</option>
+              <option value="task">Tasks only</option>
+              <option value="contact">Contacts only</option>
+            </select>
+            <select id="todo-priority-filter" class="trip-filter-input">
+              <option value="all">All priorities</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <div class="invoices-status-pills" id="todo-status-pills">
+              <button type="button" class="invoices-status-pill" data-status="pending">Pending</button>
+              <button type="button" class="invoices-status-pill" data-status="in-progress">In progress</button>
+              <button type="button" class="invoices-status-pill" data-status="overdue">Overdue</button>
+              <button type="button" class="invoices-status-pill" data-status="done">Done</button>
+              <button type="button" class="invoices-status-pill" data-status="cancelled">Cancelled</button>
             </div>
+          </div>
 
-            <div class="manager-filter-row">
-              <label>
-                Search
-                <input id="contact-search" type="search" placeholder="Search name or phone" />
-              </label>
-              <label>
-                Type
-                <select id="contact-type-filter">
-                  <option value="all">All</option>
-                  <option value="client">Client</option>
-                  <option value="staff">Staff</option>
-                  <option value="partner">Partner</option>
-                  <option value="vendor">Vendor</option>
-                </select>
-              </label>
-              <label>
-                Status
-                <select id="contact-status-filter">
-                  <option value="all">All</option>
-                  <option value="priority">Priority</option>
-                  <option value="warm">Warm</option>
-                  <option value="new">New</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </label>
-            </div>
-
-            <div id="contact-list" class="manager-table-wrap"></div>
-          </article>
+          <p class="tourist-count" id="todo-count"></p>
+          <div id="todo-list" class="submission-list"></div>
         </section>
 
         <div id="task-form-panel" class="camp-modal is-hidden" hidden>
@@ -148,7 +68,7 @@
             <div class="camp-modal-header">
               <div>
                 <h2>Task details</h2>
-                <p class="camp-modal-copy">Add a new task or update an existing one from the same popup pattern.</p>
+                <p class="camp-modal-copy">Add a new task or update an existing one.</p>
               </div>
               <button type="button" class="camp-modal-close" data-action="close-task-modal" aria-label="Close task window">×</button>
             </div>
@@ -173,8 +93,21 @@
                 </select>
               </label>
               <label>
+                Status
+                <select name="status">
+                  <option value="todo">Pending</option>
+                  <option value="in-progress">In progress</option>
+                  <option value="done">Done</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <label>
                 Due date
                 <input name="dueDate" type="date" />
+              </label>
+              <label>
+                Due time
+                <input name="dueTime" type="time" placeholder="09:00" />
               </label>
               <label class="full-span">
                 Note
@@ -247,7 +180,7 @@
       </main>
     </div>
     <script src="/app-shell.js?v=workspace-105"></script>
-    <script src="/backoffice.js?v=workspace-60"></script>
+    <script src="/backoffice.js?v=workspace-61"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
