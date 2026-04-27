@@ -11310,8 +11310,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   gap: 18px;
 }
 .mail-bubble {
-  max-width: 100%;
-  width: 100%;
+  max-width: 92%;
   border-radius: 16px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: #ffffff;
@@ -11322,9 +11321,13 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   gap: 10px;
   min-width: 0;
 }
-.mail-bubble--theirs { align-self: flex-start; }
+.mail-bubble--theirs {
+  align-self: flex-start;
+  margin-right: auto;
+}
 .mail-bubble--mine {
   align-self: flex-end;
+  margin-left: auto;
   background: #eff6ff;
   border-color: rgba(29, 78, 216, 0.18);
 }
