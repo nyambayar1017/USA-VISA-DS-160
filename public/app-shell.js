@@ -356,12 +356,14 @@ function buildProfileChrome() {
     <div class="notifications-popover mail-popover" data-mail-popover hidden>
       <header>
         <h3>Unread mail</h3>
-        <a class="mail-popover-open" href="/mail" title="Open mailbox">Open</a>
         <button type="button" class="notifications-close" data-action="close-mail" aria-label="Close">×</button>
       </header>
       <div class="notifications-list" data-mail-list>
         <p class="notifications-empty">Loading…</p>
       </div>
+      <footer class="mail-popover-footer">
+        <a class="mail-popover-see-all" href="/mail">See all emails →</a>
+      </footer>
     </div>
   `;
   profileNameNode = profileCard.querySelector("[data-profile-name]");
@@ -803,13 +805,23 @@ function ensureProfileModal() {
       avatarInput.value = "";
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      wrapper._state.avatarData = reader.result;
-      wrapper._state.removeAvatar = false;
-      renderAvatarPreview();
-    };
-    reader.readAsDataURL(file);
+    (async () => {
+      try {
+        const dataUrl = window.CompressUpload
+          ? await window.CompressUpload.image(file)
+          : await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = () => reject(new Error("read failed"));
+              reader.readAsDataURL(file);
+            });
+        wrapper._state.avatarData = dataUrl;
+        wrapper._state.removeAvatar = false;
+        renderAvatarPreview();
+      } catch {
+        statusNode.textContent = "Could not read image.";
+      }
+    })();
   });
   avatarRemoveButton?.addEventListener("click", () => {
     wrapper._state.avatarData = "";

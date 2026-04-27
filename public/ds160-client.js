@@ -515,13 +515,19 @@ function bindPhotoUpload() {
       input.value = "";
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      hidden.value = reader.result;
-      if (previewImg) previewImg.src = reader.result;
+    (async () => {
+      const dataUrl = window.CompressUpload
+        ? await window.CompressUpload.image(file)
+        : await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error("read failed"));
+            reader.readAsDataURL(file);
+          });
+      hidden.value = dataUrl;
+      if (previewImg) previewImg.src = dataUrl;
       toggleElement("photo-preview-wrap", true);
-    };
-    reader.readAsDataURL(file);
+    })().catch(() => {});
   });
 
   clearBtn?.addEventListener("click", () => {
@@ -552,18 +558,27 @@ function bindPassportUpload() {
       input.value = "";
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      hidden.value = reader.result;
-      const isImage = typeof reader.result === "string" && reader.result.startsWith("data:image/");
+    (async () => {
+      let dataUrl;
+      if (window.CompressUpload && file.type && file.type.startsWith("image/")) {
+        dataUrl = await window.CompressUpload.image(file);
+      } else {
+        dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error("read failed"));
+          reader.readAsDataURL(file);
+        });
+      }
+      hidden.value = dataUrl;
+      const isImage = typeof dataUrl === "string" && dataUrl.startsWith("data:image/");
       if (previewImg) {
-        previewImg.src = isImage ? reader.result : "";
+        previewImg.src = isImage ? dataUrl : "";
         previewImg.style.display = isImage ? "" : "none";
       }
       if (filenameEl) filenameEl.textContent = `Файл: ${file.name}`;
       toggleElement("passport-preview-wrap", true);
-    };
-    reader.readAsDataURL(file);
+    })().catch(() => {});
   });
 
   clearBtn?.addEventListener("click", () => {

@@ -9375,6 +9375,19 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 .tourist-tag-empty { color: #9ca3af; font-size: 12px; }
 
+.mail-popover-footer {
+  border-top: 1px solid #e5e7eb;
+  padding: 10px 14px;
+  text-align: center;
+}
+.mail-popover-see-all {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.mail-popover-see-all:hover { text-decoration: underline; }
+
 /* ── Settings page ─────────────────────────────────────────────────── */
 .settings-tabs {
   display: flex;

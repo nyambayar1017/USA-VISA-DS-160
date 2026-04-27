@@ -3200,7 +3200,11 @@ async function uploadFiles(tripId, files) {
   if (!tripId) { if (docUploadStatus) docUploadStatus.textContent = "Select a trip first."; return; }
   const category = (docCategorySelect && docCategorySelect.value) || "Other";
   const touristId = (docTouristSelect && docTouristSelect.value) || "";
-  for (const file of files) {
+  for (let file of files) {
+    // Compress images client-side before upload to save Render disk space.
+    if (window.CompressUpload && file.type && file.type.startsWith("image/")) {
+      try { file = await window.CompressUpload.file(file); } catch {}
+    }
     if (docUploadStatus) docUploadStatus.textContent = "Uploading " + file.name + "…";
     const form = new FormData();
     form.append("file", file);

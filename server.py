@@ -9796,7 +9796,8 @@ def handle_delete_camp_trip(environ, start_response, trip_id):
     if not actor:
         return []
     trips = read_camp_trips()
-    if not any(trip["id"] == trip_id for trip in trips):
+    deleted_trip = next((trip for trip in trips if trip["id"] == trip_id), None)
+    if deleted_trip is None:
         return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
     trips = [trip for trip in trips if trip["id"] != trip_id]
     reservations = [record for record in read_camp_reservations() if record.get("tripId") != trip_id]
@@ -9806,6 +9807,16 @@ def handle_delete_camp_trip(environ, start_response, trip_id):
     write_camp_reservations(reservations)
     write_flight_reservations(flight_reservations)
     write_transfer_reservations(transfer_reservations)
+    try:
+        log_notification(
+            "trip.deleted",
+            actor,
+            "Trip deleted",
+            detail=normalize_text(deleted_trip.get("tripName")) or normalize_text(deleted_trip.get("serial")) or "",
+            meta={"id": trip_id, "serial": deleted_trip.get("serial") or ""},
+        )
+    except Exception:
+        pass
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": trip_id, "summary": camp_summary(reservations)})
 
 

@@ -314,23 +314,21 @@ function startCampEdit(name) {
 }
 
 async function uploadContract(file, campName) {
-  const reader = new FileReader();
-  return new Promise((resolve, reject) => {
-    reader.onload = async () => {
-      try {
-        const result = await fetchJson("/api/camp-settings/contract", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ campName, data: reader.result }),
-        });
-        resolve(result.path);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = () => reject(new Error("Could not read file"));
-    reader.readAsDataURL(file);
+  // Compress images client-side; PDFs/DOCs go through unchanged.
+  const dataUrl = (file.type && file.type.startsWith("image/") && window.CompressUpload)
+    ? await window.CompressUpload.image(file)
+    : await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Could not read file"));
+        reader.readAsDataURL(file);
+      });
+  const result = await fetchJson("/api/camp-settings/contract", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ campName, data: dataUrl }),
   });
+  return result.path;
 }
 
 campForm?.addEventListener("submit", async (event) => {
