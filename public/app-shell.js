@@ -136,7 +136,7 @@ function renderSidebar(user) {
     ${link("ds160", "/ds160", "DS-160")}
     ${fifaBlock}
     ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
-    ${isAdmin ? link("settings", "/settings", "Settings") : ""}
+    ${link("settings", "/settings", "Settings")}
   `;
   const usmLinks = `
     ${link("home", "/backoffice", "Home / Trip")}
@@ -150,7 +150,7 @@ function renderSidebar(user) {
     ${link("mail", "/mail", "Mail")}
     ${link("todo", "/todo", "To Do")}
     ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
-    ${isAdmin ? link("settings", "/settings", "Settings") : ""}
+    ${link("settings", "/settings", "Settings")}
   `;
 
   sidebar.innerHTML = `

@@ -7462,8 +7462,8 @@ def _normalize_camp_details(payload, camp_names):
 
 
 def handle_update_camp_settings(environ, start_response):
-    admin = require_admin(environ, start_response)
-    if not admin:
+    actor = require_login(environ, start_response)
+    if not actor:
         return []
     payload = collect_json(environ)
     if payload is None:
@@ -7507,13 +7507,14 @@ def handle_get_settings(environ, start_response):
 
 
 def handle_update_settings_destinations(environ, start_response):
-    """POST /api/settings/destinations — admin sets the full destinations list.
+    """POST /api/settings/destinations — set the full destinations list.
 
     Body: {"destinations": ["...", "..."]}. We replace the saved list verbatim,
     so the page can reorder + remove entries with one round-trip.
+    Open to all logged-in users — small team, shared settings.
     """
-    admin = require_admin(environ, start_response)
-    if not admin:
+    actor = require_login(environ, start_response)
+    if not actor:
         return []
     payload = collect_json(environ)
     if payload is None:
@@ -7529,8 +7530,8 @@ def handle_upload_camp_contract(environ, start_response):
     """POST /api/camp-settings/contract — accepts {"campName": "...", "data": "data:application/pdf;base64,..."}
     Saves under camp-contracts/ and returns the relative path to store on the camp record.
     """
-    admin = require_admin(environ, start_response)
-    if not admin:
+    actor = require_login(environ, start_response)
+    if not actor:
         return []
     payload = collect_json(environ)
     if payload is None:
