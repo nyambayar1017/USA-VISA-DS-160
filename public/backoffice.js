@@ -292,6 +292,7 @@ function renderTaskRow(task) {
   const due = dueState(task);
   const sKey = statusKey(task);
   const sLabel = STATUS_LABEL[sKey] || sKey;
+  const hasNote = !!(task.note && task.note.trim());
   return `
     <div class="todo-row todo-row--task" data-task-id="${escapeHtml(task.id)}">
       <div class="todo-row-main">
@@ -304,10 +305,10 @@ function renderTaskRow(task) {
           <span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span>
           <span class="todo-badge status-${escapeHtml(sKey)}">${escapeHtml(sLabel)}</span>
           <span class="todo-due todo-due--${due.tone}">📅 ${escapeHtml(due.label)}${task.dueTime ? ` ${escapeHtml(task.dueTime)}` : ""}</span>
-          ${task.note ? `<span class="todo-note">📝 ${escapeHtml(task.note)}</span>` : ""}
         </div>
       </div>
       <div class="todo-row-actions">
+        ${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">See note</button>` : ""}
         <button type="button" data-task-edit="${escapeHtml(task.id)}">Edit</button>
         ${task.status !== "in-progress" && task.status !== "done" ? `<button type="button" data-task-progress="${escapeHtml(task.id)}">Start</button>` : ""}
         ${task.status !== "done" ? `<button type="button" data-task-done="${escapeHtml(task.id)}">Done</button>` : ""}
@@ -319,6 +320,7 @@ function renderTaskRow(task) {
 
 function renderContactRow(contact) {
   const dests = Array.isArray(contact.destinations) ? contact.destinations : [];
+  const hasNote = !!(contact.note && contact.note.trim());
   return `
     <div class="todo-row todo-row--contact" data-contact-id="${escapeHtml(contact.id)}">
       <div class="todo-row-main">
@@ -332,10 +334,10 @@ function renderContactRow(contact) {
           <span class="todo-badge status-${escapeHtml(contact.status || "new")}">${escapeHtml(contact.status || "new")}</span>
           ${contact.lastContacted ? `<span>🕒 ${escapeHtml(formatDate(contact.lastContacted))}</span>` : ""}
           ${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join("") : ""}
-          ${contact.note ? `<span class="todo-note">📝 ${escapeHtml(contact.note)}</span>` : ""}
         </div>
       </div>
       <div class="todo-row-actions">
+        ${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(contact.id)}" data-note-kind="contact">See note</button>` : ""}
         <button type="button" data-contact-edit="${escapeHtml(contact.id)}">Edit</button>
         <button type="button" data-contact-priority="${escapeHtml(contact.id)}">${contact.status === "priority" ? "Warm" : "Priority"}</button>
         <button type="button" data-contact-delete="${escapeHtml(contact.id)}" class="button-secondary">Delete</button>
@@ -424,8 +426,43 @@ contactForm.addEventListener("submit", async (event) => {
   if (saved) closePanel(contactFormPanel);
 });
 
+function showNoteModal(title, body) {
+  const modal = document.getElementById("note-view-modal");
+  if (!modal) return;
+  modal.querySelector("[data-note-modal-title]").textContent = title;
+  modal.querySelector("[data-note-modal-body]").textContent = body;
+  modal.classList.remove("is-hidden");
+  modal.removeAttribute("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function hideNoteModal() {
+  const modal = document.getElementById("note-view-modal");
+  if (!modal) return;
+  modal.classList.add("is-hidden");
+  modal.setAttribute("hidden", "");
+  if (![taskFormPanel, contactFormPanel].some((p) => p && !p.classList.contains("is-hidden"))) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+document.getElementById("note-view-modal")?.addEventListener("click", (event) => {
+  if (event.target.dataset.action === "close-note-modal") hideNoteModal();
+});
+
 todoList.addEventListener("click", async (event) => {
   const target = event.target;
+  const noteView = target.closest("[data-note-view]");
+  if (noteView) {
+    const id = noteView.dataset.noteView;
+    const kind = noteView.dataset.noteKind;
+    const item = kind === "task"
+      ? state.tasks.find((t) => t.id === id)
+      : state.contacts.find((c) => c.id === id);
+    if (!item) return;
+    showNoteModal(item.title || item.name || "Note", item.note || "");
+    return;
+  }
   const taskEdit = target.closest("[data-task-edit]");
   const taskProgress = target.closest("[data-task-progress]");
   const taskDone = target.closest("[data-task-done]");

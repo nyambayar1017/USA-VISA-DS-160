@@ -9214,6 +9214,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 
 /* ── To-Do page rows ───────────────────────────────────────────────── */
+#todo-list { max-width: 100%; overflow: hidden; }
 .todo-row {
   display: flex;
   justify-content: space-between;
@@ -9224,12 +9225,16 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   border: 1px solid #e2e6ee;
   margin-bottom: 10px;
   background: #fff;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 .todo-row--task { background: #ffffff; border-color: #e2e6ee; }
 .todo-row--contact { background: #f1f7ff; border-color: #c9def7; }
-.todo-row-main { flex: 1; min-width: 0; }
-.todo-row-title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.todo-row-title strong { font-size: 15px; color: #1f2937; }
+.todo-row-main { flex: 1 1 auto; min-width: 0; max-width: 100%; overflow: hidden; }
+.todo-row-title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.todo-row-title strong { font-size: 15px; color: #1f2937; word-break: break-word; }
 .todo-row-kind {
   font-size: 11px;
   font-weight: 700;
@@ -9291,6 +9296,34 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.todo-note-btn {
+  padding: 6px 12px;
+  border: 1px solid #c9def7;
+  border-radius: 6px;
+  background: #f1f7ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.todo-note-btn:hover { background: #e0ecff; }
+
+.note-view-dialog {
+  max-width: 560px;
+  width: 92%;
+}
+.note-view-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  color: #1f2937;
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 0;
+  max-height: 60vh;
+  overflow: auto;
+}
 .todo-row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -9310,7 +9343,9 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .todo-row-actions button.button-secondary { color: #6b7280; }
 @media (max-width: 720px) {
   .todo-row { flex-direction: column; align-items: stretch; }
-  .todo-row-actions { justify-content: flex-end; }
+  .todo-row-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .todo-row-meta { gap: 6px; }
+  .todo-row-meta > span { font-size: 12px; }
 }
 
 /* ── Tourist tag chips ─────────────────────────────────────────────── */
