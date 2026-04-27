@@ -138,7 +138,8 @@
       const avatar = n.createdByAvatar
         ? `<img src="${escapeHtml(n.createdByAvatar)}" alt="" class="notes-avatar">`
         : `<span class="notes-avatar notes-avatar-fallback">${escapeHtml((author[0] || "?").toUpperCase())}</span>`;
-      const canEdit = me?.id && n.createdBy?.id === me.id;
+      const isAdmin = (me?.role || "").toLowerCase() === "admin";
+      const canEdit = isAdmin || (me?.id && n.createdBy?.id === me.id);
       const menu = canEdit ? `
         <details class="row-menu notes-item-menu">
           <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>

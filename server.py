@@ -9502,9 +9502,14 @@ def handle_update_note(environ, start_response, note_id):
         return []
     method = environ.get("REQUEST_METHOD", "GET").upper()
     notes = read_notes()
+    is_admin = (actor.get("role") or "").lower() == "admin"
     for i, n in enumerate(notes):
         if n.get("id") != note_id:
             continue
+        # Only the note's author or an admin may edit/delete.
+        owner_id = ((n.get("createdBy") or {}).get("id")) or ""
+        if not is_admin and owner_id != actor.get("id"):
+            return json_response(start_response, "403 Forbidden", {"error": "Not allowed"})
         if method == "DELETE":
             notes.pop(i)
             write_notes(notes)
