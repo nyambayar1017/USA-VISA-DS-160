@@ -11310,6 +11310,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   gap: 18px;
 }
 .mail-bubble {
+  width: 92%;
   max-width: 92%;
   border-radius: 16px;
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -11320,6 +11321,7 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  box-sizing: border-box;
 }
 .mail-bubble--theirs {
   align-self: flex-start;
