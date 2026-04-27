@@ -137,7 +137,7 @@ function closePanel(panel) {
 }
 
 function closeOpenTripMenus(exceptMenu = null) {
-  document.querySelectorAll(".trip-menu[open]").forEach((menu) => {
+  document.querySelectorAll(".trip-menu[open], .doc-menu[open]").forEach((menu) => {
     if (exceptMenu && menu === exceptMenu) {
       return;
     }
@@ -2974,7 +2974,7 @@ document.querySelectorAll("[data-settings-group]").forEach((formNode) => {
 });
 
 document.addEventListener("click", async (event) => {
-  const clickedMenu = event.target.closest(".trip-menu");
+  const clickedMenu = event.target.closest(".trip-menu, .doc-menu");
   if (!clickedMenu) {
     closeOpenTripMenus();
   }
@@ -3134,12 +3134,15 @@ function renderDocItem(doc, tripId, num) {
           (touristLabel ? '' : '<span class="doc-tourist-empty">not linked</span>') +
         '</div>' +
       '</div>' +
-      '<div class="doc-actions">' +
-        '<a class="secondary-button" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">View</a>' +
-        '<a class="secondary-button doc-download-btn" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
-        '<button class="secondary-button" data-doc-rename="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Rename</button>' +
-        '<button class="secondary-button danger-button" data-doc-delete="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Delete</button>' +
-      '</div>' +
+      '<details class="doc-menu">' +
+        '<summary class="doc-menu-trigger" aria-label="Document actions">⋯</summary>' +
+        '<div class="doc-menu-popover">' +
+          '<a class="doc-menu-item" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">View</a>' +
+          '<a class="doc-menu-item" href="' + escapeHtml(downloadUrl) + '" download>Download</a>' +
+          '<button type="button" class="doc-menu-item" data-doc-rename="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Rename</button>' +
+          '<button type="button" class="doc-menu-item is-danger" data-doc-delete="' + escapeHtml(doc.id) + '" data-doc-name="' + escapeHtml(doc.originalName) + '">Delete</button>' +
+        '</div>' +
+      '</details>' +
     '</div>'
   );
 }
