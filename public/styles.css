@@ -1619,6 +1619,33 @@ td {
   .inv-row-main { border-right: 0; border-bottom: 1px solid #eef1f7; }
   .inv-row-installments-h { display: none !important; }
 }
+/* Tighter rules below 720 px so the FIT/GIT invoice table fits inside
+   the card on phones (the user complained boxes were spilling out of
+   the main box). The card already has overflow-x: clip; this just makes
+   sure the inner grid actually fits the available width. */
+@media (max-width: 720px) {
+  .inv-row-main,
+  .inv-row-header .inv-row-main {
+    grid-template-columns: 24px minmax(0, 1fr) auto !important;
+    gap: 6px !important;
+    padding: 10px 10px !important;
+  }
+  .inv-row-check,
+  .inv-payer,
+  .inv-payer-h,
+  .inv-total-h,
+  .inv-row-actions,
+  .inv-row-action-btn { display: none !important; }
+  /* Keep just the chevron, the serial link, and the ⋯ menu visible. */
+  .inv-row-menu { justify-self: end; }
+  .inv-installment-line,
+  .inv-row-installments-h {
+    grid-template-columns: minmax(0, 1fr) auto auto !important;
+    gap: 8px !important;
+    font-size: 12px !important;
+  }
+  .inv-inst-due { display: none !important; }
+}
 
 /* === Side panel (Image #69) === */
 .inv-side-panel {

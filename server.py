@@ -799,7 +799,35 @@ DEFAULT_DESTINATIONS = [
 
 
 def default_settings():
-    return {"destinations": list(DEFAULT_DESTINATIONS), "bankAccounts": []}
+    # Seed with the two long-standing TravelX bank accounts so the invoice
+    # bank picker has something to render the moment a new workspace boots.
+    # Keys ("state" / "golomt") match the legacy INVOICE_BANK_ACCOUNTS keys
+    # so old invoices keep resolving to the same option.
+    return {
+        "destinations": list(DEFAULT_DESTINATIONS),
+        "bankAccounts": [
+            {
+                "id": "state",
+                "label": "Төрийн Банк · MNT",
+                "bankName": "Төрийн Банк",
+                "accountName": "Дэлхий Трэвел Икс ХХК",
+                "accountNumber": "MN030034 3432 7777 9999",
+                "currency": "MNT",
+                "swift": "",
+                "notes": "",
+            },
+            {
+                "id": "golomt",
+                "label": "Голомт Банк · MNT",
+                "bankName": "Голомт Банк",
+                "accountName": "Дэлхий Трэвел Икс ХХК",
+                "accountNumber": "MN80001500 3675114666",
+                "currency": "MNT",
+                "swift": "",
+                "notes": "",
+            },
+        ],
+    }
 
 
 def _normalize_bank_accounts(value):
@@ -834,6 +862,11 @@ def read_settings():
     if not destinations:
         destinations = list(DEFAULT_DESTINATIONS)
     bank_accounts = _normalize_bank_accounts(payload.get("bankAccounts"))
+    # First-run + legacy installations don't have bankAccounts persisted yet
+    # — fall back to the seeded state+golomt entries so the invoice bank
+    # picker has options the moment the page loads.
+    if not bank_accounts:
+        bank_accounts = _normalize_bank_accounts(default_settings()["bankAccounts"])
     return {"destinations": destinations, "bankAccounts": bank_accounts}
 
 
@@ -3139,7 +3172,46 @@ def normalize_invoice_status(value, fallback="waiting"):
     return fallback
 
 
+def _invoice_banks_from_settings():
+    """Map every Settings → bankAccount into the same {bankName, prefix,
+    accountNumber} shape the invoice template has always rendered. Splits
+    accountNumber on its first space so existing data ("MN030034 3432 7777
+    9999") becomes prefix="MN030034" + accountNumber="3432 7777 9999",
+    matching the legacy hardcoded pair pixel-for-pixel."""
+    out = {}
+    for entry in (read_settings().get("bankAccounts") or []):
+        key = (entry.get("id") or "").strip().lower()
+        if not key:
+            continue
+        bank_name = entry.get("bankName") or entry.get("label") or ""
+        full = (entry.get("accountNumber") or "").strip()
+        prefix, _, rest = full.partition(" ")
+        if not rest:
+            # No space → keep prefix empty so the slash/slash formatting
+            # still works without printing the number twice.
+            prefix, rest = "", full
+        out[key] = {
+            "bankName": bank_name,
+            "prefix": prefix,
+            "accountNumber": rest,
+        }
+    if not out:
+        # Defensive: fall back to the legacy hardcoded pair.
+        return dict(INVOICE_BANK_ACCOUNTS)
+    return out
+
+
 def normalize_invoice_bank_account(value, fallback="state"):
+    normalized = normalize_text(value).strip().lower()
+    banks = _invoice_banks_from_settings()
+    if normalized in banks:
+        return normalized
+    if fallback in banks:
+        return fallback
+    return next(iter(banks.keys())) if banks else "state"
+
+
+def _stub_for_legacy_passthrough(value, fallback="state"):
     normalized = normalize_text(value).strip().lower()
     if normalized in INVOICE_BANK_ACCOUNTS:
         return normalized
@@ -3243,8 +3315,13 @@ def build_invoice_payment_rows(record):
 def build_invoice_html(record, asset_mode="web"):
     data = record.get("data") or {}
     invoice_meta = record.get("invoiceMeta") if isinstance(record.get("invoiceMeta"), dict) else {}
+    # Banks now come from Settings (any number, any name). Fall back to the
+    # legacy hardcoded pair if Settings is unreadable.
+    invoice_banks = _invoice_banks_from_settings()
     bank_account_key = normalize_invoice_bank_account(invoice_meta.get("bankAccountKey"))
-    bank_account = INVOICE_BANK_ACCOUNTS[bank_account_key]
+    if bank_account_key not in invoice_banks:
+        bank_account_key = next(iter(invoice_banks.keys()))
+    bank_account = invoice_banks[bank_account_key]
     invoice_number = html.escape(f"{normalize_text(data.get('contractSerial')) or record.get('id', '')}-1")
     tourist_name = normalize_person_name(
         f"{normalize_text(data.get('touristLastName'))} {normalize_text(data.get('touristFirstName'))}"
@@ -3255,7 +3332,7 @@ def build_invoice_html(record, asset_mode="web"):
     total_amount = sum(item["totalPrice"] for item in items)
     bank_options_markup = "".join(
         f'<option value="{account_key}"{" selected" if account_key == bank_account_key else ""}>{html.escape(account["bankName"])} / {html.escape(account["prefix"])} / {html.escape(account["accountNumber"])}</option>'
-        for account_key, account in INVOICE_BANK_ACCOUNTS.items()
+        for account_key, account in invoice_banks.items()
     )
 
     def status_options_for(current_key):
@@ -3289,7 +3366,7 @@ def build_invoice_html(record, asset_mode="web"):
     <script>
       (() => {{
         const statusMeta = {json.dumps(INVOICE_STATUS_META, ensure_ascii=False)};
-        const bankAccountMeta = {json.dumps(INVOICE_BANK_ACCOUNTS, ensure_ascii=False)};
+        const bankAccountMeta = {json.dumps(invoice_banks, ensure_ascii=False)};
         const modeButtons = Array.from(document.querySelectorAll("[data-invoice-mode]"));
         const saveButton = document.querySelector("[data-save-invoice]");
         const itemRowsBody = document.querySelector("[data-invoice-items-body]");
@@ -11207,10 +11284,15 @@ def handle_generate_contract(environ, start_response):
             record["groupId"] = attached_group
         # Bank account selected on the contract form. We only persist the id
         # on the contract record (NOT into data — keeps it out of the DOCX
-        # rendering) so the auto-invoice picks it up via build_invoice_from_contract.
+        # rendering). Also seed invoiceMeta.bankAccountKey so the rendered
+        # invoice picks the same bank by default. The id IS the bank key
+        # ("state" / "golomt" for the seeded defaults, uuid otherwise).
         bank_account_id = normalize_text(payload.get("bankAccountId"))
         if bank_account_id:
             record["bankAccountId"] = bank_account_id
+            inv_meta = record.get("invoiceMeta") if isinstance(record.get("invoiceMeta"), dict) else {}
+            inv_meta["bankAccountKey"] = bank_account_id.lower()
+            record["invoiceMeta"] = inv_meta
         contracts.insert(0, record)
         write_contracts(contracts)
         try:
