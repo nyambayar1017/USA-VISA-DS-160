@@ -7450,7 +7450,19 @@ def handle_delete_fifa_sale(environ, start_response, sale_id):
 
 def handle_list_camp_trips(environ, start_response):
     trips = filter_by_company(read_camp_trips(), environ)
-    return json_response(start_response, "200 OK", {"entries": trips})
+    # Enrich each trip with the live tourist count (across all groups) so the
+    # GIT pax tile can render "actual / planned" without a second round-trip.
+    counts_by_trip = {}
+    for t in read_tourists():
+        tid = t.get("tripId")
+        if tid:
+            counts_by_trip[tid] = counts_by_trip.get(tid, 0) + 1
+    enriched = []
+    for trip in trips:
+        copy = dict(trip)
+        copy["actualTouristCount"] = counts_by_trip.get(trip.get("id"), 0)
+        enriched.append(copy)
+    return json_response(start_response, "200 OK", {"entries": enriched})
 
 
 def handle_list_camp_settings(start_response):
@@ -8815,7 +8827,16 @@ def scan_mail_followups():
 # --- Mail dossiers (manual link from a thread to a trip / tourist-group) ---
 
 def read_mail_dossiers():
-    raw = read_json_list(MAIL_DOSSIERS_FILE)
+    # File is created on first write, so the read path has to tolerate the
+    # absent / invalid case rather than rely on ensure_data_store.
+    if not MAIL_DOSSIERS_FILE.exists():
+        return []
+    try:
+        raw = json.loads(MAIL_DOSSIERS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if not isinstance(raw, list):
+        return []
     cleaned = []
     for entry in raw:
         if isinstance(entry, dict) and entry.get("threadKey"):
@@ -8824,7 +8845,10 @@ def read_mail_dossiers():
 
 
 def write_mail_dossiers(entries):
-    write_json_list(MAIL_DOSSIERS_FILE, entries)
+    ensure_data_store()
+    MAIL_DOSSIERS_FILE.write_text(
+        json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 def _dossier_thread_key(account_id, subject):

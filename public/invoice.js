@@ -144,7 +144,8 @@
             <tr>
               <th>#</th>
               <th>Serial</th>
-              <th>Tourist</th>
+              <th>Last name</th>
+              <th>First name</th>
               <th>Manager</th>
               <th>Destination</th>
               <th>Starting Date</th>
@@ -156,7 +157,8 @@
           <tbody>
             ${contracts.map((c, i) => {
               const data = c.data || {};
-              const tourist = `${data.touristLastName || ""} ${data.touristFirstName || ""}`.trim() || "-";
+              const lastName = data.touristLastName || "-";
+              const firstName = data.touristFirstName || "-";
               const manager = (c.createdBy && c.createdBy.name) || (c.updatedBy && c.updatedBy.name) || "-";
               const status = c.status || "pending";
               const statusLabel = status === "signed" ? "Signed" : "Pending";
@@ -168,7 +170,8 @@
                 <tr>
                   <td>${i + 1}</td>
                   <td>${escapeHtml(data.contractSerial || "-")}</td>
-                  <td>${escapeHtml(tourist)}</td>
+                  <td>${escapeHtml(lastName)}</td>
+                  <td>${escapeHtml(firstName)}</td>
                   <td>${escapeHtml(manager)}</td>
                   <td>${escapeHtml(data.destination || "-")}</td>
                   <td>${escapeHtml(fmtDateOnly(data.tripStartDate || data.contractDate))}</td>

@@ -897,7 +897,9 @@ function renderTrips() {
                   <td>${formatDate(trip.startDate)}</td>
                   <td>${formatDate(trip.endDate || computeTripEndDate(trip))}</td>
                   <td class="trip-tag-cell">${renderTripTagPills(trip.tags)}</td>
-                  <td class="trip-pax-cell">${trip.participantCount}</td>
+                  <td class="trip-pax-cell">${String(trip.tripType || "git").toLowerCase() === "fit"
+                    ? trip.participantCount
+                    : `${trip.actualTouristCount || 0}/${trip.participantCount}`}</td>
                   <td class="trip-pax-cell">${trip.staffCount}</td>
                   <td><span class="status-dot-cell"><span class="status-dot status-dot-${normalizeStatus(trip.status)}"></span><span>${formatStatusLabel(trip.status)}</span></span></td>
                   <td class="trip-created-cell">${formatDate(trip.createdAt, true)}</td>
@@ -973,7 +975,9 @@ function renderActiveTrip() {
     <div class="trip-summary-grid">
       <article class="trip-summary-stat">
         <span>Pax</span>
-        <strong>${trip.participantCount}</strong>
+        <strong>${isFit
+          ? trip.participantCount
+          : `${trip.actualTouristCount || 0}/${trip.participantCount}`}</strong>
       </article>
       <article class="trip-summary-stat">
         <span>Staff</span>

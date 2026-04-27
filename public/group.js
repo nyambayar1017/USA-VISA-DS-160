@@ -379,13 +379,14 @@ function renderContracts() {
       <table class="contract-table">
         <thead>
           <tr>
-            <th>#</th><th>Serial</th><th>Tourist</th><th>Manager</th><th>Destination</th><th>Starting Date</th><th>Status</th><th>Created</th><th>Actions</th>
+            <th>#</th><th>Serial</th><th>Last name</th><th>First name</th><th>Manager</th><th>Destination</th><th>Starting Date</th><th>Status</th><th>Created</th><th>Actions</th>
           </tr>
         </thead>
         <tbody>
           ${contracts.map((c, i) => {
             const data = c.data || {};
-            const tourist = `${data.touristLastName || ""} ${data.touristFirstName || ""}`.trim() || "-";
+            const lastName = data.touristLastName || "-";
+            const firstName = data.touristFirstName || "-";
             const manager = (c.createdBy && c.createdBy.name) || (c.updatedBy && c.updatedBy.name) || "-";
             const status = c.status || "pending";
             const statusLabel = status === "signed" ? "Signed" : "Pending";
@@ -397,7 +398,8 @@ function renderContracts() {
               <tr>
                 <td>${i + 1}</td>
                 <td>${escapeHtml(data.contractSerial || "-")}</td>
-                <td>${escapeHtml(tourist)}</td>
+                <td>${escapeHtml(lastName)}</td>
+                <td>${escapeHtml(firstName)}</td>
                 <td>${escapeHtml(manager)}</td>
                 <td>${escapeHtml(data.destination || "-")}</td>
                 <td>${escapeHtml(fmtDateOnly(data.tripStartDate || data.contractDate))}</td>
@@ -1203,7 +1205,8 @@ function renderParticipants() {
           <tr>
             <th>#</th>
             <th>Serial</th>
-            <th>Name</th>
+            <th>Last name</th>
+            <th>First name</th>
             <th>Passport</th>
             <th>Expiry</th>
             <th>Birth date</th>
@@ -1227,7 +1230,8 @@ function renderParticipants() {
               <tr>
                 <td>${i + 1}</td>
                 <td><strong>${escapeHtml(t.serial)}</strong></td>
-                <td>${escapeHtml(t.lastName || "")} ${escapeHtml(t.firstName || "")}</td>
+                <td>${escapeHtml(t.lastName || "")}</td>
+                <td>${escapeHtml(t.firstName || "")}</td>
                 <td>${escapeHtml(t.passportNumber || "-")}</td>
                 <td>${escapeHtml(formatDate(t.passportExpiry))}</td>
                 <td>${escapeHtml(formatDate(t.dob))}</td>
