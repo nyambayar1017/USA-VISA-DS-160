@@ -809,7 +809,15 @@
     const quotedBlock = quoted
       ? `<details class="mail-quoted-block"><summary>Show earlier messages</summary><div class="mail-quoted-body">${quoted}</div></details>`
       : "";
-    return `<!doctype html><html><head><meta charset="utf-8">${css}</head><body>${visible}${quotedBlock}</body></html>`;
+    // <base href="..."> is critical: without it, every relative or root-
+    // relative URL inside the email body (signature images stored at
+    // /mail-uploads/..., inline tracking pixels, etc.) breaks because the
+    // srcdoc document's URL is "about:srcdoc" which can't resolve "/foo".
+    // Result before this fix: signatures appeared on the recipient's side
+    // but vanished from our own Sent-folder display because the <img>
+    // sources couldn't load.
+    const base = `<base href="${window.location.origin}/">`;
+    return `<!doctype html><html><head><meta charset="utf-8">${base}${css}</head><body>${visible}${quotedBlock}</body></html>`;
   }
 
   function renderConversationBubbles(entries, current) {

@@ -1192,11 +1192,30 @@ const initContractSignPage = async () => {
   });
 };
 
+// Populate the contract form's bank-account dropdown from /api/settings.
+// Used on every code path that opens the contract modal (page load, group
+// page, trip page, FIT/GIT pages).
+async function loadContractBankAccounts() {
+  const sel = document.getElementById("contract-bank-account");
+  if (!sel || sel.dataset.loaded === "1") return;
+  try {
+    const res = await fetch("/api/settings");
+    if (!res.ok) return;
+    const data = await res.json();
+    const accounts = (data.entry?.bankAccounts) || [];
+    sel.innerHTML = '<option value="">— Choose —</option>' + accounts.map((b) =>
+      `<option value="${b.id}">${(b.label || b.bankName || "(unnamed)").replace(/&/g, "&amp;").replace(/</g, "&lt;")}${b.currency ? " · " + b.currency : ""}</option>`
+    ).join("");
+    sel.dataset.loaded = "1";
+  } catch {}
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (location.pathname === "/contracts") {
     initContractForm();
     loadContracts();
     startContractsLiveRefresh();
+    loadContractBankAccounts();
   }
   if (location.pathname.startsWith("/contract/")) {
     initContractSignPage();
@@ -1211,6 +1230,7 @@ window.openContractModal = async (opts = {}) => {
     initContractForm();
     window.__contractFormInited = true;
   }
+  loadContractBankAccounts();
   if (typeof window.__openContractModalInternal === "function") {
     window.__openContractModalInternal(opts);
   }

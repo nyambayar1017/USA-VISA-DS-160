@@ -598,6 +598,17 @@ def build_invoice(payload, actor=None):
             "status": normalize_text(raw.get("status")) or "pending",
         })
     total = round(sum(i["total"] for i in items), 2)
+    # Snapshot the chosen bank account onto the invoice itself so the
+    # invoice render survives later edits in Settings.
+    bank_id = normalize_text(payload.get("bankAccountId"))
+    bank_snapshot = None
+    if bank_id:
+        for b in read_settings().get("bankAccounts") or []:
+            if b.get("id") == bank_id:
+                bank_snapshot = b
+                break
+    if not bank_snapshot and payload.get("bankAccount"):
+        bank_snapshot = payload.get("bankAccount")
     return {
         "id": str(uuid4()),
         "serial": next_invoice_serial(_trip_company_for_invoice(payload)),
@@ -610,6 +621,8 @@ def build_invoice(payload, actor=None):
         "total": total,
         "installments": installments,
         "currency": normalize_text(payload.get("currency")) or "MNT",
+        "bankAccountId": bank_id,
+        "bankAccount": bank_snapshot,
         "status": "draft",
         "createdAt": now_mongolia().isoformat(),
         "createdBy": actor_snapshot(actor),
@@ -11133,6 +11146,17 @@ def build_invoice_from_contract(contract, actor):
         })
 
     trip_for_serial = find_camp_trip(trip_id) if trip_id else None
+    # Carry the chosen bank account from the contract through to the auto-
+    # generated invoice. The contract document itself stays unchanged — the
+    # bank info is only meant to surface on the invoice that goes out to
+    # the client.
+    bank_id = normalize_text(contract.get("bankAccountId")) or normalize_text((contract.get("data") or {}).get("bankAccountId"))
+    bank_snapshot = None
+    if bank_id:
+        for b in read_settings().get("bankAccounts") or []:
+            if b.get("id") == bank_id:
+                bank_snapshot = b
+                break
     return {
         "id": str(uuid4()),
         "serial": next_invoice_serial((trip_for_serial or {}).get("company")),
@@ -11145,6 +11169,8 @@ def build_invoice_from_contract(contract, actor):
         "total": total,
         "installments": installments,
         "currency": "MNT",
+        "bankAccountId": bank_id,
+        "bankAccount": bank_snapshot,
         "status": "draft",
         "contractId": contract.get("id"),
         "createdAt": now_mongolia().isoformat(),
@@ -11179,6 +11205,12 @@ def handle_generate_contract(environ, start_response):
             record["tripId"] = attached_trip
         if attached_group:
             record["groupId"] = attached_group
+        # Bank account selected on the contract form. We only persist the id
+        # on the contract record (NOT into data — keeps it out of the DOCX
+        # rendering) so the auto-invoice picks it up via build_invoice_from_contract.
+        bank_account_id = normalize_text(payload.get("bankAccountId"))
+        if bank_account_id:
+            record["bankAccountId"] = bank_account_id
         contracts.insert(0, record)
         write_contracts(contracts)
         try:

@@ -242,6 +242,12 @@
                   Үлдэгдэл төлбөр төлөх огноо
                   <input name="balanceDueDate" type="date" required />
                 </label>
+                <label class="full-span">
+                  Bank account (used on the auto-generated invoice only — not on the contract)
+                  <select name="bankAccountId" id="contract-bank-account">
+                    <option value="">— Choose —</option>
+                  </select>
+                </label>
                 <div class="actions full-span">
                   <button type="submit">Save contract</button>
                   <p id="contract-status" class="status"></p>
@@ -278,7 +284,7 @@
     </div>
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-110"></script>
-    <script src="/contracts.js?v=workspace-6"></script>
+    <script src="/contracts.js?v=workspace-7"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
