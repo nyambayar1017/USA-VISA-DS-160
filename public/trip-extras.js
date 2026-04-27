@@ -32,6 +32,7 @@
   let tourists = [];
   let editingGroupId = "";
   let editingTouristId = "";
+  let tripType = ""; // "fit" or "git"
 
   const ROOM_PALETTE = [
     { bg: "#fde2e4", fg: "#7a1d2a" },
@@ -108,12 +109,16 @@
     if (!currentTripId) return;
     tripId = currentTripId;
     try {
-      const [g, t] = await Promise.all([
+      const [g, t, trips] = await Promise.all([
         fetchJson(`/api/tourist-groups?tripId=${encodeURIComponent(tripId)}`),
         fetchJson(`/api/tourists?tripId=${encodeURIComponent(tripId)}`),
+        fetchJson("/api/camp-trips").catch(() => ({})),
       ]);
       groups = g.entries || [];
       tourists = t.entries || [];
+      const trip = (trips.entries || []).find((x) => x.id === tripId);
+      tripType = String(trip?.tripType || "").toLowerCase();
+      applyTripTypeToTouristForm();
       rebuildRoomColors();
       renderGroups();
       renderTourists();
@@ -121,6 +126,17 @@
     } catch (err) {
       console.warn("trip-extras load failed:", err);
     }
+  }
+
+  function applyTripTypeToTouristForm() {
+    const formGroupLabel = touristFormGroup?.closest("label");
+    const filterGroupLabel = touristFilterGroup?.closest("label");
+    const isFit = tripType === "fit";
+    if (formGroupLabel) formGroupLabel.hidden = isFit;
+    if (touristFormGroup) touristFormGroup.required = !isFit;
+    if (filterGroupLabel) filterGroupLabel.hidden = isFit;
+    // Hide Group column in tourists table on FIT trips.
+    document.body.classList.toggle("is-fit-trip", isFit);
   }
 
   const ROOM_SHORT = { single: "sgl", double: "dbl", twin: "twin", triple: "tpl", family: "fam", other: "other" };
@@ -239,11 +255,12 @@
               .map(
                 (t, idx) => {
                   const roomTypeShort = { single: "SGL", double: "DBL", twin: "TWIN", triple: "TPL", family: "FAM", other: "OTH" };
-                  const roomLabel = t.roomType
-                    ? `${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}`
-                    : "—";
                   const c = roomColorFor(t);
-                  const roomStyle = c ? `style="background:${c.bg};color:${c.fg};font-weight:700;"` : "";
+                  const roomLabel = t.roomType
+                    ? (c
+                        ? `<span class="room-color-badge" style="background:${c.bg};color:${c.fg};">${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}</span>`
+                        : `${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}`)
+                    : "—";
                   return `
                     <tr>
                       <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
@@ -256,7 +273,7 @@
                       <td>${escapeHtml(t.passportExpiry || "-")}</td>
                       <td>${escapeHtml(t.registrationNumber || "-")}</td>
                       <td>${escapeHtml(t.phone || "-")}</td>
-                      <td ${roomStyle}>${roomLabel}</td>
+                      <td>${roomLabel}</td>
                       <td>
                         <div class="trip-row-actions trip-row-actions-inline">
                           <button type="button" class="table-link compact secondary" data-tourist-action="edit" data-id="${t.id}">Edit</button>
@@ -437,6 +454,10 @@
     touristForm.elements.id.value = "";
     if (touristFormTitle) touristFormTitle.textContent = "New tourist";
     if (touristFormStatus) touristFormStatus.textContent = "";
+    applyTripTypeToTouristForm();
+    if (tripType === "fit" && groups.length) {
+      touristFormGroup.value = groups[0].id;
+    }
     // DTX defaults: nationality MONGOLIAN, passport issued in ULAANBAATAR.
     if (typeof readWorkspace === "function" && readWorkspace() === "DTX") {
       if (touristForm.elements.nationality && !touristForm.elements.nationality.value) {

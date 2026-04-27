@@ -1221,9 +1221,10 @@ function renderParticipants() {
         <tbody>
           ${tourists.map((t, i) => {
             const c = roomColor(t);
-            const roomStyle = c ? `style="background:${c.bg};color:${c.fg};font-weight:700;"` : "";
             const roomLabel = t.roomType
-              ? `${escapeHtml(t.roomCode || "—")} ${escapeHtml((ROOM_TYPE_LABELS[t.roomType] || "").toUpperCase())}`
+              ? (c
+                  ? `<span class="room-color-badge" style="background:${c.bg};color:${c.fg};">${escapeHtml(t.roomCode || "—")} ${escapeHtml((ROOM_TYPE_LABELS[t.roomType] || "").toUpperCase())}</span>`
+                  : `${escapeHtml(t.roomCode || "—")} ${escapeHtml((ROOM_TYPE_LABELS[t.roomType] || "").toUpperCase())}`)
               : "—";
             const upDisabled = i === 0 ? "disabled" : "";
             const downDisabled = i === tourists.length - 1 ? "disabled" : "";
@@ -1239,7 +1240,7 @@ function renderParticipants() {
                 <td>${ageFromDob(t.dob) || "-"}</td>
                 <td>${escapeHtml((t.gender || "-").toUpperCase())}</td>
                 <td>${escapeHtml(t.phone || "-")}</td>
-                <td ${roomStyle}>${roomLabel}</td>
+                <td>${roomLabel}</td>
                 <td>
                   <details class="row-menu">
                     <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>

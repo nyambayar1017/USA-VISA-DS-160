@@ -12597,4 +12597,41 @@ input[type="week"] {
   color: #94a3b8; font-size: 18px; cursor: pointer;
 }
 .notes-item-delete:hover { background: #fee2e2; color: #b91c1c; }
+.notes-item-menu { margin-left: auto; }
+.notes-item-menu .row-menu-trigger {
+  border: 0; padding: 2px 8px; font-size: 1.1rem; color: #94a3b8;
+}
+.notes-item-menu .row-menu-trigger:hover { background: #f1f5f9; color: #0f172a; }
+.notes-edit-form { display: flex; flex-direction: column; gap: 8px; }
+.notes-edit-textarea {
+  width: 100%; min-height: 80px; padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.16); border-radius: 8px;
+  font: inherit; font-size: 0.92rem; color: #1f2a44; background: #fff;
+  resize: vertical;
+}
+.notes-edit-textarea:focus { outline: none; border-color: #2563eb; }
+.notes-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.notes-edit-actions button {
+  padding: 6px 12px; border-radius: 6px; font-size: 0.85rem;
+  border: 1px solid rgba(15, 23, 42, 0.16); background: #fff; color: #1f2a44;
+  cursor: pointer;
+}
+.notes-edit-actions .notes-edit-save { background: #20356f; color: #fff; border-color: #20356f; }
+.notes-edit-actions .notes-edit-save:hover { background: #16264f; }
+.notes-edit-actions .notes-edit-cancel:hover { background: #f1f5f9; }
 .notes-mentioned-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; }
+
+.room-color-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+/* Hide Group column on FIT trip tourist tables — they have no real groups */
+body.is-fit-trip .reservation-addon-table thead th:nth-child(3),
+body.is-fit-trip .reservation-addon-table tbody td:nth-child(3) {
+  display: none;
+}

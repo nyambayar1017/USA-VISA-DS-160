@@ -200,9 +200,17 @@
       const avatar = n.createdByAvatar
         ? `<img src="${escapeHtml(n.createdByAvatar)}" alt="" class="notes-avatar">`
         : `<span class="notes-avatar notes-avatar-fallback">${escapeHtml((author[0] || "?").toUpperCase())}</span>`;
-      const canDelete = me?.id && n.createdBy?.id === me.id;
+      const canEdit = me?.id && n.createdBy?.id === me.id;
+      const menu = canEdit ? `
+        <details class="row-menu notes-item-menu">
+          <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>
+          <div class="row-menu-popover">
+            <button type="button" class="row-menu-item" data-note-edit="${escapeHtml(n.id)}">Edit</button>
+            <button type="button" class="row-menu-item is-danger" data-note-delete="${escapeHtml(n.id)}">Delete</button>
+          </div>
+        </details>` : "";
       return `
-        <article class="notes-item">
+        <article class="notes-item" data-note-id="${escapeHtml(n.id)}">
           <header class="notes-item-head">
             ${avatar}
             <div class="notes-item-meta">
@@ -210,7 +218,7 @@
               <time>${escapeHtml(fmtDate(n.createdAt))}</time>
             </div>
             ${tripChip}
-            ${canDelete ? `<button type="button" class="notes-item-delete" data-note-delete="${escapeHtml(n.id)}" title="Delete">×</button>` : ""}
+            ${menu}
           </header>
           <p class="notes-item-body">${bodyToHtml(n.body || "")}</p>
         </article>
@@ -226,17 +234,88 @@
   filterAuthor.addEventListener("change", rerender);
   filterMentionedMe.addEventListener("change", rerender);
 
+  function closeRowMenu(target) {
+    const det = target?.closest("details.row-menu");
+    if (det) det.removeAttribute("open");
+  }
+
+  function startInlineEdit(noteId) {
+    const article = list.querySelector(`[data-note-id="${CSS.escape(noteId)}"]`);
+    if (!article) return;
+    const note = notes.find((n) => n.id === noteId);
+    if (!note) return;
+    const bodyEl = article.querySelector(".notes-item-body");
+    if (!bodyEl) return;
+    if (article.querySelector(".notes-edit-form")) return; // already editing
+    const editor = document.createElement("form");
+    editor.className = "notes-edit-form";
+    editor.innerHTML = `
+      <textarea class="notes-edit-textarea">${escapeHtml(note.body || "")}</textarea>
+      <div class="notes-edit-actions">
+        <button type="button" class="notes-edit-cancel">Cancel</button>
+        <button type="submit" class="notes-edit-save">Save</button>
+      </div>
+    `;
+    bodyEl.replaceWith(editor);
+    const ta = editor.querySelector("textarea");
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    editor.querySelector(".notes-edit-cancel").addEventListener("click", () => {
+      editor.replaceWith(buildBodyEl(note.body || ""));
+    });
+    editor.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const text = ta.value.trim();
+      if (!text) return;
+      try {
+        const r = await fetch("/api/notes/" + encodeURIComponent(noteId), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: text }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Save failed");
+        const idx = notes.findIndex((n) => n.id === noteId);
+        if (idx >= 0) notes[idx] = data.entry;
+        render();
+      } catch (err) {
+        if (window.UI?.toast) window.UI.toast(err.message || "Could not save", "error");
+        else alert(err.message || "Could not save");
+      }
+    });
+  }
+
+  function buildBodyEl(text) {
+    const p = document.createElement("p");
+    p.className = "notes-item-body";
+    p.innerHTML = bodyToHtml(text);
+    return p;
+  }
+
   list.addEventListener("click", async (e) => {
+    const editBtn = e.target.closest("[data-note-edit]");
+    if (editBtn) {
+      e.preventDefault();
+      closeRowMenu(editBtn);
+      startInlineEdit(editBtn.dataset.noteEdit);
+      return;
+    }
     const del = e.target.closest("[data-note-delete]");
     if (!del) return;
-    if (!confirm("Delete this note?")) return;
+    e.preventDefault();
+    closeRowMenu(del);
+    const ok = window.UI?.confirm
+      ? await window.UI.confirm("Delete this note?", { dangerous: true })
+      : window.confirm("Delete this note?");
+    if (!ok) return;
     try {
       const r = await fetch("/api/notes/" + encodeURIComponent(del.dataset.noteDelete), { method: "DELETE" });
       if (!r.ok) throw new Error("Delete failed");
       notes = notes.filter((n) => n.id !== del.dataset.noteDelete);
       render();
     } catch (err) {
-      alert(err.message || "Could not delete");
+      if (window.UI?.toast) window.UI.toast(err.message || "Could not delete", "error");
+      else alert(err.message || "Could not delete");
     }
   });
 
@@ -262,6 +341,12 @@
     } catch (err) {
       status.textContent = err.message || "Could not post.";
     }
+  });
+
+  document.addEventListener("click", (e) => {
+    list.querySelectorAll("details.row-menu[open]").forEach((det) => {
+      if (!det.contains(e.target)) det.removeAttribute("open");
+    });
   });
 
   loadAll();
