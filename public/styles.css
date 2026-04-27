@@ -12428,3 +12428,35 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   left: auto;
   right: 0;
 }
+
+/* ── Date inputs: never overflow their container, on any platform ────── */
+/* Native iOS Safari renders <input type="date"> with a fixed-width inner
+   button that ignores width:100% in some grid/flex contexts. Reset the
+   native styling and clamp the box so a date input can never escape its
+   parent on phones (especially the trip-detail Camp/Flight/Transfer
+   filter rows where two dates sit side-by-side). */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+}
+@media (max-width: 720px) {
+  /* On phones each date filter gets its own row (no half-half). Two
+     iOS native date pickers in one row leave no breathing room and the
+     second one drifts past the card edge before the parent's clip can
+     catch it. Same rule for the legacy form-row date pairs. */
+  .camp-filters > label:has(> input[type="date"]),
+  .ds160-filter-grid > label:has(> input[type="date"]),
+  .fifa-filters > label:has(> input[type="date"]),
+  .manager-filter-row > label:has(> input[type="date"]) {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+  }
+}
