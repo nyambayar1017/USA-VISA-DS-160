@@ -1709,6 +1709,34 @@ def actor_snapshot(user):
     }
 
 
+# The synthetic actor used by the in-app agent. Every record the agent
+# creates (tasks, contacts, tourists, contracts, etc.) and every
+# notification it triggers shows up under "Бата" with the panda avatar,
+# so the team can see at a glance which actions came from the assistant
+# versus which manager. The avatar is served as a static asset.
+BATAA_ACTOR_ID = "bataa-agent"
+BATAA_ACTOR_NAME = "Бата"
+BATAA_ACTOR_EMAIL = "bataa@travelx.mn"
+BATAA_AVATAR_PATH = "/assets/bataa-avatar.webp"
+
+
+def _bataa_agent_actor(human_actor):
+    """Wrap the synthetic Бата identity around a real logged-in user so
+    permission checks (require_login etc.) still see something user-shaped,
+    while record-stamping reads "Бата". The human actor is preserved on
+    `_humanActor` for audit purposes."""
+    return {
+        "id": BATAA_ACTOR_ID,
+        "email": BATAA_ACTOR_EMAIL,
+        "fullName": BATAA_ACTOR_NAME,
+        "name": BATAA_ACTOR_NAME,
+        "avatarPath": BATAA_AVATAR_PATH,
+        "role": (human_actor or {}).get("role") or "staff",
+        "status": "approved",
+        "_humanActor": actor_snapshot(human_actor) if human_actor else None,
+    }
+
+
 def find_user_by_email(email):
     needle = normalize_text(email).lower()
     for user in read_users():
@@ -13613,7 +13641,12 @@ def _handle_agent_chat_impl(environ, start_response):
                 ok = False
             else:
                 try:
-                    out = tool["handler"](tool_input, actor)
+                    # Tool dispatch uses the Bataa actor — every record this
+                    # tool stamps (createdBy) and every notification it logs
+                    # shows "Бата" with the panda avatar instead of the human
+                    # admin who happened to be chatting. The audit log still
+                    # carries the human actor so we can trace who asked.
+                    out = tool["handler"](tool_input, _bataa_agent_actor(actor))
                     ok = "error" not in (out if isinstance(out, dict) else {})
                 except Exception as exc:
                     out = {"error": f"{type(exc).__name__}: {exc}"}
