@@ -49,6 +49,7 @@ CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 CAMP_CONTRACTS_DIR = DATA_DIR / "camp-contracts"
 MAIL_FOLLOWUPS_FILE = DATA_DIR / "mail_followups.json"
+MAIL_DOSSIERS_FILE = DATA_DIR / "mail_dossiers.json"
 FIFA2026_FILE = DATA_DIR / "fifa2026.json"
 FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
@@ -8811,6 +8812,182 @@ def scan_mail_followups():
             print(f"[mail-followup] write failed: {exc}", flush=True)
 
 
+# --- Mail dossiers (manual link from a thread to a trip / tourist-group) ---
+
+def read_mail_dossiers():
+    raw = read_json_list(MAIL_DOSSIERS_FILE)
+    cleaned = []
+    for entry in raw:
+        if isinstance(entry, dict) and entry.get("threadKey"):
+            cleaned.append(entry)
+    return cleaned
+
+
+def write_mail_dossiers(entries):
+    write_json_list(MAIL_DOSSIERS_FILE, entries)
+
+
+def _dossier_thread_key(account_id, subject):
+    return f"{account_id}::{_normalize_mail_subject(subject)}"
+
+
+def _dossier_resolve(kind, target_id):
+    """Return (label, extra) for a dossier link so the mail list can show it
+    without an extra round-trip per row. `extra` carries the trip id for
+    groups (the group page route requires both tripId and groupId)."""
+    if not target_id:
+        return "", {}
+    if kind == "trip":
+        for t in read_camp_trips():
+            if t.get("id") == target_id:
+                serial = t.get("serial") or ""
+                name = t.get("tripName") or t.get("reservationName") or ""
+                label = f"{serial} {name}".strip() or name or serial
+                return label, {}
+    elif kind == "group":
+        for g in read_tourist_groups():
+            if g.get("id") == target_id:
+                serial = g.get("serial") or ""
+                name = g.get("name") or g.get("groupName") or ""
+                label = f"{serial} {name}".strip() or name or serial
+                return label, {"tripId": g.get("tripId") or ""}
+    return "", {}
+
+
+def _dossier_label_for(kind, target_id):
+    label, _extra = _dossier_resolve(kind, target_id)
+    return label
+
+
+def _build_dossier_index():
+    """threadKey → enriched dossier dict for quick lookup during mail list
+    enrichment. Re-resolves the label every call so renames flow through."""
+    out = {}
+    for entry in read_mail_dossiers():
+        kind = (entry.get("kind") or "").lower()
+        if kind not in ("trip", "group"):
+            continue
+        tk = entry.get("threadKey") or ""
+        if not tk:
+            continue
+        target_id = entry.get("id") or ""
+        label, extra = _dossier_resolve(kind, target_id)
+        out[tk] = {
+            "threadKey": tk,
+            "kind": kind,
+            "id": target_id,
+            "label": label or entry.get("label") or "",
+            "tripId": extra.get("tripId") or entry.get("tripId") or "",
+            "linkedAt": entry.get("linkedAt") or "",
+        }
+    return out
+
+
+def handle_list_mail_dossiers(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    entries = []
+    for tk, d in _build_dossier_index().items():
+        entries.append(d)
+    return json_response(start_response, "200 OK", {"entries": entries})
+
+
+def handle_create_mail_dossier(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    account_id = normalize_text(payload.get("accountId"))
+    subject = normalize_text(payload.get("subject"))
+    kind = (normalize_text(payload.get("kind")) or "").lower()
+    target_id = normalize_text(payload.get("id"))
+    if not account_id or not subject:
+        return json_response(start_response, "400 Bad Request", {"error": "accountId + subject required"})
+    if kind not in ("trip", "group"):
+        return json_response(start_response, "400 Bad Request", {"error": "kind must be trip|group"})
+    if not target_id:
+        return json_response(start_response, "400 Bad Request", {"error": "id required"})
+    label, extra = _dossier_resolve(kind, target_id)
+    if not label:
+        return json_response(start_response, "404 Not Found", {"error": f"{kind} not found"})
+    tk = _dossier_thread_key(account_id, subject)
+    record = {
+        "threadKey": tk,
+        "accountId": account_id,
+        "subject": subject,
+        "subjectKey": _normalize_mail_subject(subject),
+        "kind": kind,
+        "id": target_id,
+        "label": label,
+        "tripId": extra.get("tripId") or "",
+        "linkedAt": datetime.now(timezone.utc).isoformat(),
+        "linkedBy": actor_snapshot(actor) if actor else {},
+    }
+    entries = [e for e in read_mail_dossiers() if e.get("threadKey") != tk]
+    entries.insert(0, record)
+    write_mail_dossiers(entries)
+    enriched = _build_dossier_index().get(tk, record)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": enriched})
+
+
+def handle_delete_mail_dossier(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    account_id = normalize_text(payload.get("accountId")) or (params.get("accountId", [""])[0] or "").strip()
+    subject = normalize_text(payload.get("subject")) or (params.get("subject", [""])[0] or "").strip()
+    if not account_id or not subject:
+        return json_response(start_response, "400 Bad Request", {"error": "accountId + subject required"})
+    tk = _dossier_thread_key(account_id, subject)
+    entries = read_mail_dossiers()
+    new_entries = [e for e in entries if e.get("threadKey") != tk]
+    if len(new_entries) == len(entries):
+        return json_response(start_response, "404 Not Found", {"error": "Not linked"})
+    write_mail_dossiers(new_entries)
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
+def handle_mail_dossier_targets(environ, start_response):
+    """Picker payload: every trip + every tourist-group in the active workspace,
+    flattened into rows the mail viewer can render without a second request."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    workspace = active_workspace(environ)
+    trips = read_camp_trips()
+    if workspace:
+        trips = [t for t in trips if normalize_company(t.get("company")) == workspace]
+    trip_rows = []
+    for t in trips:
+        trip_rows.append({
+            "id": t.get("id"),
+            "kind": "trip",
+            "serial": t.get("serial") or "",
+            "name": t.get("tripName") or t.get("reservationName") or "",
+            "tripType": t.get("tripType") or "",
+            "startDate": t.get("startDate") or "",
+            "status": t.get("status") or "",
+        })
+    trip_ids = {t["id"] for t in trips}
+    groups = [g for g in read_tourist_groups() if not workspace or g.get("tripId") in trip_ids]
+    group_rows = []
+    for g in groups:
+        group_rows.append({
+            "id": g.get("id"),
+            "kind": "group",
+            "serial": g.get("serial") or "",
+            "name": g.get("name") or g.get("groupName") or "",
+            "tripId": g.get("tripId") or "",
+            "tripSerial": g.get("tripSerial") or "",
+        })
+    return json_response(start_response, "200 OK", {"trips": trip_rows, "groups": group_rows})
+
+
 def handle_mail_unread_summary(environ, start_response):
     """Cache-only summary used by the topbar mail icon. Returns the count of
     unread inbox messages plus a short list of recent ones, scoped to the
@@ -8880,6 +9057,7 @@ def handle_list_mail_messages(environ, start_response):
     accounts_full = read_mail_accounts()
     if account_filter:
         accounts_full = [a for a in accounts_full if a["id"] == account_filter]
+    dossier_index = _build_dossier_index()
     for a in accounts_full:
         cache = _read_mail_cache(a["id"])
         for msg in cache.get("messages", []):
@@ -8889,6 +9067,9 @@ def handle_list_mail_messages(environ, start_response):
             slim["accountAddress"] = a["address"]
             slim["accountDisplay"] = a.get("displayName") or a["address"]
             slim["workspace"] = a.get("workspace") or "DTX"
+            tk = _dossier_thread_key(a["id"], msg.get("subject") or "")
+            d = dossier_index.get(tk)
+            slim["dossier"] = d if d else None
             all_messages.append(slim)
 
     all_messages.sort(key=lambda m: m.get("date") or "", reverse=True)
@@ -12857,6 +13038,20 @@ def _dispatch(environ, start_response):
         followup_id = path.replace("/api/mail/followups/", "", 1).strip("/")
         if followup_id and method in ("POST", "PATCH", "DELETE"):
             return handle_update_mail_followup(environ, start_response, followup_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/mail/dossiers":
+        if method == "GET":
+            return handle_list_mail_dossiers(environ, start_response)
+        if method == "POST":
+            return handle_create_mail_dossier(environ, start_response)
+        if method == "DELETE":
+            return handle_delete_mail_dossier(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/mail/dossier-targets":
+        if method == "GET":
+            return handle_mail_dossier_targets(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/mail/send":

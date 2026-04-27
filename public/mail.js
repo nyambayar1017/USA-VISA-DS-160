@@ -108,6 +108,226 @@
   function followupFor(m) {
     return followups[threadKey(m.accountId, m.subject)] || null;
   }
+
+  // ── Dossiers (manual link from a thread to a trip / tourist-group) ───────
+  // The server enriches `/api/mail/messages` rows with `dossier`, but a fresh
+  // link or unlink should reflect immediately without a full message re-sync,
+  // so we also keep a client-side index and fall back to it.
+  let dossiers = {}; // threadKey → {kind, id, label, ...}
+  async function loadDossiers() {
+    try {
+      const r = await fetch("/api/mail/dossiers");
+      if (!r.ok) return;
+      const data = await r.json();
+      dossiers = {};
+      for (const d of data.entries || []) {
+        if (d && d.threadKey) dossiers[d.threadKey] = d;
+      }
+    } catch {}
+  }
+  function dossierFor(m) {
+    if (!m) return null;
+    const tk = threadKey(m.accountId, m.subject);
+    if (dossiers[tk]) return dossiers[tk];
+    return m.dossier || null;
+  }
+  function dossierKindLabel(kind) {
+    if (kind === "trip") return "Trip";
+    if (kind === "group") return "Group";
+    return "Dossier";
+  }
+  function dossierHref(d) {
+    if (!d || !d.id) return "";
+    if (d.kind === "trip") return `/trip-detail?tripId=${encodeURIComponent(d.id)}`;
+    if (d.kind === "group" && d.tripId) {
+      return `/group.html?tripId=${encodeURIComponent(d.tripId)}&groupId=${encodeURIComponent(d.id)}`;
+    }
+    return "";
+  }
+  function renderDossierChip(m, opts = {}) {
+    const compact = !!opts.compact;
+    const d = dossierFor(m);
+    if (!d) return "";
+    const href = dossierHref(d);
+    const cls = `mail-dossier-chip mail-dossier-chip--${d.kind} ${compact ? "is-compact" : ""}`;
+    const inner = `<span class="mail-dossier-chip-kind">${dossierKindLabel(d.kind)}</span><span class="mail-dossier-chip-label">${escapeHtml(d.label || "(linked)")}</span>`;
+    return href
+      ? `<a class="${cls}" href="${escapeHtml(href)}" title="Open ${escapeHtml(dossierKindLabel(d.kind))}: ${escapeHtml(d.label || "")}" data-dossier-link="1">${inner}</a>`
+      : `<span class="${cls}">${inner}</span>`;
+  }
+
+  // Header row inside the viewer modal: shows current link + "Link to dossier"
+  // / "Change" / "Unlink" buttons.
+  function renderViewerDossierRow(m) {
+    const d = dossierFor(m);
+    if (d) {
+      const href = dossierHref(d);
+      return `
+        <span class="mail-dossier-label">Linked dossier</span>
+        ${href
+          ? `<a class="mail-dossier-chip mail-dossier-chip--${d.kind}" href="${escapeHtml(href)}" data-dossier-link="1"><span class="mail-dossier-chip-kind">${dossierKindLabel(d.kind)}</span><span class="mail-dossier-chip-label">${escapeHtml(d.label || "(linked)")}</span></a>`
+          : `<span class="mail-dossier-chip mail-dossier-chip--${d.kind}"><span class="mail-dossier-chip-kind">${dossierKindLabel(d.kind)}</span><span class="mail-dossier-chip-label">${escapeHtml(d.label || "(linked)")}</span></span>`}
+        <button type="button" class="mail-dossier-btn" data-dossier-action="change">Change</button>
+        <button type="button" class="mail-dossier-btn mail-dossier-btn--danger" data-dossier-action="unlink">Unlink</button>
+      `;
+    }
+    return `
+      <span class="mail-dossier-label">Not linked to any trip or group</span>
+      <button type="button" class="mail-dossier-btn mail-dossier-btn--primary" data-dossier-action="link">Link to dossier</button>
+    `;
+  }
+
+  // Cached picker payload. Refresh on first open + when stale (≥60s).
+  let dossierTargets = null;
+  let dossierTargetsAt = 0;
+  async function ensureDossierTargets() {
+    const stale = Date.now() - dossierTargetsAt > 60000;
+    if (dossierTargets && !stale) return dossierTargets;
+    try {
+      const r = await fetch("/api/mail/dossier-targets");
+      if (!r.ok) throw new Error();
+      dossierTargets = await r.json();
+      dossierTargetsAt = Date.now();
+    } catch {
+      dossierTargets = { trips: [], groups: [] };
+    }
+    return dossierTargets;
+  }
+
+  async function openDossierPicker(m) {
+    if (!m) return;
+    const targets = await ensureDossierTargets();
+    const existing = dossierFor(m);
+    let activeKind = existing ? existing.kind : "trip";
+
+    // Build a single overlay we can re-render in place when the user toggles
+    // tabs or types into the search box.
+    let overlay = document.getElementById("mail-dossier-picker");
+    if (overlay) overlay.remove();
+    overlay = document.createElement("div");
+    overlay.id = "mail-dossier-picker";
+    overlay.className = "mail-dossier-picker";
+    overlay.innerHTML = `
+      <div class="mail-dossier-picker-backdrop" data-action="close"></div>
+      <div class="mail-dossier-picker-dialog">
+        <header>
+          <h3>Link this email thread to a dossier</h3>
+          <button type="button" class="mail-dossier-picker-close" data-action="close" aria-label="Close">×</button>
+        </header>
+        <p class="mail-dossier-picker-subject">Subject: <strong>${escapeHtml(m.subject || "(no subject)")}</strong></p>
+        <div class="mail-dossier-picker-tabs">
+          <button type="button" data-kind="trip" class="${activeKind === "trip" ? "is-active" : ""}">Trips</button>
+          <button type="button" data-kind="group" class="${activeKind === "group" ? "is-active" : ""}">Groups</button>
+        </div>
+        <input type="search" class="mail-dossier-picker-search" placeholder="Search by serial or name…" autocomplete="off">
+        <ul class="mail-dossier-picker-list" data-list></ul>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const listEl = overlay.querySelector("[data-list]");
+    const search = overlay.querySelector(".mail-dossier-picker-search");
+
+    function renderRows() {
+      const q = (search.value || "").trim().toLowerCase();
+      const rows = (activeKind === "trip" ? targets.trips : targets.groups) || [];
+      const filtered = rows.filter((r) => {
+        if (!q) return true;
+        const hay = `${r.serial || ""} ${r.name || ""} ${r.tripSerial || ""}`.toLowerCase();
+        return hay.includes(q);
+      });
+      if (!filtered.length) {
+        listEl.innerHTML = `<li class="mail-dossier-picker-empty">No ${activeKind === "trip" ? "trips" : "groups"} match.</li>`;
+        return;
+      }
+      listEl.innerHTML = filtered.map((r) => {
+        const meta = activeKind === "trip"
+          ? `${escapeHtml(r.tripType || "")} · ${escapeHtml(r.startDate || "—")} · ${escapeHtml(r.status || "")}`
+          : `Trip ${escapeHtml(r.tripSerial || "—")}`;
+        return `
+          <li>
+            <button type="button" data-pick-id="${escapeHtml(r.id)}" data-pick-kind="${activeKind}">
+              <span class="mail-dossier-picker-serial">${escapeHtml(r.serial || "")}</span>
+              <span class="mail-dossier-picker-name">${escapeHtml(r.name || "(unnamed)")}</span>
+              <small>${meta}</small>
+            </button>
+          </li>
+        `;
+      }).join("");
+    }
+    renderRows();
+
+    overlay.querySelectorAll(".mail-dossier-picker-tabs button").forEach((b) => {
+      b.addEventListener("click", () => {
+        activeKind = b.dataset.kind;
+        overlay.querySelectorAll(".mail-dossier-picker-tabs button").forEach((x) => x.classList.toggle("is-active", x === b));
+        renderRows();
+      });
+    });
+    search.addEventListener("input", renderRows);
+
+    overlay.addEventListener("click", async (e) => {
+      const closeBtn = e.target.closest("[data-action='close']");
+      if (closeBtn) { overlay.remove(); return; }
+      const pick = e.target.closest("button[data-pick-id]");
+      if (!pick) return;
+      const id = pick.dataset.pickId;
+      const kind = pick.dataset.pickKind;
+      try {
+        const r = await fetch("/api/mail/dossiers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: m.accountId, subject: m.subject || "", kind, id }),
+        });
+        if (!r.ok) throw new Error();
+        const data = await r.json();
+        if (data.entry) dossiers[data.entry.threadKey] = data.entry;
+      } catch {
+        UI?.toast?.("Could not link dossier.", "error");
+        return;
+      }
+      overlay.remove();
+      // Reflect in current message + viewer + list.
+      const tk = threadKey(m.accountId, m.subject);
+      const link = dossiers[tk];
+      const stamp = (msg) => {
+        if (msg && threadKey(msg.accountId, msg.subject) === tk) {
+          msg.dossier = link || null;
+        }
+      };
+      stamp(currentMessage);
+      messages.forEach(stamp);
+      const host = viewerNode?.querySelector("[data-dossier-host]");
+      if (host && currentMessage) host.innerHTML = renderViewerDossierRow(currentMessage);
+      renderList();
+    });
+    setTimeout(() => search.focus(), 30);
+  }
+
+  async function unlinkDossier(m) {
+    if (!m) return;
+    try {
+      const r = await fetch("/api/mail/dossiers", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: m.accountId, subject: m.subject || "" }),
+      });
+      if (!r.ok && r.status !== 404) throw new Error();
+    } catch {
+      UI?.toast?.("Could not unlink dossier.", "error");
+      return;
+    }
+    const tk = threadKey(m.accountId, m.subject);
+    delete dossiers[tk];
+    const stamp = (msg) => {
+      if (msg && threadKey(msg.accountId, msg.subject) === tk) msg.dossier = null;
+    };
+    stamp(currentMessage);
+    messages.forEach(stamp);
+    const host = viewerNode?.querySelector("[data-dossier-host]");
+    if (host && currentMessage) host.innerHTML = renderViewerDossierRow(currentMessage);
+    renderList();
+  }
   function fmtDaysLeft(dueIso) {
     if (!dueIso) return "";
     const due = new Date(dueIso);
@@ -290,6 +510,7 @@
               </div>
               <div class="mail-list-row-bottom">
                 <span class="mail-list-snippet">${escapeHtml((m.snippet || "").slice(0, 140))}</span>
+                ${renderDossierChip(m, { compact: true })}
                 ${accountChip}
               </div>
             </div>
@@ -588,7 +809,10 @@
 
   function renderConversationBubbles(entries, current) {
     const currentKey = `${current.accountId}:${current.uid}`;
-    return entries.map((e) => {
+    // Server returns oldest-first; flip so the newest reply sits at the top
+    // of the dialog. Reading top-to-bottom now matches inbox-list ordering.
+    const ordered = entries.slice().reverse();
+    return ordered.map((e) => {
       const mine = isFromMe(e);
       const sender = e.fromName || e.fromEmail || "(unknown)";
       const ini = initials(e.fromName, e.fromEmail);
@@ -651,6 +875,7 @@
               <small>${escapeHtml(fullTimeFmt(m.date))} · via ${escapeHtml(m.accountAddress || "")}</small>
             </span>
           </p>
+          <div class="mail-viewer-dossier-row" data-dossier-host>${renderViewerDossierRow(m)}</div>
           ${attachmentsHtml}
           <div class="mail-viewer-actions">
             <span data-followup-host>${renderFollowupBadge(m)}</span>
@@ -659,6 +884,7 @@
         </div>
         <div class="mail-viewer-body">${bodyHtml}</div>
       `;
+      autoSizeMailIframes(viewerNode);
       return;
     }
 
@@ -671,6 +897,7 @@
         <p class="mail-viewer-meta">
           <small>${entries.length} messages · via ${escapeHtml(m.accountAddress || "")}</small>
         </p>
+        <div class="mail-viewer-dossier-row" data-dossier-host>${renderViewerDossierRow(m)}</div>
         <div class="mail-viewer-actions">
           <span data-followup-host>${renderFollowupBadge(m)}</span>
           ${actionsHtml}
@@ -678,10 +905,40 @@
       </div>
       <div class="mail-conversation">${renderConversationBubbles(entries, m)}</div>
     `;
-    // Scroll the most recent bubble into view by default.
+    // Newest sits at the top now (renderConversationBubbles reverses);
+    // scroll back to the start so the user lands on it.
     const conv = viewerNode.querySelector(".mail-conversation");
-    const last = conv?.querySelector(".mail-bubble:last-child");
-    if (last) last.scrollIntoView({ block: "start", behavior: "auto" });
+    if (conv) conv.scrollTop = 0;
+    autoSizeMailIframes(viewerNode);
+  }
+
+  // Email iframes are sandboxed but same-origin (srcdoc) so we can read the
+  // inner document height once it loads and snap the iframe to its content.
+  // Without this every short reply forces the iframe's CSS min-height (~460px)
+  // and a hollow gap shows up between the body and the attachments row.
+  function autoSizeMailIframes(root) {
+    if (!root) return;
+    const list = root.querySelectorAll("iframe.mail-bubble-iframe, iframe.mail-body-iframe");
+    list.forEach((f) => {
+      const fit = () => {
+        try {
+          const doc = f.contentDocument;
+          if (!doc || !doc.body) return;
+          const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+          if (h > 0) {
+            f.style.height = (h + 12) + "px";
+            f.style.minHeight = "0";
+          }
+        } catch {
+          // cross-origin or unloaded — leave the CSS default.
+        }
+      };
+      f.addEventListener("load", fit);
+      // Some browsers fire `load` before our listener attaches when the
+      // iframe is built via srcdoc; re-measure on a microtask + image-load tick.
+      setTimeout(fit, 30);
+      setTimeout(fit, 250);
+    });
   }
 
   // ── Compose modal ─────────────────────────────────────────────
@@ -1458,19 +1715,48 @@
         openFollowupPicker(fbtn);
         return;
       }
+      const dchip = e.target.closest("a.mail-dossier-chip[data-dossier-link]");
+      if (dchip) {
+        // Chip lives inside the row button so its native navigation never
+        // fires; route it manually before the row's open-viewer handler.
+        e.stopPropagation();
+        e.preventDefault();
+        const href = dchip.getAttribute("href");
+        if (href) window.location.href = href;
+        return;
+      }
       const btn = e.target.closest("button.mail-list-row");
       if (btn) selectKey(btn.dataset.key);
     });
-    // Bell clicks inside the modal viewer use the same picker.
+    // Bell clicks inside the modal viewer use the same picker. The dossier
+    // link/change/unlink buttons live in the same header band so we share
+    // one delegated listener.
     document.getElementById("mail-viewer-modal")?.addEventListener("click", (e) => {
       const fbtn = e.target.closest(".mail-followup-btn");
       if (fbtn) {
         e.stopPropagation();
         e.preventDefault();
         openFollowupPicker(fbtn);
+        return;
+      }
+      const dAction = e.target.closest("[data-dossier-action]");
+      if (dAction) {
+        e.stopPropagation();
+        e.preventDefault();
+        const action = dAction.getAttribute("data-dossier-action");
+        if (action === "link" || action === "change") openDossierPicker(currentMessage);
+        else if (action === "unlink") unlinkDossier(currentMessage);
+        return;
+      }
+      const dchip = e.target.closest("a.mail-dossier-chip[data-dossier-link]");
+      if (dchip) {
+        // Allow native navigation; nothing to intercept here since the chip
+        // sits outside any wrapping button in the viewer.
+        return;
       }
     });
     loadFollowups();
+    loadDossiers();
     document.getElementById("mail-bulk-delete")?.addEventListener("click", bulkDelete);
     document.getElementById("mail-bulk-unread")?.addEventListener("click", bulkMarkUnread);
     document.getElementById("mail-bulk-clear")?.addEventListener("click", () => {
