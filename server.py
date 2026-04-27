@@ -7218,6 +7218,74 @@ def handle_create_ds160_invitation(environ, start_response):
     return json_response(start_response, "201 Created", {"ok": True, "entry": record})
 
 
+def handle_send_ds160_invitation(environ, start_response, record_id):
+    """POST /api/ds160/<id>/send — actually email the share link to the
+    client via Resend so managers don't depend on the OS mail client. Body
+    can override {to, subject, body}; otherwise a Mongolian boilerplate is
+    generated from the stored entry."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    records = read_ds160_applications()
+    record = next((r for r in records if r.get("id") == record_id), None)
+    if not record:
+        return json_response(start_response, "404 Not Found", {"error": "DS-160 entry not found"})
+
+    to = (payload.get("to") or record.get("clientEmail") or "").strip()
+    if not to:
+        return json_response(start_response, "400 Bad Request", {"error": "Client email is missing on this entry — open the entry and set one before sending."})
+
+    share_url = record.get("shareUrl") or ""
+    if not share_url:
+        host = environ.get("HTTP_HOST") or "backoffice.travelx.mn"
+        scheme = environ.get("HTTP_X_FORWARDED_PROTO") or environ.get("wsgi.url_scheme") or "https"
+        token = record.get("clientToken") or ""
+        if token:
+            share_url = f"{scheme}://{host}/ds160/form/{token}"
+
+    client_name = (record.get("clientName") or "").strip()
+    given_name = client_name.split()[0] if client_name else ""
+    manager_name = (record.get("managerName") or actor.get("fullName") or actor.get("email") or "TravelX").strip()
+
+    subject = (payload.get("subject") or "").strip() or "TravelX DS-160 form"
+    if payload.get("body"):
+        body = payload["body"]
+    else:
+        body = (
+            f"Сайн байна уу{(', ' + given_name) if given_name else ''}.\n\n"
+            "Та доорх холбоосоор DS-160 маягтаа бөглөнө үү.\n\n"
+            f"{share_url}\n\n"
+            "Хүндэтгэсэн,\n"
+            f"{manager_name}\n"
+            "Дэлхий Трэвел Икс"
+        )
+
+    result = _tool_send_email({
+        "to": to,
+        "subject": subject,
+        "body": body,
+        "_company_name": "Дэлхий Трэвел Икс",
+    }, actor)
+    if result.get("error"):
+        return json_response(start_response, "502 Bad Gateway", {"error": result["error"]})
+
+    record["lastEmailedAt"] = datetime.now(timezone.utc).isoformat()
+    record["lastEmailedBy"] = actor_snapshot(actor)
+    write_ds160_applications(records)
+    try:
+        log_notification(
+            "ds160.emailed",
+            actor,
+            "DS-160 link sent",
+            detail=f"{record.get('clientName', '')} ({to})",
+            meta={"id": record.get("id")},
+        )
+    except Exception:
+        pass
+    return json_response(start_response, "200 OK", {"ok": True, "to": to, "entry": record})
+
+
 def handle_create_ds160(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
@@ -13482,6 +13550,11 @@ def _dispatch(environ, start_response):
 
     if path.startswith("/api/ds160/"):
         record_id = path.replace("/api/ds160/", "", 1).strip("/")
+        # /api/ds160/<id>/send — server-side email send (Resend) so a manager
+        # without a desktop mail client can still deliver the share link.
+        if record_id.endswith("/send") and method == "POST":
+            inner_id = record_id[: -len("/send")]
+            return handle_send_ds160_invitation(environ, start_response, inner_id)
         if method == "GET" and record_id:
             return handle_get_ds160(environ, start_response, record_id)
         if method in {"PATCH", "PUT"} and record_id:

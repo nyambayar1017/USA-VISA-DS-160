@@ -386,10 +386,11 @@ function closeEditModal() {
   }
 }
 
-function setLatestLink(url, email = "", name = "") {
+function setLatestLink(url, email = "", name = "", id = "") {
   state.latestLink = url || "";
   state.latestEmail = email || "";
   state.latestName = name || "";
+  state.latestId = id || "";
   if (!url) {
     latestLinkCard.classList.add("is-hidden");
     latestLinkCard.setAttribute("hidden", "");
@@ -665,7 +666,8 @@ function renderList() {
                       <button type="button" class="trip-menu-item" data-action="copy-link" data-link="${escapeHtml(entry.shareUrl || "")}">Copy link</button>
                       <button type="button" class="trip-menu-item" data-action="edit-info" data-id="${escapeHtml(entry.id)}">Edit info</button>
                       <button type="button" class="trip-menu-item" data-action="set-appointment" data-id="${escapeHtml(entry.id)}">Set appointment</button>
-                      <a class="trip-menu-item" href="${escapeHtml(buildMailtoLink(entry))}">Email client</a>
+                      <button type="button" class="trip-menu-item" data-action="server-send" data-id="${escapeHtml(entry.id)}">Send via TravelX</button>
+                      <a class="trip-menu-item" href="${escapeHtml(buildMailtoLink(entry))}">Open in mail app</a>
                       <a class="trip-menu-item" href="${escapeHtml(entry.shareUrl || "#")}" target="_blank" rel="noreferrer">Open form</a>
                       <button type="button" class="trip-menu-item is-danger" data-action="delete-entry" data-id="${escapeHtml(entry.id)}">Delete</button>
                     </div>
@@ -695,6 +697,33 @@ function renderList() {
       window.setTimeout(() => {
         button.textContent = "Copy link";
       }, 1500);
+    });
+  });
+
+  listNode.querySelectorAll('[data-action="server-send"]').forEach((button) => {
+    button.addEventListener("click", async () => {
+      const entry = state.entries.find((item) => item.id === button.dataset.id);
+      if (!entry) return;
+      if (!entry.clientEmail) {
+        alert("Client email missing — open Edit info, fill the email, save, then send.");
+        return;
+      }
+      button.disabled = true;
+      const originalLabel = button.textContent;
+      button.textContent = "Sending…";
+      try {
+        await fetchJson(`/api/ds160/${encodeURIComponent(entry.id)}/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        button.textContent = "Sent ✓";
+        window.setTimeout(() => { button.textContent = originalLabel; button.disabled = false; }, 2200);
+      } catch (err) {
+        alert(err.message || "Could not send");
+        button.textContent = originalLabel;
+        button.disabled = false;
+      }
     });
   });
 
@@ -810,7 +839,7 @@ sendForm.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload),
     });
     const entry = result.entry;
-    setLatestLink(entry.shareUrl || "", entry.clientEmail || "", entry.clientName || "");
+    setLatestLink(entry.shareUrl || "", entry.clientEmail || "", entry.clientName || "", entry.id || "");
     if (entry.shareUrl) {
       await navigator.clipboard.writeText(entry.shareUrl);
     }
@@ -831,6 +860,38 @@ copyLinkButton?.addEventListener("click", async () => {
   setTimeout(() => {
     copyLinkButton.textContent = "Copy link";
   }, 1500);
+});
+
+// Server-side "Send via TravelX" — uses Resend so any manager (and any
+// device, even one without a desktop mail client) can actually deliver
+// the share link without falling back to mailto:.
+const serverSendButton = document.querySelector("#ds160-server-send");
+serverSendButton?.addEventListener("click", async () => {
+  if (!state.latestId) {
+    setStatus("Create the link first, then send it.", true);
+    return;
+  }
+  if (!state.latestEmail) {
+    setStatus("Client email missing — open the entry, fill the email, save, then send.", true);
+    return;
+  }
+  serverSendButton.disabled = true;
+  serverSendButton.textContent = "Sending…";
+  try {
+    await fetchJson(`/api/ds160/${encodeURIComponent(state.latestId)}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    setStatus(`Sent to ${state.latestEmail}.`);
+    serverSendButton.textContent = "Sent ✓";
+    setTimeout(() => { serverSendButton.textContent = "Send via TravelX"; }, 2200);
+  } catch (err) {
+    setStatus(err.message || "Could not send.", true);
+    serverSendButton.textContent = "Send via TravelX";
+  } finally {
+    serverSendButton.disabled = false;
+  }
 });
 
 openLinkButton?.addEventListener("click", () => {
