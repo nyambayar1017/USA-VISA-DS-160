@@ -609,10 +609,43 @@ function notificationTargetUrl(entry) {
   return "";
 }
 
+// Click interceptor: when a notification's destination trip lives in the
+// other workspace, set that workspace cookie before navigating so the page
+// renders the trip immediately instead of flashing a "deleted" banner.
+function attachNotificationClickHandler() {
+  const list = notificationPopoverNode?.querySelector("[data-notifications-list]");
+  if (!list || list._notifClickAttached) return;
+  list._notifClickAttached = true;
+  list.addEventListener("click", async (e) => {
+    const link = e.target.closest("a.notifications-item--link[href]");
+    if (!link) return;
+    const url = link.getAttribute("href") || "";
+    const tripIdMatch = url.match(/[?&]tripId=([^&]+)/);
+    if (!tripIdMatch) return;
+    const tripId = decodeURIComponent(tripIdMatch[1]);
+    const currentWs = readWorkspace();
+    if (!currentWs) return;
+    e.preventDefault();
+    try {
+      const r = await fetch(`/api/camp-trips/${encodeURIComponent(tripId)}/info`);
+      if (r.ok) {
+        const data = await r.json();
+        const tripWs = (data.company || "").toUpperCase();
+        if (tripWs && tripWs !== currentWs) {
+          setWorkspace(tripWs);
+          try { sessionStorage.clear(); } catch {}
+        }
+      }
+    } catch {}
+    window.location.href = url;
+  });
+}
+
 function renderNotificationsList() {
   if (!notificationPopoverNode) return;
   const list = notificationPopoverNode.querySelector("[data-notifications-list]");
   if (!list) return;
+  attachNotificationClickHandler();
   if (!notificationsCache.length) {
     list.innerHTML = `<p class="notifications-empty">No activity yet.</p>`;
     return;

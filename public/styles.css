@@ -12460,3 +12460,16 @@ input[type="week"] {
     max-width: 100% !important;
   }
 }
+
+/* Trip form was complaining the destinations dropdown sat shorter and
+   thinner than its sibling inputs. Match the modal's input padding +
+   border-radius so the row reads as one cohesive grid. */
+.workspace-form-modal .destinations-multi-trigger {
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(32, 53, 111, 0.16);
+}
+.workspace-form-modal .destinations-multi-trigger .tourist-tag-chip {
+  margin: 1px 2px;
+}

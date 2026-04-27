@@ -112,6 +112,14 @@ function openPanel(panel) {
   }
   panel.classList.remove("is-hidden");
   document.body.classList.add("modal-open");
+  // USM only operates inside Mongolia, so the international destinations
+  // dropdown is irrelevant on every USM trip — hide it when the trip form
+  // opens in that workspace.
+  const destBlock = panel.querySelector("[data-trip-form-destinations]");
+  if (destBlock) {
+    const ws = (typeof readWorkspace === "function" ? readWorkspace() : "") || "";
+    destBlock.style.display = ws === "USM" ? "none" : "";
+  }
   panel.scrollTop = 0;
   const dialog = panel.querySelector(".camp-modal-dialog");
   const form = panel.querySelector("form");
@@ -439,6 +447,47 @@ async function fetchJson(url, options) {
 function buildPayload(formNode) {
   return Object.fromEntries(new FormData(formNode).entries());
 }
+
+// Used when the active tripId in the URL doesn't match anything in the
+// workspace's filtered trip list — could be a real deletion, or a
+// notification-clicked trip that lives in the OTHER workspace. Hit the
+// workspace-agnostic /info endpoint to find out, and rewrite the banner.
+async function verifyTripExistsCrossWorkspace(tripId) {
+  const banner = document.querySelector("[data-trip-missing-banner]");
+  try {
+    const r = await fetch(`/api/camp-trips/${encodeURIComponent(tripId)}/info`);
+    if (!r.ok) {
+      if (banner) banner.innerHTML = '<span>!</span><strong>This trip has been deleted.</strong>';
+      return;
+    }
+    const data = await r.json();
+    const tripCompany = (data.company || "").toUpperCase();
+    const currentWs = (typeof readWorkspace === "function" ? readWorkspace() : "") || "";
+    if (tripCompany && currentWs && tripCompany !== currentWs && banner) {
+      const tripLabel = `${data.serial || ""} ${data.tripName || ""}`.trim() || "this trip";
+      banner.innerHTML =
+        `<span>↺</span><strong>${escapeHtml(tripLabel)} belongs to the ${tripCompany} workspace.</strong>` +
+        ` <button type="button" class="header-action-btn header-action-edit" data-action="switch-ws-and-reload" data-target-ws="${tripCompany}" style="margin-left:12px">Switch to ${tripCompany}</button>`;
+    } else if (banner) {
+      // Same workspace but missing locally → must actually be deleted (or our
+      // local trips list is stale; the page reload covers that case).
+      banner.innerHTML = '<span>!</span><strong>This trip has been deleted.</strong>';
+    }
+  } catch {
+    if (banner) banner.innerHTML = '<span>!</span><strong>Could not load trip.</strong>';
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action='switch-ws-and-reload']");
+  if (!btn) return;
+  const target = (btn.dataset.targetWs || "").toUpperCase();
+  if (!target) return;
+  if (typeof setWorkspace === "function") setWorkspace(target);
+  // Force live-list / page caches to drop the stale workspace's data.
+  try { sessionStorage.clear(); } catch {}
+  window.location.reload();
+});
 
 function getTripById(tripId) {
   return currentTrips.find((trip) => trip.id === tripId) || null;
@@ -944,7 +993,11 @@ function renderActiveTrip() {
   if (!trip) {
     if (isTripDetailPage() && activeTripId && trips.length > 0) {
       activeTripBox.className = "card";
-      activeTripBox.innerHTML = '<div class="deleted-banner"><span>!</span><strong>This trip has been deleted.</strong></div>';
+      activeTripBox.innerHTML = '<div class="deleted-banner" data-trip-missing-banner><span>!</span><strong>Loading trip…</strong></div>';
+      // The trip might just live in another workspace (notification clicked
+      // from USM linking to a DTX trip, etc.). Hit the workspace-agnostic
+      // lookup before declaring it deleted.
+      verifyTripExistsCrossWorkspace(activeTripId);
     } else {
       activeTripBox.className = "is-hidden";
       activeTripBox.innerHTML = "";

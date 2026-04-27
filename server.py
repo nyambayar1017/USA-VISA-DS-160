@@ -13672,6 +13672,23 @@ def _dispatch(environ, start_response):
 
     if path.startswith("/api/camp-trips/"):
         tail = path.replace("/api/camp-trips/", "", 1).strip("/")
+        # /api/camp-trips/{id}/info — workspace-agnostic single-trip lookup,
+        # used so a notification opened in the wrong workspace can prompt the
+        # user to switch instead of misreporting the trip as deleted.
+        if tail.endswith("/info") and method == "GET":
+            trip_id = tail[: -len("/info")]
+            actor = require_login(environ, start_response)
+            if not actor:
+                return []
+            for t in read_camp_trips():
+                if t.get("id") == trip_id:
+                    return json_response(start_response, "200 OK", {
+                        "id": t.get("id"),
+                        "company": (t.get("company") or "").upper(),
+                        "tripName": t.get("tripName") or "",
+                        "serial": t.get("serial") or "",
+                    })
+            return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
         # /api/camp-trips/{id}/documents  — upload
         if tail.endswith("/documents") and method == "POST":
             trip_id = tail[: -len("/documents")]
