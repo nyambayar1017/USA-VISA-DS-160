@@ -8064,7 +8064,9 @@ def handle_list_mail_accounts(environ, start_response):
 
 
 def handle_create_mail_account(environ, start_response):
-    actor = require_admin(environ, start_response)
+    # Managers can manage mailboxes too — only login/signup approval and
+    # user-account CRUD stay admin-only.
+    actor = require_login(environ, start_response)
     if not actor:
         return []
     payload = collect_json(environ)
@@ -8108,7 +8110,7 @@ def handle_create_mail_account(environ, start_response):
 
 
 def handle_update_mail_account(environ, start_response, account_id):
-    actor = require_admin(environ, start_response)
+    actor = require_login(environ, start_response)
     if not actor:
         return []
     payload = collect_json(environ)
@@ -8143,7 +8145,7 @@ def handle_update_mail_account(environ, start_response, account_id):
 
 
 def handle_delete_mail_account(environ, start_response, account_id):
-    actor = require_admin(environ, start_response)
+    actor = require_login(environ, start_response)
     if not actor:
         return []
     accounts = read_mail_accounts()
@@ -8204,7 +8206,7 @@ def imap_test_connection(account):
 
 
 def handle_test_mail_account(environ, start_response, account_id):
-    actor = require_admin(environ, start_response)
+    actor = require_login(environ, start_response)
     if not actor:
         return []
     accounts = read_mail_accounts()
@@ -12734,7 +12736,7 @@ def handle_agent_chat(environ, start_response):
 
 
 def _handle_agent_chat_impl(environ, start_response):
-    actor = require_admin(environ, start_response)
+    actor = require_login(environ, start_response)
     if not actor:
         return []
 
