@@ -584,7 +584,13 @@ function toggleReminderPopover(forceState) {
     closeProfileMenu();
     closeNotifications();
     if (mailPopoverNode) mailPopoverNode.setAttribute("hidden", "");
-    fetchReminders();
+    fetchReminders().then(() => {
+      // Mark as read on the server so the badge clears on the next poll
+      // and stays cleared across reloads (until a new mention arrives).
+      fetch("/api/reminders/mark-read", { method: "POST" }).catch(() => {});
+      // Clear the badge immediately for snappy feedback.
+      updateReminderCount(0);
+    });
   } else {
     reminderPopoverNode.setAttribute("hidden", "");
   }

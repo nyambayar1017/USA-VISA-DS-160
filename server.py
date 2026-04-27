@@ -9521,37 +9521,57 @@ def handle_update_note(environ, start_response, note_id):
     return json_response(start_response, "404 Not Found", {"error": "Note not found"})
 
 
-def handle_list_reminders(environ, start_response):
-    """Personalised reminder feed = tasks owned by me + notes mentioning me.
-    Used by the new reminder bell between the mail and notification icons."""
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
+REMINDERS_LAST_READ_FILE = DATA_DIR / "reminders_last_read.json"
+
+
+def _reminders_last_read():
+    try:
+        if REMINDERS_LAST_READ_FILE.exists():
+            return json.loads(REMINDERS_LAST_READ_FILE.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    return {}
+
+
+def _reminders_save_last_read(data):
+    REMINDERS_LAST_READ_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _reminders_for_user(actor):
+    """Personal mention inbox. Returns ONLY items that @-mention the
+    current user — never tasks they happen to own. Mention form is
+    @[Full Name]; case-insensitive whole-token match."""
     my_id = (actor or {}).get("id")
     my_name = ((actor or {}).get("fullName") or (actor or {}).get("email") or "").strip()
     items = []
+    if not my_id and not my_name:
+        return items
+    marker = f"@[{my_name}]" if my_name else ""
+    marker_lower = marker.lower()
 
-    # Tasks where current user is the owner and not yet done.
-    store = read_manager_dashboard()
-    for t in (store.get("tasks") or []):
-        owner = (t.get("owner") or "").strip()
-        status = (t.get("status") or "pending").lower()
-        if status in {"done", "cancelled"}:
-            continue
-        if my_name and owner.lower() == my_name.lower():
-            items.append({
-                "kind": "task",
-                "id": t.get("id"),
-                "title": t.get("title") or "",
-                "note": t.get("note") or "",
-                "dueDate": t.get("dueDate") or "",
-                "dueTime": t.get("dueTime") or "",
-                "status": status,
-                "createdBy": t.get("createdBy") or {},
-                "createdAt": t.get("createdAt") or "",
-            })
+    # Tasks: title or note must contain @[my name]. Status filter excludes
+    # done/cancelled so old completed tasks don't keep pinging.
+    if marker_lower:
+        store = read_manager_dashboard()
+        for t in (store.get("tasks") or []):
+            status = (t.get("status") or "pending").lower()
+            if status in {"done", "cancelled"}:
+                continue
+            haystack = ((t.get("title") or "") + " " + (t.get("note") or "")).lower()
+            if marker_lower in haystack:
+                items.append({
+                    "kind": "task",
+                    "id": t.get("id"),
+                    "title": t.get("title") or "",
+                    "note": t.get("note") or "",
+                    "dueDate": t.get("dueDate") or "",
+                    "dueTime": t.get("dueTime") or "",
+                    "status": status,
+                    "createdBy": t.get("createdBy") or {},
+                    "createdAt": t.get("createdAt") or "",
+                })
 
-    # Notes mentioning me.
+    # Notes mentioning me by id (parsed at save time).
     for n in read_notes():
         if any((m or {}).get("id") == my_id for m in (n.get("mentions") or [])):
             items.append({
@@ -9566,7 +9586,35 @@ def handle_list_reminders(environ, start_response):
             })
 
     items.sort(key=lambda x: x.get("createdAt") or x.get("dueDate") or "", reverse=True)
-    return json_response(start_response, "200 OK", {"count": len(items), "items": items[:80]})
+    return items
+
+
+def handle_list_reminders(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    items = _reminders_for_user(actor)
+    last_read = (_reminders_last_read().get((actor or {}).get("id") or "") or "")
+    unread = sum(1 for it in items if (it.get("createdAt") or "") > last_read)
+    return json_response(start_response, "200 OK", {
+        "count": unread,
+        "total": len(items),
+        "items": items[:80],
+        "lastReadAt": last_read,
+    })
+
+
+def handle_mark_reminders_read(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    my_id = (actor or {}).get("id") or ""
+    if not my_id:
+        return json_response(start_response, "400 Bad Request", {"error": "no user id"})
+    data = _reminders_last_read()
+    data[my_id] = datetime.now(timezone.utc).isoformat()
+    _reminders_save_last_read(data)
+    return json_response(start_response, "200 OK", {"ok": True, "lastReadAt": data[my_id]})
 
 
 def handle_mail_unread_summary(environ, start_response):
@@ -14184,6 +14232,11 @@ def _dispatch(environ, start_response):
     if path == "/api/reminders":
         if method == "GET":
             return handle_list_reminders(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/reminders/mark-read":
+        if method == "POST":
+            return handle_mark_reminders_read(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/mail/send":
