@@ -1246,8 +1246,8 @@ function renderParticipants() {
                     <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>
                     <div class="row-menu-popover">
                       <button type="button" class="row-menu-item" data-action="edit" data-id="${t.id}">Edit</button>
-                      <button type="button" class="row-menu-item" data-action="move-up" data-id="${t.id}" ${upDisabled}>▲ Move up</button>
-                      <button type="button" class="row-menu-item" data-action="move-down" data-id="${t.id}" ${downDisabled}>▼ Move down</button>
+                      <button type="button" class="row-menu-item" data-action="move-up" data-id="${t.id}" ${upDisabled}>Move up</button>
+                      <button type="button" class="row-menu-item" data-action="move-down" data-id="${t.id}" ${downDisabled}>Move down</button>
                       <button type="button" class="row-menu-item is-danger" data-action="delete" data-id="${t.id}">Delete</button>
                     </div>
                   </details>

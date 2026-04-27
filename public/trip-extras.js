@@ -261,6 +261,8 @@
                         ? `<span class="room-color-badge" style="background:${c.bg};color:${c.fg};">${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}</span>`
                         : `${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}`)
                     : "—";
+                  const upDisabled = idx === 0 ? "disabled" : "";
+                  const downDisabled = idx === rows.length - 1 ? "disabled" : "";
                   return `
                     <tr>
                       <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
@@ -275,10 +277,15 @@
                       <td>${escapeHtml(t.phone || "-")}</td>
                       <td>${roomLabel}</td>
                       <td>
-                        <div class="trip-row-actions trip-row-actions-inline">
-                          <button type="button" class="table-link compact secondary" data-tourist-action="edit" data-id="${t.id}">Edit</button>
-                          <button type="button" class="table-link compact secondary" data-tourist-action="delete" data-id="${t.id}">Delete</button>
-                        </div>
+                        <details class="row-menu">
+                          <summary class="row-menu-trigger" aria-label="Tourist actions">⋯</summary>
+                          <div class="row-menu-popover">
+                            <button type="button" class="row-menu-item" data-tourist-action="edit" data-id="${escapeHtml(t.id)}">Edit</button>
+                            <button type="button" class="row-menu-item" data-tourist-action="move-up" data-id="${escapeHtml(t.id)}" ${upDisabled}>Move up</button>
+                            <button type="button" class="row-menu-item" data-tourist-action="move-down" data-id="${escapeHtml(t.id)}" ${downDisabled}>Move down</button>
+                            <button type="button" class="row-menu-item is-danger" data-tourist-action="delete" data-id="${escapeHtml(t.id)}">Delete</button>
+                          </div>
+                        </details>
                       </td>
                     </tr>
                   `;
@@ -674,11 +681,50 @@
     }
   });
 
+  async function moveTouristInList(id, direction) {
+    // Reorder respects the currently-rendered (filtered) list so the user
+    // sees the move they expect.
+    const filtered = tourists.filter((t) => {
+      const filterGroup = touristFilterGroup.value;
+      const filterName = (touristFilterName.value || "").toLowerCase().trim();
+      if (filterGroup && t.groupId !== filterGroup) return false;
+      if (filterName) {
+        const blob = `${t.lastName || ""} ${t.firstName || ""} ${t.passportNumber || ""}`.toLowerCase();
+        if (!blob.includes(filterName)) return false;
+      }
+      return true;
+    });
+    const idx = filtered.findIndex((t) => t.id === id);
+    if (idx < 0) return;
+    const swap = direction === "up" ? idx - 1 : idx + 1;
+    if (swap < 0 || swap >= filtered.length) return;
+    const reordered = filtered.slice();
+    const [moved] = reordered.splice(idx, 1);
+    reordered.splice(swap, 0, moved);
+    try {
+      await Promise.all(
+        reordered.map((t, i) =>
+          t.orderIndex === i
+            ? Promise.resolve()
+            : fetchJson(`/api/tourists/${t.id}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderIndex: i }),
+              })
+        )
+      );
+      await loadGroupsAndTourists(tripId);
+    } catch (err) {
+      alert(err.message || "Could not reorder.");
+    }
+  }
+
   touristListNode?.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-tourist-action]");
     if (!btn) return;
     const action = btn.dataset.touristAction;
     const id = btn.dataset.id;
+    btn.closest("details.row-menu")?.removeAttribute("open");
     const tourist = tourists.find((t) => t.id === id);
     if (!tourist) return;
     if (action === "edit") {
@@ -694,6 +740,10 @@
       touristForm.elements.groupId.value = tourist.groupId || "";
       if (touristFormTitle) touristFormTitle.textContent = `Edit tourist ${tourist.serial}`;
       openModal(touristFormPanel);
+    } else if (action === "move-up") {
+      await moveTouristInList(id, "up");
+    } else if (action === "move-down") {
+      await moveTouristInList(id, "down");
     } else if (action === "delete") {
       if (!(await UI.confirm(`Delete tourist ${tourist.serial}?`, { dangerous: true }))) return;
       try {
@@ -703,6 +753,13 @@
         alert(err.message || "Could not delete tourist.");
       }
     }
+  });
+
+  // Close any open row-menu on outside click.
+  document.addEventListener("click", (e) => {
+    touristListNode?.querySelectorAll("details.row-menu[open]").forEach((det) => {
+      if (!det.contains(e.target)) det.removeAttribute("open");
+    });
   });
 
   touristFilterGroup?.addEventListener("change", renderTourists);
