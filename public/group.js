@@ -1341,6 +1341,95 @@ form.addEventListener("input", (e) => {
   }
 });
 
+// ── Passport scan upload + OCR auto-fill ─────────────────────────────
+// Mirrors the trip-side tourist form so participants in a GIT group also
+// benefit from the OCR autofill on Add / Edit.
+(function () {
+  const dropzone = document.getElementById("group-tourist-passport-dropzone");
+  const fileInput = document.getElementById("group-tourist-passport-file");
+  const tokenInput = document.getElementById("group-tourist-passport-token");
+  const statusEl = document.getElementById("group-tourist-passport-status");
+  const previewEl = document.getElementById("group-tourist-passport-preview");
+  const filenameEl = document.getElementById("group-tourist-passport-filename");
+  if (!dropzone || !fileInput) return;
+
+  function setStatus(text, kind) {
+    if (!statusEl) return;
+    statusEl.textContent = text || "";
+    statusEl.className = "tourist-passport-status" + (kind ? " is-" + kind : "");
+    statusEl.hidden = !text;
+  }
+  function clearSelection() {
+    if (tokenInput) tokenInput.value = "";
+    if (fileInput) fileInput.value = "";
+    if (previewEl) previewEl.hidden = true;
+    if (filenameEl) filenameEl.textContent = "";
+    setStatus("", "");
+    dropzone.disabled = false;
+  }
+  function applyFields(fields) {
+    if (!fields) return;
+    const fillIfEmpty = (name, value) => {
+      const el = form?.elements?.[name];
+      if (!el || !value) return;
+      if (el.value && el.value.trim()) return;
+      el.value = value;
+    };
+    fillIfEmpty("firstName", fields.firstName);
+    fillIfEmpty("lastName", fields.lastName);
+    fillIfEmpty("gender", (fields.gender || "").toLowerCase());
+    fillIfEmpty("dob", fields.dob);
+    fillIfEmpty("nationality", fields.nationality);
+    fillIfEmpty("passportNumber", fields.passportNumber);
+    fillIfEmpty("passportIssueDate", fields.passportIssueDate);
+    fillIfEmpty("passportExpiry", fields.passportExpiry);
+    fillIfEmpty("passportIssuePlace", fields.passportIssuePlace);
+  }
+  async function uploadFile(file) {
+    if (!file) return;
+    setStatus("Uploading and reading passport…", "info");
+    dropzone.disabled = true;
+    try {
+      let toSend = file;
+      if (window.CompressUpload && file.type && file.type.startsWith("image/")) {
+        try { toSend = await window.CompressUpload.file(file); } catch {}
+      }
+      const fd = new FormData();
+      fd.append("file", toSend);
+      const res = await fetch("/api/tourists/passport-scan", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      if (tokenInput) tokenInput.value = data.token || "";
+      if (filenameEl) filenameEl.textContent = file.name || "passport";
+      if (previewEl) previewEl.hidden = false;
+      applyFields(data.fields || {});
+      setStatus(data.fields ? "Auto-filled — please double-check." : "Uploaded.", "ok");
+    } catch (err) {
+      setStatus(err.message || "Upload failed", "err");
+    } finally {
+      dropzone.disabled = false;
+    }
+  }
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (f) uploadFile(f);
+  });
+  previewEl?.addEventListener("click", (e) => {
+    if (e.target?.dataset?.action === "clear-passport") clearSelection();
+  });
+  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); });
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer?.files?.[0];
+    if (f) uploadFile(f);
+  });
+  // Wipe the selection whenever the modal closes/reopens.
+  const origReset = resetForm;
+  // eslint-disable-next-line no-func-assign
+  resetForm = function () { origReset.apply(this, arguments); clearSelection(); };
+})();
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const payload = Object.fromEntries(new FormData(form).entries());

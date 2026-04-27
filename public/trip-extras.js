@@ -463,11 +463,34 @@
       alert("Open a trip first.");
       return null;
     }
-    // No more silent auto-create: user wants to add the first group manually
-    // so the group name + leader info are intentional, not derived from the
-    // trip title.
-    alert("Please add a group first ( + Add group ), then add tourists into it.");
-    return null;
+    // GIT trips: user adds groups by hand (no silent auto-create).
+    // FIT trips: a FIT is one party — there's no real "group", so create
+    // a single implicit one named after the trip's plain tripName.
+    let trip = null;
+    try {
+      const trips = await fetchJson("/api/camp-trips");
+      trip = (trips.entries || []).find((t) => t.id === tripId) || null;
+    } catch {}
+    const tripType = String(trip?.tripType || "").toLowerCase();
+    if (tripType !== "fit") {
+      alert("Please add a group first ( + Add group ), then add tourists into it.");
+      return null;
+    }
+    const name = (trip?.tripName || "Main").trim().slice(0, 80);
+    try {
+      const created = await fetchJson("/api/tourist-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId, name, headcount: trip?.participantCount || 1 }),
+      });
+      const g = created.entry || created;
+      groups.push(g);
+      renderGroupOptions();
+      return g;
+    } catch (err) {
+      alert("Could not prepare a group: " + (err.message || err));
+      return null;
+    }
   }
 
   touristToggleBtn?.addEventListener("click", async () => {

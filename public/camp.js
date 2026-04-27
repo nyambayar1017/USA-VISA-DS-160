@@ -2116,11 +2116,40 @@ function recalcTripTotalDays() {
   const days = Math.round((endMs - startMs) / 86400000) + 1;
   if (days > 0) totalEl.value = String(days);
 }
+
+// Reverse direction: start date + total days → end date. Fires when the user
+// types a number into "Total days of tour" with a start date already set.
+function recalcTripEndDate() {
+  if (!tripForm || !tripForm.elements) return;
+  const startEl = tripForm.elements.startDate;
+  const endEl = tripForm.elements.endDate;
+  const totalEl = tripForm.elements.totalDays;
+  if (!startEl || !endEl || !totalEl) return;
+  const start = startEl.value;
+  const totalRaw = parseInt(totalEl.value, 10);
+  if (!start || !Number.isFinite(totalRaw) || totalRaw < 1) return;
+  const startMs = new Date(start + "T00:00:00").getTime();
+  if (Number.isNaN(startMs)) return;
+  const endDate = new Date(startMs + (totalRaw - 1) * 86400000);
+  const yyyy = endDate.getFullYear();
+  const mm = String(endDate.getMonth() + 1).padStart(2, "0");
+  const dd = String(endDate.getDate()).padStart(2, "0");
+  endEl.value = `${yyyy}-${mm}-${dd}`;
+}
+
 if (tripForm && tripForm.elements) {
   ["startDate", "endDate"].forEach((name) => {
     const el = tripForm.elements[name];
     if (el) el.addEventListener("change", recalcTripTotalDays);
   });
+  // Also: when start changes and totalDays is already filled, project end.
+  const startEl = tripForm.elements.startDate;
+  const totalEl = tripForm.elements.totalDays;
+  if (startEl) startEl.addEventListener("change", recalcTripEndDate);
+  if (totalEl) {
+    totalEl.addEventListener("input", recalcTripEndDate);
+    totalEl.addEventListener("change", recalcTripEndDate);
+  }
 }
 
 function openReservationModal(tripId = "", reservation = null) {
