@@ -48,6 +48,7 @@ ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", "
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 CAMP_CONTRACTS_DIR = DATA_DIR / "camp-contracts"
+MAIL_FOLLOWUPS_FILE = DATA_DIR / "mail_followups.json"
 FIFA2026_FILE = DATA_DIR / "fifa2026.json"
 FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
@@ -8593,6 +8594,212 @@ def handle_mail_thread(environ, start_response, account_id, uid):
     return json_response(start_response, "200 OK", {"entries": entries})
 
 
+def read_mail_followups():
+    raw = read_json_list(MAIL_FOLLOWUPS_FILE)
+    cleaned = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        cleaned.append(entry)
+    return cleaned
+
+
+def write_mail_followups(entries):
+    write_json_list(MAIL_FOLLOWUPS_FILE, entries)
+
+
+def _followup_thread_key(account_id, subject):
+    return f"{account_id}::{_normalize_mail_subject(subject)}"
+
+
+def build_mail_followup(payload, actor):
+    days = parse_int(payload.get("days")) or 0
+    if days < 1:
+        days = 1
+    if days > 60:
+        days = 60
+    now = datetime.now(timezone.utc)
+    due = now + timedelta(days=days)
+    account_id = normalize_text(payload.get("accountId"))
+    subject = normalize_text(payload.get("subject"))
+    return {
+        "id": uuid4().hex,
+        "accountId": account_id,
+        "subject": subject,
+        "subjectKey": _normalize_mail_subject(subject),
+        "threadKey": _followup_thread_key(account_id, subject),
+        "uid": normalize_text(payload.get("uid")),  # the message the user was looking at when arming
+        "days": days,
+        "createdAt": now.isoformat(),
+        "dueAt": due.isoformat(),
+        "status": "waiting",  # waiting | urgent | replied | cancelled
+        "createdBy": actor_snapshot(actor) if actor else {},
+        "lastNotifiedAt": "",
+        "completedAt": "",
+    }
+
+
+def handle_list_mail_followups(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    try:
+        scan_mail_followups()
+    except Exception as exc:
+        print(f"[mail-followup] scan err: {exc}", flush=True)
+    entries = read_mail_followups()
+    # Workspace-scope by joining each entry's accountId to its mail account.
+    workspace = active_workspace(environ)
+    if workspace:
+        accounts = read_mail_accounts()
+        by_id = {a["id"]: (a.get("workspace") or "DTX").upper() for a in accounts}
+        entries = [e for e in entries if by_id.get(e.get("accountId")) == workspace]
+    return json_response(start_response, "200 OK", {"entries": entries})
+
+
+def handle_create_mail_followup(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    if not normalize_text(payload.get("accountId")):
+        return json_response(start_response, "400 Bad Request", {"error": "accountId required"})
+    if not normalize_text(payload.get("subject")):
+        return json_response(start_response, "400 Bad Request", {"error": "subject required"})
+    record = build_mail_followup(payload, actor)
+    entries = read_mail_followups()
+    # If the same thread already has an active follow-up, replace it.
+    entries = [
+        e for e in entries
+        if not (e.get("threadKey") == record["threadKey"] and e.get("status") in {"waiting", "urgent"})
+    ]
+    entries.insert(0, record)
+    write_mail_followups(entries)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_update_mail_followup(environ, start_response, followup_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    method = environ.get("REQUEST_METHOD", "GET").upper()
+    entries = read_mail_followups()
+    for index, entry in enumerate(entries):
+        if entry.get("id") != followup_id:
+            continue
+        if method == "DELETE":
+            entries.pop(index)
+            write_mail_followups(entries)
+            return json_response(start_response, "200 OK", {"ok": True, "deletedId": followup_id})
+        payload = collect_json(environ) or {}
+        if "status" in payload:
+            new_status = normalize_text(payload.get("status")).lower()
+            if new_status in {"waiting", "urgent", "replied", "cancelled"}:
+                entry["status"] = new_status
+                if new_status in {"replied", "cancelled"}:
+                    entry["completedAt"] = datetime.now(timezone.utc).isoformat()
+        if "days" in payload:
+            new_days = parse_int(payload.get("days")) or 0
+            if 1 <= new_days <= 60:
+                entry["days"] = new_days
+                created = entry.get("createdAt")
+                try:
+                    base = datetime.fromisoformat(created) if created else datetime.now(timezone.utc)
+                except Exception:
+                    base = datetime.now(timezone.utc)
+                entry["dueAt"] = (base + timedelta(days=new_days)).isoformat()
+                if entry.get("status") == "urgent":
+                    entry["status"] = "waiting"
+        entries[index] = entry
+        write_mail_followups(entries)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": entry})
+    return json_response(start_response, "404 Not Found", {"error": "Follow-up not found"})
+
+
+_MAIL_FOLLOWUP_SCAN_AT = [0.0]
+_MAIL_FOLLOWUP_MIN_INTERVAL_SEC = 60
+
+
+def scan_mail_followups():
+    """For each waiting/urgent follow-up: peek at the thread's latest inbox
+    message; if newer than the follow-up's createdAt, mark replied. Otherwise
+    if past dueAt, mark urgent + log a one-time bell notification.
+
+    Throttled to once per minute per worker, like scan_task_reminders.
+    """
+    nowmono = time.monotonic()
+    if nowmono - _MAIL_FOLLOWUP_SCAN_AT[0] < _MAIL_FOLLOWUP_MIN_INTERVAL_SEC:
+        return
+    _MAIL_FOLLOWUP_SCAN_AT[0] = nowmono
+
+    try:
+        entries = read_mail_followups()
+    except Exception:
+        return
+    if not entries:
+        return
+
+    now_utc = datetime.now(timezone.utc)
+    changed = False
+    cache_by_account = {}
+    for entry in entries:
+        if entry.get("status") not in {"waiting", "urgent"}:
+            continue
+        account_id = entry.get("accountId") or ""
+        if not account_id:
+            continue
+        if account_id not in cache_by_account:
+            try:
+                cache_by_account[account_id] = _read_mail_cache(account_id)
+            except Exception:
+                cache_by_account[account_id] = {"messages": []}
+        cache = cache_by_account[account_id]
+        subject_key = entry.get("subjectKey") or _normalize_mail_subject(entry.get("subject"))
+        created_iso = entry.get("createdAt") or ""
+        # Latest INBOX message in this thread (i.e. a reply from the other side).
+        latest = ""
+        for msg in cache.get("messages", []):
+            if (msg.get("folder") or "inbox") != "inbox":
+                continue
+            if _normalize_mail_subject(msg.get("subject")) != subject_key:
+                continue
+            d = msg.get("date") or ""
+            if d > latest:
+                latest = d
+        if latest and created_iso and latest > created_iso:
+            entry["status"] = "replied"
+            entry["completedAt"] = now_utc.isoformat()
+            changed = True
+            continue
+        # Past due → urgent + one-shot notification.
+        try:
+            due_dt = datetime.fromisoformat(entry.get("dueAt"))
+        except Exception:
+            continue
+        if now_utc >= due_dt and entry.get("status") != "urgent":
+            entry["status"] = "urgent"
+            entry["lastNotifiedAt"] = now_utc.isoformat()
+            changed = True
+            try:
+                log_notification(
+                    "mail.followup.urgent",
+                    entry.get("createdBy") or {"id": "system", "email": "noreply", "name": "TravelX"},
+                    "Follow-up overdue",
+                    detail=normalize_text(entry.get("subject")) or "Mail thread",
+                    meta={"id": entry.get("id"), "accountId": account_id, "subjectKey": subject_key},
+                )
+            except Exception:
+                pass
+
+    if changed:
+        try:
+            write_mail_followups(entries)
+        except Exception as exc:
+            print(f"[mail-followup] write failed: {exc}", flush=True)
+
+
 def handle_mail_unread_summary(environ, start_response):
     """Cache-only summary used by the topbar mail icon. Returns the count of
     unread inbox messages plus a short list of recent ones, scoped to the
@@ -12626,6 +12833,19 @@ def _dispatch(environ, start_response):
     if path == "/api/mail/unread-summary":
         if method == "GET":
             return handle_mail_unread_summary(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/mail/followups":
+        if method == "GET":
+            return handle_list_mail_followups(environ, start_response)
+        if method == "POST":
+            return handle_create_mail_followup(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/mail/followups/"):
+        followup_id = path.replace("/api/mail/followups/", "", 1).strip("/")
+        if followup_id and method in ("POST", "PATCH", "DELETE"):
+            return handle_update_mail_followup(environ, start_response, followup_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/mail/send":

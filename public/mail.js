@@ -78,6 +78,139 @@
 
   function getKey(m) { return `${m.accountId}:${m.uid}`; }
 
+  // ── Follow-up state ─────────────────────────────────────────────────
+  const SUBJECT_PREFIX_RE = /^\s*(re|fw|fwd|sv|aw|tr|ynt|rv|вн|нэ|fyi)\s*[:\-]\s*/i;
+  function normalizeSubject(s) {
+    let t = (s || "").trim().toLowerCase();
+    while (true) {
+      const next = t.replace(SUBJECT_PREFIX_RE, "").trim();
+      if (next === t) break;
+      t = next;
+    }
+    return t.replace(/\s+/g, " ");
+  }
+  function threadKey(accountId, subject) { return `${accountId}::${normalizeSubject(subject)}`; }
+
+  let followups = {}; // threadKey → record (active only: waiting | urgent)
+  async function loadFollowups() {
+    try {
+      const r = await fetch("/api/mail/followups");
+      if (!r.ok) return;
+      const data = await r.json();
+      followups = {};
+      for (const e of data.entries || []) {
+        if (e.status === "waiting" || e.status === "urgent") {
+          followups[e.threadKey] = e;
+        }
+      }
+    } catch {}
+  }
+  function followupFor(m) {
+    return followups[threadKey(m.accountId, m.subject)] || null;
+  }
+  function fmtDaysLeft(dueIso) {
+    if (!dueIso) return "";
+    const due = new Date(dueIso);
+    if (Number.isNaN(due.getTime())) return "";
+    const ms = due.getTime() - Date.now();
+    if (ms <= 0) return "overdue";
+    const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
+    return `${days}d`;
+  }
+  function bellSvg() {
+    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>';
+  }
+  function renderFollowupBadge(m) {
+    const f = followupFor(m);
+    const tk = threadKey(m.accountId, m.subject);
+    if (!f) {
+      return `<button type="button" class="mail-followup-btn mail-followup-btn--off" data-followup-key="${escapeHtml(tk)}" data-followup-account="${escapeHtml(m.accountId)}" data-followup-subject="${escapeHtml(m.subject || "")}" title="Set follow-up">${bellSvg()}</button>`;
+    }
+    const cls = f.status === "urgent" ? "mail-followup-btn--urgent" : "mail-followup-btn--on";
+    const label = f.status === "urgent" ? "overdue" : fmtDaysLeft(f.dueAt);
+    return `<button type="button" class="mail-followup-btn ${cls}" data-followup-key="${escapeHtml(tk)}" data-followup-id="${escapeHtml(f.id)}" data-followup-account="${escapeHtml(m.accountId)}" data-followup-subject="${escapeHtml(m.subject || "")}" title="Follow-up: ${escapeHtml(label)}">${bellSvg()}<span>${escapeHtml(label)}</span></button>`;
+  }
+
+  // Picker popover wired below; this opens it for the clicked row.
+  let activePickerHost = null;
+  function closeFollowupPicker() {
+    if (activePickerHost) {
+      activePickerHost.remove();
+      activePickerHost = null;
+    }
+  }
+  function openFollowupPicker(triggerEl) {
+    closeFollowupPicker();
+    const accountId = triggerEl.dataset.followupAccount;
+    const subject = triggerEl.dataset.followupSubject;
+    const existingId = triggerEl.dataset.followupId || "";
+    const host = document.createElement("div");
+    host.className = "mail-followup-picker";
+    host.innerHTML = `
+      <p class="mail-followup-picker-label">Follow up in…</p>
+      ${[1, 3, 5, 7].map((d) => `<button type="button" data-days="${d}">${d} day${d === 1 ? "" : "s"}</button>`).join("")}
+      <button type="button" data-action="custom">Custom…</button>
+      ${existingId ? `<button type="button" class="is-danger" data-action="clear" data-id="${escapeHtml(existingId)}">Clear follow-up</button>` : ""}
+    `;
+    document.body.appendChild(host);
+    activePickerHost = host;
+    const r = triggerEl.getBoundingClientRect();
+    host.style.position = "fixed";
+    host.style.top = `${r.bottom + 6}px`;
+    host.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - 220))}px`;
+    host.addEventListener("click", async (event) => {
+      const btn = event.target.closest("button");
+      if (!btn) return;
+      if (btn.dataset.action === "clear") {
+        await fetch(`/api/mail/followups/${encodeURIComponent(btn.dataset.id)}`, { method: "DELETE" });
+        await refreshFollowups();
+        closeFollowupPicker();
+        return;
+      }
+      if (btn.dataset.action === "custom") {
+        const v = window.prompt("Days (1–60):", "5");
+        const days = parseInt(v, 10);
+        if (!days || days < 1 || days > 60) { closeFollowupPicker(); return; }
+        await postFollowup(accountId, subject, days);
+        closeFollowupPicker();
+        return;
+      }
+      const days = parseInt(btn.dataset.days, 10);
+      if (!days) return;
+      await postFollowup(accountId, subject, days);
+      closeFollowupPicker();
+    });
+  }
+  document.addEventListener("click", (event) => {
+    if (activePickerHost && !activePickerHost.contains(event.target) && !event.target.closest(".mail-followup-btn")) {
+      closeFollowupPicker();
+    }
+  });
+  async function postFollowup(accountId, subject, days) {
+    try {
+      const r = await fetch("/api/mail/followups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId, subject, days }),
+      });
+      if (!r.ok) {
+        UI?.toast?.("Could not set follow-up.", "error");
+        return;
+      }
+      await refreshFollowups();
+    } catch {
+      UI?.toast?.("Could not set follow-up.", "error");
+    }
+  }
+  async function refreshFollowups() {
+    await loadFollowups();
+    renderList();
+    if (currentMessage) {
+      const host = document.querySelector("[data-followup-host]");
+      if (host) host.innerHTML = renderFollowupBadge(currentMessage);
+    }
+  }
+
   function getFiltered() {
     const q = (searchInput.value || "").trim().toLowerCase();
     const acc = accountFilter.value || "";
@@ -161,6 +294,7 @@
               </div>
             </div>
           </button>
+          <span class="mail-list-followup">${renderFollowupBadge(m)}</span>
         </div>
       `;
     }).join("");
@@ -519,6 +653,7 @@
           </p>
           ${attachmentsHtml}
           <div class="mail-viewer-actions">
+            <span data-followup-host>${renderFollowupBadge(m)}</span>
             ${actionsHtml}
           </div>
         </div>
@@ -537,6 +672,7 @@
           <small>${entries.length} messages · via ${escapeHtml(m.accountAddress || "")}</small>
         </p>
         <div class="mail-viewer-actions">
+          <span data-followup-host>${renderFollowupBadge(m)}</span>
           ${actionsHtml}
         </div>
       </div>
@@ -1315,9 +1451,26 @@
         updateBulkBar();
         return;
       }
+      const fbtn = e.target.closest(".mail-followup-btn");
+      if (fbtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        openFollowupPicker(fbtn);
+        return;
+      }
       const btn = e.target.closest("button.mail-list-row");
       if (btn) selectKey(btn.dataset.key);
     });
+    // Bell clicks inside the modal viewer use the same picker.
+    document.getElementById("mail-viewer-modal")?.addEventListener("click", (e) => {
+      const fbtn = e.target.closest(".mail-followup-btn");
+      if (fbtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        openFollowupPicker(fbtn);
+      }
+    });
+    loadFollowups();
     document.getElementById("mail-bulk-delete")?.addEventListener("click", bulkDelete);
     document.getElementById("mail-bulk-unread")?.addEventListener("click", bulkMarkUnread);
     document.getElementById("mail-bulk-clear")?.addEventListener("click", () => {
