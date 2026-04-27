@@ -6,7 +6,46 @@
   const status = document.getElementById("trip-note-status");
   const mentionPopover = document.getElementById("trip-note-mention-popover");
   const list = document.getElementById("trip-notes-list");
-  if (!form || !list) return;
+  const fab = document.getElementById("trip-notes-fab");
+  const fabCount = document.getElementById("trip-notes-fab-count");
+  const drawer = document.getElementById("trip-notes-drawer");
+  const drawerClose = document.getElementById("trip-notes-drawer-close");
+  const backdrop = document.getElementById("trip-notes-backdrop");
+  if (!form || !list || !drawer || !fab) return;
+
+  function openDrawer() {
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+    if (backdrop) backdrop.hidden = false;
+    document.body.classList.add("trip-notes-drawer-open");
+  }
+  function closeDrawer() {
+    drawer.classList.remove("is-open");
+    drawer.setAttribute("aria-hidden", "true");
+    if (backdrop) backdrop.hidden = true;
+    document.body.classList.remove("trip-notes-drawer-open");
+  }
+  fab.addEventListener("click", () => {
+    if (drawer.classList.contains("is-open")) closeDrawer();
+    else openDrawer();
+  });
+  drawerClose?.addEventListener("click", closeDrawer);
+  backdrop?.addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && drawer.classList.contains("is-open")) closeDrawer();
+  });
+
+  function updateBadge() {
+    if (!fabCount) return;
+    const n = notes.length;
+    if (!n) {
+      fabCount.hidden = true;
+      fabCount.textContent = "0";
+    } else {
+      fabCount.hidden = false;
+      fabCount.textContent = n > 99 ? "99+" : String(n);
+    }
+  }
 
   function tripId() {
     return new URLSearchParams(window.location.search).get("tripId") || "";
@@ -89,6 +128,7 @@
   }
 
   function render() {
+    updateBadge();
     if (!notes.length) {
       list.innerHTML = '<p class="empty">No notes for this trip yet.</p>';
       return;

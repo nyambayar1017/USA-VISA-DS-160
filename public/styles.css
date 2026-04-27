@@ -12635,3 +12635,119 @@ body.is-fit-trip .reservation-addon-table thead th:nth-child(3),
 body.is-fit-trip .reservation-addon-table tbody td:nth-child(3) {
   display: none;
 }
+
+/* ── Trip notes: floating NOTE button + slide-in drawer ─────────────── */
+.trip-notes-fab {
+  position: fixed;
+  top: 96px;
+  right: 24px;
+  z-index: 950;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #20356f;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.trip-notes-fab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
+}
+.trip-notes-fab-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.trip-notes-fab-count[hidden] { display: none; }
+
+.trip-notes-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  z-index: 990;
+  opacity: 0;
+  animation: trip-notes-backdrop-in 0.18s ease forwards;
+}
+@keyframes trip-notes-backdrop-in { to { opacity: 1; } }
+
+.trip-notes-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 92vw);
+  background: #fff;
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: -16px 0 40px rgba(15, 23, 42, 0.12);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.22s ease;
+}
+.trip-notes-drawer.is-open { transform: translateX(0); }
+
+.trip-notes-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+.trip-notes-drawer-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+.trip-notes-drawer-sub {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+.trip-notes-drawer-sub code {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+.trip-notes-drawer-close {
+  border: 0;
+  background: transparent;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 6px;
+}
+.trip-notes-drawer-close:hover { background: #f1f5f9; color: #0f172a; }
+
+.trip-notes-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+}
+
+body.trip-notes-drawer-open { overflow: hidden; }
+
+@media (max-width: 720px) {
+  .trip-notes-fab { top: auto; bottom: 24px; right: 16px; }
+}

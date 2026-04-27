@@ -139,31 +139,9 @@
           <div id="trip-list" class="submission-list"></div>
         </section>
 
-        <div class="trip-summary-row">
-          <section class="card trip-summary-row-left" id="trip-summary-section">
-            <div id="active-trip" class="is-hidden"></div>
-          </section>
-
-          <section class="card trip-summary-row-right" id="trip-notes-section">
-            <div class="section-head">
-              <div>
-                <h2>Trip notes</h2>
-                <p>Pinned to this trip. Use <code>@name</code> to ping someone's reminder bell.</p>
-              </div>
-            </div>
-            <form id="trip-note-form" class="notes-composer">
-              <div class="notes-composer-row notes-textarea-wrap">
-                <textarea id="trip-note-body" rows="2" placeholder="Add a note. @ to mention…"></textarea>
-                <div id="trip-note-mention-popover" class="notes-mention-popover" hidden></div>
-              </div>
-              <div class="actions">
-                <button type="submit">Post note</button>
-                <p id="trip-note-status" class="status"></p>
-              </div>
-            </form>
-            <div id="trip-notes-list" class="notes-list"></div>
-          </section>
-        </div>
+        <section class="card" id="trip-summary-section">
+          <div id="active-trip" class="is-hidden"></div>
+        </section>
 
         <section class="card" id="groups-section">
           <div class="section-head">
@@ -404,27 +382,6 @@
           </div>
           <div id="trip-invoices-list" class="submission-list"></div>
         </section>
-
-        <section class="card" id="trip-notes-section">
-          <div class="section-head">
-            <div>
-              <h2>Trip notes</h2>
-              <p>Notes pinned to this trip only. Use <code>@name</code> to ping a teammate's reminder bell.</p>
-            </div>
-          </div>
-          <form id="trip-note-form" class="notes-composer">
-            <div class="notes-composer-row notes-textarea-wrap">
-              <textarea id="trip-note-body" rows="2" placeholder="Add a note about this trip. @ to mention…"></textarea>
-              <div id="trip-note-mention-popover" class="notes-mention-popover" hidden></div>
-            </div>
-            <div class="actions">
-              <button type="submit">Post note</button>
-              <p id="trip-note-status" class="status"></p>
-            </div>
-          </form>
-          <div id="trip-notes-list" class="notes-list"></div>
-        </section>
-
 
         <section class="card" id="documents-section">
           <div class="section-head">
@@ -1134,6 +1091,35 @@
       </main>
     </div>
 
+    <button type="button" id="trip-notes-fab" class="trip-notes-fab" aria-label="Trip notes">
+      <span class="trip-notes-fab-label">NOTE</span>
+      <span class="trip-notes-fab-count" id="trip-notes-fab-count" hidden>0</span>
+    </button>
+
+    <aside id="trip-notes-drawer" class="trip-notes-drawer" aria-hidden="true">
+      <div class="trip-notes-drawer-head">
+        <div>
+          <h3>Trip notes</h3>
+          <p class="trip-notes-drawer-sub">Pinned to this trip. <code>@name</code> to mention.</p>
+        </div>
+        <button type="button" class="trip-notes-drawer-close" id="trip-notes-drawer-close" aria-label="Close">×</button>
+      </div>
+      <div class="trip-notes-drawer-body">
+        <form id="trip-note-form" class="notes-composer">
+          <div class="notes-composer-row notes-textarea-wrap">
+            <textarea id="trip-note-body" rows="3" placeholder="Add a note. @ to mention…"></textarea>
+            <div id="trip-note-mention-popover" class="notes-mention-popover" hidden></div>
+          </div>
+          <div class="actions">
+            <button type="submit">Post note</button>
+            <p id="trip-note-status" class="status"></p>
+          </div>
+        </form>
+        <div id="trip-notes-list" class="notes-list"></div>
+      </div>
+    </aside>
+    <div id="trip-notes-backdrop" class="trip-notes-backdrop" hidden></div>
+
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-112"></script>
     <script src="/destinations-multi.js?v=workspace-1"></script>
@@ -1142,7 +1128,7 @@
     <script src="/reservations-addon.js?v=workspace-15"></script>
     <script src="/trip-extras.js?v=workspace-18"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
-    <script src="/trip-notes.js?v=workspace-2"></script>
+    <script src="/trip-notes.js?v=workspace-3"></script>
     <script src="/contracts.js?v=workspace-7"></script>
     <script src="/invoice.js?v=workspace-21"></script>
   </body>
