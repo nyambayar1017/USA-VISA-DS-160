@@ -11253,17 +11253,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   gap: 18px;
 }
 .mail-bubble {
-  max-width: 95%;
+  max-width: 100%;
+  width: 100%;
   border-radius: 16px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: #ffffff;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-  padding: 14px 18px 14px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: fit-content;
-  min-width: min(640px, 100%);
+  min-width: 0;
 }
 .mail-bubble--theirs { align-self: flex-start; }
 .mail-bubble--mine {
@@ -11301,9 +11301,9 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .mail-bubble-body { line-height: 1.55; }
 .mail-bubble-iframe {
   width: 100%;
-  min-width: 580px;
-  height: 460px;
-  min-height: 360px;
+  min-width: 0;
+  height: 640px;
+  min-height: 460px;
   border: 0;
   background: transparent;
   display: block;
@@ -11317,8 +11317,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #0f172a;
 }
 @media (max-width: 720px) {
-  .mail-bubble { min-width: 0; max-width: 100%; }
-  .mail-bubble-iframe { min-width: 0; height: 380px; }
+  .mail-bubble { padding: 12px 14px; }
+  .mail-bubble-iframe { height: 480px; min-height: 360px; }
 }
 
 /* Compose modal */
