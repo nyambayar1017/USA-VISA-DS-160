@@ -12957,8 +12957,12 @@ def _dispatch(environ, start_response):
 
     # Per-store probe: which JSON file (if any) is unreadable on the
     # persistent disk. Not authenticated — only reports file size + parse
-    # status, never contents.
+    # status, never contents. Pass ?heal=1 to also push each file through
+    # read_json_list so the auto-recovery path runs (peels off trailing
+    # garbage from a concurrent-writer collision and rewrites the clean copy).
     if method == "GET" and path == "/api/debug/storage":
+        params = parse_qs(environ.get("QUERY_STRING", ""))
+        heal = (params.get("heal", [""])[0] or "") == "1"
         targets = [
             ("camp_trips", CAMP_TRIPS_FILE),
             ("tourists", TOURISTS_FILE),
@@ -12976,6 +12980,12 @@ def _dispatch(environ, start_response):
         report = []
         for name, path_obj in targets:
             row = {"name": name, "path": str(path_obj)}
+            if heal:
+                try:
+                    healed = read_json_list(path_obj)
+                    row["healed_count"] = len(healed)
+                except Exception as exc:
+                    row["heal_error"] = f"{type(exc).__name__}: {str(exc)[:120]}"
             try:
                 if not path_obj.exists():
                     row["status"] = "missing"
