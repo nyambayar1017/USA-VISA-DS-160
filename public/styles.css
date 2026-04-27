@@ -9734,13 +9734,42 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 .destinations-multi.is-open .destinations-multi-popover { display: block; }
 .destinations-multi-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  /* Force flex layout + tight gap so the checkbox sits flush against its
+     label text. The global `label { display: grid }` and the modal's
+     `.workspace-form-modal input { padding: 10px 12px }` rules were
+     spreading the checkbox to the centre and pushing the label text
+     across the popover; lock both back down with !important. */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  padding: 8px 10px !important;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 13px !important;
+  text-align: left !important;
+  margin: 0 !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+.destinations-multi-item input[type="checkbox"] {
+  /* Modal-wide input padding (10px 12px) inflates the checkbox box and
+     the auto-uppercase rule below applies font-style — kill both for
+     the popover. */
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 3px !important;
+  flex: 0 0 auto;
+}
+.destinations-multi-item span {
+  flex: 1 1 auto;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
+  color: #0f172a;
 }
 .destinations-multi-item:hover { background: #f4f6fa; }
 .invoices-saved-filter-row {
