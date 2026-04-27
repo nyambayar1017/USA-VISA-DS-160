@@ -377,13 +377,16 @@
     }
     if (e.target.id === "tourist-select-all") {
       const master = e.target;
-      const cbs = listNode.querySelectorAll(".ts-row-select:not([disabled])");
-      cbs.forEach((c) => {
-        c.checked = master.checked;
-        const id = c.dataset.touristId;
-        if (master.checked) selectedIds.add(id); else selectedIds.delete(id);
+      // Apply the master toggle to EVERY eligible row in the filtered set
+      // — not just the rows currently rendered on this page. Otherwise on
+      // a 42-tourist filter the user only marks the 20 rows on page 1.
+      const eligibleRows = getFiltered().filter(isEligibleForPromo);
+      eligibleRows.forEach((t) => {
+        if (master.checked) selectedIds.add(t.id);
+        else selectedIds.delete(t.id);
       });
-      updateRowCount();
+      // Repaint so the visible-row checkboxes reflect the new state.
+      render();
     }
   });
 

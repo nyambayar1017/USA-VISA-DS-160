@@ -605,7 +605,7 @@ function notificationTargetUrl(entry) {
   if (kind === "flight_reservation.created") return tripId ? `/trip-detail?tripId=${encodeURIComponent(tripId)}` : "/flight-reservations";
   if (kind === "transfer_reservation.created") return tripId ? `/trip-detail?tripId=${encodeURIComponent(tripId)}` : "/transfer-reservations";
   if (kind && kind.startsWith("contract")) return meta.id ? `/contracts?editId=${encodeURIComponent(meta.id)}` : "/contracts";
-  if (kind && kind.startsWith("task")) return "/backoffice";
+  if (kind && kind.startsWith("task")) return "/todo";
   return "";
 }
 

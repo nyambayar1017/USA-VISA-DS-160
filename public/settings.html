@@ -32,6 +32,7 @@
           <div class="settings-tabs" id="settings-tabs">
             <button type="button" class="settings-tab is-active" data-tab="destinations">Destinations</button>
             <button type="button" class="settings-tab" data-tab="camps">Camps</button>
+            <button type="button" class="settings-tab" data-tab="bank-accounts">Bank accounts</button>
           </div>
 
           <div class="settings-panel" data-panel="destinations">
@@ -100,8 +101,78 @@
             </div>
             <p id="camps-status" class="status"></p>
           </div>
+
+          <div class="settings-panel is-hidden" data-panel="bank-accounts">
+            <div class="section-head">
+              <div>
+                <h2>Bank accounts</h2>
+                <p>Available bank accounts shown to staff when emailing an invoice to a client. Add the account label, bank name, account number, and currency.</p>
+              </div>
+              <div class="camp-toolbar">
+                <button type="button" id="bank-add-button" class="header-action-btn">+ Add bank account</button>
+              </div>
+            </div>
+            <div id="bank-list" class="settings-camp-list"></div>
+            <p id="bank-status" class="status"></p>
+          </div>
         </section>
       </main>
+    </div>
+
+    <div id="bank-form-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-bank-form"></div>
+      <div class="camp-modal-dialog settings-camp-modal-dialog">
+        <div class="camp-modal-header">
+          <h2 id="bank-form-title">Add bank account</h2>
+          <button type="button" class="camp-modal-close" data-action="close-bank-form" aria-label="Close">×</button>
+        </div>
+        <form id="bank-form" class="settings-camp-form">
+          <input type="hidden" name="id" />
+          <div class="settings-camp-grid">
+            <label>
+              Label (shown in dropdowns)
+              <input name="label" placeholder="e.g. Khan Bank · MNT" required />
+            </label>
+            <label>
+              Bank name
+              <input name="bankName" placeholder="e.g. Khan Bank" required />
+            </label>
+            <label>
+              Account name
+              <input name="accountName" placeholder="Account holder" />
+            </label>
+            <label>
+              Account number
+              <input name="accountNumber" />
+            </label>
+            <label>
+              Currency
+              <select name="currency">
+                <option value="MNT">MNT</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="CNY">CNY</option>
+                <option value="JPY">JPY</option>
+                <option value="KRW">KRW</option>
+                <option value="RUB">RUB</option>
+              </select>
+            </label>
+            <label>
+              SWIFT / BIC (optional)
+              <input name="swift" />
+            </label>
+            <label class="full-span">
+              Notes (optional)
+              <textarea name="notes" rows="2"></textarea>
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit" class="primary-pill" id="bank-submit-button">Add bank account</button>
+            <button type="button" class="secondary-button" id="bank-cancel-button">Cancel</button>
+            <p id="bank-form-status" class="status"></p>
+          </div>
+        </form>
+      </div>
     </div>
 
     <div id="camp-form-modal" class="camp-modal is-hidden" hidden>
@@ -142,8 +213,8 @@
     </div>
 
     <script src="/compress-upload.js?v=workspace-1"></script>
-    <script src="/app-shell.js?v=workspace-109"></script>
-    <script src="/settings.js?v=workspace-4"></script>
+    <script src="/app-shell.js?v=workspace-110"></script>
+    <script src="/settings.js?v=workspace-5"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

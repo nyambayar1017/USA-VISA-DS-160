@@ -300,6 +300,7 @@ function renderTaskRow(task, idx) {
       <td><span class="todo-kind-pill">Task</span></td>
       <td class="todo-cell-title"><strong>${escapeHtml(task.title)}</strong></td>
       <td class="todo-cell-owner">${escapeHtml(task.owner || "—")}</td>
+      <td class="todo-cell-assigner">${escapeHtml(task.createdBy?.name || task.createdBy?.email || "—")}</td>
       <td><span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span></td>
       <td><span class="todo-badge status-${escapeHtml(sKey)}">${escapeHtml(sLabel)}</span></td>
       <td><span class="todo-due todo-due--${due.tone}">${escapeHtml(due.label)}${task.dueTime ? ` ${escapeHtml(task.dueTime)}` : ""}</span></td>
@@ -329,6 +330,7 @@ function renderContactRow(contact, idx) {
       <td><span class="todo-kind-pill todo-kind-pill--contact">Contact</span></td>
       <td class="todo-cell-title"><strong>${escapeHtml(contact.name)}</strong></td>
       <td class="todo-cell-owner"><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></td>
+      <td class="todo-cell-assigner">${escapeHtml(contact.createdBy?.name || contact.createdBy?.email || "—")}</td>
       <td><span class="todo-badge contact-${escapeHtml(contact.type || "client")}">${escapeHtml(contact.type || "client")}</span></td>
       <td><span class="todo-badge status-${escapeHtml(contact.status || "new")}">${escapeHtml(contact.status || "new")}</span></td>
       <td>${contact.lastContacted ? escapeHtml(formatDate(contact.lastContacted)) : "—"}</td>
@@ -375,6 +377,7 @@ function renderList() {
             <th>Type</th>
             <th>Title / Name</th>
             <th>Manager / Phone</th>
+            <th>Assigned by</th>
             <th>Priority / Type</th>
             <th>Status</th>
             <th>Due / Last contact</th>

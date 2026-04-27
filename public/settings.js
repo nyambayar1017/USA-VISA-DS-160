@@ -449,6 +449,139 @@ document.addEventListener("click", async (event) => {
   await saveCampSettings("Removed.");
 });
 
+// ── Bank accounts ────────────────────────────────────────────────────
+const bankList = document.getElementById("bank-list");
+const bankStatus = document.getElementById("bank-status");
+const bankAddButton = document.getElementById("bank-add-button");
+const bankFormModal = document.getElementById("bank-form-modal");
+const bankForm = document.getElementById("bank-form");
+const bankFormTitle = document.getElementById("bank-form-title");
+const bankFormStatus = document.getElementById("bank-form-status");
+const bankCancelButton = document.getElementById("bank-cancel-button");
+let bankAccounts = [];
+
+function renderBankAccounts() {
+  if (!bankList) return;
+  if (!bankAccounts.length) {
+    bankList.innerHTML = '<p class="empty">No bank accounts yet. Add one to use it on the invoice email step.</p>';
+    return;
+  }
+  bankList.innerHTML = bankAccounts.map((b) => `
+    <div class="settings-camp-card">
+      <div class="settings-camp-card-head">
+        <strong>${escapeHtml(b.label || b.bankName || "(unnamed)")}</strong>
+        <span class="settings-camp-location">${escapeHtml(b.currency || "MNT")}</span>
+      </div>
+      <div class="settings-camp-card-body">
+        <p><strong>${escapeHtml(b.bankName || "")}</strong>${b.accountName ? " · " + escapeHtml(b.accountName) : ""}</p>
+        ${b.accountNumber ? `<p>Acct: ${escapeHtml(b.accountNumber)}</p>` : ""}
+        ${b.swift ? `<p>SWIFT: ${escapeHtml(b.swift)}</p>` : ""}
+        ${b.notes ? `<p class="muted">${escapeHtml(b.notes)}</p>` : ""}
+      </div>
+      <div class="settings-camp-card-actions">
+        <button type="button" data-bank-edit="${escapeHtml(b.id)}">Edit</button>
+        <button type="button" data-bank-delete="${escapeHtml(b.id)}" class="button-secondary">Delete</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function openBankForm(account) {
+  if (!bankFormModal || !bankForm) return;
+  bankForm.reset();
+  bankForm.elements.id.value = account?.id || "";
+  bankForm.elements.label.value = account?.label || "";
+  bankForm.elements.bankName.value = account?.bankName || "";
+  bankForm.elements.accountName.value = account?.accountName || "";
+  bankForm.elements.accountNumber.value = account?.accountNumber || "";
+  bankForm.elements.currency.value = account?.currency || "MNT";
+  bankForm.elements.swift.value = account?.swift || "";
+  bankForm.elements.notes.value = account?.notes || "";
+  if (bankFormTitle) bankFormTitle.textContent = account ? "Edit bank account" : "Add bank account";
+  if (bankFormStatus) bankFormStatus.textContent = "";
+  bankFormModal.classList.remove("is-hidden");
+  bankFormModal.removeAttribute("hidden");
+}
+function closeBankForm() {
+  if (!bankFormModal) return;
+  bankFormModal.classList.add("is-hidden");
+  bankFormModal.setAttribute("hidden", "");
+}
+
+async function saveBankAccounts(message) {
+  try {
+    await fetchJson("/api/settings/bank-accounts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bankAccounts }),
+    });
+    if (bankStatus) bankStatus.textContent = message || "Saved.";
+    renderBankAccounts();
+  } catch (err) {
+    if (bankStatus) bankStatus.textContent = err.message || "Could not save.";
+  }
+}
+
+async function loadBankAccounts() {
+  try {
+    const res = await fetch("/api/settings");
+    if (!res.ok) return;
+    const data = await res.json();
+    bankAccounts = (data.entry?.bankAccounts) || [];
+    renderBankAccounts();
+  } catch {}
+}
+
+bankAddButton?.addEventListener("click", () => openBankForm(null));
+bankCancelButton?.addEventListener("click", closeBankForm);
+bankFormModal?.addEventListener("click", (e) => {
+  if (e.target?.dataset?.action === "close-bank-form") closeBankForm();
+});
+bankForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = bankForm.elements;
+  const record = {
+    id: f.id.value || undefined,
+    label: f.label.value.trim(),
+    bankName: f.bankName.value.trim(),
+    accountName: f.accountName.value.trim(),
+    accountNumber: f.accountNumber.value.trim(),
+    currency: f.currency.value,
+    swift: f.swift.value.trim(),
+    notes: f.notes.value.trim(),
+  };
+  if (!record.label && !record.bankName) {
+    if (bankFormStatus) bankFormStatus.textContent = "Label or bank name is required.";
+    return;
+  }
+  if (record.id) {
+    bankAccounts = bankAccounts.map((b) => (b.id === record.id ? { ...b, ...record } : b));
+  } else {
+    record.id = `bank_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    bankAccounts = [record, ...bankAccounts];
+  }
+  closeBankForm();
+  await saveBankAccounts(record.id && bankAccounts.find((b) => b.id === record.id && b !== bankAccounts[0]) ? "Updated." : "Added.");
+});
+
+bankList?.addEventListener("click", async (e) => {
+  const editBtn = e.target.closest("[data-bank-edit]");
+  if (editBtn) {
+    const acct = bankAccounts.find((b) => b.id === editBtn.dataset.bankEdit);
+    if (acct) openBankForm(acct);
+    return;
+  }
+  const delBtn = e.target.closest("[data-bank-delete]");
+  if (delBtn) {
+    const acct = bankAccounts.find((b) => b.id === delBtn.dataset.bankDelete);
+    if (!acct) return;
+    if (!confirm(`Remove "${acct.label || acct.bankName}"?`)) return;
+    bankAccounts = bankAccounts.filter((b) => b.id !== acct.id);
+    await saveBankAccounts("Removed.");
+  }
+});
+
 // ── Init ─────────────────────────────────────────────────────────────
 loadDestinations();
 loadCampSettings();
+loadBankAccounts();

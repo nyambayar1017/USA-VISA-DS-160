@@ -49,7 +49,10 @@
   const roomColorCache = new Map();
   function roomKeyFor(t) {
     if (!t || !t.roomType) return "";
-    return `${t.groupId || ""}|${t.roomType}|${t.roomCode || ""}`;
+    // Normalise so leading zeros / casing / trailing spaces in roomCode
+    // can't accidentally split one room into two colour buckets.
+    const code = String(t.roomCode || "").trim().toLowerCase();
+    return `${t.groupId || ""}|${t.roomType}|${code}`;
   }
   function roomColorFor(t) {
     const key = roomKeyFor(t);
@@ -218,6 +221,7 @@
           <thead>
             <tr>
               <th><input type="checkbox" id="tourist-select-all" aria-label="Select all" /></th>
+              <th>#</th>
               <th>Group</th>
               <th>Last name</th>
               <th>First name</th>
@@ -233,7 +237,7 @@
           <tbody>
             ${rows
               .map(
-                (t) => {
+                (t, idx) => {
                   const roomTypeShort = { single: "SGL", double: "DBL", twin: "TWIN", triple: "TPL", family: "FAM", other: "OTH" };
                   const roomLabel = t.roomType
                     ? `${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}`
@@ -243,6 +247,7 @@
                   return `
                     <tr>
                       <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
+                      <td>${idx + 1}</td>
                       <td><strong>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</strong></td>
                       <td>${escapeHtml(t.lastName || "")}</td>
                       <td>${escapeHtml(t.firstName || "")}</td>

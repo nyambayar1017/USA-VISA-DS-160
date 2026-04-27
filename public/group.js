@@ -67,7 +67,8 @@ const ROOM_PALETTE = [
 let roomColorMap = {};
 function roomKey(t) {
   if (!t || !t.roomType) return "";
-  return `${t.roomType}|${t.roomCode || ""}`;
+  const code = String(t.roomCode || "").trim().toLowerCase();
+  return `${t.roomType}|${code}`;
 }
 function rebuildRoomColorMap() {
   roomColorMap = {};

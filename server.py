@@ -786,7 +786,33 @@ DEFAULT_DESTINATIONS = [
 
 
 def default_settings():
-    return {"destinations": list(DEFAULT_DESTINATIONS)}
+    return {"destinations": list(DEFAULT_DESTINATIONS), "bankAccounts": []}
+
+
+def _normalize_bank_accounts(value):
+    """Each bank account is {id, label, bankName, accountName, accountNumber,
+    currency, swift, notes}. Tolerates missing fields."""
+    if not isinstance(value, list):
+        return []
+    out = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        label = normalize_text(item.get("label"))
+        bank = normalize_text(item.get("bankName"))
+        if not label and not bank:
+            continue
+        out.append({
+            "id": normalize_text(item.get("id")) or uuid4().hex,
+            "label": label or bank,
+            "bankName": bank,
+            "accountName": normalize_text(item.get("accountName")),
+            "accountNumber": normalize_text(item.get("accountNumber")),
+            "currency": (normalize_text(item.get("currency")) or "MNT").upper(),
+            "swift": normalize_text(item.get("swift")),
+            "notes": normalize_text(item.get("notes")),
+        })
+    return out
 
 
 def read_settings():
@@ -794,7 +820,8 @@ def read_settings():
     destinations = normalize_option_list(payload.get("destinations"))
     if not destinations:
         destinations = list(DEFAULT_DESTINATIONS)
-    return {"destinations": destinations}
+    bank_accounts = _normalize_bank_accounts(payload.get("bankAccounts"))
+    return {"destinations": destinations, "bankAccounts": bank_accounts}
 
 
 def write_settings(payload):
@@ -6133,6 +6160,7 @@ def handle_invoice_payment(environ, start_response, invoice_id):
         return json_response(start_response, "400 Bad Request", {"error": "installmentIndex must be integer"})
     new_status = normalize_text(payload.get("status")) or "paid"
     paid_date = normalize_text(payload.get("paidDate"))
+    note = normalize_text(payload.get("note"))
     records = read_invoices()
     for index, record in enumerate(records):
         if record.get("id") != invoice_id:
@@ -6143,6 +6171,10 @@ def handle_invoice_payment(environ, start_response, invoice_id):
         installments[inst_index]["status"] = new_status
         if paid_date:
             installments[inst_index]["paidDate"] = paid_date
+        # Free-text per-installment note: lets the manager record context
+        # like "Only paid for his father, not his mother".
+        if "note" in payload:
+            installments[inst_index]["note"] = note
         record["installments"] = installments
         record["updatedAt"] = now_mongolia().isoformat()
         record["updatedBy"] = actor_snapshot(actor)
@@ -7012,6 +7044,11 @@ def handle_manager_item_create(environ, start_response, key, builder, validator,
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     record = builder(payload)
+    # Stamp the user who *added* this item, so the to-do list can show
+    # "Assigned by …" — the manager column is the assignee, this is the
+    # one who created the entry.
+    record["createdBy"] = actor_snapshot(actor)
+    record["createdAt"] = record.get("createdAt") or now_mongolia().isoformat()
     error = validator(record)
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})
@@ -7740,6 +7777,23 @@ def handle_update_settings_destinations(environ, start_response):
     return json_response(start_response, "200 OK", {"ok": True, "entry": settings})
 
 
+def handle_update_settings_bank_accounts(environ, start_response):
+    """POST /api/settings/bank-accounts — replaces the full list.
+    Body: {"bankAccounts": [{label, bankName, accountName, accountNumber,
+    currency, swift, notes}, ...]}."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    accounts = _normalize_bank_accounts(payload.get("bankAccounts"))
+    settings = read_settings()
+    settings["bankAccounts"] = accounts
+    write_settings(settings)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": settings})
+
+
 def handle_upload_camp_contract(environ, start_response):
     """POST /api/camp-settings/contract — accepts {"campName": "...", "data": "data:application/pdf;base64,..."}
     Saves under camp-contracts/ and returns the relative path to store on the camp record.
@@ -7948,14 +8002,19 @@ def parse_passport_mrz(text):
         if len(country) == 3 and country.isalpha():
             fields["nationality"] = country
             found += 1
+        # Names are encoded as SURNAME<<GIVEN<NAMES<<<…< padding. OCR very
+        # often collapses runs of "<" — we've seen "<<" come back as "<" —
+        # which made the old split("<<", 1) treat the whole "SURNAME GIVEN"
+        # blob as the surname. Use a regex run-of-< splitter instead and
+        # treat the first non-empty chunk as the surname, the rest as
+        # given names. (Also drops the trailing "<<<<<<" filler cleanly.)
         names_part = line1[5:]
-        name_split = names_part.split("<<", 1)
-        surname = name_split[0].replace("<", " ").strip()
-        if surname:
-            fields["lastName"] = surname
+        chunks = [c for c in re.split(r"<+", names_part) if c]
+        if chunks:
+            fields["lastName"] = chunks[0].strip()
             found += 1
-        if len(name_split) > 1:
-            given = name_split[1].replace("<", " ").strip()
+        if len(chunks) > 1:
+            given = " ".join(c.strip() for c in chunks[1:] if c.strip())
             if given:
                 fields["firstName"] = given
                 found += 1
@@ -13662,6 +13721,11 @@ def _dispatch(environ, start_response):
     if path == "/api/settings/destinations":
         if method == "POST":
             return handle_update_settings_destinations(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/settings/bank-accounts":
+        if method == "POST":
+            return handle_update_settings_bank_accounts(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/fifa2026":

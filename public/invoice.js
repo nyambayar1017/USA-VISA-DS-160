@@ -470,11 +470,17 @@
     if (!sidePanelInvoice) return;
     const dt = await UI.prompt("Paid date (YYYY-MM-DD):", { defaultValue: new Date().toISOString().slice(0, 10) });
     if (!dt) return;
+    // Optional free-text note so the manager can record context ("paid only
+    // for his father, not his mother", etc). User cancellation / empty
+    // string both leave the note unset.
+    const note = await UI.prompt("Note (optional — context for this payment):", { defaultValue: "" });
+    const body = { installmentIndex: idx, status: "paid", paidDate: dt };
+    if (note != null) body.note = note;
     try {
       await fetchJson(`/api/invoices/${sidePanelInvoice.id}/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ installmentIndex: idx, status: "paid", paidDate: dt }),
+        body: JSON.stringify(body),
       });
       await loadAll();
       const updated = invoices.find((x) => x.id === sidePanelInvoice.id);
