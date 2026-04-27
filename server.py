@@ -167,13 +167,48 @@ def ensure_data_store():
 
 
 def read_json_list(file_path):
+    """Read a JSON-list-on-disk store. Tolerates the file not existing yet,
+    being empty, or being briefly truncated mid-write — those return [] rather
+    than 500 every endpoint that touches it. Surface the underlying problem
+    in the worker log so we still notice corruption."""
     ensure_data_store()
-    return json.loads(file_path.read_text(encoding="utf-8"))
+    try:
+        text = file_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        print(f"[read_json_list] OSError on {file_path}: {exc}", flush=True)
+        return []
+    text = text.strip()
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        print(f"[read_json_list] JSON decode failed on {file_path}: {exc}", flush=True)
+        # Stash the bad copy so we can inspect it later, then start clean.
+        try:
+            backup_path = file_path.with_suffix(file_path.suffix + ".corrupt")
+            backup_path.write_text(text, encoding="utf-8")
+        except Exception:
+            pass
+        return []
+    if not isinstance(data, list):
+        print(f"[read_json_list] Non-list payload in {file_path}; got {type(data).__name__}", flush=True)
+        return []
+    return data
 
 
 def write_json_list(file_path, records):
+    """Atomic write: render to a sibling temp file then rename, so a worker
+    crash mid-write can't leave the canonical file half-written (which would
+    500 every read endpoint downstream)."""
     ensure_data_store()
-    file_path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp_path = file_path.with_suffix(file_path.suffix + ".tmp")
+    tmp_path.write_text(
+        json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    os.replace(tmp_path, file_path)
 
 
 def list_backup_sources():
@@ -12882,6 +12917,44 @@ def _dispatch(environ, start_response):
 
     if method == "GET" and path == "/health":
         return text_response(start_response, "200 OK", "ok")
+
+    # Per-store probe: which JSON file (if any) is unreadable on the
+    # persistent disk. Not authenticated — only reports file size + parse
+    # status, never contents.
+    if method == "GET" and path == "/api/debug/storage":
+        targets = [
+            ("camp_trips", CAMP_TRIPS_FILE),
+            ("tourists", TOURISTS_FILE),
+            ("tourist_groups", GROUPS_FILE),
+            ("invoices", INVOICES_FILE),
+            ("camp_reservations", CAMP_RESERVATIONS_FILE),
+            ("flight_reservations", FLIGHT_RESERVATIONS_FILE),
+            ("transfer_reservations", TRANSFER_RESERVATIONS_FILE),
+            ("contracts", CONTRACTS_FILE),
+            ("ds160", DS160_FILE),
+            ("notifications", NOTIFICATIONS_FILE),
+            ("mail_followups", MAIL_FOLLOWUPS_FILE),
+            ("mail_dossiers", MAIL_DOSSIERS_FILE),
+        ]
+        report = []
+        for name, path_obj in targets:
+            row = {"name": name, "path": str(path_obj)}
+            try:
+                if not path_obj.exists():
+                    row["status"] = "missing"
+                else:
+                    raw = path_obj.read_text(encoding="utf-8")
+                    row["bytes"] = len(raw)
+                    try:
+                        parsed = json.loads(raw) if raw.strip() else []
+                        row["status"] = "ok" if isinstance(parsed, list) else f"not-a-list ({type(parsed).__name__})"
+                        row["count"] = len(parsed) if isinstance(parsed, list) else 0
+                    except Exception as parse_exc:
+                        row["status"] = f"parse-error: {type(parse_exc).__name__}: {str(parse_exc)[:120]}"
+            except Exception as exc:
+                row["status"] = f"read-error: {type(exc).__name__}: {str(exc)[:120]}"
+            report.append(row)
+        return json_response(start_response, "200 OK", {"data_dir": str(DATA_DIR), "files": report})
 
     if path == "/api/auth/register" and method == "POST":
         return handle_auth_register(environ, start_response)
