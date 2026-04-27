@@ -12550,8 +12550,13 @@ input[type="week"] {
 .notes-mention-item {
   text-align: left; padding: 6px 10px; border: 0; background: transparent;
   cursor: pointer; font: inherit; border-radius: 6px;
+  /* Global `button { color: white }` made the names invisible on the
+     white popover. Force a real text color. */
+  color: #0f172a !important;
+  font-size: 0.86rem;
+  display: block; width: 100%;
 }
-.notes-mention-item:hover { background: #f1f5f9; }
+.notes-mention-item:hover { background: #f1f5f9; color: #0f172a !important; }
 
 .notes-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
 .notes-item {

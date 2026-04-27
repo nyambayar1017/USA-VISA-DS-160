@@ -1060,10 +1060,26 @@ async function loadTripFlightInfo(tripId) {
     const list = (data.entries || []).filter((f) => f.tripId === tripId);
     if (!list.length) { node.innerHTML = ""; return; }
     const sorted = list.slice().sort((a, b) => String(a.departureDate || "").localeCompare(String(b.departureDate || "")));
-    const out = sorted[0];
-    const ret = sorted.length > 1 ? sorted[sorted.length - 1] : null;
-    const fmt = (f, label) => `<span><strong>${label}:</strong> ${escapeHtml(formatDate(f.departureDate))} ${escapeHtml(f.departureTime || "")} · ${escapeHtml(f.fromCity || "-")} → ${escapeHtml(f.toCity || "-")} ${escapeHtml(f.airline || "")} ${escapeHtml(f.flightNumber || "")}</span>`;
-    node.innerHTML = `${out ? fmt(out, "Depart") : ""}${ret ? fmt(ret, "Return") : ""}`;
+    // Render every flight as a self-contained block showing depart +
+    // arrive together. The previous one-line summary dropped arrival time
+    // even when it was set; that was the "shows only departure" bug.
+    const fmt = (f) => {
+      const route = `${escapeHtml(f.fromCity || "-")} → ${escapeHtml(f.toCity || "-")}`;
+      const carrier = [f.airline, f.flightNumber].filter(Boolean).map(escapeHtml).join(" ");
+      const dep = `${escapeHtml(formatDate(f.departureDate) || "—")} ${escapeHtml(f.departureTime || "")}`.trim();
+      const arr = `${escapeHtml(formatDate(f.arrivalDate || f.departureDate) || "—")} ${escapeHtml(f.arrivalTime || "")}`.trim();
+      const arrLine = (f.arrivalDate || f.arrivalTime)
+        ? `<span class="trip-flight-leg trip-flight-leg-arr"><strong>Arrive:</strong> ${arr}</span>`
+        : "";
+      return `
+        <div class="trip-flight-card">
+          <div class="trip-flight-card-route">${route}${carrier ? ` · <span class="muted">${carrier}</span>` : ""}</div>
+          <span class="trip-flight-leg trip-flight-leg-dep"><strong>Depart:</strong> ${dep}</span>
+          ${arrLine}
+        </div>
+      `;
+    };
+    node.innerHTML = sorted.map(fmt).join("");
   } catch (err) {
     node.innerHTML = "";
   }
