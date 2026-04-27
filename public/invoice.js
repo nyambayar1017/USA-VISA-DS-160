@@ -1097,29 +1097,14 @@
     } catch (err) { alert(err.message || "Could not save invoice."); }
   }
 
-  // Ensure the trip has at least one group; if not, create a default one
-  // (matches trip-extras.js behaviour). Returns once `groups` is populated.
+  // No silent auto-create: invoices need a group, but the user wants to
+  // manage groups by hand so they aren't surprised by auto-named ones.
+  // If the trip has none, throw a friendly error and the caller surfaces it.
   async function ensureDefaultGroup() {
     if (groups.length) return;
     try { await loadAll(); } catch {}
     if (groups.length) return;
-    // Get trip name to seed the default group name.
-    let tripName = "Default group";
-    try {
-      const trips = await fetchJson("/api/camp-trips");
-      const trip = (trips.entries || []).find((t) => t.id === tripId);
-      if (trip?.tripName) tripName = trip.tripName;
-    } catch {}
-    try {
-      await fetchJson("/api/tourist-groups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tripId, name: tripName, headcount: 1 }),
-      });
-      await loadAll();
-    } catch (err) {
-      throw new Error("Could not create a default group: " + (err.message || err));
-    }
+    throw new Error("Please add a group on the trip first, then create the invoice.");
   }
 
   // ── Wire ──
