@@ -212,6 +212,17 @@ function closeStadiumModal() {
   syncFifaModalOpenState();
 }
 
+// The stadium modal lives on <body>, but the existing close-stadium-modal
+// click handler was wired through the ticketList listener — so the × button
+// and backdrop never received it once the modal was open. Bind a direct
+// listener on the modal itself.
+stadiumModal.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-action='close-stadium-modal']");
+  if (!target) return;
+  event.preventDefault();
+  closeStadiumModal();
+});
+
 function openStadiumModal(location) {
   const stadium = STADIUM_IMAGE_MAP[location];
   if (!stadium) return;
