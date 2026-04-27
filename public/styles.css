@@ -12636,41 +12636,34 @@ body.is-fit-trip .reservation-addon-table tbody td:nth-child(3) {
   display: none;
 }
 
-/* ── Trip notes: floating NOTE button + slide-in drawer ─────────────── */
+/* ── Trip notes: inline NOTE button (next to Edit) + slide-in drawer ─── */
 .trip-notes-fab {
-  position: fixed;
-  top: 96px;
-  right: 24px;
-  z-index: 950;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 6px;
+  padding: 6px 14px;
   border: 0;
   border-radius: 999px;
   background: #20356f;
   color: #fff;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease;
 }
-.trip-notes-fab:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
-}
+.trip-notes-fab:hover { background: #16264f; }
+.trip-notes-fab[hidden] { display: none; }
 .trip-notes-fab-count {
   display: inline-grid;
   place-items: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   border-radius: 999px;
   background: #16a34a;
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -12747,7 +12740,3 @@ body.is-fit-trip .reservation-addon-table tbody td:nth-child(3) {
 }
 
 body.trip-notes-drawer-open { overflow: hidden; }
-
-@media (max-width: 720px) {
-  .trip-notes-fab { top: auto; bottom: 24px; right: 16px; }
-}

@@ -29,6 +29,25 @@
     if (drawer.classList.contains("is-open")) closeDrawer();
     else openDrawer();
   });
+
+  // Relocate NOTE button into the trip-summary actions row, next to Edit.
+  // The actions div is rendered by camp.js once trip data loads, so watch
+  // for it via MutationObserver and move the button when it appears.
+  function tryAttachFab() {
+    const actions = document.querySelector("#active-trip .trip-summary-actions");
+    if (!actions) return false;
+    if (actions.contains(fab)) return true;
+    actions.insertBefore(fab, actions.firstChild);
+    fab.hidden = false;
+    return true;
+  }
+  if (!tryAttachFab()) {
+    const activeTrip = document.getElementById("active-trip");
+    if (activeTrip) {
+      const obs = new MutationObserver(() => { if (tryAttachFab()) obs.disconnect(); });
+      obs.observe(activeTrip, { childList: true, subtree: true });
+    }
+  }
   drawerClose?.addEventListener("click", closeDrawer);
   backdrop?.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e) => {
