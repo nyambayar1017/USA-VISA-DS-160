@@ -398,6 +398,60 @@
     return !!me && me === from;
   }
 
+  // Cut the quoted reply chain ("On X wrote:" / <blockquote> / Outlook
+  // headers) out of an email body and stash it behind a "Show quoted
+  // history" toggle. Each bubble already shows the previous message, so
+  // re-rendering the quoted copy underneath doubles up and confuses
+  // Bataa. Pure HTML transform — no DOM, no parser dependency.
+  function splitQuotedHtml(html) {
+    if (!html || typeof html !== "string") return { visible: html || "", quoted: "" };
+    const candidates = [
+      /<blockquote\b/i,
+      /<div[^>]*class=["'][^"']*\b(gmail_quote|gmail_attr|OutlookMessageHeader|moz-cite-prefix)\b/i,
+      // "On Mon, Apr 9, 2026 at 6:41 PM ... wrote:" — many languages.
+      /(<[^>]+>\s*)?\bOn\s+[A-Z][a-z]+,?\s+\d{1,2}\s+[A-Z][a-z]+,?\s+\d{4}[\s\S]{0,200}?\bwrote:/i,
+      /(<[^>]+>\s*)?\bOn\s+\w+\s*\d{1,2}[,]?\s+\d{4}[\s\S]{0,200}?\bwrote:/i,
+      // Outlook reply header.
+      /(<[^>]+>\s*)?(From|От|Жонагч):\s*[\s\S]{0,400}?(Sent|Отправлено|Илгээсэн):/i,
+      // Mongolian + generic "Re:" preamble lines from forwarded mail.
+      /-{2,}\s*Original Message\s*-{2,}/i,
+      /-{2,}\s*Forwarded message\s*-{2,}/i,
+    ];
+    let cut = -1;
+    for (const re of candidates) {
+      const m = html.match(re);
+      if (m && m.index >= 0) {
+        if (cut === -1 || m.index < cut) cut = m.index;
+      }
+    }
+    if (cut === -1 || cut < 30) return { visible: html, quoted: "" };
+    return { visible: html.slice(0, cut), quoted: html.slice(cut) };
+  }
+
+  // Build the iframe srcdoc with the visible part on top and the quoted
+  // history wrapped in a <details> toggle. CSS is inlined so the iframe
+  // matches the bubble background.
+  function bubbleSrcdoc(bodyHtml) {
+    const { visible, quoted } = splitQuotedHtml(bodyHtml);
+    const css = `
+      <style>
+        body { font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 4px 0; word-wrap: break-word; overflow-wrap: anywhere; }
+        img { max-width: 100%; height: auto; }
+        pre, code { white-space: pre-wrap; word-wrap: break-word; }
+        details.mail-quoted-block { margin-top: 14px; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+        details.mail-quoted-block summary { cursor: pointer; color: #475569; font-size: 12px; font-style: italic; list-style: none; padding: 4px 0; }
+        details.mail-quoted-block summary::-webkit-details-marker { display: none; }
+        details.mail-quoted-block summary::before { content: "▸ "; }
+        details.mail-quoted-block[open] summary::before { content: "▾ "; }
+        details.mail-quoted-block .mail-quoted-body { color: #64748b; opacity: 0.85; }
+      </style>
+    `;
+    const quotedBlock = quoted
+      ? `<details class="mail-quoted-block"><summary>Show earlier messages</summary><div class="mail-quoted-body">${quoted}</div></details>`
+      : "";
+    return `<!doctype html><html><head><meta charset="utf-8">${css}</head><body>${visible}${quotedBlock}</body></html>`;
+  }
+
   function renderConversationBubbles(entries, current) {
     const currentKey = `${current.accountId}:${current.uid}`;
     return entries.map((e) => {
@@ -406,7 +460,7 @@
       const ini = initials(e.fromName, e.fromEmail);
       const color = colorFor(e.fromEmail || e.from);
       const body = e.bodyHtml
-        ? `<iframe class="mail-bubble-iframe" sandbox="" srcdoc="${escapeHtml(e.bodyHtml)}"></iframe>`
+        ? `<iframe class="mail-bubble-iframe" sandbox="allow-same-origin" srcdoc="${escapeHtml(bubbleSrcdoc(e.bodyHtml))}"></iframe>`
         : `<pre class="mail-bubble-text">${escapeHtml(e.bodyText || "(empty message)")}</pre>`;
       const atts = renderAttachments(e);
       const key = `${e.accountId}:${e.uid}`;
@@ -448,7 +502,7 @@
       const ini = initials(m.fromName, m.fromEmail);
       const color = colorFor(m.fromEmail || m.from);
       const bodyHtml = m.bodyHtml
-        ? `<iframe class="mail-body-iframe" sandbox="" srcdoc="${escapeHtml(m.bodyHtml)}"></iframe>`
+        ? `<iframe class="mail-body-iframe" sandbox="allow-same-origin" srcdoc="${escapeHtml(bubbleSrcdoc(m.bodyHtml))}"></iframe>`
         : `<pre class="mail-body-text">${escapeHtml(m.bodyText || "(empty message)")}</pre>`;
       const attachmentsHtml = renderAttachments(m);
       viewerNode.innerHTML = `
