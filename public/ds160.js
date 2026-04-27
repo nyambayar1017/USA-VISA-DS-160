@@ -27,7 +27,7 @@ const dateToInput = document.querySelector("#ds160-date-to");
 const TEAM_PHONE = "72007722";
 const TEAM_COMPANY = "Дэлхий Трэвел Икс";
 const TEAM_WEBSITE = "www.travelx.mn";
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 const ANSWER_SECTIONS = [
   {

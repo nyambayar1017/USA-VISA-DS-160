@@ -1,6 +1,6 @@
 const CONTRACTS_ENDPOINT = "/api/contracts";
 const CONTRACTS_POLL_INTERVAL_MS = 10000;
-const CONTRACTS_PAGE_SIZE = 15;
+const CONTRACTS_PAGE_SIZE = 20;
 let contractsPollHandle = null;
 let latestContractsSignature = "";
 let allContracts = [];

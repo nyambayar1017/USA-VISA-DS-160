@@ -306,10 +306,15 @@ function renderTaskRow(task, idx) {
       <td class="todo-cell-dests">${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join(" ") : "—"}</td>
       <td>${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">See note</button>` : "—"}</td>
       <td class="todo-cell-actions">
-        <button type="button" data-task-edit="${escapeHtml(task.id)}">Edit</button>
-        ${task.status !== "in-progress" && task.status !== "done" ? `<button type="button" data-task-progress="${escapeHtml(task.id)}">Start</button>` : ""}
-        ${task.status !== "done" ? `<button type="button" data-task-done="${escapeHtml(task.id)}">Done</button>` : ""}
-        <button type="button" data-task-delete="${escapeHtml(task.id)}" class="button-secondary">Delete</button>
+        <details class="row-menu">
+          <summary class="row-menu-trigger" aria-label="Task actions">⋯</summary>
+          <div class="row-menu-popover">
+            <button type="button" class="row-menu-item" data-task-edit="${escapeHtml(task.id)}">Edit</button>
+            ${task.status !== "in-progress" && task.status !== "done" ? `<button type="button" class="row-menu-item" data-task-progress="${escapeHtml(task.id)}">Start</button>` : ""}
+            ${task.status !== "done" ? `<button type="button" class="row-menu-item" data-task-done="${escapeHtml(task.id)}">Done</button>` : ""}
+            <button type="button" class="row-menu-item is-danger" data-task-delete="${escapeHtml(task.id)}">Delete</button>
+          </div>
+        </details>
       </td>
     </tr>
   `;
@@ -330,9 +335,14 @@ function renderContactRow(contact, idx) {
       <td class="todo-cell-dests">${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join(" ") : "—"}</td>
       <td>${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(contact.id)}" data-note-kind="contact">See note</button>` : "—"}</td>
       <td class="todo-cell-actions">
-        <button type="button" data-contact-edit="${escapeHtml(contact.id)}">Edit</button>
-        <button type="button" data-contact-priority="${escapeHtml(contact.id)}">${contact.status === "priority" ? "Warm" : "Priority"}</button>
-        <button type="button" data-contact-delete="${escapeHtml(contact.id)}" class="button-secondary">Delete</button>
+        <details class="row-menu">
+          <summary class="row-menu-trigger" aria-label="Contact actions">⋯</summary>
+          <div class="row-menu-popover">
+            <button type="button" class="row-menu-item" data-contact-edit="${escapeHtml(contact.id)}">Edit</button>
+            <button type="button" class="row-menu-item" data-contact-priority="${escapeHtml(contact.id)}">${contact.status === "priority" ? "Warm" : "Priority"}</button>
+            <button type="button" class="row-menu-item is-danger" data-contact-delete="${escapeHtml(contact.id)}">Delete</button>
+          </div>
+        </details>
       </td>
     </tr>
   `;

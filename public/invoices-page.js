@@ -16,6 +16,9 @@
   const tripById = new Map();
   const groupById = new Map();
   const activeStatuses = new Set();
+  const pgnHost = document.getElementById("inv-pagination");
+  const pgn = window.Paginator ? new window.Paginator({ pageSize: 20, onChange: function () { render(); } }) : null;
+  if (pgn && pgnHost) pgn.attach(pgnHost);
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -146,12 +149,15 @@
   }
 
   function render() {
-    const list = getFiltered();
-    countNode.textContent = list.length + " invoice" + (list.length === 1 ? "" : "s");
-    if (!list.length) {
+    const all = getFiltered();
+    countNode.textContent = all.length + " invoice" + (all.length === 1 ? "" : "s");
+    if (!all.length) {
       tbody.innerHTML = '<tr><td colspan="9" class="empty">No invoices match the current filters.</td></tr>';
+      if (pgnHost) pgnHost.innerHTML = "";
       return;
     }
+    const list = pgn ? pgn.slice(all) : all;
+    const offset = pgn ? (pgn.page - 1) * pgn.pageSize : 0;
     tbody.innerHTML = list.map((inv, i) => {
       const group = groupById.get(inv.groupId);
       const grp = groupLabel(inv);
@@ -162,7 +168,7 @@
       const d = inv._derived;
       return (
         "<tr>" +
-        "<td>" + (i + 1) + "</td>" +
+        "<td>" + (offset + i + 1) + "</td>" +
         "<td>" + serialCell + "</td>" +
         "<td>" + groupCell + "</td>" +
         "<td>" + escapeHtml(inv.payerName || "-") + "</td>" +
@@ -174,15 +180,17 @@
         "</tr>"
       );
     }).join("");
+    if (pgnHost && pgn) pgnHost.innerHTML = pgn.controlsHtml();
   }
 
+  function rerenderFromFilter() { if (pgn) pgn.reset(); render(); }
   [filterSerial, filterGroup, filterPayer].forEach((el) => {
-    el.addEventListener("input", render);
+    el.addEventListener("input", rerenderFromFilter);
   });
   [filterFrom, filterTo].forEach((el) => {
     el.addEventListener("change", () => {
       updateDateRangeCount();
-      render();
+      rerenderFromFilter();
     });
   });
 

@@ -12356,3 +12356,45 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #b91c1c;
   letter-spacing: 0.01em;
 }
+
+/* ── Pagination bar (used by every list page via pagination.js) ──────── */
+.pgn-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  background: #f8fafc;
+  border-radius: 0 0 10px 10px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+.pgn-info { font-weight: 600; }
+.pgn-buttons { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.pgn-btn {
+  min-width: 32px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pgn-btn:hover:not(:disabled) { background: #eef2ff; border-color: rgba(32, 53, 111, 0.25); }
+.pgn-btn:disabled { opacity: 0.4; cursor: default; }
+.pgn-btn.is-active {
+  background: #20356f;
+  color: #ffffff;
+  border-color: #20356f;
+}
+@media (max-width: 720px) {
+  .pgn-bar { padding: 8px 10px; gap: 6px; }
+  .pgn-btn { min-width: 28px; height: 28px; padding: 0 8px; font-size: 0.78rem; }
+  .pgn-info { font-size: 0.76rem; }
+}

@@ -14,6 +14,9 @@
   let selectedKey = "";
   let currentFolder = "inbox"; // "inbox" or "sent"
   let unreadOnly = false;
+  const mailPgn = window.Paginator
+    ? new window.Paginator({ pageSize: 20, onChange: function () { renderList(); } })
+    : null;
   const checkedKeys = new Set();
 
   // Read the current workspace (DTX/USM). App-shell stores it in localStorage
@@ -457,16 +460,17 @@
   }
 
   function renderList() {
-    const rows = getFiltered();
-    countNode.textContent = `${rows.length} message${rows.length === 1 ? "" : "s"}`;
+    const allRows = getFiltered();
+    countNode.textContent = `${allRows.length} message${allRows.length === 1 ? "" : "s"}`;
     updateBulkBar();
-    if (!rows.length) {
+    if (!allRows.length) {
       const emptyMsg = currentFolder === "sent"
         ? "No sent messages match."
         : "No messages match.";
       listNode.innerHTML = `<p class="empty">${emptyMsg}</p>`;
       return;
     }
+    const rows = mailPgn ? mailPgn.slice(allRows) : allRows;
     const isSent = currentFolder === "sent";
     listNode.innerHTML = rows.map((m) => {
       const key = getKey(m);
@@ -518,7 +522,8 @@
           <span class="mail-list-followup">${renderFollowupBadge(m)}</span>
         </div>
       `;
-    }).join("");
+    }).join("") + (mailPgn ? mailPgn.controlsHtml() : "");
+    if (mailPgn) mailPgn.attach(listNode);
   }
 
   function updateBulkBar() {
@@ -1693,8 +1698,9 @@
     }
     accountFilter.innerHTML = `<option value="">${escapeHtml(wsLabel)}</option>` +
       accounts.map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.address)}</option>`).join("");
-    accountFilter.addEventListener("change", renderList);
-    searchInput.addEventListener("input", renderList);
+    function rerenderMail() { if (mailPgn) mailPgn.reset(); renderList(); }
+    accountFilter.addEventListener("change", rerenderMail);
+    searchInput.addEventListener("input", rerenderMail);
     refreshBtn.addEventListener("click", () => loadInbox(true));
     listNode.addEventListener("click", (e) => {
       const cb = e.target.closest("[data-bulk-key]");

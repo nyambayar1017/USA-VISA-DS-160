@@ -25,6 +25,8 @@
   let groups = [];
   let tourists = [];
   const activeStatuses = new Set();
+  const pgn = new window.Paginator({ pageSize: 20, onChange: function () { render(); } });
+  pgn.attach(listNode);
   // Opt-in selection: only ids in this set are sent to the promo modal.
   // (Bataa explicitly wanted nothing pre-checked — manager must opt-in to
   // every recipient.)
@@ -236,16 +238,18 @@
   }
 
   function render() {
-    const rows = getFiltered();
-    const eligible = rows.filter(isEligibleForPromo).length;
-    const selected = rows.filter(isPromoSelected).length;
+    const allRows = getFiltered();
+    const eligible = allRows.filter(isEligibleForPromo).length;
+    const selected = allRows.filter(isPromoSelected).length;
     countNode.textContent =
-      rows.length + " tourist" + (rows.length === 1 ? "" : "s") +
+      allRows.length + " tourist" + (allRows.length === 1 ? "" : "s") +
       " · " + selected + " selected (of " + eligible + " eligible)";
-    if (!rows.length) {
+    if (!allRows.length) {
       listNode.innerHTML = '<p class="empty">No tourists match the current filters.</p>';
       return;
     }
+    const rows = pgn.slice(allRows);
+    const pageOffset = (pgn.page - 1) * pgn.pageSize;
     const tripById = Object.fromEntries(trips.map((t) => [t.id, t]));
     const cols = ALL_COLUMNS.filter((c) => colVisible(c.key));
     const headers = cols.map((c) => {
@@ -281,7 +285,7 @@
         </details>`;
       const cells = {
         select: `<input type="checkbox" class="ts-row-select" data-tourist-id="${escapeHtml(t.id)}"${checked ? " checked" : ""}${blocked ? " disabled" : ""} title="${escapeHtml(checkboxTitle)}" />`,
-        rowNum: String(idx + 1),
+        rowNum: String(pageOffset + idx + 1),
         serial: '<strong>' + escapeHtml(t.serial || "—") + "</strong>",
         lastName: escapeHtml(t.lastName || ""),
         firstName: escapeHtml(t.firstName || ""),
@@ -307,6 +311,7 @@
           <tbody>${body}</tbody>
         </table>
       </div>
+      ${pgn.controlsHtml()}
     `;
     syncSelectAll();
   }
@@ -561,18 +566,22 @@
   });
 
   // ── Filter wiring ────────────────────────────────────────────────────
-  [filterName, filterSerial, filterTag].forEach((el) => el.addEventListener("input", render));
-  filterTrip.addEventListener("change", () => { renderGroupOptions(); render(); });
-  filterGroup.addEventListener("change", render);
-  [filterDobFrom, filterDobTo].forEach((el) => el.addEventListener("change", () => { updateDobCount(); render(); }));
-  [filterAgeMin, filterAgeMax].forEach((el) => el.addEventListener("input", () => { updateAgeCount(); render(); }));
+  // Any filter change snaps back to page 1 — otherwise a user on page 5 of
+  // an unfiltered list could be left staring at an empty page after typing
+  // a search term.
+  function rerenderFromFilter() { pgn.reset(); render(); }
+  [filterName, filterSerial, filterTag].forEach((el) => el.addEventListener("input", rerenderFromFilter));
+  filterTrip.addEventListener("change", () => { renderGroupOptions(); rerenderFromFilter(); });
+  filterGroup.addEventListener("change", rerenderFromFilter);
+  [filterDobFrom, filterDobTo].forEach((el) => el.addEventListener("change", () => { updateDobCount(); rerenderFromFilter(); }));
+  [filterAgeMin, filterAgeMax].forEach((el) => el.addEventListener("input", () => { updateAgeCount(); rerenderFromFilter(); }));
   statusPills.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-status]");
     if (!btn) return;
     const s = btn.dataset.status;
     if (activeStatuses.has(s)) activeStatuses.delete(s); else activeStatuses.add(s);
     btn.classList.toggle("is-active");
-    render();
+    rerenderFromFilter();
   });
 
   function updateDobCount() {

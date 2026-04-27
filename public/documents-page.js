@@ -14,6 +14,9 @@
   if (!tbody) return;
 
   let docs = [];
+  const pgnHost = document.getElementById("doc-pagination");
+  const pgn = new window.Paginator({ pageSize: 20, onChange: function () { render(); } });
+  if (pgnHost) pgn.attach(pgnHost);
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -111,12 +114,15 @@
   }
 
   function render() {
-    const rows = getFiltered();
-    countNode.textContent = rows.length + " document" + (rows.length === 1 ? "" : "s");
-    if (!rows.length) {
+    const allRows = getFiltered();
+    countNode.textContent = allRows.length + " document" + (allRows.length === 1 ? "" : "s");
+    if (!allRows.length) {
       tbody.innerHTML = '<tr><td colspan="12" class="empty">No documents match the current filters.</td></tr>';
+      if (pgnHost) pgnHost.innerHTML = "";
       return;
     }
+    const rows = pgn.slice(allRows);
+    const pageOffset = (pgn.page - 1) * pgn.pageSize;
     tbody.innerHTML = rows.map((d, idx) => {
       const dateTime = (d.uploadedAt || "").slice(0, 16).replace("T", " ");
       const ext = fileExt(d.originalName);
@@ -135,7 +141,7 @@
       const lastName = d.touristLastName || (d.touristName ? d.touristName.split(" ")[0] : "") || "";
       const firstName = d.touristFirstName || (d.touristName ? d.touristName.split(" ").slice(1).join(" ") : "") || "";
       return "<tr>" +
-        "<td>" + (idx + 1) + "</td>" +
+        "<td>" + (pageOffset + idx + 1) + "</td>" +
         '<td><a class="doc-file-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(d.originalName || "-") + "</a></td>" +
         "<td>" + escapeHtml(lastName || "-") + "</td>" +
         "<td>" + escapeHtml(firstName || "-") + "</td>" +
@@ -149,6 +155,7 @@
         '<td><a class="doc-download-pill" href="' + escapeHtml(downloadUrl) + '" download>Download</a></td>' +
         "</tr>";
     }).join("");
+    if (pgnHost) pgnHost.innerHTML = pgn.controlsHtml();
   }
 
   function updateDateCount() {
@@ -160,9 +167,10 @@
     else { badge.setAttribute("hidden", ""); pill.classList.remove("has-active"); }
   }
 
-  [filterName, filterTourist, filterDestination].filter(Boolean).forEach((el) => el.addEventListener("input", render));
-  [filterTrip, filterCategory, filterExt].forEach((el) => el.addEventListener("change", render));
-  [filterFrom, filterTo].forEach((el) => el.addEventListener("change", () => { updateDateCount(); render(); }));
+  function rerenderFromFilter() { pgn.reset(); render(); }
+  [filterName, filterTourist, filterDestination].filter(Boolean).forEach((el) => el.addEventListener("input", rerenderFromFilter));
+  [filterTrip, filterCategory, filterExt].forEach((el) => el.addEventListener("change", rerenderFromFilter));
+  [filterFrom, filterTo].forEach((el) => el.addEventListener("change", () => { updateDateCount(); rerenderFromFilter(); }));
   resetBtn.addEventListener("click", () => {
     filterName.value = "";
     filterTourist.value = "";

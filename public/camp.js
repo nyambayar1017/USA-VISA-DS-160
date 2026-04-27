@@ -82,7 +82,7 @@ let activeCampDateFrom = "";
 let activeCampDateTo = "";
 let activeTripPanelHidden = false;
 let activeCampPanelHidden = false;
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 const TRIP_STATUS_OPTIONS = [
   ["offer", "Offer"],
   ["planning", "Planning"],
