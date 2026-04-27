@@ -9212,6 +9212,11 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #374151;
   border-color: #9ca3af;
 }
+.invoices-status-pill.is-active[data-camp-filter] {
+  background: #2563eb;
+  color: #fff;
+  border-color: #1d4ed8;
+}
 
 /* ── To-Do page rows ───────────────────────────────────────────────── */
 #todo-list { max-width: 100%; overflow: hidden; }

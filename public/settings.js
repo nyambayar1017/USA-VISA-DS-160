@@ -6,7 +6,14 @@ const panels = document.querySelectorAll(".settings-panel");
 const destinationForm = document.getElementById("destination-form");
 const destinationInput = document.getElementById("destination-input");
 const destinationList = document.getElementById("destination-list");
+const destinationSearch = document.getElementById("destination-search");
+const destinationCount = document.getElementById("destination-count");
 const destinationsStatus = document.getElementById("destinations-status");
+
+const campSearch = document.getElementById("camp-search");
+const campStatusPills = document.getElementById("camp-status-pills");
+const campCount = document.getElementById("camp-count");
+let campFilter = "";
 
 const campForm = document.getElementById("camp-form");
 const campFormModal = document.getElementById("camp-form-modal");
@@ -76,11 +83,26 @@ tabsBar?.addEventListener("click", (event) => {
 
 // ── Destinations ─────────────────────────────────────────────────────
 function renderDestinations() {
+  const query = (destinationSearch?.value || "").trim().toLowerCase();
+  const filtered = query
+    ? destinations.filter((n) => n.toLowerCase().includes(query))
+    : destinations;
+
+  if (destinationCount) {
+    destinationCount.textContent = query
+      ? `${filtered.length} of ${destinations.length}`
+      : `${destinations.length} destination${destinations.length === 1 ? "" : "s"}`;
+  }
+
   if (!destinations.length) {
     destinationList.innerHTML = '<p class="empty">No destinations yet — add one above.</p>';
     return;
   }
-  destinationList.innerHTML = destinations
+  if (!filtered.length) {
+    destinationList.innerHTML = '<p class="empty">No destinations match your search.</p>';
+    return;
+  }
+  destinationList.innerHTML = filtered
     .map(
       (name) => `
         <span class="setting-pill">
@@ -91,6 +113,8 @@ function renderDestinations() {
     )
     .join("");
 }
+
+destinationSearch?.addEventListener("input", renderDestinations);
 
 async function loadDestinations() {
   try {
@@ -152,10 +176,37 @@ function resetCampForm() {
 
 function renderCamps() {
   const names = campSettings.campNames || [];
+  const query = (campSearch?.value || "").trim().toLowerCase();
+
+  const filtered = names.filter((name) => {
+    const location = campSettings.campLocations?.[name] || "";
+    const detail = campSettings.campDetails?.[name] || {};
+    const hasPrice = !!(detail.price && detail.price.trim());
+    const hasContract = !!(detail.contractPath && detail.contractPath.trim());
+
+    if (query) {
+      const hay = (name + " " + location).toLowerCase();
+      if (!hay.includes(query)) return false;
+    }
+    if (campFilter === "has-price" && !hasPrice) return false;
+    if (campFilter === "has-contract" && !hasContract) return false;
+    if (campFilter === "missing-price" && hasPrice) return false;
+    if (campFilter === "missing-contract" && hasContract) return false;
+    return true;
+  });
+
+  if (campCount) {
+    campCount.textContent = (query || campFilter)
+      ? `${filtered.length} of ${names.length}`
+      : `${names.length} camp${names.length === 1 ? "" : "s"}`;
+  }
+
   if (!names.length) {
-    campList.innerHTML = '<p class="empty">No camps yet — add one above.</p>';
+    campList.innerHTML = '<p class="empty">No camps yet — click "+ Add camp" above.</p>';
+  } else if (!filtered.length) {
+    campList.innerHTML = '<p class="empty">No camps match these filters.</p>';
   } else {
-    campList.innerHTML = names
+    campList.innerHTML = filtered
       .map((name) => {
         const location = campSettings.campLocations?.[name] || "";
         const detail = campSettings.campDetails?.[name] || {};
@@ -183,6 +234,18 @@ function renderCamps() {
   renderAuxPills("staffAssignments", campSettings.staffAssignments || []);
   renderAuxPills("roomChoices", campSettings.roomChoices || []);
 }
+
+campSearch?.addEventListener("input", renderCamps);
+campStatusPills?.addEventListener("click", (event) => {
+  const pill = event.target.closest(".invoices-status-pill");
+  if (!pill) return;
+  const value = pill.dataset.campFilter;
+  campFilter = campFilter === value ? "" : value;
+  campStatusPills.querySelectorAll(".invoices-status-pill").forEach((b) => {
+    b.classList.toggle("is-active", b.dataset.campFilter === campFilter);
+  });
+  renderCamps();
+});
 
 function renderAuxPills(group, values) {
   const host = document.getElementById(`settings-${group}`);

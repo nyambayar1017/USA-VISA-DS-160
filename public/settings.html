@@ -47,6 +47,11 @@
               <button type="submit" class="primary-pill">+ Add</button>
             </form>
 
+            <div class="invoices-filter-bar">
+              <input id="destination-search" type="search" placeholder="Search destinations" autocomplete="off" />
+              <span id="destination-count" class="invoices-count"></span>
+            </div>
+
             <div id="destination-list" class="setting-pill-list"></div>
             <p id="destinations-status" class="status"></p>
           </div>
@@ -60,6 +65,17 @@
               <div class="camp-toolbar">
                 <button type="button" id="camp-add-button" class="header-action-btn">+ Add camp</button>
               </div>
+            </div>
+
+            <div class="invoices-filter-bar">
+              <input id="camp-search" type="search" placeholder="Search by name or location" autocomplete="off" />
+              <div class="invoices-status-pills" id="camp-status-pills">
+                <button type="button" class="invoices-status-pill" data-camp-filter="has-price">Has price</button>
+                <button type="button" class="invoices-status-pill" data-camp-filter="has-contract">Has contract</button>
+                <button type="button" class="invoices-status-pill" data-camp-filter="missing-price">Missing price</button>
+                <button type="button" class="invoices-status-pill" data-camp-filter="missing-contract">Missing contract</button>
+              </div>
+              <span id="camp-count" class="invoices-count"></span>
             </div>
 
             <div id="camp-list" class="settings-camp-list"></div>
@@ -126,7 +142,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-106"></script>
-    <script src="/settings.js?v=workspace-2"></script>
+    <script src="/settings.js?v=workspace-3"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
