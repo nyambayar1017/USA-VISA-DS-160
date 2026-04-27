@@ -1042,13 +1042,23 @@ function renderActiveTrip() {
       </article>
       <article class="trip-summary-stat">
         <span>Status</span>
-        <strong>${escapeHtml(formatStatusLabel(trip.status) || "-")}</strong>
+        <select id="active-trip-status-select" class="trip-status-select trip-status-select--${normalizeStatus(trip.status) || "unknown"}">
+          ${["offer","planning","confirmed","travelling","completed","cancelled"].map((s) =>
+            `<option value="${s}" ${normalizeStatus(trip.status) === s ? "selected" : ""}>${escapeHtml(formatStatusLabel(s))}</option>`
+          ).join("")}
+        </select>
       </article>
     </div>
   `;
   loadTripFlightInfo(trip.id);
   document.getElementById("active-trip-edit-btn")?.addEventListener("click", () => {
     startTripEdit(trip.id);
+  });
+  const statusSelect = document.getElementById("active-trip-status-select");
+  statusSelect?.addEventListener("change", async (e) => {
+    const newStatus = e.target.value;
+    statusSelect.className = `trip-status-select trip-status-select--${newStatus}`;
+    await updateTripStatus(trip.id, newStatus);
   });
 }
 
