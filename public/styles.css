@@ -93,45 +93,40 @@ td {
 .sidebar-link {
   display: flex;
   align-items: center;
-  position: relative;
-  min-height: 44px;
-  margin-bottom: 14px;
-  padding: 0 14px 0 42px;
-  border-radius: 14px;
+  gap: 10px;
+  min-height: 32px;
+  margin-bottom: 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
   color: #434b5b;
   text-decoration: none;
-  font-weight: 600;
-  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+  font-weight: 500;
+  font-size: 13px;
+  transition: background 140ms ease, color 140ms ease;
 }
-
-.sidebar-link::before {
-  content: "";
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  width: 16px;
-  height: 16px;
-  transform: translateY(-50%);
-  border: 1.5px solid rgba(67, 75, 91, 0.5);
-  border-radius: 4px;
-  background: #fff;
+.sidebar-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  color: inherit;
 }
+.sidebar-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.sidebar-link-label { line-height: 1.2; }
 
 .sidebar-link:hover {
   background: rgba(25, 31, 56, 0.05);
   color: #212637;
-  transform: translateX(1px);
 }
 
 .sidebar-link.is-active {
   background: #f0f2f7;
   color: #1c2130;
   box-shadow: inset 0 0 0 1px rgba(31, 34, 48, 0.04);
-}
-
-.sidebar-link.is-active::before {
-  border-color: rgba(31, 34, 48, 0.72);
-  background: linear-gradient(180deg, #ffffff, #f6f7fa);
 }
 
 .sidebar-link.is-disabled {
@@ -191,90 +186,6 @@ td {
   font-size: 1.15rem;
 }
 
-.sidebar-group .sidebar-link[href="/backoffice"]::before {
-  content: "⌂";
-  display: grid;
-  place-items: center;
-  font-size: 0.82rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href="/tourist"]::before {
-  content: "♟";
-  display: grid;
-  place-items: center;
-  font-size: 0.82rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href="/camp"]::before,
-.sidebar-group .sidebar-link[href="/camp-reservations"]::before,
-.sidebar-group .sidebar-link[href="/flight-reservations"]::before,
-.sidebar-group .sidebar-link[href="/transfer-reservations"]::before {
-  content: "□";
-  display: grid;
-  place-items: center;
-  font-size: 0.8rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href="/fifa2026-admin"]::before,
-.sidebar-group .sidebar-link[href="/fifa2026"]::before {
-  content: "◉";
-  display: grid;
-  place-items: center;
-  font-size: 0.78rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href="/contracts"]::before {
-  content: "▤";
-  display: grid;
-  place-items: center;
-  font-size: 0.72rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href="/ds160"]::before {
-  content: "✎";
-  display: grid;
-  place-items: center;
-  font-size: 0.75rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href*="ninepax"]::before {
-  content: "◫";
-  display: grid;
-  place-items: center;
-  font-size: 0.8rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href="/admin"]::before,
-.sidebar-group .sidebar-link[href="#settings-section"]::before {
-  content: "⚙";
-  display: grid;
-  place-items: center;
-  font-size: 0.8rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href="#trips-section"]::before {
-  content: "◦";
-  display: grid;
-  place-items: center;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.sidebar-group .sidebar-link[href="#reservations-section"]::before {
-  content: "◦";
-  display: grid;
-  place-items: center;
-  font-size: 1rem;
-  line-height: 1;
-}
 
 .workspace-main {
   min-width: 0;
@@ -5317,18 +5228,12 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
 
   .sidebar-link {
-    min-height: 32px;
-    margin-bottom: 2px;
-    padding: 0 10px 0 34px;
+    min-height: 30px;
+    padding: 5px 8px;
     font-size: 0.82rem;
-    border-radius: 10px;
+    border-radius: 8px;
   }
-
-  .sidebar-link::before {
-    left: 10px;
-    width: 13px;
-    height: 13px;
-  }
+  .sidebar-icon, .sidebar-icon svg { width: 16px; height: 16px; }
 
   .sidebar-group + .sidebar-group,
   .sidebar-switch {
@@ -9358,6 +9263,90 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   .todo-row-meta { gap: 6px; }
   .todo-row-meta > span { font-size: 12px; }
 }
+
+/* ── To-Do table (replaces card layout) ────────────────────────────── */
+.todo-table { font-size: 13px !important; }
+.todo-table thead th { font-size: 12px; padding: 8px 10px !important; }
+.todo-table tbody td { padding: 8px 10px !important; vertical-align: middle !important; }
+.todo-table tbody tr.todo-tr--contact { background: #f6faff; }
+.todo-table tbody tr.todo-tr--contact:hover { background: #ecf2fb; }
+.todo-table .todo-cell-title { max-width: 260px; }
+.todo-table .todo-cell-title strong { font-size: 13px; word-break: break-word; }
+.todo-table .todo-cell-owner { font-size: 12px; color: #4b5563; white-space: nowrap; }
+.todo-table .todo-cell-dests { max-width: 180px; }
+.todo-table .todo-cell-actions { white-space: nowrap; }
+.todo-table .todo-cell-actions button {
+  padding: 3px 8px;
+  border: 1px solid #d0d7e8;
+  border-radius: 5px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 3px;
+}
+.todo-table .todo-cell-actions button:first-child { margin-left: 0; }
+.todo-table .todo-cell-actions button:hover { background: #f4f6fa; }
+.todo-table .todo-note-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 5px;
+  border: 1px solid #c9def7;
+  background: #f1f7ff;
+  color: #1d4ed8;
+  font-weight: 500;
+  cursor: pointer;
+}
+.todo-kind-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fde68a;
+  color: #78350f;
+}
+.todo-kind-pill--contact { background: #bfdbfe; color: #1e3a8a; }
+
+/* Tighter badges + due-state in table cells. */
+.todo-table .todo-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-transform: capitalize;
+  background: #e5e7eb;
+  color: #374151;
+}
+.todo-table .todo-badge.priority-high { background: #fee2e2; color: #991b1b; }
+.todo-table .todo-badge.priority-medium { background: #fef3c7; color: #78350f; }
+.todo-table .todo-badge.priority-low { background: #dcfce7; color: #166534; }
+.todo-table .todo-badge.status-pending,
+.todo-table .todo-badge.status-todo { background: #fef3c7; color: #78350f; }
+.todo-table .todo-badge.status-in-progress { background: #dbeafe; color: #1e3a8a; }
+.todo-table .todo-badge.status-done { background: #dcfce7; color: #166534; }
+.todo-table .todo-badge.status-cancelled { background: #e5e7eb; color: #374151; }
+.todo-table .todo-badge.status-overdue { background: #fee2e2; color: #991b1b; }
+.todo-table .todo-badge.status-priority { background: #fee2e2; color: #991b1b; }
+.todo-table .todo-badge.status-warm { background: #ffedd5; color: #9a3412; }
+.todo-table .todo-badge.status-new { background: #dbeafe; color: #1e3a8a; }
+.todo-table .todo-badge.status-inactive { background: #e5e7eb; color: #374151; }
+.todo-table .todo-badge.contact-client { background: #dbeafe; color: #1e3a8a; }
+.todo-table .todo-badge.contact-staff { background: #ede9fe; color: #5b21b6; }
+.todo-table .todo-badge.contact-partner { background: #dcfce7; color: #166534; }
+.todo-table .todo-badge.contact-vendor { background: #fef3c7; color: #78350f; }
+.todo-table .todo-due {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.todo-table .todo-due--ok { color: #4b5563; font-weight: 500; }
+.todo-table .todo-due--soon { color: #b45309; }
+.todo-table .todo-due--overdue { color: #b91c1c; }
 
 /* ── Tourist tag chips ─────────────────────────────────────────────── */
 .tourist-tag-cell {

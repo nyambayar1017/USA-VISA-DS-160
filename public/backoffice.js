@@ -288,61 +288,53 @@ function sortItems(items) {
   });
 }
 
-function renderTaskRow(task) {
+function renderTaskRow(task, idx) {
   const due = dueState(task);
   const sKey = statusKey(task);
   const sLabel = STATUS_LABEL[sKey] || sKey;
   const hasNote = !!(task.note && task.note.trim());
+  const dests = Array.isArray(task.destinations) ? task.destinations : [];
   return `
-    <div class="todo-row todo-row--task" data-task-id="${escapeHtml(task.id)}">
-      <div class="todo-row-main">
-        <div class="todo-row-title">
-          <span class="todo-row-kind">Task</span>
-          <strong>${escapeHtml(task.title)}</strong>
-        </div>
-        <div class="todo-row-meta">
-          <span>👤 ${escapeHtml(task.owner || "Unassigned")}</span>
-          <span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span>
-          <span class="todo-badge status-${escapeHtml(sKey)}">${escapeHtml(sLabel)}</span>
-          <span class="todo-due todo-due--${due.tone}">📅 ${escapeHtml(due.label)}${task.dueTime ? ` ${escapeHtml(task.dueTime)}` : ""}</span>
-        </div>
-      </div>
-      <div class="todo-row-actions">
-        ${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">See note</button>` : ""}
+    <tr class="todo-tr todo-tr--task">
+      <td>${idx + 1}</td>
+      <td><span class="todo-kind-pill">Task</span></td>
+      <td class="todo-cell-title"><strong>${escapeHtml(task.title)}</strong></td>
+      <td class="todo-cell-owner">${escapeHtml(task.owner || "—")}</td>
+      <td><span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span></td>
+      <td><span class="todo-badge status-${escapeHtml(sKey)}">${escapeHtml(sLabel)}</span></td>
+      <td><span class="todo-due todo-due--${due.tone}">${escapeHtml(due.label)}${task.dueTime ? ` ${escapeHtml(task.dueTime)}` : ""}</span></td>
+      <td class="todo-cell-dests">${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join(" ") : "—"}</td>
+      <td>${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">See note</button>` : "—"}</td>
+      <td class="todo-cell-actions">
         <button type="button" data-task-edit="${escapeHtml(task.id)}">Edit</button>
         ${task.status !== "in-progress" && task.status !== "done" ? `<button type="button" data-task-progress="${escapeHtml(task.id)}">Start</button>` : ""}
         ${task.status !== "done" ? `<button type="button" data-task-done="${escapeHtml(task.id)}">Done</button>` : ""}
         <button type="button" data-task-delete="${escapeHtml(task.id)}" class="button-secondary">Delete</button>
-      </div>
-    </div>
+      </td>
+    </tr>
   `;
 }
 
-function renderContactRow(contact) {
+function renderContactRow(contact, idx) {
   const dests = Array.isArray(contact.destinations) ? contact.destinations : [];
   const hasNote = !!(contact.note && contact.note.trim());
   return `
-    <div class="todo-row todo-row--contact" data-contact-id="${escapeHtml(contact.id)}">
-      <div class="todo-row-main">
-        <div class="todo-row-title">
-          <span class="todo-row-kind todo-row-kind--contact">Contact</span>
-          <strong>${escapeHtml(contact.name)}</strong>
-        </div>
-        <div class="todo-row-meta">
-          <span>📞 <a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></span>
-          <span class="todo-badge contact-${escapeHtml(contact.type || "client")}">${escapeHtml(contact.type || "client")}</span>
-          <span class="todo-badge status-${escapeHtml(contact.status || "new")}">${escapeHtml(contact.status || "new")}</span>
-          ${contact.lastContacted ? `<span>🕒 ${escapeHtml(formatDate(contact.lastContacted))}</span>` : ""}
-          ${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join("") : ""}
-        </div>
-      </div>
-      <div class="todo-row-actions">
-        ${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(contact.id)}" data-note-kind="contact">See note</button>` : ""}
+    <tr class="todo-tr todo-tr--contact">
+      <td>${idx + 1}</td>
+      <td><span class="todo-kind-pill todo-kind-pill--contact">Contact</span></td>
+      <td class="todo-cell-title"><strong>${escapeHtml(contact.name)}</strong></td>
+      <td class="todo-cell-owner"><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></td>
+      <td><span class="todo-badge contact-${escapeHtml(contact.type || "client")}">${escapeHtml(contact.type || "client")}</span></td>
+      <td><span class="todo-badge status-${escapeHtml(contact.status || "new")}">${escapeHtml(contact.status || "new")}</span></td>
+      <td>${contact.lastContacted ? escapeHtml(formatDate(contact.lastContacted)) : "—"}</td>
+      <td class="todo-cell-dests">${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join(" ") : "—"}</td>
+      <td>${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(contact.id)}" data-note-kind="contact">See note</button>` : "—"}</td>
+      <td class="todo-cell-actions">
         <button type="button" data-contact-edit="${escapeHtml(contact.id)}">Edit</button>
         <button type="button" data-contact-priority="${escapeHtml(contact.id)}">${contact.status === "priority" ? "Warm" : "Priority"}</button>
         <button type="button" data-contact-delete="${escapeHtml(contact.id)}" class="button-secondary">Delete</button>
-      </div>
-    </div>
+      </td>
+    </tr>
   `;
 }
 
@@ -360,9 +352,31 @@ function renderList() {
     todoCount.textContent = `${items.length} item${items.length === 1 ? "" : "s"} · ${taskCount} task${taskCount === 1 ? "" : "s"}, ${contactCount} contact${contactCount === 1 ? "" : "s"}`;
   }
 
-  todoList.innerHTML = items
-    .map((item) => (item.kind === "task" ? renderTaskRow(item.data) : renderContactRow(item.data)))
+  const rows = items
+    .map((item, idx) => (item.kind === "task" ? renderTaskRow(item.data, idx) : renderContactRow(item.data, idx)))
     .join("");
+
+  todoList.innerHTML = `
+    <div class="invoices-table-wrap">
+      <table class="invoices-table todo-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Type</th>
+            <th>Title / Name</th>
+            <th>Manager / Phone</th>
+            <th>Priority / Type</th>
+            <th>Status</th>
+            <th>Due / Last contact</th>
+            <th>Destinations</th>
+            <th>Note</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderStatusPills() {
