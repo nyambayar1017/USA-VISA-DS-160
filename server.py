@@ -5874,17 +5874,28 @@ def handle_list_documents(environ, start_response):
     if not require_login(environ, start_response):
         return []
     workspace = active_workspace(environ)
+    # Index tourists by id so we can split touristName into first + last for
+    # the Documents page (Bataa wants both columns separately, with passport-
+    # case spelling preserved).
+    tourist_by_id = {}
+    for t in read_tourists():
+        tid = t.get("id")
+        if tid:
+            tourist_by_id[tid] = t
     rows = []
     for trip in read_camp_trips():
         if workspace and normalize_company(trip.get("company")) != workspace:
             continue
         for doc in (trip.get("documents") or []):
+            tourist = tourist_by_id.get(doc.get("touristId") or "")
             rows.append({
                 **doc,
                 "tripId": trip.get("id"),
                 "tripSerial": trip.get("serial") or "",
                 "tripName": trip.get("tripName") or "",
                 "destinations": list(trip.get("tags") or []),
+                "touristFirstName": (tourist.get("firstName") if tourist else "") or "",
+                "touristLastName": (tourist.get("lastName") if tourist else "") or "",
             })
     rows.sort(key=lambda d: d.get("uploadedAt") or "", reverse=True)
     return json_response(start_response, "200 OK", {"entries": rows})

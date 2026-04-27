@@ -89,7 +89,10 @@
     const destination = (filterDestination?.value || "").trim().toLowerCase();
     return docs.filter((d) => {
       if (name && !((d.originalName || "").toLowerCase().includes(name))) return false;
-      if (tourist && !((d.touristName || "").toLowerCase().includes(tourist))) return false;
+      if (tourist) {
+        const hay = ((d.touristLastName || "") + " " + (d.touristFirstName || "") + " " + (d.touristName || "")).toLowerCase();
+        if (!hay.includes(tourist)) return false;
+      }
       if (destination) {
         const dests = Array.isArray(d.destinations) ? d.destinations : [];
         if (!dests.some((x) => String(x || "").toLowerCase().includes(destination))) return false;
@@ -111,7 +114,7 @@
     const rows = getFiltered();
     countNode.textContent = rows.length + " document" + (rows.length === 1 ? "" : "s");
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="11" class="empty">No documents match the current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" class="empty">No documents match the current filters.</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map((d, idx) => {
@@ -129,10 +132,13 @@
       const destChips = dests.length
         ? dests.map((x) => '<span class="tourist-tag-chip">' + escapeHtml(x) + '</span>').join(" ")
         : '<span class="tourist-tag-empty">—</span>';
+      const lastName = d.touristLastName || (d.touristName ? d.touristName.split(" ")[0] : "") || "";
+      const firstName = d.touristFirstName || (d.touristName ? d.touristName.split(" ").slice(1).join(" ") : "") || "";
       return "<tr>" +
         "<td>" + (idx + 1) + "</td>" +
         '<td><a class="doc-file-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(d.originalName || "-") + "</a></td>" +
-        "<td>" + escapeHtml(d.touristName || "-") + "</td>" +
+        "<td>" + escapeHtml(lastName || "-") + "</td>" +
+        "<td>" + escapeHtml(firstName || "-") + "</td>" +
         '<td><a class="trip-name-link" href="' + escapeHtml(tripUrl) + '">' + escapeHtml((d.tripSerial || "") + " · " + (d.tripName || "")) + "</a></td>" +
         "<td>" + destChips + "</td>" +
         "<td>" + escapeHtml(d.category || "-") + "</td>" +
