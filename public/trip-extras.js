@@ -105,6 +105,13 @@
     return Object.fromEntries(new FormData(form).entries());
   }
 
+  function sortTouristsByOrder(a, b) {
+    const ai = Number.isFinite(a.orderIndex) ? a.orderIndex : 9999;
+    const bi = Number.isFinite(b.orderIndex) ? b.orderIndex : 9999;
+    if (ai !== bi) return ai - bi;
+    return String(a.serial || "").localeCompare(String(b.serial || ""));
+  }
+
   async function loadGroupsAndTourists(currentTripId) {
     if (!currentTripId) return;
     tripId = currentTripId;
@@ -115,7 +122,7 @@
         fetchJson("/api/camp-trips").catch(() => ({})),
       ]);
       groups = g.entries || [];
-      tourists = t.entries || [];
+      tourists = (t.entries || []).slice().sort(sortTouristsByOrder);
       const trip = (trips.entries || []).find((x) => x.id === tripId);
       tripType = String(trip?.tripType || "").toLowerCase();
       applyTripTypeToTouristForm();

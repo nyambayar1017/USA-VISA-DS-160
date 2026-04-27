@@ -84,8 +84,43 @@
     return escapeHtml(t).replace(/@\[([^\]]+)\]/g, '<span class="notes-mention">@$1</span>');
   }
 
-  // Mention picker
+  // Mention picker — Up/Down navigates, Enter/Tab inserts, Esc dismisses.
   let mentionStart = -1;
+  let mentionActiveIdx = 0;
+
+  function setMentionActive(next) {
+    const items = mentionPopover.querySelectorAll(".notes-mention-item");
+    if (!items.length) return;
+    mentionActiveIdx = (next + items.length) % items.length;
+    items.forEach((el, i) => el.classList.toggle("is-active", i === mentionActiveIdx));
+    items[mentionActiveIdx]?.scrollIntoView({ block: "nearest" });
+  }
+
+  function insertMentionAtActive() {
+    const items = mentionPopover.querySelectorAll(".notes-mention-item");
+    const btn = items[mentionActiveIdx];
+    if (!btn || mentionStart < 0) return;
+    const name = btn.dataset.name;
+    const before = body.value.slice(0, mentionStart);
+    const after = body.value.slice(body.selectionStart);
+    const insert = `@[${name}] `;
+    body.value = before + insert + after;
+    const caret = (before + insert).length;
+    body.focus();
+    body.setSelectionRange(caret, caret);
+    mentionPopover.hidden = true;
+    mentionStart = -1;
+    mentionActiveIdx = 0;
+  }
+
+  body.addEventListener("keydown", (e) => {
+    if (mentionPopover.hidden) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setMentionActive(mentionActiveIdx + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setMentionActive(mentionActiveIdx - 1); }
+    else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertMentionAtActive(); }
+    else if (e.key === "Escape") { e.preventDefault(); mentionPopover.hidden = true; mentionStart = -1; }
+  });
+
   body.addEventListener("input", () => {
     const v = body.value;
     const c = body.selectionStart;
@@ -100,9 +135,10 @@
           .filter((m) => (m.fullName || m.email || "").toLowerCase().includes(filter))
           .slice(0, 8);
         if (!matches.length) { mentionPopover.hidden = true; return; }
-        mentionPopover.innerHTML = matches.map((m) =>
-          `<button type="button" class="notes-mention-item" data-name="${escapeHtml(m.fullName || m.email)}">${escapeHtml(m.fullName || m.email)}</button>`
+        mentionPopover.innerHTML = matches.map((m, idx) =>
+          `<button type="button" class="notes-mention-item${idx === 0 ? " is-active" : ""}" data-name="${escapeHtml(m.fullName || m.email)}">${escapeHtml(m.fullName || m.email)}</button>`
         ).join("");
+        mentionActiveIdx = 0;
         const wrapRect = body.parentElement.getBoundingClientRect();
         const rect = body.getBoundingClientRect();
         mentionPopover.style.top = (rect.bottom - wrapRect.top + 4) + "px";

@@ -12557,6 +12557,7 @@ input[type="week"] {
   display: block; width: 100%;
 }
 .notes-mention-item:hover { background: #f1f5f9; color: #0f172a !important; }
+.notes-mention-item.is-active { background: #eef2ff; color: #1e3a8a !important; }
 
 .notes-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
 .notes-item {

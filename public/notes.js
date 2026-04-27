@@ -39,8 +39,10 @@
 
   // ── Mention picker ───────────────────────────────────────────────────
   // The textarea uses @[Full Name] notation. Typing "@" opens the popover
-  // with team members; "@partial" filters by name.
+  // with team members; "@partial" filters by name. Up/Down arrows move
+  // through the list and Enter inserts the selected mention.
   let activeMentionStart = -1;
+  let mentionActiveIdx = 0;
 
   function openMentionPopover(query, top, left) {
     const filter = (query || "").toLowerCase();
@@ -52,17 +54,50 @@
       return;
     }
     mentionPopover.innerHTML = matches
-      .map((m) => `<button type="button" class="notes-mention-item" data-mention-name="${escapeHtml(m.fullName || m.email || "")}">${escapeHtml(m.fullName || m.email || "")}</button>`)
+      .map((m, i) => `<button type="button" class="notes-mention-item${i === 0 ? " is-active" : ""}" data-mention-name="${escapeHtml(m.fullName || m.email || "")}">${escapeHtml(m.fullName || m.email || "")}</button>`)
       .join("");
     mentionPopover.style.top = top + "px";
     mentionPopover.style.left = left + "px";
     mentionPopover.hidden = false;
+    mentionActiveIdx = 0;
   }
 
   function closeMentionPopover() {
     mentionPopover.hidden = true;
     activeMentionStart = -1;
+    mentionActiveIdx = 0;
   }
+
+  function setActiveMentionIdx(next) {
+    const items = mentionPopover.querySelectorAll(".notes-mention-item");
+    if (!items.length) return;
+    mentionActiveIdx = (next + items.length) % items.length;
+    items.forEach((el, i) => el.classList.toggle("is-active", i === mentionActiveIdx));
+    items[mentionActiveIdx]?.scrollIntoView({ block: "nearest" });
+  }
+
+  function insertMentionAtActive() {
+    const items = mentionPopover.querySelectorAll(".notes-mention-item");
+    const btn = items[mentionActiveIdx];
+    if (!btn || activeMentionStart < 0) return;
+    const name = btn.dataset.mentionName;
+    const before = body.value.slice(0, activeMentionStart);
+    const after = body.value.slice(body.selectionStart);
+    const insert = `@[${name}] `;
+    body.value = before + insert + after;
+    const caret = (before + insert).length;
+    body.focus();
+    body.setSelectionRange(caret, caret);
+    closeMentionPopover();
+  }
+
+  body.addEventListener("keydown", (e) => {
+    if (mentionPopover.hidden) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setActiveMentionIdx(mentionActiveIdx + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActiveMentionIdx(mentionActiveIdx - 1); }
+    else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertMentionAtActive(); }
+    else if (e.key === "Escape") { e.preventDefault(); closeMentionPopover(); }
+  });
 
   body.addEventListener("input", () => {
     const value = body.value;
