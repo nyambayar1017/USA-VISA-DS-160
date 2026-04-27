@@ -38,8 +38,9 @@
     do_not_contact: "Do not contact",
   };
 
-  // # column is always shown (not toggleable). Actions column removed —
-  // Trip column already links the way the user wants.
+  // # column is always shown (not toggleable). Actions column carries the
+  // 3-dot menu with Edit + Delete (added now that promo contacts can be
+  // created from this page directly).
   const ALL_COLUMNS = [
     { key: "select", label: "", default: true, fixed: true },
     { key: "rowNum", label: "#", default: true, fixed: true },
@@ -57,6 +58,7 @@
     { key: "phone", label: "Phone", default: false },
     { key: "email", label: "Email", default: true },
     { key: "marketingStatus", label: "Status", default: true },
+    { key: "actions", label: "", default: true, fixed: true },
   ];
   const VIEW_KEY = "tourists:visibleColumns";
   let visibleColumns = readVisibleColumns();
@@ -269,10 +271,18 @@
         : !hasEmail ? "No email on file"
         : "Toggle promo recipient";
       const age = calcAge(t.dob);
+      const actionsCell = `
+        <details class="row-menu">
+          <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>
+          <div class="row-menu-popover">
+            <button type="button" class="row-menu-item" data-tourist-edit="${escapeHtml(t.id)}">Edit</button>
+            <button type="button" class="row-menu-item is-danger" data-tourist-delete="${escapeHtml(t.id)}">Delete</button>
+          </div>
+        </details>`;
       const cells = {
         select: `<input type="checkbox" class="ts-row-select" data-tourist-id="${escapeHtml(t.id)}"${checked ? " checked" : ""}${blocked ? " disabled" : ""} title="${escapeHtml(checkboxTitle)}" />`,
         rowNum: String(idx + 1),
-        serial: '<strong>' + escapeHtml(t.serial || "") + "</strong>",
+        serial: '<strong>' + escapeHtml(t.serial || "—") + "</strong>",
         lastName: escapeHtml(t.lastName || ""),
         firstName: escapeHtml(t.firstName || ""),
         age: age === null ? "-" : String(age),
@@ -286,6 +296,7 @@
         phone: escapeHtml(t.phone || "-"),
         email: escapeHtml(t.email || "-"),
         marketingStatus: statusSelectHtml(t),
+        actions: actionsCell,
       };
       return "<tr>" + cols.map((c) => "<td>" + cells[c.key] + "</td>").join("") + "</tr>";
     }).join("");
@@ -382,6 +393,37 @@
 
   // ── Inline tag edit ──────────────────────────────────────────────────
   listNode.addEventListener("click", async (e) => {
+    const editBtn = e.target.closest("[data-tourist-edit]");
+    if (editBtn) {
+      e.preventDefault();
+      const t = tourists.find((x) => x.id === editBtn.dataset.touristEdit);
+      if (t) openTouristEditor(t);
+      return;
+    }
+    const delBtn = e.target.closest("[data-tourist-delete]");
+    if (delBtn) {
+      e.preventDefault();
+      const t = tourists.find((x) => x.id === delBtn.dataset.touristDelete);
+      if (!t) return;
+      const label = `${t.serial || ""} ${t.lastName || ""} ${t.firstName || ""}`.trim() || "this tourist";
+      const ok = window.UI?.confirm
+        ? await window.UI.confirm(`Delete ${label}?`, { dangerous: true })
+        : window.confirm(`Delete ${label}?`);
+      if (!ok) return;
+      try {
+        const resp = await fetch("/api/tourists/" + encodeURIComponent(t.id), { method: "DELETE" });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data.error || "Delete failed");
+        }
+        tourists = tourists.filter((x) => x.id !== t.id);
+        selectedIds.delete(t.id);
+        render();
+      } catch (err) {
+        alert("Алдаа: " + err.message);
+      }
+      return;
+    }
     const btn = e.target.closest("[data-tags-edit]");
     if (!btn) return;
     e.preventDefault();
@@ -410,6 +452,111 @@
     } catch (err) {
       alert("Алдаа: " + err.message);
       btn.disabled = false;
+    }
+  });
+
+  // ── Add / Edit modal ──────────────────────────────────────────────────
+  const editModal = document.querySelector("#tourist-edit-modal");
+  const editForm = document.querySelector("#tourist-edit-form");
+  const editTitle = document.querySelector("#tourist-edit-title");
+  const editStatus = document.querySelector("#tourist-edit-status");
+  const addBtn = document.querySelector("#tourist-add-btn");
+  let editingId = "";
+
+  function openTouristEditor(tourist) {
+    editingId = tourist?.id || "";
+    if (editForm) {
+      editForm.reset();
+      const f = editForm.elements;
+      f.id.value = tourist?.id || "";
+      f.lastName.value = tourist?.lastName || "";
+      f.firstName.value = tourist?.firstName || "";
+      f.email.value = tourist?.email || "";
+      f.phone.value = tourist?.phone || "";
+      f.dob.value = (tourist?.dob || "").slice(0, 10);
+      f.gender.value = tourist?.gender || "";
+      f.nationality.value = tourist?.nationality || "";
+      f.passportNumber.value = tourist?.passportNumber || "";
+      f.passportExpiry.value = (tourist?.passportExpiry || "").slice(0, 10);
+      f.marketingStatus.value = tourist?.marketingStatus || "standard";
+      f.tags.value = Array.isArray(tourist?.tags) ? tourist.tags.join(", ") : "";
+      f.notes.value = tourist?.notes || "";
+    }
+    if (editTitle) editTitle.textContent = tourist
+      ? `Edit ${tourist.serial || ""} ${tourist.lastName || ""} ${tourist.firstName || ""}`.trim()
+      : "New tourist";
+    if (editStatus) editStatus.textContent = "";
+    if (editModal) {
+      editModal.hidden = false;
+      editModal.classList.remove("is-hidden");
+    }
+  }
+  function closeTouristEditor() {
+    editingId = "";
+    if (editModal) {
+      editModal.classList.add("is-hidden");
+      editModal.hidden = true;
+    }
+  }
+  addBtn?.addEventListener("click", () => openTouristEditor(null));
+  editModal?.addEventListener("click", (e) => {
+    if (e.target?.dataset?.action === "close-tourist-modal") closeTouristEditor();
+  });
+  // Auto-uppercase the same fields the trip-side form uppercases, so passport
+  // and name capitalisation stays consistent across both entry points.
+  const UPPER_FIELDS = ["firstName", "lastName", "nationality", "passportNumber"];
+  editForm?.addEventListener("input", (e) => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement)) return;
+    if (!UPPER_FIELDS.includes(el.name)) return;
+    const start = el.selectionStart, end = el.selectionEnd;
+    const upper = el.value.toUpperCase();
+    if (upper !== el.value) {
+      el.value = upper;
+      try { el.setSelectionRange(start, end); } catch {}
+    }
+  });
+  editForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = editForm.elements;
+    const payload = {
+      lastName: f.lastName.value.trim(),
+      firstName: f.firstName.value.trim(),
+      email: f.email.value.trim(),
+      phone: f.phone.value.trim(),
+      dob: f.dob.value,
+      gender: f.gender.value,
+      nationality: f.nationality.value.trim(),
+      passportNumber: f.passportNumber.value.trim(),
+      passportExpiry: f.passportExpiry.value,
+      marketingStatus: f.marketingStatus.value,
+      tags: f.tags.value,
+      notes: f.notes.value.trim(),
+    };
+    if (!payload.lastName && !payload.firstName) {
+      if (editStatus) editStatus.textContent = "Last or first name is required.";
+      return;
+    }
+    const url = editingId ? "/api/tourists/" + encodeURIComponent(editingId) : "/api/tourists";
+    if (editStatus) editStatus.textContent = editingId ? "Saving…" : "Creating…";
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Save failed");
+      const saved = data.entry || {};
+      if (editingId) {
+        tourists = tourists.map((t) => (t.id === editingId ? { ...t, ...saved } : t));
+      } else {
+        tourists = [saved, ...tourists];
+      }
+      closeTouristEditor();
+      render();
+    } catch (err) {
+      if (editStatus) editStatus.textContent = err.message || "Could not save.";
     }
   });
 

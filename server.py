@@ -670,6 +670,23 @@ def next_tourist_serial(group_serial, group_id):
     return f"{prefix}{max_seq + 1:02d}"
 
 
+def next_promo_tourist_serial():
+    """Serial for trip-less promo contacts: PR-0001, PR-0002, … global to the
+    tourists store (no per-group prefix since they don't belong to a group)."""
+    prefix = "PR-"
+    max_seq = 0
+    for record in read_tourists():
+        serial = record.get("serial") or ""
+        if serial.startswith(prefix):
+            try:
+                n = int(serial[len(prefix):])
+                if n > max_seq:
+                    max_seq = n
+            except ValueError:
+                pass
+    return f"{prefix}{max_seq + 1:04d}"
+
+
 def normalize_manager_dashboard(payload):
     if not isinstance(payload, dict):
         return default_manager_dashboard()
@@ -5557,21 +5574,40 @@ def _resolve_marketing_status(payload_status, dob, prior_status=None):
     return "standard"
 
 
-def build_tourist(payload, actor=None):
+def build_tourist(payload, actor=None, environ=None):
     group_id = normalize_text(payload.get("groupId"))
     group = find_tourist_group(group_id) if group_id else None
     trip_id = (group or {}).get("tripId") or normalize_text(payload.get("tripId"))
     trip = find_camp_trip(trip_id) if trip_id else None
     group_serial = (group or {}).get("serial") or ""
     trip_serial = (trip or {}).get("serial") or ""
+    # Promo-only contacts (no trip + no group) skip the per-group serial scheme
+    # since there's no parent group counter to use; we fall back to a workspace-
+    # scoped "PR-####" sequence so they still sort and look identifiable.
+    if group_id:
+        serial = next_tourist_serial(group_serial, group_id)
+    else:
+        serial = next_promo_tourist_serial()
+    # Trip-less tourists need a company tag of their own so the workspace
+    # filter can still scope them; default to the active workspace if known.
+    explicit_company = normalize_company(payload.get("company")) if payload.get("company") else ""
+    if trip:
+        company = normalize_company(trip.get("company"))
+    elif explicit_company:
+        company = explicit_company
+    elif environ is not None:
+        company = active_workspace(environ) or DEFAULT_COMPANY
+    else:
+        company = DEFAULT_COMPANY
     return {
         "id": str(uuid4()),
-        "serial": next_tourist_serial(group_serial, group_id),
+        "serial": serial,
         "tripId": trip_id,
         "tripSerial": trip_serial,
         "groupId": group_id,
         "groupSerial": group_serial,
         "groupName": (group or {}).get("name") or "",
+        "company": company,
         "firstName": upper_text(payload.get("firstName")),
         "lastName": upper_text(payload.get("lastName")),
         "gender": normalize_text(payload.get("gender")).lower(),
@@ -5599,10 +5635,16 @@ def build_tourist(payload, actor=None):
 
 
 def validate_tourist(data):
-    if not data.get("tripId"):
-        return "Trip is required"
-    if not data.get("groupId"):
-        return "Group is required"
+    # Promo-only contacts (no trip, no group) are allowed — they live in the
+    # Tourist Directory for marketing reach. Trip-bound tourists still need
+    # both ids so the trip dossier stays consistent: if one is set, both must
+    # be set. Either way, a name is required.
+    has_trip = bool(data.get("tripId"))
+    has_group = bool(data.get("groupId"))
+    if has_trip and not has_group:
+        return "Group is required when a trip is selected"
+    if has_group and not has_trip:
+        return "Trip is required when a group is selected"
     if not data.get("firstName") and not data.get("lastName"):
         return "Tourist name is required"
     return None
@@ -5747,7 +5789,14 @@ def handle_list_tourists(environ, start_response):
         tourists = [t for t in tourists if t.get("tripId") == trip_id]
     elif workspace:
         trip_ids = {t["id"] for t in read_camp_trips() if normalize_company(t.get("company")) == workspace}
-        tourists = [t for t in tourists if t.get("tripId") in trip_ids]
+        # Include trip-bound tourists whose trip is in the active workspace,
+        # plus promo-only contacts (no tripId) tagged with the same workspace
+        # company directly.
+        tourists = [
+            t for t in tourists
+            if (t.get("tripId") in trip_ids)
+            or (not t.get("tripId") and normalize_company(t.get("company")) == workspace)
+        ]
     tourists.sort(key=lambda t: (t.get("tripSerial") or "", t.get("serial") or ""))
     return json_response(start_response, "200 OK", {"entries": tourists})
 
@@ -5841,7 +5890,7 @@ def handle_create_tourist(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
-    record = build_tourist(payload, actor)
+    record = build_tourist(payload, actor, environ=environ)
     error = validate_tourist(record)
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})

@@ -31,6 +31,7 @@
               <p>Every tourist across every trip in this workspace, with serials, passports, and group links.</p>
             </div>
             <div class="camp-toolbar">
+              <button type="button" id="tourist-add-btn" class="header-action-btn header-action-edit">+ Add tourist</button>
               <button type="button" id="tourist-promo-btn" class="header-action-btn">+ Send promo</button>
             </div>
           </div>
@@ -101,6 +102,53 @@
       </main>
     </div>
 
+    <div id="tourist-edit-modal" class="camp-modal workspace-form-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-tourist-modal"></div>
+      <div class="camp-modal-dialog workspace-form-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2 id="tourist-edit-title">New tourist</h2>
+            <p class="camp-modal-copy">Promo contacts live in this directory and are not linked to any trip.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-tourist-modal" aria-label="Close">×</button>
+        </div>
+        <form id="tourist-edit-form" class="field-grid">
+          <input type="hidden" name="id" />
+          <label>Last name<input name="lastName" type="text" autocomplete="family-name" /></label>
+          <label>First name<input name="firstName" type="text" autocomplete="given-name" /></label>
+          <label>Email<input name="email" type="email" autocomplete="email" placeholder="for promo emails" /></label>
+          <label>Phone<input name="phone" type="tel" autocomplete="tel" /></label>
+          <label>Date of birth<input name="dob" type="date" /></label>
+          <label>Gender
+            <select name="gender">
+              <option value="">—</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Nationality<input name="nationality" type="text" /></label>
+          <label>Passport #<input name="passportNumber" type="text" /></label>
+          <label>Passport expiry<input name="passportExpiry" type="date" /></label>
+          <label>Marketing status
+            <select name="marketingStatus">
+              <option value="standard">Standard</option>
+              <option value="potential">Potential</option>
+              <option value="vip">VIP</option>
+              <option value="do_not_contact">Do not contact</option>
+            </select>
+          </label>
+          <label class="full-span">Destinations<input name="tags" type="text" placeholder="Comma-separated, e.g. Дубай, Турк" /></label>
+          <label class="full-span">Notes<textarea name="notes" rows="2"></textarea></label>
+          <div class="actions full-span">
+            <button type="submit" id="tourist-edit-save">Save</button>
+            <button type="button" class="secondary-button" data-action="close-tourist-modal">Cancel</button>
+            <p id="tourist-edit-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div id="promo-modal" class="camp-modal workspace-form-modal is-hidden" hidden>
       <div class="camp-modal-backdrop" data-action="close-promo-modal"></div>
       <div class="camp-modal-dialog workspace-form-modal-dialog">
@@ -134,7 +182,7 @@
     <script src="/app-shell.js?v=workspace-108"></script>
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/rich-editor.js?v=workspace-3"></script>
-    <script src="/tourist.js?v=workspace-9"></script>
+    <script src="/tourist.js?v=workspace-10"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
