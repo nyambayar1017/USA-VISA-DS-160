@@ -12142,6 +12142,314 @@ def _tool_list_fifa_inventory(args, actor):
     return tickets[:200] if isinstance(tickets, list) else (tickets or [])
 
 
+# ── New read tools (Bataa coverage expansion) ──────────────────────
+
+def _tool_get_tourist(args, actor):
+    tid = (args.get("touristId") or "").strip()
+    if not tid:
+        return {"error": "touristId is required"}
+    t = next((x for x in read_tourists() if x.get("id") == tid), None)
+    if not t:
+        return {"error": "Tourist not found"}
+    return t
+
+
+def _tool_get_group(args, actor):
+    gid = (args.get("groupId") or "").strip()
+    if not gid:
+        return {"error": "groupId is required"}
+    g = next((x for x in read_tourist_groups() if x.get("id") == gid), None)
+    if not g:
+        return {"error": "Group not found"}
+    return g
+
+
+def _tool_list_documents(args, actor):
+    """Flatten every document attached to every trip's documents[]. Optional
+    tripId / category / touristId filter so the agent can answer 'what files
+    does T-0007 have?' or 'all passport scans'."""
+    trip_id = (args.get("tripId") or "").strip()
+    category = (args.get("category") or "").strip()
+    tourist_id = (args.get("touristId") or "").strip()
+    rows = []
+    for trip in read_camp_trips():
+        if trip_id and trip.get("id") != trip_id:
+            continue
+        for doc in (trip.get("documents") or []):
+            if category and doc.get("category") != category:
+                continue
+            if tourist_id and doc.get("touristId") != tourist_id:
+                continue
+            rows.append({
+                "id": doc.get("id"),
+                "tripId": trip.get("id"),
+                "tripSerial": trip.get("serial"),
+                "tripName": trip.get("tripName"),
+                "category": doc.get("category"),
+                "originalName": doc.get("originalName"),
+                "uploadedAt": doc.get("uploadedAt"),
+                "uploadedBy": (doc.get("uploadedBy") or {}).get("name") or (doc.get("uploadedBy") or {}).get("email"),
+                "touristId": doc.get("touristId"),
+                "size": doc.get("size"),
+            })
+    return {"count": len(rows), "items": rows[:200]}
+
+
+def _tool_list_tasks(args, actor):
+    store = read_manager_dashboard()
+    items = store.get("tasks") or []
+    status = (args.get("status") or "").strip().lower()
+    if status:
+        items = [t for t in items if (t.get("status") or "").lower() == status]
+    return {"count": len(items), "items": items}
+
+
+def _tool_create_task(args, actor):
+    payload = {
+        "title": normalize_text(args.get("title")),
+        "owner": normalize_text(args.get("owner")),
+        "priority": (normalize_text(args.get("priority")) or "medium").lower(),
+        "status": (normalize_text(args.get("status")) or "pending").lower(),
+        "dueDate": normalize_text(args.get("dueDate")),
+        "dueTime": normalize_text(args.get("dueTime")),
+        "destinations": args.get("destinations"),
+        "note": normalize_text(args.get("note")),
+    }
+    record = build_manager_task(payload)
+    record["createdBy"] = actor_snapshot(actor)
+    record["createdAt"] = record.get("createdAt") or now_mongolia().isoformat()
+    err = validate_manager_task(record)
+    if err:
+        return {"error": err}
+    store = read_manager_dashboard()
+    store["tasks"].insert(0, record)
+    write_manager_dashboard(store)
+    return {"ok": True, "task": record}
+
+
+def _tool_update_task(args, actor):
+    tid = (args.get("taskId") or "").strip()
+    fields = args.get("fields") or {}
+    store = read_manager_dashboard()
+    for i, t in enumerate(store.get("tasks") or []):
+        if t.get("id") != tid:
+            continue
+        merged = {**t}
+        for k, v in fields.items():
+            if k != "id":
+                merged[k] = v
+        merged["updatedBy"] = actor_snapshot(actor)
+        merged["updatedAt"] = now_mongolia().isoformat()
+        store["tasks"][i] = merged
+        write_manager_dashboard(store)
+        return {"ok": True, "task": merged}
+    return {"error": "Task not found"}
+
+
+def _tool_delete_task(args, actor):
+    tid = (args.get("taskId") or "").strip()
+    store = read_manager_dashboard()
+    new_items = [t for t in (store.get("tasks") or []) if t.get("id") != tid]
+    if len(new_items) == len(store.get("tasks") or []):
+        return {"error": "Task not found"}
+    store["tasks"] = new_items
+    write_manager_dashboard(store)
+    return {"ok": True}
+
+
+def _tool_list_contacts(args, actor):
+    store = read_manager_dashboard()
+    items = store.get("contacts") or []
+    return {"count": len(items), "items": items}
+
+
+def _tool_create_contact(args, actor):
+    payload = {
+        "name": normalize_text(args.get("name")),
+        "phone": normalize_text(args.get("phone")),
+        "type": (normalize_text(args.get("type")) or "client").lower(),
+        "status": (normalize_text(args.get("status")) or "new").lower(),
+        "lastContacted": normalize_text(args.get("lastContacted")),
+        "destinations": args.get("destinations"),
+        "note": normalize_text(args.get("note")),
+    }
+    record = build_manager_contact(payload)
+    record["createdBy"] = actor_snapshot(actor)
+    record["createdAt"] = record.get("createdAt") or now_mongolia().isoformat()
+    err = validate_manager_contact(record)
+    if err:
+        return {"error": err}
+    store = read_manager_dashboard()
+    store["contacts"].insert(0, record)
+    write_manager_dashboard(store)
+    return {"ok": True, "contact": record}
+
+
+def _tool_update_contact(args, actor):
+    cid = (args.get("contactId") or "").strip()
+    fields = args.get("fields") or {}
+    store = read_manager_dashboard()
+    for i, c in enumerate(store.get("contacts") or []):
+        if c.get("id") != cid:
+            continue
+        merged = {**c}
+        for k, v in fields.items():
+            if k != "id":
+                merged[k] = v
+        merged["updatedBy"] = actor_snapshot(actor)
+        merged["updatedAt"] = now_mongolia().isoformat()
+        store["contacts"][i] = merged
+        write_manager_dashboard(store)
+        return {"ok": True, "contact": merged}
+    return {"error": "Contact not found"}
+
+
+def _tool_delete_contact(args, actor):
+    cid = (args.get("contactId") or "").strip()
+    store = read_manager_dashboard()
+    new_items = [c for c in (store.get("contacts") or []) if c.get("id") != cid]
+    if len(new_items) == len(store.get("contacts") or []):
+        return {"error": "Contact not found"}
+    store["contacts"] = new_items
+    write_manager_dashboard(store)
+    return {"ok": True}
+
+
+def _tool_get_settings(args, actor):
+    s = read_settings()
+    camp_settings = read_camp_settings() if "read_camp_settings" in globals() else {}
+    return {
+        "destinations": s.get("destinations") or [],
+        "bankAccounts": s.get("bankAccounts") or [],
+        "campNames": camp_settings.get("campNames") or [],
+        "campDetails": camp_settings.get("campDetails") or {},
+    }
+
+
+def _tool_update_destinations(args, actor):
+    items = normalize_option_list(args.get("destinations"))
+    s = read_settings()
+    s["destinations"] = items
+    write_settings(s)
+    return {"ok": True, "destinations": items}
+
+
+def _tool_update_bank_accounts(args, actor):
+    accounts = _normalize_bank_accounts(args.get("bankAccounts"))
+    s = read_settings()
+    s["bankAccounts"] = accounts
+    write_settings(s)
+    return {"ok": True, "bankAccounts": accounts}
+
+
+def _tool_list_team_members(args, actor):
+    out = []
+    for u in read_users():
+        if u.get("status") != "approved":
+            continue
+        out.append({
+            "id": u.get("id"),
+            "email": u.get("email"),
+            "fullName": u.get("fullName") or u.get("email"),
+            "role": u.get("role") or "staff",
+            "phone": u.get("contractPhone"),
+        })
+    return {"count": len(out), "items": out}
+
+
+def _tool_list_mail_messages(args, actor):
+    """Recent mail headers (no body) across every connected mailbox in the
+    requested workspace. Defaults to inbox; pass folder='sent' for sent."""
+    folder = (args.get("folder") or "inbox").strip().lower()
+    if folder not in ("inbox", "sent"):
+        folder = "inbox"
+    workspace = (args.get("workspace") or "").strip().upper()
+    accounts = read_mail_accounts()
+    if workspace:
+        accounts = [a for a in accounts if (a.get("workspace") or "DTX").upper() == workspace]
+    rows = []
+    for a in accounts:
+        cache = _read_mail_cache(a["id"])
+        for msg in cache.get("messages", []):
+            if (msg.get("folder") or "inbox") != folder:
+                continue
+            slim = {k: v for k, v in msg.items() if k not in ("bodyText", "bodyHtml")}
+            slim["accountAddress"] = a["address"]
+            slim["workspace"] = a.get("workspace") or "DTX"
+            rows.append(slim)
+    rows.sort(key=lambda m: m.get("date") or "", reverse=True)
+    limit = int(args.get("limit") or 50)
+    return {"count": len(rows), "items": rows[:limit]}
+
+
+def _tool_list_mail_followups(args, actor):
+    return {"items": read_mail_followups()}
+
+
+def _tool_list_mail_dossiers(args, actor):
+    return {"items": list(_build_dossier_index().values())}
+
+
+def _tool_send_ds160_invitation(args, actor):
+    rid = (args.get("ds160Id") or "").strip()
+    if not rid:
+        return {"error": "ds160Id is required"}
+    records = read_ds160_applications()
+    record = next((r for r in records if r.get("id") == rid), None)
+    if not record:
+        return {"error": "DS-160 record not found"}
+    to = (args.get("to") or record.get("clientEmail") or "").strip()
+    if not to:
+        return {"error": "Client email missing — set it on the entry first"}
+    share_url = record.get("shareUrl") or ""
+    given = (record.get("clientName") or "").split()[0] if record.get("clientName") else ""
+    body = (
+        f"Сайн байна уу{(', ' + given) if given else ''}.\n\n"
+        "Та доорх холбоосоор DS-160 маягтаа бөглөнө үү.\n\n"
+        f"{share_url}\n\nХүндэтгэсэн,\nДэлхий Трэвел Икс"
+    )
+    res = _tool_send_email({
+        "to": to,
+        "subject": "TravelX DS-160 form",
+        "body": body,
+        "_company_name": "Дэлхий Трэвел Икс",
+    }, actor)
+    if res.get("error"):
+        return res
+    record["lastEmailedAt"] = datetime.now(timezone.utc).isoformat()
+    record["lastEmailedBy"] = actor_snapshot(actor)
+    write_ds160_applications(records)
+    return {"ok": True, "to": to}
+
+
+def _tool_register_invoice_payment_with_note(args, actor):
+    """Wrapper that forwards a free-text note to handle_invoice_payment so
+    the agent can record context like 'paid only for the father'."""
+    iid = (args.get("invoiceId") or "").strip()
+    idx = args.get("installmentIndex")
+    if not iid or idx is None:
+        return {"error": "invoiceId + installmentIndex required"}
+    records = read_invoices()
+    for i, record in enumerate(records):
+        if record.get("id") != iid:
+            continue
+        installments = record.get("installments") or []
+        if idx < 0 or idx >= len(installments):
+            return {"error": "installmentIndex out of range"}
+        installments[idx]["status"] = (args.get("status") or "paid")
+        if args.get("paidDate"):
+            installments[idx]["paidDate"] = args.get("paidDate")
+        if "note" in args:
+            installments[idx]["note"] = normalize_text(args.get("note"))
+        record["installments"] = installments
+        record["updatedAt"] = now_mongolia().isoformat()
+        record["updatedBy"] = actor_snapshot(actor)
+        records[i] = record
+        write_invoices(records)
+        return {"ok": True, "invoice": record}
+    return {"error": "Invoice not found"}
+
+
 def _tool_get_contract(args, actor):
     cid = (args.get("contractId") or "").strip()
     if not cid:
@@ -12833,6 +13141,97 @@ AGENT_TOOLS = [
          "imagePath": {"type": "string", "description": "Path returned in the [Uploaded image paths] note, e.g. /generated/agent-upload-abc123.jpg"},
          "field": {"type": "string", "description": "'passport' (default) or 'photo'"}}},
      "handler": _tool_attach_image_to_tourist},
+
+    # ── Read tools (single-record) ───────────────────────────────
+    {"name": "get_tourist", "description": "Get one tourist by id. Returns the full record (passport, contact, group + trip ids, marketing status, tags).",
+     "input_schema": {"type": "object", "required": ["touristId"], "properties": {"touristId": {"type": "string"}}},
+     "handler": _tool_get_tourist},
+    {"name": "get_group", "description": "Get one group by id. Returns name, leader, headcount, status, tripId.",
+     "input_schema": {"type": "object", "required": ["groupId"], "properties": {"groupId": {"type": "string"}}},
+     "handler": _tool_get_group},
+
+    # ── Documents (global storage view) ──────────────────────────
+    {"name": "list_documents", "description": "Flatten every uploaded file across every trip in the workspace. Optional filters: tripId, category (Passport, Visa, Ticket, Hotel voucher, Insurance, Itinerary, Invoices, Contracts, Other), touristId.",
+     "input_schema": {"type": "object", "properties": {"tripId": {"type": "string"}, "category": {"type": "string"}, "touristId": {"type": "string"}}},
+     "handler": _tool_list_documents},
+
+    # ── Manager-dashboard tasks + contacts (the To-Do page) ──────
+    {"name": "list_tasks", "description": "List manager-dashboard tasks. Optional status filter (pending, in-progress, done, cancelled, overdue).",
+     "input_schema": {"type": "object", "properties": {"status": {"type": "string"}}},
+     "handler": _tool_list_tasks},
+    {"name": "create_task", "description": "Create a to-do task. owner is the assigned manager's name; createdBy stamps automatically.",
+     "input_schema": {"type": "object", "required": ["title"], "properties": {
+         "title": {"type": "string"}, "owner": {"type": "string"},
+         "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+         "status": {"type": "string", "enum": ["pending", "in-progress", "done", "cancelled"]},
+         "dueDate": {"type": "string"}, "dueTime": {"type": "string"},
+         "destinations": {"type": "array", "items": {"type": "string"}},
+         "note": {"type": "string"}}},
+     "handler": _tool_create_task},
+    {"name": "update_task", "description": "Update task fields by id.",
+     "input_schema": {"type": "object", "required": ["taskId", "fields"], "properties": {"taskId": {"type": "string"}, "fields": {"type": "object"}}},
+     "handler": _tool_update_task},
+    {"name": "delete_task", "description": "Delete a task.",
+     "input_schema": {"type": "object", "required": ["taskId"], "properties": {"taskId": {"type": "string"}}},
+     "handler": _tool_delete_task},
+
+    {"name": "list_contacts", "description": "List manager-dashboard contacts (clients, leads, vendors).",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_list_contacts},
+    {"name": "create_contact", "description": "Create a contact entry.",
+     "input_schema": {"type": "object", "required": ["name"], "properties": {
+         "name": {"type": "string"}, "phone": {"type": "string"},
+         "type": {"type": "string", "enum": ["client", "lead", "vendor", "guide", "driver"]},
+         "status": {"type": "string", "enum": ["new", "warm", "priority", "cold"]},
+         "lastContacted": {"type": "string"},
+         "destinations": {"type": "array", "items": {"type": "string"}},
+         "note": {"type": "string"}}},
+     "handler": _tool_create_contact},
+    {"name": "update_contact", "description": "Update contact fields.",
+     "input_schema": {"type": "object", "required": ["contactId", "fields"], "properties": {"contactId": {"type": "string"}, "fields": {"type": "object"}}},
+     "handler": _tool_update_contact},
+    {"name": "delete_contact", "description": "Delete a contact.",
+     "input_schema": {"type": "object", "required": ["contactId"], "properties": {"contactId": {"type": "string"}}},
+     "handler": _tool_delete_contact},
+
+    # ── Settings ────────────────────────────────────────────────
+    {"name": "get_settings", "description": "Read shared workspace settings: destinations list, bank accounts (for invoice picker), camp names + per-camp prices/contracts.",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_get_settings},
+    {"name": "update_destinations", "description": "Replace the full destinations list. Pass destinations as an array of strings.",
+     "input_schema": {"type": "object", "required": ["destinations"], "properties": {"destinations": {"type": "array", "items": {"type": "string"}}}},
+     "handler": _tool_update_destinations},
+    {"name": "update_bank_accounts", "description": "Replace the full bank-accounts list shown in the contract bank-picker + rendered invoice. Each account: {id?, label, bankName, accountName, accountNumber, currency, swift?, notes?}.",
+     "input_schema": {"type": "object", "required": ["bankAccounts"], "properties": {"bankAccounts": {"type": "array", "items": {"type": "object"}}}},
+     "handler": _tool_update_bank_accounts},
+
+    # ── Team ────────────────────────────────────────────────────
+    {"name": "list_team_members", "description": "List approved team members (managers + admins) with email, role, phone.",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_list_team_members},
+
+    # ── Mail ────────────────────────────────────────────────────
+    {"name": "list_mail_messages", "description": "Recent mail headers from every connected mailbox in the workspace. folder='inbox' (default) or 'sent'. Optional workspace + limit (default 50).",
+     "input_schema": {"type": "object", "properties": {"folder": {"type": "string"}, "workspace": {"type": "string"}, "limit": {"type": "integer"}}},
+     "handler": _tool_list_mail_messages},
+    {"name": "list_mail_followups", "description": "All mail follow-ups (waiting, urgent, replied, cancelled).",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_list_mail_followups},
+    {"name": "list_mail_dossiers", "description": "Every mail-thread → trip / group manual link.",
+     "input_schema": {"type": "object", "properties": {}},
+     "handler": _tool_list_mail_dossiers},
+
+    # ── DS-160 actions ──────────────────────────────────────────
+    {"name": "send_ds160_invitation", "description": "Email the share link for an existing DS-160 invitation to the client (uses Resend, same plumbing as Send via TravelX).",
+     "input_schema": {"type": "object", "required": ["ds160Id"], "properties": {"ds160Id": {"type": "string"}, "to": {"type": "string"}}},
+     "handler": _tool_send_ds160_invitation},
+
+    # ── Invoice payment with note ───────────────────────────────
+    {"name": "register_invoice_payment_with_note", "description": "Mark an installment as paid AND record a free-text note (context like 'paid only for the father, not the mother'). Prefer this over register_invoice_payment when the admin gives any context.",
+     "input_schema": {"type": "object", "required": ["invoiceId", "installmentIndex"], "properties": {
+         "invoiceId": {"type": "string"}, "installmentIndex": {"type": "integer"},
+         "paidDate": {"type": "string"}, "status": {"type": "string"}, "note": {"type": "string"}}},
+     "handler": _tool_register_invoice_payment_with_note},
 ]
 AGENT_TOOL_BY_NAME = {t["name"]: t for t in AGENT_TOOLS}
 
@@ -12922,6 +13321,63 @@ Email:
 - Default subject in Mongolian unless admin specified otherwise. Always confirm to the admin which addresses received the mail and which files were attached.
 - If a field is unclear or partially obscured, say so rather than guessing.
 - DO NOT write a closing signature ("Хүндэтгэсэн", "Дэлхий Трэвел Икс", "Travelx team", company name, contact info, "автомат имэйл" disclaimer, etc.) at the end of `body`. The server appends a fixed gray-italic disclaimer and the company signature automatically. Just write greeting → content → "Баярлалаа" (or similar short close), and stop.
+
+The whole back-office — every page, every workflow you can help with:
+
+1. Home / Trip page (/backoffice or /trip-detail)
+   - Trip creator (modal): tripType (FIT/GIT), dates, pax, status, destinations.
+   - Active trip card shows pax counter (FIT: planned; GIT: actual/planned).
+   - Sections under a chosen trip: Tourists, Groups (GIT only), Camp/Flight/Transfer reservations, Contracts, Invoices, Documents, Rooming.
+   - + Add tourist auto-creates the implicit group on FIT only; GIT requires + Add group first.
+   - Bank account chosen on contract form flows to the auto-invoice via invoiceMeta.bankAccountKey.
+
+2. Tourist Directory (/tourist)
+   - Every tourist across every trip + promo-only contacts (no trip).
+   - Filters: search by name/serial/destination, trip, group, DOB range, age range, status pills.
+   - + Add tourist: full passport-aware form with OCR autofill via passport-scan dropzone; saves with no group/trip → it becomes a "PR-XXXX" promo contact.
+   - Mark-all marks every eligible tourist across all pages of the filtered set.
+   - + Send promo: bulk-mails the selected tourists; skips children (<18 auto), do_not_contact, and rows without email.
+
+3. Contracts (/contracts)
+   - Contract maker: 2-step (count setup → details). Saves contract DOCX + PDF.
+   - Bank dropdown: sources from Settings → Bank accounts. Doesn't appear in the contract document, only on the auto-generated invoice.
+   - Auto-creates a matching invoice with two installments (deposit + balance).
+
+4. Invoices (/invoices)
+   - Global list of every invoice in the workspace.
+   - Each invoice has items + installments + payments. Installments accept a free-text note via register_invoice_payment_with_note.
+
+5. Documents (/documents)
+   - Global flat view of every uploaded file across every trip. Filter by file name, person name, destination, trip, category, file type, upload date range.
+
+6. Mail (/mail)
+   - Inbox + Sent for every connected mailbox in the workspace.
+   - Compose with rich editor + signature picker + template loader.
+   - Per-thread bell (follow-up timer 1/3/5/7/custom days). Per-thread "Linked dossier" lets the admin manually attach a thread to a trip or group; the chip on the row navigates there.
+
+7. To Do (/todo)
+   - Mixed list: tasks (what to do) + contacts (who to call). Same table.
+   - Tasks: title, owner (assignee), priority, status, due date+time, destinations, note. Assigned by column shows the creator.
+   - Notifications fire 6 hours before due (email + bell, idempotent).
+
+8. Reservations (/camp-reservations, /flight-reservations, /transfer-reservations)
+   - Each is a global list + + Add modal scoped to a trip.
+
+9. DS-160 (/ds160)
+   - Create invitation → unique share URL for the client. "Send via TravelX" delivers the link via Resend so it works without a desktop mail client. Once filled, status flips to Submitted and the answers are viewable.
+
+10. FIFA 2026 admin (/fifa2026/admin)
+    - Per-match ticket inventory: load tickets by match number + city, mark sold, attach buyer info.
+
+11. Settings (/settings)
+    - Tabs: Destinations (used in every dropdown), Camps (camp names + prices + contracts used in camp reservations), Bank accounts (used in contract → invoice picker; seeded with Төрийн Банк + Голомт Банк).
+
+12. Team / Admin (/admin) — admin-only
+    - Approve signups, assign roles, deactivate accounts. Everything else (mail accounts, bank accounts, settings, agent chat) is open to managers.
+
+Workspace separation:
+- The cookie `activeWorkspace` (DTX or USM) scopes every list endpoint. When the admin clicks a notification linking to a trip in the OTHER workspace, the workspace cookie is auto-switched before navigation.
+- When in doubt about which workspace, infer from destination (Mongolia → USM, anything else → DTX).
 """
 
 
