@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-256" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-257" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -381,6 +381,26 @@
             </div>
           </div>
           <div id="trip-invoices-list" class="submission-list"></div>
+        </section>
+
+        <section class="card" id="trip-notes-section">
+          <div class="section-head">
+            <div>
+              <h2>Trip notes</h2>
+              <p>Notes pinned to this trip only. Use <code>@name</code> to ping a teammate's reminder bell.</p>
+            </div>
+          </div>
+          <form id="trip-note-form" class="notes-composer">
+            <div class="notes-composer-row notes-textarea-wrap">
+              <textarea id="trip-note-body" rows="2" placeholder="Add a note about this trip. @ to mention…"></textarea>
+              <div id="trip-note-mention-popover" class="notes-mention-popover" hidden></div>
+            </div>
+            <div class="actions">
+              <button type="submit">Post note</button>
+              <p id="trip-note-status" class="status"></p>
+            </div>
+          </form>
+          <div id="trip-notes-list" class="notes-list"></div>
         </section>
 
 
@@ -1093,12 +1113,13 @@
     </div>
 
     <script src="/compress-upload.js?v=workspace-1"></script>
-    <script src="/app-shell.js?v=workspace-110"></script>
+    <script src="/app-shell.js?v=workspace-111"></script>
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/camp.js?v=workspace-123"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
     <script src="/trip-extras.js?v=workspace-17"></script>
+    <script src="/trip-notes.js?v=workspace-1"></script>
     <script src="/contracts.js?v=workspace-7"></script>
     <script src="/invoice.js?v=workspace-21"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>

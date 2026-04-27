@@ -50,6 +50,7 @@ SETTINGS_FILE = DATA_DIR / "settings.json"
 CAMP_CONTRACTS_DIR = DATA_DIR / "camp-contracts"
 MAIL_FOLLOWUPS_FILE = DATA_DIR / "mail_followups.json"
 MAIL_DOSSIERS_FILE = DATA_DIR / "mail_dossiers.json"
+NOTES_FILE = DATA_DIR / "notes.json"
 FIFA2026_FILE = DATA_DIR / "fifa2026.json"
 FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
@@ -9380,6 +9381,194 @@ def handle_mail_dossier_targets(environ, start_response):
     return json_response(start_response, "200 OK", {"trips": trip_rows, "groups": group_rows})
 
 
+# ── Notes (free-text shared notes with @-mentions) ───────────────────
+
+def read_notes():
+    return read_json_list(NOTES_FILE)
+
+
+def write_notes(records):
+    write_json_list(NOTES_FILE, records)
+
+
+def _parse_note_mentions(body):
+    """Find @mentions in note body and resolve to user ids. Format expected:
+    @[Full Name] — case-insensitive name match against approved users.
+    Returns list of {id, name, email}."""
+    if not body:
+        return []
+    found_names = re.findall(r"@\[([^\]]+)\]", body)
+    if not found_names:
+        return []
+    users = read_users()
+    mentions = []
+    seen = set()
+    for raw in found_names:
+        name_clean = (raw or "").strip().lower()
+        if not name_clean:
+            continue
+        for u in users:
+            full = (u.get("fullName") or u.get("email") or "").strip()
+            if full.lower() == name_clean and u.get("id") not in seen:
+                mentions.append({
+                    "id": u.get("id"),
+                    "name": full,
+                    "email": u.get("email") or "",
+                })
+                seen.add(u.get("id"))
+                break
+    return mentions
+
+
+def build_note(payload, actor):
+    body = normalize_text(payload.get("body"))
+    mentions = _parse_note_mentions(body)
+    return {
+        "id": uuid4().hex,
+        "body": body,
+        "mentions": mentions,
+        "tripId": normalize_text(payload.get("tripId")),
+        "groupId": normalize_text(payload.get("groupId")),
+        "company": normalize_text(payload.get("company")) or "",
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "createdBy": actor_snapshot(actor) if actor else {},
+        "createdByAvatar": (actor.get("avatarPath") if isinstance(actor, dict) else "") or "",
+        "updatedAt": "",
+    }
+
+
+def handle_list_notes(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    params = parse_qs(environ.get("QUERY_STRING", ""))
+    trip_id = (params.get("tripId", [""])[0] or "").strip()
+    group_id = (params.get("groupId", [""])[0] or "").strip()
+    mentioned_me = (params.get("mentionedMe", [""])[0] or "") == "1"
+    workspace = active_workspace(environ)
+    notes = read_notes()
+    if trip_id:
+        notes = [n for n in notes if n.get("tripId") == trip_id]
+    if group_id:
+        notes = [n for n in notes if n.get("groupId") == group_id]
+    if mentioned_me:
+        my_id = (actor or {}).get("id")
+        notes = [
+            n for n in notes
+            if any((m or {}).get("id") == my_id for m in (n.get("mentions") or []))
+        ]
+    # Workspace scoping: notes attached to a trip inherit that trip's
+    # company; orphan notes are visible to everyone.
+    if workspace and not trip_id and not group_id:
+        trip_company = {t.get("id"): normalize_company(t.get("company")) for t in read_camp_trips()}
+        notes = [
+            n for n in notes
+            if not n.get("tripId") or trip_company.get(n.get("tripId")) == workspace
+        ]
+    notes.sort(key=lambda n: n.get("createdAt") or "", reverse=True)
+    return json_response(start_response, "200 OK", {"entries": notes})
+
+
+def handle_create_note(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None or not normalize_text(payload.get("body")):
+        return json_response(start_response, "400 Bad Request", {"error": "Note body required"})
+    record = build_note(payload, actor)
+    notes = read_notes()
+    notes.insert(0, record)
+    write_notes(notes)
+    # Per @-mention: log a notification for each mentioned user so it lands
+    # in their reminder bell.
+    for m in record.get("mentions") or []:
+        try:
+            log_notification(
+                "note.mention",
+                actor,
+                f"Mentioned by {(actor or {}).get('fullName') or 'someone'}",
+                detail=record["body"][:120],
+                meta={"id": record["id"], "tripId": record.get("tripId"), "groupId": record.get("groupId"), "mentionedUserId": m.get("id")},
+            )
+        except Exception:
+            pass
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_update_note(environ, start_response, note_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    method = environ.get("REQUEST_METHOD", "GET").upper()
+    notes = read_notes()
+    for i, n in enumerate(notes):
+        if n.get("id") != note_id:
+            continue
+        if method == "DELETE":
+            notes.pop(i)
+            write_notes(notes)
+            return json_response(start_response, "200 OK", {"ok": True})
+        payload = collect_json(environ) or {}
+        if "body" in payload:
+            n["body"] = normalize_text(payload.get("body"))
+            n["mentions"] = _parse_note_mentions(n["body"])
+        n["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        n["updatedBy"] = actor_snapshot(actor)
+        notes[i] = n
+        write_notes(notes)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": n})
+    return json_response(start_response, "404 Not Found", {"error": "Note not found"})
+
+
+def handle_list_reminders(environ, start_response):
+    """Personalised reminder feed = tasks owned by me + notes mentioning me.
+    Used by the new reminder bell between the mail and notification icons."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    my_id = (actor or {}).get("id")
+    my_name = ((actor or {}).get("fullName") or (actor or {}).get("email") or "").strip()
+    items = []
+
+    # Tasks where current user is the owner and not yet done.
+    store = read_manager_dashboard()
+    for t in (store.get("tasks") or []):
+        owner = (t.get("owner") or "").strip()
+        status = (t.get("status") or "pending").lower()
+        if status in {"done", "cancelled"}:
+            continue
+        if my_name and owner.lower() == my_name.lower():
+            items.append({
+                "kind": "task",
+                "id": t.get("id"),
+                "title": t.get("title") or "",
+                "note": t.get("note") or "",
+                "dueDate": t.get("dueDate") or "",
+                "dueTime": t.get("dueTime") or "",
+                "status": status,
+                "createdBy": t.get("createdBy") or {},
+                "createdAt": t.get("createdAt") or "",
+            })
+
+    # Notes mentioning me.
+    for n in read_notes():
+        if any((m or {}).get("id") == my_id for m in (n.get("mentions") or [])):
+            items.append({
+                "kind": "note",
+                "id": n.get("id"),
+                "body": n.get("body") or "",
+                "tripId": n.get("tripId") or "",
+                "groupId": n.get("groupId") or "",
+                "createdBy": n.get("createdBy") or {},
+                "createdByAvatar": n.get("createdByAvatar") or "",
+                "createdAt": n.get("createdAt") or "",
+            })
+
+    items.sort(key=lambda x: x.get("createdAt") or x.get("dueDate") or "", reverse=True)
+    return json_response(start_response, "200 OK", {"count": len(items), "items": items[:80]})
+
+
 def handle_mail_unread_summary(environ, start_response):
     """Cache-only summary used by the topbar mail icon. Returns the count of
     unread inbox messages plus a short list of recent ones, scoped to the
@@ -13979,6 +14168,24 @@ def _dispatch(environ, start_response):
             return handle_mail_dossier_targets(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/notes":
+        if method == "GET":
+            return handle_list_notes(environ, start_response)
+        if method == "POST":
+            return handle_create_note(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/notes/"):
+        note_id = path.replace("/api/notes/", "", 1).strip("/")
+        if note_id and method in {"POST", "PATCH", "DELETE"}:
+            return handle_update_note(environ, start_response, note_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/reminders":
+        if method == "GET":
+            return handle_list_reminders(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/mail/send":
         if method == "POST":
             return handle_send_mail(environ, start_response)
@@ -14495,6 +14702,17 @@ def _dispatch(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "backoffice.html")
+
+    if path == "/contacts":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        # Same UI as /todo but the script default-filters to contacts.
+        return file_response(start_response, PUBLIC_DIR / "backoffice.html")
+
+    if path == "/notes":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "notes.html")
 
     if path == "/settings":
         if not current_user(environ):

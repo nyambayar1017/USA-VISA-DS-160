@@ -12530,3 +12530,66 @@ input[type="week"] {
 .workspace-form-modal .destinations-multi-trigger .tourist-tag-chip {
   margin: 1px 2px;
 }
+
+/* ── Notes (notes.html + trip-detail Notes section) ──────────────── */
+.notes-composer { display: flex; flex-direction: column; gap: 10px; }
+.notes-composer-row { display: flex; gap: 10px; align-items: stretch; }
+.notes-composer textarea {
+  width: 100%; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid #d0d7e8; font: inherit; resize: vertical;
+}
+.notes-textarea-wrap { position: relative; }
+.notes-mention-popover {
+  position: absolute; z-index: 30;
+  background: #ffffff; border: 1px solid #d0d7e8; border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 4px; max-height: 220px; overflow-y: auto;
+  min-width: 180px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.notes-mention-item {
+  text-align: left; padding: 6px 10px; border: 0; background: transparent;
+  cursor: pointer; font: inherit; border-radius: 6px;
+}
+.notes-mention-item:hover { background: #f1f5f9; }
+
+.notes-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.notes-item {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px; padding: 12px 14px; background: #ffffff;
+}
+.notes-item-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.notes-avatar {
+  width: 32px; height: 32px; border-radius: 999px; object-fit: cover; flex-shrink: 0;
+  display: inline-grid; place-items: center;
+  background: linear-gradient(135deg, #f0e7d8, #e8c98a); color: #6b3f17;
+  font-weight: 700; font-size: 0.85rem;
+}
+.notes-avatar-fallback { background: #e2e8f0; color: #475569; }
+.notes-item-meta {
+  display: flex; flex-direction: column; line-height: 1.2;
+}
+.notes-item-meta strong { font-size: 0.92rem; color: #0f172a; }
+.notes-item-meta time { font-size: 0.78rem; color: #64748b; }
+.notes-item-body {
+  margin: 0; white-space: pre-wrap; word-wrap: break-word;
+  font-size: 0.92rem; line-height: 1.5; color: #1f2a44;
+}
+.notes-mention {
+  display: inline; color: #2563eb; font-weight: 600; padding: 0 2px;
+  border-radius: 4px; background: rgba(37, 99, 235, 0.08);
+}
+.notes-trip-chip {
+  margin-left: auto; padding: 4px 10px; border-radius: 999px;
+  background: #ecfdf5; color: #065f46; font-size: 0.78rem; font-weight: 600;
+  text-decoration: none; border: 1px solid rgba(5, 150, 105, 0.18);
+}
+.notes-item-delete {
+  margin-left: 8px; width: 22px; height: 22px; padding: 0;
+  border: 0; border-radius: 6px; background: transparent;
+  color: #94a3b8; font-size: 18px; cursor: pointer;
+}
+.notes-item-delete:hover { background: #fee2e2; color: #b91c1c; }
+.notes-mentioned-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; }

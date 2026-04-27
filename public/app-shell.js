@@ -109,6 +109,8 @@ function renderSidebar(user) {
     documents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
     mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3,7 12,13 21,7"/></svg>',
     todo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><polyline points="8,12 11,15 16,9"/></svg>',
+    contacts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17c.6-2 2-3 3.5-3s2.9 1 3.5 3"/><line x1="14" y1="9" x2="18" y2="9"/><line x1="14" y1="12" x2="18" y2="12"/><line x1="14" y1="15" x2="17" y2="15"/></svg>',
+    notes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11l3 3v13H5z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="16" x2="13" y2="16"/></svg>',
     "flight-reservations": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l8-2 1-6h2l-1 6 8 2v2l-8-2-2 6 2 1v2l-3-1-3 1v-2l2-1-2-6-7 2z"/></svg>',
     "transfer-reservations": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,7 4,9 6,11"/><line x1="4" y1="9" x2="20" y2="9"/><polyline points="18,17 20,15 18,13"/><line x1="20" y1="15" x2="4" y2="15"/></svg>',
     "camp-reservations": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 L4 20 H20 Z"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
@@ -148,6 +150,8 @@ function renderSidebar(user) {
     ${link("documents", "/documents", "Documents")}
     ${link("mail", "/mail", "Mail")}
     ${link("todo", "/todo", "To Do")}
+    ${link("contacts", "/contacts", "Contacts")}
+    ${link("notes", "/notes", "Notes")}
     ${link("flight-reservations", "/flight-reservations", "Flight Reservations")}
     ${link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
     ${link("camp-reservations", "/camp-reservations", "Camp Reservations")}
@@ -167,6 +171,8 @@ function renderSidebar(user) {
     ${link("documents", "/documents", "Documents")}
     ${link("mail", "/mail", "Mail")}
     ${link("todo", "/todo", "To Do")}
+    ${link("contacts", "/contacts", "Contacts")}
+    ${link("notes", "/notes", "Notes")}
     ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
     ${link("settings", "/settings", "Settings")}
   `;
@@ -323,6 +329,15 @@ function buildProfileChrome() {
       </svg>
       <span class="workspace-bell-count" data-mail-count hidden>0</span>
     </button>
+    <button type="button" class="workspace-bell workspace-reminder-icon" data-action="toggle-reminders" aria-label="Reminders &amp; mentions">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="13" r="8"></circle>
+        <path d="M12 9v4l2.5 2.5"></path>
+        <path d="M5 4l3.5-2"></path>
+        <path d="M19 4l-3.5-2"></path>
+      </svg>
+      <span class="workspace-bell-count" data-reminder-count hidden>0</span>
+    </button>
     <button type="button" class="workspace-bell" data-action="toggle-notifications" aria-label="Notifications">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"></path>
@@ -365,6 +380,18 @@ function buildProfileChrome() {
         <a class="mail-popover-see-all" href="/mail">See all emails →</a>
       </footer>
     </div>
+    <div class="notifications-popover" data-reminder-popover hidden>
+      <header>
+        <h3>Reminders &amp; mentions</h3>
+        <button type="button" class="notifications-close" data-action="close-reminders" aria-label="Close">×</button>
+      </header>
+      <div class="notifications-list" data-reminder-list>
+        <p class="notifications-empty">Loading…</p>
+      </div>
+      <footer class="mail-popover-footer">
+        <a class="mail-popover-see-all" href="/notes">See all notes →</a>
+      </footer>
+    </div>
   `;
   profileNameNode = profileCard.querySelector("[data-profile-name]");
   profileEmailNode = profileCard.querySelector("[data-profile-email]");
@@ -404,6 +431,13 @@ function buildProfileChrome() {
   profileCard.querySelector('[data-action="close-mail"]')?.addEventListener("click", () => {
     closeMailPopover();
   });
+  profileCard.querySelector('[data-action="toggle-reminders"]')?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleReminderPopover();
+  });
+  profileCard.querySelector('[data-action="close-reminders"]')?.addEventListener("click", () => {
+    closeReminderPopover();
+  });
   document.addEventListener("click", (event) => {
     const inProfile = profileCard.contains(event.target);
     const inMobileBar = mobileBar?.contains(event.target);
@@ -411,6 +445,7 @@ function buildProfileChrome() {
       closeProfileMenu();
       closeNotifications();
       closeMailPopover();
+      closeReminderPopover();
     }
   });
 }
@@ -532,6 +567,96 @@ function startMailUnreadPolling() {
   if (mailUnreadPollTimer) clearInterval(mailUnreadPollTimer);
   fetchMailUnread();
   mailUnreadPollTimer = setInterval(fetchMailUnread, 60000);
+}
+
+// ── Reminder bell (between mail + notification) ─────────────────────
+let reminderCache = [];
+let reminderPopoverNode = null;
+let reminderCountNode = null;
+let reminderPollTimer = null;
+
+function toggleReminderPopover(forceState) {
+  if (!reminderPopoverNode) reminderPopoverNode = profileCard?.querySelector("[data-reminder-popover]");
+  if (!reminderPopoverNode) return;
+  const isOpen = typeof forceState === "boolean" ? forceState : reminderPopoverNode.hasAttribute("hidden");
+  if (isOpen) {
+    reminderPopoverNode.removeAttribute("hidden");
+    closeProfileMenu();
+    closeNotifications();
+    if (mailPopoverNode) mailPopoverNode.setAttribute("hidden", "");
+    fetchReminders();
+  } else {
+    reminderPopoverNode.setAttribute("hidden", "");
+  }
+}
+function closeReminderPopover() { toggleReminderPopover(false); }
+
+function renderReminderList() {
+  if (!reminderPopoverNode) return;
+  const list = reminderPopoverNode.querySelector("[data-reminder-list]");
+  if (!list) return;
+  if (!reminderCache.length) {
+    list.innerHTML = `<p class="notifications-empty">No reminders or mentions yet.</p>`;
+    return;
+  }
+  list.innerHTML = reminderCache.map((item) => {
+    if (item.kind === "task") {
+      const due = item.dueDate ? `${item.dueDate}${item.dueTime ? " " + item.dueTime : ""}` : "no due date";
+      const note = item.note ? `<p class="mail-pop-snippet">${escapeHtml(item.note)}</p>` : "";
+      return `
+        <a class="notifications-item notifications-item--link" href="/todo">
+          <span class="notification-avatar notification-avatar-icon">◎</span>
+          <div class="notifications-item-body">
+            <p><strong>Task</strong> ${escapeHtml(item.title || "")}</p>
+            ${note}
+            <time>${escapeHtml(due)} · ${escapeHtml((item.createdBy?.name || "—"))}</time>
+          </div>
+        </a>
+      `;
+    }
+    const trip = item.tripId ? `?tripId=${encodeURIComponent(item.tripId)}` : "";
+    const url = item.tripId ? `/trip-detail${trip}` : "/notes";
+    const author = item.createdBy?.name || item.createdBy?.email || "—";
+    const avatar = item.createdByAvatar
+      ? `<img src="${escapeHtml(item.createdByAvatar)}" alt="" class="notification-avatar"/>`
+      : `<span class="notification-avatar notification-avatar-icon">@</span>`;
+    return `
+      <a class="notifications-item notifications-item--link" href="${escapeHtml(url)}">
+        ${avatar}
+        <div class="notifications-item-body">
+          <p><strong>${escapeHtml(author)}</strong> mentioned you</p>
+          <p class="mail-pop-snippet">${escapeHtml((item.body || "").slice(0, 140))}</p>
+          <time>${escapeHtml(formatRelativeTime(item.createdAt))}</time>
+        </div>
+      </a>
+    `;
+  }).join("");
+}
+
+function updateReminderCount(n) {
+  if (!reminderCountNode) reminderCountNode = profileCard?.querySelector("[data-reminder-count]");
+  if (!reminderCountNode) return;
+  const display = n > 99 ? "99+" : String(n || 0);
+  reminderCountNode.textContent = display;
+  if (n > 0) reminderCountNode.removeAttribute("hidden");
+  else reminderCountNode.setAttribute("hidden", "");
+}
+
+async function fetchReminders() {
+  try {
+    const r = await fetch("/api/reminders");
+    if (!r.ok) return;
+    const data = await r.json();
+    reminderCache = Array.isArray(data.items) ? data.items : [];
+    updateReminderCount(data.count || 0);
+    renderReminderList();
+  } catch {}
+}
+
+function startReminderPolling() {
+  if (reminderPollTimer) clearInterval(reminderPollTimer);
+  fetchReminders();
+  reminderPollTimer = setInterval(fetchReminders, 60000);
 }
 
 function renderProfile(user) {
@@ -1175,6 +1300,7 @@ async function loadProfile() {
     fetchNotifications();
     startNotificationPolling();
     startMailUnreadPolling();
+    startReminderPolling();
   } catch {
     if (profileNameNode) profileNameNode.textContent = "TravelX Staff";
     if (profileEmailNode) profileEmailNode.textContent = "Profile unavailable";

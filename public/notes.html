@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notes</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-257" />
+  </head>
+  <body class="app-body" data-page="notes">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">Workspace</p>
+            <h1>Notes</h1>
+            <p class="workspace-subtitle">Free-text notes. Use <code>@name</code> to mention someone — they'll see it in their reminder bell.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <h2>New note</h2>
+              <p>Write a note. Type <code>@</code> to mention a teammate — choose from the popup. Pin it to a trip from the dropdown if it belongs to one.</p>
+            </div>
+          </div>
+          <form id="note-form" class="notes-composer">
+            <div class="notes-composer-row">
+              <select id="note-trip" class="trip-filter-input">
+                <option value="">— Not linked to a trip —</option>
+              </select>
+            </div>
+            <div class="notes-composer-row notes-textarea-wrap">
+              <textarea id="note-body" rows="3" placeholder="Write a note. @ to mention…" required></textarea>
+              <div id="note-mention-popover" class="notes-mention-popover" hidden></div>
+            </div>
+            <div class="actions">
+              <button type="submit">Post note</button>
+              <p id="note-status" class="status"></p>
+            </div>
+          </form>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <h2>All notes</h2>
+              <p>Newest first. Filter by who's mentioned, by trip, or by author.</p>
+            </div>
+          </div>
+          <div class="invoices-filter-bar">
+            <input id="notes-filter-text" type="search" placeholder="Search note text" autocomplete="off" />
+            <select id="notes-filter-trip" class="trip-filter-input">
+              <option value="">All trips</option>
+            </select>
+            <select id="notes-filter-author" class="trip-filter-input">
+              <option value="">All authors</option>
+            </select>
+            <label class="trip-filter-checkbox notes-mentioned-toggle">
+              <input type="checkbox" id="notes-filter-mentioned-me" />
+              <span>Mentioning me</span>
+            </label>
+          </div>
+          <p id="notes-count" class="invoices-count"></p>
+          <div id="notes-list" class="notes-list"></div>
+          <div id="notes-pagination"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/compress-upload.js?v=workspace-1"></script>
+    <script src="/app-shell.js?v=workspace-111"></script>
+    <script src="/pagination.js?v=workspace-1"></script>
+    <script src="/notes.js?v=workspace-1"></script>
+    <script src="/ui-dialog.js?v=workspace-1"></script>
+  </body>
+</html>

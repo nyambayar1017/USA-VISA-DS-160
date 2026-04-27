@@ -17,6 +17,35 @@ const todoTypeFilter = document.querySelector("#todo-type-filter");
 const todoPriorityFilter = document.querySelector("#todo-priority-filter");
 const todoStatusPills = document.querySelector("#todo-status-pills");
 
+// Same backoffice.html backs both /todo and /contacts. On /contacts we
+// default-filter to contacts and hide the type toggle so the page reads
+// like its own "Contacts saver" view per the user's split-into-2 ask.
+// On /todo we mirror the inverse: default to tasks-only.
+(function applyRouteDefault() {
+  if (!todoTypeFilter) return;
+  if (window.location.pathname === "/contacts") {
+    todoTypeFilter.value = "contact";
+    todoTypeFilter.style.display = "none";
+    document.title = "Contacts";
+    const head = document.querySelector("#todo-section .section-head h2");
+    if (head) head.textContent = "Contacts";
+    const sub = document.querySelector("#todo-section .section-head p");
+    if (sub) sub.textContent = "All saved contacts. Add a new one with + Add contact.";
+    const taskBtn = document.querySelector("#task-toggle-form");
+    if (taskBtn) taskBtn.style.display = "none";
+  } else if (window.location.pathname === "/todo") {
+    todoTypeFilter.value = "task";
+    todoTypeFilter.style.display = "none";
+    document.title = "To Do";
+    const head = document.querySelector("#todo-section .section-head h2");
+    if (head) head.textContent = "To-Do tasks";
+    const sub = document.querySelector("#todo-section .section-head p");
+    if (sub) sub.textContent = "Tasks turn red when overdue and remind the assignee 6 hours before due.";
+    const contactBtn = document.querySelector("#contact-toggle-form");
+    if (contactBtn) contactBtn.style.display = "none";
+  }
+})();
+
 const taskStatusNode = document.querySelector("#task-status");
 const contactStatusNode = document.querySelector("#contact-status");
 
