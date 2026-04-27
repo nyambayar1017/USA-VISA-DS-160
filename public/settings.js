@@ -9,12 +9,28 @@ const destinationList = document.getElementById("destination-list");
 const destinationsStatus = document.getElementById("destinations-status");
 
 const campForm = document.getElementById("camp-form");
+const campFormModal = document.getElementById("camp-form-modal");
+const campFormTitle = document.getElementById("camp-form-title");
+const campAddButton = document.getElementById("camp-add-button");
 const campSubmitButton = document.getElementById("camp-submit-button");
 const campCancelButton = document.getElementById("camp-cancel-button");
 const campContractCurrent = document.getElementById("camp-contract-current");
 const campList = document.getElementById("camp-list");
 const campStatus = document.getElementById("camp-status");
 const campsStatus = document.getElementById("camps-status");
+
+function openCampModal() {
+  if (!campFormModal) return;
+  campFormModal.classList.remove("is-hidden");
+  campFormModal.removeAttribute("hidden");
+  document.body.classList.add("modal-open");
+}
+function closeCampModal() {
+  if (!campFormModal) return;
+  campFormModal.classList.add("is-hidden");
+  campFormModal.setAttribute("hidden", "");
+  document.body.classList.remove("modal-open");
+}
 
 let destinations = [];
 let campSettings = {
@@ -130,6 +146,7 @@ function resetCampForm() {
   pendingContractPath = "";
   campContractCurrent.textContent = "";
   campSubmitButton.textContent = "Add camp";
+  if (campFormTitle) campFormTitle.textContent = "Add camp";
   setStatus(campStatus, "");
 }
 
@@ -229,7 +246,8 @@ function startCampEdit(name) {
     ? `Current: <a href="${escapeHtml(detail.contractPath)}" target="_blank" rel="noreferrer">${escapeHtml(detail.contractPath.split("/").pop())}</a>`
     : "";
   campSubmitButton.textContent = "Update camp";
-  campForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (campFormTitle) campFormTitle.textContent = `Edit ${name}`;
+  openCampModal();
 }
 
 async function uploadContract(file, campName) {
@@ -306,9 +324,23 @@ campForm?.addEventListener("submit", async (event) => {
   await saveCampSettings(originalName ? "Camp updated." : "Camp added.");
   setStatus(campStatus, "");
   resetCampForm();
+  closeCampModal();
 });
 
-campCancelButton?.addEventListener("click", () => resetCampForm());
+campAddButton?.addEventListener("click", () => {
+  resetCampForm();
+  openCampModal();
+});
+campCancelButton?.addEventListener("click", () => {
+  resetCampForm();
+  closeCampModal();
+});
+campFormModal?.addEventListener("click", (event) => {
+  if (event.target?.dataset?.action === "close-camp-form") {
+    resetCampForm();
+    closeCampModal();
+  }
+});
 
 campList?.addEventListener("click", async (event) => {
   const editBtn = event.target.closest('[data-action="edit-camp"]');

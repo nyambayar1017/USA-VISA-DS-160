@@ -9312,6 +9312,12 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   max-width: 560px;
   width: 92%;
 }
+.settings-camp-modal-dialog {
+  max-width: 720px;
+  width: 92%;
+  max-height: 90vh;
+  overflow: auto;
+}
 .note-view-body {
   white-space: pre-wrap;
   word-break: break-word;
@@ -9419,6 +9425,11 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   gap: 8px;
 }
 
+.settings-camp-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
 .settings-camp-form {
   background: #f9fbfd;
   border: 1px solid #e2e6ee;
@@ -9457,53 +9468,58 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 .settings-camp-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
   margin-bottom: 18px;
 }
 .settings-camp-card {
   border: 1px solid #e2e6ee;
-  border-radius: 10px;
-  padding: 14px;
+  border-radius: 8px;
+  padding: 8px 10px;
   background: #fff;
+  font-size: 13px;
 }
 .settings-camp-card-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
 }
-.settings-camp-card-head h3 { margin: 0; font-size: 15px; color: #1f2937; }
-.settings-camp-card-head p { margin: 2px 0 0; font-size: 12px; color: #6b7280; }
+.settings-camp-card-head h3 { margin: 0; font-size: 13px; color: #1f2937; font-weight: 600; }
+.settings-camp-card-head p { margin: 1px 0 0; font-size: 11px; color: #6b7280; }
 .settings-camp-card-actions {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 .settings-camp-card-actions button {
-  padding: 5px 10px;
+  padding: 3px 8px;
   border: 1px solid #d0d7e8;
-  border-radius: 6px;
+  border-radius: 5px;
   background: #fff;
-  font-size: 12px;
+  color: #1f2937;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
 }
+.settings-camp-card-actions button:hover { background: #f4f6fa; }
 .settings-camp-price {
   white-space: pre-wrap;
   background: #f4f6fa;
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 12px;
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 11px;
   color: #374151;
-  max-height: 200px;
+  max-height: 90px;
   overflow: auto;
-  margin: 0 0 8px;
+  margin: 4px 0 4px;
+  line-height: 1.4;
 }
 .settings-camp-empty {
-  font-size: 12px;
+  font-size: 11px;
   color: #9ca3af;
-  margin: 0 0 8px;
+  margin: 0;
 }
 .settings-camp-contract {
   display: inline-block;
