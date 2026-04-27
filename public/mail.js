@@ -1059,6 +1059,33 @@
     }
   });
 
+  function openViewerModal() {
+    const modal = document.getElementById("mail-viewer-modal");
+    if (!modal) return;
+    modal.classList.remove("is-hidden");
+    modal.removeAttribute("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeViewerModal() {
+    const modal = document.getElementById("mail-viewer-modal");
+    if (!modal) return;
+    modal.classList.add("is-hidden");
+    modal.setAttribute("hidden", "");
+    document.body.classList.remove("modal-open");
+    selectedKey = "";
+    currentMessage = null;
+    renderList();
+  }
+  document.getElementById("mail-viewer-modal")?.addEventListener("click", (event) => {
+    if (event.target?.dataset?.action === "close-viewer") closeViewerModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      const modal = document.getElementById("mail-viewer-modal");
+      if (modal && !modal.hasAttribute("hidden")) closeViewerModal();
+    }
+  });
+
   function selectKey(key) {
     selectedKey = key;
     if (key) {
@@ -1069,6 +1096,7 @@
         fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}/read?folder=${encodeURIComponent(currentFolder)}`, { method: "POST" }).catch(() => {});
       }
       loadMessage(key);
+      openViewerModal();
     }
     renderList();
     document.querySelector(".mail-layout")?.classList.toggle("is-viewing", !!key);

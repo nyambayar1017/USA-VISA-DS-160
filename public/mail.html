@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-246" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-247" />
   </head>
   <body class="app-body" data-page="mail">
     <div class="workspace-shell">
@@ -68,18 +68,25 @@
             <button type="button" class="secondary-button" id="mail-bulk-clear">Clear</button>
           </div>
 
-          <div class="mail-layout">
+          <div class="mail-layout mail-layout--full">
             <div class="mail-list" id="mail-list">
               <p class="empty">Loading...</p>
             </div>
+          </div>
+        </section>
+
+        <div id="mail-viewer-modal" class="mail-viewer-modal is-hidden" hidden>
+          <div class="mail-viewer-backdrop" data-action="close-viewer"></div>
+          <div class="mail-viewer-dialog">
+            <button type="button" class="mail-viewer-close" data-action="close-viewer" aria-label="Close">×</button>
             <div class="mail-viewer" id="mail-viewer">
               <div class="mail-viewer-empty">
                 <div class="mail-empty-illustration mail-empty-illustration--small">✉</div>
-                <p>Select a message to read it.</p>
+                <p>Loading...</p>
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
         <div id="mail-compose-modal" class="mail-compose-modal" hidden>
           <div class="mail-compose-backdrop" data-action="close-compose"></div>
@@ -243,7 +250,7 @@
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-108"></script>
     <script src="/rich-editor.js?v=workspace-3"></script>
-    <script src="/mail.js?v=workspace-20"></script>
+    <script src="/mail.js?v=workspace-21"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
