@@ -12398,3 +12398,33 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   .pgn-btn { min-width: 28px; height: 28px; padding: 0 8px; font-size: 0.78rem; }
   .pgn-info { font-size: 0.76rem; }
 }
+
+/* ── Containment: nothing escapes the card on any viewport ───────────── */
+/* Card horizontal clip so wide tables / popovers / filter rows stay inside.
+   overflow-x: clip lets vertical popovers (date pickers, etc.) still drop
+   below the card without forcing the card itself into a scroll container. */
+.workspace-main .card {
+  overflow-x: clip;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.workspace-main .card .invoices-filter-bar,
+.workspace-main .card .camp-filters,
+.workspace-main .card .camp-trip-filters,
+.workspace-main .card .trip-filter-row,
+.workspace-main .card .reservation-filter-row {
+  flex-wrap: wrap;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+/* The right-anchored filter pill popovers were extending past the card edge
+   on tourist + documents pages. Flip them to right: 0 so they grow leftward
+   when they sit near the end of the filter row. */
+#tourist-age-pill .trip-filter-popover,
+#tourist-dob-pill .trip-filter-popover,
+#doc-daterange-pill .trip-filter-popover,
+.invoices-filter-bar > details:last-of-type .trip-filter-popover,
+.invoices-filter-bar > details:nth-last-of-type(2) .trip-filter-popover {
+  left: auto;
+  right: 0;
+}

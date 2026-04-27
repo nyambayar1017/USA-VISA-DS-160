@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-250" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-251" />
   </head>
   <body class="app-body" data-page="tourist">
     <div class="workspace-shell">
@@ -104,7 +104,7 @@
 
     <div id="tourist-edit-modal" class="camp-modal workspace-form-modal is-hidden" hidden>
       <div class="camp-modal-backdrop" data-action="close-tourist-modal"></div>
-      <div class="camp-modal-dialog workspace-form-modal-dialog">
+      <div class="camp-modal-dialog workspace-form-modal-dialog workspace-form-modal-dialog-wide">
         <div class="camp-modal-header">
           <div>
             <h2 id="tourist-edit-title">New tourist</h2>
@@ -114,11 +114,26 @@
         </div>
         <form id="tourist-edit-form" class="field-grid">
           <input type="hidden" name="id" />
+          <input type="hidden" name="passportFileToken" id="tourist-dir-passport-token" />
+          <div class="full-span tourist-passport-upload" id="tourist-dir-passport-upload">
+            <input type="file" id="tourist-dir-passport-file" accept="image/*,.pdf" hidden />
+            <button type="button" class="tourist-passport-dropzone" id="tourist-dir-passport-dropzone" data-action="open-passport-picker">
+              <span class="tourist-passport-dropzone-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M5 11l7-7 7 7"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+              </span>
+              <span class="tourist-passport-dropzone-copy">
+                <strong>Add passport scan</strong>
+                <span>Drop a passport here or click to upload — fields will fill in automatically</span>
+              </span>
+            </button>
+            <p id="tourist-dir-passport-status" class="tourist-passport-status" hidden></p>
+            <div id="tourist-dir-passport-preview" class="tourist-passport-preview" hidden>
+              <span id="tourist-dir-passport-filename"></span>
+              <button type="button" class="tourist-passport-clear" data-action="clear-passport">Remove</button>
+            </div>
+          </div>
           <label>Last name<input name="lastName" type="text" autocomplete="family-name" /></label>
           <label>First name<input name="firstName" type="text" autocomplete="given-name" /></label>
-          <label>Email<input name="email" type="email" autocomplete="email" placeholder="for promo emails" /></label>
-          <label>Phone<input name="phone" type="tel" autocomplete="tel" /></label>
-          <label>Date of birth<input name="dob" type="date" /></label>
           <label>Gender
             <select name="gender">
               <option value="">—</option>
@@ -127,9 +142,15 @@
               <option value="other">Other</option>
             </select>
           </label>
+          <label>Date of birth<input name="dob" type="date" /></label>
           <label>Nationality<input name="nationality" type="text" /></label>
           <label>Passport #<input name="passportNumber" type="text" /></label>
+          <label>Passport issue date<input name="passportIssueDate" type="date" /></label>
           <label>Passport expiry<input name="passportExpiry" type="date" /></label>
+          <label>Passport issued at<input name="passportIssuePlace" type="text" /></label>
+          <label>Registration #<input name="registrationNumber" type="text" /></label>
+          <label>Phone<input name="phone" type="tel" autocomplete="tel" /></label>
+          <label>Email<input name="email" type="email" autocomplete="email" placeholder="for promo emails" /></label>
           <label>Marketing status
             <select name="marketingStatus">
               <option value="standard">Standard</option>
@@ -138,7 +159,21 @@
               <option value="do_not_contact">Do not contact</option>
             </select>
           </label>
-          <label class="full-span">Destinations<input name="tags" type="text" placeholder="Comma-separated, e.g. Дубай, Турк" /></label>
+          <label>Room type
+            <select name="roomType">
+              <option value="">—</option>
+              <option value="single">Single</option>
+              <option value="double">Double</option>
+              <option value="twin">Twin</option>
+              <option value="triple">Triple</option>
+              <option value="family">Family connected</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Room code<input name="roomCode" type="text" placeholder="01" /></label>
+          <label class="full-span">Destinations
+            <input type="hidden" name="tags" data-destinations-multi />
+          </label>
           <label class="full-span">Notes<textarea name="notes" rows="2"></textarea></label>
           <div class="actions full-span">
             <button type="submit" id="tourist-edit-save">Save</button>
@@ -183,7 +218,7 @@
     <script src="/pagination.js?v=workspace-1"></script>
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/rich-editor.js?v=workspace-3"></script>
-    <script src="/tourist.js?v=workspace-11"></script>
+    <script src="/tourist.js?v=workspace-12"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

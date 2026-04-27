@@ -429,38 +429,20 @@
       }
       return;
     }
-    const btn = e.target.closest("[data-tags-edit]");
-    if (!btn) return;
+    const tagBtn = e.target.closest("[data-tags-edit]");
+    if (!tagBtn) return;
     e.preventDefault();
-    const id = btn.dataset.tagsEdit;
-    const tourist = tourists.find((t) => t.id === id);
-    if (!tourist) return;
-    const current = Array.isArray(tourist.tags) ? tourist.tags.join(", ") : "";
-    let suggest = "";
-    try {
-      const list = await (window.DestinationsMulti?.loadDestinations?.() || Promise.resolve([]));
-      if (list.length) suggest = "\nAvailable: " + list.join(", ");
-    } catch {}
-    const next = window.prompt("Destinations (comma-separated):" + suggest, current);
-    if (next === null) return;
-    btn.disabled = true;
-    try {
-      const resp = await fetch("/api/tourists/" + encodeURIComponent(id), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tags: next }),
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || "Update failed");
-      tourist.tags = data.entry?.tags || [];
-      render();
-    } catch (err) {
-      alert("Алдаа: " + err.message);
-      btn.disabled = false;
-    }
+    // Use the full editor modal (which has the destinations multi-select
+    // backed by /api/settings) instead of a free-text prompt — that way
+    // there's a single canonical source for destinations.
+    const t = tourists.find((x) => x.id === tagBtn.dataset.tagsEdit);
+    if (t) openTouristEditor(t);
   });
 
   // ── Add / Edit modal ──────────────────────────────────────────────────
+  // Mirrors the trip-side tourist form: passport scan dropzone with OCR
+  // auto-fill (via /api/tourists/passport-scan), full name + passport +
+  // registration fields, destinations multi-select.
   const editModal = document.querySelector("#tourist-edit-modal");
   const editForm = document.querySelector("#tourist-edit-form");
   const editTitle = document.querySelector("#tourist-edit-title");
@@ -468,8 +450,97 @@
   const addBtn = document.querySelector("#tourist-add-btn");
   let editingId = "";
 
+  // Wire the destinations multi-select once the modal exists.
+  if (window.DestinationsMulti && editForm) {
+    window.DestinationsMulti.attachAll(editForm);
+  }
+
+  // Passport upload zone (uploads to /api/tourists/passport-scan, gets back
+  // a token + OCR'd MRZ fields, fills empty inputs).
+  const passportDropzone = document.getElementById("tourist-dir-passport-dropzone");
+  const passportFileInput = document.getElementById("tourist-dir-passport-file");
+  const passportTokenInput = document.getElementById("tourist-dir-passport-token");
+  const passportStatusEl = document.getElementById("tourist-dir-passport-status");
+  const passportPreviewEl = document.getElementById("tourist-dir-passport-preview");
+  const passportFilenameEl = document.getElementById("tourist-dir-passport-filename");
+
+  function setPassportStatus(text, kind) {
+    if (!passportStatusEl) return;
+    passportStatusEl.textContent = text || "";
+    passportStatusEl.className = "tourist-passport-status" + (kind ? " is-" + kind : "");
+    passportStatusEl.hidden = !text;
+  }
+  function clearPassportSelection() {
+    if (passportTokenInput) passportTokenInput.value = "";
+    if (passportFileInput) passportFileInput.value = "";
+    if (passportPreviewEl) passportPreviewEl.hidden = true;
+    if (passportFilenameEl) passportFilenameEl.textContent = "";
+    setPassportStatus("", "");
+    if (passportDropzone) passportDropzone.disabled = false;
+  }
+  function applyPassportFields(fields) {
+    if (!fields || !editForm) return;
+    const fillIfEmpty = (name, value) => {
+      const el = editForm.elements?.[name];
+      if (!el || !value) return;
+      if (el.value && el.value.trim()) return;
+      el.value = value;
+    };
+    fillIfEmpty("firstName", fields.firstName);
+    fillIfEmpty("lastName", fields.lastName);
+    fillIfEmpty("gender", (fields.gender || "").toLowerCase());
+    fillIfEmpty("dob", fields.dob);
+    fillIfEmpty("nationality", fields.nationality);
+    fillIfEmpty("passportNumber", fields.passportNumber);
+    fillIfEmpty("passportIssueDate", fields.passportIssueDate);
+    fillIfEmpty("passportExpiry", fields.passportExpiry);
+    fillIfEmpty("passportIssuePlace", fields.passportIssuePlace);
+  }
+  async function uploadPassportFile(file) {
+    if (!file) return;
+    setPassportStatus("Uploading and reading passport…", "info");
+    if (passportDropzone) passportDropzone.disabled = true;
+    try {
+      // Compress image client-side first if available so we don't blow disk.
+      let toSend = file;
+      if (window.CompressUpload && file.type && file.type.startsWith("image/")) {
+        try { toSend = await window.CompressUpload.file(file); } catch {}
+      }
+      const form = new FormData();
+      form.append("file", toSend);
+      const res = await fetch("/api/tourists/passport-scan", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      if (passportTokenInput) passportTokenInput.value = data.token || "";
+      if (passportFilenameEl) passportFilenameEl.textContent = file.name || "passport";
+      if (passportPreviewEl) passportPreviewEl.hidden = false;
+      applyPassportFields(data.fields || {});
+      setPassportStatus(data.fields ? "Auto-filled — please double-check." : "Uploaded.", "ok");
+    } catch (err) {
+      setPassportStatus(err.message || "Upload failed", "err");
+    } finally {
+      if (passportDropzone) passportDropzone.disabled = false;
+    }
+  }
+  passportDropzone?.addEventListener("click", () => passportFileInput?.click());
+  passportFileInput?.addEventListener("change", () => {
+    const f = passportFileInput.files && passportFileInput.files[0];
+    if (f) uploadPassportFile(f);
+  });
+  passportPreviewEl?.addEventListener("click", (e) => {
+    if (e.target?.dataset?.action === "clear-passport") clearPassportSelection();
+  });
+  // Drag-and-drop onto the dropzone too.
+  passportDropzone?.addEventListener("dragover", (e) => { e.preventDefault(); });
+  passportDropzone?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer?.files?.[0];
+    if (f) uploadPassportFile(f);
+  });
+
   function openTouristEditor(tourist) {
     editingId = tourist?.id || "";
+    clearPassportSelection();
     if (editForm) {
       editForm.reset();
       const f = editForm.elements;
@@ -482,10 +553,17 @@
       f.gender.value = tourist?.gender || "";
       f.nationality.value = tourist?.nationality || "";
       f.passportNumber.value = tourist?.passportNumber || "";
+      f.passportIssueDate.value = (tourist?.passportIssueDate || "").slice(0, 10);
       f.passportExpiry.value = (tourist?.passportExpiry || "").slice(0, 10);
+      f.passportIssuePlace.value = tourist?.passportIssuePlace || "";
+      f.registrationNumber.value = tourist?.registrationNumber || "";
       f.marketingStatus.value = tourist?.marketingStatus || "standard";
-      f.tags.value = Array.isArray(tourist?.tags) ? tourist.tags.join(", ") : "";
+      f.roomType.value = tourist?.roomType || "";
+      f.roomCode.value = tourist?.roomCode || "";
       f.notes.value = tourist?.notes || "";
+      // tags: hidden input + multi-select component
+      f.tags.value = Array.isArray(tourist?.tags) ? tourist.tags.join(", ") : "";
+      try { f.tags.dispatchEvent(new CustomEvent("destinations:set")); } catch {}
     }
     if (editTitle) editTitle.textContent = tourist
       ? `Edit ${tourist.serial || ""} ${tourist.lastName || ""} ${tourist.firstName || ""}`.trim()
@@ -498,6 +576,7 @@
   }
   function closeTouristEditor() {
     editingId = "";
+    clearPassportSelection();
     if (editModal) {
       editModal.classList.add("is-hidden");
       editModal.hidden = true;
@@ -507,9 +586,9 @@
   editModal?.addEventListener("click", (e) => {
     if (e.target?.dataset?.action === "close-tourist-modal") closeTouristEditor();
   });
-  // Auto-uppercase the same fields the trip-side form uppercases, so passport
-  // and name capitalisation stays consistent across both entry points.
-  const UPPER_FIELDS = ["firstName", "lastName", "nationality", "passportNumber"];
+  // Same auto-uppercase rule the trip-side form uses, so passport-case is
+  // consistent across both entry points.
+  const UPPER_FIELDS = ["firstName", "lastName", "nationality", "passportNumber", "passportIssuePlace", "registrationNumber"];
   editForm?.addEventListener("input", (e) => {
     const el = e.target;
     if (!(el instanceof HTMLInputElement)) return;
@@ -533,10 +612,16 @@
       gender: f.gender.value,
       nationality: f.nationality.value.trim(),
       passportNumber: f.passportNumber.value.trim(),
+      passportIssueDate: f.passportIssueDate.value,
       passportExpiry: f.passportExpiry.value,
+      passportIssuePlace: f.passportIssuePlace.value.trim(),
+      registrationNumber: f.registrationNumber.value.trim(),
       marketingStatus: f.marketingStatus.value,
+      roomType: f.roomType.value,
+      roomCode: f.roomCode.value.trim(),
       tags: f.tags.value,
       notes: f.notes.value.trim(),
+      passportFileToken: f.passportFileToken?.value || "",
     };
     if (!payload.lastName && !payload.firstName) {
       if (editStatus) editStatus.textContent = "Last or first name is required.";
