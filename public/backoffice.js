@@ -270,14 +270,20 @@ function applyFilters(items) {
   const typeFilter = todoTypeFilter?.value || "all";
   const priority = todoPriorityFilter?.value || "all";
   const status = state.activeStatus;
+  const archiveMode = status === "archive";
 
   return items.filter((item) => {
     if (typeFilter === "task" && item.kind !== "task") return false;
     if (typeFilter === "contact" && item.kind !== "contact") return false;
 
     if (item.kind === "task") {
+      if (archiveMode) {
+        if (item.data.status !== "done") return false;
+      } else {
+        if (item.data.status === "done") return false;
+        if (status !== "all" && statusKey(item.data) !== status) return false;
+      }
       if (priority !== "all" && item.data.priority !== priority) return false;
-      if (status !== "all" && statusKey(item.data) !== status) return false;
     } else {
       // Contacts don't have task-statuses; hide them when a task-only status pill is active.
       if (status !== "all") return false;
@@ -342,6 +348,7 @@ function renderTaskRow(task, idx) {
             <button type="button" class="row-menu-item" data-task-edit="${escapeHtml(task.id)}">Edit</button>
             ${task.status !== "in-progress" && task.status !== "done" ? `<button type="button" class="row-menu-item" data-task-progress="${escapeHtml(task.id)}">Start</button>` : ""}
             ${task.status !== "done" ? `<button type="button" class="row-menu-item" data-task-done="${escapeHtml(task.id)}">Done</button>` : ""}
+            ${task.status === "done" ? `<button type="button" class="row-menu-item" data-task-restore="${escapeHtml(task.id)}">Restore</button>` : ""}
             <button type="button" class="row-menu-item is-danger" data-task-delete="${escapeHtml(task.id)}">Delete</button>
           </div>
         </details>
@@ -522,6 +529,7 @@ todoList.addEventListener("click", async (event) => {
   const taskEdit = target.closest("[data-task-edit]");
   const taskProgress = target.closest("[data-task-progress]");
   const taskDone = target.closest("[data-task-done]");
+  const taskRestore = target.closest("[data-task-restore]");
   const taskDelete = target.closest("[data-task-delete]");
   const contactEdit = target.closest("[data-contact-edit]");
   const contactPriority = target.closest("[data-contact-priority]");
@@ -546,6 +554,15 @@ todoList.addEventListener("click", async (event) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "done" }),
+      });
+      await loadDashboard();
+      return;
+    }
+    if (taskRestore) {
+      await fetchJson(`/api/manager-dashboard/tasks/${taskRestore.dataset.taskRestore}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "todo" }),
       });
       await loadDashboard();
       return;
