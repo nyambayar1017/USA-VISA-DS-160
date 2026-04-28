@@ -173,9 +173,12 @@
     const formGroupLabel = touristFormGroup?.closest("label");
     const filterGroupLabel = touristFilterGroup?.closest("label");
     const isFit = tripType === "fit";
-    if (formGroupLabel) formGroupLabel.hidden = isFit;
-    if (touristFormGroup) touristFormGroup.required = !isFit;
-    if (filterGroupLabel) filterGroupLabel.hidden = isFit;
+    // Always hide the Group field/filter on the chosen-trip page — the user
+    // doesn't manage groups from there anymore (Groups section is collapsed).
+    const hideGroup = isFit || window.location.pathname === "/trip-detail";
+    if (formGroupLabel) formGroupLabel.hidden = hideGroup;
+    if (touristFormGroup) touristFormGroup.required = !hideGroup;
+    if (filterGroupLabel) filterGroupLabel.hidden = hideGroup;
     // Hide Group column in tourists table on FIT trips.
     document.body.classList.toggle("is-fit-trip", isFit);
   }
@@ -555,7 +558,10 @@
     if (touristFormTitle) touristFormTitle.textContent = "New tourist";
     if (touristFormStatus) touristFormStatus.textContent = "";
     applyTripTypeToTouristForm();
-    if (tripType === "fit" && groups.length) {
+    // Auto-pick a group whenever the field is hidden (FIT, or chosen-trip
+    // page) so the form still has a valid groupId to submit.
+    const hideGroup = tripType === "fit" || window.location.pathname === "/trip-detail";
+    if (hideGroup && groups.length) {
       touristFormGroup.value = groups[0].id;
     }
     // DTX defaults: nationality MONGOLIAN, passport issued in ULAANBAATAR.
@@ -598,7 +604,10 @@
       trip = (trips.entries || []).find((t) => t.id === tripId) || null;
     } catch {}
     const tripType = String(trip?.tripType || "").toLowerCase();
-    if (tripType !== "fit") {
+    // On the chosen-trip page Groups are hidden — auto-create a default
+    // group for both FIT and GIT so the user doesn't get stuck. Other pages
+    // still nudge GIT users to add a group themselves.
+    if (tripType !== "fit" && window.location.pathname !== "/trip-detail") {
       alert("Please add a group first ( + Add group ), then add tourists into it.");
       return null;
     }
@@ -884,6 +893,13 @@
     e.preventDefault();
     if (!(await confirmIncompleteParticipant(touristForm))) return;
     if (!(await confirmRoomAssignment(touristForm))) return;
+    // On chosen-trip page the Group field is hidden — make sure one exists,
+    // creating a default if needed, before sending the payload.
+    if (window.location.pathname === "/trip-detail" && !touristForm.elements.groupId.value) {
+      const g = await ensureDefaultGroup();
+      if (!g) return;
+      touristForm.elements.groupId.value = g.id;
+    }
     const payload = buildPayload(touristForm);
     delete payload.id;
     try {
