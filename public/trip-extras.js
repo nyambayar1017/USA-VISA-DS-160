@@ -26,6 +26,16 @@
   const touristToggleBtn = document.getElementById("tourist-toggle-form");
   const touristFilterGroup = document.getElementById("tourist-section-filter-group");
   const touristFilterName = document.getElementById("tourist-section-filter-name");
+  const touristViewPopover = document.getElementById("tourist-section-view-popover");
+  touristViewPopover?.addEventListener("change", (e) => {
+    const cb = e.target.closest('input[type="checkbox"][data-col]');
+    if (!cb) return;
+    const key = cb.dataset.col;
+    if (cb.checked) visibleTouristColumns.add(key);
+    else visibleTouristColumns.delete(key);
+    writeVisibleTouristColumns();
+    renderTourists();
+  });
 
   let tripId = "";
   let groups = [];
@@ -234,6 +244,67 @@
     if (currentFilter && groups.some((g) => g.id === currentFilter)) touristFilterGroup.value = currentFilter;
   }
 
+  function calcAge(dob) {
+    if (!dob) return null;
+    const m = String(dob).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    const today = new Date();
+    let age = today.getFullYear() - Number(m[1]);
+    const md = (today.getMonth() + 1) * 100 + today.getDate();
+    const bd = Number(m[2]) * 100 + Number(m[3]);
+    if (md < bd) age -= 1;
+    return age >= 0 ? age : null;
+  }
+
+  const TOURIST_COLUMNS = [
+    { key: "select", label: "", fixed: true, default: true },
+    { key: "rowNum", label: "#", fixed: true, default: true },
+    { key: "group", label: "Group", default: true },
+    { key: "lastName", label: "Last name", default: true },
+    { key: "firstName", label: "First name", default: true },
+    { key: "dob", label: "Birth date", default: false },
+    { key: "age", label: "Age", default: false },
+    { key: "sex", label: "Sex", default: true },
+    { key: "nationality", label: "Nationality", default: true },
+    { key: "passportNumber", label: "Passport #", default: true },
+    { key: "passportExpiry", label: "Passport expiry", default: true },
+    { key: "registrationNumber", label: "Reg #", default: true },
+    { key: "phone", label: "Phone", default: true },
+    { key: "room", label: "Room", default: true },
+    { key: "actions", label: "Actions", fixed: true, default: true },
+  ];
+  const TOURIST_VIEW_KEY = "trip-tourists:visibleColumns";
+  function readVisibleTouristColumns() {
+    try {
+      const raw = localStorage.getItem(TOURIST_VIEW_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          const set = new Set(arr);
+          TOURIST_COLUMNS.filter((c) => c.fixed).forEach((c) => set.add(c.key));
+          return set;
+        }
+      }
+    } catch {}
+    return new Set(TOURIST_COLUMNS.filter((c) => c.default).map((c) => c.key));
+  }
+  let visibleTouristColumns = readVisibleTouristColumns();
+  function writeVisibleTouristColumns() {
+    try { localStorage.setItem(TOURIST_VIEW_KEY, JSON.stringify([...visibleTouristColumns])); } catch {}
+  }
+
+  function renderTouristViewToggle() {
+    const popover = document.getElementById("tourist-section-view-popover");
+    if (!popover) return;
+    popover.innerHTML = '<p class="ts-view-title">Toggle columns</p>' +
+      TOURIST_COLUMNS.filter((c) => !c.fixed).map((c) => `
+        <label class="ts-view-row">
+          <input type="checkbox" data-col="${escapeHtml(c.key)}" ${visibleTouristColumns.has(c.key) ? "checked" : ""} />
+          <span>${escapeHtml(c.label)}</span>
+        </label>
+      `).join("");
+  }
+
   function renderTourists() {
     const filterGroup = touristFilterGroup.value;
     const filterName = (touristFilterName.value || "").toLowerCase().trim();
@@ -245,74 +316,61 @@
       }
       return true;
     });
+    renderTouristViewToggle();
     if (!rows.length) {
       touristListNode.innerHTML = '<p class="empty">No tourists yet. Click "Add tourist" to add one.</p>';
       return;
     }
+    const cols = TOURIST_COLUMNS.filter((c) => visibleTouristColumns.has(c.key));
+    const headers = cols.map((c) =>
+      c.key === "select" ? '<th><input type="checkbox" id="tourist-select-all" aria-label="Select all" /></th>' :
+      `<th>${escapeHtml(c.label)}</th>`
+    ).join("");
+    const roomTypeShort = { single: "SGL", double: "DBL", twin: "TWIN", triple: "TPL", family: "FAM", other: "OTH" };
+    const body = rows.map((t, idx) => {
+      const c = roomColorFor(t);
+      const roomLabel = t.roomType
+        ? (c
+            ? `<span class="room-color-badge" style="background:${c.bg};color:${c.fg};">${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}</span>`
+            : `${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}`)
+        : "—";
+      const upDisabled = idx === 0 ? "disabled" : "";
+      const downDisabled = idx === rows.length - 1 ? "disabled" : "";
+      const age = calcAge(t.dob);
+      const cells = {
+        select: `<td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>`,
+        rowNum: `<td>${idx + 1}</td>`,
+        group: `<td><strong>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</strong></td>`,
+        lastName: `<td>${escapeHtml(t.lastName || "")}</td>`,
+        firstName: `<td>${escapeHtml(t.firstName || "")}</td>`,
+        dob: `<td>${escapeHtml(t.dob || "-")}</td>`,
+        age: `<td>${age === null ? "-" : String(age)}</td>`,
+        sex: `<td>${t.gender === "male" ? "Male" : t.gender === "female" ? "Female" : "-"}</td>`,
+        nationality: `<td>${escapeHtml(t.nationality || "-")}</td>`,
+        passportNumber: `<td>${escapeHtml(t.passportNumber || "-")}</td>`,
+        passportExpiry: `<td class="${expirySoonClass(t.passportExpiry)}">${escapeHtml(t.passportExpiry || "-")}</td>`,
+        registrationNumber: `<td>${escapeHtml(t.registrationNumber || "-")}</td>`,
+        phone: `<td>${escapeHtml(t.phone || "-")}</td>`,
+        room: `<td>${roomLabel}</td>`,
+        actions: `<td>
+          <details class="row-menu">
+            <summary class="row-menu-trigger" aria-label="Tourist actions">⋯</summary>
+            <div class="row-menu-popover">
+              <button type="button" class="row-menu-item" data-tourist-action="edit" data-id="${escapeHtml(t.id)}">Edit</button>
+              <button type="button" class="row-menu-item" data-tourist-action="move-up" data-id="${escapeHtml(t.id)}" ${upDisabled}>Move up</button>
+              <button type="button" class="row-menu-item" data-tourist-action="move-down" data-id="${escapeHtml(t.id)}" ${downDisabled}>Move down</button>
+              <button type="button" class="row-menu-item is-danger" data-tourist-action="delete" data-id="${escapeHtml(t.id)}">Delete</button>
+            </div>
+          </details>
+        </td>`,
+      };
+      return "<tr>" + cols.map((col) => cells[col.key]).join("") + "</tr>";
+    }).join("");
     touristListNode.innerHTML = `
       <div class="camp-table-wrap">
         <table class="camp-table reservation-addon-table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" id="tourist-select-all" aria-label="Select all" /></th>
-              <th>#</th>
-              <th>Group</th>
-              <th>Last name</th>
-              <th>First name</th>
-              <th>Nationality</th>
-              <th>Passport #</th>
-              <th>Passport expiry</th>
-              <th>Reg #</th>
-              <th>Phone</th>
-              <th>Sex</th>
-              <th>Room</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows
-              .map(
-                (t, idx) => {
-                  const roomTypeShort = { single: "SGL", double: "DBL", twin: "TWIN", triple: "TPL", family: "FAM", other: "OTH" };
-                  const c = roomColorFor(t);
-                  const roomLabel = t.roomType
-                    ? (c
-                        ? `<span class="room-color-badge" style="background:${c.bg};color:${c.fg};">${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}</span>`
-                        : `${escapeHtml(t.roomCode || "—")} ${escapeHtml(roomTypeShort[t.roomType] || t.roomType.toUpperCase())}`)
-                    : "—";
-                  const upDisabled = idx === 0 ? "disabled" : "";
-                  const downDisabled = idx === rows.length - 1 ? "disabled" : "";
-                  return `
-                    <tr>
-                      <td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>
-                      <td>${idx + 1}</td>
-                      <td><strong>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</strong></td>
-                      <td>${escapeHtml(t.lastName || "")}</td>
-                      <td>${escapeHtml(t.firstName || "")}</td>
-                      <td>${escapeHtml(t.nationality || "-")}</td>
-                      <td>${escapeHtml(t.passportNumber || "-")}</td>
-                      <td class="${expirySoonClass(t.passportExpiry)}">${escapeHtml(t.passportExpiry || "-")}</td>
-                      <td>${escapeHtml(t.registrationNumber || "-")}</td>
-                      <td>${escapeHtml(t.phone || "-")}</td>
-                      <td>${t.gender === "male" ? "Male" : t.gender === "female" ? "Female" : "-"}</td>
-                      <td>${roomLabel}</td>
-                      <td>
-                        <details class="row-menu">
-                          <summary class="row-menu-trigger" aria-label="Tourist actions">⋯</summary>
-                          <div class="row-menu-popover">
-                            <button type="button" class="row-menu-item" data-tourist-action="edit" data-id="${escapeHtml(t.id)}">Edit</button>
-                            <button type="button" class="row-menu-item" data-tourist-action="move-up" data-id="${escapeHtml(t.id)}" ${upDisabled}>Move up</button>
-                            <button type="button" class="row-menu-item" data-tourist-action="move-down" data-id="${escapeHtml(t.id)}" ${downDisabled}>Move down</button>
-                            <button type="button" class="row-menu-item is-danger" data-tourist-action="delete" data-id="${escapeHtml(t.id)}">Delete</button>
-                          </div>
-                        </details>
-                      </td>
-                    </tr>
-                  `;
-                }
-              )
-              .join("")}
-          </tbody>
+          <thead><tr>${headers}</tr></thead>
+          <tbody>${body}</tbody>
         </table>
       </div>
     `;

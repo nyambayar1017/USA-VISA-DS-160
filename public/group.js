@@ -154,6 +154,25 @@ async function loadAll() {
     trip = (tripData.entries || []).find((t) => t.id === tripId) || null;
     group = (groupData.entries || []).find((g) => g.id === groupId) || null;
     if (!trip || !group) {
+      // The trip might just live in another workspace (a notification clicked
+      // from DTX→USM, etc.). Probe the workspace-agnostic /info endpoint;
+      // if it returns the trip from a different company, switch and reload.
+      try {
+        const r = await fetch(`/api/camp-trips/${encodeURIComponent(tripId)}/info`);
+        if (r.ok) {
+          const info = await r.json();
+          const tripCompany = (info.company || "").toUpperCase();
+          const currentWs = (localStorage.getItem("activeWorkspace") || "").toUpperCase();
+          if (tripCompany && currentWs && tripCompany !== currentWs) {
+            summaryNode.innerHTML = `<div class="deleted-banner"><span>↺</span><strong>Switching to ${tripCompany} workspace…</strong></div>`;
+            try { localStorage.setItem("activeWorkspace", tripCompany); } catch {}
+            document.cookie = `activeWorkspace=${tripCompany}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+            try { sessionStorage.clear(); } catch {}
+            window.location.reload();
+            return;
+          }
+        }
+      } catch {}
       const what = !trip && !group ? "trip and group" : !trip ? "trip" : "group";
       summaryNode.innerHTML = `<div class="deleted-banner"><span>!</span><strong>This ${what} has been deleted.</strong></div>`;
       return;

@@ -744,6 +744,12 @@ function notificationTargetUrl(entry) {
   if (kind === "transfer_reservation.created") return tripId ? `/trip-detail?tripId=${encodeURIComponent(tripId)}` : "/transfer-reservations";
   if (kind && kind.startsWith("contract")) return meta.id ? `/contracts?editId=${encodeURIComponent(meta.id)}` : "/contracts";
   if (kind && kind.startsWith("task")) return "/todo";
+  // Note created / reply / mention — open the trip the note is attached to.
+  if (kind === "note.created" || kind === "note.reply" || kind === "note.mention") {
+    if (meta.groupId && tripId) return `/group?groupId=${encodeURIComponent(meta.groupId)}&tripId=${encodeURIComponent(tripId)}`;
+    if (tripId) return `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
+    return "/notes";
+  }
   return "";
 }
 

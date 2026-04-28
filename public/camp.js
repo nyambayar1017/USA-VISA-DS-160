@@ -463,12 +463,21 @@ async function verifyTripExistsCrossWorkspace(tripId) {
     const data = await r.json();
     const tripCompany = (data.company || "").toUpperCase();
     const currentWs = (typeof readWorkspace === "function" ? readWorkspace() : "") || "";
-    if (tripCompany && currentWs && tripCompany !== currentWs && banner) {
+    if (tripCompany && currentWs && tripCompany !== currentWs) {
+      // Auto-switch — coming here from a notification means the user
+      // already wants to view this trip; making them click another button
+      // is friction. Set the workspace and reload so the page picks up
+      // the new scope.
       const tripLabel = `${data.serial || ""} ${data.tripName || ""}`.trim() || "this trip";
-      banner.innerHTML =
-        `<span>↺</span><strong>${escapeHtml(tripLabel)} belongs to the ${tripCompany} workspace.</strong>` +
-        ` <button type="button" class="header-action-btn header-action-edit" data-action="switch-ws-and-reload" data-target-ws="${tripCompany}" style="margin-left:12px">Switch to ${tripCompany}</button>`;
-    } else if (banner) {
+      if (banner) {
+        banner.innerHTML = `<span>↺</span><strong>Switching to ${tripCompany} workspace for ${escapeHtml(tripLabel)}…</strong>`;
+      }
+      if (typeof setWorkspace === "function") setWorkspace(tripCompany);
+      try { sessionStorage.clear(); } catch {}
+      window.location.reload();
+      return;
+    }
+    if (banner) {
       // Same workspace but missing locally → must actually be deleted (or our
       // local trips list is stale; the page reload covers that case).
       banner.innerHTML = '<span>!</span><strong>This trip has been deleted.</strong>';
