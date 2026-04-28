@@ -8088,6 +8088,86 @@ def _mrz_yymmdd_to_iso(raw, century_cutoff):
     return f"{year:04d}-{mm}-{dd}"
 
 
+_MONTH_MAP = {
+    "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+    "JUL": 7, "AUG": 8, "SEP": 9, "SEPT": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+}
+
+
+def _passport_dates_from_text(text):
+    """Extract every date-looking substring from OCR text and return as ISO
+    YYYY-MM-DD strings (deduped, in order of appearance). Handles the shapes
+    Mongolian/EN passports actually print: '12 JAN 2020', '12.01.2020',
+    '12/01/2020', '2020-01-12'."""
+    if not text:
+        return []
+    seen, out = set(), []
+    def add(y, m, d):
+        try:
+            iso = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+        except Exception:
+            return
+        if 1900 <= int(y) <= 2100 and 1 <= int(m) <= 12 and 1 <= int(d) <= 31 and iso not in seen:
+            seen.add(iso)
+            out.append(iso)
+    for m in re.finditer(r"\b(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})\b", text):
+        mo = _MONTH_MAP.get(m.group(2).upper())
+        if mo:
+            add(m.group(3), mo, m.group(1))
+    for m in re.finditer(r"\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b", text):
+        add(m.group(3), m.group(2), m.group(1))
+    for m in re.finditer(r"\b(\d{4})[./-](\d{1,2})[./-](\d{1,2})\b", text):
+        add(m.group(1), m.group(2), m.group(3))
+    return out
+
+
+def parse_passport_visual_zone(text, mrz_fields):
+    """Scan the full OCR text for fields that aren't in the MRZ — namely
+    Mongolian РД (registration number) and the passport issue date.
+    Conservative: only fills if a confident match is found."""
+    extras = {}
+    if not text:
+        return extras
+
+    # Registration number — Mongolian РД is 2 letters + 8 digits. Latin or
+    # Cyrillic letters both appear depending on which side of the passport
+    # the OCR caught.
+    reg_match = re.search(r"\b([A-ZА-ЯҮӨЁ]{2}\d{8})\b", text.upper())
+    if reg_match:
+        extras["registrationNumber"] = reg_match.group(1)
+
+    # Issue date — the visual zone has DOB, issue, expiry. MRZ already gave
+    # us DOB and expiry; the remaining date that's plausibly an issue date
+    # (within the last 15 years and earlier than expiry) is what we want.
+    dob = (mrz_fields or {}).get("dob") or ""
+    expiry = (mrz_fields or {}).get("passportExpiry") or ""
+    today = datetime.now(timezone.utc).date().isoformat()
+    candidates = []
+    for iso in _passport_dates_from_text(text):
+        if iso == dob or iso == expiry:
+            continue
+        if iso > today:
+            continue
+        if expiry and iso >= expiry:
+            continue
+        # Issue dates are typically within the validity window (10y for MN passports).
+        # Drop obviously wrong dates (older than 30 years).
+        try:
+            year = int(iso[:4])
+            if year < datetime.now(timezone.utc).year - 30:
+                continue
+        except Exception:
+            continue
+        candidates.append(iso)
+    if candidates:
+        # Prefer the latest candidate — passport issue is usually the most
+        # recent non-expiry date printed.
+        candidates.sort()
+        extras["passportIssueDate"] = candidates[-1]
+
+    return extras
+
+
 def parse_passport_mrz(text):
     """Best-effort parser for TD-3 passport MRZ. Returns a dict with the
     same keys the front-end expects (lastName, firstName, gender, dob,
@@ -8219,6 +8299,10 @@ def handle_passport_scan(environ, start_response):
         })
 
     parsed, found = parse_passport_mrz(text)
+    extras = parse_passport_visual_zone(text, parsed)
+    for key, value in extras.items():
+        if value and not parsed.get(key):
+            parsed[key] = value
     quality_ok = found >= 4
     return json_response(start_response, "200 OK", {
         "ok": True,
