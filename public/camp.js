@@ -207,8 +207,12 @@ function hasTripIdUrlParam() {
 }
 if (isTripDetailPage() || hasTripIdUrlParam()) {
   document.body.classList.add("is-trip-scoped");
-  document.querySelectorAll("[data-trip-scope-hide] select[required]").forEach((sel) => {
-    sel.removeAttribute("required");
+  document.querySelectorAll("[data-trip-scope-hide]").forEach((el) => {
+    // Belt-and-suspenders: in addition to the CSS rule, set display:none
+    // inline so the field disappears even if the stylesheet was cached
+    // before the rule was added.
+    el.style.setProperty("display", "none", "important");
+    el.querySelectorAll("select[required]").forEach((sel) => sel.removeAttribute("required"));
   });
 }
 
