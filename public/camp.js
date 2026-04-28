@@ -1254,10 +1254,24 @@ async function loadTripFlightInfo(tripId) {
       const v = String(s || "").slice(0, 10);
       return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "—";
     };
-    const cell = (time, city) => {
+    const cell = (time, city, dayOffsetSuffix = "") => {
       const t = escapeHtml(String(time || "").slice(0, 5));
       const c = escapeHtml(city || "—");
-      return `<div class="trip-flight-cell"><strong>${t || "—"}</strong> ${c}</div>`;
+      const suffix = dayOffsetSuffix ? `<span class="trip-flight-day-offset"> ${escapeHtml(dayOffsetSuffix)}</span>` : "";
+      return `<div class="trip-flight-cell"><strong>${t || "—"}${suffix}</strong> ${c}</div>`;
+    };
+    // Overnight flights: depart 23:44, arrive 05:00 next day → show "+1" on
+    // the arrival cell so the day rollover is obvious.
+    const dayOffset = (depDate, arrDate) => {
+      const dep = String(depDate || "").slice(0, 10);
+      const arr = String(arrDate || "").slice(0, 10);
+      if (!dep || !arr || dep === arr) return "";
+      try {
+        const days = Math.round((new Date(`${arr}T00:00:00`) - new Date(`${dep}T00:00:00`)) / 86400000);
+        if (days > 0) return `+${days}`;
+        if (days < 0) return String(days);
+      } catch {}
+      return "";
     };
     const rows = sorted.map((f, i) => {
       const carrier = `${escapeHtml(f.airline || "—")}${f.flightNumber ? `<div class="trip-flight-num">${escapeHtml(f.flightNumber)}</div>` : ""}`;
@@ -1267,7 +1281,7 @@ async function loadTripFlightInfo(tripId) {
           <td class="trip-flight-carrier">${carrier}</td>
           <td class="trip-flight-date">${isoDate(f.departureDate)}</td>
           <td>${cell(f.departureTime, f.fromCity)}</td>
-          <td>${cell(f.arrivalTime, f.toCity)}</td>
+          <td>${cell(f.arrivalTime, f.toCity, dayOffset(f.departureDate, f.arrivalDate))}</td>
         </tr>
       `;
     }).join("");

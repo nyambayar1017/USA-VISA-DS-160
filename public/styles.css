@@ -199,6 +199,7 @@ td {
 .trip-flight-summary-table .trip-flight-date { color: #64748b; white-space: nowrap; }
 .trip-flight-cell strong { display: block; font-weight: 700; color: #1f2a44; }
 .trip-flight-cell { color: #475569; font-size: 0.82rem; }
+.trip-flight-day-offset { font-weight: 700; color: #b91c1c; font-size: 0.78rem; margin-left: 4px; }
 
 .driver-setting-card { margin-top: 12px; }
 .driver-setting-grid {

@@ -305,6 +305,24 @@
     return "—";
   }
 
+  // For overnight flights — e.g. depart 23:44, arrive 05:00 next morning —
+  // show the arrival as "05:00 +1" so the day rollover is obvious.
+  function arrivalTimeWithDayOffset(entry) {
+    const time = String(entry.arrivalTime || "").slice(0, 5);
+    if (!time) return "-";
+    const dep = String(entry.departureDate || "").slice(0, 10);
+    const arr = String(entry.arrivalDate || "").slice(0, 10);
+    if (!dep || !arr || dep === arr) return time;
+    try {
+      const d1 = new Date(`${dep}T00:00:00`);
+      const d2 = new Date(`${arr}T00:00:00`);
+      const days = Math.round((d2 - d1) / 86400000);
+      if (days > 0) return `${time} +${days}`;
+      if (days < 0) return `${time} ${days}`;
+    } catch {}
+    return time;
+  }
+
   function renderFlights() {
     const rows = getFilteredFlights();
     if (!rows.length) {
@@ -346,7 +364,7 @@
                     <td>${escapeHtml(entry.fromCity || "-")}</td>
                     <td class="table-nowrap">${escapeHtml(entry.departureTime || "-")}</td>
                     <td>${escapeHtml(entry.toCity || "-")}</td>
-                    <td class="table-nowrap">${escapeHtml(entry.arrivalTime || "-")}</td>
+                    <td class="table-nowrap">${escapeHtml(arrivalTimeWithDayOffset(entry))}</td>
                     <td class="table-center">${escapeHtml(entry.passengerCount || "-")}</td>
                     <td class="table-center">${escapeHtml(entry.staffCount || "-")}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.touristTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.touristTicketStatus || "pending"))}</span></td>
