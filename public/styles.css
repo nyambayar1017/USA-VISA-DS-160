@@ -5275,97 +5275,121 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   justify-self: end;
 }
 
-.confirmed-stat {
-  position: relative;
-  display: inline-block;
-}
-
+/* Chip is a button that opens the centered stats modal. */
 .confirmed-stat-chip {
-  list-style: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: 0.78rem;
+  font-family: inherit;
   border-radius: 999px;
   background: rgba(34, 197, 94, 0.12);
   color: #15803d;
+  border: 0;
   user-select: none;
+  transition: background 0.15s;
 }
 
-.confirmed-stat-chip::-webkit-details-marker {
-  display: none;
+.confirmed-stat-chip:hover,
+.confirmed-stat-chip:focus-visible {
+  background: rgba(34, 197, 94, 0.22);
+  outline: none;
 }
 
-.confirmed-stat-chip:hover {
-  background: rgba(34, 197, 94, 0.2);
-}
-
-.confirmed-stat-icon {
-  font-weight: 700;
-}
-
+.confirmed-stat-icon,
 .confirmed-stat-count {
   font-weight: 700;
 }
 
-.confirmed-stat-caret {
-  font-size: 0.7rem;
-  opacity: 0.7;
-  transition: transform 0.15s;
+/* Stats modal — uses .camp-modal pattern but narrower. */
+.confirmed-modal-dialog {
+  width: min(720px, calc(100vw - 32px));
 }
 
-.confirmed-stat[open] .confirmed-stat-caret {
-  transform: rotate(180deg);
+.confirmed-modal-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 4px 14px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
-.confirmed-stat-popover {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  min-width: 220px;
-  max-height: 320px;
-  overflow-y: auto;
-  background: #fff;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-  padding: 10px 0;
+.confirmed-modal-headline-icon {
+  color: #15803d;
+  font-weight: 700;
+  font-size: 1.1rem;
 }
 
-.confirmed-stat-head {
-  padding: 4px 14px 8px;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.confirmed-modal-headline-count {
+  color: #15803d;
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.confirmed-modal-headline-label {
   color: var(--muted);
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  font-size: 0.92rem;
 }
 
-.confirmed-stat-row {
+.confirmed-modal-body {
+  padding-top: 6px;
+}
+
+.confirmed-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.confirmed-modal-section h3 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.confirmed-modal-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.confirmed-modal-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 14px;
-  font-size: 0.85rem;
+  padding: 8px 12px;
+  font-size: 0.88rem;
   color: var(--text, #1f2937);
 }
 
-.confirmed-stat-row strong {
+.confirmed-modal-row + .confirmed-modal-row {
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.confirmed-modal-row:hover {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.confirmed-modal-row strong {
   color: #15803d;
+  font-weight: 700;
 }
 
-.confirmed-stat-row:hover {
-  background: rgba(15, 23, 42, 0.04);
-}
-
-.confirmed-stat-empty {
-  padding: 10px 14px;
-  font-size: 0.8rem;
+.confirmed-modal-empty {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.85rem;
   color: var(--muted);
+  border: 1px dashed rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
 }
 
 .pagination-actions {

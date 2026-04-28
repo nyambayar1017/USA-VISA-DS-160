@@ -1114,21 +1114,123 @@ function tripActualPax(trip) {
 
 function computeConfirmedTouristStats(allTrips) {
   const confirmed = allTrips.filter((t) => CONFIRMED_TOURIST_STATUSES.has(normalizeStatus(t.status)));
-  const total = confirmed.reduce((sum, t) => sum + tripActualPax(t), 0);
+  let total = 0;
+  let fitTrips = 0;
+  let gitTrips = 0;
+  let fitPax = 0;
+  let gitPax = 0;
   const byDestination = new Map();
+  const byStatus = new Map();
+  const byMonth = new Map();
   confirmed.forEach((t) => {
-    const tags = Array.isArray(t.tags) ? t.tags.filter(Boolean) : [];
+    const isFit = String(t.tripType || "").toLowerCase() === "fit";
     const pax = tripActualPax(t);
-    if (!pax) return;
-    if (!tags.length) {
-      byDestination.set("(no destination)", (byDestination.get("(no destination)") || 0) + pax);
-    } else {
-      tags.forEach((tag) => byDestination.set(tag, (byDestination.get(tag) || 0) + pax));
+    total += pax;
+    if (isFit) { fitTrips += 1; fitPax += pax; }
+    else { gitTrips += 1; gitPax += pax; }
+    const tags = Array.isArray(t.tags) ? t.tags.filter(Boolean) : [];
+    if (pax) {
+      if (!tags.length) {
+        byDestination.set("(no destination)", (byDestination.get("(no destination)") || 0) + pax);
+      } else {
+        tags.forEach((tag) => byDestination.set(tag, (byDestination.get(tag) || 0) + pax));
+      }
+    }
+    const statusKey = normalizeStatus(t.status) || "unknown";
+    byStatus.set(statusKey, (byStatus.get(statusKey) || 0) + pax);
+    const month = String(t.startDate || "").slice(0, 7);
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      byMonth.set(month, (byMonth.get(month) || 0) + pax);
     }
   });
-  const sorted = [...byDestination.entries()].sort((a, b) => b[1] - a[1]);
-  return { total, byDestination: sorted };
+  return {
+    total,
+    totalTrips: confirmed.length,
+    fitTrips,
+    gitTrips,
+    fitPax,
+    gitPax,
+    byDestination: [...byDestination.entries()].sort((a, b) => b[1] - a[1]),
+    byStatus: [...byStatus.entries()].sort((a, b) => b[1] - a[1]),
+    byMonth: [...byMonth.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+  };
 }
+
+function renderConfirmedStatsModal(stats) {
+  const monthLabel = (key) => {
+    const [y, m] = key.split("-");
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${months[Number(m) - 1] || m} ${y}`;
+  };
+  const section = (title, rows, formatLabel = (s) => s) => `
+    <section class="confirmed-modal-section">
+      <h3>${escapeHtml(title)}</h3>
+      ${rows.length
+        ? `<div class="confirmed-modal-rows">${rows.map(([k, v]) => `<div class="confirmed-modal-row"><span>${escapeHtml(formatLabel(k))}</span><strong>${v}</strong></div>`).join("")}</div>`
+        : `<p class="confirmed-modal-empty">No data.</p>`}
+    </section>
+  `;
+  const tripTypeRows = [];
+  if (stats.fitTrips) tripTypeRows.push([`FIT (${stats.fitTrips} trip${stats.fitTrips > 1 ? "s" : ""})`, stats.fitPax]);
+  if (stats.gitTrips) tripTypeRows.push([`GIT (${stats.gitTrips} trip${stats.gitTrips > 1 ? "s" : ""})`, stats.gitPax]);
+  return `
+    <div class="confirmed-modal-headline">
+      <span class="confirmed-modal-headline-icon">✓</span>
+      <strong class="confirmed-modal-headline-count">${stats.total}</strong>
+      <span class="confirmed-modal-headline-label">tourists confirmed across ${stats.totalTrips} trip${stats.totalTrips === 1 ? "" : "s"}</span>
+    </div>
+    <div class="confirmed-modal-grid">
+      ${section("By trip type", tripTypeRows)}
+      ${section("By status", stats.byStatus, (s) => formatStatusLabel(s))}
+      ${section("By destination", stats.byDestination)}
+      ${section("By start month", stats.byMonth, monthLabel)}
+    </div>
+  `;
+}
+
+function openConfirmedStatsModal() {
+  const modal = document.getElementById("confirmed-stats-modal");
+  if (!modal) return;
+  const body = modal.querySelector("[data-confirmed-modal-body]");
+  if (body) body.innerHTML = renderConfirmedStatsModal(computeConfirmedTouristStats(currentTrips));
+  modal.classList.remove("is-hidden");
+  modal.removeAttribute("hidden");
+}
+
+function closeConfirmedStatsModal() {
+  const modal = document.getElementById("confirmed-stats-modal");
+  if (!modal) return;
+  modal.classList.add("is-hidden");
+  modal.setAttribute("hidden", "");
+}
+
+(function ensureConfirmedStatsModal() {
+  if (document.getElementById("confirmed-stats-modal")) return;
+  const wrapper = document.createElement("div");
+  wrapper.id = "confirmed-stats-modal";
+  wrapper.className = "camp-modal is-hidden";
+  wrapper.setAttribute("hidden", "");
+  wrapper.innerHTML = `
+    <div class="camp-modal-backdrop" data-action="close-confirmed-stats"></div>
+    <div class="camp-modal-dialog confirmed-modal-dialog">
+      <div class="camp-modal-header">
+        <h2>Confirmed tourists</h2>
+        <button type="button" class="camp-modal-close" data-action="close-confirmed-stats" aria-label="Close">×</button>
+      </div>
+      <div class="confirmed-modal-body" data-confirmed-modal-body></div>
+    </div>
+  `;
+  document.body.appendChild(wrapper);
+  wrapper.addEventListener("click", (e) => {
+    const target = e.target;
+    if (target instanceof HTMLElement && target.dataset.action === "close-confirmed-stats") {
+      closeConfirmedStatsModal();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !wrapper.classList.contains("is-hidden")) closeConfirmedStatsModal();
+  });
+})();
 
 function renderTrips() {
   const trips = getFilteredTrips();
@@ -1186,30 +1288,18 @@ function renderTrips() {
     </div>
     <div class="table-pagination table-pagination-3col">
       <p class="pagination-count">${startIndex + 1}-${startIndex + visibleTrips.length} / ${trips.length}</p>
-      <details class="confirmed-stat">
-        <summary class="confirmed-stat-chip" title="Tourists in confirmed/travelling/completed trips">
-          <span class="confirmed-stat-icon" aria-hidden="true">✓</span>
-          <span class="confirmed-stat-count">${confirmedStats.total}</span>
-          <span class="confirmed-stat-label">tourists confirmed</span>
-          <span class="confirmed-stat-caret" aria-hidden="true">▾</span>
-        </summary>
-        <div class="confirmed-stat-popover">
-          <div class="confirmed-stat-head">By destination</div>
-          ${confirmedStats.byDestination.length
-            ? confirmedStats.byDestination
-                .map(
-                  ([tag, count]) => `<div class="confirmed-stat-row"><span>${escapeHtml(tag)}</span><strong>${count}</strong></div>`
-                )
-                .join("")
-            : '<div class="confirmed-stat-empty">No confirmed tourists yet.</div>'}
-        </div>
-      </details>
+      <button type="button" class="confirmed-stat-chip" data-action="open-confirmed-stats" title="Click to see full statistics">
+        <span class="confirmed-stat-icon" aria-hidden="true">✓</span>
+        <span class="confirmed-stat-count">${confirmedStats.total}</span>
+        <span class="confirmed-stat-label">tourists confirmed</span>
+      </button>
       <div class="pagination-actions">
         <button type="button" data-action="trip-page-prev" ${currentTripPage === 1 ? "disabled" : ""}>Previous</button>
         <button type="button" data-action="trip-page-next" ${currentTripPage === totalPages ? "disabled" : ""}>Next</button>
       </div>
     </div>
   `;
+  tripList.querySelector('[data-action="open-confirmed-stats"]')?.addEventListener("click", openConfirmedStatsModal);
 }
 
 function renderActiveTrip() {
