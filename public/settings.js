@@ -258,6 +258,7 @@ function renderCamps() {
   campSettings.transferPlaces = merged;
   renderAuxPills("transferPlaces", merged);
   renderTransferDrivers(campSettings.transferDrivers || []);
+  renderAirlineAliases(campSettings.airlineAliases || []);
 }
 
 function renderTransferDrivers(drivers) {
@@ -305,6 +306,47 @@ document.addEventListener("click", async (event) => {
   const id = btn.dataset.driverId;
   campSettings.transferDrivers = (campSettings.transferDrivers || []).filter((d) => d.id !== id);
   await saveCampSettings("Driver removed.");
+});
+
+function renderAirlineAliases(items) {
+  const host = document.getElementById("settings-airlineAliases");
+  if (!host) return;
+  if (!items.length) {
+    host.innerHTML = '<p class="empty">No airlines yet. Add one above.</p>';
+    return;
+  }
+  host.innerHTML = items.map((a) => `
+    <div class="airline-alias-row">
+      <span class="airline-alias-name">${escapeHtml(a.name)}</span>
+      <span class="airline-alias-arrow">→</span>
+      <span class="airline-alias-tag">${escapeHtml(a.alias || a.name)}</span>
+      <button type="button" class="ts-view-close" data-action="remove-airline" data-airline-name="${escapeHtml(a.name)}" aria-label="Remove airline">×</button>
+    </div>
+  `).join("");
+}
+
+const airlineAliasForm = document.getElementById("airline-alias-form");
+airlineAliasForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const f = airlineAliasForm;
+  const name = (f.elements.name?.value || "").trim();
+  if (!name) return;
+  const alias = (f.elements.alias?.value || "").trim() || name;
+  const existing = campSettings.airlineAliases || [];
+  // Replace if same name (case-insensitive), else append.
+  const filtered = existing.filter((a) => a.name.toLowerCase() !== name.toLowerCase());
+  campSettings.airlineAliases = [...filtered, { name, alias }];
+  f.reset();
+  await saveCampSettings("Airline saved.");
+});
+
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest('[data-action="remove-airline"]');
+  if (!btn) return;
+  if (!(await uiConfirm("Remove this airline alias?"))) return;
+  const name = btn.dataset.airlineName;
+  campSettings.airlineAliases = (campSettings.airlineAliases || []).filter((a) => a.name !== name);
+  await saveCampSettings("Airline removed.");
 });
 
 campSearch?.addEventListener("input", renderCamps);
@@ -355,6 +397,7 @@ async function saveCampSettings(message = "Saved.") {
       campDetails: campSettings.campDetails || {},
       transferPlaces: campSettings.transferPlaces || [],
       transferDrivers: campSettings.transferDrivers || [],
+      airlineAliases: campSettings.airlineAliases || [],
     };
     const data = await fetchJson("/api/camp-settings", {
       method: "POST",

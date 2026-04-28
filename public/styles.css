@@ -166,16 +166,25 @@ td {
 .trip-flight-info span { color: var(--muted); }
 .trip-flight-info span strong { color: var(--brand); margin-right: 4px; }
 
-.trip-flight-summary-table {
+/* Wrapper allows mobile to pan horizontally instead of clipping the right
+   columns. The table itself keeps its min-content sizing; the wrapper
+   provides the scroll on small screens. */
+.trip-flight-summary-wrap {
   margin-top: 10px;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.trip-flight-summary-table {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
+  min-width: 540px;
   font-size: 0.85rem;
-  background: #fff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 10px;
-  overflow: hidden;
 }
 .trip-flight-summary-table thead th {
   background: #f1f5fb;
@@ -200,6 +209,68 @@ td {
 .trip-flight-cell strong { display: block; font-weight: 700; color: #1f2a44; }
 .trip-flight-cell { color: #475569; font-size: 0.82rem; }
 .trip-flight-day-offset { font-weight: 700; color: #b91c1c; font-size: 0.78rem; margin-left: 4px; }
+
+/* Airline alias settings: name → alias rows. */
+.airline-alias-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.airline-alias-grid input {
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.airline-alias-grid button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #20356f;
+  color: #fff;
+  border: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.airline-alias-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  background: #fff;
+  margin-top: 6px;
+}
+.airline-alias-name {
+  color: #20356f;
+  font-weight: 600;
+}
+.airline-alias-arrow {
+  color: var(--muted);
+}
+.airline-alias-tag {
+  font-weight: 700;
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.1);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .airline-alias-grid {
+    grid-template-columns: 1fr;
+  }
+  .airline-alias-row {
+    grid-template-columns: 1fr auto auto;
+  }
+  .airline-alias-arrow {
+    display: none;
+  }
+}
 
 .driver-setting-card { margin-top: 12px; }
 .driver-setting-grid {
@@ -279,6 +350,56 @@ td {
   display: block;
   color: var(--brand);
   font-size: 1.15rem;
+}
+
+/* Compact stat box variant: smaller padding/fonts so 3 stats (Pax / Staff /
+   Days) take less vertical space on mobile. The Status dropdown moved out
+   of the grid into the section-head action bar. */
+.trip-summary-stat--compact {
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+.trip-summary-stat--compact span {
+  font-size: 0.74rem;
+  margin-bottom: 2px;
+}
+.trip-summary-stat--compact strong {
+  font-size: 1rem;
+}
+
+.trip-summary-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .trip-summary-grid--3 {
+    gap: 8px;
+  }
+  .trip-summary-stat--compact {
+    padding: 8px 10px;
+  }
+  .trip-summary-stat--compact span {
+    font-size: 0.7rem;
+  }
+}
+
+/* Status select rendered as a small badge-style pill in the action bar
+   (next to the ✎ Edit button on desktop). On mobile the action bar wraps,
+   placing the select near the title — same compact pill style. */
+.trip-status-select--compact {
+  height: 32px;
+  padding: 0 28px 0 12px;
+  font-size: 0.78rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background-color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+.trip-summary-section-head .trip-summary-actions {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 

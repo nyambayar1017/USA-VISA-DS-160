@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-276" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-277" />
   </head>
   <body class="app-body" data-page="settings">
     <div class="workspace-shell">
@@ -33,6 +33,7 @@
             <button type="button" class="settings-tab is-active" data-tab="destinations">Destinations</button>
             <button type="button" class="settings-tab" data-tab="camps">Camps</button>
             <button type="button" class="settings-tab" data-tab="transfers">Transfers</button>
+            <button type="button" class="settings-tab" data-tab="airlines">Airlines</button>
             <button type="button" class="settings-tab" data-tab="bank-accounts">Bank accounts</button>
           </div>
 
@@ -132,6 +133,26 @@
               <div class="camp-setting-list" id="settings-transferDrivers"></div>
             </form>
             <p id="transfers-status" class="status"></p>
+          </div>
+
+          <div class="settings-panel is-hidden" data-panel="airlines">
+            <div class="section-head">
+              <div>
+                <h2>Airlines</h2>
+                <p>Short aliases shown in the flight summary. Turkish Airlines is rendered as "TK", Hunnu Air as "Hunnu", etc. Add other carriers manually.</p>
+              </div>
+            </div>
+            <form class="camp-setting-card driver-setting-card" id="airline-alias-form">
+              <div class="camp-setting-head"><h3>Airline aliases</h3></div>
+              <div class="airline-alias-grid">
+                <input name="name" placeholder="Airline name (e.g. Korean Air)" required />
+                <input name="alias" placeholder="Short alias (e.g. KE)" />
+                <button type="submit">Add airline</button>
+              </div>
+              <p class="settings-hint">If you leave the alias blank, the full name will be used in the flight summary.</p>
+              <div class="camp-setting-list" id="settings-airlineAliases"></div>
+            </form>
+            <p id="airlines-status" class="status"></p>
           </div>
 
           <div class="settings-panel is-hidden" data-panel="bank-accounts">
@@ -246,7 +267,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-116"></script>
-    <script src="/settings.js?v=workspace-7"></script>
+    <script src="/settings.js?v=workspace-8"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

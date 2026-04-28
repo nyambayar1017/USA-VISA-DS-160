@@ -1332,40 +1332,39 @@ function renderActiveTrip() {
   // Toggle Groups section visibility based on FIT/GIT
   const groupsSection = document.getElementById("groups-section");
   if (groupsSection) groupsSection.classList.toggle("is-hidden", isFit);
+  // Status select lives in the action bar next to Edit on desktop. On mobile
+  // the action bar flex-wraps below the title — see CSS for exact placement.
   activeTripBox.innerHTML = `
-    <div class="section-head">
+    <div class="section-head trip-summary-section-head">
       <div>
         <h2>${trip.serial ? `<span class="trip-serial-tag">${escapeHtml(trip.serial)}</span> ` : ""}${tripTypeBadge}${escapeHtml(trip.tripName)}${tripGroupName}</h2>
-        <p>${escapeHtml(trip.reservationName || trip.tripName)} · Start ${formatDate(trip.startDate)}${trip.endDate ? ` → ${formatDate(trip.endDate)}` : ""} · ${escapeHtml(formatStatusLabel(trip.status))}</p>
+        <p>${escapeHtml(trip.reservationName || trip.tripName)} · Start ${formatDate(trip.startDate)}${trip.endDate ? ` → ${formatDate(trip.endDate)}` : ""}</p>
         <div id="trip-flight-info" class="trip-flight-info"></div>
       </div>
       <div class="trip-summary-actions">
         ${fitActions}
+        <select id="active-trip-status-select" class="trip-status-select trip-status-select--compact trip-status-select--${normalizeStatus(trip.status) || "unknown"}" aria-label="Trip status">
+          ${["offer","planning","confirmed","travelling","completed","cancelled"].map((s) =>
+            `<option value="${s}" ${normalizeStatus(trip.status) === s ? "selected" : ""}>${escapeHtml(formatStatusLabel(s))}</option>`
+          ).join("")}
+        </select>
         <button type="button" class="header-action-btn header-action-edit" id="active-trip-edit-btn" aria-label="Edit trip">✎ Edit</button>
       </div>
     </div>
-    <div class="trip-summary-grid">
-      <article class="trip-summary-stat">
+    <div class="trip-summary-grid trip-summary-grid--3">
+      <article class="trip-summary-stat trip-summary-stat--compact">
         <span>Pax</span>
         <strong>${isFit
           ? trip.participantCount
           : `${trip.actualTouristCount || 0}/${trip.participantCount}`}</strong>
       </article>
-      <article class="trip-summary-stat">
+      <article class="trip-summary-stat trip-summary-stat--compact">
         <span>Staff</span>
         <strong>${trip.staffCount}</strong>
       </article>
-      <article class="trip-summary-stat">
+      <article class="trip-summary-stat trip-summary-stat--compact">
         <span>Total days</span>
         <strong>${escapeHtml(trip.totalDays || "-")}</strong>
-      </article>
-      <article class="trip-summary-stat">
-        <span>Status</span>
-        <select id="active-trip-status-select" class="trip-status-select trip-status-select--${normalizeStatus(trip.status) || "unknown"}">
-          ${["offer","planning","confirmed","travelling","completed","cancelled"].map((s) =>
-            `<option value="${s}" ${normalizeStatus(trip.status) === s ? "selected" : ""}>${escapeHtml(formatStatusLabel(s))}</option>`
-          ).join("")}
-        </select>
       </article>
     </div>
   `;
@@ -1415,8 +1414,15 @@ async function loadTripFlightInfo(tripId) {
       } catch {}
       return "";
     };
+    const aliasMap = new Map(
+      (campSettings.airlineAliases || []).map((a) => [String(a.name).toLowerCase(), a.alias || a.name])
+    );
+    const aliasFor = (airline) => {
+      const key = String(airline || "").trim().toLowerCase();
+      return aliasMap.get(key) || airline || "—";
+    };
     const rows = sorted.map((f, i) => {
-      const carrier = `${escapeHtml(f.airline || "—")}${f.flightNumber ? `<div class="trip-flight-num">${escapeHtml(f.flightNumber)}</div>` : ""}`;
+      const carrier = `${escapeHtml(aliasFor(f.airline))}${f.flightNumber ? `<div class="trip-flight-num">${escapeHtml(f.flightNumber)}</div>` : ""}`;
       return `
         <tr>
           <td class="trip-flight-num-col">${i + 1}</td>
@@ -1428,18 +1434,20 @@ async function loadTripFlightInfo(tripId) {
       `;
     }).join("");
     node.innerHTML = `
-      <table class="trip-flight-summary-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Flight</th>
-            <th>Date</th>
-            <th>Departure</th>
-            <th>Arrival</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+      <div class="trip-flight-summary-wrap">
+        <table class="trip-flight-summary-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Flight</th>
+              <th>Date</th>
+              <th>Departure</th>
+              <th>Arrival</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
     `;
   } catch (err) {
     node.innerHTML = "";

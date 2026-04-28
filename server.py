@@ -729,6 +729,14 @@ def normalize_option_list(values):
     return cleaned
 
 
+DEFAULT_AIRLINE_ALIASES = [
+    {"name": "Turkish Airlines", "alias": "TK"},
+    {"name": "MIAT", "alias": "MIAT"},
+    {"name": "Hunnu Air", "alias": "Hunnu"},
+    {"name": "Aero Mongolia", "alias": "Aero"},
+]
+
+
 def default_camp_settings():
     return {
         "campNames": ["Khustai camp"],
@@ -738,7 +746,33 @@ def default_camp_settings():
         "campLocations": {"Khustai camp": "Khustai"},
         "transferPlaces": [],
         "transferDrivers": [],
+        "airlineAliases": list(DEFAULT_AIRLINE_ALIASES),
     }
+
+
+def normalize_airline_aliases(payload):
+    """Airline alias records: { name, alias }. Empty names are dropped, alias
+    falls back to the airline name if missing. Names are case-insensitively
+    deduped so the picker doesn't show duplicates."""
+    out = []
+    if not isinstance(payload, list):
+        return out
+    seen = set()
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        name = normalize_text(item.get("name"))
+        if not name:
+            continue
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "name": name,
+            "alias": normalize_text(item.get("alias")) or name,
+        })
+    return out
 
 
 def normalize_transfer_drivers(payload):
@@ -820,6 +854,7 @@ def read_camp_settings():
             + (payload.get("transferDropoffs") or [])
         ),
         "transferDrivers": normalize_transfer_drivers(payload.get("transferDrivers")),
+        "airlineAliases": normalize_airline_aliases(payload.get("airlineAliases")) or list(DEFAULT_AIRLINE_ALIASES),
     }
 
 
