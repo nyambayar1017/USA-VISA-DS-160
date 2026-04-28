@@ -16,6 +16,13 @@
   const flightPaymentToggleForm = document.querySelector("#flight-payment-toggle-form");
   const flightTripSelect = document.querySelector("#flight-trip-select");
   const transferTripSelect = document.querySelector("#transfer-trip-select");
+  // Upgrade the form-side trip dropdowns into searchable pickers. Filters keep
+  // their native <select> (they need the synthetic "All trips" option, which
+  // the picker treats as no-value).
+  if (window.TripPicker) {
+    if (flightTripSelect) window.TripPicker.upgrade(flightTripSelect, { placeholder: "Choose trip…" });
+    if (transferTripSelect) window.TripPicker.upgrade(transferTripSelect, { placeholder: "Choose trip…" });
+  }
   const flightPaymentSelect = document.querySelector("#flight-payment-select");
   const flightFilterTrip = document.querySelector("#flight-filter-trip");
   const flightFilterStatus = document.querySelector("#flight-filter-status");

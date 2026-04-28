@@ -3935,6 +3935,38 @@ body.is-trip-scoped [data-trip-scope-hide] { display: none !important; }
 .participant-search-name strong { font-size: 0.95rem; color: #1f2a44; }
 .participant-search-meta { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
 .participant-search-side { font-size: 0.78rem; color: #64748b; }
+
+.trip-picker-hidden-select {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+}
+.trip-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  color: #1f2a44;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 120ms ease;
+}
+.trip-picker-trigger:hover { border-color: #2563eb; }
+.trip-picker-trigger.is-empty { color: #94a3b8; }
+.trip-picker-caret { color: #64748b; font-size: 0.9rem; }
+.trip-picker-row.is-current { border-color: #2563eb; background: #eff6ff; }
+
 .trip-name-link:hover {
   color: #1d4ed8;
 }

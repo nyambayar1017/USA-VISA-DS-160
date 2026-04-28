@@ -38,6 +38,13 @@ const campPaymentList = document.querySelector("#camp-payment-list");
 const campToggleForm = document.querySelector("#camp-toggle-form");
 const campFormPanel = document.querySelector("#camp-form-panel");
 const reservationTripSelect = document.querySelector("#reservation-trip-select");
+// On pages where the Selected Trip dropdown is visible (camp-reservations,
+// flight-reservations, transfer-reservations), upgrade the native <select>
+// into a searchable picker once the helper has loaded. Trip-detail hides the
+// select via [data-trip-scope-hide], so the upgrade has no visual effect there.
+if (reservationTripSelect && window.TripPicker) {
+  window.TripPicker.upgrade(reservationTripSelect, { placeholder: "Choose trip…" });
+}
 const campNameSelect = document.querySelector("#camp-name-select");
 const locationNameSelect = document.querySelector("#location-name-select");
 const campLocationSelect = locationNameSelect;
