@@ -161,18 +161,30 @@ td {
   gap: 3px;
   font-size: 0.86rem;
   color: var(--text);
+  min-width: 0;
+}
+
+/* The flex parent in .section-head doesn't shrink its first child by default
+   (min-width is auto = content). Forcing 0 lets the flight-info wrap honor
+   its overflow-x: auto and scroll horizontally instead of pushing the page. */
+.trip-summary-section-head > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .trip-flight-info span { color: var(--muted); }
 .trip-flight-info span strong { color: var(--brand); margin-right: 4px; }
 
 /* Wrapper allows mobile to pan horizontally instead of clipping the right
-   columns. The table itself keeps its min-content sizing; the wrapper
-   provides the scroll on small screens. */
+   columns. min-width: 0 + max-width: 100% prevent the wrap from being
+   forced wider than the parent flex column, which would suppress the scroll. */
 .trip-flight-summary-wrap {
   margin-top: 10px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 10px;
@@ -185,6 +197,28 @@ td {
   width: 100%;
   min-width: 540px;
   font-size: 0.85rem;
+}
+
+/* Mobile: smaller flight-cell text so each row fits more compactly even
+   while horizontal scroll handles overflow. */
+@media (max-width: 640px) {
+  .trip-flight-summary-table {
+    font-size: 0.74rem;
+    min-width: 480px;
+  }
+  .trip-flight-summary-table thead th {
+    padding: 8px 10px;
+    font-size: 0.66rem;
+  }
+  .trip-flight-summary-table tbody td {
+    padding: 7px 10px;
+  }
+  .trip-flight-cell {
+    font-size: 0.72rem;
+  }
+  .trip-flight-cell strong {
+    font-size: 0.78rem;
+  }
 }
 .trip-flight-summary-table thead th {
   background: #f1f5fb;
@@ -383,30 +417,70 @@ td {
   }
 }
 
-/* Status select rendered as a small badge-style pill in the action bar
-   (next to the ✎ Edit button). Same compact pill style on every viewport. */
-.trip-status-select--compact {
+/* All three trip-action items share the same compact pill height so NOTE /
+   Status / Edit sit on one clean horizontal row — same height, same radius,
+   same vertical centering. Specificity is scoped to the trip summary so it
+   doesn't affect other pages that reuse these classes. */
+.trip-summary-section-head .trip-notes-fab,
+.trip-summary-section-head .trip-status-select--compact,
+.trip-summary-section-head .header-action-btn {
   height: 30px;
-  padding: 0 26px 0 10px;
-  font-size: 0.74rem;
+  min-height: 30px;
+  padding: 0 12px;
   border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.trip-summary-section-head .trip-status-select--compact {
+  padding: 0 26px 0 10px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   background-color: rgba(255, 255, 255, 0.95);
-  font-weight: 600;
   width: auto;
   min-width: 0;
   max-width: 130px;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2364748b' d='M5 7L1 3h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
 }
 
-/* Keep NOTE / Status / Edit on one horizontal line — no wrapping. The action
-   bar fits inline next to the title; if there isn't room it shrinks rather
-   than stacking. */
+.trip-summary-section-head .header-action-edit {
+  background: #20356f;
+  color: #fff;
+  border-color: #20356f;
+}
+
+/* Keep all 3 inline on one row — when there isn't room (narrow mobile),
+   they wrap as a group right-aligned below the title rather than overlapping
+   the flight table. */
 .trip-summary-section-head .trip-summary-actions {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
+}
+
+@media (max-width: 560px) {
+  .trip-summary-section-head .trip-summary-actions {
+    width: auto;
+    flex-wrap: nowrap;
+    margin-left: auto;
+  }
+  .trip-summary-section-head .trip-status-select--compact {
+    max-width: 110px;
+    padding: 0 22px 0 8px;
+    font-size: 0.7rem;
+  }
 }
 
 
