@@ -194,7 +194,7 @@ async function loadAll() {
 function loadDocuments() {
   const docsNode = document.getElementById("group-documents-list");
   if (!docsNode) return;
-  const docs = (trip && trip.documents) || [];
+  const docs = ((trip && trip.documents) || []).filter((d) => !d.touristRemovedAt);
   if (!docs.length) {
     docsNode.innerHTML = '<p class="empty">No documents uploaded for this trip yet. Add them on the trip page.</p>';
     return;

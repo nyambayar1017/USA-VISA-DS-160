@@ -3260,8 +3260,12 @@ function renderDocItem(doc, tripId, num) {
 
 function renderTripDocuments(docs, tripId) {
   if (!docList) return;
-  renderDocFilterCounts(docs || []);
-  const filtered = activeDocFilter === "all" ? (docs || []) : (docs || []).filter(function(d) { return (d.category || "Other") === activeDocFilter; });
+  // Hide docs whose tourist was deleted — they live on the global Documents
+  // page with a "Removed from <trip>" pill, but the trip-detail view should
+  // only show docs tied to current participants.
+  const visible = (docs || []).filter(function(d) { return !d.touristRemovedAt; });
+  renderDocFilterCounts(visible);
+  const filtered = activeDocFilter === "all" ? visible : visible.filter(function(d) { return (d.category || "Other") === activeDocFilter; });
   if (!filtered.length) {
     docList.innerHTML = '<p class="muted" style="padding:8px 0">' + (activeDocFilter === "all" ? "No documents uploaded yet." : 'No documents in "' + escapeHtml(activeDocFilter) + '".') + '</p>';
     return;
