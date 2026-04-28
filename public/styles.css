@@ -3857,6 +3857,10 @@ body.modal-open {
    participant tables and the tourist directory. */
 .passport-expiry-soon { color: #b91c1c; font-weight: 600; }
 .nationality-select { font: inherit; }
+/* On the trip-detail page the active trip is implied — collapse Trip Name
+   filters and Selected Trip form fields so the manager isn't asked to pick
+   a trip they're already inside. */
+body.is-trip-scoped [data-trip-scope-hide] { display: none !important; }
 
 .participant-chooser-card { max-width: 440px; }
 .participant-chooser-options {

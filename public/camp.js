@@ -188,6 +188,13 @@ function isTripDetailPage() {
   return window.location.pathname === TRIP_DETAIL_PATH;
 }
 
+// On the trip-detail page the active trip is implied by the URL — there's no
+// need to expose Trip Name filters or Selected Trip form fields. Tagging the
+// body with `is-trip-scoped` lets the CSS collapse those controls.
+if (isTripDetailPage()) {
+  document.body.classList.add("is-trip-scoped");
+}
+
 function buildCampReservationsUrl(params = {}) {
   const url = new URL(CAMP_RESERVATIONS_PATH, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {

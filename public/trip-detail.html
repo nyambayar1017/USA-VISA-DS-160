@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-267" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-268" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -477,7 +477,7 @@
           </div>
 
           <div class="camp-filters">
-            <label>
+            <label data-trip-scope-hide>
               Trip Name
               <select id="filter-trip-name">
                 <option value="">All trips</option>
@@ -526,7 +526,7 @@
                     <p>Main information shown in PDF and View.</p>
                   </div>
                   <div class="field-grid field-grid-compact">
-                    <label>
+                    <label data-trip-scope-hide>
                       Selected Trip
                       <select name="tripId" id="reservation-trip-select" required></select>
                     </label>
@@ -696,7 +696,7 @@
             </div>
           </div>
           <div class="camp-filters reservation-filters-grid">
-            <label>
+            <label data-trip-scope-hide>
               Trip Name
               <select id="flight-filter-trip">
                 <option value="">All trips</option>
@@ -729,7 +729,7 @@
               </div>
               <form id="flight-form" class="field-grid">
                 <input type="hidden" name="id" />
-                <label>
+                <label data-trip-scope-hide>
                   Selected Trip
                   <select name="tripId" id="flight-trip-select" required></select>
                 </label>
@@ -840,7 +840,7 @@
             </div>
           </div>
           <div class="camp-filters reservation-filters-grid">
-            <label>
+            <label data-trip-scope-hide>
               Trip Name
               <select id="flight-payment-filter-trip">
                 <option value="">All trips</option>
@@ -919,7 +919,7 @@
             </div>
           </div>
           <div class="camp-filters reservation-filters-grid">
-            <label>
+            <label data-trip-scope-hide>
               Trip Name
               <select id="transfer-filter-trip">
                 <option value="">All trips</option>
@@ -965,7 +965,7 @@
               </div>
               <form id="transfer-form" class="field-grid">
                 <input type="hidden" name="id" />
-                <label>
+                <label data-trip-scope-hide>
                   Selected Trip
                   <select name="tripId" id="transfer-trip-select" required></select>
                 </label>
@@ -1038,7 +1038,7 @@
             <p>Grouped internal payment view for the camp reservation side.</p>
           </div>
           <div class="camp-filters">
-            <label>
+            <label data-trip-scope-hide>
               Trip Name
               <select id="payment-filter-trip-name">
                 <option value="">All trips</option>
@@ -1133,8 +1133,8 @@
     <script src="/app-shell.js?v=workspace-116"></script>
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-130"></script>
-    <script src="/reservations-addon.js?v=workspace-15"></script>
+    <script src="/camp.js?v=workspace-131"></script>
+    <script src="/reservations-addon.js?v=workspace-16"></script>
     <script src="/participant-chooser.js?v=workspace-1"></script>
     <script src="/nationality-select.js?v=workspace-1"></script>
     <script src="/trip-extras.js?v=workspace-33"></script>

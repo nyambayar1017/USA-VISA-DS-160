@@ -216,7 +216,15 @@
     if (!trips.length || tripSelect.value) {
       return;
     }
-    tripSelect.value = trips[0].id;
+    // On the trip-detail page, the URL carries the trip id. Use it so a
+    // flight/transfer added from a chosen trip is auto-scoped, instead of
+    // defaulting to whichever trip happens to be first in the list.
+    let preferredId = "";
+    if (window.location.pathname === "/trip-detail") {
+      try { preferredId = new URLSearchParams(window.location.search).get("tripId") || ""; } catch {}
+    }
+    const fallback = trips.find((t) => t.id === preferredId) ? preferredId : trips[0].id;
+    tripSelect.value = fallback;
     if (tripSelect === flightTripSelect) {
       syncFlightTripDefaults(tripSelect.value, true);
     }
