@@ -27,6 +27,7 @@
   const touristFilterGroup = document.getElementById("tourist-section-filter-group");
   const touristFilterName = document.getElementById("tourist-section-filter-name");
   const touristViewPopover = document.getElementById("tourist-section-view-popover");
+  const touristViewDropdown = document.getElementById("tourist-section-view-dropdown");
   touristViewPopover?.addEventListener("change", (e) => {
     const cb = e.target.closest('input[type="checkbox"][data-col]');
     if (!cb) return;
@@ -35,6 +36,13 @@
     else visibleTouristColumns.delete(key);
     writeVisibleTouristColumns();
     renderTourists();
+  });
+  // Close the View dropdown when clicking anywhere outside it (the same
+  // close-on-outside pattern the row-menu popovers use).
+  document.addEventListener("click", (e) => {
+    if (!touristViewDropdown || !touristViewDropdown.open) return;
+    if (touristViewDropdown.contains(e.target)) return;
+    touristViewDropdown.removeAttribute("open");
   });
 
   let tripId = "";
