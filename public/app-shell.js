@@ -743,6 +743,10 @@ function notificationTargetUrl(entry) {
   if (kind === "flight_reservation.created") return tripId ? `/trip-detail?tripId=${encodeURIComponent(tripId)}` : "/flight-reservations";
   if (kind === "transfer_reservation.created") return tripId ? `/trip-detail?tripId=${encodeURIComponent(tripId)}` : "/transfer-reservations";
   if (kind && kind.startsWith("contract")) return meta.id ? `/contracts?editId=${encodeURIComponent(meta.id)}` : "/contracts";
+  if (kind && kind.startsWith("invoice")) return tripId ? `/trip-detail?tripId=${encodeURIComponent(tripId)}` : "/invoices";
+  if (kind === "trip.updated" && (meta.id || tripId)) return `/trip-detail?tripId=${encodeURIComponent(meta.id || tripId)}`;
+  if (kind === "group.updated" && meta.id && (meta.tripId || tripId)) return `/group?groupId=${encodeURIComponent(meta.id)}&tripId=${encodeURIComponent(meta.tripId || tripId)}`;
+  if (kind === "camp_reservation.updated" && tripId) return `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
   if (kind && kind.startsWith("task")) return "/todo";
   // Note created / reply / mention — open the trip the note is attached to.
   if (kind === "note.created" || kind === "note.reply" || kind === "note.mention") {

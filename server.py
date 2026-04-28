@@ -5899,6 +5899,16 @@ def handle_update_tourist_group(environ, start_response, group_id):
                     changed = True
             if changed:
                 write_tourists(tourists)
+        try:
+            log_notification(
+                "group.updated",
+                actor,
+                "Group updated",
+                detail=f"{merged.get('serial', '')} {merged.get('name', '')}".strip(),
+                meta={"id": merged.get("id"), "tripId": merged.get("tripId")},
+            )
+        except Exception:
+            pass
         return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
     return json_response(start_response, "404 Not Found", {"error": "Group not found"})
 
@@ -6241,6 +6251,30 @@ def handle_list_invoices(environ, start_response):
     return json_response(start_response, "200 OK", {"entries": records})
 
 
+def _invoice_notification_detail(record):
+    serial = normalize_text(record.get("invoiceSerial")) or normalize_text(record.get("serial"))
+    name = normalize_text(record.get("clientName")) or normalize_text(record.get("touristName"))
+    parts = [p for p in [serial, name] if p]
+    return " · ".join(parts) if parts else "Invoice"
+
+
+def _log_invoice(kind, title, record, actor):
+    try:
+        log_notification(
+            kind,
+            actor,
+            title,
+            detail=_invoice_notification_detail(record),
+            meta={
+                "id": record.get("id"),
+                "tripId": record.get("tripId"),
+                "groupId": record.get("groupId"),
+            },
+        )
+    except Exception:
+        pass
+
+
 def handle_create_invoice(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -6255,6 +6289,7 @@ def handle_create_invoice(environ, start_response):
     records = read_invoices()
     records.append(record)
     write_invoices(records)
+    _log_invoice("invoice.created", "New invoice added", record, actor)
     return json_response(start_response, "201 Created", {"ok": True, "entry": record})
 
 
@@ -6282,18 +6317,23 @@ def handle_update_invoice(environ, start_response, invoice_id):
             return json_response(start_response, "400 Bad Request", {"error": error})
         records[index] = rebuilt
         write_invoices(records)
+        _log_invoice("invoice.updated", "Invoice updated", rebuilt, actor)
         return json_response(start_response, "200 OK", {"ok": True, "entry": rebuilt})
     return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
 
 
 def handle_delete_invoice(environ, start_response, invoice_id):
-    if not require_login(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
         return []
     records = read_invoices()
+    deleted = next((r for r in records if r.get("id") == invoice_id), None)
     remaining = [r for r in records if r.get("id") != invoice_id]
     if len(remaining) == len(records):
         return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
     write_invoices(remaining)
+    if deleted:
+        _log_invoice("invoice.deleted", "Invoice deleted", deleted, actor)
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": invoice_id})
 
 
@@ -6311,6 +6351,7 @@ def handle_publish_invoice(environ, start_response, invoice_id):
         record["updatedBy"] = actor_snapshot(actor)
         records[index] = record
         write_invoices(records)
+        _log_invoice("invoice.published", "Invoice published", record, actor)
         return json_response(start_response, "200 OK", {"ok": True, "entry": record})
     return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
 
@@ -8152,6 +8193,16 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         merged["updatedBy"] = actor_snapshot(actor)
         trips[index] = merged
         write_camp_trips(trips)
+        try:
+            log_notification(
+                "trip.updated",
+                actor,
+                "Trip updated",
+                detail=merged.get("tripName") or merged.get("reservationName") or "",
+                meta={"id": merged.get("id")},
+            )
+        except Exception:
+            pass
         return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
     return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
 
@@ -11478,6 +11529,16 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
         merged.update(save_camp_reservation_document(merged))
         records[index] = merged
         write_camp_reservations(records)
+        try:
+            log_notification(
+                "camp_reservation.updated",
+                actor,
+                "Camp reservation updated",
+                detail=f"{merged.get('reservationName', '')} · {merged.get('campName', '')}".strip(" ·"),
+                meta={"id": merged.get("id"), "tripId": merged.get("tripId")},
+            )
+        except Exception:
+            pass
         return json_response(start_response, "200 OK", {"ok": True, "entry": merged, "summary": camp_summary(records)})
 
     return json_response(start_response, "404 Not Found", {"error": "Camp reservation not found"})
@@ -12000,6 +12061,17 @@ def handle_update_contract(environ, start_response, contract_id):
             contract["pdfPath"] = None
             contracts[idx] = contract
             write_contracts(contracts)
+            try:
+                cdata = contract.get("data") or {}
+                log_notification(
+                    "contract.updated",
+                    actor,
+                    "Contract updated",
+                    detail=f"{contract.get('contractSerial', '')} {cdata.get('clientName', '')}".strip(),
+                    meta={"id": contract.get("id"), "tripId": contract.get("tripId"), "groupId": contract.get("groupId")},
+                )
+            except Exception:
+                pass
             return json_response(start_response, "200 OK", {"ok": True, "contract": contract})
     return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
 
@@ -12009,10 +12081,23 @@ def handle_delete_contract(environ, start_response, contract_id):
     if not actor:
         return []
     contracts = read_contracts()
+    deleted = next((c for c in contracts if c.get("id") == contract_id), None)
     remaining = [item for item in contracts if item.get("id") != contract_id]
     if len(remaining) == len(contracts):
         return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
     write_contracts(remaining)
+    if deleted:
+        try:
+            cdata = deleted.get("data") or {}
+            log_notification(
+                "contract.deleted",
+                actor,
+                "Contract deleted",
+                detail=f"{deleted.get('contractSerial', '')} {cdata.get('clientName', '')}".strip(),
+                meta={"id": deleted.get("id"), "tripId": deleted.get("tripId"), "groupId": deleted.get("groupId")},
+            )
+        except Exception:
+            pass
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": contract_id})
 
 
