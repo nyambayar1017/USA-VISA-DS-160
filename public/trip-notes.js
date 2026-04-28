@@ -31,8 +31,10 @@
   });
 
   // Relocate NOTE button into the trip-summary actions row, next to Edit.
-  // The actions div is rendered by camp.js once trip data loads, so watch
-  // for it via MutationObserver and move the button when it appears.
+  // The actions div is rendered by camp.js once trip data loads. We keep
+  // the observer alive forever — every time camp.js re-renders the active
+  // trip card (e.g. after a status change), it wipes the action bar, and
+  // we need to re-insert NOTE into the new bar.
   function tryAttachFab() {
     const actions = document.querySelector("#active-trip .trip-summary-actions");
     if (!actions) return false;
@@ -41,12 +43,11 @@
     fab.hidden = false;
     return true;
   }
-  if (!tryAttachFab()) {
-    const activeTrip = document.getElementById("active-trip");
-    if (activeTrip) {
-      const obs = new MutationObserver(() => { if (tryAttachFab()) obs.disconnect(); });
-      obs.observe(activeTrip, { childList: true, subtree: true });
-    }
+  tryAttachFab();
+  const activeTrip = document.getElementById("active-trip");
+  if (activeTrip) {
+    const obs = new MutationObserver(() => { tryAttachFab(); });
+    obs.observe(activeTrip, { childList: true, subtree: true });
   }
   drawerClose?.addEventListener("click", closeDrawer);
   backdrop?.addEventListener("click", closeDrawer);

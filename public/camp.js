@@ -1375,7 +1375,9 @@ function renderActiveTrip() {
   const statusSelect = document.getElementById("active-trip-status-select");
   statusSelect?.addEventListener("change", async (e) => {
     const newStatus = e.target.value;
-    statusSelect.className = `trip-status-select trip-status-select--${newStatus}`;
+    // Keep --compact (height/radius/width) and only swap the colour modifier
+    // so the pill keeps its size when the status changes.
+    statusSelect.className = `trip-status-select trip-status-select--compact trip-status-select--${newStatus}`;
     await updateTripStatus(trip.id, newStatus);
   });
 }
@@ -1426,10 +1428,10 @@ async function loadTripFlightInfo(tripId) {
       return `
         <tr>
           <td class="trip-flight-num-col">${i + 1}</td>
-          <td class="trip-flight-carrier">${carrier}</td>
           <td class="trip-flight-date">${isoDate(f.departureDate)}</td>
           <td>${cell(f.departureTime, f.fromCity)}</td>
           <td>${cell(f.arrivalTime, f.toCity, dayOffset(f.departureDate, f.arrivalDate))}</td>
+          <td class="trip-flight-carrier">${carrier}</td>
         </tr>
       `;
     }).join("");
@@ -1439,10 +1441,10 @@ async function loadTripFlightInfo(tripId) {
           <thead>
             <tr>
               <th>#</th>
-              <th>Flight</th>
               <th>Date</th>
               <th>Departure</th>
               <th>Arrival</th>
+              <th>Flight</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -2452,10 +2454,18 @@ async function updateTripStatus(id, status) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
+    // Optimistic in-place update so we don't have to re-render the active
+    // trip card. Re-rendering wipes the flight summary table and the
+    // attached NOTE button — both of which are expensive to repaint and
+    // jarring for the user. Just patch the local trip + the trip-list pills.
+    const localTrip = getTripById(id);
+    if (localTrip) localTrip.status = status;
+    renderTrips();
     tripStatus.textContent = "Trip updated.";
-    await loadTrips();
   } catch (error) {
     tripStatus.textContent = error.message;
+    // Recover authoritative state if the save failed.
+    await loadTrips();
   }
 }
 
