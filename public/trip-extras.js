@@ -764,9 +764,46 @@
     return window.confirm(message);
   }
 
+  const ROOM_CAPACITY = { single: 1, double: 2, twin: 2, triple: 3, family: 4 };
+  const ROOM_LABEL = { single: "SGL", double: "DBL", twin: "TWIN", triple: "TPL", family: "FAM", other: "OTH" };
+  async function confirmRoomAssignment(form) {
+    const code = String(form.elements.roomCode?.value || "").trim();
+    const type = String(form.elements.roomType?.value || "").trim();
+    const groupId = String(form.elements.groupId?.value || "").trim();
+    if (!code || !type) return true;
+    // Scope to the same group on a GIT trip; on a FIT trip every participant
+    // is one party, so just compare across the trip.
+    const scope = (tourists || []).filter((t) => {
+      if (t.id === editingTouristId) return false;
+      if (t.roomCode !== code) return false;
+      if (groupId && t.groupId && t.groupId !== groupId) return false;
+      return true;
+    });
+    const wrongType = scope.find((t) => t.roomType && t.roomType !== type);
+    const sameType = scope.filter((t) => t.roomType === type);
+    const cap = ROOM_CAPACITY[type];
+    let warning = "";
+    if (wrongType) {
+      warning = `Room ${code} is already used as ${ROOM_LABEL[wrongType.roomType] || wrongType.roomType}. You're about to also use it as ${ROOM_LABEL[type] || type}.`;
+    } else if (cap && sameType.length >= cap) {
+      warning = `Room ${code} ${ROOM_LABEL[type] || type} already has ${sameType.length} ${cap === 1 ? "occupant" : "occupants"} — that's the capacity for this room type.`;
+    }
+    if (!warning) return true;
+    const message = `${warning}\n\nDID YOU FORGET? Save anyway, or fix the room first.`;
+    if (window.UI?.confirm) {
+      return window.UI.confirm(message, {
+        title: "Room already taken",
+        confirmLabel: "Save anyway",
+        cancelLabel: "Let me fix it",
+      });
+    }
+    return window.confirm(message);
+  }
+
   touristForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!(await confirmIncompleteParticipant(touristForm))) return;
+    if (!(await confirmRoomAssignment(touristForm))) return;
     const payload = buildPayload(touristForm);
     delete payload.id;
     try {

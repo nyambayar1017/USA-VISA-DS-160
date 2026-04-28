@@ -1520,9 +1520,38 @@ async function confirmIncompleteParticipant(form) {
   return window.confirm(message);
 }
 
+const ROOM_CAPACITY = { single: 1, double: 2, twin: 2, triple: 3, family: 4 };
+const ROOM_LABEL = { single: "SGL", double: "DBL", twin: "TWIN", triple: "TPL", family: "FAM", other: "OTH" };
+async function confirmRoomAssignment(form) {
+  const code = String(form.elements.roomCode?.value || "").trim();
+  const type = String(form.elements.roomType?.value || "").trim();
+  if (!code || !type) return true;
+  const others = (tourists || []).filter((t) => t.id !== editingId && t.roomCode === code);
+  const wrongType = others.find((t) => t.roomType && t.roomType !== type);
+  const sameType = others.filter((t) => t.roomType === type);
+  const cap = ROOM_CAPACITY[type];
+  let warning = "";
+  if (wrongType) {
+    warning = `Room ${code} is already used as ${ROOM_LABEL[wrongType.roomType] || wrongType.roomType}. You're about to also use it as ${ROOM_LABEL[type] || type}.`;
+  } else if (cap && sameType.length >= cap) {
+    warning = `Room ${code} ${ROOM_LABEL[type] || type} already has ${sameType.length} ${cap === 1 ? "occupant" : "occupants"} — that's the capacity for this room type.`;
+  }
+  if (!warning) return true;
+  const message = `${warning}\n\nDID YOU FORGET? Save anyway, or fix the room first.`;
+  if (window.UI?.confirm) {
+    return window.UI.confirm(message, {
+      title: "Room already taken",
+      confirmLabel: "Save anyway",
+      cancelLabel: "Let me fix it",
+    });
+  }
+  return window.confirm(message);
+}
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!(await confirmIncompleteParticipant(form))) return;
+  if (!(await confirmRoomAssignment(form))) return;
   const payload = Object.fromEntries(new FormData(form).entries());
   payload.tripId = tripId;
   payload.groupId = groupId;
