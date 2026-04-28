@@ -33,6 +33,13 @@
           <div class="section-head">
             <h2>Trips</h2>
             <div class="camp-toolbar">
+              <details class="trip-saved-filter-dropdown" id="trip-list-view-dropdown">
+                <summary>
+                  <span>View</span>
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="trip-saved-filter-popover tourist-view-popover" id="trip-list-view-popover"></div>
+              </details>
               <button type="button" id="trip-toggle-form">Create Trip</button>
             </div>
           </div>
@@ -738,7 +745,7 @@
     <script src="/app-shell.js?v=workspace-114"></script>
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-129"></script>
+    <script src="/camp.js?v=workspace-130"></script>
     <script src="/reservations-addon.js?v=workspace-15"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>

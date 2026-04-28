@@ -113,11 +113,69 @@
     });
   }
 
+  const DOC_COLUMNS = [
+    { key: "rowNum", label: "#", fixed: true, default: true },
+    { key: "file", label: "File", fixed: true, default: true },
+    { key: "lastName", label: "Last name", default: true },
+    { key: "firstName", label: "First name", default: true },
+    { key: "trip", label: "Trip", default: true },
+    { key: "destinations", label: "Destinations", default: true },
+    { key: "category", label: "Category", default: true },
+    { key: "ext", label: "Type", default: true },
+    { key: "size", label: "Size", default: true },
+    { key: "uploaded", label: "Uploaded", default: true },
+    { key: "uploadedBy", label: "By", default: true },
+    { key: "download", label: "", fixed: true, default: true },
+  ];
+  const DOC_VIEW_KEY = "documents:visibleColumns";
+  function readDocColumns() {
+    try {
+      const raw = localStorage.getItem(DOC_VIEW_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          const set = new Set(arr);
+          DOC_COLUMNS.filter((c) => c.fixed).forEach((c) => set.add(c.key));
+          return set;
+        }
+      }
+    } catch {}
+    return new Set(DOC_COLUMNS.filter((c) => c.default).map((c) => c.key));
+  }
+  let visibleDocColumns = readDocColumns();
+  function writeDocColumns() {
+    try { localStorage.setItem(DOC_VIEW_KEY, JSON.stringify([...visibleDocColumns])); } catch {}
+  }
+  function renderDocViewToggle() {
+    const popover = document.getElementById("doc-view-popover");
+    if (!popover) return;
+    popover.innerHTML =
+      '<div class="ts-view-head"><p class="ts-view-title">Toggle columns</p>' +
+      '<button type="button" class="ts-view-close" data-close-view aria-label="Close">×</button></div>' +
+      DOC_COLUMNS.filter((c) => !c.fixed).map((c) => `
+        <label class="ts-view-row">
+          <input type="checkbox" data-col="${escapeHtml(c.key)}" ${visibleDocColumns.has(c.key) ? "checked" : ""} />
+          <span>${escapeHtml(c.label)}</span>
+        </label>
+      `).join("");
+  }
+  // Sync the static thead in documents.html with the column model so headers
+  // and cells align even when columns are hidden.
+  function renderDocHeaders() {
+    const thead = document.querySelector("#doc-table thead tr");
+    if (!thead) return;
+    const cols = DOC_COLUMNS.filter((c) => visibleDocColumns.has(c.key));
+    thead.innerHTML = cols.map((c) => `<th>${escapeHtml(c.label)}</th>`).join("");
+  }
+
   function render() {
+    renderDocViewToggle();
+    renderDocHeaders();
     const allRows = getFiltered();
     countNode.textContent = allRows.length + " document" + (allRows.length === 1 ? "" : "s");
+    const cols = DOC_COLUMNS.filter((c) => visibleDocColumns.has(c.key));
     if (!allRows.length) {
-      tbody.innerHTML = '<tr><td colspan="12" class="empty">No documents match the current filters.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="${cols.length}" class="empty">No documents match the current filters.</td></tr>`;
       if (pgnHost) pgnHost.innerHTML = "";
       return;
     }
@@ -143,23 +201,44 @@
       const tripCell = d.touristRemovedAt
         ? '<span class="doc-removed-pill">Removed from ' + escapeHtml(d.touristRemovedTripName || ((d.tripSerial || "") + " · " + (d.tripName || ""))) + "</span>"
         : '<a class="trip-name-link" href="' + escapeHtml(tripUrl) + '">' + escapeHtml((d.tripSerial || "") + " · " + (d.tripName || "")) + "</a>";
-      return "<tr>" +
-        "<td>" + (pageOffset + idx + 1) + "</td>" +
-        '<td><a class="doc-file-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(d.originalName || "-") + "</a></td>" +
-        "<td>" + escapeHtml(lastName || "-") + "</td>" +
-        "<td>" + escapeHtml(firstName || "-") + "</td>" +
-        "<td>" + tripCell + "</td>" +
-        "<td>" + destChips + "</td>" +
-        "<td>" + escapeHtml(d.category || "-") + "</td>" +
-        "<td>" + (ext ? "." + escapeHtml(ext) : "-") + "</td>" +
-        "<td>" + escapeHtml(fmtSize(d.size)) + "</td>" +
-        "<td>" + escapeHtml(dateTime || "-") + "</td>" +
-        "<td>" + escapeHtml(uploadedBy) + "</td>" +
-        '<td><a class="doc-download-pill" href="' + escapeHtml(downloadUrl) + '" download>Download</a></td>' +
-        "</tr>";
+      const cells = {
+        rowNum: "<td>" + (pageOffset + idx + 1) + "</td>",
+        file: '<td><a class="doc-file-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(d.originalName || "-") + "</a></td>",
+        lastName: "<td>" + escapeHtml(lastName || "-") + "</td>",
+        firstName: "<td>" + escapeHtml(firstName || "-") + "</td>",
+        trip: "<td>" + tripCell + "</td>",
+        destinations: "<td>" + destChips + "</td>",
+        category: "<td>" + escapeHtml(d.category || "-") + "</td>",
+        ext: "<td>" + (ext ? "." + escapeHtml(ext) : "-") + "</td>",
+        size: "<td>" + escapeHtml(fmtSize(d.size)) + "</td>",
+        uploaded: "<td>" + escapeHtml(dateTime || "-") + "</td>",
+        uploadedBy: "<td>" + escapeHtml(uploadedBy) + "</td>",
+        download: '<td><a class="doc-download-pill" href="' + escapeHtml(downloadUrl) + '" download>Download</a></td>',
+      };
+      return "<tr>" + cols.map((c) => cells[c.key]).join("") + "</tr>";
     }).join("");
     if (pgnHost) pgnHost.innerHTML = pgn.controlsHtml();
   }
+
+  // View dropdown wiring.
+  const docViewPopover = document.getElementById("doc-view-popover");
+  const docViewDropdown = document.getElementById("doc-view-dropdown");
+  docViewPopover?.addEventListener("change", (e) => {
+    const cb = e.target.closest('input[type="checkbox"][data-col]');
+    if (!cb) return;
+    if (cb.checked) visibleDocColumns.add(cb.dataset.col);
+    else visibleDocColumns.delete(cb.dataset.col);
+    writeDocColumns();
+    render();
+  });
+  docViewPopover?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-view]")) docViewDropdown?.removeAttribute("open");
+  });
+  document.addEventListener("click", (e) => {
+    if (!docViewDropdown?.open) return;
+    if (docViewDropdown.contains(e.target)) return;
+    docViewDropdown.removeAttribute("open");
+  });
 
   function updateDateCount() {
     const pill = document.getElementById("doc-daterange-pill");

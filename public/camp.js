@@ -1,6 +1,29 @@
 const tripForm = document.querySelector("#trip-form");
 const tripStatus = document.querySelector("#trip-status");
 const tripList = document.querySelector("#trip-list");
+// Trip-list View dropdown wiring (column visibility toggles).
+(function () {
+  const popover = document.getElementById("trip-list-view-popover");
+  const dropdown = document.getElementById("trip-list-view-dropdown");
+  if (!popover || !dropdown) return;
+  popover.addEventListener("change", (e) => {
+    const cb = e.target.closest('input[type="checkbox"][data-col]');
+    if (!cb) return;
+    const key = cb.dataset.col;
+    if (cb.checked) visibleTripListColumns.add(key);
+    else visibleTripListColumns.delete(key);
+    writeTripListColumns();
+    renderTrips();
+  });
+  popover.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-view]")) dropdown.removeAttribute("open");
+  });
+  document.addEventListener("click", (e) => {
+    if (!dropdown.open) return;
+    if (dropdown.contains(e.target)) return;
+    dropdown.removeAttribute("open");
+  });
+})();
 const tripToggleForm = document.querySelector("#trip-toggle-form");
 const tripFormPanel = document.querySelector("#trip-form-panel");
 const activeTripBox = document.querySelector("#active-trip");
@@ -909,8 +932,58 @@ function renderAllSettings() {
   renderSettingsOptions();
 }
 
+const TRIP_LIST_COLUMNS = [
+  { key: "rowNum", label: "#", fixed: true, default: true },
+  { key: "serial", label: "Serial", default: true },
+  { key: "type", label: "Type", default: true },
+  { key: "tripName", label: "Trip", default: true },
+  { key: "startDate", label: "Start", default: true },
+  { key: "endDate", label: "End", default: true },
+  { key: "destinations", label: "Destinations", default: true },
+  { key: "pax", label: "Pax", default: true },
+  { key: "staff", label: "Staff", default: true },
+  { key: "status", label: "Status", default: true },
+  { key: "createdAt", label: "Created", default: true },
+  { key: "manager", label: "Manager", default: true },
+  { key: "actions", label: "Actions", fixed: true, default: true },
+];
+const TRIP_LIST_VIEW_KEY = "trip-list:visibleColumns";
+function readTripListColumns() {
+  try {
+    const raw = localStorage.getItem(TRIP_LIST_VIEW_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const set = new Set(arr);
+        TRIP_LIST_COLUMNS.filter((c) => c.fixed).forEach((c) => set.add(c.key));
+        return set;
+      }
+    }
+  } catch {}
+  return new Set(TRIP_LIST_COLUMNS.filter((c) => c.default).map((c) => c.key));
+}
+let visibleTripListColumns = readTripListColumns();
+function writeTripListColumns() {
+  try { localStorage.setItem(TRIP_LIST_VIEW_KEY, JSON.stringify([...visibleTripListColumns])); } catch {}
+}
+
+function renderTripListViewToggle() {
+  const popover = document.getElementById("trip-list-view-popover");
+  if (!popover) return;
+  popover.innerHTML =
+    '<div class="ts-view-head"><p class="ts-view-title">Toggle columns</p>' +
+    '<button type="button" class="ts-view-close" data-close-view aria-label="Close">×</button></div>' +
+    TRIP_LIST_COLUMNS.filter((c) => !c.fixed).map((c) => `
+      <label class="ts-view-row">
+        <input type="checkbox" data-col="${escapeHtml(c.key)}" ${visibleTripListColumns.has(c.key) ? "checked" : ""} />
+        <span>${escapeHtml(c.label)}</span>
+      </label>
+    `).join("");
+}
+
 function renderTrips() {
   const trips = getFilteredTrips();
+  renderTripListViewToggle();
   if (!trips.length) {
     tripList.innerHTML = '<p class="empty">No trips found for the selected filters.</p>';
     return;
@@ -920,65 +993,45 @@ function renderTrips() {
   currentTripPage = Math.min(currentTripPage, totalPages);
   const startIndex = (currentTripPage - 1) * PAGE_SIZE;
   const visibleTrips = trips.slice(startIndex, startIndex + PAGE_SIZE);
+  const cols = TRIP_LIST_COLUMNS.filter((c) => visibleTripListColumns.has(c.key));
+
+  const headers = cols.map((c) => `<th>${escapeHtml(c.label)}</th>`).join("");
+  const body = visibleTrips.map((trip, index) => {
+    const isFit = String(trip.tripType || "git").toLowerCase() === "fit";
+    const cells = {
+      rowNum: `<td>${startIndex + index + 1}</td>`,
+      serial: `<td class="trip-serial-cell"><a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link"><strong>${escapeHtml(trip.serial || "-")}</strong></a></td>`,
+      type: `<td><span class="trip-type-pill">${escapeHtml(String(trip.tripType || "git").toUpperCase())}</span></td>`,
+      tripName: `<td class="table-primary-cell">${escapeHtml(trip.tripName)}</td>`,
+      startDate: `<td>${formatDate(trip.startDate)}</td>`,
+      endDate: `<td>${formatDate(trip.endDate || computeTripEndDate(trip))}</td>`,
+      destinations: `<td class="trip-tag-cell">${renderTripTagPills(trip.tags)}</td>`,
+      pax: `<td class="trip-pax-cell">${isFit ? trip.participantCount : `${trip.actualTouristCount || 0}/${trip.participantCount}`}</td>`,
+      staff: `<td class="trip-pax-cell">${trip.staffCount}</td>`,
+      status: `<td><span class="status-dot-cell"><span class="status-dot status-dot-${normalizeStatus(trip.status)}"></span><span>${formatStatusLabel(trip.status)}</span></span></td>`,
+      createdAt: `<td class="trip-created-cell">${formatDate(trip.createdAt, true)}</td>`,
+      manager: `<td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>`,
+      actions: `<td>
+        <div class="trip-row-actions trip-row-actions-inline">
+          <details class="trip-menu trip-page-menu">
+            <summary class="trip-menu-trigger" aria-label="Trip actions">⋯</summary>
+            <div class="trip-menu-popover">
+              <button type="button" class="trip-menu-item" data-action="select-trip" data-trip-id="${trip.id}">View</button>
+              <button type="button" class="trip-menu-item" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
+              <button type="button" class="trip-menu-item is-danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
+            </div>
+          </details>
+        </div>
+      </td>`,
+    };
+    return `<tr class="${activeTripId === trip.id ? "is-trip-active" : ""}">${cols.map((c) => cells[c.key]).join("")}</tr>`;
+  }).join("");
 
   tripList.innerHTML = `
     <div class="camp-table-wrap">
       <table class="camp-table trip-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Serial</th>
-            <th>Type</th>
-            <th>Trip</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Destinations</th>
-            <th>Pax</th>
-            <th>Staff</th>
-            <th>Status</th>
-            <th>Created</th>
-            <th>Manager</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${visibleTrips
-            .map(
-              (trip, index) => `
-                <tr class="${activeTripId === trip.id ? "is-trip-active" : ""}">
-                  <td>${startIndex + index + 1}</td>
-                  <td class="trip-serial-cell">
-                    <a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link"><strong>${escapeHtml(trip.serial || "-")}</strong></a>
-                  </td>
-                  <td><span class="trip-type-pill">${escapeHtml(String(trip.tripType || "git").toUpperCase())}</span></td>
-                  <td class="table-primary-cell">${escapeHtml(trip.tripName)}</td>
-                  <td>${formatDate(trip.startDate)}</td>
-                  <td>${formatDate(trip.endDate || computeTripEndDate(trip))}</td>
-                  <td class="trip-tag-cell">${renderTripTagPills(trip.tags)}</td>
-                  <td class="trip-pax-cell">${String(trip.tripType || "git").toLowerCase() === "fit"
-                    ? trip.participantCount
-                    : `${trip.actualTouristCount || 0}/${trip.participantCount}`}</td>
-                  <td class="trip-pax-cell">${trip.staffCount}</td>
-                  <td><span class="status-dot-cell"><span class="status-dot status-dot-${normalizeStatus(trip.status)}"></span><span>${formatStatusLabel(trip.status)}</span></span></td>
-                  <td class="trip-created-cell">${formatDate(trip.createdAt, true)}</td>
-                  <td>${escapeHtml(trip.createdBy?.name || trip.createdBy?.email || "-")}</td>
-                  <td>
-                    <div class="trip-row-actions trip-row-actions-inline">
-                      <details class="trip-menu trip-page-menu">
-                        <summary class="trip-menu-trigger" aria-label="Trip actions">⋯</summary>
-                        <div class="trip-menu-popover">
-                          <button type="button" class="trip-menu-item" data-action="select-trip" data-trip-id="${trip.id}">View</button>
-                          <button type="button" class="trip-menu-item" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
-                          <button type="button" class="trip-menu-item is-danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
-                        </div>
-                      </details>
-                    </div>
-                  </td>
-                </tr>
-              `
-            )
-            .join("")}
-        </tbody>
+        <thead><tr>${headers}</tr></thead>
+        <tbody>${body}</tbody>
       </table>
     </div>
     <div class="table-pagination">
