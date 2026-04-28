@@ -233,7 +233,57 @@ function renderCamps() {
   }
   renderAuxPills("staffAssignments", campSettings.staffAssignments || []);
   renderAuxPills("roomChoices", campSettings.roomChoices || []);
+  renderAuxPills("transferPickups", campSettings.transferPickups || []);
+  renderAuxPills("transferDropoffs", campSettings.transferDropoffs || []);
+  renderTransferDrivers(campSettings.transferDrivers || []);
 }
+
+function renderTransferDrivers(drivers) {
+  const host = document.getElementById("settings-transferDrivers");
+  if (!host) return;
+  if (!drivers.length) {
+    host.innerHTML = '<p class="empty">No drivers yet. Add one above.</p>';
+    return;
+  }
+  host.innerHTML = drivers.map((d) => `
+    <div class="driver-setting-row">
+      <span class="driver-setting-name">${escapeHtml(d.name)}</span>
+      <span>${escapeHtml(d.carType || "—")}</span>
+      <span>${escapeHtml(d.plateNumber || "—")}</span>
+      <span>${escapeHtml(d.phoneNumber || "—")}</span>
+      <span>${d.salary ? Number(d.salary).toLocaleString() + " ₮" : "—"}</span>
+      <button type="button" class="ts-view-close" data-action="remove-driver" data-driver-id="${escapeHtml(d.id)}" aria-label="Remove driver">×</button>
+    </div>
+  `).join("");
+}
+
+const transferDriverForm = document.getElementById("transfer-driver-form");
+transferDriverForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const f = transferDriverForm;
+  const name = (f.elements.name?.value || "").trim();
+  if (!name) return;
+  const driver = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(),
+    name,
+    carType: (f.elements.carType?.value || "").trim(),
+    plateNumber: (f.elements.plateNumber?.value || "").trim(),
+    phoneNumber: (f.elements.phoneNumber?.value || "").trim(),
+    salary: parseInt(f.elements.salary?.value || "0", 10) || 0,
+  };
+  campSettings.transferDrivers = [...(campSettings.transferDrivers || []), driver];
+  f.reset();
+  await saveCampSettings("Driver added.");
+});
+
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest('[data-action="remove-driver"]');
+  if (!btn) return;
+  if (!confirm("Remove this driver?")) return;
+  const id = btn.dataset.driverId;
+  campSettings.transferDrivers = (campSettings.transferDrivers || []).filter((d) => d.id !== id);
+  await saveCampSettings("Driver removed.");
+});
 
 campSearch?.addEventListener("input", renderCamps);
 campStatusPills?.addEventListener("click", (event) => {
@@ -281,6 +331,9 @@ async function saveCampSettings(message = "Saved.") {
       roomChoices: campSettings.roomChoices || [],
       campLocations: campSettings.campLocations || {},
       campDetails: campSettings.campDetails || {},
+      transferPickups: campSettings.transferPickups || [],
+      transferDropoffs: campSettings.transferDropoffs || [],
+      transferDrivers: campSettings.transferDrivers || [],
     };
     const data = await fetchJson("/api/camp-settings", {
       method: "POST",

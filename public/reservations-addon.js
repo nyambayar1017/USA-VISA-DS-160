@@ -427,6 +427,17 @@
     `;
   }
 
+  function transferTypeLabel(value) {
+    const v = String(value || "").toLowerCase();
+    if (v === "airport_welcome") return "Airport welcome";
+    if (v === "airport_departure") return "Airport departure";
+    if (v === "train_welcome") return "Train welcome";
+    if (v === "train_departure") return "Train departure";
+    // Legacy values from before the refactor — surface them for clarity.
+    if (v) return formatStatus(v);
+    return "—";
+  }
+
   function renderTransfers() {
     const rows = getFilteredTransfers();
     if (!rows.length) {
@@ -436,33 +447,19 @@
     transferList.innerHTML = `
       <div class="camp-table-wrap">
         <table class="camp-table reservation-addon-table transfer-reservation-table">
-          <colgroup>
-            <col class="transfer-col-index" />
-            <col class="transfer-col-trip" />
-            <col class="transfer-col-type" />
-            <col class="transfer-col-pickup" />
-            <col class="transfer-col-dropoff" />
-            <col class="transfer-col-date" />
-            <col class="transfer-col-pax" />
-            <col class="transfer-col-driver" />
-            <col class="transfer-col-vehicle" />
-            <col class="transfer-col-salary" />
-            <col class="transfer-col-payment" />
-            <col class="transfer-col-notes" />
-            <col class="transfer-col-actions" />
-          </colgroup>
           <thead>
             <tr>
               <th>#</th>
-              <th>Trip</th>
-              <th>Transfer Type</th>
-              <th>Pickup</th>
-              <th>Dropoff</th>
-              <th>Date / Time</th>
-              <th>Pax</th>
+              <th data-trip-scope-hide>Trip</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Pickup time</th>
+              <th>Type time</th>
               <th>Driver</th>
               <th>Vehicle</th>
-              <th>Driver Salary</th>
+              <th>Plate Number</th>
+              <th>Driver Number</th>
+              <th>Salary</th>
               <th>Payment</th>
               <th>Notes</th>
               <th>Actions</th>
@@ -474,14 +471,15 @@
                 (entry, index) => `
                   <tr>
                     <td class="table-center">${index + 1}</td>
-                    <td><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
-                    <td>${escapeHtml(formatStatus(entry.transferType))}</td>
-                    <td>${escapeHtml(entry.pickupLocation)}</td>
-                    <td>${escapeHtml(entry.dropoffLocation)}</td>
-                    <td>${escapeHtml(`${formatDate(entry.serviceDate)} ${entry.serviceTime || ""}`.trim())}</td>
-                    <td class="table-center">${escapeHtml(entry.passengerCount || "-")}</td>
-                    <td>${escapeHtml(entry.driverName || "-")}</td>
-                    <td>${escapeHtml(entry.vehicleType || "-")}</td>
+                    <td data-trip-scope-hide><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
+                    <td>${escapeHtml(transferTypeLabel(entry.transferType))}</td>
+                    <td class="table-nowrap">${escapeHtml(formatDate(entry.serviceDate))}</td>
+                    <td class="table-nowrap">${escapeHtml(entry.serviceTime || "—")}</td>
+                    <td class="table-nowrap">${escapeHtml(entry.typeTime || "—")}</td>
+                    <td>${escapeHtml(entry.driverName || "—")}</td>
+                    <td>${escapeHtml(entry.vehicleType || "—")}</td>
+                    <td>${escapeHtml(entry.plateNumber || "—")}</td>
+                    <td>${escapeHtml(entry.driverPhoneNumber || "—")}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.driverSalary || entry.amount))}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
@@ -525,6 +523,81 @@
     renderTransfers();
   }
 
+  // Cache of camp-settings transfer lists; refilled on every form open so
+  // recent additions in /settings show up without a full page reload.
+  let transferSettingsCache = { pickups: [], dropoffs: [], drivers: [] };
+  async function loadTransferSettings() {
+    try {
+      const payload = await fetchJson("/api/camp-settings");
+      const e = (payload && payload.entry) || {};
+      transferSettingsCache = {
+        pickups: Array.isArray(e.transferPickups) ? e.transferPickups : [],
+        dropoffs: Array.isArray(e.transferDropoffs) ? e.transferDropoffs : [],
+        drivers: Array.isArray(e.transferDrivers) ? e.transferDrivers : [],
+      };
+    } catch {
+      transferSettingsCache = { pickups: [], dropoffs: [], drivers: [] };
+    }
+    populateTransferFormSelectors();
+  }
+  function populateTransferFormSelectors() {
+    if (!transferForm) return;
+    const pickupSel = transferForm.querySelector("[data-transfer-pickup-select]");
+    const dropoffSel = transferForm.querySelector("[data-transfer-dropoff-select]");
+    const driverSel = transferForm.querySelector("[data-transfer-driver-select]");
+    const opt = (v, label = v) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`;
+    if (pickupSel) {
+      const cur = pickupSel.value;
+      pickupSel.innerHTML = '<option value="">Choose pickup</option>' + transferSettingsCache.pickups.map((p) => opt(p)).join("");
+      if (cur && [...pickupSel.options].some((o) => o.value === cur)) pickupSel.value = cur;
+    }
+    if (dropoffSel) {
+      const cur = dropoffSel.value;
+      dropoffSel.innerHTML = '<option value="">Choose dropoff</option>' + transferSettingsCache.dropoffs.map((p) => opt(p)).join("");
+      if (cur && [...dropoffSel.options].some((o) => o.value === cur)) dropoffSel.value = cur;
+    }
+    if (driverSel) {
+      const cur = driverSel.value;
+      driverSel.innerHTML = '<option value="">Choose driver</option>' + transferSettingsCache.drivers.map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`).join("");
+      if (cur && [...driverSel.options].some((o) => o.value === cur)) driverSel.value = cur;
+    }
+  }
+  function applyDriverSnapshotToForm(driverId) {
+    if (!transferForm) return;
+    const driver = transferSettingsCache.drivers.find((d) => d.id === driverId);
+    const setVal = (sel, val) => {
+      const node = transferForm.querySelector(sel);
+      if (node) node.value = val == null ? "" : String(val);
+    };
+    setVal("[data-transfer-vehicle]", driver ? driver.carType || "" : "");
+    setVal("[data-transfer-plate]", driver ? driver.plateNumber || "" : "");
+    setVal("[data-transfer-phone]", driver ? driver.phoneNumber || "" : "");
+    if (driver && driver.salary) {
+      const sal = transferForm.querySelector("[data-transfer-salary]");
+      if (sal) sal.value = String(driver.salary);
+    }
+    if (transferForm.elements.driverName) {
+      transferForm.elements.driverName.value = driver ? driver.name : "";
+    }
+  }
+  function applyTransferTypeTimeLabel() {
+    if (!transferForm) return;
+    const type = transferForm.elements.transferType?.value || "";
+    const label = transferForm.querySelector("[data-transfer-type-time-label]");
+    if (label) label.textContent = type.startsWith("train_") ? "Train time" : "Flight time";
+  }
+  if (transferForm) {
+    transferForm.addEventListener("change", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.matches("[data-transfer-driver-select]")) {
+        applyDriverSnapshotToForm(target.value);
+      } else if (target.matches("[data-transfer-type-select]")) {
+        applyTransferTypeTimeLabel();
+      }
+    });
+  }
+
   function resetFlightForm() {
     editingFlightId = "";
     flightForm.reset();
@@ -558,6 +631,9 @@
     transferStatus.textContent = "";
     refreshTripSelectors();
     ensureDefaultTrip(transferTripSelect);
+    populateTransferFormSelectors();
+    applyDriverSnapshotToForm("");
+    applyTransferTypeTimeLabel();
   }
 
   function fillFlightForm(entry) {
@@ -583,11 +659,15 @@
 
   function fillTransferForm(entry) {
     editingTransferId = entry.id;
+    populateTransferFormSelectors();
     Object.entries(entry).forEach(([key, value]) => {
       if (transferForm.elements[key]) {
         transferForm.elements[key].value = value || "";
       }
     });
+    // The driverId-based select stays as-is; fall back to the snapshot fields
+    // (vehicle/plate/phone) on the row so editing legacy records works too.
+    applyTransferTypeTimeLabel();
   }
 
   flightToggleForm?.addEventListener("click", async () => {
@@ -604,7 +684,7 @@
   });
 
   transferToggleForm?.addEventListener("click", async () => {
-    await loadTrips();
+    await Promise.all([loadTrips(), loadTransferSettings()]);
     resetTransferForm();
     openPanel(transferFormPanel);
   });
@@ -694,6 +774,17 @@
     }
     payload.tripName = trip.tripName;
     payload.currency = "MNT";
+    // The driver picker stores the driver id; snapshot the rest of the
+    // record onto the reservation so it survives a later settings change.
+    if (payload.driverId) {
+      const driver = transferSettingsCache.drivers.find((d) => d.id === payload.driverId);
+      if (driver) {
+        payload.driverName = driver.name || "";
+        if (!payload.vehicleType) payload.vehicleType = driver.carType || "";
+        if (!payload.plateNumber) payload.plateNumber = driver.plateNumber || "";
+        if (!payload.driverPhoneNumber) payload.driverPhoneNumber = driver.phoneNumber || "";
+      }
+    }
     try {
       await fetchJson(editingTransferId ? `/api/transfer-reservations/${editingTransferId}` : "/api/transfer-reservations", {
         method: "POST",
@@ -771,7 +862,7 @@
       return;
     }
     if (target.dataset.action === "edit-transfer") {
-      await loadTrips();
+      await Promise.all([loadTrips(), loadTransferSettings()]);
       resetTransferForm();
       fillTransferForm(entry);
       openPanel(transferFormPanel);

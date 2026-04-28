@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-270" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-271" />
   </head>
   <body class="app-body" data-page="flight-reservations">
     <script>
@@ -686,38 +686,59 @@
                   <select name="tripId" id="transfer-trip-select" required></select>
                 </label>
                 <label>
-                  Transfer Type
-                  <select name="transferType">
-                    <option value="airport_hotel">Airport to hotel</option>
-                    <option value="hotel_airport">Hotel to airport</option>
-                    <option value="train_hotel">Train to hotel</option>
-                    <option value="hotel_train">Hotel to train</option>
-                    <option value="custom">Custom</option>
+                  Type
+                  <select name="transferType" data-transfer-type-select>
+                    <option value="airport_welcome">Airport welcome</option>
+                    <option value="airport_departure">Airport departure</option>
+                    <option value="train_welcome">Train welcome</option>
+                    <option value="train_departure">Train departure</option>
                   </select>
                 </label>
                 <label>
                   Pickup
-                  <input name="pickupLocation" required />
+                  <select name="pickupLocation" data-transfer-pickup-select>
+                    <option value="">Choose pickup</option>
+                  </select>
                 </label>
                 <label>
                   Dropoff
-                  <input name="dropoffLocation" required />
+                  <select name="dropoffLocation" data-transfer-dropoff-select>
+                    <option value="">Choose dropoff</option>
+                  </select>
                 </label>
                 <label>
-                  Service Date
+                  Date
                   <input name="serviceDate" type="date" required />
                 </label>
                 <label>
-                  Service Time
+                  Pickup time
                   <input name="serviceTime" type="time" />
                 </label>
                 <label>
+                  <span data-transfer-type-time-label>Flight time</span>
+                  <input name="typeTime" type="time" />
+                </label>
+                <label>
                   Driver
-                  <input name="driverName" />
+                  <select name="driverId" data-transfer-driver-select>
+                    <option value="">Choose driver</option>
+                  </select>
                 </label>
                 <label>
                   Vehicle
-                  <input name="vehicleType" />
+                  <input name="vehicleType" data-transfer-vehicle readonly />
+                </label>
+                <label>
+                  Plate number
+                  <input name="plateNumber" data-transfer-plate readonly />
+                </label>
+                <label>
+                  Driver number
+                  <input name="driverPhoneNumber" data-transfer-phone readonly />
+                </label>
+                <label>
+                  Driver salary (MNT)
+                  <input name="driverSalary" type="number" min="0" value="0" data-transfer-salary />
                 </label>
                 <label>
                   Passengers
@@ -729,10 +750,6 @@
                     <option value="unpaid">Unpaid</option>
                     <option value="paid">Paid</option>
                   </select>
-                </label>
-                <label>
-                  Driver Salary (MNT)
-                  <input name="driverSalary" type="number" min="0" value="0" />
                 </label>
                 <label class="full-span">
                   Notes
@@ -819,8 +836,8 @@
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-116"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-139"></script>
-    <script src="/reservations-addon.js?v=workspace-19"></script>
+    <script src="/camp.js?v=workspace-140"></script>
+    <script src="/reservations-addon.js?v=workspace-20"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

@@ -200,6 +200,50 @@ td {
 .trip-flight-cell strong { display: block; font-weight: 700; color: #1f2a44; }
 .trip-flight-cell { color: #475569; font-size: 0.82rem; }
 
+.driver-setting-card { margin-top: 12px; }
+.driver-setting-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1fr 1fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.driver-setting-grid input {
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.driver-setting-grid button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #20356f;
+  color: #fff;
+  border: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.driver-setting-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1fr 1fr 1fr 32px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 6px;
+  font-size: 0.86rem;
+  color: #1f2a44;
+}
+.driver-setting-row .driver-setting-name { font-weight: 700; color: #20356f; }
+@media (max-width: 720px) {
+  .driver-setting-grid, .driver-setting-row {
+    grid-template-columns: 1fr;
+  }
+  .driver-setting-row { padding: 12px; }
+}
+
 .trip-summary-stat {
   padding: 18px;
   border-radius: 18px;

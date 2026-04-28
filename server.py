@@ -736,7 +736,39 @@ def default_camp_settings():
         "staffAssignments": [STEPPE_MANAGER],
         "roomChoices": DEFAULT_ROOM_CHOICES,
         "campLocations": {"Khustai camp": "Khustai"},
+        "transferPickups": [],
+        "transferDropoffs": [],
+        "transferDrivers": [],
     }
+
+
+def normalize_transfer_drivers(payload):
+    """Driver records: { id, name, carType, plateNumber, phoneNumber, salary }.
+    Salary is stored as integer MNT. Existing IDs are preserved; new entries
+    get a generated UUID so transfer-reservation snapshots stay stable."""
+    out = []
+    if not isinstance(payload, list):
+        return out
+    seen = set()
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        name = normalize_text(item.get("name"))
+        if not name:
+            continue
+        rec = {
+            "id": normalize_text(item.get("id")) or str(uuid4()),
+            "name": name,
+            "carType": normalize_text(item.get("carType")),
+            "plateNumber": normalize_text(item.get("plateNumber")),
+            "phoneNumber": normalize_text(item.get("phoneNumber")),
+            "salary": parse_int(item.get("salary")),
+        }
+        if rec["id"] in seen:
+            continue
+        seen.add(rec["id"])
+        out.append(rec)
+    return out
 
 
 def normalize_camp_location_map(payload, camp_names=None):
@@ -781,6 +813,9 @@ def read_camp_settings():
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
         "campLocations": camp_locations,
         "campDetails": camp_details,
+        "transferPickups": normalize_option_list(payload.get("transferPickups")),
+        "transferDropoffs": normalize_option_list(payload.get("transferDropoffs")),
+        "transferDrivers": normalize_transfer_drivers(payload.get("transferDrivers")),
     }
 
 
@@ -8031,6 +8066,12 @@ def handle_update_camp_settings(environ, start_response):
                 key = normalize_text(name)
                 if key:
                     merged_details[key] = value
+    # Transfer settings keep their previous values whenever the writer doesn't
+    # send them — both the chosen-trip page and Settings/Camps tab POST a
+    # partial settings payload that drops the new keys.
+    incoming_pickups = payload.get("transferPickups")
+    incoming_dropoffs = payload.get("transferDropoffs")
+    incoming_drivers = payload.get("transferDrivers")
     settings = {
         "campNames": camp_names,
         "locationNames": normalize_option_list(payload.get("locationNames")),
@@ -8038,6 +8079,9 @@ def handle_update_camp_settings(environ, start_response):
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
         "campLocations": normalize_camp_location_map(payload.get("campLocations"), camp_names),
         "campDetails": _normalize_camp_details(merged_details, camp_names),
+        "transferPickups": normalize_option_list(incoming_pickups) if incoming_pickups is not None else existing.get("transferPickups", []),
+        "transferDropoffs": normalize_option_list(incoming_dropoffs) if incoming_dropoffs is not None else existing.get("transferDropoffs", []),
+        "transferDrivers": normalize_transfer_drivers(incoming_drivers) if incoming_drivers is not None else existing.get("transferDrivers", []),
     }
     if not settings["campNames"]:
         settings["campNames"] = ["Khustai camp"]
@@ -11426,14 +11470,24 @@ def build_transfer_reservation(payload, actor=None):
         "tripId": normalize_text(payload.get("tripId")),
         "tripName": normalize_text(payload.get("tripName")),
         "reservationName": normalize_text(payload.get("reservationName")) or normalize_text(payload.get("tripName")),
-        "transferType": normalize_text(payload.get("transferType")).lower() or "airport_hotel",
+        "transferType": normalize_text(payload.get("transferType")).lower() or "airport_welcome",
         "pickupLocation": normalize_text(payload.get("pickupLocation")),
         "dropoffLocation": normalize_text(payload.get("dropoffLocation")),
         "serviceDate": normalize_text(payload.get("serviceDate")),
         "serviceTime": normalize_text(payload.get("serviceTime")),
+        # New: separate "type time" — flight or train arrival/departure time —
+        # distinct from when the driver actually picks the client up.
+        "typeTime": normalize_text(payload.get("typeTime")),
         "supplierName": normalize_text(payload.get("supplierName")),
+        # Driver is now picked from the Transfer Settings list. The id pins
+        # the original record; name/car/plate/phone/salary are snapshotted on
+        # the row so deleting/changing the driver later doesn't blank past
+        # transfers.
+        "driverId": normalize_text(payload.get("driverId")),
         "driverName": normalize_text(payload.get("driverName")),
         "vehicleType": normalize_text(payload.get("vehicleType")),
+        "plateNumber": normalize_text(payload.get("plateNumber")),
+        "driverPhoneNumber": normalize_text(payload.get("driverPhoneNumber")),
         "passengerCount": parse_int(payload.get("passengerCount")),
         "status": normalize_text(payload.get("status")).lower() or "pending",
         "paymentStatus": normalize_text(payload.get("paymentStatus")).lower() or "unpaid",
@@ -11448,7 +11502,7 @@ def build_transfer_reservation(payload, actor=None):
 
 
 def validate_transfer_reservation(data):
-    required = ["tripId", "tripName", "transferType", "pickupLocation", "dropoffLocation", "serviceDate", "paymentStatus"]
+    required = ["tripId", "tripName", "transferType", "serviceDate", "paymentStatus"]
     missing = [field for field in required if not data.get(field)]
     if missing:
         return f"Missing required fields: {', '.join(missing)}"
@@ -11637,8 +11691,12 @@ def handle_update_transfer_reservation(environ, start_response, reservation_id):
             "dropoffLocation",
             "serviceDate",
             "serviceTime",
+            "typeTime",
+            "driverId",
             "driverName",
             "vehicleType",
+            "plateNumber",
+            "driverPhoneNumber",
             "paymentStatus",
             "currency",
             "notes",

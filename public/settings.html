@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-270" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-271" />
   </head>
   <body class="app-body" data-page="settings">
     <div class="workspace-shell">
@@ -32,6 +32,7 @@
           <div class="settings-tabs" id="settings-tabs">
             <button type="button" class="settings-tab is-active" data-tab="destinations">Destinations</button>
             <button type="button" class="settings-tab" data-tab="camps">Camps</button>
+            <button type="button" class="settings-tab" data-tab="transfers">Transfers</button>
             <button type="button" class="settings-tab" data-tab="bank-accounts">Bank accounts</button>
           </div>
 
@@ -100,6 +101,46 @@
               </form>
             </div>
             <p id="camps-status" class="status"></p>
+          </div>
+
+          <div class="settings-panel is-hidden" data-panel="transfers">
+            <div class="section-head">
+              <div>
+                <h2>Transfers</h2>
+                <p>Pickup and dropoff places, plus the driver list shown in the Transfer reservation form.</p>
+              </div>
+            </div>
+            <div class="settings-camp-aux">
+              <form class="camp-setting-card" data-aux-group="transferPickups">
+                <div class="camp-setting-head"><h3>Pickup places</h3></div>
+                <div class="camp-setting-inline">
+                  <input name="value" placeholder="Add pickup place (e.g. Chinggis Khan Airport)" />
+                  <button type="submit">Add</button>
+                </div>
+                <div class="camp-setting-list" id="settings-transferPickups"></div>
+              </form>
+              <form class="camp-setting-card" data-aux-group="transferDropoffs">
+                <div class="camp-setting-head"><h3>Dropoff places</h3></div>
+                <div class="camp-setting-inline">
+                  <input name="value" placeholder="Add dropoff place (e.g. Best Western Hotel)" />
+                  <button type="submit">Add</button>
+                </div>
+                <div class="camp-setting-list" id="settings-transferDropoffs"></div>
+              </form>
+            </div>
+            <form class="camp-setting-card driver-setting-card" id="transfer-driver-form">
+              <div class="camp-setting-head"><h3>Drivers</h3></div>
+              <div class="driver-setting-grid">
+                <input name="name" placeholder="Driver name" required />
+                <input name="carType" placeholder="Car type (e.g. Land Cruiser)" />
+                <input name="plateNumber" placeholder="Plate number" />
+                <input name="phoneNumber" placeholder="Phone number" />
+                <input name="salary" type="number" min="0" placeholder="Default salary (MNT)" />
+                <button type="submit">Add driver</button>
+              </div>
+              <div class="camp-setting-list" id="settings-transferDrivers"></div>
+            </form>
+            <p id="transfers-status" class="status"></p>
           </div>
 
           <div class="settings-panel is-hidden" data-panel="bank-accounts">
@@ -214,7 +255,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-116"></script>
-    <script src="/settings.js?v=workspace-5"></script>
+    <script src="/settings.js?v=workspace-6"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
