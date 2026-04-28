@@ -37,6 +37,11 @@
     writeVisibleTouristColumns();
     renderTourists();
   });
+  touristViewPopover?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-view]")) {
+      touristViewDropdown?.removeAttribute("open");
+    }
+  });
   // Close the View dropdown when clicking anywhere outside it (the same
   // close-on-outside pattern the row-menu popovers use).
   document.addEventListener("click", (e) => {
@@ -304,7 +309,9 @@
   function renderTouristViewToggle() {
     const popover = document.getElementById("tourist-section-view-popover");
     if (!popover) return;
-    popover.innerHTML = '<p class="ts-view-title">Toggle columns</p>' +
+    popover.innerHTML =
+      '<div class="ts-view-head"><p class="ts-view-title">Toggle columns</p>' +
+      '<button type="button" class="ts-view-close" data-close-view aria-label="Close">×</button></div>' +
       TOURIST_COLUMNS.filter((c) => !c.fixed).map((c) => `
         <label class="ts-view-row">
           <input type="checkbox" data-col="${escapeHtml(c.key)}" ${visibleTouristColumns.has(c.key) ? "checked" : ""} />

@@ -10182,6 +10182,24 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   font-size: 13px;
   color: #4b5563;
 }
+.ts-view-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 0 0;
+}
+.ts-view-head .ts-view-title { padding-right: 0; flex: 1; }
+.ts-view-close {
+  background: transparent;
+  border: 0;
+  padding: 4px 10px;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.ts-view-close:hover { background: #f1f5f9; color: #0f172a; }
 .tourist-view-popover .ts-view-row {
   display: flex !important;
   flex-direction: row !important;
