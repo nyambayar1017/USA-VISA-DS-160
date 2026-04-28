@@ -195,12 +195,17 @@ function isTripDetailPage() {
   return window.location.pathname === TRIP_DETAIL_PATH;
 }
 
-// On the trip-detail page the active trip is implied by the URL — there's no
-// need to expose Trip Name filters or Selected Trip form fields. Tagging the
-// body with `is-trip-scoped` lets the CSS collapse those controls. Also drop
-// the `required` attribute on the hidden trip selects so form validation
+// On the trip-detail page (and any reservations page entered with a ?tripId
+// in the URL) the active trip is implied — there's no need to expose Trip
+// Name filters or Selected Trip form fields. Tagging the body with
+// `is-trip-scoped` lets the CSS collapse those controls. Also drop the
+// `required` attribute on the hidden trip selects so form validation
 // doesn't refuse submit just because the user can't see the field.
-if (isTripDetailPage()) {
+function hasTripIdUrlParam() {
+  try { return !!new URLSearchParams(window.location.search).get("tripId"); }
+  catch { return false; }
+}
+if (isTripDetailPage() || hasTripIdUrlParam()) {
   document.body.classList.add("is-trip-scoped");
   document.querySelectorAll("[data-trip-scope-hide] select[required]").forEach((sel) => {
     sel.removeAttribute("required");
