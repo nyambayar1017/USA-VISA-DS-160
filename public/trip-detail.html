@@ -14,8 +14,9 @@
     <script>
       // Trip-scope hider: inline so it doesn't depend on any cached external
       // file. Runs the moment DOM is parsed; force-hides every
-      // [data-trip-scope-hide] inline so the Selected Trip field can't
-      // survive a stale stylesheet or stale camp.js.
+      // [data-trip-scope-hide] inline AND each Selected-Trip label by ID,
+      // so the field can't survive a stale stylesheet, stale camp.js, or a
+      // missing attribute.
       document.addEventListener("DOMContentLoaded", function () {
         try {
           var hasTripId = !!new URLSearchParams(window.location.search).get("tripId");
@@ -24,6 +25,13 @@
             document.querySelectorAll("[data-trip-scope-hide]").forEach(function (el) {
               el.style.setProperty("display", "none", "important");
               el.querySelectorAll("select[required]").forEach(function (s) { s.removeAttribute("required"); });
+            });
+            ["reservation-trip-select", "flight-trip-select", "transfer-trip-select"].forEach(function (id) {
+              var sel = document.getElementById(id);
+              if (!sel) return;
+              sel.removeAttribute("required");
+              var lab = sel.closest("label");
+              if (lab) lab.style.setProperty("display", "none", "important");
             });
           }
         } catch (e) {}

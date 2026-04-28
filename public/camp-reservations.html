@@ -20,6 +20,13 @@
               el.style.setProperty("display", "none", "important");
               el.querySelectorAll("select[required]").forEach(function (s) { s.removeAttribute("required"); });
             });
+            ["reservation-trip-select", "flight-trip-select", "transfer-trip-select"].forEach(function (id) {
+              var sel = document.getElementById(id);
+              if (!sel) return;
+              sel.removeAttribute("required");
+              var lab = sel.closest("label");
+              if (lab) lab.style.setProperty("display", "none", "important");
+            });
           }
         } catch (e) {}
       });
