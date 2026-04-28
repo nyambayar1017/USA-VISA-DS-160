@@ -6552,60 +6552,261 @@ def handle_export_tourists(environ, start_response):
     payload = collect_json(environ) or {}
     ids = payload.get("ids") or []
     trip_id = normalize_text(payload.get("tripId"))
-    records = read_tourists()
-    if ids:
-        id_set = set(ids)
-        records = [r for r in records if r.get("id") in id_set]
-    elif trip_id:
-        records = [r for r in records if r.get("tripId") == trip_id]
-    groups_by_id = {g["id"]: g for g in read_tourist_groups()}
+    raw_trip_ids = payload.get("tripIds") or []
+    if not isinstance(raw_trip_ids, list):
+        raw_trip_ids = []
+    trip_ids = [normalize_text(t) for t in raw_trip_ids if normalize_text(t)]
+    if not trip_ids and trip_id:
+        trip_ids = [trip_id]
+
     try:
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
         from io import BytesIO
     except Exception as exc:
         return json_response(start_response, "500 Internal Server Error", {"error": f"Excel export unavailable: {exc}"})
+
+    all_tourists = read_tourists()
+    trips_by_id = {t["id"]: t for t in read_camp_trips()}
+    groups_by_id = {g["id"]: g for g in read_tourist_groups()}
+
+    # Build sections (trip, [tourists]). For "selected ids" we treat the
+    # whole selection as a single section under that trip's banner.
+    sections = []
+    if ids:
+        id_set = set(ids)
+        records = [r for r in all_tourists if r.get("id") in id_set]
+        if records:
+            tid = records[0].get("tripId", "")
+            sections.append((trips_by_id.get(tid), records))
+    else:
+        for tid in trip_ids:
+            records = [r for r in all_tourists if r.get("tripId") == tid]
+            if not records:
+                continue
+            sections.append((trips_by_id.get(tid), records))
+
+    # DTX gets the streamlined rooming layout (no Group / Phone / Email,
+    # extra Note column). Use the workspace the user is currently signed
+    # into rather than the per-trip company so the layout is consistent
+    # within a single download.
+    workspace = active_workspace(environ) or ""
+    is_dtx = workspace == "DTX"
+
+    if is_dtx:
+        columns = [
+            ("Serial", "serial"),
+            ("Last name", "lastName"),
+            ("First name", "firstName"),
+            ("Gender", "gender"),
+            ("Date of birth", "dob"),
+            ("Nationality", "nationality"),
+            ("Passport #", "passportNumber"),
+            ("Passport issue date", "passportIssueDate"),
+            ("Passport expiry", "passportExpiry"),
+            ("Passport issued at", "passportIssuePlace"),
+            ("Registration #", "registrationNumber"),
+            ("Room", "_room"),
+            ("Note", "notes"),
+            ("Starting date", "_tripStartDate"),
+        ]
+    else:
+        columns = [
+            ("Serial", "serial"),
+            ("Last name", "lastName"),
+            ("First name", "firstName"),
+            ("Group", "_group"),
+            ("Gender", "gender"),
+            ("Date of birth", "dob"),
+            ("Nationality", "nationality"),
+            ("Passport #", "passportNumber"),
+            ("Passport issue date", "passportIssueDate"),
+            ("Passport expiry", "passportExpiry"),
+            ("Passport issued at", "passportIssuePlace"),
+            ("Registration #", "registrationNumber"),
+            ("Phone", "phone"),
+            ("Email", "email"),
+            ("Room", "_room"),
+            ("Starting date", "_tripStartDate"),
+        ]
+
+    column_widths = {
+        "Serial": 14, "Last name": 16, "First name": 16, "Group": 18,
+        "Gender": 8, "Date of birth": 12, "Nationality": 14,
+        "Passport #": 14, "Passport issue date": 14, "Passport expiry": 14,
+        "Passport issued at": 18, "Registration #": 14, "Phone": 14,
+        "Email": 22, "Room": 14, "Note": 26, "Starting date": 12,
+    }
+
+    # Same palette as the front-end (trip-extras.js ROOM_PALETTE) so the
+    # colour groupings on the printed Excel match what the manager sees
+    # on screen.
+    PALETTE = [
+        ("FDE2E4", "7A1D2A"),
+        ("DBEAFE", "1E3A8A"),
+        ("DCFCE7", "14532D"),
+        ("FEF3C7", "78350F"),
+        ("E9D5FF", "5B21B6"),
+        ("FED7AA", "7C2D12"),
+        ("CFFAFE", "155E75"),
+        ("FBCFE8", "831843"),
+        ("D9F99D", "365314"),
+        ("FDE68A", "713F12"),
+    ]
+
+    def room_key(t):
+        if not t.get("roomType"):
+            return None
+        code = str(t.get("roomCode") or "").strip().lower()
+        return (t.get("groupId") or "", t.get("roomType"), code)
+
+    ROOM_TYPE_SHORT = {
+        "single": "SGL", "double": "DBL", "twin": "TWIN",
+        "triple": "TPL", "family": "FAM", "other": "OTH",
+    }
+
     wb = Workbook()
     ws = wb.active
-    ws.title = "Tourists"
-    headers = [
-        "Serial", "Last name", "First name", "Group",
-        "Gender", "Date of birth", "Nationality",
-        "Passport #", "Passport issue date", "Passport expiry", "Passport issued at",
-        "Registration #", "Phone", "Email",
-    ]
-    ws.append(headers)
+    ws.title = "Rooming"
+
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="20356F")
-    for cell in ws[1]:
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-    for r in records:
-        group = groups_by_id.get(r.get("groupId")) or {}
-        ws.append([
-            r.get("serial", ""),
-            r.get("lastName", ""),
-            r.get("firstName", ""),
-            group.get("name") or r.get("groupSerial", ""),
-            r.get("gender", ""),
-            r.get("dob", ""),
-            r.get("nationality", ""),
-            r.get("passportNumber", ""),
-            r.get("passportIssueDate", ""),
-            r.get("passportExpiry", ""),
-            r.get("passportIssuePlace", ""),
-            r.get("registrationNumber", ""),
-            r.get("phone", ""),
-            r.get("email", ""),
-        ])
-    widths = [14, 16, 16, 22, 8, 12, 14, 14, 14, 14, 18, 14, 14, 22]
-    for idx, w in enumerate(widths, start=1):
-        ws.column_dimensions[chr(64 + idx)].width = w
+    centre = Alignment(horizontal="center", vertical="center")
+    title_font = Font(bold=True, size=13, color="20356F")
+    title_align = Alignment(horizontal="left", vertical="center")
+
+    n_cols = len(columns)
+    room_col_idx = next((i + 1 for i, (lbl, _) in enumerate(columns) if lbl == "Room"), None)
+    current_row = 1
+
+    for section_idx, (trip, tourists) in enumerate(sections):
+        # Section title (merged across all columns).
+        if trip:
+            tname = trip.get("tripName", "") or ""
+            tserial = trip.get("serial", "") or ""
+            tstart = trip.get("startDate", "") or ""
+            tend = trip.get("endDate", "") or ""
+            title_bits = []
+            if tserial:
+                title_bits.append(tserial)
+            if tname:
+                title_bits.append(tname)
+            date_bit = ""
+            if tstart and tend:
+                date_bit = f"{tstart} → {tend}"
+            elif tstart:
+                date_bit = tstart
+            title_text = " · ".join(title_bits)
+            if date_bit:
+                title_text = f"{title_text} · {date_bit}" if title_text else date_bit
+        else:
+            title_text = "Tourists"
+        title_cell = ws.cell(row=current_row, column=1, value=title_text or "Tourists")
+        title_cell.font = title_font
+        title_cell.alignment = title_align
+        ws.merge_cells(start_row=current_row, start_column=1,
+                       end_row=current_row, end_column=n_cols)
+        ws.row_dimensions[current_row].height = 22
+        current_row += 1
+
+        # Column headers.
+        for col_idx, (label, _key) in enumerate(columns, start=1):
+            c = ws.cell(row=current_row, column=col_idx, value=label)
+            c.font = header_font
+            c.fill = header_fill
+            c.alignment = centre
+        current_row += 1
+
+        # Assign a colour per (groupId, roomType, roomCode) bucket in the
+        # order they first appear in the section, so the same room maps
+        # to the same colour across rows even if the list isn't sorted.
+        room_color_map = {}
+        for t in tourists:
+            k = room_key(t)
+            if k is None:
+                continue
+            if k not in room_color_map:
+                room_color_map[k] = PALETTE[len(room_color_map) % len(PALETTE)]
+
+        section_data_start = current_row
+        for t in tourists:
+            group = groups_by_id.get(t.get("groupId")) or {}
+            tstart = (trip or {}).get("startDate", "")
+            for col_idx, (label, key) in enumerate(columns, start=1):
+                if key == "_group":
+                    val = group.get("name") or t.get("groupSerial", "")
+                elif key == "_room":
+                    if t.get("roomType"):
+                        rt_short = ROOM_TYPE_SHORT.get(
+                            str(t.get("roomType", "")).lower(),
+                            str(t.get("roomType", "")).upper()[:4],
+                        )
+                        val = f"{t.get('roomCode') or '—'} {rt_short}"
+                    else:
+                        val = ""
+                elif key == "_tripStartDate":
+                    val = tstart
+                else:
+                    val = t.get(key, "")
+                cell = ws.cell(row=current_row, column=col_idx, value=val)
+                if label == "Room":
+                    k = room_key(t)
+                    if k and k in room_color_map:
+                        bg, fg = room_color_map[k]
+                        cell.fill = PatternFill("solid", fgColor=bg)
+                        cell.font = Font(color=fg, bold=True)
+                    cell.alignment = centre
+            current_row += 1
+
+        # Merge contiguous same-room cells in the Room column so two
+        # roommates show up as one shared block — what the user calls
+        # "rooming merged with relative person".
+        if room_col_idx and tourists:
+            run_start = section_data_start
+            run_key = room_key(tourists[0])
+            for i in range(1, len(tourists)):
+                t_key = room_key(tourists[i])
+                if t_key == run_key and t_key is not None:
+                    continue
+                run_end = section_data_start + i - 1
+                if run_key is not None and run_end > run_start:
+                    ws.merge_cells(start_row=run_start, start_column=room_col_idx,
+                                   end_row=run_end, end_column=room_col_idx)
+                run_start = section_data_start + i
+                run_key = t_key
+            last_row = section_data_start + len(tourists) - 1
+            if run_key is not None and last_row > run_start:
+                ws.merge_cells(start_row=run_start, start_column=room_col_idx,
+                               end_row=last_row, end_column=room_col_idx)
+
+        # Blank separator between trip sections.
+        current_row += 1
+
+    # Column widths.
+    for col_idx, (label, _) in enumerate(columns, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = column_widths.get(label, 14)
+
+    # If no sections were resolved (e.g. selected ids that no longer
+    # exist) at least leave a single header row so the file isn't empty.
+    if not sections:
+        for col_idx, (label, _key) in enumerate(columns, start=1):
+            c = ws.cell(row=1, column=col_idx, value=label)
+            c.font = header_font
+            c.fill = header_fill
+            c.alignment = centre
+
     buf = BytesIO()
     wb.save(buf)
     body = buf.getvalue()
-    filename = f"tourists-{trip_id or 'all'}.xlsx"
+
+    if len(sections) > 1:
+        filename = f"rooming-list-{len(sections)}-trips.xlsx"
+    elif sections and sections[0][0]:
+        serial = (sections[0][0] or {}).get("serial", "") or ""
+        filename = f"rooming-{serial or 'trip'}.xlsx"
+    else:
+        filename = "tourists.xlsx"
     headers_out = [
         ("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         ("Content-Length", str(len(body))),

@@ -10847,6 +10847,26 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   padding-left: 6px !important;
 }
 
+/* Trip list rooming-select column — same compact treatment as the
+   tourist checkbox column. */
+.trip-table th.trip-cb-cell,
+.trip-table td.trip-cb-cell {
+  width: 32px !important;
+  padding: 8px 2px 8px 8px !important;
+  text-align: center !important;
+}
+.trip-table th.trip-cb-cell + th,
+.trip-table td.trip-cb-cell + td {
+  padding-left: 6px !important;
+}
+.trip-table .trip-rooming-select,
+.trip-table #trip-rooming-select-all {
+  accent-color: #c64d3a;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
 /* ──────────────────────────────────────────────────────────────────
    MOBILE-ONLY filter-bar unification (≤ 720 px)
    The user's reference: Tourist Directory + Invoices filter bars

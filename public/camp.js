@@ -113,6 +113,7 @@ let currentTripPage = 1;
 let currentPaymentPage = 1;
 let selectedReservationIds = new Set();
 let activeTripDayFilter = "";
+const selectedTripIds = new Set();
 let activeCampDateFrom = "";
 let activeCampDateTo = "";
 let activeTripPanelHidden = false;
@@ -967,6 +968,7 @@ function renderAllSettings() {
 }
 
 const TRIP_LIST_COLUMNS = [
+  { key: "select", label: "", fixed: true, default: true },
   { key: "rowNum", label: "#", fixed: true, default: true },
   { key: "serial", label: "Serial", default: true },
   { key: "type", label: "Type", default: true },
@@ -1246,10 +1248,17 @@ function renderTrips() {
   const confirmedStats = computeConfirmedTouristStats(currentTrips);
   const cols = TRIP_LIST_COLUMNS.filter((c) => visibleTripListColumns.has(c.key));
 
-  const headers = cols.map((c) => `<th>${escapeHtml(c.label)}</th>`).join("");
+  const headers = cols.map((c) => {
+    if (c.key === "select") {
+      return '<th class="trip-cb-cell"><input type="checkbox" id="trip-rooming-select-all" aria-label="Select all visible trips" /></th>';
+    }
+    return `<th>${escapeHtml(c.label)}</th>`;
+  }).join("");
   const body = visibleTrips.map((trip, index) => {
     const isFit = String(trip.tripType || "git").toLowerCase() === "fit";
+    const checked = selectedTripIds.has(trip.id) ? " checked" : "";
     const cells = {
+      select: `<td class="trip-cb-cell"><input type="checkbox" class="trip-rooming-select" data-trip-id="${escapeHtml(trip.id)}"${checked} /></td>`,
       rowNum: `<td>${startIndex + index + 1}</td>`,
       serial: `<td class="trip-serial-cell"><a href="${buildTripDetailUrl(trip.id)}" class="trip-name-link"><strong>${escapeHtml(trip.serial || "-")}</strong></a></td>`,
       type: `<td><span class="trip-type-pill">${escapeHtml(String(trip.tripType || "git").toUpperCase())}</span></td>`,
@@ -1299,6 +1308,8 @@ function renderTrips() {
     </div>
   `;
   tripList.querySelector('[data-action="open-confirmed-stats"]')?.addEventListener("click", openConfirmedStatsModal);
+  refreshRoomingDownloadButton();
+  syncRoomingSelectAllCheckbox();
 }
 
 function renderActiveTrip() {
@@ -3033,10 +3044,81 @@ tripList.addEventListener("click", async (event) => {
 
 tripList.addEventListener("change", (event) => {
   const select = event.target.closest('[data-action="trip-status"]');
-  if (!select) {
+  if (select) {
+    updateTripStatus(select.dataset.tripId, select.value);
     return;
   }
-  updateTripStatus(select.dataset.tripId, select.value);
+  const rowCb = event.target.closest(".trip-rooming-select");
+  if (rowCb) {
+    const id = rowCb.dataset.tripId;
+    if (rowCb.checked) selectedTripIds.add(id);
+    else selectedTripIds.delete(id);
+    refreshRoomingDownloadButton();
+    syncRoomingSelectAllCheckbox();
+    return;
+  }
+  const all = event.target.closest("#trip-rooming-select-all");
+  if (all) {
+    const visible = tripList.querySelectorAll(".trip-rooming-select");
+    visible.forEach((cb) => {
+      cb.checked = all.checked;
+      const id = cb.dataset.tripId;
+      if (all.checked) selectedTripIds.add(id);
+      else selectedTripIds.delete(id);
+    });
+    refreshRoomingDownloadButton();
+  }
+});
+
+function refreshRoomingDownloadButton() {
+  const btn = document.getElementById("trip-rooming-download");
+  if (!btn) return;
+  const n = selectedTripIds.size;
+  btn.hidden = n === 0;
+  btn.textContent = `Download rooming (${n})`;
+}
+
+function syncRoomingSelectAllCheckbox() {
+  const all = document.getElementById("trip-rooming-select-all");
+  if (!all) return;
+  const visible = Array.from(tripList.querySelectorAll(".trip-rooming-select"));
+  all.checked = visible.length > 0 && visible.every((cb) => cb.checked);
+}
+
+document.getElementById("trip-rooming-download")?.addEventListener("click", async () => {
+  const ids = Array.from(selectedTripIds);
+  if (!ids.length) return;
+  const btn = document.getElementById("trip-rooming-download");
+  const oldLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Preparing…";
+  try {
+    const res = await fetch("/api/tourists/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tripIds: ids }),
+    });
+    if (!res.ok) {
+      let msg = "Could not download.";
+      try { msg = (await res.json()).error || msg; } catch {}
+      alert(msg);
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = ids.length > 1
+      ? `rooming-list-${ids.length}-trips.xlsx`
+      : `rooming-${ids[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+  }
 });
 
 async function handleCampTableClick(event) {
