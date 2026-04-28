@@ -11,6 +11,19 @@
     <link rel="stylesheet" href="/styles.css?v=workspace-269" />
   </head>
   <body class="app-body" data-page="camp-reservations">
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        try {
+          if (new URLSearchParams(window.location.search).get("tripId")) {
+            document.body.classList.add("is-trip-scoped");
+            document.querySelectorAll("[data-trip-scope-hide]").forEach(function (el) {
+              el.style.setProperty("display", "none", "important");
+              el.querySelectorAll("select[required]").forEach(function (s) { s.removeAttribute("required"); });
+            });
+          }
+        } catch (e) {}
+      });
+    </script>
     <div class="workspace-shell">
       <aside class="workspace-sidebar" data-workspace-sidebar></aside>
 
