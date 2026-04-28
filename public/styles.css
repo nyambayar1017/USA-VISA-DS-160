@@ -384,22 +384,29 @@ td {
 }
 
 /* Status select rendered as a small badge-style pill in the action bar
-   (next to the ✎ Edit button on desktop). On mobile the action bar wraps,
-   placing the select near the title — same compact pill style. */
+   (next to the ✎ Edit button). Same compact pill style on every viewport. */
 .trip-status-select--compact {
-  height: 32px;
-  padding: 0 28px 0 12px;
-  font-size: 0.78rem;
+  height: 30px;
+  padding: 0 26px 0 10px;
+  font-size: 0.74rem;
   border-radius: 999px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   background-color: rgba(255, 255, 255, 0.95);
   font-weight: 600;
+  width: auto;
+  min-width: 0;
+  max-width: 130px;
 }
 
+/* Keep NOTE / Status / Edit on one horizontal line — no wrapping. The action
+   bar fits inline next to the title; if there isn't room it shrinks rather
+   than stacking. */
 .trip-summary-section-head .trip-summary-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 
