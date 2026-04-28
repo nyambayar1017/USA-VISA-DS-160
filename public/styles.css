@@ -165,11 +165,21 @@ td {
 }
 
 /* The flex parent in .section-head doesn't shrink its first child by default
-   (min-width is auto = content). Forcing 0 lets the flight-info wrap honor
-   its overflow-x: auto and scroll horizontally instead of pushing the page. */
+   (min-width is auto = content). Forcing 0 keeps long titles/descriptions
+   from pushing the action bar offscreen. */
 .trip-summary-section-head > div:first-child {
   min-width: 0;
   flex: 1 1 auto;
+}
+
+/* Flight summary lives below the section-head so the action bar and the
+   flight table never compete for horizontal space. The wrap owns its own
+   horizontal scroll on narrow screens. */
+#active-trip-box > .trip-flight-info {
+  width: 100%;
+  min-width: 0;
+  margin-top: 4px;
+  margin-bottom: 14px;
 }
 
 .trip-flight-info span { color: var(--muted); }
@@ -426,6 +436,9 @@ td {
 .trip-summary-section-head .header-action-btn {
   height: 30px;
   min-height: 30px;
+  width: 92px;
+  min-width: 92px;
+  max-width: 92px;
   padding: 0 12px;
   border-radius: 999px;
   font-size: 0.74rem;
@@ -436,20 +449,19 @@ td {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  text-align: center;
 }
 
 .trip-summary-section-head .trip-status-select--compact {
-  padding: 0 26px 0 10px;
+  padding: 0 22px 0 10px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   background-color: rgba(255, 255, 255, 0.95);
-  width: auto;
-  min-width: 0;
-  max-width: 130px;
   -webkit-appearance: none;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2364748b' d='M5 7L1 3h8z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
+  background-position: right 8px center;
+  text-align: left;
 }
 
 .trip-summary-section-head .header-action-edit {
@@ -476,10 +488,17 @@ td {
     flex-wrap: nowrap;
     margin-left: auto;
   }
-  .trip-summary-section-head .trip-status-select--compact {
-    max-width: 110px;
-    padding: 0 22px 0 8px;
+  .trip-summary-section-head .trip-notes-fab,
+  .trip-summary-section-head .trip-status-select--compact,
+  .trip-summary-section-head .header-action-btn {
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
     font-size: 0.7rem;
+    padding: 0 10px;
+  }
+  .trip-summary-section-head .trip-status-select--compact {
+    padding: 0 20px 0 8px;
   }
 }
 

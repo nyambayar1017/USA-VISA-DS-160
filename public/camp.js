@@ -1339,18 +1339,18 @@ function renderActiveTrip() {
       <div>
         <h2>${trip.serial ? `<span class="trip-serial-tag">${escapeHtml(trip.serial)}</span> ` : ""}${tripTypeBadge}${escapeHtml(trip.tripName)}${tripGroupName}</h2>
         <p>${escapeHtml(trip.reservationName || trip.tripName)} · Start ${formatDate(trip.startDate)}${trip.endDate ? ` → ${formatDate(trip.endDate)}` : ""}</p>
-        <div id="trip-flight-info" class="trip-flight-info"></div>
       </div>
       <div class="trip-summary-actions">
         ${fitActions}
+        <button type="button" class="header-action-btn header-action-edit" id="active-trip-edit-btn" aria-label="Edit trip">✎ Edit</button>
         <select id="active-trip-status-select" class="trip-status-select trip-status-select--compact trip-status-select--${normalizeStatus(trip.status) || "unknown"}" aria-label="Trip status">
           ${["offer","planning","confirmed","travelling","completed","cancelled"].map((s) =>
             `<option value="${s}" ${normalizeStatus(trip.status) === s ? "selected" : ""}>${escapeHtml(formatStatusLabel(s))}</option>`
           ).join("")}
         </select>
-        <button type="button" class="header-action-btn header-action-edit" id="active-trip-edit-btn" aria-label="Edit trip">✎ Edit</button>
       </div>
     </div>
+    <div id="trip-flight-info" class="trip-flight-info"></div>
     <div class="trip-summary-grid trip-summary-grid--3">
       <article class="trip-summary-stat trip-summary-stat--compact">
         <span>Pax</span>
