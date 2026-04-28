@@ -641,11 +641,18 @@ function renderReminderList() {
 
 function updateReminderCount(n) {
   if (!reminderCountNode) reminderCountNode = profileCard?.querySelector("[data-reminder-count]");
-  if (!reminderCountNode) return;
   const display = n > 99 ? "99+" : String(n || 0);
-  reminderCountNode.textContent = display;
-  if (n > 0) reminderCountNode.removeAttribute("hidden");
-  else reminderCountNode.setAttribute("hidden", "");
+  if (reminderCountNode) {
+    reminderCountNode.textContent = display;
+    if (n > 0) reminderCountNode.removeAttribute("hidden");
+    else reminderCountNode.setAttribute("hidden", "");
+  }
+  const mobileCount = mobileBar?.querySelector("[data-reminder-count-mobile]");
+  if (mobileCount) {
+    mobileCount.textContent = display;
+    if (n > 0) mobileCount.removeAttribute("hidden");
+    else mobileCount.setAttribute("hidden", "");
+  }
 }
 
 async function fetchReminders() {
@@ -1152,6 +1159,15 @@ function ensureMobileBar() {
       </svg>
       <span class="workspace-bell-count" data-mail-count-mobile hidden>0</span>
     </button>
+    <button type="button" class="workspace-bell workspace-bell-mobile workspace-reminder-icon" data-action="toggle-reminders-mobile" aria-label="Reminders &amp; mentions">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="13" r="8"></circle>
+        <path d="M12 9v4l2.5 2.5"></path>
+        <path d="M5 4l3.5-2"></path>
+        <path d="M19 4l-3.5-2"></path>
+      </svg>
+      <span class="workspace-bell-count" data-reminder-count-mobile hidden>0</span>
+    </button>
     <button type="button" class="workspace-bell workspace-bell-mobile" data-action="toggle-notifications-mobile" aria-label="Notifications">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"></path>
@@ -1180,6 +1196,10 @@ function ensureMobileBar() {
   bar.querySelector('[data-action="toggle-mail-mobile"]').addEventListener("click", (event) => {
     event.stopPropagation();
     toggleMailPopover();
+  });
+  bar.querySelector('[data-action="toggle-reminders-mobile"]').addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleReminderPopover();
   });
   bar.querySelector('[data-action="toggle-profile-menu-mobile"]').addEventListener("click", (event) => {
     event.stopPropagation();

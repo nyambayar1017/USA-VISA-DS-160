@@ -263,7 +263,7 @@
       const tripCell = trip
         ? '<a href="/trip-detail?tripId=' + encodeURIComponent(t.tripId) + '" class="trip-name-link">' + escapeHtml(trip.serial || "") + ' · ' + escapeHtml(trip.tripName || "") + "</a>"
         : escapeHtml(t.tripSerial || "-");
-      const grpCell = escapeHtml(t.groupSerial || "-") + (t.groupName ? " · " + escapeHtml(t.groupName) : "");
+      const grpCell = `<span class="tourist-group-cell">${escapeHtml(t.groupSerial || "-")}${t.groupName ? " · " + escapeHtml(t.groupName) : ""}</span>`;
       const status = effectiveStatus(t);
       const isChild = status === "child";
       const isOptOut = status === "do_not_contact";

@@ -960,7 +960,6 @@ function renderTrips() {
                         <div class="trip-menu-popover">
                           <button type="button" class="trip-menu-item" data-action="select-trip" data-trip-id="${trip.id}">View</button>
                           <button type="button" class="trip-menu-item" data-action="edit-trip" data-trip-id="${trip.id}">Edit</button>
-                          <button type="button" class="trip-menu-item" data-action="add-reservation" data-trip-id="${trip.id}">Add Camp</button>
                           <button type="button" class="trip-menu-item is-danger" data-action="delete-trip" data-trip-id="${trip.id}">Delete</button>
                         </div>
                       </details>
@@ -1005,7 +1004,7 @@ function renderActiveTrip() {
     return;
   }
   activeTripBox.className = "card trip-summary-card";
-  const tripGroupName = trip.groupName ? ` · ${escapeHtml(trip.groupName)}` : "";
+  const tripGroupName = trip.groupName ? `<span class="trip-group-name">${escapeHtml(trip.groupName)}</span>` : "";
   const tripTypeBadge = trip.tripType ? `<span class="trip-type-pill">${escapeHtml(String(trip.tripType).toUpperCase())}</span> ` : "";
   const isFit = String(trip.tripType || "").toLowerCase() === "fit";
   // Contract/Invoice add buttons now live in the section headers themselves; no need to duplicate them here.
