@@ -8302,6 +8302,12 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   padding: 4px;
   z-index: 30;
   display: flex;
+}
+/* When the row is near the viewport bottom, the menu would overflow into
+   the chat bubble or below the page. Flip up instead. */
+.doc-menu.is-up .doc-menu-popover {
+  top: auto;
+  bottom: calc(100% + 4px);
   flex-direction: column;
 }
 .doc-menu-item {

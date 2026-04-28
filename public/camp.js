@@ -3137,6 +3137,28 @@ const docTouristSelect = document.getElementById("doc-tourist");
 const docUploadStatus = document.getElementById("doc-upload-status");
 let docTouristCache = []; // tourists for the active trip, used by upload picker AND inline-edit selects
 const docList = document.getElementById("doc-list");
+// Doc-menu popovers flip above their trigger when the row is in the bottom
+// third of the viewport — keeps the menu off the chat bubble and off-screen.
+if (docList) {
+  docList.addEventListener("toggle", (e) => {
+    const det = e.target;
+    if (!(det instanceof HTMLDetailsElement) || !det.classList.contains("doc-menu")) return;
+    if (!det.open) {
+      det.classList.remove("is-up");
+      return;
+    }
+    const trigger = det.querySelector("summary");
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const popover = det.querySelector(".doc-menu-popover");
+    const estimatedHeight = popover ? popover.offsetHeight || 160 : 160;
+    if (rect.bottom + estimatedHeight + 16 > window.innerHeight) {
+      det.classList.add("is-up");
+    } else {
+      det.classList.remove("is-up");
+    }
+  }, true);
+}
 const docEmailBar = document.getElementById("doc-email-bar");
 const docEmailCount = document.getElementById("doc-email-count");
 const docEmailRecipient = document.getElementById("doc-email-recipient");

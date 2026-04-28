@@ -532,7 +532,105 @@
     document.body.appendChild(bubble);
     document.body.appendChild(panel);
     applyMaximizedClass();
+    makeBubbleDraggable(bubble, panel);
     render();
+  }
+
+  // Long-press / drag the bubble to move it. Especially useful on mobile
+  // where the default bottom-right corner overlaps row-menu popovers.
+  function makeBubbleDraggable(node, panelNode) {
+    let dragging = false;
+    let didMove = false;
+    let startX = 0, startY = 0;
+    let startLeft = 0, startTop = 0;
+    let pointerId = null;
+
+    function clamp(value, max) { return Math.max(8, Math.min(max - 8, value)); }
+
+    function applyPanelAnchor() {
+      // Place the panel relative to wherever the bubble currently is so the
+      // window opens next to it.
+      const rect = node.getBoundingClientRect();
+      const panelW = panelNode.offsetWidth || 380;
+      const panelH = panelNode.offsetHeight || 540;
+      panelNode.style.right = "auto";
+      panelNode.style.bottom = "auto";
+      let left = rect.right - panelW;
+      if (left < 8) left = 8;
+      if (left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
+      let top = rect.top - panelH - 12;
+      if (top < 8) top = rect.bottom + 12;
+      if (top + panelH > window.innerHeight - 8) top = Math.max(8, window.innerHeight - panelH - 8);
+      panelNode.style.left = left + "px";
+      panelNode.style.top = top + "px";
+    }
+
+    function applySaved() {
+      try {
+        const raw = localStorage.getItem("agent-bubble-pos");
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved && typeof saved.left === "number" && typeof saved.top === "number") {
+          const left = clamp(saved.left, window.innerWidth - node.offsetWidth);
+          const top = clamp(saved.top, window.innerHeight - node.offsetHeight);
+          node.style.left = left + "px";
+          node.style.top = top + "px";
+          node.style.right = "auto";
+          node.style.bottom = "auto";
+        }
+      } catch {}
+    }
+
+    node.addEventListener("pointerdown", (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      const rect = node.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      didMove = false;
+      pointerId = e.pointerId;
+      dragging = true;
+      try { node.setPointerCapture(pointerId); } catch {}
+    });
+    node.addEventListener("pointermove", (e) => {
+      if (!dragging || e.pointerId !== pointerId) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!didMove && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      didMove = true;
+      const left = clamp(startLeft + dx, window.innerWidth - node.offsetWidth);
+      const top = clamp(startTop + dy, window.innerHeight - node.offsetHeight);
+      node.style.left = left + "px";
+      node.style.top = top + "px";
+      node.style.right = "auto";
+      node.style.bottom = "auto";
+    });
+    function endDrag(e) {
+      if (!dragging || (e && e.pointerId !== pointerId)) return;
+      try { node.releasePointerCapture(pointerId); } catch {}
+      dragging = false;
+      pointerId = null;
+      if (didMove) {
+        try {
+          const rect = node.getBoundingClientRect();
+          localStorage.setItem("agent-bubble-pos", JSON.stringify({ left: rect.left, top: rect.top }));
+        } catch {}
+        // Swallow the synthetic click that pointerup triggers, so a drag
+        // doesn't open/close the chat panel.
+        const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+        node.addEventListener("click", swallow, { capture: true, once: true });
+      }
+    }
+    node.addEventListener("pointerup", endDrag);
+    node.addEventListener("pointercancel", endDrag);
+
+    applySaved();
+    // Re-anchor the panel on every open so it follows wherever the bubble is.
+    const observer = new MutationObserver(() => {
+      if (panelNode.classList.contains("is-open")) applyPanelAnchor();
+    });
+    observer.observe(panelNode, { attributes: true, attributeFilter: ["class"] });
   }
 
   async function bootstrap() {
