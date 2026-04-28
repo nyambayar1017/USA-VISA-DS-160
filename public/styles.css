@@ -452,18 +452,33 @@ td {
   text-align: center;
 }
 
+/* Compact status pill — same shape as NOTE / Edit, but each status has
+   a solid colour. The native caret is hidden and there is no extra
+   padding for it; the user clicks anywhere on the pill to open the menu. */
 .trip-summary-section-head .trip-status-select--compact {
-  padding: 0 24px 0 10px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background-color: rgba(255, 255, 255, 0.95);
-  -webkit-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2364748b' d='M5 7L1 3h8z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 9px center;
-  text-align: left;
+  padding: 0 12px;
+  border: 0;
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
   text-overflow: ellipsis;
   overflow: hidden;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: none;
+}
+.trip-summary-section-head .trip-status-select--compact.trip-status-select--offer     { background-color: #f59e0b; }
+.trip-summary-section-head .trip-status-select--compact.trip-status-select--confirmed { background-color: #16a34a; }
+.trip-summary-section-head .trip-status-select--compact.trip-status-select--cancelled { background-color: #dc2626; }
+.trip-summary-section-head .trip-status-select--compact.trip-status-select--ignored,
+.trip-summary-section-head .trip-status-select--compact.trip-status-select--unknown,
+.trip-summary-section-head .trip-status-select--compact.trip-status-select--planning,
+.trip-summary-section-head .trip-status-select--compact.trip-status-select--travelling,
+.trip-summary-section-head .trip-status-select--compact.trip-status-select--completed { background-color: #6b7280; }
+.trip-summary-section-head .trip-status-select--compact option {
+  background: #fff;
+  color: #0f172a;
+  font-weight: 600;
 }
 
 .trip-summary-section-head .header-action-edit {
@@ -500,8 +515,7 @@ td {
     padding: 0 8px;
   }
   .trip-summary-section-head .trip-status-select--compact {
-    padding: 0 22px 0 8px;
-    background-position: right 8px center;
+    padding: 0 8px;
   }
 }
 
@@ -773,14 +787,14 @@ td {
 .workspace-profile-avatar {
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   overflow: hidden;
   background: linear-gradient(135deg, #dce3f2, #eef3ff);
   color: var(--brand);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   flex-shrink: 0;
 }
 
@@ -10793,11 +10807,13 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 
 /* Per-row promo selection checkbox + master select-all */
 .tourist-directory-table .ts-row-select,
-.tourist-directory-table #tourist-select-all {
+.tourist-directory-table #tourist-select-all,
+.reservation-addon-table .tourist-select,
+.reservation-addon-table #tourist-select-all {
   accent-color: #c64d3a;
   cursor: pointer;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 .tourist-directory-table .ts-row-select:disabled {
   cursor: not-allowed;
@@ -10807,6 +10823,22 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .tourist-directory-table td:first-child {
   width: 36px;
   text-align: center;
+}
+
+/* Trip-detail tourist table: the first column holds only a checkbox, so
+   the default 14×16 padding and free auto-layout were leaving a huge
+   blank slab on either side. Pin it tight, centre the checkbox, and
+   trim the padding on the row-number column next to it so the # sits
+   close to the checkbox instead of floating far to the right. */
+.reservation-addon-table th:first-child:has(#tourist-select-all),
+.reservation-addon-table td:first-child:has(.tourist-select) {
+  width: 32px !important;
+  padding: 8px 4px 8px 10px !important;
+  text-align: center !important;
+}
+.reservation-addon-table th:first-child:has(#tourist-select-all) + th,
+.reservation-addon-table td:first-child:has(.tourist-select) + td {
+  padding-left: 6px !important;
 }
 
 /* ──────────────────────────────────────────────────────────────────

@@ -120,11 +120,9 @@ let activeCampPanelHidden = false;
 const PAGE_SIZE = 20;
 const TRIP_STATUS_OPTIONS = [
   ["offer", "Offer"],
-  ["planning", "Planning"],
   ["confirmed", "Confirmed"],
-  ["travelling", "Travelling"],
-  ["completed", "Completed"],
   ["cancelled", "Cancelled"],
+  ["ignored", "Ignored"],
 ];
 
 function hoistModalPanelsToBody(panels) {
@@ -374,6 +372,7 @@ function formatStatusLabel(status) {
     travelling: "Travelling",
     completed: "Completed",
     cancelled: "Cancelled",
+    ignored: "Ignored",
     rejected: "Rejected",
     pending: "Pending",
     in_progress: "In progress",
@@ -1343,8 +1342,8 @@ function renderActiveTrip() {
       <div class="trip-summary-actions">
         ${fitActions}
         <button type="button" class="header-action-btn header-action-edit" id="active-trip-edit-btn" aria-label="Edit trip">✎ Edit</button>
-        <select id="active-trip-status-select" class="trip-status-select trip-status-select--compact trip-status-select--${normalizeStatus(trip.status) || "unknown"}" aria-label="Trip status">
-          ${["offer","planning","confirmed","travelling","completed","cancelled"].map((s) =>
+        <select id="active-trip-status-select" class="trip-status-select trip-status-select--compact trip-status-select--${normalizeStatus(trip.status) || "offer"}" aria-label="Trip status">
+          ${["offer","confirmed","cancelled","ignored"].map((s) =>
             `<option value="${s}" ${normalizeStatus(trip.status) === s ? "selected" : ""}>${escapeHtml(formatStatusLabel(s))}</option>`
           ).join("")}
         </select>

@@ -468,16 +468,93 @@ def backfill_trip_serials(records):
         if record.get("serial"):
             continue
         company = normalize_company(record.get("company"))
+        # USM uses S- (Steppe) and everything else uses T-. Mirrors
+        # next_trip_serial below so backfill matches new-trip numbering.
+        prefix = "S-" if company == "USM" else "T-"
         counters.setdefault(company, 0)
         counters[company] += 1
         # Find a unique serial that doesn't collide with existing ones
         while True:
-            candidate = f"T-{counters[company]:04d}"
+            candidate = f"{prefix}{counters[company]:04d}"
             if not any(r.get("serial") == candidate for r in records):
                 record["serial"] = candidate
                 break
             counters[company] += 1
     return records
+
+
+def migrate_usm_serials_t_to_s_once():
+    # One-shot migration: USM trips originally got T- serials (or were
+    # back-filled with T-) before USM switched to the S- prefix. This walks
+    # camp_trips, groups, tourists exactly once and rewrites the dependent
+    # serials so the UI shows S-XXXX consistently. The marker file makes
+    # it idempotent so deploys / restarts don't re-run it.
+    marker = DATA_DIR / ".migration_usm_serial_t_to_s_done"
+    if marker.exists():
+        return
+    try:
+        trips = read_json_list(CAMP_TRIPS_FILE)
+    except Exception:
+        return
+    rename_map = {}
+    used_serials = {(t.get("serial") or "").upper() for t in trips}
+    for trip in trips:
+        if normalize_company(trip.get("company")) != "USM":
+            continue
+        old = (trip.get("serial") or "").upper()
+        if not old.startswith("T-"):
+            continue
+        new = "S-" + old[2:]
+        if new in used_serials:
+            continue
+        trip["serial"] = new
+        used_serials.discard(old)
+        used_serials.add(new)
+        rename_map[old] = new
+    if not rename_map:
+        try:
+            marker.write_text("")
+        except Exception:
+            pass
+        return
+    try:
+        write_json_list(CAMP_TRIPS_FILE, trips)
+    except Exception:
+        return
+    # Update group records that point at a renamed trip serial.
+    try:
+        groups = read_json_list(GROUPS_FILE)
+        for g in groups:
+            old_ts = (g.get("tripSerial") or "").upper()
+            if old_ts not in rename_map:
+                continue
+            new_ts = rename_map[old_ts]
+            g["tripSerial"] = new_ts
+            g_serial = g.get("serial") or ""
+            if g_serial.startswith(old_ts + "-"):
+                g["serial"] = new_ts + g_serial[len(old_ts):]
+        write_json_list(GROUPS_FILE, groups)
+    except Exception:
+        pass
+    # Same for tourist records.
+    try:
+        tourists = read_json_list(TOURISTS_FILE)
+        for t in tourists:
+            old_ts = (t.get("tripSerial") or "").upper()
+            if old_ts not in rename_map:
+                continue
+            new_ts = rename_map[old_ts]
+            t["tripSerial"] = new_ts
+            t_serial = t.get("serial") or ""
+            if t_serial.startswith(old_ts + "-"):
+                t["serial"] = new_ts + t_serial[len(old_ts):]
+        write_json_list(TOURISTS_FILE, tourists)
+    except Exception:
+        pass
+    try:
+        marker.write_text("")
+    except Exception:
+        pass
 
 
 def next_trip_serial(company):
@@ -15443,6 +15520,15 @@ def _dispatch(environ, start_response):
         return json_response(start_response, "404 Not Found", {"error": "Not found"})
 
     return file_response(start_response, safe_path)
+
+
+# Run-once migrations at module import. Render restarts the worker on every
+# deploy, so this fires automatically; the marker file inside DATA_DIR keeps
+# it idempotent if the worker is restarted without a redeploy.
+try:
+    migrate_usm_serials_t_to_s_once()
+except Exception:
+    pass
 
 
 if __name__ == "__main__":
