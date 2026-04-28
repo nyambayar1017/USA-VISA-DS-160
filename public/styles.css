@@ -237,6 +237,22 @@ td {
   color: #1f2a44;
 }
 .driver-setting-row .driver-setting-name { font-weight: 700; color: #20356f; }
+
+/* Transfer pickup-time urgency: today highlights yellow, future is green. */
+.pickup-time-today {
+  background: #fff7d6;
+  color: #92590e;
+  font-weight: 700;
+  border-radius: 6px;
+}
+.pickup-time-future {
+  background: #e6f6ec;
+  color: #1f7a3f;
+  font-weight: 600;
+  border-radius: 6px;
+}
+.pickup-time-past { color: #94a3b8; }
+.settings-hint { font-size: 0.78rem; color: #64748b; margin: 4px 0 6px; }
 @media (max-width: 720px) {
   .driver-setting-grid, .driver-setting-row {
     grid-template-columns: 1fr;

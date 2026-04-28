@@ -320,6 +320,7 @@
               <th>#</th>
               <th data-trip-scope-hide>Trip</th>
               <th>Type</th>
+              <th>Date</th>
               <th>From</th>
               <th>Departure Time</th>
               <th>To</th>
@@ -341,10 +342,11 @@
                     <td class="table-center">${index + 1}</td>
                     <td data-trip-scope-hide><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
                     <td>${escapeHtml(flightScopeLabel(entry.flightScope))}</td>
+                    <td class="table-nowrap">${escapeHtml(formatDate(entry.departureDate) || "-")}</td>
                     <td>${escapeHtml(entry.fromCity || "-")}</td>
-                    <td class="table-nowrap">${escapeHtml(`${formatDate(entry.departureDate)} ${entry.departureTime || ""}`.trim() || "-")}</td>
+                    <td class="table-nowrap">${escapeHtml(entry.departureTime || "-")}</td>
                     <td>${escapeHtml(entry.toCity || "-")}</td>
-                    <td class="table-nowrap">${escapeHtml(`${formatDate(entry.arrivalDate)} ${entry.arrivalTime || ""}`.trim() || "-")}</td>
+                    <td class="table-nowrap">${escapeHtml(entry.arrivalTime || "-")}</td>
                     <td class="table-center">${escapeHtml(entry.passengerCount || "-")}</td>
                     <td class="table-center">${escapeHtml(entry.staffCount || "-")}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.touristTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.touristTicketStatus || "pending"))}</span></td>
@@ -371,9 +373,18 @@
   }
 
   function renderFlightPayments() {
-    // If a client paid, we don't track that money internally — drop those rows
-    // so the table only shows payments the company actually made.
-    const rows = getFilteredFlightPayments().filter((r) => String(r.paidFromAccount || "").toLowerCase() !== "client");
+    // We don't track money the client paid — hide payments where the linked
+    // flight reservation has BOTH tourist and guide tickets paid by the
+    // client. (Old data without those fields still goes through, so manual
+    // imports keep showing up.)
+    const flightById = new Map(flights.map((f) => [f.id, f]));
+    const rows = getFilteredFlightPayments().filter((r) => {
+      const f = flightById.get(r.id);
+      if (!f) return true;
+      const t = String(f.touristPaidBy || "").toLowerCase();
+      const g = String(f.guidePaidBy || "").toLowerCase();
+      return !(t === "client" && g === "client");
+    });
     if (!rows.length) {
       flightPaymentList.innerHTML = '<p class="empty">No flight payments found for the selected filters.</p>';
       return;
@@ -387,6 +398,7 @@
               <th>#</th>
               <th data-trip-scope-hide>Trip</th>
               <th data-trip-scope-hide>Route</th>
+              <th>Ticket Number</th>
               <th>Ticket Price</th>
               <th>Total Ticket Price</th>
               <th>Payment Status</th>
@@ -405,11 +417,12 @@
                     <td class="table-center">${index + 1}</td>
                     <td data-trip-scope-hide><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
                     <td data-trip-scope-hide>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → ") || "-")}</td>
+                    <td>${escapeHtml(entry.ticketNumber || "—")}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.ticketPrice))}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.totalTicketPrice || entry.amount))}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus || "unpaid")}">${escapeHtml(formatStatus(entry.paymentStatus || "unpaid"))}</span></td>
                     <td>${escapeHtml(entry.paidTo || "-")}</td>
-                    <td>${escapeHtml(paidByLabel(entry.paidFromAccount))}</td>
+                    <td>${escapeHtml(bankAccountLabel(entry.paidFromAccount))}</td>
                     <td>${escapeHtml(formatDate(entry.paidDate))}</td>
                     <td>${escapeHtml(entry.paymentNotes || "-")}</td>
                     <td>
@@ -425,6 +438,47 @@
         </table>
       </div>
     `;
+  }
+
+  // Simple urgency colour for the pickup time cell on the chosen-trip
+  // transfer table. Today = yellow (urgent), future = green (planned),
+  // past = no class (done). Comparisons use local-day boundaries so the
+  // user can see "today" the way Mongolia time would.
+  function pickupTimeUrgency(serviceDate) {
+    const v = String(serviceDate || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return "";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const target = new Date(`${v}T00:00:00`);
+    const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+    if (diff === 0) return "pickup-time-today";
+    if (diff > 0) return "pickup-time-future";
+    return "pickup-time-past";
+  }
+
+  // Bank accounts pulled from /settings → Bank accounts. Used for the
+  // flight-payment "Paid from" dropdown so the user picks an actual account
+  // rather than free-typing.
+  let bankAccountsCache = [];
+  async function loadBankAccounts() {
+    try {
+      const payload = await fetchJson("/api/settings");
+      bankAccountsCache = (payload && payload.entry && Array.isArray(payload.entry.bankAccounts)) ? payload.entry.bankAccounts : [];
+    } catch { bankAccountsCache = []; }
+    populateFlightPaymentBankSelect();
+  }
+  function bankAccountLabel(id) {
+    const a = bankAccountsCache.find((x) => x.id === id);
+    if (!a) return id || "—";
+    return a.label || a.bankName || a.accountName || a.id;
+  }
+  function populateFlightPaymentBankSelect() {
+    if (!flightPaymentForm) return;
+    const sel = flightPaymentForm.elements.paidFromAccount;
+    if (!sel || sel.tagName !== "SELECT") return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Choose paid-from account</option>'
+      + bankAccountsCache.map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.label || a.bankName || a.id)}</option>`).join("");
+    if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
   }
 
   function transferTypeLabel(value) {
@@ -474,7 +528,7 @@
                     <td data-trip-scope-hide><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
                     <td>${escapeHtml(transferTypeLabel(entry.transferType))}</td>
                     <td class="table-nowrap">${escapeHtml(formatDate(entry.serviceDate))}</td>
-                    <td class="table-nowrap">${escapeHtml(entry.serviceTime || "—")}</td>
+                    <td class="table-nowrap ${pickupTimeUrgency(entry.serviceDate)}">${escapeHtml(entry.serviceTime || "—")}</td>
                     <td class="table-nowrap">${escapeHtml(entry.typeTime || "—")}</td>
                     <td>${escapeHtml(entry.driverName || "—")}</td>
                     <td>${escapeHtml(entry.vehicleType || "—")}</td>
@@ -627,6 +681,7 @@
     flightPaymentStatus.textContent = "";
     refreshFlightPaymentSelector();
     ensureDefaultFlightSelection();
+    populateFlightPaymentBankSelect();
   }
 
   function resetTransferForm() {
@@ -684,8 +739,7 @@
   });
 
   flightPaymentToggleForm?.addEventListener("click", async () => {
-    await loadTrips();
-    await loadFlights();
+    await Promise.all([loadTrips(), loadFlights(), loadBankAccounts()]);
     resetFlightPaymentForm();
     openPanel(flightPaymentFormPanel);
   });
@@ -849,8 +903,7 @@
       return;
     }
     if (target.dataset.action === "edit-flight-payment") {
-      await loadTrips();
-      await loadFlights();
+      await Promise.all([loadTrips(), loadFlights(), loadBankAccounts()]);
       fillFlightPaymentForm(entry);
       openPanel(flightPaymentFormPanel);
     }
