@@ -1444,8 +1444,7 @@ function findMissingParticipantFields(form) {
     ["passportExpiry", "Passport expiry"],
     ["passportIssuePlace", "Passport issued at"],
     ["registrationNumber", "Registration #"],
-    ["phone", "Phone"],
-    ["email", "Email"],
+    ["roomType", "Rooming"],
   ];
   const missing = [];
   for (const [key, label] of checks) {
