@@ -6571,18 +6571,37 @@ def handle_export_tourists(environ, start_response):
     trips_by_id = {t["id"]: t for t in read_camp_trips()}
     groups_by_id = {g["id"]: g for g in read_tourist_groups()}
 
+    # Tourists carry an orderIndex set by the manual Move up / Move down
+    # buttons on the trip page. The Excel export must follow that ordering
+    # so the rooming list comes out in the same sequence the manager sees
+    # on screen, with roommates already paired up.
+    def tourist_sort_key(t):
+        idx = t.get("orderIndex")
+        if not isinstance(idx, (int, float)):
+            try:
+                idx = int(idx)
+            except (TypeError, ValueError):
+                idx = 9999
+        return (idx, str(t.get("serial") or ""))
+
     # Build sections (trip, [tourists]). For "selected ids" we treat the
     # whole selection as a single section under that trip's banner.
     sections = []
     if ids:
         id_set = set(ids)
-        records = [r for r in all_tourists if r.get("id") in id_set]
+        records = sorted(
+            [r for r in all_tourists if r.get("id") in id_set],
+            key=tourist_sort_key,
+        )
         if records:
             tid = records[0].get("tripId", "")
             sections.append((trips_by_id.get(tid), records))
     else:
         for tid in trip_ids:
-            records = [r for r in all_tourists if r.get("tripId") == tid]
+            records = sorted(
+                [r for r in all_tourists if r.get("tripId") == tid],
+                key=tourist_sort_key,
+            )
             if not records:
                 continue
             sections.append((trips_by_id.get(tid), records))
@@ -6678,7 +6697,44 @@ def handle_export_tourists(environ, start_response):
 
     n_cols = len(columns)
     room_col_idx = next((i + 1 for i, (lbl, _) in enumerate(columns) if lbl == "Room"), None)
-    current_row = 1
+
+    # ── Letterhead ──────────────────────────────────────────────
+    # Show the agency name + "Rooming list" at the top of the workbook
+    # so the printed copy reads like a proper agency document. Try to
+    # embed the workspace logo as well; if openpyxl can't load the file
+    # (missing PIL or unreadable PNG), fall back to a text-only banner.
+    if is_dtx:
+        agency_name = "Delkhii Travel X"
+        logo_path = PUBLIC_DIR / "assets" / "dtx-logo.png"
+    else:
+        agency_name = "Steppe Mongolia"
+        logo_path = PUBLIC_DIR / "assets" / "usm-logo-horizontal.png"
+
+    name_cell = ws.cell(row=1, column=1, value=agency_name)
+    name_cell.font = Font(bold=True, size=18, color="20356F")
+    name_cell.alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
+    ws.row_dimensions[1].height = 30
+
+    sub_cell = ws.cell(row=2, column=1, value=f"{agency_name} agency · Rooming list")
+    sub_cell.font = Font(bold=True, size=12, color="475569")
+    sub_cell.alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_cols)
+    ws.row_dimensions[2].height = 20
+
+    try:
+        if logo_path.exists():
+            from openpyxl.drawing.image import Image as XlsxImage
+            img = XlsxImage(str(logo_path))
+            img.height = 56
+            img.width = int(56 * (img.width / max(img.height, 1))) if img.height else 120
+            img.anchor = "A1"
+            ws.add_image(img)
+            ws.row_dimensions[1].height = 50
+    except Exception:
+        pass
+
+    current_row = 4  # blank row 3 separates letterhead from first section
 
     for section_idx, (trip, tourists) in enumerate(sections):
         # Section title (merged across all columns).
@@ -6980,8 +7036,16 @@ def send_task_assignment_email(task, actor):
     assigner = normalize_text((actor or {}).get("fullName")) or normalize_text((actor or {}).get("email")) or "Менежер"
     due_dt = _task_due_datetime(task)
     due_label = due_dt.strftime("%Y-%m-%d %H:%M") if due_dt else "—"
-    note = normalize_text(task.get("note"))
-    note_html = f"<p style=\"margin-top:12px;color:#475569\">{html.escape(note)}</p>" if note else ""
+    # Don't run the note through normalize_text — that collapses line
+    # breaks into single spaces and the multi-paragraph note the user
+    # wrote ends up as a one-liner. Trim, escape, then convert real
+    # newlines to <br> so the email preserves the original formatting.
+    note_raw = str(task.get("note") or "").strip()
+    note_html = (
+        f"<div style=\"margin-top:12px;color:#475569;white-space:pre-wrap;\">"
+        f"<strong>Note:</strong><br>{html.escape(note_raw).replace(chr(10), '<br>')}"
+        f"</div>"
+    ) if note_raw else ""
     body_html = (
         f"<p>Сайн байна уу, {html.escape(owner_name)}.</p>"
         f"<p><strong>{html.escape(assigner)}</strong> танд <strong>{html.escape(title)}</strong> "
@@ -7044,8 +7108,14 @@ def scan_task_reminders():
         owner_email = normalize_text(user.get("email")) if user else ""
         title = normalize_text(task.get("title")) or "Untitled task"
         due_label = due_dt.strftime("%Y-%m-%d %H:%M")
-        note = normalize_text(task.get("note"))
-        note_html = f"<p style=\"margin-top:12px;color:#475569\">{html.escape(note)}</p>" if note else ""
+        # Preserve newlines in the user's note so multi-line content keeps
+        # its formatting in both the reminder and overdue emails.
+        note_raw = str(task.get("note") or "").strip()
+        note_html = (
+            f"<div style=\"margin-top:12px;color:#475569;white-space:pre-wrap;\">"
+            f"<strong>Note:</strong><br>{html.escape(note_raw).replace(chr(10), '<br>')}"
+            f"</div>"
+        ) if note_raw else ""
 
         # Stage 1: 6 hours before due — "approaching" reminder.
         if (
