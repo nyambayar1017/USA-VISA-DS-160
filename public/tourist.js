@@ -557,6 +557,7 @@
   function openTouristEditor(tourist) {
     editingId = tourist?.id || "";
     clearPassportSelection();
+    window.NationalitySelect?.applyTo?.(editForm);
     if (editForm) {
       editForm.reset();
       const f = editForm.elements;

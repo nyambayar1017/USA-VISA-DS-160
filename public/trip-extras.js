@@ -583,6 +583,7 @@
   touristToggleBtn?.addEventListener("click", async () => {
     const g = await ensureDefaultGroup();
     if (!g) return;
+    window.NationalitySelect?.applyTo?.(touristForm);
     if (!window.ParticipantChooser) {
       resetTouristForm();
       openModal(touristFormPanel);

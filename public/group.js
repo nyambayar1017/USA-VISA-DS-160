@@ -1362,6 +1362,7 @@ async function addExistingTouristToGroup(picked) {
 }
 
 addBtn.addEventListener("click", () => {
+  window.NationalitySelect?.applyTo?.(form);
   if (!window.ParticipantChooser) {
     resetForm();
     openModal();
