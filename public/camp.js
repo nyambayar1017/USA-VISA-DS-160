@@ -3187,7 +3187,7 @@ function docViewUrl(doc, tripId) {
   return src;
 }
 
-const DOC_CATEGORY_ORDER = ["Invoices", "Flight Tickets", "Passports & Visas", "Hotel Vouchers", "Contracts", "Other"];
+const DOC_CATEGORY_ORDER = ["Invoices", "Flight Tickets", "Passports & Visas", "Hotel Vouchers", "Contracts", "Paid documents", "Other"];
 
 function renderDocFilterCounts(docs) {
   if (!docFilterTabsEl) return;
