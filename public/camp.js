@@ -1009,6 +1009,89 @@ function renderTripListViewToggle() {
     `).join("");
 }
 
+// Column model for the chosen-trip "<TripName> reservations" detail table.
+// `col` is the 1-based index in the rendered table so we can hide via
+// :nth-child() in a generated <style> block.
+const CAMP_DETAIL_COLUMNS = [
+  { key: "rowNum", label: "#", col: 1, fixed: true, default: true },
+  { key: "trip", label: "Trip", col: 2, default: false },
+  { key: "reservationName", label: "Reservation Name", col: 3, default: true },
+  { key: "day", label: "Day", col: 4, default: true },
+  { key: "camp", label: "Camp", col: 5, default: true },
+  { key: "location", label: "Location", col: 6, default: true },
+  { key: "type", label: "Type", col: 7, default: true },
+  { key: "clients", label: "Clients", col: 8, default: true },
+  { key: "staff", label: "Staff", col: 9, default: true },
+  { key: "checkIn", label: "Check-in", col: 10, default: true },
+  { key: "nights", label: "Nights", col: 11, default: true },
+  { key: "checkOut", label: "Check-out", col: 12, default: true },
+  { key: "gers", label: "Gers", col: 13, default: false },
+  { key: "room", label: "Room", col: 14, default: true },
+  { key: "assignedStaff", label: "Assigned Staff", col: 15, default: true },
+  { key: "status", label: "Status", col: 16, default: true },
+  { key: "createdBy", label: "Created by", col: 17, default: false },
+  { key: "notes", label: "Notes", col: 18, default: true },
+  { key: "meals", label: "Meals", col: 19, default: false },
+  { key: "actions", label: "Actions", col: 20, fixed: true, default: true },
+];
+const CAMP_DETAIL_VIEW_KEY = "camp-detail:visibleColumns";
+function readCampDetailColumns() {
+  try {
+    const raw = localStorage.getItem(CAMP_DETAIL_VIEW_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const set = new Set(arr);
+        CAMP_DETAIL_COLUMNS.filter((c) => c.fixed).forEach((c) => set.add(c.key));
+        return set;
+      }
+    }
+  } catch {}
+  return new Set(CAMP_DETAIL_COLUMNS.filter((c) => c.default).map((c) => c.key));
+}
+let visibleCampDetailColumns = readCampDetailColumns();
+function writeCampDetailColumns() {
+  try { localStorage.setItem(CAMP_DETAIL_VIEW_KEY, JSON.stringify([...visibleCampDetailColumns])); } catch {}
+}
+function buildCampDetailHideStyle() {
+  const hidden = CAMP_DETAIL_COLUMNS.filter((c) => !visibleCampDetailColumns.has(c.key));
+  if (!hidden.length) return "";
+  const rules = hidden.map((c) => `.camp-table-detail th:nth-child(${c.col}),.camp-table-detail td:nth-child(${c.col}){display:none}`).join("");
+  return `<style data-camp-detail-hide>${rules}</style>`;
+}
+function renderCampDetailViewPopover() {
+  return CAMP_DETAIL_COLUMNS.filter((c) => !c.fixed).map((c) => `
+    <label class="ts-view-row">
+      <input type="checkbox" data-cdcol="${escapeHtml(c.key)}" ${visibleCampDetailColumns.has(c.key) ? "checked" : ""} />
+      <span>${escapeHtml(c.label)}</span>
+    </label>
+  `).join("");
+}
+// Listen once for changes anywhere — the toolbar that hosts the popover gets
+// re-rendered each time renderActiveTripReservations() runs, so use document
+// delegation rather than re-binding handlers.
+document.addEventListener("change", (e) => {
+  const cb = e.target && e.target.closest && e.target.closest('input[type="checkbox"][data-cdcol]');
+  if (!cb) return;
+  const key = cb.dataset.cdcol;
+  if (cb.checked) visibleCampDetailColumns.add(key);
+  else visibleCampDetailColumns.delete(key);
+  writeCampDetailColumns();
+  renderActiveTripReservations();
+});
+document.addEventListener("click", (e) => {
+  if (!e.target || !e.target.closest) return;
+  const closer = e.target.closest("[data-close-camp-detail-view]");
+  if (closer) {
+    const dd = closer.closest("details");
+    if (dd) dd.removeAttribute("open");
+    return;
+  }
+  const dd = document.getElementById("camp-detail-view-dropdown");
+  if (!dd || !dd.open) return;
+  if (!dd.contains(e.target)) dd.removeAttribute("open");
+});
+
 function renderTrips() {
   const trips = getFilteredTrips();
   renderTripListViewToggle();
@@ -1281,12 +1364,29 @@ function renderActiveTripReservations() {
     activeTripReservations.innerHTML = "";
     return;
   }
+  const campDetailViewToolbar = `
+    <details class="trip-saved-filter-dropdown" id="camp-detail-view-dropdown">
+      <summary>
+        <span>View</span>
+        <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="trip-saved-filter-popover tourist-view-popover">
+        <div class="ts-view-head">
+          <p class="ts-view-title">Toggle columns</p>
+          <button type="button" class="ts-view-close" data-close-camp-detail-view aria-label="Close">×</button>
+        </div>
+        ${renderCampDetailViewPopover()}
+      </div>
+    </details>
+  `;
+
   if (!entries.length) {
     activeTripReservations.classList.remove("is-hidden");
     activeTripReservations.innerHTML = `
       <div class="section-head">
         <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
         <div class="camp-toolbar trip-detail-toolbar">
+          ${campDetailViewToolbar}
           <label class="trip-day-filter-label">
             <span>Filter by day</span>
             <select data-action="trip-day-filter">
@@ -1304,9 +1404,11 @@ function renderActiveTripReservations() {
 
   activeTripReservations.classList.remove("is-hidden");
   activeTripReservations.innerHTML = `
+    ${buildCampDetailHideStyle()}
     <div class="section-head">
         <h2>${escapeHtml(trip?.tripName || "Trip")} reservations</h2>
       <div class="camp-toolbar trip-detail-toolbar">
+        ${campDetailViewToolbar}
         <label class="trip-day-filter-label">
             <span>Filter by day</span>
             <select data-action="trip-day-filter">
