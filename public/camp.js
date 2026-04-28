@@ -1667,7 +1667,7 @@ function renderReservationEditPanel(reservation, options = {}) {
           <p>Main reservation information.</p>
         </div>
         <div class="field-grid field-grid-compact">
-          <label>
+          <label data-trip-scope-hide>
             Selected Trip
             <select name="tripId" required>
               ${currentTrips.map((trip) => `<option value="${escapeHtml(trip.id)}" ${trip.id === reservationData.tripId ? "selected" : ""}>${escapeHtml(trip.tripName)}</option>`).join("")}
@@ -1782,6 +1782,16 @@ function renderReservationEditPanel(reservation, options = {}) {
       </form>
     </div>
   `;
+  // Re-apply trip-scope hiding for the freshly-rendered form (the inline
+  // hider in the HTML only ran once at DOMContentLoaded — this form was
+  // built later, so its [data-trip-scope-hide] labels need the inline
+  // display:none applied now).
+  if (document.body.classList.contains("is-trip-scoped")) {
+    reservationEditPanel.querySelectorAll("[data-trip-scope-hide]").forEach((el) => {
+      el.style.setProperty("display", "none", "important");
+      el.querySelectorAll("select[required]").forEach((s) => s.removeAttribute("required"));
+    });
+  }
   const formNode = reservationEditPanel.querySelector("form");
   if (formNode && !formNode.dataset.boundSubmit) {
     formNode.dataset.boundSubmit = "true";
