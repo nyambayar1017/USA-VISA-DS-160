@@ -215,13 +215,21 @@
 
   function syncFlightTripDefaults(tripId, force = false) {
     const trip = getTrip(tripId);
-    const staffNode = flightForm.elements.staffCount;
-    if (!trip || !staffNode) {
-      return;
-    }
-    if (force || !String(staffNode.value || "").trim()) {
-      staffNode.value = String(trip.staffCount || 0);
-    }
+    if (!trip) return;
+    // Pull counts and the start date from the trip so a new flight reservation
+    // pre-populates the same numbers the trip is already tracking. Only fills
+    // empty fields unless force=true so an editing manager's typed values are
+    // preserved.
+    const setIfEmpty = (name, value) => {
+      const node = flightForm.elements[name];
+      if (!node || value == null || value === "") return;
+      if (force || !String(node.value || "").trim()) {
+        node.value = String(value);
+      }
+    };
+    setIfEmpty("staffCount", trip.staffCount || 0);
+    setIfEmpty("passengerCount", trip.participantCount || "");
+    setIfEmpty("departureDate", trip.startDate || "");
   }
 
   function ensureDefaultTrip(tripSelect) {
@@ -702,6 +710,21 @@
     populateFlightPaymentBankSelect();
   }
 
+  // Phase 1: pull passenger count and service date from the chosen Trip on
+  // a fresh transfer reservation. Only fills empty fields unless force=true,
+  // so editing a saved transfer never overwrites manager-typed values.
+  function syncTransferTripDefaults(tripId, force = false) {
+    const trip = getTrip(tripId);
+    if (!trip) return;
+    const setIfEmpty = (name, value) => {
+      const node = transferForm.elements[name];
+      if (!node || value == null || value === "") return;
+      if (force || !String(node.value || "").trim()) node.value = String(value);
+    };
+    setIfEmpty("passengerCount", trip.participantCount || "");
+    setIfEmpty("serviceDate", trip.startDate || "");
+  }
+
   function resetTransferForm() {
     editingTransferId = "";
     transferForm.reset();
@@ -711,6 +734,7 @@
     transferStatus.textContent = "";
     refreshTripSelectors();
     ensureDefaultTrip(transferTripSelect);
+    syncTransferTripDefaults(transferTripSelect.value, true);
     populateTransferFormSelectors();
     applyDriverSnapshotToForm("");
     applyTransferTypeTimeLabel();
@@ -770,6 +794,9 @@
 
   flightTripSelect?.addEventListener("change", () => {
     syncFlightTripDefaults(flightTripSelect.value);
+  });
+  transferTripSelect?.addEventListener("change", () => {
+    syncTransferTripDefaults(transferTripSelect.value);
   });
 
   [flightFilterTrip, flightFilterStatus, flightFilterDate].forEach((node) => {

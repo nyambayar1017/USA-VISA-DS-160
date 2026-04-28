@@ -1756,10 +1756,14 @@ function renderReservationEditPanel(reservation, options = {}) {
     return;
   }
   const isCreate = Boolean(options.isCreate);
+  // Auto-fill from the chosen Trip on Create — clients + staff default to
+  // whatever the trip already records, so a manager doesn't re-type counts
+  // that already exist on the Trip page. They can still edit before saving.
+  const seedTrip = isCreate ? getTripById(options.tripId || activeTripId || filterTripName.value || "") : null;
   const reservationData = reservation || {
     id: "",
     tripId: options.tripId || activeTripId || filterTripName.value || "",
-    tripName: getTripById(options.tripId || activeTripId || filterTripName.value || "")?.tripName || "",
+    tripName: seedTrip?.tripName || "",
     reservationName: "",
     createdDate: getMongoliaToday(),
     campName: "",
@@ -1768,8 +1772,8 @@ function renderReservationEditPanel(reservation, options = {}) {
     checkIn: "",
     nights: 1,
     checkOut: "",
-    clientCount: 2,
-    staffCount: 0,
+    clientCount: Number(seedTrip?.participantCount) || 2,
+    staffCount: Number(seedTrip?.staffCount) || 0,
     staffAssignment: "",
     gerCount: 1,
     roomType: "",
@@ -2806,80 +2810,11 @@ document.addEventListener("change", (event) => {
   }
 });
 
-campForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (campFormPanel.classList.contains("is-hidden")) {
-    return;
-  }
-  campStatus.textContent = editingReservationId ? "Updating reservation..." : "Saving reservation...";
-
-  const selectedTrip = getTripById(reservationTripSelect.value || activeTripId);
-  if (!selectedTrip) {
-    campStatus.textContent = "Please select a trip first.";
-    return;
-  }
-
-  const payload = buildPayload(campForm);
-  const stay = normalizeStayFields(payload.checkIn, payload.nights, payload.checkOut);
-  payload.checkIn = stay.checkIn;
-  payload.nights = stay.nights;
-  payload.checkOut = stay.checkOut;
-  campStays.value = stay.nights;
-  campCheckout.value = stay.checkOut;
-  if (!payload.createdDate) {
-    payload.createdDate = getMongoliaToday();
-    campCreatedDate.value = payload.createdDate;
-  }
-  if (!payload.locationName && payload.campName) {
-    payload.locationName = getCampLocation(payload.campName);
-    if (payload.locationName) {
-      campLocationSelect.value = payload.locationName;
-    }
-  }
-  payload.tripId = selectedTrip.id;
-  payload.tripName = selectedTrip.tripName;
-  payload.reservationName = payload.reservationName || selectedTrip.reservationName || selectedTrip.tripName;
-
-  try {
-    const result = await fetchJson(editingReservationId ? `/api/camp-reservations/${editingReservationId}` : "/api/camp-reservations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const savedEntry = result?.entry || null;
-    if (savedEntry?.id) {
-      if (editingReservationId) {
-        currentEntries = currentEntries.map((entry) => (entry.id === savedEntry.id ? savedEntry : entry));
-      } else {
-        currentEntries = [savedEntry, ...currentEntries.filter((entry) => entry.id !== savedEntry.id)];
-      }
-      selectedReservationIds = new Set([savedEntry.id]);
-    }
-    campStatus.textContent = editingReservationId ? "Reservation updated successfully." : "Reservation saved successfully.";
-    campForm.reset();
-    campCreatedDate.value = getMongoliaToday();
-    campForm.querySelector('[name="clientCount"]').value = "2";
-    campForm.querySelector('[name="staffCount"]').value = "0";
-    campForm.querySelector('[name="gerCount"]').value = "1";
-    campForm.querySelector('[name="nights"]').value = "1";
-    campForm.querySelector('[name="status"]').value = "pending";
-    updateReservationUnitLabels(campForm);
-    reservationTripSelect.value = selectedTrip.id;
-    editingReservationId = "";
-    syncCheckoutFromStay();
-    closePanel(campFormPanel);
-    await loadSettings();
-    await loadTrips();
-    await loadReservations();
-    const nextTrip = getTripById(selectedTrip.id) || selectedTrip;
-    focusReservationResults(nextTrip);
-    renderEntries();
-    renderActiveTripReservations();
-    renderActiveCampReservations();
-  } catch (error) {
-    campStatus.textContent = error.message;
-  }
-});
+// Phase 2a cleanup: the legacy campForm.submit handler used to live here.
+// It was unreachable — its first line bailed because campFormPanel is always
+// kept hidden by the rebuild flow. The actual save path is the dynamic
+// reservation-create-form rendered by renderReservationEditPanel(), which
+// has its own submit handler in handleInlineReservationSubmit().
 
 tripToggleForm.addEventListener("click", () => {
   resetTripFormState();
