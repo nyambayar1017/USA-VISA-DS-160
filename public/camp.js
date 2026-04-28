@@ -1793,6 +1793,12 @@ function renderReservationEditPanel(reservation, options = {}) {
     });
   }
   const formNode = reservationEditPanel.querySelector("form");
+  // Upgrade the dynamic form's trip <select> into a searchable picker so it
+  // stays usable when there are hundreds of trips.
+  if (formNode && window.TripPicker) {
+    const tripSelect = formNode.querySelector('select[name="tripId"]');
+    if (tripSelect) window.TripPicker.upgrade(tripSelect, { placeholder: "Choose trip…" });
+  }
   if (formNode && !formNode.dataset.boundSubmit) {
     formNode.dataset.boundSubmit = "true";
     formNode.addEventListener("submit", handleInlineReservationSubmit);
