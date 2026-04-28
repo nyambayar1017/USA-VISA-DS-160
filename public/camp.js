@@ -74,7 +74,7 @@ const campCheckin = document.querySelector("#camp-checkin");
 const campCheckout = document.querySelector("#camp-checkout");
 const campStays = document.querySelector("#camp-stays");
 const settingsStatus = document.querySelector("#settings-status");
-const campCreatedDate = campForm.querySelector('[name="createdDate"]');
+const campCreatedDate = campForm ? campForm.querySelector('[name="createdDate"]') : null;
 const tripTabBar = document.getElementById("trip-tab-bar");
 const docFilterTabsEl = document.getElementById("doc-filter-tabs");
 const MONGOLIA_TIME_ZONE = "Asia/Ulaanbaatar";
@@ -627,12 +627,14 @@ function getActiveCampEntries() {
 }
 
 function syncCheckoutFromStay() {
+  if (!campCheckin || !campStays || !campCheckout) return;
   const stay = normalizeStayFields(campCheckin.value, campStays.value, "");
   campStays.value = stay.nights;
   campCheckout.value = stay.checkOut;
 }
 
 function syncStayFromCheckout() {
+  if (!campCheckin || !campStays || !campCheckout) return;
   const stay = normalizeStayFields(campCheckin.value, campStays.value, campCheckout.value);
   campStays.value = stay.nights;
   campCheckout.value = stay.checkOut;
@@ -2270,7 +2272,7 @@ async function loadReservations() {
 }
 
 async function saveSettings() {
-  settingsStatus.textContent = "Saving settings...";
+  if (settingsStatus) settingsStatus.textContent = "Saving settings...";
   try {
     const payload = {
       campNames: campSettings.campNames,
@@ -2288,9 +2290,9 @@ async function saveSettings() {
       campSettings = result.entry;
       renderAllSettings();
     }
-    settingsStatus.textContent = "Settings updated.";
+    if (settingsStatus) settingsStatus.textContent = "Settings updated.";
   } catch (error) {
-    settingsStatus.textContent = error.message;
+    if (settingsStatus) settingsStatus.textContent = error.message;
   }
 }
 
@@ -3159,18 +3161,24 @@ campPaymentList.addEventListener("click", handleCampTableClick);
   });
 });
 
-campCheckin.addEventListener("change", syncCheckoutFromStay);
-campCheckin.addEventListener("input", syncCheckoutFromStay);
-campStays.addEventListener("input", syncCheckoutFromStay);
-campStays.addEventListener("change", syncCheckoutFromStay);
-campCheckout.addEventListener("change", syncStayFromCheckout);
-campForm.elements.reservationType?.addEventListener("change", () => updateReservationUnitLabels(campForm));
-reservationTripSelect.addEventListener("change", () => {
+if (campCheckin) {
+  campCheckin.addEventListener("change", syncCheckoutFromStay);
+  campCheckin.addEventListener("input", syncCheckoutFromStay);
+}
+if (campStays) {
+  campStays.addEventListener("input", syncCheckoutFromStay);
+  campStays.addEventListener("change", syncCheckoutFromStay);
+}
+if (campCheckout) {
+  campCheckout.addEventListener("change", syncStayFromCheckout);
+}
+campForm?.elements.reservationType?.addEventListener("change", () => updateReservationUnitLabels(campForm));
+reservationTripSelect?.addEventListener("change", () => {
   const trip = getTripById(reservationTripSelect.value);
   if (!trip) {
     return;
   }
-  if (!campForm.elements.reservationName.value) {
+  if (campForm && !campForm.elements.reservationName.value) {
     campForm.elements.reservationName.value = trip.reservationName || trip.tripName;
   }
 });
@@ -4007,7 +4015,7 @@ async function init() {
       if (el) el.classList.add("is-hidden");
     });
   }
-  campCreatedDate.value = getMongoliaToday();
+  if (campCreatedDate) campCreatedDate.value = getMongoliaToday();
   setupTripFilterBar();
   await loadSettings();
   await loadTrips();
