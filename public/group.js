@@ -1212,8 +1212,8 @@ function renderParticipants() {
             <th>Expiry</th>
             <th>Birth date</th>
             <th>Age</th>
-            <th>Gender</th>
             <th>Phone</th>
+            <th>Sex</th>
             <th>Room</th>
             <th>Actions</th>
           </tr>
@@ -1238,8 +1238,8 @@ function renderParticipants() {
                 <td>${escapeHtml(formatDate(t.passportExpiry))}</td>
                 <td>${escapeHtml(formatDate(t.dob))}</td>
                 <td>${ageFromDob(t.dob) || "-"}</td>
-                <td>${escapeHtml((t.gender || "-").toUpperCase())}</td>
                 <td>${escapeHtml(t.phone || "-")}</td>
+                <td>${t.gender === "male" ? "Male" : t.gender === "female" ? "Female" : "-"}</td>
                 <td>${roomLabel}</td>
                 <td>
                   <details class="row-menu">

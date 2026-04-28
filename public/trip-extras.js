@@ -253,6 +253,7 @@
               <th>Passport expiry</th>
               <th>Reg #</th>
               <th>Phone</th>
+              <th>Sex</th>
               <th>Room</th>
               <th>Actions</th>
             </tr>
@@ -282,6 +283,7 @@
                       <td>${escapeHtml(t.passportExpiry || "-")}</td>
                       <td>${escapeHtml(t.registrationNumber || "-")}</td>
                       <td>${escapeHtml(t.phone || "-")}</td>
+                      <td>${t.gender === "male" ? "Male" : t.gender === "female" ? "Female" : "-"}</td>
                       <td>${roomLabel}</td>
                       <td>
                         <details class="row-menu">

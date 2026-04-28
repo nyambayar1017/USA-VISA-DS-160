@@ -6522,6 +6522,45 @@ def _find_user_by_name(name):
     return None
 
 
+def send_task_assignment_email(task, actor):
+    """Email the task's assignee that a manager assigned this task to them.
+    Best-effort: any failure is logged and swallowed so the task save still
+    succeeds. Skips silently if the assignee has no resolvable email."""
+    owner_name = normalize_text(task.get("owner"))
+    if not owner_name:
+        return
+    user = _find_user_by_name(owner_name)
+    owner_email = normalize_text(user.get("email")) if user else ""
+    if not owner_email:
+        return
+    title = normalize_text(task.get("title")) or "Untitled task"
+    assigner = normalize_text((actor or {}).get("fullName")) or normalize_text((actor or {}).get("email")) or "Менежер"
+    due_dt = _task_due_datetime(task)
+    due_label = due_dt.strftime("%Y-%m-%d %H:%M") if due_dt else "—"
+    note = normalize_text(task.get("note"))
+    note_html = f"<p style=\"margin-top:12px;color:#475569\">{html.escape(note)}</p>" if note else ""
+    body_html = (
+        f"<p>Сайн байна уу, {html.escape(owner_name)}.</p>"
+        f"<p><strong>{html.escape(assigner)}</strong> танд <strong>{html.escape(title)}</strong> "
+        f"гэсэн шинэ ажил оноолоо.</p>"
+        f"<p>Дуусах хугацаа: <strong>{html.escape(due_label)}</strong></p>"
+        f"{note_html}"
+    )
+    try:
+        _tool_send_email(
+            {
+                "to": owner_email,
+                "subject": f"NEW TASK · {title}",
+                "body": "",
+                "_body_html_override": body_html,
+                "_skip_footer": True,
+            },
+            None,
+        )
+    except Exception as exc:
+        print(f"[task-assignment] email failed for {owner_email}: {exc}", flush=True)
+
+
 _TASK_REMINDER_SCAN_AT = [0.0]
 _TASK_REMINDER_MIN_INTERVAL_SEC = 60
 
@@ -7174,6 +7213,11 @@ def handle_manager_item_create(environ, start_response, key, builder, validator,
     store = read_manager_dashboard()
     store[key].insert(0, record)
     write_manager_dashboard(store)
+    if key == "tasks":
+        try:
+            send_task_assignment_email(record, actor)
+        except Exception as exc:
+            print(f"[task-assignment] dispatch failed: {exc}", flush=True)
     try:
         singular, label = MANAGER_ITEM_LABELS.get(key, (response_label, response_label.title()))
         log_notification(
@@ -7204,12 +7248,23 @@ def handle_manager_item_update(environ, start_response, key, item_id, builder, v
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     store = read_manager_dashboard()
+    prior_owner = ""
+    if key == "tasks":
+        existing = next((t for t in store.get(key, []) if t.get("id") == item_id), None)
+        prior_owner = normalize_text((existing or {}).get("owner")).lower()
     record, error = update_manager_item(store[key], item_id, payload, builder, validator)
     if error == "Record not found":
         return json_response(start_response, "404 Not Found", {"error": error})
     if error:
         return json_response(start_response, "400 Bad Request", {"error": error})
     write_manager_dashboard(store)
+    if key == "tasks":
+        new_owner = normalize_text(record.get("owner")).lower()
+        if new_owner and new_owner != prior_owner:
+            try:
+                send_task_assignment_email(record, actor)
+            except Exception as exc:
+                print(f"[task-assignment] dispatch failed: {exc}", flush=True)
     try:
         singular, _ = MANAGER_ITEM_LABELS.get(key, (response_label, response_label.title()))
         if key == "tasks" and normalize_text(record.get("status")) == "done":
