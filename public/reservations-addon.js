@@ -347,6 +347,7 @@
               <th data-trip-scope-hide>Trip</th>
               <th>Type</th>
               <th>Date</th>
+              <th>Trip day</th>
               <th>From</th>
               <th>Departure Time</th>
               <th>To</th>
@@ -369,6 +370,7 @@
                     <td data-trip-scope-hide><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
                     <td>${escapeHtml(flightScopeLabel(entry.flightScope))}</td>
                     <td class="table-nowrap">${escapeHtml(formatDate(entry.departureDate) || "-")}</td>
+                    <td class="table-nowrap">${escapeHtml(entry.tripDay || "-")}</td>
                     <td>${escapeHtml(entry.fromCity || "-")}</td>
                     <td class="table-nowrap">${escapeHtml(entry.departureTime || "-")}</td>
                     <td>${escapeHtml(entry.toCity || "-")}</td>
@@ -399,17 +401,18 @@
   }
 
   function renderFlightPayments() {
-    // We don't track money the client paid — hide payments where the linked
-    // flight reservation has BOTH tourist and guide tickets paid by the
-    // client. (Old data without those fields still goes through, so manual
-    // imports keep showing up.)
+    // Flight payments only track money the agency itself pays out. So a row
+    // appears here only if at least one of the linked reservation's tickets
+    // is marked Paid by USM or DTX. Anything fully paid-by-client (or with
+    // no payer set) is irrelevant to our cash flow and stays hidden.
     const flightById = new Map(flights.map((f) => [f.id, f]));
     const rows = getFilteredFlightPayments().filter((r) => {
       const f = flightById.get(r.id);
-      if (!f) return true;
+      if (!f) return false;
       const t = String(f.touristPaidBy || "").toLowerCase();
       const g = String(f.guidePaidBy || "").toLowerCase();
-      return !(t === "client" && g === "client");
+      const isAgency = (v) => v === "usm" || v === "dtx";
+      return isAgency(t) || isAgency(g);
     });
     if (!rows.length) {
       flightPaymentList.innerHTML = '<p class="empty">No flight payments found for the selected filters.</p>';
@@ -424,6 +427,7 @@
               <th>#</th>
               <th data-trip-scope-hide>Trip</th>
               <th data-trip-scope-hide>Route</th>
+              <th>Trip day</th>
               <th>Ticket Number</th>
               <th>Ticket Price</th>
               <th>Total Ticket Price</th>
@@ -443,6 +447,7 @@
                     <td class="table-center">${index + 1}</td>
                     <td data-trip-scope-hide><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
                     <td data-trip-scope-hide>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → ") || "-")}</td>
+                    <td class="table-nowrap">${escapeHtml((flightById.get(entry.id) || {}).tripDay || entry.tripDay || "-")}</td>
                     <td>${escapeHtml(entry.ticketNumber || "—")}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.ticketPrice))}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.totalTicketPrice || entry.amount))}</td>
