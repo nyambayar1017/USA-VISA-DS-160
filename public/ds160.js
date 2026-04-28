@@ -207,7 +207,7 @@ const ANSWER_SECTIONS = [
       ["Хүчирхийлэл / геноцидтай холбоотой эсэх", "securityViolence"],
       ["Хүний эрхийн ноцтой зөрчилтэй холбоотой эсэх", "securityHumanRights"],
       ["Визний залилан", "securityVisaFraud"],
-      ["Гаргуулж байсан эсэх", "securityDeported"],
+      ["АНУ-с албадан гаргуулж байсан эсэх", "securityDeported"],
       ["Хүүхдийн асрамжийн маргаан", "securityChildCustody"],
       ["Хууль бусаар санал өгсөн эсэх", "securityIllegalVoting"],
       ["АНУ-ын иргэншлээс татгалзсан эсэх", "securityRenouncedCitizenship"],
