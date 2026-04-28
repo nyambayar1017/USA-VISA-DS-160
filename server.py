@@ -8183,11 +8183,19 @@ _MONTH_MAP = {
 }
 
 
+def _yy_to_full_year(yy):
+    """Mongolian passports print the issue date as 2-digit year. Use the
+    same century cutoff the MRZ uses for expiry (≤70 → 2000s) so '22' →
+    2022 and '99' → 1999."""
+    yy = int(yy)
+    return 2000 + yy if yy <= 70 else 1900 + yy
+
+
 def _passport_dates_from_text(text):
     """Extract every date-looking substring from OCR text and return as ISO
     YYYY-MM-DD strings (deduped, in order of appearance). Handles the shapes
-    Mongolian/EN passports actually print: '12 JAN 2020', '12.01.2020',
-    '12/01/2020', '2020-01-12'."""
+    Mongolian/EN passports actually print: '01 MAR 22', '12 JAN 2020',
+    '12.01.2020', '12/01/2020', '2020-01-12'."""
     if not text:
         return []
     seen, out = set(), []
@@ -8199,12 +8207,18 @@ def _passport_dates_from_text(text):
         if 1900 <= int(y) <= 2100 and 1 <= int(m) <= 12 and 1 <= int(d) <= 31 and iso not in seen:
             seen.add(iso)
             out.append(iso)
-    for m in re.finditer(r"\b(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})\b", text):
+    # "01 MAR 22" / "12 JAN 2020" — month-name form. Year may be 2 or 4 digits.
+    for m in re.finditer(r"\b(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{2,4})\b", text):
         mo = _MONTH_MAP.get(m.group(2).upper())
-        if mo:
-            add(m.group(3), mo, m.group(1))
+        if not mo:
+            continue
+        year_raw = m.group(3)
+        year = _yy_to_full_year(year_raw) if len(year_raw) == 2 else int(year_raw)
+        add(year, mo, m.group(1))
+    # DD.MM.YYYY / DD/MM/YYYY / DD-MM-YYYY
     for m in re.finditer(r"\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b", text):
         add(m.group(3), m.group(2), m.group(1))
+    # YYYY-MM-DD / YYYY/MM/DD / YYYY.MM.DD
     for m in re.finditer(r"\b(\d{4})[./-](\d{1,2})[./-](\d{1,2})\b", text):
         add(m.group(1), m.group(2), m.group(3))
     return out
@@ -8327,6 +8341,14 @@ def parse_passport_mrz(text):
         if expiry:
             fields["passportExpiry"] = expiry
             found += 1
+        # Personal number / registration number lives in positions 28-41
+        # (14 chars, '<'-padded). For Mongolian passports this is the РД,
+        # e.g. "T<J<<84071401" → "TJ84071401".
+        if len(line2) >= 42:
+            personal = line2[28:42].replace("<", "").strip()
+            if personal:
+                fields["registrationNumber"] = personal
+                found += 1
     return fields, found
 
 
