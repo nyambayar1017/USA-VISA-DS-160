@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-269" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-270" />
   </head>
   <body class="app-body" data-page="transfer-reservations">
     <script>
@@ -448,12 +448,10 @@
                   <select name="tripId" id="flight-trip-select" required></select>
                 </label>
                 <label>
-                  Route Type
-                  <select name="routeType">
-                    <option value="internal">Internal</option>
-                    <option value="inbound">Inbound</option>
-                    <option value="outbound">Outbound</option>
-                    <option value="roundtrip">Roundtrip</option>
+                  Type
+                  <select name="flightScope">
+                    <option value="domestic">Domestic</option>
+                    <option value="international">International</option>
                   </select>
                 </label>
                 <label>
@@ -521,12 +519,30 @@
                   </select>
                 </label>
                 <label>
+                  Paid by (Tourist)
+                  <select name="touristPaidBy">
+                    <option value="">—</option>
+                    <option value="client">By Client</option>
+                    <option value="usm">By USM</option>
+                    <option value="dtx">By DTX</option>
+                  </select>
+                </label>
+                <label>
                   Guide Ticket
                   <select name="guideTicketStatus">
                     <option value="confirmed">Confirmed</option>
                     <option value="pending">Pending</option>
                     <option value="no_seats">No seats</option>
                     <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+                <label>
+                  Paid by (Guide)
+                  <select name="guidePaidBy">
+                    <option value="">—</option>
+                    <option value="client">By Client</option>
+                    <option value="usm">By USM</option>
+                    <option value="dtx">By DTX</option>
                   </select>
                 </label>
                 <label class="full-span">
@@ -601,8 +617,13 @@
                   <input name="paidTo" />
                 </label>
                 <label>
-                  Paid From Account
-                  <input name="paidFromAccount" />
+                  Paid From
+                  <select name="paidFromAccount">
+                    <option value="">—</option>
+                    <option value="client">By Client</option>
+                    <option value="usm">By USM</option>
+                    <option value="dtx">By DTX</option>
+                  </select>
                 </label>
                 <label>
                   Paid Date
@@ -798,8 +819,8 @@
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-116"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-138"></script>
-    <script src="/reservations-addon.js?v=workspace-18"></script>
+    <script src="/camp.js?v=workspace-139"></script>
+    <script src="/reservations-addon.js?v=workspace-19"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

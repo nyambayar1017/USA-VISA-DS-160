@@ -166,6 +166,40 @@ td {
 .trip-flight-info span { color: var(--muted); }
 .trip-flight-info span strong { color: var(--brand); margin-right: 4px; }
 
+.trip-flight-summary-table {
+  margin-top: 10px;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 0.85rem;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.trip-flight-summary-table thead th {
+  background: #f1f5fb;
+  color: #20356f;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  text-align: left;
+}
+.trip-flight-summary-table tbody td {
+  padding: 10px 14px;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  vertical-align: top;
+  color: #1f2a44;
+}
+.trip-flight-summary-table .trip-flight-num-col { width: 36px; text-align: center; color: #64748b; }
+.trip-flight-summary-table .trip-flight-carrier { font-weight: 700; color: #20356f; min-width: 90px; }
+.trip-flight-summary-table .trip-flight-num { font-weight: 500; font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+.trip-flight-summary-table .trip-flight-date { color: #64748b; white-space: nowrap; }
+.trip-flight-cell strong { display: block; font-weight: 700; color: #1f2a44; }
+.trip-flight-cell { color: #475569; font-size: 0.82rem; }
+
 .trip-summary-stat {
   padding: 18px;
   border-radius: 18px;

@@ -1242,26 +1242,44 @@ async function loadTripFlightInfo(tripId) {
     const list = (data.entries || []).filter((f) => f.tripId === tripId);
     if (!list.length) { node.innerHTML = ""; return; }
     const sorted = list.slice().sort((a, b) => String(a.departureDate || "").localeCompare(String(b.departureDate || "")));
-    // Render every flight as a self-contained block showing depart +
-    // arrive together. The previous one-line summary dropped arrival time
-    // even when it was set; that was the "shows only departure" bug.
-    const fmt = (f) => {
-      const route = `${escapeHtml(f.fromCity || "-")} → ${escapeHtml(f.toCity || "-")}`;
-      const carrier = [f.airline, f.flightNumber].filter(Boolean).map(escapeHtml).join(" ");
-      const dep = `${escapeHtml(formatDate(f.departureDate) || "—")} ${escapeHtml(f.departureTime || "")}`.trim();
-      const arr = `${escapeHtml(formatDate(f.arrivalDate || f.departureDate) || "—")} ${escapeHtml(f.arrivalTime || "")}`.trim();
-      const arrLine = (f.arrivalDate || f.arrivalTime)
-        ? `<span class="trip-flight-leg trip-flight-leg-arr"><strong>Arrive:</strong> ${arr}</span>`
-        : "";
-      return `
-        <div class="trip-flight-card">
-          <div class="trip-flight-card-route">${route}${carrier ? ` · <span class="muted">${carrier}</span>` : ""}</div>
-          <span class="trip-flight-leg trip-flight-leg-dep"><strong>Depart:</strong> ${dep}</span>
-          ${arrLine}
-        </div>
-      `;
+    // Airline-style summary table (one row per flight): Flight | Date |
+    // Departure | Arrival. Dates are kept strictly ISO yyyy-mm-dd so they
+    // line up vertically the way the reference layout does.
+    const isoDate = (s) => {
+      const v = String(s || "").slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "—";
     };
-    node.innerHTML = sorted.map(fmt).join("");
+    const cell = (time, city) => {
+      const t = escapeHtml(String(time || "").slice(0, 5));
+      const c = escapeHtml(city || "—");
+      return `<div class="trip-flight-cell"><strong>${t || "—"}</strong> ${c}</div>`;
+    };
+    const rows = sorted.map((f, i) => {
+      const carrier = `${escapeHtml(f.airline || "—")}${f.flightNumber ? `<div class="trip-flight-num">${escapeHtml(f.flightNumber)}</div>` : ""}`;
+      return `
+        <tr>
+          <td class="trip-flight-num-col">${i + 1}</td>
+          <td class="trip-flight-carrier">${carrier}</td>
+          <td class="trip-flight-date">${isoDate(f.departureDate)}</td>
+          <td>${cell(f.departureTime, f.fromCity)}</td>
+          <td>${cell(f.arrivalTime, f.toCity)}</td>
+        </tr>
+      `;
+    }).join("");
+    node.innerHTML = `
+      <table class="trip-flight-summary-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Flight</th>
+            <th>Date</th>
+            <th>Departure</th>
+            <th>Arrival</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
   } catch (err) {
     node.innerHTML = "";
   }

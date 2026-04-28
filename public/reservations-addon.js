@@ -291,6 +291,20 @@
     }
   }
 
+  function paidByLabel(value) {
+    const v = String(value || "").toLowerCase();
+    if (v === "client") return "By Client";
+    if (v === "usm") return "By USM";
+    if (v === "dtx") return "By DTX";
+    return "—";
+  }
+  function flightScopeLabel(value) {
+    const v = String(value || "").toLowerCase();
+    if (v === "international") return "International";
+    if (v === "domestic") return "Domestic";
+    return "—";
+  }
+
   function renderFlights() {
     const rows = getFilteredFlights();
     if (!rows.length) {
@@ -304,15 +318,18 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>Trip</th>
-              <th>Route</th>
-              <th>Airline</th>
-              <th>Departure</th>
-              <th>Arrival</th>
+              <th data-trip-scope-hide>Trip</th>
+              <th>Type</th>
+              <th>From</th>
+              <th>Departure Time</th>
+              <th>To</th>
+              <th>Arrival Time</th>
               <th>Pax</th>
               <th>Staff</th>
               <th>Tourist Ticket</th>
+              <th>Paid by</th>
               <th>Guide Ticket</th>
+              <th>Paid by</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -322,15 +339,18 @@
                 (entry, index) => `
                   <tr>
                     <td class="table-center">${index + 1}</td>
-                    <td><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
-                    <td>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → ") || "-")}</td>
-                    <td>${escapeHtml(entry.airline || "-")}</td>
-                    <td>${escapeHtml(`${formatDate(entry.departureDate)} ${entry.departureTime || ""}`.trim())}</td>
-                    <td>${escapeHtml(`${formatDate(entry.arrivalDate)} ${entry.arrivalTime || ""}`.trim() || "-")}</td>
+                    <td data-trip-scope-hide><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
+                    <td>${escapeHtml(flightScopeLabel(entry.flightScope))}</td>
+                    <td>${escapeHtml(entry.fromCity || "-")}</td>
+                    <td class="table-nowrap">${escapeHtml(`${formatDate(entry.departureDate)} ${entry.departureTime || ""}`.trim() || "-")}</td>
+                    <td>${escapeHtml(entry.toCity || "-")}</td>
+                    <td class="table-nowrap">${escapeHtml(`${formatDate(entry.arrivalDate)} ${entry.arrivalTime || ""}`.trim() || "-")}</td>
                     <td class="table-center">${escapeHtml(entry.passengerCount || "-")}</td>
                     <td class="table-center">${escapeHtml(entry.staffCount || "-")}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.touristTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.touristTicketStatus || "pending"))}</span></td>
+                    <td>${escapeHtml(paidByLabel(entry.touristPaidBy))}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.guideTicketStatus || "pending")}">${escapeHtml(formatStatus(entry.guideTicketStatus || "pending"))}</span></td>
+                    <td>${escapeHtml(paidByLabel(entry.guidePaidBy))}</td>
                     <td>
                       <details class="trip-menu row-action-menu">
                         <summary class="trip-menu-trigger" aria-label="Flight reservation actions">⋯</summary>
@@ -351,7 +371,9 @@
   }
 
   function renderFlightPayments() {
-    const rows = getFilteredFlightPayments();
+    // If a client paid, we don't track that money internally — drop those rows
+    // so the table only shows payments the company actually made.
+    const rows = getFilteredFlightPayments().filter((r) => String(r.paidFromAccount || "").toLowerCase() !== "client");
     if (!rows.length) {
       flightPaymentList.innerHTML = '<p class="empty">No flight payments found for the selected filters.</p>';
       return;
@@ -363,11 +385,11 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>Trip</th>
-              <th>Route</th>
+              <th data-trip-scope-hide>Trip</th>
+              <th data-trip-scope-hide>Route</th>
               <th>Ticket Price</th>
               <th>Total Ticket Price</th>
-              <th>Payment</th>
+              <th>Payment Status</th>
               <th>Paid To</th>
               <th>Paid From</th>
               <th>Paid Date</th>
@@ -381,13 +403,13 @@
                 (entry, index) => `
                   <tr>
                     <td class="table-center">${index + 1}</td>
-                    <td><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
-                    <td>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → ") || "-")}</td>
+                    <td data-trip-scope-hide><a href="/trip-detail?tripId=${encodeURIComponent(entry.tripId)}" class="trip-name-link">${escapeHtml(entry.tripName)}</a></td>
+                    <td data-trip-scope-hide>${escapeHtml([entry.fromCity, entry.toCity].filter(Boolean).join(" → ") || "-")}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.ticketPrice))}</td>
                     <td class="table-right">${escapeHtml(formatMoney(entry.totalTicketPrice || entry.amount))}</td>
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus || "unpaid")}">${escapeHtml(formatStatus(entry.paymentStatus || "unpaid"))}</span></td>
                     <td>${escapeHtml(entry.paidTo || "-")}</td>
-                    <td>${escapeHtml(entry.paidFromAccount || "-")}</td>
+                    <td>${escapeHtml(paidByLabel(entry.paidFromAccount))}</td>
                     <td>${escapeHtml(formatDate(entry.paidDate))}</td>
                     <td>${escapeHtml(entry.paymentNotes || "-")}</td>
                     <td>
