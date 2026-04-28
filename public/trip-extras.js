@@ -725,6 +725,9 @@
       closeModal(touristFormPanel);
       resetTouristForm();
       await loadGroupsAndTourists(tripId);
+      if (typeof window.loadTripDocuments === "function") {
+        try { await window.loadTripDocuments(tripId); } catch {}
+      }
     } catch (err) {
       touristFormStatus.textContent = err.message || "Could not save tourist.";
     }
@@ -798,6 +801,9 @@
       try {
         await fetchJson(`/api/tourists/${id}`, { method: "DELETE" });
         await loadGroupsAndTourists(tripId);
+        if (typeof window.loadTripDocuments === "function") {
+          try { await window.loadTripDocuments(tripId); } catch {}
+        }
       } catch (err) {
         alert(err.message || "Could not delete tourist.");
       }
@@ -882,4 +888,30 @@
   if (getTripIdFromUrl()) {
     loadGroupsAndTourists(getTripIdFromUrl());
   }
+
+  // Live-ish multi-manager sync: every 15s refresh groups + tourists + the
+  // trip-documents list so changes another manager makes show up without a
+  // page reload. Pauses when the tab is hidden so background tabs don't
+  // hammer the server.
+  let liveSyncTimer = null;
+  function startLiveSync() {
+    if (liveSyncTimer) return;
+    liveSyncTimer = setInterval(() => {
+      const tid = getTripIdFromUrl();
+      if (!tid) return;
+      if (document.visibilityState !== "visible") return;
+      // Skip refresh while a modal is open so we don't blow away typing.
+      if (document.body.classList.contains("modal-open")) return;
+      if (touristFormPanel && !touristFormPanel.classList.contains("is-hidden")) return;
+      if (groupFormPanel && !groupFormPanel.classList.contains("is-hidden")) return;
+      loadGroupsAndTourists(tid);
+      if (typeof window.loadTripDocuments === "function") {
+        try { window.loadTripDocuments(tid); } catch {}
+      }
+    }, 15000);
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") startLiveSync();
+  });
+  startLiveSync();
 })();

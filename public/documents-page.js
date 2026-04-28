@@ -140,12 +140,15 @@
         : '<span class="tourist-tag-empty">—</span>';
       const lastName = d.touristLastName || (d.touristName ? d.touristName.split(" ")[0] : "") || "";
       const firstName = d.touristFirstName || (d.touristName ? d.touristName.split(" ").slice(1).join(" ") : "") || "";
+      const tripCell = d.touristRemovedAt
+        ? '<span class="doc-removed-pill">Removed from ' + escapeHtml(d.touristRemovedTripName || ((d.tripSerial || "") + " · " + (d.tripName || ""))) + "</span>"
+        : '<a class="trip-name-link" href="' + escapeHtml(tripUrl) + '">' + escapeHtml((d.tripSerial || "") + " · " + (d.tripName || "")) + "</a>";
       return "<tr>" +
         "<td>" + (pageOffset + idx + 1) + "</td>" +
         '<td><a class="doc-file-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(d.originalName || "-") + "</a></td>" +
         "<td>" + escapeHtml(lastName || "-") + "</td>" +
         "<td>" + escapeHtml(firstName || "-") + "</td>" +
-        '<td><a class="trip-name-link" href="' + escapeHtml(tripUrl) + '">' + escapeHtml((d.tripSerial || "") + " · " + (d.tripName || "")) + "</a></td>" +
+        "<td>" + tripCell + "</td>" +
         "<td>" + destChips + "</td>" +
         "<td>" + escapeHtml(d.category || "-") + "</td>" +
         "<td>" + (ext ? "." + escapeHtml(ext) : "-") + "</td>" +
@@ -290,4 +293,11 @@
   refreshSavedFiltersDropdown();
 
   load();
+
+  // Multi-manager sync: poll every 15s so docs uploaded or removed by other
+  // managers appear without a page reload. Pauses when the tab is hidden.
+  setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    load();
+  }, 15000);
 })();

@@ -6127,10 +6127,38 @@ def handle_delete_tourist(environ, start_response, tourist_id):
     if not actor:
         return []
     records = read_tourists()
-    remaining = [r for r in records if r.get("id") != tourist_id]
-    if len(remaining) == len(records):
+    deleted = next((r for r in records if r.get("id") == tourist_id), None)
+    if not deleted:
         return json_response(start_response, "404 Not Found", {"error": "Tourist not found"})
+    remaining = [r for r in records if r.get("id") != tourist_id]
     write_tourists(remaining)
+    # Mark — but don't delete — any passport/document the tourist had attached
+    # to a trip. The Documents page surfaces these as "Removed from <trip>"
+    # so the file isn't lost when a participant gets removed.
+    try:
+        trips = read_camp_trips()
+        deleted_at = datetime.now(timezone.utc).isoformat()
+        deleted_name = (
+            f"{normalize_text(deleted.get('lastName'))} {normalize_text(deleted.get('firstName'))}".strip()
+            or normalize_text(deleted.get("touristName"))
+        )
+        changed = False
+        for trip in trips:
+            for doc in (trip.get("documents") or []):
+                if doc.get("touristId") != tourist_id:
+                    continue
+                if doc.get("touristRemovedAt"):
+                    continue
+                doc["touristRemovedAt"] = deleted_at
+                doc["touristRemovedTripName"] = (
+                    f"{normalize_text(trip.get('serial'))} · {normalize_text(trip.get('tripName'))}".strip(" ·")
+                )
+                doc["touristRemovedName"] = deleted_name
+                changed = True
+        if changed:
+            write_camp_trips(trips)
+    except Exception as exc:
+        print(f"[tourist-delete] document mark failed: {exc}", flush=True)
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": tourist_id})
 
 
@@ -9689,14 +9717,28 @@ def handle_create_note(environ, start_response):
     notes = read_notes()
     notes.insert(0, record)
     write_notes(notes)
-    # Per @-mention: log a notification for each mentioned user so it lands
-    # in their reminder bell.
+    # Every note creates a bell entry for the team — replies count as note.reply
+    # so they're distinguishable. Mentions also fire a personal note.mention
+    # entry (used to drive the per-user "mentioning me" filter).
+    actor_name = (actor or {}).get("fullName") or (actor or {}).get("email") or "someone"
+    try:
+        kind = "note.reply" if record.get("parentId") else "note.created"
+        title = f"Reply by {actor_name}" if record.get("parentId") else f"New note by {actor_name}"
+        log_notification(
+            kind,
+            actor,
+            title,
+            detail=record["body"][:120],
+            meta={"id": record["id"], "tripId": record.get("tripId"), "groupId": record.get("groupId"), "parentId": record.get("parentId") or ""},
+        )
+    except Exception:
+        pass
     for m in record.get("mentions") or []:
         try:
             log_notification(
                 "note.mention",
                 actor,
-                f"Mentioned by {(actor or {}).get('fullName') or 'someone'}",
+                f"Mentioned by {actor_name}",
                 detail=record["body"][:120],
                 meta={"id": record["id"], "tripId": record.get("tripId"), "groupId": record.get("groupId"), "mentionedUserId": m.get("id")},
             )

@@ -681,3 +681,14 @@ if (window.DestinationsMulti) window.DestinationsMulti.attachAll(document);
 
 // Refresh overdue countdowns every minute.
 setInterval(renderList, 60 * 1000);
+
+// Multi-manager sync: poll the dashboard every 15s so a task assigned by
+// another manager appears without a page reload. Pauses when the tab is
+// hidden or a form modal is open so we don't blow away typing.
+setInterval(() => {
+  if (document.visibilityState !== "visible") return;
+  if (document.body.classList.contains("modal-open")) return;
+  if (taskFormPanel && !taskFormPanel.classList.contains("is-hidden")) return;
+  if (contactFormPanel && !contactFormPanel.classList.contains("is-hidden")) return;
+  loadDashboard();
+}, 15000);

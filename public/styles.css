@@ -3844,6 +3844,15 @@ body.modal-open {
   white-space: nowrap;
   transition: color 0.15s;
 }
+.doc-removed-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 500;
+}
 .trip-name-link:hover {
   color: #1d4ed8;
 }

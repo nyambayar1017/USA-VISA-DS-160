@@ -1646,3 +1646,15 @@ document.getElementById("group-edit-delete")?.addEventListener("click", async ()
 });
 
 loadAll();
+
+// Live-ish multi-manager sync: every 15s refresh trip + group + tourist data
+// so changes another manager makes show up without a page reload. Pauses when
+// the tab is hidden or a modal is open (don't blow away typing).
+(function startGroupLiveSync() {
+  setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    if (document.body.classList.contains("modal-open")) return;
+    if (formPanel && !formPanel.classList.contains("is-hidden")) return;
+    loadAll();
+  }, 15000);
+})();
