@@ -454,13 +454,17 @@ td {
 
 /* Compact status pill — same shape as NOTE / Edit, but each status has
    a solid colour. The native caret is hidden and there is no extra
-   padding for it; the user clicks anywhere on the pill to open the menu. */
+   padding for it; the user clicks anywhere on the pill to open the menu.
+   text-align-last is what actually centres the *selected option* on
+   native selects — plain text-align is ignored on Chrome/Safari. */
 .trip-summary-section-head .trip-status-select--compact {
   padding: 0 12px;
   border: 0;
   color: #fff;
   font-weight: 700;
   text-align: center;
+  text-align-last: center;
+  -moz-text-align-last: center;
   text-overflow: ellipsis;
   overflow: hidden;
   -webkit-appearance: none;
@@ -811,10 +815,10 @@ td {
 }
 
 .workspace-profile-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.25;
+  /* User wants only the single-letter avatar bubble visible in the
+     top-right; the full name + email block sits inside the dropdown
+     menu instead. */
+  display: none;
 }
 
 .workspace-profile-text strong {
@@ -10829,15 +10833,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
    the default 14×16 padding and free auto-layout were leaving a huge
    blank slab on either side. Pin it tight, centre the checkbox, and
    trim the padding on the row-number column next to it so the # sits
-   close to the checkbox instead of floating far to the right. */
-.reservation-addon-table th:first-child:has(#tourist-select-all),
-.reservation-addon-table td:first-child:has(.tourist-select) {
+   close to the checkbox instead of floating far to the right.
+   Class-based instead of :has() because some in-app browsers still
+   ship without :has() support. */
+.reservation-addon-table th.tourist-cb-cell,
+.reservation-addon-table td.tourist-cb-cell {
   width: 32px !important;
-  padding: 8px 4px 8px 10px !important;
+  padding: 8px 2px 8px 8px !important;
   text-align: center !important;
 }
-.reservation-addon-table th:first-child:has(#tourist-select-all) + th,
-.reservation-addon-table td:first-child:has(.tourist-select) + td {
+.reservation-addon-table th.tourist-cb-cell + th,
+.reservation-addon-table td.tourist-cb-cell + td {
   padding-left: 6px !important;
 }
 

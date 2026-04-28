@@ -338,7 +338,7 @@
     }
     const cols = TOURIST_COLUMNS.filter((c) => visibleTouristColumns.has(c.key));
     const headers = cols.map((c) =>
-      c.key === "select" ? '<th><input type="checkbox" id="tourist-select-all" aria-label="Select all" /></th>' :
+      c.key === "select" ? '<th class="tourist-cb-cell"><input type="checkbox" id="tourist-select-all" aria-label="Select all" /></th>' :
       `<th>${escapeHtml(c.label)}</th>`
     ).join("");
     const roomTypeShort = { single: "SGL", double: "DBL", twin: "TWIN", triple: "TPL", family: "FAM", other: "OTH" };
@@ -353,7 +353,7 @@
       const downDisabled = idx === rows.length - 1 ? "disabled" : "";
       const age = calcAge(t.dob);
       const cells = {
-        select: `<td><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>`,
+        select: `<td class="tourist-cb-cell"><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>`,
         rowNum: `<td>${idx + 1}</td>`,
         group: `<td><strong>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</strong></td>`,
         lastName: `<td>${escapeHtml(t.lastName || "")}</td>`,
