@@ -6699,40 +6699,25 @@ def handle_export_tourists(environ, start_response):
     room_col_idx = next((i + 1 for i, (lbl, _) in enumerate(columns) if lbl == "Room"), None)
 
     # ── Letterhead ──────────────────────────────────────────────
-    # Show the agency name + "Rooming list" at the top of the workbook
-    # so the printed copy reads like a proper agency document. Try to
-    # embed the workspace logo as well; if openpyxl can't load the file
-    # (missing PIL or unreadable PNG), fall back to a text-only banner.
+    # Text-only banner. Embedding the PNG logo had it rendering at
+    # native size and covering the agency name; a clean two-line text
+    # block is safer and still reads like a proper agency document.
     if is_dtx:
         agency_name = "Delkhii Travel X"
-        logo_path = PUBLIC_DIR / "assets" / "dtx-logo.png"
     else:
         agency_name = "Steppe Mongolia"
-        logo_path = PUBLIC_DIR / "assets" / "usm-logo-horizontal.png"
 
     name_cell = ws.cell(row=1, column=1, value=agency_name)
-    name_cell.font = Font(bold=True, size=18, color="20356F")
-    name_cell.alignment = Alignment(horizontal="left", vertical="center")
+    name_cell.font = Font(bold=True, size=20, color="20356F")
+    name_cell.alignment = Alignment(horizontal="center", vertical="center")
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
-    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[1].height = 32
 
     sub_cell = ws.cell(row=2, column=1, value=f"{agency_name} agency · Rooming list")
     sub_cell.font = Font(bold=True, size=12, color="475569")
-    sub_cell.alignment = Alignment(horizontal="left", vertical="center")
+    sub_cell.alignment = Alignment(horizontal="center", vertical="center")
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_cols)
-    ws.row_dimensions[2].height = 20
-
-    try:
-        if logo_path.exists():
-            from openpyxl.drawing.image import Image as XlsxImage
-            img = XlsxImage(str(logo_path))
-            img.height = 56
-            img.width = int(56 * (img.width / max(img.height, 1))) if img.height else 120
-            img.anchor = "A1"
-            ws.add_image(img)
-            ws.row_dimensions[1].height = 50
-    except Exception:
-        pass
+    ws.row_dimensions[2].height = 22
 
     current_row = 4  # blank row 3 separates letterhead from first section
 
