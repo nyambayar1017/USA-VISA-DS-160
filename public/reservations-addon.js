@@ -24,6 +24,11 @@
     if (transferTripSelect) window.TripPicker.upgrade(transferTripSelect, { placeholder: "Choose trip…" });
   }
   const flightPaymentSelect = document.querySelector("#flight-payment-select");
+  // Same searchable picker treatment for the flight-payment "Selected Flight"
+  // dropdown so it stays usable when there are many flights.
+  if (window.TripPicker && flightPaymentSelect) {
+    window.TripPicker.upgrade(flightPaymentSelect, { placeholder: "Choose flight…" });
+  }
   const flightFilterTrip = document.querySelector("#flight-filter-trip");
   const flightFilterStatus = document.querySelector("#flight-filter-status");
   const flightFilterDate = document.querySelector("#flight-filter-date");
