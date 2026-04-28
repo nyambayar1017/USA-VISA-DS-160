@@ -95,6 +95,15 @@
       .replace(/'/g, "&#39;");
   }
 
+  function expirySoonClass(value) {
+    if (!value) return "";
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return "";
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() + 8);
+    return dt <= cutoff ? "passport-expiry-soon" : "";
+  }
+
   function calcAge(dob) {
     if (!dob) return null;
     const m = String(dob).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -297,7 +306,9 @@
         nationality: escapeHtml(t.nationality || "-"),
         tags: renderTagsCell(t),
         passportNumber: escapeHtml(t.passportNumber || "-"),
-        passportExpiry: escapeHtml(t.passportExpiry || "-"),
+        passportExpiry: t.passportExpiry
+          ? `<span class="${expirySoonClass(t.passportExpiry)}">${escapeHtml(t.passportExpiry)}</span>`
+          : "-",
         registrationNumber: escapeHtml(t.registrationNumber || "-"),
         phone: escapeHtml(t.phone || "-"),
         email: escapeHtml(t.email || "-"),

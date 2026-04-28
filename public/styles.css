@@ -3853,6 +3853,9 @@ body.modal-open {
   font-size: 12px;
   font-weight: 500;
 }
+/* Expiry that's <= 8 months out — gives a quick red flag on the
+   participant tables and the tourist directory. */
+.passport-expiry-soon { color: #b91c1c; font-weight: 600; }
 
 .participant-chooser-card { max-width: 440px; }
 .participant-chooser-options {

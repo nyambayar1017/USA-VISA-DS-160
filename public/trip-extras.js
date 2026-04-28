@@ -77,6 +77,15 @@
       .replace(/'/g, "&#39;");
   }
 
+  function expirySoonClass(value) {
+    if (!value) return "";
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return "";
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() + 8);
+    return dt <= cutoff ? "passport-expiry-soon" : "";
+  }
+
   function getTripIdFromUrl() {
     const params = new URLSearchParams(window.location.search);
     return params.get("tripId") || "";
@@ -282,7 +291,7 @@
                       <td>${escapeHtml(t.firstName || "")}</td>
                       <td>${escapeHtml(t.nationality || "-")}</td>
                       <td>${escapeHtml(t.passportNumber || "-")}</td>
-                      <td>${escapeHtml(t.passportExpiry || "-")}</td>
+                      <td class="${expirySoonClass(t.passportExpiry)}">${escapeHtml(t.passportExpiry || "-")}</td>
                       <td>${escapeHtml(t.registrationNumber || "-")}</td>
                       <td>${escapeHtml(t.phone || "-")}</td>
                       <td>${t.gender === "male" ? "Male" : t.gender === "female" ? "Female" : "-"}</td>
@@ -551,6 +560,7 @@
       registrationNumber: picked.registrationNumber,
       phone: picked.phone,
       email: picked.email,
+      copyFromTouristId: picked.id,
       tripId,
       groupId,
     };

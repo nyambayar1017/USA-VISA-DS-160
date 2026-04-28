@@ -103,6 +103,17 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+// Red-flag passports whose expiry is within 8 months — many embassies
+// require >6 months remaining, so we warn early.
+function expirySoonClass(value) {
+  if (!value) return "";
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return "";
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() + 8);
+  return dt <= cutoff ? "passport-expiry-soon" : "";
+}
+
 function formatDate(d) {
   if (!d) return "-";
   const dt = new Date(d);
@@ -1235,7 +1246,7 @@ function renderParticipants() {
                 <td>${escapeHtml(t.lastName || "")}</td>
                 <td>${escapeHtml(t.firstName || "")}</td>
                 <td>${escapeHtml(t.passportNumber || "-")}</td>
-                <td>${escapeHtml(formatDate(t.passportExpiry))}</td>
+                <td class="${expirySoonClass(t.passportExpiry)}">${escapeHtml(formatDate(t.passportExpiry))}</td>
                 <td>${escapeHtml(formatDate(t.dob))}</td>
                 <td>${ageFromDob(t.dob) || "-"}</td>
                 <td>${escapeHtml(t.phone || "-")}</td>
@@ -1333,6 +1344,7 @@ async function addExistingTouristToGroup(picked) {
     registrationNumber: picked.registrationNumber,
     phone: picked.phone,
     email: picked.email,
+    copyFromTouristId: picked.id,
     tripId,
     groupId,
   };

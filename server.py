@@ -6053,6 +6053,28 @@ def handle_create_tourist(environ, start_response):
                 record["passportDocumentId"] = doc["id"]
         except Exception:
             pass
+    # When the participant is being copied from an existing tourist (the
+    # "Existing tourist" picker in the add-participant flow), pull their
+    # passport scan over so the manager doesn't have to re-upload it.
+    copy_from_id = normalize_text(payload.get("copyFromTouristId"))
+    if copy_from_id and not record.get("passportDocumentId"):
+        try:
+            doc = clone_passport_from_tourist(
+                copy_from_id,
+                record.get("tripId"),
+                record["id"],
+                f"{record.get('lastName', '')} {record.get('firstName', '')}".strip() or "passport",
+                actor,
+            )
+            if doc:
+                record["passportDocumentId"] = doc["id"]
+                # Mirror the source's passportScanPath onto the new record
+                # so /api/tourists rows reflect that a scan is on file.
+                source = next((t for t in read_tourists() if t.get("id") == copy_from_id), None)
+                if source and source.get("passportScanPath"):
+                    record["passportScanPath"] = source.get("passportScanPath")
+        except Exception as exc:
+            print(f"[clone-passport] failed: {exc}", flush=True)
     records = read_tourists()
     records.insert(0, record)
     write_tourists(records)
@@ -8451,6 +8473,66 @@ def handle_passport_scan(environ, start_response):
         "originalName": original_name,
         "contentType": upload["content_type"],
     })
+
+
+def clone_passport_from_tourist(source_tourist_id, target_trip_id, target_tourist_id, target_tourist_name, actor):
+    """When a manager picks an existing tourist on the FIT/GIT 'add participant'
+    flow, copy that tourist's most recent passport scan into the new trip's
+    documents so they don't have to re-upload it. Returns the new doc dict,
+    or None if the source has no passport on file or anything goes wrong."""
+    if not source_tourist_id or not target_trip_id or not target_tourist_id:
+        return None
+    trips = read_camp_trips()
+    target_index = next((i for i, t in enumerate(trips) if t.get("id") == target_trip_id), None)
+    if target_index is None:
+        return None
+    source_doc = None
+    for trip in trips:
+        for doc in (trip.get("documents") or []):
+            if doc.get("touristId") != source_tourist_id:
+                continue
+            if not re.search(r"passport", str(doc.get("category") or ""), re.IGNORECASE):
+                continue
+            source_path = TRIP_UPLOADS_DIR / trip.get("id") / (doc.get("storedName") or "")
+            if not source_path.exists():
+                continue
+            source_doc = (trip, doc, source_path)
+            break
+        if source_doc:
+            break
+    if not source_doc:
+        return None
+    src_trip, src_doc, src_path = source_doc
+    ext = Path(src_doc.get("storedName") or "").suffix.lower() or ".jpg"
+    ensure_data_store()
+    doc_id = str(uuid4())
+    target_dir = TRIP_UPLOADS_DIR / target_trip_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = doc_id + ext
+    dest_path = target_dir / stored_name
+    try:
+        dest_path.write_bytes(src_path.read_bytes())
+    except OSError:
+        return None
+    safe_name = (target_tourist_name or "passport").strip().replace("/", "-").replace("\\", "-") or "passport"
+    new_doc = {
+        "id": doc_id,
+        "originalName": f"{safe_name} passport{ext}",
+        "storedName": stored_name,
+        "mimeType": src_doc.get("mimeType") or "application/octet-stream",
+        "size": dest_path.stat().st_size,
+        "category": "Passports & Visas",
+        "touristId": target_tourist_id,
+        "touristName": target_tourist_name,
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor) if actor else {},
+    }
+    trip = trips[target_index]
+    documents = list(trip.get("documents") or [])
+    documents.append(new_doc)
+    trips[target_index] = {**trip, "documents": documents}
+    write_camp_trips(trips)
+    return new_doc
 
 
 def consume_passport_token(token, trip_id, tourist_id, tourist_name, actor):
