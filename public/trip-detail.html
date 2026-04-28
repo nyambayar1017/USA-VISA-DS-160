@@ -212,6 +212,13 @@
               <p>All tourists on this trip. Use the group filter to focus on one party.</p>
             </div>
             <div class="camp-toolbar">
+              <details class="trip-saved-filter-dropdown" id="tourist-section-view-dropdown">
+                <summary>
+                  <span>View</span>
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="trip-saved-filter-popover tourist-view-popover" id="tourist-section-view-popover"></div>
+              </details>
               <button type="button" id="tourist-export-selected" class="secondary-button">Download selected</button>
               <button type="button" id="tourist-export-all" class="secondary-button">Download all</button>
               <button type="button" id="tourist-toggle-form">Add tourist</button>
@@ -228,13 +235,6 @@
               Search
               <input id="tourist-section-filter-name" type="search" placeholder="Search name or passport" />
             </label>
-            <details class="trip-saved-filter-dropdown" id="tourist-section-view-dropdown">
-              <summary>
-                <span>View</span>
-                <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </summary>
-              <div class="trip-saved-filter-popover tourist-view-popover" id="tourist-section-view-popover"></div>
-            </details>
           </div>
           <div id="tourist-form-panel" class="camp-modal workspace-form-modal is-hidden">
             <div class="camp-modal-backdrop" data-action="close-tourist-modal"></div>
