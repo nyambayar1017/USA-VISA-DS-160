@@ -5255,11 +5255,24 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: var(--muted);
 }
 
-.pagination-summary {
-  display: inline-flex;
+/* 3-col layout used by the trips table only — page count on the left,
+   confirmed-tourist chip dead-center, Prev/Next on the right. The base
+   .table-pagination keeps its 2-col flex layout for every other table. */
+.table-pagination-3col {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+}
+.table-pagination-3col .pagination-count {
+  justify-self: start;
+  margin: 0;
+  color: var(--muted);
+}
+.table-pagination-3col .confirmed-stat {
+  justify-self: center;
+}
+.table-pagination-3col .pagination-actions {
+  justify-self: end;
 }
 
 .confirmed-stat {
@@ -5310,7 +5323,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 .confirmed-stat-popover {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 30;
   min-width: 220px;
   max-height: 320px;

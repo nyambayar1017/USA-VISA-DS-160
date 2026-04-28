@@ -1103,13 +1103,23 @@ document.addEventListener("click", (e) => {
 // past that point (travelling, completed). Excludes offer/planning/cancelled.
 const CONFIRMED_TOURIST_STATUSES = new Set(["confirmed", "travelling", "completed"]);
 
+// FIT trips: participantCount is the actual tourist count.
+// GIT trips: participantCount is the planned/max slots; actualTouristCount
+// is how many real tourists are booked so far. The "5/10" cell means 5 actual
+// of 10 slots — this stat counts the 5.
+function tripActualPax(trip) {
+  const isFit = String(trip.tripType || "").toLowerCase() === "fit";
+  return isFit ? Number(trip.participantCount) || 0 : Number(trip.actualTouristCount) || 0;
+}
+
 function computeConfirmedTouristStats(allTrips) {
   const confirmed = allTrips.filter((t) => CONFIRMED_TOURIST_STATUSES.has(normalizeStatus(t.status)));
-  const total = confirmed.reduce((sum, t) => sum + (Number(t.participantCount) || 0), 0);
+  const total = confirmed.reduce((sum, t) => sum + tripActualPax(t), 0);
   const byDestination = new Map();
   confirmed.forEach((t) => {
     const tags = Array.isArray(t.tags) ? t.tags.filter(Boolean) : [];
-    const pax = Number(t.participantCount) || 0;
+    const pax = tripActualPax(t);
+    if (!pax) return;
     if (!tags.length) {
       byDestination.set("(no destination)", (byDestination.get("(no destination)") || 0) + pax);
     } else {
@@ -1174,28 +1184,26 @@ function renderTrips() {
         <tbody>${body}</tbody>
       </table>
     </div>
-    <div class="table-pagination">
-      <p class="pagination-summary">
-        <span>${startIndex + 1}-${startIndex + visibleTrips.length} / ${trips.length}</span>
-        <details class="confirmed-stat">
-          <summary class="confirmed-stat-chip" title="Tourists in confirmed/travelling/completed trips">
-            <span class="confirmed-stat-icon" aria-hidden="true">✓</span>
-            <span class="confirmed-stat-count">${confirmedStats.total}</span>
-            <span class="confirmed-stat-label">tourists confirmed</span>
-            <span class="confirmed-stat-caret" aria-hidden="true">▾</span>
-          </summary>
-          <div class="confirmed-stat-popover">
-            <div class="confirmed-stat-head">By destination</div>
-            ${confirmedStats.byDestination.length
-              ? confirmedStats.byDestination
-                  .map(
-                    ([tag, count]) => `<div class="confirmed-stat-row"><span>${escapeHtml(tag)}</span><strong>${count}</strong></div>`
-                  )
-                  .join("")
-              : '<div class="confirmed-stat-empty">No confirmed tourists yet.</div>'}
-          </div>
-        </details>
-      </p>
+    <div class="table-pagination table-pagination-3col">
+      <p class="pagination-count">${startIndex + 1}-${startIndex + visibleTrips.length} / ${trips.length}</p>
+      <details class="confirmed-stat">
+        <summary class="confirmed-stat-chip" title="Tourists in confirmed/travelling/completed trips">
+          <span class="confirmed-stat-icon" aria-hidden="true">✓</span>
+          <span class="confirmed-stat-count">${confirmedStats.total}</span>
+          <span class="confirmed-stat-label">tourists confirmed</span>
+          <span class="confirmed-stat-caret" aria-hidden="true">▾</span>
+        </summary>
+        <div class="confirmed-stat-popover">
+          <div class="confirmed-stat-head">By destination</div>
+          ${confirmedStats.byDestination.length
+            ? confirmedStats.byDestination
+                .map(
+                  ([tag, count]) => `<div class="confirmed-stat-row"><span>${escapeHtml(tag)}</span><strong>${count}</strong></div>`
+                )
+                .join("")
+            : '<div class="confirmed-stat-empty">No confirmed tourists yet.</div>'}
+        </div>
+      </details>
       <div class="pagination-actions">
         <button type="button" data-action="trip-page-prev" ${currentTripPage === 1 ? "disabled" : ""}>Previous</button>
         <button type="button" data-action="trip-page-next" ${currentTripPage === totalPages ? "disabled" : ""}>Next</button>
