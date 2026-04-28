@@ -534,7 +534,7 @@ function renderMailUnreadList() {
 }
 
 function updateMailCount(unread) {
-  const display = unread > 99 ? "99+" : String(unread || 0);
+  const display = String(unread || 0);
   if (mailCountNode) {
     mailCountNode.textContent = display;
     if (unread > 0) mailCountNode.removeAttribute("hidden");
@@ -641,7 +641,7 @@ function renderReminderList() {
 
 function updateReminderCount(n) {
   if (!reminderCountNode) reminderCountNode = profileCard?.querySelector("[data-reminder-count]");
-  const display = n > 99 ? "99+" : String(n || 0);
+  const display = String(n || 0);
   if (reminderCountNode) {
     reminderCountNode.textContent = display;
     if (n > 0) reminderCountNode.removeAttribute("hidden");
@@ -822,7 +822,7 @@ function renderNotificationsList() {
 }
 
 function updateBellDot(unread) {
-  const display = unread > 99 ? "99+" : String(unread || 0);
+  const display = String(unread || 0);
   if (notificationCountNode) {
     notificationCountNode.textContent = display;
     if (unread > 0) notificationCountNode.removeAttribute("hidden");

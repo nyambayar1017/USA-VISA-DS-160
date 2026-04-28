@@ -62,7 +62,7 @@
       fabCount.textContent = "0";
     } else {
       fabCount.hidden = false;
-      fabCount.textContent = n > 99 ? "99+" : String(n);
+      fabCount.textContent = String(n);
     }
   }
 
