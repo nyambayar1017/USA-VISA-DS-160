@@ -56,7 +56,7 @@
 
   function updateBadge() {
     if (!fabCount) return;
-    const n = notes.length;
+    const n = notes.filter((x) => !x.parentId).length;
     if (!n) {
       fabCount.hidden = true;
       fabCount.textContent = "0";
@@ -182,41 +182,70 @@
     } catch {}
   }
 
+  function renderNoteArticle(n, opts = {}) {
+    const isReply = !!opts.isReply;
+    const author = n.createdBy?.name || n.createdBy?.email || "—";
+    const avatar = n.createdByAvatar
+      ? `<img src="${escapeHtml(n.createdByAvatar)}" alt="" class="notes-avatar">`
+      : `<span class="notes-avatar notes-avatar-fallback">${escapeHtml((author[0] || "?").toUpperCase())}</span>`;
+    const isAdmin = (me?.role || "").toLowerCase() === "admin";
+    const canEdit = isAdmin || (me?.id && n.createdBy?.id === me.id);
+    const menu = canEdit ? `
+      <details class="row-menu notes-item-menu">
+        <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>
+        <div class="row-menu-popover">
+          <button type="button" class="row-menu-item" data-note-edit="${escapeHtml(n.id)}">Edit</button>
+          <button type="button" class="row-menu-item is-danger" data-note-delete="${escapeHtml(n.id)}">Delete</button>
+        </div>
+      </details>` : "";
+    const replyBtn = isReply ? "" : `<button type="button" class="notes-reply-trigger" data-note-reply="${escapeHtml(n.id)}">Reply</button>`;
+    const replies = isReply ? "" : (notesByParent.get(n.id) || [])
+      .map((r) => renderNoteArticle(r, { isReply: true })).join("");
+    const repliesBlock = isReply ? "" : `
+      <div class="notes-replies" data-replies-for="${escapeHtml(n.id)}">${replies}</div>
+      <div class="notes-reply-form-host" data-reply-host="${escapeHtml(n.id)}"></div>`;
+    return `
+      <article class="notes-item${isReply ? " notes-item--reply" : ""}" data-note-id="${escapeHtml(n.id)}">
+        <header class="notes-item-head">
+          ${avatar}
+          <div class="notes-item-meta">
+            <strong>${escapeHtml(author)}</strong>
+            <time>${escapeHtml(fmt(n.createdAt))}</time>
+          </div>
+          ${replyBtn}
+          ${menu}
+        </header>
+        <p class="notes-item-body">${bodyToHtml(n.body || "")}</p>
+        ${repliesBlock}
+      </article>
+    `;
+  }
+
+  let notesByParent = new Map();
+
+  function indexReplies() {
+    notesByParent = new Map();
+    for (const n of notes) {
+      const pid = n.parentId || "";
+      if (!pid) continue;
+      if (!notesByParent.has(pid)) notesByParent.set(pid, []);
+      notesByParent.get(pid).push(n);
+    }
+    // Sort replies oldest → newest so the thread reads top-down like a chat.
+    for (const arr of notesByParent.values()) {
+      arr.sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+    }
+  }
+
   function render() {
     updateBadge();
-    if (!notes.length) {
+    indexReplies();
+    const topLevel = notes.filter((n) => !n.parentId);
+    if (!topLevel.length) {
       list.innerHTML = '<p class="empty">No notes for this trip yet.</p>';
       return;
     }
-    list.innerHTML = notes.map((n) => {
-      const author = n.createdBy?.name || n.createdBy?.email || "—";
-      const avatar = n.createdByAvatar
-        ? `<img src="${escapeHtml(n.createdByAvatar)}" alt="" class="notes-avatar">`
-        : `<span class="notes-avatar notes-avatar-fallback">${escapeHtml((author[0] || "?").toUpperCase())}</span>`;
-      const isAdmin = (me?.role || "").toLowerCase() === "admin";
-      const canEdit = isAdmin || (me?.id && n.createdBy?.id === me.id);
-      const menu = canEdit ? `
-        <details class="row-menu notes-item-menu">
-          <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>
-          <div class="row-menu-popover">
-            <button type="button" class="row-menu-item" data-note-edit="${escapeHtml(n.id)}">Edit</button>
-            <button type="button" class="row-menu-item is-danger" data-note-delete="${escapeHtml(n.id)}">Delete</button>
-          </div>
-        </details>` : "";
-      return `
-        <article class="notes-item" data-note-id="${escapeHtml(n.id)}">
-          <header class="notes-item-head">
-            ${avatar}
-            <div class="notes-item-meta">
-              <strong>${escapeHtml(author)}</strong>
-              <time>${escapeHtml(fmt(n.createdAt))}</time>
-            </div>
-            ${menu}
-          </header>
-          <p class="notes-item-body">${bodyToHtml(n.body || "")}</p>
-        </article>
-      `;
-    }).join("");
+    list.innerHTML = topLevel.map((n) => renderNoteArticle(n)).join("");
   }
 
   function closeRowMenu(target) {
@@ -276,12 +305,55 @@
     });
   }
 
+  function openReplyForm(parentId) {
+    const host = list.querySelector(`[data-reply-host="${CSS.escape(parentId)}"]`);
+    if (!host || host.querySelector(".notes-reply-form")) return;
+    const formEl = document.createElement("form");
+    formEl.className = "notes-reply-form";
+    formEl.innerHTML = `
+      <textarea class="notes-reply-textarea" placeholder="Reply…" rows="2"></textarea>
+      <div class="notes-edit-actions">
+        <button type="button" class="notes-edit-cancel">Cancel</button>
+        <button type="submit" class="notes-edit-save">Send</button>
+      </div>
+    `;
+    host.appendChild(formEl);
+    const ta = formEl.querySelector("textarea");
+    ta.focus();
+    formEl.querySelector(".notes-edit-cancel").addEventListener("click", () => formEl.remove());
+    formEl.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const text = ta.value.trim();
+      if (!text) return;
+      try {
+        const r = await fetch("/api/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: text, parentId, tripId: tripId() }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Send failed");
+        notes.push(data.entry);
+        render();
+      } catch (err) {
+        if (window.UI?.toast) window.UI.toast(err.message || "Could not send", "error");
+        else alert(err.message || "Could not send");
+      }
+    });
+  }
+
   list.addEventListener("click", async (e) => {
     const editBtn = e.target.closest("[data-note-edit]");
     if (editBtn) {
       e.preventDefault();
       closeRowMenu(editBtn);
       startInlineEdit(editBtn.dataset.noteEdit);
+      return;
+    }
+    const replyBtn = e.target.closest("[data-note-reply]");
+    if (replyBtn) {
+      e.preventDefault();
+      openReplyForm(replyBtn.dataset.noteReply);
       return;
     }
     const delBtn = e.target.closest("[data-note-delete]");

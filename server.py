@@ -9423,13 +9423,27 @@ def _parse_note_mentions(body):
 def build_note(payload, actor):
     body = normalize_text(payload.get("body"))
     mentions = _parse_note_mentions(body)
+    parent_id = normalize_text(payload.get("parentId"))
+    trip_id = normalize_text(payload.get("tripId"))
+    group_id = normalize_text(payload.get("groupId"))
+    company = normalize_text(payload.get("company")) or ""
+    # Replies inherit trip/group/company scope from the parent note so the
+    # whole thread stays attached together even if the client only sends parentId.
+    if parent_id:
+        for existing in read_notes():
+            if existing.get("id") == parent_id:
+                trip_id = trip_id or normalize_text(existing.get("tripId"))
+                group_id = group_id or normalize_text(existing.get("groupId"))
+                company = company or normalize_text(existing.get("company")) or ""
+                break
     return {
         "id": uuid4().hex,
         "body": body,
         "mentions": mentions,
-        "tripId": normalize_text(payload.get("tripId")),
-        "groupId": normalize_text(payload.get("groupId")),
-        "company": normalize_text(payload.get("company")) or "",
+        "tripId": trip_id,
+        "groupId": group_id,
+        "parentId": parent_id,
+        "company": company,
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "createdBy": actor_snapshot(actor) if actor else {},
         "createdByAvatar": (actor.get("avatarPath") if isinstance(actor, dict) else "") or "",
