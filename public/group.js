@@ -1482,6 +1482,10 @@ form.addEventListener("input", (e) => {
   resetForm = function () { origReset.apply(this, arguments); clearSelection(); };
 })();
 
+function isUsmWorkspace() {
+  try { return (localStorage.getItem("activeWorkspace") || "") === "USM"; } catch { return false; }
+}
+
 function findMissingParticipantFields(form) {
   const checks = [
     ["lastName", "Last name"],
@@ -1493,7 +1497,9 @@ function findMissingParticipantFields(form) {
     ["passportIssueDate", "Passport issue date"],
     ["passportExpiry", "Passport expiry"],
     ["passportIssuePlace", "Passport issued at"],
-    ["registrationNumber", "Registration #"],
+    // Registration # (Mongolian РД) is only meaningful for DTX (Mongolian
+    // tourists); STEPPE/USM serves international travellers who don't have one.
+    ...(isUsmWorkspace() ? [] : [["registrationNumber", "Registration #"]]),
     ["roomType", "Rooming"],
   ];
   const missing = [];
@@ -1750,7 +1756,7 @@ loadAll();
     ["passportIssueDate", "Passport issue date"],
     ["passportExpiry", "Passport expiry"],
     ["passportIssuePlace", "Passport issued at"],
-    ["registrationNumber", "Registration #"],
+    ...(isUsmWorkspace() ? [] : [["registrationNumber", "Registration #"]]),
     ["roomType", "Rooming"],
   ];
   function summarizeIncomplete() {
