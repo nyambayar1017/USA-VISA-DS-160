@@ -1334,6 +1334,7 @@ async function loadProfile() {
     startNotificationPolling();
     startMailUnreadPolling();
     startReminderPolling();
+    showActiveAnnouncements();
   } catch {
     if (profileNameNode) profileNameNode.textContent = "TravelX Staff";
     if (profileEmailNode) profileEmailNode.textContent = "Profile unavailable";
@@ -1355,3 +1356,69 @@ loadProfile();
   s.setAttribute("data-agent-widget", "1");
   document.head.appendChild(s);
 })();
+
+// ── Admin broadcast announcements ─────────────────────────────────
+// On every page load, fetch the announcements the current user hasn't
+// dismissed yet and show them as a centred modal one at a time. The
+// "Got it" button posts to /dismiss so the message stops appearing
+// for that user.
+async function showActiveAnnouncements() {
+  let entries = [];
+  try {
+    const res = await fetch("/api/announcements/active", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const data = await res.json();
+    entries = (data.entries || []).slice();
+  } catch {
+    return;
+  }
+  if (!entries.length) return;
+
+  function nextOne() {
+    const ann = entries.shift();
+    if (!ann) return;
+    showOneAnnouncement(ann, () => nextOne());
+  }
+  nextOne();
+}
+
+function showOneAnnouncement(ann, onClose) {
+  const overlay = document.createElement("div");
+  overlay.className = "announcement-modal-overlay";
+  const created = ann.createdAt ? new Date(ann.createdAt).toLocaleString() : "";
+  const author = ann.createdBy && ann.createdBy.name ? ann.createdBy.name : "";
+  const bodyHtml = String(ann.body || "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  const titleSafe = String(ann.title || "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const metaSafe = `${created}${author ? " · " + author.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""}`;
+  overlay.innerHTML = `
+    <div class="announcement-modal-dialog" role="dialog" aria-modal="true">
+      <div class="announcement-modal-kicker">Message from admin</div>
+      <h2 class="announcement-modal-title">${titleSafe}</h2>
+      <p class="announcement-modal-meta">${metaSafe}</p>
+      <div class="announcement-modal-body">${bodyHtml}</div>
+      <div class="announcement-modal-actions">
+        <button type="button" class="primary-pill" data-action="ack">Got it</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.classList.add("announcement-modal-open");
+
+  const close = async () => {
+    overlay.remove();
+    if (!document.querySelector(".announcement-modal-overlay")) {
+      document.body.classList.remove("announcement-modal-open");
+    }
+    try {
+      await fetch(`/api/announcements/${encodeURIComponent(ann.id)}/dismiss`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } catch {}
+    if (onClose) onClose();
+  };
+  overlay.querySelector('[data-action="ack"]').addEventListener("click", close);
+}

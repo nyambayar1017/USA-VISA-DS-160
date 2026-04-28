@@ -278,3 +278,90 @@ exportButton.addEventListener("click", exportCsv);
 
 loadUsers();
 loadSubmissions();
+
+// ── Broadcast announcements ──────────────────────────────────────────
+function annEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+const announcementForm = document.getElementById("announcement-form");
+const announcementStatus = document.getElementById("announcement-status");
+const announcementList = document.getElementById("announcement-list");
+
+function renderAnnouncements(entries) {
+  if (!announcementList) return;
+  if (!entries.length) {
+    announcementList.innerHTML = '<p class="empty">No broadcasts yet.</p>';
+    return;
+  }
+  announcementList.innerHTML = entries.map((e) => {
+    const created = e.createdAt ? new Date(e.createdAt).toLocaleString() : "";
+    const author = e.createdBy && e.createdBy.name ? annEsc(e.createdBy.name) : "";
+    const archivedTag = e.archived ? '<span style="color:#94a3b8;font-weight:600;">· Archived</span>' : "";
+    const readers = e.dismissedNames && e.dismissedNames.length
+      ? `Read by: ${e.dismissedNames.map(annEsc).join(", ")}`
+      : "Read by: —";
+    const body = annEsc(e.body || "").replace(/\n/g, "<br>");
+    const archiveBtn = e.archived
+      ? ""
+      : `<button type="button" class="secondary-button" data-archive="${annEsc(e.id)}">Archive</button>`;
+    return `
+      <div class="card" style="margin-bottom:10px;padding:14px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div style="min-width:0;flex:1;">
+            <strong style="color:#20356f;font-size:1rem;">${annEsc(e.title)}</strong>
+            <div style="font-size:0.78rem;color:#64748b;margin-top:2px;">
+              ${annEsc(created)} ${author ? "· " + author : ""} ${archivedTag}
+            </div>
+            <div style="margin-top:8px;color:#1f2937;line-height:1.45;">${body}</div>
+            <div style="margin-top:8px;font-size:0.78rem;color:#64748b;">${readers} · ${e.dismissedCount || 0} read</div>
+          </div>
+          <div>${archiveBtn}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function loadAnnouncements() {
+  try {
+    const data = await fetchJson("/api/announcements");
+    renderAnnouncements(data.entries || []);
+  } catch (err) {
+    if (announcementList) announcementList.innerHTML = `<p class="empty">${annEsc(err.message || "Could not load.")}</p>`;
+  }
+}
+
+announcementForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (announcementStatus) announcementStatus.textContent = "Posting…";
+  const data = Object.fromEntries(new FormData(announcementForm).entries());
+  try {
+    await fetchJson("/api/announcements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: data.title, body: data.body }),
+    });
+    announcementForm.reset();
+    if (announcementStatus) announcementStatus.textContent = "Broadcast posted.";
+    await loadAnnouncements();
+  } catch (err) {
+    if (announcementStatus) announcementStatus.textContent = err.message || "Could not post.";
+  }
+});
+
+announcementList?.addEventListener("click", async (event) => {
+  const btn = event.target.closest("[data-archive]");
+  if (!btn) return;
+  if (!confirm("Archive this broadcast? It will stop showing for everyone.")) return;
+  try {
+    await fetchJson(`/api/announcements/${btn.dataset.archive}/archive`, { method: "POST" });
+    await loadAnnouncements();
+  } catch (err) {
+    alert(err.message || "Could not archive.");
+  }
+});
+
+loadAnnouncements();

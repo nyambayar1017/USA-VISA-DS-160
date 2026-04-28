@@ -47,6 +47,7 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".txt"}
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
+ANNOUNCEMENTS_FILE = DATA_DIR / "announcements.json"
 CAMP_CONTRACTS_DIR = DATA_DIR / "camp-contracts"
 MAIL_FOLLOWUPS_FILE = DATA_DIR / "mail_followups.json"
 MAIL_DOSSIERS_FILE = DATA_DIR / "mail_dossiers.json"
@@ -1448,6 +1449,124 @@ def handle_list_team_members(environ, start_response):
         )
     entries.sort(key=lambda item: item["fullName"].lower())
     return json_response(start_response, "200 OK", {"entries": entries})
+
+
+# ── Admin broadcast announcements ───────────────────────────────────
+# Admin posts a message in /admin → it shows up as a centred modal on
+# every other manager's next page load. Each user can dismiss it once,
+# admin can archive it to retire it for everyone.
+
+def read_announcements():
+    return read_json_list(ANNOUNCEMENTS_FILE)
+
+
+def write_announcements(records):
+    write_json_list(ANNOUNCEMENTS_FILE, records)
+
+
+def handle_list_announcements_active(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    user_id = actor.get("id")
+    out = []
+    for rec in read_announcements():
+        if rec.get("archived"):
+            continue
+        if user_id in (rec.get("dismissedBy") or []):
+            continue
+        out.append({
+            "id": rec.get("id"),
+            "title": rec.get("title", ""),
+            "body": rec.get("body", ""),
+            "createdAt": rec.get("createdAt", ""),
+            "createdBy": rec.get("createdBy", {}),
+        })
+    out.sort(key=lambda r: r.get("createdAt") or "", reverse=True)
+    return json_response(start_response, "200 OK", {"entries": out})
+
+
+def handle_list_announcements(environ, start_response):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    users = read_users()
+    user_name_by_id = {u.get("id"): (u.get("fullName") or u.get("email") or "") for u in users}
+    out = []
+    for rec in read_announcements():
+        dismissed = rec.get("dismissedBy") or []
+        out.append({
+            "id": rec.get("id"),
+            "title": rec.get("title", ""),
+            "body": rec.get("body", ""),
+            "createdAt": rec.get("createdAt", ""),
+            "createdBy": rec.get("createdBy", {}),
+            "archived": bool(rec.get("archived")),
+            "dismissedCount": len(dismissed),
+            "dismissedNames": [user_name_by_id.get(uid, uid) for uid in dismissed if uid],
+        })
+    out.sort(key=lambda r: r.get("createdAt") or "", reverse=True)
+    return json_response(start_response, "200 OK", {"entries": out})
+
+
+def handle_create_announcement(environ, start_response):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    title = normalize_text(payload.get("title"))
+    body = str(payload.get("body") or "").strip()
+    if not title or not body:
+        return json_response(start_response, "400 Bad Request", {"error": "Title and message are both required"})
+    rec = {
+        "id": str(uuid4()),
+        "title": title,
+        "body": body,
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(admin),
+        "archived": False,
+        "dismissedBy": [],
+    }
+    records = read_announcements()
+    records.append(rec)
+    write_announcements(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": rec})
+
+
+def handle_dismiss_announcement(environ, start_response, announcement_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    user_id = actor.get("id")
+    records = read_announcements()
+    for rec in records:
+        if rec.get("id") != announcement_id:
+            continue
+        dismissed = rec.get("dismissedBy") or []
+        if user_id and user_id not in dismissed:
+            dismissed.append(user_id)
+            rec["dismissedBy"] = dismissed
+            write_announcements(records)
+        return json_response(start_response, "200 OK", {"ok": True})
+    return json_response(start_response, "404 Not Found", {"error": "Announcement not found"})
+
+
+def handle_archive_announcement(environ, start_response, announcement_id):
+    admin = require_admin(environ, start_response)
+    if not admin:
+        return []
+    records = read_announcements()
+    for rec in records:
+        if rec.get("id") != announcement_id:
+            continue
+        rec["archived"] = True
+        rec["archivedAt"] = now_mongolia().isoformat()
+        rec["archivedBy"] = actor_snapshot(admin)
+        write_announcements(records)
+        return json_response(start_response, "200 OK", {"ok": True, "entry": rec})
+    return json_response(start_response, "404 Not Found", {"error": "Announcement not found"})
 
 
 def handle_update_user(environ, start_response, user_id):
@@ -14911,6 +15030,30 @@ def _dispatch(environ, start_response):
     if path == "/api/team-members":
         if method == "GET":
             return handle_list_team_members(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/announcements/active":
+        if method == "GET":
+            return handle_list_announcements_active(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/announcements":
+        if method == "GET":
+            return handle_list_announcements(environ, start_response)
+        if method == "POST":
+            return handle_create_announcement(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/announcements/") and path.endswith("/dismiss"):
+        announcement_id = path.replace("/api/announcements/", "", 1).rsplit("/dismiss", 1)[0].strip("/")
+        if method == "POST" and announcement_id:
+            return handle_dismiss_announcement(environ, start_response, announcement_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/announcements/") and path.endswith("/archive"):
+        announcement_id = path.replace("/api/announcements/", "", 1).rsplit("/archive", 1)[0].strip("/")
+        if method == "POST" and announcement_id:
+            return handle_archive_announcement(environ, start_response, announcement_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/notifications":
