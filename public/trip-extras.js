@@ -112,6 +112,7 @@
     return String(a.serial || "").localeCompare(String(b.serial || ""));
   }
 
+  let tripDocuments = [];
   async function loadGroupsAndTourists(currentTripId) {
     if (!currentTripId) return;
     tripId = currentTripId;
@@ -124,6 +125,7 @@
       groups = g.entries || [];
       tourists = (t.entries || []).slice().sort(sortTouristsByOrder);
       const trip = (trips.entries || []).find((x) => x.id === tripId);
+      tripDocuments = (trip?.documents || []);
       tripType = String(trip?.tripType || "").toLowerCase();
       applyTripTypeToTouristForm();
       rebuildRoomColors();
@@ -535,11 +537,54 @@
     }
   }
 
+  async function addExistingTourist(picked, groupId) {
+    const copy = {
+      lastName: picked.lastName,
+      firstName: picked.firstName,
+      gender: picked.gender,
+      dob: picked.dob,
+      nationality: picked.nationality,
+      passportNumber: picked.passportNumber,
+      passportIssueDate: picked.passportIssueDate,
+      passportExpiry: picked.passportExpiry,
+      passportIssuePlace: picked.passportIssuePlace,
+      registrationNumber: picked.registrationNumber,
+      phone: picked.phone,
+      email: picked.email,
+      tripId,
+      groupId,
+    };
+    try {
+      await fetchJson("/api/tourists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(copy),
+      });
+      window.ParticipantChooser?.invalidateCache?.();
+      await loadGroupsAndTourists(tripId);
+      if (typeof window.loadTripDocuments === "function") {
+        try { await window.loadTripDocuments(tripId); } catch {}
+      }
+    } catch (err) {
+      alert(err.message || "Could not add existing tourist.");
+    }
+  }
+
   touristToggleBtn?.addEventListener("click", async () => {
     const g = await ensureDefaultGroup();
     if (!g) return;
-    resetTouristForm();
-    openModal(touristFormPanel);
+    if (!window.ParticipantChooser) {
+      resetTouristForm();
+      openModal(touristFormPanel);
+      return;
+    }
+    window.ParticipantChooser.open({
+      onNew: () => {
+        resetTouristForm();
+        openModal(touristFormPanel);
+      },
+      onExisting: (picked) => addExistingTourist(picked, g.id),
+    });
   });
 
   touristFormPanel?.addEventListener("click", (e) => {
@@ -888,6 +933,82 @@
   if (getTripIdFromUrl()) {
     loadGroupsAndTourists(getTripIdFromUrl());
   }
+
+  function summarizeIncompleteParticipants() {
+    const checks = [
+      ["lastName", "Last name"],
+      ["firstName", "First name"],
+      ["gender", "Gender"],
+      ["dob", "Date of birth"],
+      ["nationality", "Nationality"],
+      ["passportNumber", "Passport #"],
+      ["passportIssueDate", "Passport issue date"],
+      ["passportExpiry", "Passport expiry"],
+      ["passportIssuePlace", "Passport issued at"],
+      ["registrationNumber", "Registration #"],
+      ["roomType", "Rooming"],
+    ];
+    const lines = [];
+    (tourists || []).forEach((t) => {
+      const missing = checks.filter(([k]) => !String(t[k] || "").trim()).map(([, l]) => l);
+      const hasPassportDoc = (tripDocuments || []).some(
+        (d) => d.touristId === t.id && /passport/i.test(String(d.category || ""))
+      );
+      if (!hasPassportDoc) missing.unshift("Passport scan");
+      if (missing.length) {
+        const name = `${t.lastName || ""} ${t.firstName || ""}`.trim() || (t.serial || "—");
+        lines.push(`• ${name}: ${missing.join(", ")}`);
+      }
+    });
+    return lines;
+  }
+
+  let exitWarningShown = false;
+  function isInternalNav(target) {
+    const a = target.closest("a[href]");
+    if (!a) return null;
+    const href = a.getAttribute("href") || "";
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return null;
+    if (a.target && a.target !== "" && a.target !== "_self") return null;
+    try {
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin) return null;
+      // Stay on the same trip-detail (e.g. tab switching) — no warning.
+      if (url.pathname === window.location.pathname && url.searchParams.get("tripId") === tripId) return null;
+      return { a, url };
+    } catch {
+      return null;
+    }
+  }
+
+  document.addEventListener("click", async (e) => {
+    if (exitWarningShown) return;
+    const nav = isInternalNav(e.target);
+    if (!nav) return;
+    if (!tourists || !tourists.length) return;
+    const lines = summarizeIncompleteParticipants();
+    if (!lines.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    exitWarningShown = true;
+    const message = `Some participants on this trip still look incomplete 🤔\n\n${lines.slice(0, 8).join("\n")}${lines.length > 8 ? `\n…and ${lines.length - 8} more` : ""}\n\nDID YOU FORGET? You can leave anyway and finish later.`;
+    let leaveAnyway = false;
+    if (window.UI?.confirm) {
+      leaveAnyway = await window.UI.confirm(message, {
+        title: "Did you forget?",
+        confirmLabel: "Leave anyway",
+        cancelLabel: "Stay here",
+      });
+    } else {
+      leaveAnyway = window.confirm(message);
+    }
+    if (leaveAnyway) {
+      window.location.href = nav.url.href;
+    } else {
+      // Reset the flag so it can fire again next time.
+      setTimeout(() => { exitWarningShown = false; }, 200);
+    }
+  }, true);
 
   // Live-ish multi-manager sync: every 15s refresh groups + tourists + the
   // trip-documents list so changes another manager makes show up without a

@@ -1319,9 +1319,46 @@ function resetForm() {
   }
 }
 
+async function addExistingTouristToGroup(picked) {
+  const copy = {
+    lastName: picked.lastName,
+    firstName: picked.firstName,
+    gender: picked.gender,
+    dob: picked.dob,
+    nationality: picked.nationality,
+    passportNumber: picked.passportNumber,
+    passportIssueDate: picked.passportIssueDate,
+    passportExpiry: picked.passportExpiry,
+    passportIssuePlace: picked.passportIssuePlace,
+    registrationNumber: picked.registrationNumber,
+    phone: picked.phone,
+    email: picked.email,
+    tripId,
+    groupId,
+  };
+  try {
+    await fetchJson("/api/tourists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(copy),
+    });
+    window.ParticipantChooser?.invalidateCache?.();
+    await loadAll();
+  } catch (err) {
+    alert(err.message || "Could not add existing tourist.");
+  }
+}
+
 addBtn.addEventListener("click", () => {
-  resetForm();
-  openModal();
+  if (!window.ParticipantChooser) {
+    resetForm();
+    openModal();
+    return;
+  }
+  window.ParticipantChooser.open({
+    onNew: () => { resetForm(); openModal(); },
+    onExisting: (picked) => addExistingTouristToGroup(picked),
+  });
 });
 
 formPanel.addEventListener("click", (e) => {
@@ -1657,4 +1694,69 @@ loadAll();
     if (formPanel && !formPanel.classList.contains("is-hidden")) return;
     loadAll();
   }, 15000);
+})();
+
+// "Did you forget?" reminder when navigating away with incomplete participants.
+(function () {
+  const checks = [
+    ["lastName", "Last name"],
+    ["firstName", "First name"],
+    ["gender", "Gender"],
+    ["dob", "Date of birth"],
+    ["nationality", "Nationality"],
+    ["passportNumber", "Passport #"],
+    ["passportIssueDate", "Passport issue date"],
+    ["passportExpiry", "Passport expiry"],
+    ["passportIssuePlace", "Passport issued at"],
+    ["registrationNumber", "Registration #"],
+    ["roomType", "Rooming"],
+  ];
+  function summarizeIncomplete() {
+    const lines = [];
+    (tourists || []).forEach((t) => {
+      const missing = checks.filter(([k]) => !String(t[k] || "").trim()).map(([, l]) => l);
+      // Also flag participants who have no Passports & Visas doc attached.
+      const docs = (trip?.documents || []).filter(
+        (d) => d.touristId === t.id && /passport/i.test(String(d.category || ""))
+      );
+      if (!docs.length) missing.unshift("Passport scan");
+      if (missing.length) {
+        const name = `${t.lastName || ""} ${t.firstName || ""}`.trim() || (t.serial || "—");
+        lines.push(`• ${name}: ${missing.join(", ")}`);
+      }
+    });
+    return lines;
+  }
+  let exitWarningShown = false;
+  function isInternalNav(target) {
+    const a = target.closest("a[href]");
+    if (!a) return null;
+    const href = a.getAttribute("href") || "";
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return null;
+    if (a.target && a.target !== "" && a.target !== "_self") return null;
+    try {
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin) return null;
+      // Same group (just internal anchors / tabs) — skip.
+      if (url.pathname === window.location.pathname && url.searchParams.get("groupId") === groupId) return null;
+      return { a, url };
+    } catch { return null; }
+  }
+  document.addEventListener("click", async (e) => {
+    if (exitWarningShown) return;
+    const nav = isInternalNav(e.target);
+    if (!nav) return;
+    if (!tourists || !tourists.length) return;
+    const lines = summarizeIncomplete();
+    if (!lines.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    exitWarningShown = true;
+    const msg = `Some participants on this group still look incomplete 🤔\n\n${lines.slice(0, 8).join("\n")}${lines.length > 8 ? `\n…and ${lines.length - 8} more` : ""}\n\nDID YOU FORGET? You can leave anyway and finish later.`;
+    const leave = window.UI?.confirm
+      ? await window.UI.confirm(msg, { title: "Did you forget?", confirmLabel: "Leave anyway", cancelLabel: "Stay here" })
+      : window.confirm(msg);
+    if (leave) window.location.href = nav.url.href;
+    else setTimeout(() => { exitWarningShown = false; }, 200);
+  }, true);
 })();
