@@ -670,8 +670,49 @@
     }
   });
 
+  function findMissingParticipantFields(form) {
+    const checks = [
+      ["lastName", "Last name"],
+      ["firstName", "First name"],
+      ["gender", "Gender"],
+      ["dob", "Date of birth"],
+      ["nationality", "Nationality"],
+      ["passportNumber", "Passport #"],
+      ["passportIssueDate", "Passport issue date"],
+      ["passportExpiry", "Passport expiry"],
+      ["passportIssuePlace", "Passport issued at"],
+      ["registrationNumber", "Registration #"],
+      ["phone", "Phone"],
+      ["email", "Email"],
+    ];
+    const missing = [];
+    for (const [key, label] of checks) {
+      const el = form.elements[key];
+      if (!el || !String(el.value || "").trim()) missing.push(label);
+    }
+    const tokenEl = form.elements.passportFileToken;
+    if (!tokenEl || !String(tokenEl.value || "").trim()) missing.push("Passport scan");
+    return missing;
+  }
+
+  async function confirmIncompleteParticipant(form) {
+    const missing = findMissingParticipantFields(form);
+    if (!missing.length) return true;
+    const list = missing.map((m) => "• " + m).join("\n");
+    const message = `Hmm, a few things look empty 🤔\n\n${list}\n\nDID YOU FORGET? Just a friendly reminder — you can still save now and finish later.`;
+    if (window.UI?.confirm) {
+      return window.UI.confirm(message, {
+        title: "Did you forget?",
+        confirmLabel: "Save anyway",
+        cancelLabel: "Let me fix it",
+      });
+    }
+    return window.confirm(message);
+  }
+
   touristForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!(await confirmIncompleteParticipant(touristForm))) return;
     const payload = buildPayload(touristForm);
     delete payload.id;
     try {
