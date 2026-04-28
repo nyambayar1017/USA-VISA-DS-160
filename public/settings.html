@@ -110,24 +110,15 @@
                 <p>Pickup and dropoff places, plus the driver list shown in the Transfer reservation form.</p>
               </div>
             </div>
-            <div class="settings-camp-aux">
-              <form class="camp-setting-card" data-aux-group="transferPickups">
-                <div class="camp-setting-head"><h3>Pickup places</h3></div>
-                <div class="camp-setting-inline">
-                  <input name="value" placeholder="Add pickup place (e.g. Chinggis Khan Airport)" />
-                  <button type="submit">Add</button>
-                </div>
-                <div class="camp-setting-list" id="settings-transferPickups"></div>
-              </form>
-              <form class="camp-setting-card" data-aux-group="transferDropoffs">
-                <div class="camp-setting-head"><h3>Dropoff places</h3></div>
-                <div class="camp-setting-inline">
-                  <input name="value" placeholder="Add dropoff place (e.g. Best Western Hotel)" />
-                  <button type="submit">Add</button>
-                </div>
-                <div class="camp-setting-list" id="settings-transferDropoffs"></div>
-              </form>
-            </div>
+            <form class="camp-setting-card" data-aux-group="transferPlaces">
+              <div class="camp-setting-head"><h3>Places (pickup &amp; dropoff)</h3></div>
+              <div class="camp-setting-inline">
+                <input name="value" placeholder="Add a place (e.g. Chinggis Khan Airport, Best Western Hotel)" />
+                <button type="submit">Add</button>
+              </div>
+              <p class="settings-hint">A place can be both a pickup and a dropoff — add it once here.</p>
+              <div class="camp-setting-list" id="settings-transferPlaces"></div>
+            </form>
             <form class="camp-setting-card driver-setting-card" id="transfer-driver-form">
               <div class="camp-setting-head"><h3>Drivers</h3></div>
               <div class="driver-setting-grid">
@@ -255,7 +246,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-116"></script>
-    <script src="/settings.js?v=workspace-6"></script>
+    <script src="/settings.js?v=workspace-7"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

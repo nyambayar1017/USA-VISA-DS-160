@@ -46,6 +46,11 @@ if (reservationTripSelect && window.TripPicker) {
   window.TripPicker.upgrade(reservationTripSelect, { placeholder: "Choose trip…" });
 }
 const campNameSelect = document.querySelector("#camp-name-select");
+// Same searchable picker for the Camp/Hotel dropdown — usable when there are
+// hundreds of camps and hotels.
+if (campNameSelect && window.TripPicker) {
+  window.TripPicker.upgrade(campNameSelect, { placeholder: "Choose camp…" });
+}
 const locationNameSelect = document.querySelector("#location-name-select");
 const campLocationSelect = locationNameSelect;
 const staffAssignmentSelect = document.querySelector("#staff-assignment-select");
@@ -1913,11 +1918,13 @@ function renderReservationEditPanel(reservation, options = {}) {
     });
   }
   const formNode = reservationEditPanel.querySelector("form");
-  // Upgrade the dynamic form's trip <select> into a searchable picker so it
-  // stays usable when there are hundreds of trips.
+  // Upgrade the dynamic form's trip + camp <select>s into searchable pickers
+  // so they stay usable when there are hundreds of trips/camps.
   if (formNode && window.TripPicker) {
     const tripSelect = formNode.querySelector('select[name="tripId"]');
     if (tripSelect) window.TripPicker.upgrade(tripSelect, { placeholder: "Choose trip…" });
+    const campSelect = formNode.querySelector('select[name="campName"]');
+    if (campSelect) window.TripPicker.upgrade(campSelect, { placeholder: "Choose camp…" });
   }
   if (formNode && !formNode.dataset.boundSubmit) {
     formNode.dataset.boundSubmit = "true";

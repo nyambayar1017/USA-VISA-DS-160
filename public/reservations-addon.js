@@ -525,18 +525,24 @@
 
   // Cache of camp-settings transfer lists; refilled on every form open so
   // recent additions in /settings show up without a full page reload.
-  let transferSettingsCache = { pickups: [], dropoffs: [], drivers: [] };
+  let transferSettingsCache = { places: [], drivers: [] };
   async function loadTransferSettings() {
     try {
       const payload = await fetchJson("/api/camp-settings");
       const e = (payload && payload.entry) || {};
+      // Merge the new transferPlaces list with any legacy pickup/dropoff
+      // arrays so old data still appears in the dropdowns.
+      const places = [...new Set([
+        ...(Array.isArray(e.transferPlaces) ? e.transferPlaces : []),
+        ...(Array.isArray(e.transferPickups) ? e.transferPickups : []),
+        ...(Array.isArray(e.transferDropoffs) ? e.transferDropoffs : []),
+      ])];
       transferSettingsCache = {
-        pickups: Array.isArray(e.transferPickups) ? e.transferPickups : [],
-        dropoffs: Array.isArray(e.transferDropoffs) ? e.transferDropoffs : [],
+        places,
         drivers: Array.isArray(e.transferDrivers) ? e.transferDrivers : [],
       };
     } catch {
-      transferSettingsCache = { pickups: [], dropoffs: [], drivers: [] };
+      transferSettingsCache = { places: [], drivers: [] };
     }
     populateTransferFormSelectors();
   }
@@ -546,14 +552,15 @@
     const dropoffSel = transferForm.querySelector("[data-transfer-dropoff-select]");
     const driverSel = transferForm.querySelector("[data-transfer-driver-select]");
     const opt = (v, label = v) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`;
+    const placesHtml = transferSettingsCache.places.map((p) => opt(p)).join("");
     if (pickupSel) {
       const cur = pickupSel.value;
-      pickupSel.innerHTML = '<option value="">Choose pickup</option>' + transferSettingsCache.pickups.map((p) => opt(p)).join("");
+      pickupSel.innerHTML = '<option value="">Choose pickup</option>' + placesHtml;
       if (cur && [...pickupSel.options].some((o) => o.value === cur)) pickupSel.value = cur;
     }
     if (dropoffSel) {
       const cur = dropoffSel.value;
-      dropoffSel.innerHTML = '<option value="">Choose dropoff</option>' + transferSettingsCache.dropoffs.map((p) => opt(p)).join("");
+      dropoffSel.innerHTML = '<option value="">Choose dropoff</option>' + placesHtml;
       if (cur && [...dropoffSel.options].some((o) => o.value === cur)) dropoffSel.value = cur;
     }
     if (driverSel) {

@@ -1,4 +1,21 @@
-// /settings page controller — Destinations + Camps tabs.
+// /settings page controller — Destinations + Camps + Transfers + Banks tabs.
+
+// Use the in-app dialog if available; the ui-dialog module is loaded on this
+// page. Falls back to native confirm only if the script somehow didn't load.
+async function uiConfirm(msg) {
+  if (window.UI && window.UI.confirm) return window.UI.confirm(msg, { dangerous: true });
+  return confirm(msg);
+}
+
+// Surface unhandled JS errors as a small console line plus a toast — this
+// page is the most-edited Settings flow, and silent failures led to the
+// "Something went wrong" overlay you sometimes see.
+window.addEventListener("error", (e) => {
+  try { console.error("[settings] uncaught error:", e.message, e.error); } catch {}
+});
+window.addEventListener("unhandledrejection", (e) => {
+  try { console.error("[settings] unhandled promise rejection:", e.reason); } catch {}
+});
 
 const tabsBar = document.getElementById("settings-tabs");
 const panels = document.querySelectorAll(".settings-panel");
@@ -157,7 +174,7 @@ destinationList?.addEventListener("click", async (event) => {
   const btn = event.target.closest('[data-action="remove-destination"]');
   if (!btn) return;
   const value = btn.dataset.value;
-  if (!confirm(`Remove "${value}" from destinations?`)) return;
+  if (!(await uiConfirm(`Remove "${value}" from destinations?`))) return;
   destinations = destinations.filter((d) => d !== value);
   await saveDestinations("Removed.");
 });
@@ -233,8 +250,13 @@ function renderCamps() {
   }
   renderAuxPills("staffAssignments", campSettings.staffAssignments || []);
   renderAuxPills("roomChoices", campSettings.roomChoices || []);
-  renderAuxPills("transferPickups", campSettings.transferPickups || []);
-  renderAuxPills("transferDropoffs", campSettings.transferDropoffs || []);
+  // Pickup and dropoff used to be two separate lists — merge any old values
+  // into the unified transferPlaces list on render so the user sees a single
+  // place list even before they re-save.
+  const places = Array.isArray(campSettings.transferPlaces) ? campSettings.transferPlaces : [];
+  const merged = [...new Set([...(places), ...(campSettings.transferPickups || []), ...(campSettings.transferDropoffs || [])])];
+  campSettings.transferPlaces = merged;
+  renderAuxPills("transferPlaces", merged);
   renderTransferDrivers(campSettings.transferDrivers || []);
 }
 
@@ -279,7 +301,7 @@ transferDriverForm?.addEventListener("submit", async (event) => {
 document.addEventListener("click", async (event) => {
   const btn = event.target.closest('[data-action="remove-driver"]');
   if (!btn) return;
-  if (!confirm("Remove this driver?")) return;
+  if (!(await uiConfirm("Remove this driver?"))) return;
   const id = btn.dataset.driverId;
   campSettings.transferDrivers = (campSettings.transferDrivers || []).filter((d) => d.id !== id);
   await saveCampSettings("Driver removed.");
@@ -331,8 +353,7 @@ async function saveCampSettings(message = "Saved.") {
       roomChoices: campSettings.roomChoices || [],
       campLocations: campSettings.campLocations || {},
       campDetails: campSettings.campDetails || {},
-      transferPickups: campSettings.transferPickups || [],
-      transferDropoffs: campSettings.transferDropoffs || [],
+      transferPlaces: campSettings.transferPlaces || [],
       transferDrivers: campSettings.transferDrivers || [],
     };
     const data = await fetchJson("/api/camp-settings", {
@@ -465,7 +486,7 @@ campList?.addEventListener("click", async (event) => {
   }
   if (removeBtn) {
     const name = removeBtn.dataset.name;
-    if (!confirm(`Remove camp "${name}"?`)) return;
+    if (!(await uiConfirm(`Remove camp "${name}"?`))) return;
     campSettings.campNames = (campSettings.campNames || []).filter((n) => n !== name);
     if (campSettings.campLocations) delete campSettings.campLocations[name];
     if (campSettings.campDetails) delete campSettings.campDetails[name];
@@ -497,7 +518,7 @@ document.addEventListener("click", async (event) => {
   if (!btn) return;
   const group = btn.dataset.group;
   const value = btn.dataset.value;
-  if (!confirm(`Remove "${value}"?`)) return;
+  if (!(await uiConfirm(`Remove "${value}"?`))) return;
   campSettings[group] = (campSettings[group] || []).filter((v) => v !== value);
   await saveCampSettings("Removed.");
 });
@@ -628,7 +649,7 @@ bankList?.addEventListener("click", async (e) => {
   if (delBtn) {
     const acct = bankAccounts.find((b) => b.id === delBtn.dataset.bankDelete);
     if (!acct) return;
-    if (!confirm(`Remove "${acct.label || acct.bankName}"?`)) return;
+    if (!(await uiConfirm(`Remove "${acct.label || acct.bankName}"?`))) return;
     bankAccounts = bankAccounts.filter((b) => b.id !== acct.id);
     await saveBankAccounts("Removed.");
   }

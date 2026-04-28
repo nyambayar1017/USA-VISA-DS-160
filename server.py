@@ -736,8 +736,7 @@ def default_camp_settings():
         "staffAssignments": [STEPPE_MANAGER],
         "roomChoices": DEFAULT_ROOM_CHOICES,
         "campLocations": {"Khustai camp": "Khustai"},
-        "transferPickups": [],
-        "transferDropoffs": [],
+        "transferPlaces": [],
         "transferDrivers": [],
     }
 
@@ -813,8 +812,13 @@ def read_camp_settings():
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
         "campLocations": camp_locations,
         "campDetails": camp_details,
-        "transferPickups": normalize_option_list(payload.get("transferPickups")),
-        "transferDropoffs": normalize_option_list(payload.get("transferDropoffs")),
+        # Pickup and dropoff used to be two lists — merge legacy data into the
+        # unified transferPlaces list so a saved place is usable on both sides.
+        "transferPlaces": normalize_option_list(
+            (payload.get("transferPlaces") or [])
+            + (payload.get("transferPickups") or [])
+            + (payload.get("transferDropoffs") or [])
+        ),
         "transferDrivers": normalize_transfer_drivers(payload.get("transferDrivers")),
     }
 
@@ -8069,8 +8073,11 @@ def handle_update_camp_settings(environ, start_response):
     # Transfer settings keep their previous values whenever the writer doesn't
     # send them — both the chosen-trip page and Settings/Camps tab POST a
     # partial settings payload that drops the new keys.
-    incoming_pickups = payload.get("transferPickups")
-    incoming_dropoffs = payload.get("transferDropoffs")
+    incoming_places = payload.get("transferPlaces")
+    # Legacy clients may still send the split pickup/dropoff lists; fold them
+    # into transferPlaces so the migration completes the next save.
+    if incoming_places is None and (payload.get("transferPickups") is not None or payload.get("transferDropoffs") is not None):
+        incoming_places = (payload.get("transferPickups") or []) + (payload.get("transferDropoffs") or [])
     incoming_drivers = payload.get("transferDrivers")
     settings = {
         "campNames": camp_names,
@@ -8079,8 +8086,7 @@ def handle_update_camp_settings(environ, start_response):
         "roomChoices": normalize_option_list(payload.get("roomChoices")) or DEFAULT_ROOM_CHOICES,
         "campLocations": normalize_camp_location_map(payload.get("campLocations"), camp_names),
         "campDetails": _normalize_camp_details(merged_details, camp_names),
-        "transferPickups": normalize_option_list(incoming_pickups) if incoming_pickups is not None else existing.get("transferPickups", []),
-        "transferDropoffs": normalize_option_list(incoming_dropoffs) if incoming_dropoffs is not None else existing.get("transferDropoffs", []),
+        "transferPlaces": normalize_option_list(incoming_places) if incoming_places is not None else existing.get("transferPlaces", []),
         "transferDrivers": normalize_transfer_drivers(incoming_drivers) if incoming_drivers is not None else existing.get("transferDrivers", []),
     }
     if not settings["campNames"]:
