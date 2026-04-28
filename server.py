@@ -6591,62 +6591,96 @@ def scan_task_reminders():
     for task in tasks:
         if task.get("status") in {"done", "cancelled"}:
             continue
-        if normalize_text(task.get("reminderSentAt")):
-            continue
         due_dt = _task_due_datetime(task)
         if not due_dt:
             continue
         delta = due_dt - now_local
-        # Fire when due is within the next 6 hours (and not yet past).
-        if delta <= timedelta(seconds=0) or delta > horizon:
-            continue
 
         owner_name = normalize_text(task.get("owner"))
         user = _find_user_by_name(owner_name)
         owner_email = normalize_text(user.get("email")) if user else ""
-
         title = normalize_text(task.get("title")) or "Untitled task"
         due_label = due_dt.strftime("%Y-%m-%d %H:%M")
-        note_html = ""
         note = normalize_text(task.get("note"))
-        if note:
-            note_html = f"<p style=\"margin-top:12px;color:#475569\">{html.escape(note)}</p>"
+        note_html = f"<p style=\"margin-top:12px;color:#475569\">{html.escape(note)}</p>" if note else ""
 
-        body_html = (
-            f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
-            f"<p>Танд <strong>{html.escape(title)}</strong> гэсэн ажил <strong>{html.escape(due_label)}</strong>-д дуусах хугацаатай байна. "
-            "Энэ цагаас өмнө гүйцэтгэхээ мартахгүй байгаарай.</p>"
-            f"{note_html}"
-        )
-
-        if owner_email:
-            try:
-                _tool_send_email(
-                    {
-                        "to": owner_email,
-                        "subject": "REMINDER TASK",
-                        "body": "",
-                        "_body_html_override": body_html,
-                        "_skip_footer": True,
-                    },
-                    None,
-                )
-            except Exception as exc:
-                print(f"[task-reminder] email failed for {owner_email}: {exc}", flush=True)
-
-        try:
-            log_notification(
-                "task.reminder",
-                {"id": "system", "email": "noreply", "name": "TravelX"},
-                f"REMINDER TASK · {title}",
-                detail=f"Due {due_label}" + (f" · {owner_name}" if owner_name else ""),
-                meta={"id": task.get("id"), "key": "tasks", "userId": (user or {}).get("id") or ""},
+        # Stage 1: 6 hours before due — "approaching" reminder.
+        if (
+            not normalize_text(task.get("reminderSentAt"))
+            and delta > timedelta(seconds=0)
+            and delta <= horizon
+        ):
+            body_html = (
+                f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
+                f"<p>Танд <strong>{html.escape(title)}</strong> гэсэн ажил <strong>{html.escape(due_label)}</strong>-д дуусах хугацаатай байна. "
+                "Энэ цагаас өмнө гүйцэтгэхээ мартахгүй байгаарай.</p>"
+                f"{note_html}"
             )
-        except Exception:
-            pass
+            if owner_email:
+                try:
+                    _tool_send_email(
+                        {
+                            "to": owner_email,
+                            "subject": f"REMINDER TASK · {title}",
+                            "body": "",
+                            "_body_html_override": body_html,
+                            "_skip_footer": True,
+                        },
+                        None,
+                    )
+                except Exception as exc:
+                    print(f"[task-reminder] approaching email failed for {owner_email}: {exc}", flush=True)
+            try:
+                log_notification(
+                    "task.reminder",
+                    {"id": "system", "email": "noreply", "name": "TravelX"},
+                    f"REMINDER TASK · {title}",
+                    detail=f"Due {due_label}" + (f" · {owner_name}" if owner_name else ""),
+                    meta={"id": task.get("id"), "key": "tasks", "userId": (user or {}).get("id") or ""},
+                )
+            except Exception:
+                pass
+            task["reminderSentAt"] = now_local.isoformat()
+            changed = True
 
-        task["reminderSentAt"] = now_local.isoformat()
-        changed = True
+        # Stage 2: due time has passed — "overdue" notification, sent once.
+        if (
+            not normalize_text(task.get("overdueSentAt"))
+            and delta <= timedelta(seconds=0)
+        ):
+            body_html = (
+                f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
+                f"<p><strong>{html.escape(title)}</strong> ажлын дуусах хугацаа "
+                f"<strong>{html.escape(due_label)}</strong>-аар хэтэрсэн байна. "
+                "Аль болох хурдан гүйцэтгэж, төлөвийг 'Done' болгоно уу.</p>"
+                f"{note_html}"
+            )
+            if owner_email:
+                try:
+                    _tool_send_email(
+                        {
+                            "to": owner_email,
+                            "subject": f"OVERDUE TASK · {title}",
+                            "body": "",
+                            "_body_html_override": body_html,
+                            "_skip_footer": True,
+                        },
+                        None,
+                    )
+                except Exception as exc:
+                    print(f"[task-reminder] overdue email failed for {owner_email}: {exc}", flush=True)
+            try:
+                log_notification(
+                    "task.overdue",
+                    {"id": "system", "email": "noreply", "name": "TravelX"},
+                    f"OVERDUE TASK · {title}",
+                    detail=f"Due {due_label}" + (f" · {owner_name}" if owner_name else ""),
+                    meta={"id": task.get("id"), "key": "tasks", "userId": (user or {}).get("id") or ""},
+                )
+            except Exception:
+                pass
+            task["overdueSentAt"] = now_local.isoformat()
+            changed = True
 
     if changed:
         try:
