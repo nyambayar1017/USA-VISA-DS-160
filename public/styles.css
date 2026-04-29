@@ -6017,43 +6017,10 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   }
 
   .group-summary-grid h1 {
-    font-size: 0.98rem;
+    font-size: 1.1rem;
     line-height: 1.3;
     word-break: break-word;
     margin: 4px 0 6px;
-  }
-  .group-summary-card .section-head h2,
-  #group-participants-section .section-head h2,
-  #group-contracts-section .section-head h2,
-  #group-invoices-section .section-head h2,
-  #group-documents-section .section-head h2,
-  #group-rooming-section .section-head h2 {
-    font-size: 0.95rem;
-  }
-  .group-summary-meta {
-    font-size: 0.78rem;
-    gap: 4px 10px;
-  }
-  .group-summary-flights p { font-size: 0.78rem; }
-  .group-summary-leader p { font-size: 0.82rem; }
-  .group-summary-stats > div { padding: 6px 8px; }
-  .group-summary-stats strong { font-size: 0.95rem; }
-  /* Participant + rooming tables get cramped on phones; shrink the cell
-     font + pad so all 12 columns fit before the horizontal scroll kicks
-     in (user feedback: name list rendering "huge" on mobile). */
-  #group-participants-list .reservation-addon-table,
-  #group-rooming-list .reservation-addon-table,
-  #group-camp-list .camp-table,
-  #group-flights-list .camp-table,
-  #group-flight-payments-list .camp-table,
-  #group-transfers-list .camp-table {
-    font-size: 11.5px;
-  }
-  #group-participants-list .reservation-addon-table th,
-  #group-participants-list .reservation-addon-table td,
-  #group-rooming-list .reservation-addon-table th,
-  #group-rooming-list .reservation-addon-table td {
-    padding: 4px 6px !important;
   }
   .trip-summary-card .section-head h2 .trip-group-name {
     display: block;
@@ -6063,12 +6030,19 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     margin-top: 2px;
   }
   .tourist-directory-table .tourist-group-cell {
-    font-size: 0.78rem;
+    font-size: 0.78rem !important;
     line-height: 1.3;
     white-space: normal;
     word-break: break-word;
     max-width: 140px;
     display: inline-block;
+  }
+  /* Trip-detail Groups card: shrink the "S-0006-G1 · ALTANGEREL DORJ 1PAX"
+     title on phones — at 0.95rem the group serial + leader name pushed the
+     card past the viewport (per-user feedback). */
+  .group-card-title {
+    font-size: 0.85rem;
+    white-space: normal;
   }
 
   .field-grid {
@@ -10198,7 +10172,11 @@ body.announcement-modal-open {
 .task-manager-picker .task-manager-chip input { accent-color: #20356f; }
 .task-manager-empty { margin: 0; padding: 4px 6px; color: #6b7280; font-size: 0.85rem; }
 .task-manager-hint { color: #6b7280; font-size: 0.78rem; margin-top: 4px; }
-.todo-table .todo-cell-actions button {
+/* Scope to direct/legacy action buttons only — the polished .row-menu
+   popover items live inside .todo-cell-actions in the DOM but should
+   keep their own (.row-menu-item) styling to match the trips/tourist
+   page menus. */
+.todo-table .todo-cell-actions > button {
   padding: 3px 8px;
   border: 1px solid #d0d7e8;
   border-radius: 5px;
@@ -10209,8 +10187,8 @@ body.announcement-modal-open {
   cursor: pointer;
   margin-left: 3px;
 }
-.todo-table .todo-cell-actions button:first-child { margin-left: 0; }
-.todo-table .todo-cell-actions button:hover { background: #f4f6fa; }
+.todo-table .todo-cell-actions > button:first-child { margin-left: 0; }
+.todo-table .todo-cell-actions > button:hover { background: #f4f6fa; }
 .todo-table .todo-note-btn {
   padding: 3px 8px;
   font-size: 11px;

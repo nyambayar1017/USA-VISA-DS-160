@@ -472,23 +472,44 @@ function renderList() {
     .map((item, idx) => (item.kind === "task" ? renderTaskRow(item.data, idx) : renderContactRow(item.data, idx)))
     .join("");
 
+  // /contacts and /todo render the same table component but the "what is
+  // this row about" columns differ. Pick the matching header set so each
+  // page reads naturally on its own (no shared "Title / Name" headers).
+  const route = window.location.pathname;
+  const isContacts = route === "/contacts";
+  const headerCells = isContacts
+    ? `
+        <th>#</th>
+        <th>Name</th>
+        <th>From</th>
+        <th>Phone</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Last contacted</th>
+        <th>Created</th>
+        <th>Destinations</th>
+        <th>Note</th>
+        <th>Actions</th>
+      `
+    : `
+        <th>#</th>
+        <th>Title</th>
+        <th>From</th>
+        <th>Assigned to</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Due</th>
+        <th>Created</th>
+        <th>Destinations</th>
+        <th>Note</th>
+        <th>Actions</th>
+      `;
+
   todoList.innerHTML = `
     <div class="invoices-table-wrap">
       <table class="invoices-table todo-table">
         <thead>
-          <tr>
-            <th>#</th>
-            <th>Title / Name</th>
-            <th>From</th>
-            <th>To / Phone</th>
-            <th>Priority / Type</th>
-            <th>Status</th>
-            <th>Due / Last contact</th>
-            <th>Created</th>
-            <th>Destinations</th>
-            <th>Note</th>
-            <th>Actions</th>
-          </tr>
+          <tr>${headerCells}</tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
