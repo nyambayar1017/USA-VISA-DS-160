@@ -15020,6 +15020,77 @@ body.trip-public-body {
   text-align: right;
 }
 
+/* Accommodation row that points at a content slug — clickable, expands
+   inline to show 3 thumbs + summary + Read more. */
+.tp-accomm-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  color: inherit;
+}
+.tp-accomm-toggle:hover .tp-meal-value { color: var(--tp-or); }
+.tp-accomm-chev {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 12px;
+  transition: transform 200ms ease;
+}
+.tp-accomm-toggle.is-open .tp-accomm-chev { transform: rotate(180deg); }
+.tp-accomm-panel {
+  margin-top: 6px;
+  padding: 10px;
+  background: var(--tp-or-p);
+  border: 1px solid var(--tp-bd);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+}
+.tp-accomm-loading {
+  font-size: 13px;
+  color: var(--tp-mid);
+  font-style: italic;
+}
+.tp-accomm-images {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.tp-accomm-images img {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+.tp-accomm-summary {
+  margin: 0;
+  font-size: 13px;
+  color: var(--tp-mid);
+  line-height: 1.55;
+}
+.tp-accomm-readmore {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--tp-or);
+  border: 0;
+  color: #fff;
+  border-radius: 16px;
+  padding: 6px 14px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  justify-self: start;
+}
+.tp-accomm-readmore:hover { background: var(--tp-or-l); }
+
 /* Accommodation row inside a day card */
 .tp-accomm {
   margin-top: 14px;

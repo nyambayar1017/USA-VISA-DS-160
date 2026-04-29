@@ -190,12 +190,25 @@
     const line = (label, value) => value
       ? `<div class="tp-meal-row"><span class="tp-meal-label">${label}</span><span class="tp-meal-value">${escapeHtml(value)}</span></div>`
       : "";
+    // If the accommodation value looks like a content slug (no spaces,
+    // only [a-z0-9_-]), render as expandable: click → fetch the content
+    // entry, show 3 images + summary inline + Read more button.
+    const accomIsSlug = /^[a-z0-9_-]+$/i.test(accom);
+    const accomBlock = !accom
+      ? ""
+      : accomIsSlug
+        ? `<button type="button" class="tp-meal-row tp-accomm-toggle" data-action="toggle-accomm" data-slug="${escAttr(accom)}">
+            <span class="tp-meal-label">Accommodation</span>
+            <span class="tp-meal-value">${escapeHtml(accom)} <span class="tp-accomm-chev" aria-hidden="true">⌄</span></span>
+          </button>
+          <div class="tp-accomm-panel" data-accomm-panel="${escAttr(accom)}" hidden></div>`
+        : line("Accommodation", accom);
     return `
       <div class="tp-meals">
         ${line("Breakfast", breakfast)}
         ${line("Lunch", lunch)}
         ${line("Dinner", dinner)}
-        ${line("Accommodation", accom)}
+        ${accomBlock}
       </div>
     `;
   }
@@ -613,12 +626,68 @@
     }
   }
 
+  // Inline expansion for an accommodation row: 3 images + summary + Read
+  // more button. Re-uses the popup's content cache, so a Read more click
+  // never re-fetches.
+  async function expandAccomm(slug, panel, toggleBtn) {
+    if (panel.dataset.loaded === "true") {
+      const open = !panel.hidden;
+      panel.hidden = open;
+      if (toggleBtn) toggleBtn.classList.toggle("is-open", !open);
+      return;
+    }
+    panel.hidden = false;
+    if (toggleBtn) toggleBtn.classList.add("is-open");
+    panel.innerHTML = `<div class="tp-accomm-loading">Loading…</div>`;
+    let content = popupCache.get(slug);
+    if (!content) {
+      try {
+        const res = await fetch(`/api/public/content/${encodeURIComponent(slug)}`);
+        if (!res.ok) throw new Error("not found");
+        content = await res.json();
+        popupCache.set(slug, content);
+      } catch (err) {
+        panel.innerHTML = `<div class="tp-accomm-loading">No content found for "${escapeHtml(slug)}".</div>`;
+        panel.dataset.loaded = "true";
+        return;
+      }
+    }
+    panel.dataset.loaded = "true";
+    const images = (content.images || []).map((img) => img.url).filter(Boolean).slice(0, 3);
+    const sized = (url) => url + (url.includes("?") ? "&" : "?") + "size=thumb";
+    panel.innerHTML = `
+      ${images.length ? `<div class="tp-accomm-images">
+        ${images.map((url) => `<img src="${escapeHtml(sized(url))}" alt="" loading="lazy" />`).join("")}
+      </div>` : ""}
+      ${content.summary ? `<p class="tp-accomm-summary">${escapeHtml(content.summary)}</p>` : ""}
+      <button type="button" class="tp-accomm-readmore" data-action="open-content" data-slug="${escAttr(slug)}">Read more →</button>
+    `;
+  }
+
   document.addEventListener("click", (event) => {
     const link = event.target.closest(".trip-public-content-link");
     if (link) {
       event.preventDefault();
       const slug = link.dataset.slug;
       if (slug) openSlug(slug);
+      return;
+    }
+
+    // Read-more button inside an accommodation expansion → full popup.
+    const readMore = event.target.closest('[data-action="open-content"]');
+    if (readMore) {
+      const slug = readMore.dataset.slug;
+      if (slug) openSlug(slug);
+      return;
+    }
+
+    // Click an accommodation row that points at a content slug → toggle
+    // an inline panel with 3 images + summary + Read more button.
+    const accommBtn = event.target.closest('[data-action="toggle-accomm"]');
+    if (accommBtn) {
+      const slug = accommBtn.dataset.slug;
+      const panel = accommBtn.parentElement.querySelector(`[data-accomm-panel="${CSS.escape(slug)}"]`);
+      if (panel) expandAccomm(slug, panel, accommBtn);
       return;
     }
 
