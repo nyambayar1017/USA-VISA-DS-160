@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-307" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-326" />
   </head>
   <body class="app-body" data-page="gallery">
     <div class="workspace-shell">
@@ -57,10 +57,14 @@
             <span id="gal-bulk-count">0 selected</span>
             <input type="text" id="gal-bulk-folder" placeholder="Move to folder…" />
             <button type="button" id="gal-bulk-move">Move</button>
+            <button type="button" id="gal-bulk-delete" class="button-danger">Delete selected</button>
             <button type="button" id="gal-bulk-clear" class="button-secondary">Clear</button>
           </div>
 
-          <p class="tourist-count" id="gal-count"></p>
+          <div class="gallery-count-row">
+            <p class="tourist-count" id="gal-count"></p>
+            <button type="button" class="gallery-select-all-btn" id="gal-select-all" title="Select every photo currently visible">☑ Select all (filtered)</button>
+          </div>
           <div id="gal-grid" class="gallery-grid"><p class="empty">Loading…</p></div>
         </section>
       </main>
@@ -86,6 +90,11 @@
           <label>
             Extra tags (comma-separated, optional)
             <input id="gal-upload-tags" name="tags" placeholder="kl tower, sunset" />
+          </label>
+          <label>
+            Alt text (SEO + accessibility, optional)
+            <input id="gal-upload-alt" name="alt" placeholder="What's in the photo, e.g. Sukhbaatar Square at sunset" />
+            <small class="form-hint">Applied to all photos in this batch. You can refine per-photo afterwards.</small>
           </label>
           <label>
             Folder
@@ -126,6 +135,10 @@
           <label>
             Folder
             <select id="gal-edit-folder"></select>
+          </label>
+          <label>
+            Alt text (SEO + accessibility)
+            <input id="gal-edit-alt" name="alt" placeholder="What's in the photo, e.g. Sukhbaatar Square at sunset" />
           </label>
           <label>
             Tags (comma-separated)
@@ -175,7 +188,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-124"></script>
-    <script src="/gallery.js?v=workspace-6"></script>
+    <script src="/gallery.js?v=workspace-7"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

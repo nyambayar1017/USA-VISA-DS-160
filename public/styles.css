@@ -14526,6 +14526,33 @@ body.img-picker-open { overflow: hidden; }
   font-weight: 600;
 }
 #gal-bulk-move { background: #20356f; color: #fff; border-color: #20356f; }
+.gallery-bulk-bar .button-danger,
+#gal-bulk-delete {
+  background: #b91c1c;
+  color: #fff;
+  border-color: #b91c1c;
+}
+.gallery-bulk-bar .button-danger:hover,
+#gal-bulk-delete:hover { background: #991b1b; }
+.gallery-count-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+.gallery-select-all-btn {
+  padding: 6px 12px;
+  border: 1px solid #d0d7e8;
+  border-radius: 999px;
+  background: #fff;
+  color: #20356f;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.gallery-select-all-btn:hover { background: #f1f5f9; }
 
 /* Gallery: folder chip bar */
 .gallery-folder-bar {

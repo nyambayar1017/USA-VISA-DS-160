@@ -18,6 +18,7 @@
   const uploadDestinationInput = document.getElementById("gal-upload-destination");
   const uploadDestinationList = document.getElementById("gal-upload-destination-list");
   const uploadTagsInput = document.getElementById("gal-upload-tags");
+  const uploadAltInput = document.getElementById("gal-upload-alt");
   const uploadFolderSelect = document.getElementById("gal-upload-folder");
   const uploadSubmit = document.getElementById("gal-upload-submit");
   const editModal = document.getElementById("gal-edit-modal");
@@ -25,6 +26,7 @@
   const editStatus = document.getElementById("gal-edit-status");
   const editNameInput = document.getElementById("gal-edit-name");
   const editFolderSelect = document.getElementById("gal-edit-folder");
+  const editAltInput = document.getElementById("gal-edit-alt");
   const editTagsInput = document.getElementById("gal-edit-tags");
   const videoModal = document.getElementById("gal-video-modal");
   const videoForm = document.getElementById("gal-video-form");
@@ -34,7 +36,9 @@
   const bulkCount = document.getElementById("gal-bulk-count");
   const bulkFolderInput = document.getElementById("gal-bulk-folder");
   const bulkMoveBtn = document.getElementById("gal-bulk-move");
+  const bulkDeleteBtn = document.getElementById("gal-bulk-delete");
   const bulkClearBtn = document.getElementById("gal-bulk-clear");
+  const selectAllBtn = document.getElementById("gal-select-all");
 
   const state = {
     entries: [],
@@ -122,12 +126,12 @@
     if (currentValue != null) selectEl.value = currentValue;
   }
 
-  function render() {
+  function currentFiltered() {
     const q = (searchInput.value || "").trim().toLowerCase();
     const tag = (tagInput.value || "").trim().toLowerCase();
     const kind = kindSelect.value;
     const folderFilter = state.activeFolder;
-    const filtered = state.entries.filter((e) => {
+    return state.entries.filter((e) => {
       if (kind && e.kind !== kind) return false;
       if (folderFilter === "__none__" && (e.folder || "").trim()) return false;
       else if (folderFilter && folderFilter !== "__none__" && (e.folder || "").toLowerCase() !== folderFilter.toLowerCase()) return false;
@@ -138,6 +142,14 @@
       }
       return true;
     });
+  }
+
+  function render() {
+    const q = (searchInput.value || "").trim().toLowerCase();
+    const tag = (tagInput.value || "").trim().toLowerCase();
+    const kind = kindSelect.value;
+    const folderFilter = state.activeFolder;
+    const filtered = currentFiltered();
 
     // Folder cards appear inline with media — but only on the "All" view
     // (no folder selected) so the grid doubles as a Finder-style browser.
@@ -226,7 +238,7 @@
   }
 
   // ── Image upload (client-compressed) ──────────────────────────
-  async function uploadImage(file, { folder = "", tags = "" } = {}) {
+  async function uploadImage(file, { folder = "", tags = "", alt = "" } = {}) {
     const compressed = (window.CompressUpload && window.CompressUpload.compressToFile)
       ? await window.CompressUpload.compressToFile(file)
       : file;
@@ -234,6 +246,7 @@
     formData.append("file", compressed, compressed.name || "image.jpg");
     if (folder) formData.append("folder", folder);
     if (tags) formData.append("tags", tags);
+    if (alt) formData.append("alt", alt);
     const res = await fetch("/api/gallery", { method: "POST", body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Upload failed");
@@ -273,12 +286,13 @@
     // Combine destination + extra tags into a single comma-separated list.
     const combinedTags = [destination, extra].filter(Boolean).join(", ");
     const folder = uploadFolderSelect.value || "";
+    const alt = (uploadAltInput?.value || "").trim();
     uploadSubmit.disabled = true;
     if (uploadStatus) uploadStatus.textContent = `Uploading 0 / ${files.length}…`;
     let succeeded = 0;
     for (const file of files) {
       try {
-        const entry = await uploadImage(file, { folder, tags: combinedTags });
+        const entry = await uploadImage(file, { folder, tags: combinedTags, alt });
         state.entries.unshift(entry);
         succeeded++;
         if (uploadStatus) uploadStatus.textContent = `Uploading ${succeeded} / ${files.length}…`;
@@ -419,6 +433,7 @@
     editForm.elements.id.value = entry.id;
     editNameInput.value = entry.originalName || "";
     populateFolderSelect(editFolderSelect, entry.folder || "");
+    if (editAltInput) editAltInput.value = entry.alt || "";
     editTagsInput.value = (entry.tags || []).join(", ");
     editModal.classList.remove("is-hidden");
     editModal.removeAttribute("hidden");
@@ -439,6 +454,7 @@
     const payload = {
       originalName: editNameInput.value.trim(),
       folder: editFolderSelect.value || "",
+      alt: (editAltInput?.value || "").trim(),
       tags: editTagsInput.value.split(",").map((s) => s.trim()).filter(Boolean),
     };
     if (editStatus) editStatus.textContent = "Saving…";
@@ -491,6 +507,56 @@
   });
   bulkClearBtn?.addEventListener("click", () => {
     state.selected.clear();
+    refreshBulkBar();
+    render();
+  });
+
+  // ── Bulk delete ─────────────────────────────────────────────
+  bulkDeleteBtn?.addEventListener("click", async () => {
+    if (!state.selected.size) return;
+    const n = state.selected.size;
+    const ok = window.UI?.confirm
+      ? await window.UI.confirm(
+          `Delete ${n} selected item${n === 1 ? "" : "s"}? This can't be undone.`,
+          { dangerous: true, confirmLabel: "Delete" }
+        )
+      : window.confirm(`Delete ${n} selected item${n === 1 ? "" : "s"}?`);
+    if (!ok) return;
+    bulkDeleteBtn.disabled = true;
+    let failed = 0;
+    for (const id of Array.from(state.selected)) {
+      try {
+        const res = await fetch(`/api/gallery/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (!res.ok) { failed++; continue; }
+        state.entries = state.entries.filter((e) => e.id !== id);
+      } catch (_) {
+        failed++;
+      }
+    }
+    state.selected.clear();
+    refreshBulkBar();
+    bulkDeleteBtn.disabled = false;
+    await load();
+    if (failed) {
+      window.UI?.toast?.(`Deleted ${n - failed}, ${failed} failed.`, "error");
+    } else {
+      window.UI?.toast?.(`Deleted ${n} item${n === 1 ? "" : "s"}.`, "success");
+    }
+  });
+
+  // ── Select-all (filtered) toggle ────────────────────────────
+  // Selects every photo card currently visible. Folder cards are
+  // skipped (they aren't deletable items). Re-clicking when all
+  // visible items are already selected clears just those.
+  selectAllBtn?.addEventListener("click", () => {
+    const filtered = currentFiltered().filter((e) => e.kind === "image");
+    if (!filtered.length) return;
+    const allSelected = filtered.every((e) => state.selected.has(e.id));
+    if (allSelected) {
+      filtered.forEach((e) => state.selected.delete(e.id));
+    } else {
+      filtered.forEach((e) => state.selected.add(e.id));
+    }
     refreshBulkBar();
     render();
   });

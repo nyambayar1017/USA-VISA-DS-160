@@ -2125,6 +2125,7 @@ def _gallery_view(rec, request_origin=""):
         "id": rec.get("id"),
         "kind": rec.get("kind") or "image",
         "originalName": rec.get("originalName") or "",
+        "alt": rec.get("alt") or "",
         "mimeType": rec.get("mimeType") or "",
         "size": rec.get("size") or 0,
         "tags": rec.get("tags") or [],
@@ -2206,6 +2207,8 @@ def handle_update_gallery_item(environ, start_response, item_id):
         new_name = str(payload["originalName"] or "").strip()
         if new_name:
             rec["originalName"] = new_name
+    if "alt" in payload:
+        rec["alt"] = str(payload["alt"] or "").strip()
     write_gallery(records)
     return json_response(start_response, "200 OK", {"ok": True, "entry": _gallery_view(rec)})
 
@@ -2232,10 +2235,12 @@ def handle_upload_gallery_image(environ, start_response):
     raw_tags = fields.get("tags") or ""
     tag_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
     folder = (fields.get("folder") or "").strip()
+    alt = (fields.get("alt") or "").strip()
     rec = {
         "id": rec_id,
         "kind": "image",
         "originalName": original_name,
+        "alt": alt,
         "storedName": stored_name,
         "mimeType": upload.get("content_type") or "application/octet-stream",
         "size": len(data),
