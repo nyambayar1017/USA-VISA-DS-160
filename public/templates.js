@@ -275,6 +275,8 @@
   const locLangGrid = document.getElementById("tpl-loc-lang-grid");
   const locImageIdsField = document.getElementById("tpl-loc-image-ids");
   const locImagePreview = document.getElementById("tpl-loc-image-preview");
+  // In-memory list of {id, alt} used by the editor. Persisted on save.
+  let locImagesState = [];
   const locMapNode = document.getElementById("tpl-loc-map");
   let locLeafletMap = null;
   let locLeafletMarker = null;
@@ -286,7 +288,18 @@
     locLatlonEnabledField.checked = rec ? !!rec.latlonEnabled : false;
     locLatField.value = rec ? (rec.latitude || "") : "";
     locLonField.value = rec ? (rec.longitude || "") : "";
-    locImageIdsField.value = rec && Array.isArray(rec.imageIds) ? rec.imageIds.join(",") : "";
+    // Hydrate images state from new {id, alt} array, or fall back to
+    // legacy imageIds[] (no alt yet).
+    if (rec && Array.isArray(rec.images)) {
+      locImagesState = rec.images
+        .map((i) => ({ id: String(i.id || "").trim(), alt: String(i.alt || "").trim() }))
+        .filter((i) => i.id);
+    } else if (rec && Array.isArray(rec.imageIds)) {
+      locImagesState = rec.imageIds.filter(Boolean).map((id) => ({ id, alt: "" }));
+    } else {
+      locImagesState = [];
+    }
+    locImageIdsField.value = locImagesState.map((i) => i.id).join(",");
     // Language inputs.
     const names = (rec && rec.names) || {};
     locLangGrid.innerHTML = LOC_LANGS.map((l) => `
@@ -319,15 +332,20 @@
   }
 
   function renderLocImages() {
-    const ids = (locImageIdsField.value || "").split(",").map((s) => s.trim()).filter(Boolean);
-    if (!ids.length) {
+    if (!locImagesState.length) {
       locImagePreview.innerHTML = `<p class="tpl-empty">No photos yet.</p>`;
       return;
     }
-    locImagePreview.innerHTML = ids.map((id) => `
-      <div class="ct-image-thumb" data-id="${escapeHtml(id)}">
-        <img src="/api/gallery/${encodeURIComponent(id)}/file?size=thumb" alt="" loading="lazy" />
-        <button type="button" class="ct-image-remove" data-action="remove-loc-image" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
+    locImagePreview.innerHTML = locImagesState.map((img) => `
+      <div class="tpl-loc-image-item" data-id="${escapeHtml(img.id)}">
+        <div class="tpl-loc-image-thumb">
+          <img src="/api/gallery/${encodeURIComponent(img.id)}/file?size=thumb" alt="${escapeHtml(img.alt || "")}" loading="lazy" />
+          <button type="button" class="ct-image-remove" data-action="remove-loc-image" data-id="${escapeHtml(img.id)}" aria-label="Remove">×</button>
+        </div>
+        <label class="tpl-loc-alt-label">
+          Alt text (SEO + accessibility)
+          <input type="text" class="tpl-loc-alt" data-id="${escapeHtml(img.id)}" value="${escapeHtml(img.alt || "")}" placeholder="Describe what's in the photo" />
+        </label>
       </div>
     `).join("");
   }
@@ -461,25 +479,38 @@
     const removeImg = event.target.closest('[data-action="remove-loc-image"]');
     if (removeImg) {
       const id = removeImg.dataset.id;
-      const ids = (locImageIdsField.value || "").split(",").map((s) => s.trim()).filter(Boolean);
-      locImageIdsField.value = ids.filter((x) => x !== id).join(",");
+      locImagesState = locImagesState.filter((img) => img.id !== id);
+      locImageIdsField.value = locImagesState.map((i) => i.id).join(",");
       renderLocImages();
       return;
     }
   });
 
+  // Persist alt-text edits straight into locImagesState as the user
+  // types, so save() reads the latest values without a separate sync.
+  locImagePreview.addEventListener("input", (event) => {
+    const altInput = event.target.closest(".tpl-loc-alt");
+    if (!altInput) return;
+    const id = altInput.dataset.id;
+    const img = locImagesState.find((i) => i.id === id);
+    if (img) img.alt = altInput.value;
+  });
+
   document.getElementById("tpl-loc-pick-images").addEventListener("click", async () => {
     if (!window.ImagePicker) return;
-    const current = (locImageIdsField.value || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const current = locImagesState.map((i) => i.id);
     const picked = await window.ImagePicker.open({
       selected: current,
       multiple: true,
       title: "Choose location photos",
     });
-    if (Array.isArray(picked)) {
-      locImageIdsField.value = picked.join(",");
-      renderLocImages();
-    }
+    if (!Array.isArray(picked)) return;
+    // Preserve alt text for previously-picked images; add empty alt
+    // for newly-selected ones in the picker's order.
+    const altByIdBefore = new Map(locImagesState.map((i) => [i.id, i.alt || ""]));
+    locImagesState = picked.map((id) => ({ id, alt: altByIdBefore.get(id) || "" }));
+    locImageIdsField.value = locImagesState.map((i) => i.id).join(",");
+    renderLocImages();
   });
 
   [locLatField, locLonField, locLatlonEnabledField].forEach((el) => {
@@ -501,7 +532,10 @@
       latitude: (locLatField.value || "").trim(),
       longitude: (locLonField.value || "").trim(),
       names,
-      imageIds: (locImageIdsField.value || "").split(",").map((s) => s.trim()).filter(Boolean),
+      images: locImagesState.map((img) => ({
+        id: img.id,
+        alt: (img.alt || "").trim(),
+      })),
     };
     if (!payload.name) {
       alert("Name is required");

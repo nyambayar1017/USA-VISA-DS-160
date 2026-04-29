@@ -2737,10 +2737,35 @@ def _location_normalize(payload, existing=None):
         out["names"] = names
     elif "names" not in out:
         out["names"] = {lang: "" for lang in LOCATION_LANGUAGES}
-    if "imageIds" in payload and isinstance(payload["imageIds"], list):
-        out["imageIds"] = [str(i).strip() for i in payload["imageIds"] if str(i).strip()]
-    elif "imageIds" not in out:
-        out["imageIds"] = []
+    # Images schema: list of {id, alt}. Older records used imageIds[]
+    # without alt text — accept both shapes on input, always emit the
+    # richer "images" form. Alt text is critical for SEO so we expose
+    # it on every uploaded photo.
+    if "images" in payload and isinstance(payload["images"], list):
+        cleaned = []
+        for entry in payload["images"]:
+            if isinstance(entry, dict):
+                img_id = str(entry.get("id") or "").strip()
+                alt = str(entry.get("alt") or "").strip()
+            else:
+                img_id = str(entry or "").strip()
+                alt = ""
+            if img_id:
+                cleaned.append({"id": img_id, "alt": alt})
+        out["images"] = cleaned
+    elif "imageIds" in payload and isinstance(payload["imageIds"], list):
+        out["images"] = [
+            {"id": str(i).strip(), "alt": ""}
+            for i in payload["imageIds"]
+            if str(i).strip()
+        ]
+    elif "images" not in out:
+        # Migrate from legacy imageIds on existing rows.
+        legacy = out.get("imageIds") or []
+        out["images"] = [{"id": str(i).strip(), "alt": ""} for i in legacy if str(i).strip()]
+    # Keep imageIds as a derived convenience for any consumers that
+    # still want a flat id list.
+    out["imageIds"] = [img["id"] for img in out.get("images") or []]
     return out
 
 
