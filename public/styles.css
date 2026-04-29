@@ -14703,6 +14703,153 @@ body.img-picker-open { overflow: hidden; }
   padding: 4px 0 18px;
 }
 
+/* ── Trip Creator visual alignment with public trip page ────────────
+   Keeps the form-style editor but adopts the public page's font,
+   tawny copper accents, card style, and warm-cream background so the
+   builder and the published itinerary read as one product. Scoped
+   under body[data-page="trip-creator"] so we don't touch the rest of
+   the back-office. */
+body[data-page="trip-creator"] {
+  font-family: 'Plus Jakarta Sans', 'Montserrat', sans-serif;
+}
+body[data-page="trip-creator"] .workspace-main {
+  background: var(--tp-ww);
+}
+body[data-page="trip-creator"] .workspace-topbar h1 {
+  color: var(--tp-dk);
+}
+body[data-page="trip-creator"] .card {
+  background: #fff;
+  border: 1px solid var(--tp-bd);
+  border-radius: 14px;
+  box-shadow: none;
+}
+/* Tabs as outline pills with a tawny active state. */
+body[data-page="trip-creator"] .tc-tab-strip {
+  border-bottom: 1px solid var(--tp-bd);
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+}
+body[data-page="trip-creator"] .tc-tab {
+  border-color: var(--tp-bd);
+  color: var(--tp-dk);
+  font-weight: 600;
+}
+body[data-page="trip-creator"] .tc-tab.is-active {
+  background: var(--tp-or);
+  color: #fff;
+  border-color: var(--tp-or);
+}
+body[data-page="trip-creator"] .tc-tab:hover:not(.is-active) {
+  border-color: var(--tp-or);
+  color: var(--tp-or);
+  background: var(--tp-or-p);
+}
+/* Section heads gain the tawny bar accent like the public page. */
+body[data-page="trip-creator"] .tc-section-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--tp-dk);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+body[data-page="trip-creator"] .tc-section-head h3::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 18px;
+  background: var(--tp-or);
+  border-radius: 2px;
+}
+body[data-page="trip-creator"] .tc-form-grid label,
+body[data-page="trip-creator"] .tc-full {
+  color: var(--tp-mid);
+  font-size: 13px;
+  font-weight: 500;
+}
+body[data-page="trip-creator"] .tc-form-grid input,
+body[data-page="trip-creator"] .tc-form-grid select,
+body[data-page="trip-creator"] .tc-form-grid textarea,
+body[data-page="trip-creator"] .tc-full input,
+body[data-page="trip-creator"] .tc-full textarea,
+body[data-page="trip-creator"] .tc-full select {
+  border: 1px solid var(--tp-bd);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--tp-dk);
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}
+body[data-page="trip-creator"] .tc-form-grid input:focus,
+body[data-page="trip-creator"] .tc-form-grid select:focus,
+body[data-page="trip-creator"] .tc-form-grid textarea:focus,
+body[data-page="trip-creator"] .tc-full input:focus,
+body[data-page="trip-creator"] .tc-full textarea:focus,
+body[data-page="trip-creator"] .tc-full select:focus {
+  outline: none;
+  border-color: var(--tp-or);
+  box-shadow: 0 0 0 3px var(--tp-or-p);
+}
+/* Day-by-day program rows: look like compact public-page day cards. */
+body[data-page="trip-creator"] .tc-program-row {
+  background: #fff;
+  border: 1px solid var(--tp-bd);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 0 rgba(31, 27, 22, 0.04);
+}
+body[data-page="trip-creator"] .tc-program-day {
+  color: var(--tp-or);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+body[data-page="trip-creator"] .tc-program-title {
+  color: var(--tp-dk);
+  font-weight: 700;
+  font-size: 15px;
+}
+/* "+ Add" / Publish / Preview action buttons in the topbar — match the
+   public page's outline-pill + solid-orange CTA pattern. */
+body[data-page="trip-creator"] .header-action-btn {
+  border: 1px solid var(--tp-bd);
+  border-radius: 24px;
+  background: #fff;
+  color: var(--tp-dk);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 9px 16px;
+  transition: border-color 150ms, color 150ms;
+}
+body[data-page="trip-creator"] .header-action-btn:hover {
+  border-color: var(--tp-or);
+  color: var(--tp-or);
+}
+body[data-page="trip-creator"] .header-action-publish,
+body[data-page="trip-creator"] #tc-save-btn {
+  background: var(--tp-or);
+  color: #fff;
+  border-color: var(--tp-or);
+}
+body[data-page="trip-creator"] .header-action-publish:hover,
+body[data-page="trip-creator"] #tc-save-btn:hover {
+  background: var(--tp-or-l);
+  border-color: var(--tp-or-l);
+  color: #fff;
+}
+body[data-page="trip-creator"] .tc-publish-state[data-state="live"] {
+  background: rgba(46, 170, 117, 0.12);
+  color: var(--tp-green);
+  border: 1px solid rgba(46, 170, 117, 0.3);
+}
+body[data-page="trip-creator"] .tc-publish-state[data-state="draft"] {
+  background: var(--tp-or-p);
+  color: var(--tp-or);
+  border: 1px solid rgba(196, 106, 44, 0.3);
+}
+
 /* ── Templates admin page ──────────────────────────────────────────
    Two-column layout: left = template categories (Meals, Days,
    Services, …), right = the active category's editor pane. */
