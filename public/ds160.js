@@ -508,6 +508,60 @@ function renderManagerOptions() {
   managerFilter.value = uniqueManagers.includes(currentValue) ? currentValue : "";
 }
 
+function renderAnswerListSectionsHtml(entry) {
+  // Modal-styled mirror of renderListSectionsHtml. Renders the three
+  // repeat groups (countryList, languageList, educationList) so the
+  // See-answers view shows what the client actually submitted.
+  const countries = pickList(entry, "countryList").filter((row) => row && (row.name || "").trim());
+  const languages = pickList(entry, "languageList").filter((row) => row && (row.name || "").trim());
+  const educations = pickList(entry, "educationList").filter((row) =>
+    row && (row.institutionName || row.courseOfStudy || row.startDate || row.endDate || row.country)
+  );
+
+  let out = "";
+  if (countries.length) {
+    const items = countries.map((row, i) => `
+      <div class="ds160-answer-item">
+        <span>${i + 1}</span>
+        <strong>${escapeHtml(row.name || "-")}</strong>
+      </div>
+    `).join("");
+    out += `<section class="ds160-answer-section">
+      <h4>Сүүлийн 5 жилд зорчсон улсууд</h4>
+      <div class="ds160-answer-grid">${items}</div>
+    </section>`;
+  }
+  if (languages.length) {
+    const items = languages.map((row, i) => `
+      <div class="ds160-answer-item">
+        <span>${i + 1}</span>
+        <strong>${escapeHtml(row.name || "-")}</strong>
+      </div>
+    `).join("");
+    out += `<section class="ds160-answer-section">
+      <h4>Ярьдаг хэлнүүд</h4>
+      <div class="ds160-answer-grid">${items}</div>
+    </section>`;
+  }
+  if (educations.length) {
+    const items = educations.map((row, i) => `
+      <div class="ds160-answer-item" style="grid-column: 1 / -1;">
+        <span>${i + 1}. ${escapeHtml(row.institutionName || "-")}</span>
+        <strong>
+          ${escapeHtml(row.courseOfStudy || "-")} ·
+          ${escapeHtml([row.city, row.province, row.country].filter(Boolean).join(", ") || "-")} ·
+          ${escapeHtml(row.startDate || "-")} → ${escapeHtml(row.endDate || "-")}
+        </strong>
+      </div>
+    `).join("");
+    out += `<section class="ds160-answer-section">
+      <h4>Боловсролын мэдээлэл</h4>
+      <div class="ds160-answer-grid">${items}</div>
+    </section>`;
+  }
+  return out;
+}
+
 function renderAnswers(entry) {
   if (entry.status !== "submitted") {
     answersContentNode.innerHTML = `
@@ -561,6 +615,7 @@ function renderAnswers(entry) {
           </section>
         `
       ).join("")}
+      ${renderAnswerListSectionsHtml(entry)}
     </div>
   `;
   openAnswersModal();
