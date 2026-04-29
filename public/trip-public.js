@@ -332,21 +332,15 @@
         </div>
       `
       : "";
-    // Build a Google Maps embed URL from the trip's waypoints. Use the
-    // "directions" pattern (origin/destination/+waypoints) so the map
-    // traces the actual route. With only one stop it degrades to a
-    // single-point search; with none, the whole map block is omitted.
+    // Build a Google Maps embed URL from the trip's waypoints. The
+    // /maps/dir/ form blocks iframe embedding (X-Frame-Options), so we
+    // use the legacy maps.google.com?q= form which does allow embeds.
+    // Multiple waypoints are joined with " to " so Google places a pin
+    // for each location and auto-fits the viewport.
     const waypoints = Array.isArray(doc.mapWaypoints) ? doc.mapWaypoints : [];
-    let mapEmbedUrl = "";
-    if (waypoints.length === 1) {
-      mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(waypoints[0])}&output=embed`;
-    } else if (waypoints.length >= 2) {
-      const origin = encodeURIComponent(waypoints[0]);
-      const destination = encodeURIComponent(waypoints[waypoints.length - 1]);
-      const middle = waypoints.slice(1, -1).map(encodeURIComponent).join("/");
-      const path = middle ? `${origin}/${middle}/${destination}` : `${origin}/${destination}`;
-      mapEmbedUrl = `https://www.google.com/maps/dir/${path}/?output=embed`;
-    }
+    const mapEmbedUrl = waypoints.length
+      ? `https://maps.google.com/maps?q=${encodeURIComponent(waypoints.join(" to "))}&output=embed`
+      : "";
     const mapBlock = mapEmbedUrl
       ? `<div class="tp-info-map">
           <iframe src="${escAttr(mapEmbedUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
