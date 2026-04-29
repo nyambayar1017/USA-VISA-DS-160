@@ -108,13 +108,25 @@
                 <input type="text" class="tc-program-accommodation" placeholder="Holiday Inn (or content slug)" value="${escapeHtml(row.accommodation || "")}" />
               </label>
               <label>Breakfast
-                <input type="text" class="tc-program-meal-b" list="tc-meal-tpl-breakfast" placeholder="Hotel" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" />
+                <div class="tc-meal-combo" data-meal-cat="breakfast">
+                  <input type="text" class="tc-program-meal-b tc-meal-combo-input" placeholder="Hotel" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" autocomplete="off" />
+                  <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
+                  <div class="tc-meal-combo-list" hidden></div>
+                </div>
               </label>
               <label>Lunch
-                <input type="text" class="tc-program-meal-l" list="tc-meal-tpl-lunch" placeholder="Restaurant" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" />
+                <div class="tc-meal-combo" data-meal-cat="lunch">
+                  <input type="text" class="tc-program-meal-l tc-meal-combo-input" placeholder="Restaurant" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" autocomplete="off" />
+                  <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
+                  <div class="tc-meal-combo-list" hidden></div>
+                </div>
               </label>
               <label>Dinner
-                <input type="text" class="tc-program-meal-d" list="tc-meal-tpl-dinner" placeholder="Restaurant" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" />
+                <div class="tc-meal-combo" data-meal-cat="dinner">
+                  <input type="text" class="tc-program-meal-d tc-meal-combo-input" placeholder="Restaurant" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" autocomplete="off" />
+                  <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
+                  <div class="tc-meal-combo-list" hidden></div>
+                </div>
               </label>
             </div>
             <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
@@ -614,50 +626,108 @@
     }
   });
 
-  // Pull meal templates and mount three category-specific datalists
-  // (tc-meal-tpl-breakfast / -lunch / -dinner). Each Breakfast/Lunch/
-  // Dinner input references its matching list, so suggestions filter by
-  // category. Uncategorized templates appear in all three lists so
-  // legacy rows still surface until the user assigns a category.
+  // Meal-templates combobox: replaces the native <datalist> (which
+  // doesn't open on click in Safari) with a click-to-open dropdown
+  // that also filters as the user types. Uncategorized templates
+  // surface in all three buckets while the user migrates them.
+  const mealTemplateCache = { breakfast: [], lunch: [], dinner: [] };
+
   async function loadMealTemplates() {
     try {
       const res = await fetch("/api/meal-templates");
       if (!res.ok) return;
       const data = await res.json();
       const entries = data.entries || [];
-      const ensureList = (id) => {
-        let dl = document.getElementById(id);
-        if (!dl) {
-          dl = document.createElement("datalist");
-          dl.id = id;
-          document.body.appendChild(dl);
-        }
-        return dl;
-      };
-      const escAttr = (s) => (s || "").replace(/"/g, "&quot;");
       const buckets = { breakfast: [], lunch: [], dinner: [] };
       entries.forEach((t) => {
         const cat = (t.category || "").toLowerCase();
         if (cat === "breakfast" || cat === "lunch" || cat === "dinner") {
-          buckets[cat].push(t);
+          buckets[cat].push(t.name || "");
         } else {
-          // Legacy uncategorized: surface in all three so the value is
-          // still reachable while the user re-tags them.
-          buckets.breakfast.push(t);
-          buckets.lunch.push(t);
-          buckets.dinner.push(t);
+          buckets.breakfast.push(t.name || "");
+          buckets.lunch.push(t.name || "");
+          buckets.dinner.push(t.name || "");
         }
       });
       ["breakfast", "lunch", "dinner"].forEach((cat) => {
-        const dl = ensureList(`tc-meal-tpl-${cat}`);
-        dl.innerHTML = buckets[cat]
-          .map((t) => `<option value="${escAttr(t.name)}"></option>`)
-          .join("");
+        mealTemplateCache[cat] = buckets[cat].filter(Boolean);
       });
     } catch (_err) {
       // Suggestions are optional — silent fail.
     }
   }
+
+  function renderMealComboList(combo) {
+    const cat = combo.dataset.mealCat;
+    const input = combo.querySelector(".tc-meal-combo-input");
+    const list = combo.querySelector(".tc-meal-combo-list");
+    if (!list || !input) return;
+    const filter = (input.value || "").trim().toLowerCase();
+    const items = (mealTemplateCache[cat] || []).filter((name) =>
+      !filter || name.toLowerCase().includes(filter)
+    );
+    if (!items.length) {
+      list.innerHTML = `<div class="tc-meal-combo-empty">No saved templates. Add some on /templates.</div>`;
+      return;
+    }
+    list.innerHTML = items
+      .map((name) => `<button type="button" class="tc-meal-combo-item" data-value="${escapeHtml(name)}">${escapeHtml(name)}</button>`)
+      .join("");
+  }
+
+  function openMealCombo(combo) {
+    document.querySelectorAll(".tc-meal-combo .tc-meal-combo-list:not([hidden])").forEach((l) => {
+      if (l !== combo.querySelector(".tc-meal-combo-list")) l.hidden = true;
+    });
+    renderMealComboList(combo);
+    combo.querySelector(".tc-meal-combo-list").hidden = false;
+    combo.classList.add("is-open");
+  }
+
+  function closeMealCombo(combo) {
+    const list = combo.querySelector(".tc-meal-combo-list");
+    if (list) list.hidden = true;
+    combo.classList.remove("is-open");
+  }
+
+  // Event delegation — works for both initial render and any rows
+  // added after load (e.g. + Add day).
+  document.addEventListener("click", (event) => {
+    const item = event.target.closest(".tc-meal-combo-item");
+    if (item) {
+      const combo = item.closest(".tc-meal-combo");
+      const input = combo.querySelector(".tc-meal-combo-input");
+      input.value = item.dataset.value || "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      closeMealCombo(combo);
+      return;
+    }
+    const toggle = event.target.closest(".tc-meal-combo-toggle");
+    if (toggle) {
+      const combo = toggle.closest(".tc-meal-combo");
+      const list = combo.querySelector(".tc-meal-combo-list");
+      if (list.hidden) openMealCombo(combo);
+      else closeMealCombo(combo);
+      return;
+    }
+    // Outside-click close.
+    if (!event.target.closest(".tc-meal-combo")) {
+      document.querySelectorAll(".tc-meal-combo.is-open").forEach(closeMealCombo);
+    }
+  });
+  document.addEventListener("focusin", (event) => {
+    const combo = event.target.closest(".tc-meal-combo");
+    if (combo && event.target.matches(".tc-meal-combo-input")) {
+      openMealCombo(combo);
+    }
+  });
+  document.addEventListener("input", (event) => {
+    const combo = event.target.closest(".tc-meal-combo");
+    if (combo && event.target.matches(".tc-meal-combo-input")) {
+      renderMealComboList(combo);
+      combo.querySelector(".tc-meal-combo-list").hidden = false;
+    }
+  });
 
   loadMealTemplates();
   loadDoc();

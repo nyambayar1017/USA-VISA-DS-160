@@ -14703,6 +14703,77 @@ body.img-picker-open { overflow: hidden; }
   padding: 4px 0 18px;
 }
 
+/* Meal-template combobox used inside the Breakfast/Lunch/Dinner
+   columns of each program row. Replaces the native datalist with a
+   click-to-open dropdown that also filters as the user types. */
+.tc-meal-combo {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.tc-meal-combo-input {
+  flex: 1;
+  padding-right: 32px !important;
+}
+.tc-meal-combo-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 0;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  color: var(--tp-mid, #5C5448);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+}
+.tc-meal-combo-toggle:hover { color: var(--tp-or, #C46A2C); }
+.tc-meal-combo.is-open .tc-meal-combo-toggle { transform: translateY(-50%) rotate(180deg); }
+.tc-meal-combo-list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--tp-bd, #E5DFD5);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(31, 27, 22, 0.10);
+  padding: 4px;
+}
+.tc-meal-combo-item {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--tp-dk, #1F1B16);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.tc-meal-combo-item:hover { background: var(--tp-or-p, #FFF6EE); color: var(--tp-or, #C46A2C); }
+.tc-meal-combo-empty {
+  padding: 10px;
+  font-size: 13px;
+  color: var(--tp-mid, #5C5448);
+  font-style: italic;
+}
+
 /* ── Trip Creator visual alignment with public trip page ────────────
    Keeps the form-style editor but adopts the public page's font,
    tawny copper accents, card style, and warm-cream background so the
