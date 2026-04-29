@@ -19,9 +19,14 @@ function applyWorkspaceBranding() {
   if (!ws) return;
   const company = COMPANIES[ws];
   if (!company) return;
-  // Keep each page's own <title> (e.g. "TravelX Gallery") so the browser
-  // tab reflects what page the user is on. Only the favicon swaps per
-  // workspace.
+  // Keep each page's own <title> (e.g. "TravelX Gallery") but swap the
+  // shared "TravelX" prefix for the active workspace's short code so the
+  // browser tab reads "DTX Gallery" / "USM Gallery". Pages without
+  // "TravelX" in their <title> are left alone.
+  document.title = document.title.replace(/TravelX/g, company.short);
+  // Expose the short code so dynamic title-setters (backoffice.js etc.)
+  // can match the same prefix without re-reading workspace state.
+  window.WORKSPACE_SHORT = company.short;
   let icon = document.querySelector('link[rel="icon"]');
   if (!icon) {
     icon = document.createElement("link");

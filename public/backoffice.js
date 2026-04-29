@@ -24,10 +24,11 @@ const todoStatusPills = document.querySelector("#todo-status-pills");
 // On /todo we mirror the inverse: default to tasks-only.
 (function applyRouteDefault() {
   if (!todoTypeFilter) return;
+  const wsShort = window.WORKSPACE_SHORT || "TravelX";
   if (window.location.pathname === "/contacts") {
     todoTypeFilter.value = "contact";
     todoTypeFilter.style.display = "none";
-    document.title = "Contacts";
+    document.title = `${wsShort} Contacts`;
     const head = document.querySelector("#todo-section .section-head h2");
     if (head) head.textContent = "Contacts";
     const sub = document.querySelector("#todo-section .section-head p");
@@ -37,7 +38,7 @@ const todoStatusPills = document.querySelector("#todo-status-pills");
   } else if (window.location.pathname === "/todo") {
     todoTypeFilter.value = "task";
     todoTypeFilter.style.display = "none";
-    document.title = "To Do";
+    document.title = `${wsShort} To Do`;
     const head = document.querySelector("#todo-section .section-head h2");
     if (head) head.textContent = "To-Do tasks";
     const sub = document.querySelector("#todo-section .section-head p");
