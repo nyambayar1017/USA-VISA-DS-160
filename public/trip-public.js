@@ -251,11 +251,17 @@
     const overlay = document.createElement("div");
     overlay.className = "trip-popup-overlay";
     const images = (content.images || []).map((img) => img.url).filter(Boolean);
-    const heroImg = images[0]
-      ? `<img class="trip-popup-hero-img" src="${escapeHtml(images[0])}" alt="${escapeHtml(content.title || "")}" />`
-      : "";
-    const galleryThumbs = images.length > 1
-      ? images.map((url) => `<a class="trip-popup-thumb" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="" loading="lazy" /></a>`).join("")
+    const urlsAttr = escapeHtml(JSON.stringify(images));
+    const galleryHtml = images.length
+      ? `
+        <div class="content-gallery${images.length === 1 ? " is-single" : ""}">
+          ${images.map((url, i) => `
+            <button type="button" class="content-gallery-tile${i === 0 ? " is-featured" : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${i}">
+              <img src="${escapeHtml(url)}" alt="" loading="lazy" />
+            </button>
+          `).join("")}
+        </div>
+      `
       : "";
     const groups = (content.bulletGroups || [])
       .map((g) => `
@@ -272,11 +278,20 @@
         ? `<div class="trip-popup-video-link"><a href="${escapeHtml(content.videoUrl)}" target="_blank" rel="noopener">▶ Watch video</a></div>`
         : "");
     const mapSrc = mapEmbedUrl(content.location);
+    const mapOpenUrl = content.location
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(content.location)}`
+      : "";
     const map = mapSrc
       ? `
         <div class="trip-popup-map-section">
-          <h3>📍 Байршил</h3>
-          <div class="trip-popup-map">
+          <div class="trip-popup-map-head">
+            <h3>📍 Байршил</h3>
+            <div class="trip-popup-map-actions">
+              <button type="button" class="trip-popup-map-fs" data-action="map-fullscreen" title="Fullscreen">⛶ Fullscreen</button>
+              ${mapOpenUrl ? `<a class="trip-popup-map-link" href="${escapeHtml(mapOpenUrl)}" target="_blank" rel="noopener">Open in Google Maps ↗</a>` : ""}
+            </div>
+          </div>
+          <div class="trip-popup-map" data-map-frame>
             <iframe src="${escapeHtml(mapSrc)}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
           </div>
         </div>
@@ -285,11 +300,10 @@
     overlay.innerHTML = `
       <div class="trip-popup-dialog" role="dialog" aria-modal="true">
         <button type="button" class="trip-popup-close" data-action="close-popup" aria-label="Close">×</button>
-        ${heroImg ? `<div class="trip-popup-hero">${heroImg}</div>` : ""}
+        ${galleryHtml}
         <div class="trip-popup-body">
           <h2>${escapeHtml(content.title || content.slug || "")}</h2>
           ${content.summary ? `<p class="trip-popup-summary">${nl2br(content.summary)}</p>` : ""}
-          ${galleryThumbs ? `<div class="trip-popup-gallery">${galleryThumbs}</div>` : ""}
           ${groups}
           ${video}
           ${map}
@@ -302,6 +316,13 @@
       if (event.target === overlay || event.target.closest('[data-action="close-popup"]')) {
         overlay.remove();
         document.body.classList.remove("trip-popup-open");
+        return;
+      }
+      if (event.target.closest('[data-action="map-fullscreen"]')) {
+        const frame = overlay.querySelector("[data-map-frame] iframe");
+        if (!frame) return;
+        if (frame.requestFullscreen) frame.requestFullscreen();
+        else if (frame.webkitRequestFullscreen) frame.webkitRequestFullscreen();
       }
     });
   }

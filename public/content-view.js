@@ -38,15 +38,19 @@
   function render(content) {
     document.title = content.title ? `${content.title} · TravelX` : "TravelX";
     const images = (content.images || []).map((img) => img.url).filter(Boolean);
-    const heroImg = images[0]
-      ? `<img class="trip-popup-hero-img" src="${escapeHtml(images[0])}" alt="${escapeHtml(content.title || "")}" />`
-      : "";
-    // Show every selected image. The first is also the hero up top, but we
-    // repeat it in the gallery grid so a multi-photo content reads as a
-    // proper gallery (and so a single-photo content still has a click-to-
-    // open thumbnail). Each thumb links to the full-resolution file.
-    const galleryThumbs = images.length > 1
-      ? images.map((url) => `<a class="trip-popup-thumb" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="" loading="lazy" /></a>`).join("")
+    const urlsAttr = escapeHtml(JSON.stringify(images));
+    // Gallery: every image up top, click to open lightbox. First image is
+    // larger ("featured") so the layout has visual rhythm.
+    const galleryHtml = images.length
+      ? `
+        <div class="content-gallery${images.length === 1 ? " is-single" : ""}">
+          ${images.map((url, i) => `
+            <button type="button" class="content-gallery-tile${i === 0 ? " is-featured" : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${i}">
+              <img src="${escapeHtml(url)}" alt="" loading="lazy" />
+            </button>
+          `).join("")}
+        </div>
+      `
       : "";
     const groups = (content.bulletGroups || [])
       .map((g) => `
@@ -63,11 +67,20 @@
         ? `<div class="trip-popup-video-link"><a href="${escapeHtml(content.videoUrl)}" target="_blank" rel="noopener">▶ Watch video</a></div>`
         : "");
     const mapSrc = mapEmbedUrl(content.location);
+    const mapOpenUrl = content.location
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(content.location)}`
+      : "";
     const map = mapSrc
       ? `
         <div class="trip-popup-map-section">
-          <h3>📍 Байршил</h3>
-          <div class="trip-popup-map">
+          <div class="trip-popup-map-head">
+            <h3>📍 Байршил</h3>
+            <div class="trip-popup-map-actions">
+              <button type="button" class="trip-popup-map-fs" data-action="map-fullscreen" title="Fullscreen">⛶ Fullscreen</button>
+              ${mapOpenUrl ? `<a class="trip-popup-map-link" href="${escapeHtml(mapOpenUrl)}" target="_blank" rel="noopener">Open in Google Maps ↗</a>` : ""}
+            </div>
+          </div>
+          <div class="trip-popup-map" data-map-frame>
             <iframe src="${escapeHtml(mapSrc)}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
           </div>
         </div>
@@ -76,12 +89,11 @@
 
     root.innerHTML = `
       <div class="trip-popup-dialog content-view-dialog">
-        ${heroImg ? `<div class="trip-popup-hero">${heroImg}</div>` : ""}
+        ${galleryHtml}
         <div class="trip-popup-body">
           <p class="trip-public-kicker">${escapeHtml(content.type || "")}${content.country ? ` · ${escapeHtml(content.country)}` : ""}</p>
           <h2>${escapeHtml(content.title || content.slug || "")}</h2>
           ${content.summary ? `<p class="trip-popup-summary">${nl2br(content.summary)}</p>` : ""}
-          ${galleryThumbs ? `<div class="trip-popup-gallery">${galleryThumbs}</div>` : ""}
           ${groups}
           ${video}
           ${map}
@@ -91,6 +103,17 @@
         <p>TravelX · backoffice.travelx.mn</p>
       </footer>
     `;
+
+    // Map fullscreen — call requestFullscreen on the iframe wrapper.
+    root.addEventListener("click", (event) => {
+      if (event.target.closest('[data-action="map-fullscreen"]')) {
+        const frame = root.querySelector("[data-map-frame] iframe");
+        if (!frame) return;
+        const target = frame;
+        if (target.requestFullscreen) target.requestFullscreen();
+        else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen();
+      }
+    });
   }
 
   async function load() {
