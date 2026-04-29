@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-307" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-311" />
   </head>
   <body class="app-body" data-page="trip-creator">
     <div class="workspace-shell">
@@ -31,6 +31,8 @@
         <section class="card">
           <div class="tc-tab-strip" role="tablist" id="tc-tabs">
             <button type="button" class="tc-tab is-active" role="tab" data-tab="presentation">Presentation</button>
+            <button type="button" class="tc-tab" role="tab" data-tab="brochure">Brochure</button>
+            <button type="button" class="tc-tab" role="tab" data-tab="guide">Guide</button>
             <button type="button" class="tc-tab" role="tab" data-tab="quotation">Quotation</button>
             <span class="tc-publish-state" id="tc-publish-state" data-state="draft">Draft — not yet published</span>
             <span class="tc-save-status" id="tc-save-status"></span>
@@ -94,6 +96,14 @@
                   <option value="excluded">Excluded</option>
                 </select>
               </label>
+              <label>
+                Price from
+                <input id="tc-price-from" type="text" placeholder="e.g. 1590" />
+              </label>
+              <label class="tc-full">
+                Subtitle (above the title)
+                <input id="tc-subtitle" type="text" placeholder="Family-friendly · 7 days · Central Mongolia" />
+              </label>
             </div>
 
             <div class="tc-rating-row">
@@ -139,6 +149,84 @@
             <div id="tc-program-list" class="tc-program-list"></div>
           </section>
 
+          <!-- Brochure tab -->
+          <section class="tc-pane" id="tc-pane-brochure" role="tabpanel" hidden>
+            <div class="tc-section-head"><h3>Trip highlights</h3></div>
+            <p class="ct-hint">Bullet list shown above the day-by-day program. One highlight per line.</p>
+            <label class="tc-full">
+              <textarea id="tc-highlights" rows="6" placeholder="Day 1: Arrival in Ulaanbaatar
+Day 2: Drive to Terelj National Park
+…"></textarea>
+            </label>
+
+            <div class="tc-section-head">
+              <h3>Accommodation summary</h3>
+              <button type="button" class="header-action-btn" id="tc-add-accomm-row">+ Add row</button>
+            </div>
+            <p class="ct-hint">e.g. "Ulaanbaatar (2 nights)" — "Family-friendly 3★ Hotel".</p>
+            <div id="tc-accomm-rows" class="tc-repeat-rows"></div>
+
+            <div class="tc-section-head"><h3>What's included</h3></div>
+            <div class="tc-form-grid">
+              <label class="tc-full">
+                Included (one item per line)
+                <textarea id="tc-included" rows="6" placeholder="English-speaking guide
+4×4 vehicle + fuel
+…"></textarea>
+              </label>
+              <label class="tc-full">
+                Not included (one item per line)
+                <textarea id="tc-not-included" rows="6" placeholder="International flights
+Travel insurance
+…"></textarea>
+              </label>
+            </div>
+
+            <div class="tc-section-head"><h3>Manager (sidebar contact)</h3></div>
+            <div class="tc-form-grid">
+              <label>
+                Name
+                <input id="tc-manager-name" type="text" placeholder="Nyambayar Chuluunbaatar" />
+              </label>
+              <label class="tc-full">
+                Role / blurb
+                <input id="tc-manager-role" type="text" placeholder="Your local agent, tailor-made tour specialist" />
+              </label>
+              <label>
+                Phone
+                <input id="tc-manager-phone" type="tel" placeholder="+976 ..." />
+              </label>
+              <label>
+                Email
+                <input id="tc-manager-email" type="email" placeholder="info@..." />
+              </label>
+              <label class="tc-full">
+                Avatar URL (optional)
+                <input id="tc-manager-avatar" type="url" placeholder="https://..." />
+              </label>
+            </div>
+
+            <div class="tc-section-head">
+              <h3>International flights</h3>
+              <button type="button" class="header-action-btn" id="tc-add-flight">+ Add leg</button>
+            </div>
+            <p class="ct-hint">Shown in a small table on the public page if filled in.</p>
+            <div id="tc-flight-rows" class="tc-repeat-rows"></div>
+          </section>
+
+          <!-- Guide tab -->
+          <section class="tc-pane" id="tc-pane-guide" role="tabpanel" hidden>
+            <div class="tc-section-head"><h3>Mongolia / region guide</h3></div>
+            <p class="ct-hint">Long-form text shown in the "Guide" tab on the public page. Use blank lines to start new paragraphs. Lines starting with "##" become subheadings.</p>
+            <label class="tc-full">
+              <textarea id="tc-mongolia-guide" rows="20" placeholder="## Geography
+Mongolia is the world's 19th-largest country and the most sparsely populated…
+
+## Culture
+A rich nomadic heritage shaped by Buddhism…"></textarea>
+            </label>
+          </section>
+
           <!-- Quotation tab -->
           <section class="tc-pane" id="tc-pane-quotation" role="tabpanel" hidden>
             <div class="tc-section-head">
@@ -179,7 +267,7 @@
     <script src="/app-shell.js?v=workspace-123"></script>
     <script src="/image-picker.js?v=workspace-1"></script>
     <script src="/content-picker.js?v=workspace-1"></script>
-    <script src="/trip-creator.js?v=workspace-4"></script>
+    <script src="/trip-creator.js?v=workspace-5"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

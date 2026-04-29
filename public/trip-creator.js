@@ -73,6 +73,7 @@
     programList.innerHTML = (rows || [])
       .map((row, idx) => {
         const ids = Array.isArray(row.imageIds) ? row.imageIds : [];
+        const meals = row.meals || {};
         const thumbs = ids
           .map(
             (id) => `
@@ -84,13 +85,34 @@
           )
           .join("");
         return `
-          <div class="tc-program-row" data-idx="${idx}">
+          <div class="tc-program-row" data-idx="${idx}" data-day-id="${escapeHtml(row.id || "")}">
+            <input type="hidden" class="tc-program-id" value="${escapeHtml(row.id || "")}" />
+            <input type="hidden" class="tc-program-template-id" value="${escapeHtml(row.templateId || "")}" />
             <div class="tc-program-row-head">
               <input type="text" class="tc-program-day" placeholder="Өдөр ${idx + 1}" value="${escapeHtml(row.day || `Өдөр ${idx + 1}`)}" />
               <input type="text" class="tc-program-title" placeholder="e.g. УБ - Истанбул нислэг" value="${escapeHtml(row.title || "")}" />
               <button type="button" class="tc-program-delete" data-action="delete-day" data-idx="${idx}" aria-label="Remove day">✕</button>
             </div>
+            <div class="tc-program-meta-row">
+              <label>Date <input type="text" class="tc-program-date" placeholder="e.g. 2026-07-11" value="${escapeHtml(row.date || "")}" /></label>
+            </div>
+            <div class="tc-program-route">
+              <label>From <input type="text" class="tc-program-from" placeholder="Origin" value="${escapeHtml(row.fromName || "")}" /></label>
+              <label>To <input type="text" class="tc-program-to" placeholder="Destination" value="${escapeHtml(row.toName || "")}" /></label>
+              <label>Distance <input type="text" class="tc-program-distance" placeholder="80km" value="${escapeHtml(row.distance || "")}" /></label>
+              <label>Drive <input type="text" class="tc-program-drive" placeholder="1h 30m" value="${escapeHtml(row.drive || "")}" /></label>
+            </div>
             <textarea class="tc-program-body" rows="3" placeholder="Description. Use + Content link to embed [[slug]] markers that turn yellow on the public page.">${escapeHtml(row.body || "")}</textarea>
+            <div class="tc-program-accomm">
+              <label class="tc-program-accomm-name">Accommodation
+                <input type="text" class="tc-program-accommodation" placeholder="Hotel name (or content slug)" value="${escapeHtml(row.accommodation || "")}" />
+              </label>
+              <span class="tc-program-meals">
+                <label><input type="checkbox" class="tc-program-meal-b" ${meals.breakfast ? "checked" : ""}/> B</label>
+                <label><input type="checkbox" class="tc-program-meal-l" ${meals.lunch ? "checked" : ""}/> L</label>
+                <label><input type="checkbox" class="tc-program-meal-d" ${meals.dinner ? "checked" : ""}/> D</label>
+              </span>
+            </div>
             <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
             <div class="tc-program-day-photos">
               <button type="button" class="ct-add-item-btn" data-action="pick-day-images" data-idx="${idx}">+ Photos</button>
@@ -175,8 +197,21 @@
     return Array.from(programList.querySelectorAll(".tc-program-row")).map((row) => {
       const idsRaw = row.querySelector(".tc-program-image-ids")?.value || "";
       return {
+        id: row.querySelector(".tc-program-id")?.value || "",
+        templateId: row.querySelector(".tc-program-template-id")?.value || "",
         day: row.querySelector(".tc-program-day")?.value || "",
         title: row.querySelector(".tc-program-title")?.value || "",
+        date: row.querySelector(".tc-program-date")?.value || "",
+        fromName: row.querySelector(".tc-program-from")?.value || "",
+        toName: row.querySelector(".tc-program-to")?.value || "",
+        distance: row.querySelector(".tc-program-distance")?.value || "",
+        drive: row.querySelector(".tc-program-drive")?.value || "",
+        accommodation: row.querySelector(".tc-program-accommodation")?.value || "",
+        meals: {
+          breakfast: !!row.querySelector(".tc-program-meal-b")?.checked,
+          lunch: !!row.querySelector(".tc-program-meal-l")?.checked,
+          dinner: !!row.querySelector(".tc-program-meal-d")?.checked,
+        },
         body: row.querySelector(".tc-program-body")?.value || "",
         imageIds: idsRaw.split(",").map((s) => s.trim()).filter(Boolean),
       };
@@ -298,6 +333,88 @@
       : "—";
   }
 
+  // ── Brochure tab: accommSummary + flightLegs repeating rows ───
+  const accommRowsEl = document.getElementById("tc-accomm-rows");
+  const flightRowsEl = document.getElementById("tc-flight-rows");
+  const addAccommBtn = document.getElementById("tc-add-accomm-row");
+  const addFlightBtn = document.getElementById("tc-add-flight");
+
+  function renderAccommSummary(rows) {
+    accommRowsEl.innerHTML = (rows || []).map((row, idx) => `
+      <div class="tc-repeat-row" data-idx="${idx}">
+        <input type="hidden" class="tc-accomm-id" value="${escapeHtml(row.id || "")}" />
+        <input type="hidden" class="tc-accomm-template-id" value="${escapeHtml(row.templateId || "")}" />
+        <input type="text" class="tc-accomm-nights" placeholder="Nights" value="${escapeHtml(row.nights || "")}" />
+        <input type="text" class="tc-accomm-label" placeholder="Place (e.g. Ulaanbaatar (2 nights))" value="${escapeHtml(row.label || "")}" />
+        <input type="text" class="tc-accomm-hotel" placeholder="Hotel / camp name" value="${escapeHtml(row.hotel || "")}" />
+        <button type="button" class="tc-program-delete" data-action="delete-accomm" data-idx="${idx}" aria-label="Remove">✕</button>
+      </div>
+    `).join("");
+  }
+  function readAccommSummary() {
+    return Array.from(accommRowsEl.querySelectorAll(".tc-repeat-row")).map((r) => ({
+      id: r.querySelector(".tc-accomm-id")?.value || "",
+      templateId: r.querySelector(".tc-accomm-template-id")?.value || "",
+      nights: r.querySelector(".tc-accomm-nights")?.value || "",
+      label: r.querySelector(".tc-accomm-label")?.value || "",
+      hotel: r.querySelector(".tc-accomm-hotel")?.value || "",
+    }));
+  }
+  addAccommBtn?.addEventListener("click", () => {
+    const cur = readAccommSummary();
+    cur.push({ nights: "", label: "", hotel: "" });
+    renderAccommSummary(cur);
+  });
+  accommRowsEl?.addEventListener("click", (e) => {
+    const del = e.target.closest('[data-action="delete-accomm"]');
+    if (!del) return;
+    const cur = readAccommSummary();
+    cur.splice(Number(del.dataset.idx), 1);
+    renderAccommSummary(cur);
+  });
+
+  function renderFlightLegs(rows) {
+    flightRowsEl.innerHTML = (rows || []).map((row, idx) => `
+      <div class="tc-repeat-row tc-repeat-row--flight" data-idx="${idx}">
+        <input type="hidden" class="tc-flight-id" value="${escapeHtml(row.id || "")}" />
+        <input type="hidden" class="tc-flight-template-id" value="${escapeHtml(row.templateId || "")}" />
+        <input type="text" class="tc-flight-n" placeholder="#" value="${escapeHtml(row.n || String(idx + 1))}" />
+        <input type="text" class="tc-flight-date" placeholder="Date" value="${escapeHtml(row.date || "")}" />
+        <input type="text" class="tc-flight-dep" placeholder="Dep" value="${escapeHtml(row.dep || "")}" />
+        <input type="text" class="tc-flight-from" placeholder="From" value="${escapeHtml(row.depFrom || "")}" />
+        <input type="text" class="tc-flight-arr" placeholder="Arr" value="${escapeHtml(row.arr || "")}" />
+        <input type="text" class="tc-flight-to" placeholder="To" value="${escapeHtml(row.arrTo || "")}" />
+        <input type="text" class="tc-flight-flight" placeholder="Flight #" value="${escapeHtml(row.flight || "")}" />
+        <button type="button" class="tc-program-delete" data-action="delete-flight" data-idx="${idx}" aria-label="Remove">✕</button>
+      </div>
+    `).join("");
+  }
+  function readFlightLegs() {
+    return Array.from(flightRowsEl.querySelectorAll(".tc-repeat-row")).map((r) => ({
+      id: r.querySelector(".tc-flight-id")?.value || "",
+      templateId: r.querySelector(".tc-flight-template-id")?.value || "",
+      n: r.querySelector(".tc-flight-n")?.value || "",
+      date: r.querySelector(".tc-flight-date")?.value || "",
+      dep: r.querySelector(".tc-flight-dep")?.value || "",
+      depFrom: r.querySelector(".tc-flight-from")?.value || "",
+      arr: r.querySelector(".tc-flight-arr")?.value || "",
+      arrTo: r.querySelector(".tc-flight-to")?.value || "",
+      flight: r.querySelector(".tc-flight-flight")?.value || "",
+    }));
+  }
+  addFlightBtn?.addEventListener("click", () => {
+    const cur = readFlightLegs();
+    cur.push({ n: String(cur.length + 1) });
+    renderFlightLegs(cur);
+  });
+  flightRowsEl?.addEventListener("click", (e) => {
+    const del = e.target.closest('[data-action="delete-flight"]');
+    if (!del) return;
+    const cur = readFlightLegs();
+    cur.splice(Number(del.dataset.idx), 1);
+    renderFlightLegs(cur);
+  });
+
   // ── Rating sliders show "n/5" beside the input ─────────────────
   ["rate", "comfort", "difficulty"].forEach((key) => {
     const input = $(`tc-${key}`);
@@ -329,8 +446,10 @@
         const docPayload = await docRes.json();
         const doc = docPayload.doc || {};
         $("tc-title").value = doc.title || trip.tripName || "";
+        $("tc-subtitle").value = doc.subtitle || "";
         $("tc-total-days").value = doc.totalDays || trip.totalDays || "";
         $("tc-total-km").value = doc.totalKm || "";
+        $("tc-price-from").value = doc.priceFrom || "";
         $("tc-language").value = doc.language || "mn";
         $("tc-trip-type").value = doc.tripType || (trip.tripType || "TRIP").toUpperCase();
         $("tc-currency").value = doc.currency || "MNT";
@@ -346,6 +465,20 @@
         setCoverIds(Array.isArray(doc.coverIds) ? doc.coverIds : []);
         renderQuote((doc.quotation && doc.quotation.rows) || []);
         $("tc-quote-note").value = (doc.quotation && doc.quotation.note) || "";
+        // Brochure tab
+        $("tc-highlights").value = (doc.highlights || []).join("\n");
+        $("tc-included").value = (doc.included || []).join("\n");
+        $("tc-not-included").value = (doc.notIncluded || []).join("\n");
+        const m = doc.manager || {};
+        $("tc-manager-name").value = m.name || "";
+        $("tc-manager-role").value = m.role || "";
+        $("tc-manager-phone").value = m.phone || "";
+        $("tc-manager-email").value = m.email || "";
+        $("tc-manager-avatar").value = m.avatar || "";
+        renderAccommSummary(doc.accommSummary || []);
+        renderFlightLegs(doc.flightLegs || []);
+        // Guide tab
+        $("tc-mongolia-guide").value = doc.mongoliaGuide || "";
         // The doc has updatedAt only after at least one save — that's our
         // proxy for "this trip is live at /trip/<id>".
         setPublishedState(!!doc.updatedAt);
@@ -374,11 +507,17 @@
     return out;
   }
 
+  function splitLines(value) {
+    return String(value || "").split("\n").map((s) => s.trim()).filter(Boolean);
+  }
+
   function readPayload() {
     return {
       title: $("tc-title").value.trim(),
+      subtitle: $("tc-subtitle").value.trim(),
       totalDays: $("tc-total-days").value.trim(),
       totalKm: $("tc-total-km").value.trim(),
+      priceFrom: $("tc-price-from").value.trim(),
       language: $("tc-language").value,
       tripType: $("tc-trip-type").value,
       currency: $("tc-currency").value,
@@ -391,6 +530,19 @@
       intro: $("tc-intro").value,
       coverIds: getCoverIds(),
       program: readProgram(),
+      highlights: splitLines($("tc-highlights").value),
+      included: splitLines($("tc-included").value),
+      notIncluded: splitLines($("tc-not-included").value),
+      accommSummary: readAccommSummary(),
+      flightLegs: readFlightLegs(),
+      manager: {
+        name: $("tc-manager-name").value.trim(),
+        role: $("tc-manager-role").value.trim(),
+        phone: $("tc-manager-phone").value.trim(),
+        email: $("tc-manager-email").value.trim(),
+        avatar: $("tc-manager-avatar").value.trim(),
+      },
+      mongoliaGuide: $("tc-mongolia-guide").value,
       quotation: {
         rows: readQuoteRows(),
         note: $("tc-quote-note").value,

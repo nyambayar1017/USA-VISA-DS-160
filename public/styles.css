@@ -15198,6 +15198,190 @@ body.trip-public-body {
   .tp-info-actions { display: none; }
 }
 
+/* Day-card collapse: head is a button, body collapses on .is-open=false */
+.tp-day-card { padding: 0; overflow: hidden; }
+.tp-day-card .tp-day-head {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  margin-bottom: 0;
+}
+.tp-day-card .tp-day-head:hover { background: var(--tp-or-p); }
+.tp-day-chev {
+  color: var(--tp-or);
+  font-size: 16px;
+  font-weight: 700;
+  transition: transform 200ms ease;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.tp-day-card.is-open .tp-day-chev { transform: rotate(180deg); }
+.tp-day-collapse {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0 22px;
+  transition: max-height 350ms ease, opacity 200ms ease, padding 200ms ease;
+}
+.tp-day-card.is-open .tp-day-collapse {
+  max-height: 4000px;
+  opacity: 1;
+  padding: 0 22px 18px;
+  border-top: 1px solid var(--tp-bd);
+}
+.tp-day-card.is-open .tp-day-collapse .tp-day-body { padding-top: 14px; border-top: 0; }
+
+/* Itinerary / Guide tabs */
+.tp-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--tp-bd);
+  position: sticky;
+  top: 64px;
+  background: var(--tp-ww);
+  z-index: 30;
+}
+.tp-tab {
+  appearance: none; -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  padding: 14px 22px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tp-mid);
+  cursor: pointer;
+  transition: color 200ms, border-color 200ms;
+}
+.tp-tab.is-active {
+  font-weight: 700;
+  color: var(--tp-dk);
+  border-bottom-color: var(--tp-or);
+}
+
+.tp-section-head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+.tp-toggle-all {
+  appearance: none; -webkit-appearance: none;
+  background: transparent;
+  border: 1px solid var(--tp-or);
+  color: var(--tp-or);
+  border-radius: 24px;
+  padding: 7px 16px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tp-toggle-all:hover { background: var(--tp-or); color: #fff; }
+
+/* Travel guide content */
+.tp-guide h3 {
+  margin: 18px 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tp-or);
+}
+.tp-guide h3:first-child { margin-top: 0; }
+.tp-guide p { font-size: 13.5px; color: var(--tp-dk); line-height: 1.7; }
+.tp-guide p + p { margin-top: 8px; }
+
+/* ── Trip-creator: per-day route + accommodation + meals + brochure rows */
+.tc-program-meta-row {
+  display: flex;
+  gap: 10px;
+  margin: 8px 0 6px;
+  font-size: 0.84rem;
+}
+.tc-program-meta-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4a5568;
+}
+.tc-program-meta-row input { padding: 5px 9px; }
+.tc-program-route {
+  display: grid;
+  grid-template-columns: 1fr 1fr 120px 120px;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.tc-program-route label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.78rem;
+  color: #4a5568;
+  gap: 2px;
+}
+.tc-program-route input { padding: 6px 9px; }
+.tc-program-accomm {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+.tc-program-accomm-name {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.78rem;
+  color: #4a5568;
+  gap: 2px;
+  min-width: 220px;
+}
+.tc-program-accomm-name input { padding: 6px 9px; }
+.tc-program-meals {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.86rem;
+}
+.tc-program-meals label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.tc-repeat-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+.tc-repeat-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 1fr 36px;
+  gap: 8px;
+  align-items: center;
+}
+.tc-repeat-row input { padding: 7px 10px; }
+.tc-repeat-row--flight {
+  grid-template-columns: 50px 110px 80px 1fr 80px 1fr 110px 36px;
+}
+@media (max-width: 760px) {
+  .tc-program-route { grid-template-columns: 1fr 1fr; }
+  .tc-repeat-row, .tc-repeat-row--flight { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 640px) {
   .trip-public-hero-photo {
     margin: -22px -20px 14px;

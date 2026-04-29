@@ -1773,8 +1773,20 @@ TRIP_CREATOR_DEFAULT = {
     "manager": {"name": "", "role": "", "phone": "", "email": "", "avatar": ""},
     # International flight legs for the brochure flight table.
     "flightLegs": [],     # list[{n, date, dep, depFrom, arr, arrTo, flight}]
+    # Free-text Mongolia / region guide shown in the public-page Guide tab.
+    "mongoliaGuide": "",
     "quotation": {"rows": [], "note": ""},
 }
+
+
+def _ensure_id(rec):
+    """Stable id helper. Days, accommSummary rows and flight legs get a uuid
+    on first save so future edits, drag-and-drop reorders, and template
+    instancing can target them by id rather than array index."""
+    cur = (rec.get("id") or "").strip()
+    if cur:
+        return cur
+    return str(uuid4())
 
 
 def _trip_creator_normalize(payload):
@@ -1784,7 +1796,8 @@ def _trip_creator_normalize(payload):
     if not isinstance(payload, dict):
         return out
     for key in ("title", "subtitle", "language", "currency", "totalDays", "totalKm",
-                "priceFrom", "tripType", "offerType", "internationalFlight", "intro"):
+                "priceFrom", "tripType", "offerType", "internationalFlight",
+                "intro", "mongoliaGuide"):
         if key in payload and payload[key] is not None:
             out[key] = str(payload[key])
     if isinstance(payload.get("themes"), list):
@@ -1810,6 +1823,8 @@ def _trip_creator_normalize(payload):
             if not isinstance(meals_raw, dict):
                 meals_raw = {}
             prog.append({
+                "id": _ensure_id(entry),
+                "templateId": str(entry.get("templateId") or "").strip(),
                 "day": str(entry.get("day") or "").strip(),
                 "title": str(entry.get("title") or "").strip(),
                 "date": str(entry.get("date") or "").strip(),
@@ -1837,6 +1852,8 @@ def _trip_creator_normalize(payload):
             if not isinstance(row, dict):
                 continue
             summary.append({
+                "id": _ensure_id(row),
+                "templateId": str(row.get("templateId") or "").strip(),
                 "nights": str(row.get("nights") or "").strip(),
                 "label": str(row.get("label") or "").strip(),
                 "hotel": str(row.get("hotel") or "").strip(),
@@ -1857,6 +1874,8 @@ def _trip_creator_normalize(payload):
             if not isinstance(leg, dict):
                 continue
             legs.append({
+                "id": _ensure_id(leg),
+                "templateId": str(leg.get("templateId") or "").strip(),
                 "n": str(leg.get("n") or "").strip(),
                 "date": str(leg.get("date") or "").strip(),
                 "dep": str(leg.get("dep") or "").strip(),
@@ -1931,6 +1950,7 @@ def build_public_trip_view(trip_id):
         "notIncluded": doc.get("notIncluded") or [],
         "manager": doc.get("manager") or {},
         "flightLegs": doc.get("flightLegs") or [],
+        "mongoliaGuide": doc.get("mongoliaGuide") or "",
         "quotation": doc.get("quotation") or {"rows": [], "note": ""},
         "trip": {
             "serial": trip.get("serial"),

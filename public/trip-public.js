@@ -181,25 +181,29 @@
     `;
   }
 
-  function renderDayCard(row) {
+  function renderDayCard(row, idx) {
     const route = renderRouteBlock(row);
     const accomm = renderAccommodation(row);
     const body = row.body
       ? `<div class="tp-day-body">${linkifyContent(nl2br(row.body))}</div>`
       : "";
+    const dayId = row.id || `day-${idx}`;
     return `
       <div class="tp-day-grid">
         <div class="tp-day-route-col">${route}</div>
-        <article class="tp-day-card">
-          <div class="tp-day-head">
+        <article class="tp-day-card is-open" data-day-id="${escAttr(dayId)}">
+          <button type="button" class="tp-day-head" data-action="toggle-day">
             <div>
               <span class="tp-day-pill">${escapeHtml(row.day || "")}</span>
               <span class="tp-day-title">${escapeHtml(row.title || "")}</span>
+              ${row.date ? `<div class="tp-day-date">${escapeHtml(row.date)}</div>` : ""}
             </div>
-            ${row.date ? `<div class="tp-day-date">${escapeHtml(row.date)}</div>` : ""}
+            <span class="tp-day-chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="tp-day-collapse">
+            ${body}
+            ${accomm}
           </div>
-          ${body}
-          ${accomm}
         </article>
       </div>
     `;
@@ -360,7 +364,21 @@
 
     document.title = doc.title ? `${doc.title} · ${brand}` : brand;
 
-    const programHtml = program.map(renderDayCard).join("");
+    const programHtml = program.map((row, idx) => renderDayCard(row, idx)).join("");
+
+    // Render the Mongolia/region guide as paragraphs; lines starting with
+    // "##" become h3 headings (matches the editor textarea hint).
+    const guideText = (doc.mongoliaGuide || "").trim();
+    const guideHtml = guideText
+      ? guideText.split(/\n{2,}/).map((block) => {
+          const trimmed = block.trim();
+          if (trimmed.startsWith("##")) {
+            return `<h3>${escapeHtml(trimmed.replace(/^#+\s*/, ""))}</h3>`;
+          }
+          return `<p>${nl2br(trimmed)}</p>`;
+        }).join("")
+      : "";
+    const hasGuide = !!guideText;
 
     root.innerHTML = `
       <header class="tp-head">
@@ -384,20 +402,41 @@
 
           ${galleryCard}
 
-          ${renderHighlights(doc)}
-
-          ${program.length ? `
-            <section class="tp-program">
-              <h2 class="tp-section-h"><span class="tp-bar"></span>Day-by-day itinerary</h2>
-              ${programHtml}
-            </section>
+          ${hasGuide ? `
+            <div class="tp-tabs" role="tablist">
+              <button type="button" class="tp-tab is-active" data-tab="itinerary" role="tab">Itinerary</button>
+              <button type="button" class="tp-tab" data-tab="guide" role="tab">Guide</button>
+            </div>
           ` : ""}
 
-          ${renderIncluded(doc)}
+          <div class="tp-tab-panel" data-tab-panel="itinerary">
+            ${renderHighlights(doc)}
 
-          ${renderFlightTable(doc.flightLegs)}
+            ${program.length ? `
+              <section class="tp-program">
+                <div class="tp-section-head-row">
+                  <h2 class="tp-section-h"><span class="tp-bar"></span>Day-by-day itinerary</h2>
+                  <button type="button" class="tp-toggle-all" data-action="toggle-all">Collapse all</button>
+                </div>
+                ${programHtml}
+              </section>
+            ` : ""}
 
-          ${renderQuote(doc.quotation, doc.currency)}
+            ${renderIncluded(doc)}
+
+            ${renderFlightTable(doc.flightLegs)}
+
+            ${renderQuote(doc.quotation, doc.currency)}
+          </div>
+
+          ${hasGuide ? `
+            <div class="tp-tab-panel" data-tab-panel="guide" hidden>
+              <section class="tp-card">
+                <h2 class="tp-card-h"><span class="tp-bar"></span>Travel guide</h2>
+                <div class="tp-guide">${guideHtml}</div>
+              </section>
+            </div>
+          ` : ""}
         </main>
 
         ${renderInfoCard(doc)}
@@ -572,10 +611,42 @@
 
   document.addEventListener("click", (event) => {
     const link = event.target.closest(".trip-public-content-link");
-    if (!link) return;
-    event.preventDefault();
-    const slug = link.dataset.slug;
-    if (slug) openSlug(slug);
+    if (link) {
+      event.preventDefault();
+      const slug = link.dataset.slug;
+      if (slug) openSlug(slug);
+      return;
+    }
+
+    // Itinerary / Guide tab switch.
+    const tabBtn = event.target.closest(".tp-tab");
+    if (tabBtn) {
+      const target = tabBtn.dataset.tab;
+      document.querySelectorAll(".tp-tab").forEach((b) => b.classList.toggle("is-active", b === tabBtn));
+      document.querySelectorAll("[data-tab-panel]").forEach((p) => {
+        const match = p.dataset.tabPanel === target;
+        if (match) p.removeAttribute("hidden");
+        else p.setAttribute("hidden", "");
+      });
+      return;
+    }
+
+    // Toggle a single day card open/closed.
+    const dayHead = event.target.closest('[data-action="toggle-day"]');
+    if (dayHead) {
+      dayHead.closest(".tp-day-card")?.classList.toggle("is-open");
+      return;
+    }
+
+    // Expand all / Collapse all.
+    const toggleAll = event.target.closest('[data-action="toggle-all"]');
+    if (toggleAll) {
+      const cards = document.querySelectorAll(".tp-day-card");
+      const anyClosed = Array.from(cards).some((c) => !c.classList.contains("is-open"));
+      cards.forEach((c) => c.classList.toggle("is-open", anyClosed));
+      toggleAll.textContent = anyClosed ? "Collapse all" : "Expand all";
+      return;
+    }
   });
 
   load();
