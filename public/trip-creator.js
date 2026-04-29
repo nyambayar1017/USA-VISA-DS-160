@@ -279,6 +279,25 @@
 
   saveBtn.addEventListener("click", save);
 
+  // ── Preview link + copy-to-clipboard ────────────────────────────
+  const previewLink = document.getElementById("tc-preview-link");
+  const copyBtn = document.getElementById("tc-copy-link-btn");
+  const publicUrl = `${window.location.origin}/trip/${encodeURIComponent(tripId)}`;
+  if (previewLink) previewLink.href = publicUrl;
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(publicUrl);
+        const prev = copyBtn.textContent;
+        copyBtn.textContent = "✓ Copied";
+        setTimeout(() => { copyBtn.textContent = prev; }, 1500);
+      } catch {
+        // Fall back to selecting an inline text node so user can copy manually.
+        window.prompt("Copy this link to share with the client:", publicUrl);
+      }
+    });
+  }
+
   // Cmd/Ctrl-S also saves so users typing into long textareas don't have
   // to mouse over to the button.
   document.addEventListener("keydown", (event) => {

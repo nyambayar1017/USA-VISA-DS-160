@@ -13823,3 +13823,199 @@ body.trip-notes-drawer-open { overflow: hidden; }
 }
 .tc-quote-table input { width: 100%; box-sizing: border-box; }
 .tc-quote-subtotal { font-variant-numeric: tabular-nums; color: #1f2937; }
+
+/* ── Public client-facing trip brochure (/trip/<id>) ──────────────── */
+.trip-public-body {
+  margin: 0;
+  font-family: "Montserrat", system-ui, sans-serif;
+  background: #f4f6fb;
+  color: #1f2937;
+}
+.trip-public {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+.trip-public-loading,
+.trip-public-empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 60px 20px;
+}
+.trip-public-hero {
+  background: #fff;
+  border-radius: 24px;
+  padding: 32px 32px 28px;
+  box-shadow: 0 18px 50px rgba(23, 39, 83, 0.06);
+}
+.trip-public-kicker {
+  margin: 0 0 6px;
+  color: #6b7280;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.trip-public-hero h1 {
+  margin: 0;
+  color: #20356f;
+  font-size: 2rem;
+  line-height: 1.2;
+  word-break: break-word;
+}
+.trip-public-meta {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 0.95rem;
+}
+.trip-public-chips {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.trip-public-chip {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(32, 53, 111, 0.08);
+  color: #20356f;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.trip-public-ratings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 18px 0 4px;
+}
+.trip-public-ratings > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: #475569;
+}
+.trip-public-ratings span:first-child {
+  font-weight: 600;
+  min-width: 70px;
+}
+.trip-public-star {
+  color: #cbd5e1;
+  font-size: 14px;
+}
+.trip-public-star.is-on { color: #f59e0b; }
+.trip-public-star-text {
+  margin-left: 6px;
+  font-size: 0.78rem;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+.trip-public-flight-note {
+  margin: 14px 0 0;
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.trip-public-section {
+  background: #fff;
+  border-radius: 24px;
+  padding: 28px 32px;
+  margin-top: 18px;
+  box-shadow: 0 18px 50px rgba(23, 39, 83, 0.04);
+}
+.trip-public-section h2 {
+  margin: 0 0 14px;
+  color: #20356f;
+  font-size: 1.2rem;
+}
+.trip-public-intro p {
+  margin: 0;
+  line-height: 1.65;
+  color: #1f2937;
+  white-space: pre-wrap;
+}
+.trip-public-program {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.trip-public-day {
+  border-left: 3px solid rgba(32, 53, 111, 0.14);
+  padding: 4px 0 4px 16px;
+}
+.trip-public-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.trip-public-day-pill {
+  background: rgba(32, 53, 111, 0.08);
+  color: #20356f;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.trip-public-day h3 {
+  margin: 0;
+  color: #1b2540;
+  font-size: 1rem;
+}
+.trip-public-day p {
+  margin: 6px 0 0;
+  color: #374151;
+  line-height: 1.6;
+  font-size: 0.92rem;
+}
+
+.trip-public-quote-wrap { overflow-x: auto; }
+.trip-public-quote {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.trip-public-quote th,
+.trip-public-quote td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+.trip-public-quote th {
+  font-weight: 600;
+  color: #4b5563;
+  background: #fafbfc;
+}
+.trip-public-num { text-align: right; font-variant-numeric: tabular-nums; }
+.trip-public-total-label { text-align: right; font-weight: 600; }
+.trip-public-total { font-weight: 700; color: #20356f; }
+.trip-public-quote-note {
+  margin: 14px 0 0;
+  color: #475569;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+}
+
+.trip-public-footer {
+  margin-top: 30px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 640px) {
+  .trip-public { padding: 20px 14px 60px; }
+  .trip-public-hero { padding: 22px 20px 18px; border-radius: 18px; }
+  .trip-public-section { padding: 22px 20px; border-radius: 18px; }
+  .trip-public-hero h1 { font-size: 1.4rem; }
+}
+
+/* Preview button styled like the existing header buttons */
+.tc-preview-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}

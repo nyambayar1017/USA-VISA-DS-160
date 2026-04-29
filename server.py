@@ -1705,6 +1705,41 @@ def handle_get_trip_creator(environ, start_response, trip_id):
     return json_response(start_response, "200 OK", {"trip_id": trip_id, "doc": merged})
 
 
+def handle_get_public_trip_creator(environ, start_response, trip_id):
+    """No auth required — this is the read-only client-facing brochure
+    fetched by /trip/<id>. Returns only fields that are safe to share
+    publicly (no internal Mongolian notes the editor might use)."""
+    store = read_trip_creators()
+    doc = store.get(trip_id)
+    if not doc:
+        return json_response(start_response, "404 Not Found", {"error": "Trip not published"})
+    trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None) or {}
+    public = {
+        "tripId": trip_id,
+        "title": doc.get("title") or trip.get("tripName") or "",
+        "totalDays": doc.get("totalDays") or trip.get("totalDays") or "",
+        "totalKm": doc.get("totalKm") or "",
+        "language": doc.get("language") or "mn",
+        "tripType": doc.get("tripType") or trip.get("tripType") or "TRIP",
+        "currency": doc.get("currency") or "MNT",
+        "offerType": doc.get("offerType") or "range",
+        "internationalFlight": doc.get("internationalFlight") or "included",
+        "themes": doc.get("themes") or [],
+        "rate": doc.get("rate") or 0,
+        "comfort": doc.get("comfort") or 0,
+        "difficulty": doc.get("difficulty") or 0,
+        "intro": doc.get("intro") or "",
+        "program": doc.get("program") or [],
+        "quotation": doc.get("quotation") or {"rows": [], "note": ""},
+        "trip": {
+            "serial": trip.get("serial"),
+            "startDate": trip.get("startDate"),
+            "endDate": trip.get("endDate"),
+        },
+    }
+    return json_response(start_response, "200 OK", public)
+
+
 def handle_save_trip_creator(environ, start_response, trip_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -15315,6 +15350,13 @@ def _dispatch(environ, start_response):
             return handle_save_trip_creator(environ, start_response, trip_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    # Public read-only brochure — clients hit this from /trip/<id>.
+    if path.startswith("/api/public/trips/"):
+        trip_id = path.replace("/api/public/trips/", "", 1).strip("/")
+        if method == "GET" and trip_id:
+            return handle_get_public_trip_creator(environ, start_response, trip_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/notifications":
         if method == "GET":
             return handle_list_notifications(environ, start_response)
@@ -16102,6 +16144,11 @@ def _dispatch(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "trip-creator.html")
+
+    # /trip/<id> — public brochure for clients. No auth gate; the page JS
+    # fetches /api/public/trips/<id> which 404s if the doc doesn't exist.
+    if path.startswith("/trip/"):
+        return file_response(start_response, PUBLIC_DIR / "trip-public.html")
 
     if path == "/tourist":
         if not current_user(environ):
