@@ -84,8 +84,10 @@
         <form id="gal-upload-form" class="manager-form-grid manager-form-grid-vertical">
           <label>
             Destination (becomes a tag)
-            <input id="gal-upload-destination" name="destination" placeholder="e.g. Malaysia, Mongolia, Singapore" list="gal-upload-destination-list" />
-            <datalist id="gal-upload-destination-list"></datalist>
+            <select id="gal-upload-destination" name="destination">
+              <option value="">— Pick a destination —</option>
+              <option value="__add_new__">+ Add new destination…</option>
+            </select>
           </label>
           <label>
             Extra tags (comma-separated, optional)
@@ -188,7 +190,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-124"></script>
-    <script src="/gallery.js?v=workspace-7"></script>
+    <script src="/gallery.js?v=workspace-8"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

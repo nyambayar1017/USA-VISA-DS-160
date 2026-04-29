@@ -14554,6 +14554,25 @@ body.img-picker-open { overflow: hidden; }
 }
 .gallery-select-all-btn:hover { background: #f1f5f9; }
 
+/* Gallery: visual hint while a file is being dragged over the page.
+   - body.gallery-file-drag adds a soft outline/overlay to the section
+     so the user knows they can drop here.
+   - .is-drop-hover (already used by internal-move logic) doubles as
+     the per-folder/grid highlight. */
+body.gallery-file-drag main.workspace-main section.card {
+  outline: 3px dashed #20356f;
+  outline-offset: -6px;
+  background: linear-gradient(0deg, rgba(32, 53, 111, 0.04), rgba(32, 53, 111, 0.04));
+}
+body.gallery-file-drag .gallery-folder-chip { transition: transform 0.1s ease; }
+body.gallery-file-drag .gallery-folder-chip.is-drop-hover {
+  transform: scale(1.04);
+  outline: 2px solid #20356f;
+}
+body.gallery-file-drag .gallery-folder-card.is-drop-hover {
+  outline: 3px solid #20356f;
+}
+
 /* Gallery: folder chip bar */
 .gallery-folder-bar {
   display: flex;

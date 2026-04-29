@@ -15,8 +15,7 @@
   const uploadModal = document.getElementById("gal-upload-modal");
   const uploadForm = document.getElementById("gal-upload-form");
   const uploadStatus = document.getElementById("gal-upload-status");
-  const uploadDestinationInput = document.getElementById("gal-upload-destination");
-  const uploadDestinationList = document.getElementById("gal-upload-destination-list");
+  const uploadDestinationSelect = document.getElementById("gal-upload-destination");
   const uploadTagsInput = document.getElementById("gal-upload-tags");
   const uploadAltInput = document.getElementById("gal-upload-alt");
   const uploadFolderSelect = document.getElementById("gal-upload-folder");
@@ -112,7 +111,21 @@
     const tags = allTags();
     const opts = tags.map((t) => `<option value="${escapeHtml(t)}"></option>`).join("");
     if (tagListEl) tagListEl.innerHTML = opts;
-    if (uploadDestinationList) uploadDestinationList.innerHTML = opts;
+    populateDestinationSelect(uploadDestinationSelect, uploadDestinationSelect?.value || "");
+  }
+
+  function populateDestinationSelect(selectEl, currentValue) {
+    if (!selectEl) return;
+    const tags = allTags();
+    const options = ['<option value="">— Pick a destination —</option>'];
+    tags.forEach((t) => {
+      options.push(`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`);
+    });
+    options.push('<option value="__add_new__">+ Add new destination…</option>');
+    selectEl.innerHTML = options.join("");
+    if (currentValue && currentValue !== "__add_new__" && tags.includes(currentValue)) {
+      selectEl.value = currentValue;
+    }
   }
 
   function populateFolderSelect(selectEl, currentValue) {
@@ -263,7 +276,7 @@
     uploadModal.classList.remove("is-hidden");
     uploadModal.removeAttribute("hidden");
     document.body.classList.add("modal-open");
-    setTimeout(() => uploadDestinationInput?.focus(), 60);
+    setTimeout(() => uploadDestinationSelect?.focus(), 60);
   }
   function closeUploadModal() {
     uploadModal.classList.add("is-hidden");
@@ -274,6 +287,24 @@
   uploadModal.addEventListener("click", (event) => {
     if (event.target.dataset.action === "close-upload-modal") closeUploadModal();
   });
+  uploadDestinationSelect?.addEventListener("change", async () => {
+    if (uploadDestinationSelect.value !== "__add_new__") return;
+    const name = window.UI?.prompt
+      ? await window.UI.prompt("New destination name", { confirmLabel: "Add" })
+      : window.prompt("New destination name");
+    const trimmed = (name || "").trim();
+    if (!trimmed) {
+      uploadDestinationSelect.value = "";
+      return;
+    }
+    // Inject the new option just before "+ Add new…" and select it.
+    const addOpt = uploadDestinationSelect.querySelector('option[value="__add_new__"]');
+    const newOpt = document.createElement("option");
+    newOpt.value = trimmed;
+    newOpt.textContent = trimmed;
+    uploadDestinationSelect.insertBefore(newOpt, addOpt);
+    uploadDestinationSelect.value = trimmed;
+  });
   uploadForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const files = Array.from(fileInput.files || []);
@@ -281,7 +312,8 @@
       if (uploadStatus) uploadStatus.textContent = "Pick at least one file.";
       return;
     }
-    const destination = (uploadDestinationInput.value || "").trim();
+    let destination = (uploadDestinationSelect?.value || "").trim();
+    if (destination === "__add_new__") destination = "";
     const extra = (uploadTagsInput.value || "").trim();
     // Combine destination + extra tags into a single comma-separated list.
     const combinedTags = [destination, extra].filter(Boolean).join(", ");
@@ -788,6 +820,110 @@
     if (v === "__none__") return ""; // "No folder" → clear folder
     return v;
   });
+
+  // ── Desktop file drop: drag images from Finder into the gallery ──
+  // Drop on a folder chip / folder card → that folder.
+  // Drop anywhere else on the section → currently-active folder
+  // (or "no folder" if "All"/"No folder" is the active filter).
+  const dropZone = document.querySelector('section.card') || document.body;
+  let fileDragDepth = 0; // counter so we don't flicker on nested dragenter
+
+  function isFileDrag(event) {
+    if (!event.dataTransfer) return false;
+    const types = event.dataTransfer.types;
+    if (!types) return false;
+    return Array.from(types).includes("Files");
+  }
+
+  function fileDropTargetFolder(eventTarget) {
+    // Returns the folder name to upload into, or null to skip.
+    const folderCard = eventTarget.closest?.("[data-folder-target]");
+    if (folderCard) return folderCard.dataset.folderTarget; // folder card
+    const chip = eventTarget.closest?.("[data-folder]");
+    if (chip) {
+      const v = chip.dataset.folder;
+      if (v === "") return null;             // "All" chip — skip
+      if (v === "__none__") return "";       // No-folder chip
+      return v;
+    }
+    // Plain section / grid background: use the active filter.
+    if (state.activeFolder === "__none__") return "";
+    if (state.activeFolder) return state.activeFolder;
+    return "";
+  }
+
+  dropZone.addEventListener("dragenter", (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    fileDragDepth++;
+    document.body.classList.add("gallery-file-drag");
+  });
+  dropZone.addEventListener("dragover", (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    const folderEl = event.target.closest("[data-folder-target], [data-folder]");
+    if (folderEl) {
+      const v = folderEl.dataset.folder;
+      // Skip "All" chip (data-folder="") since drop target is ambiguous there.
+      if (v === "") {
+        clearDragHover();
+        return;
+      }
+      if (!folderEl.classList.contains("is-drop-hover")) {
+        clearDragHover();
+        folderEl.classList.add("is-drop-hover");
+      }
+    } else {
+      clearDragHover();
+    }
+  });
+  dropZone.addEventListener("dragleave", (event) => {
+    if (!isFileDrag(event)) return;
+    fileDragDepth = Math.max(0, fileDragDepth - 1);
+    if (fileDragDepth === 0) {
+      document.body.classList.remove("gallery-file-drag");
+      clearDragHover();
+    }
+  });
+  dropZone.addEventListener("drop", async (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    fileDragDepth = 0;
+    document.body.classList.remove("gallery-file-drag");
+    clearDragHover();
+    const allFiles = Array.from(event.dataTransfer.files || []);
+    const files = allFiles.filter((f) => (f.type || "").startsWith("image/"));
+    if (!files.length) {
+      if (allFiles.length) window.UI?.toast?.("Only image files can be dropped here.", "error");
+      return;
+    }
+    const folder = fileDropTargetFolder(event.target);
+    if (folder === null) return;
+    await uploadDroppedFiles(files, folder);
+  });
+
+  async function uploadDroppedFiles(files, folder) {
+    const dest = folder ? `📁 ${folder}` : "No folder";
+    let done = 0;
+    let failed = 0;
+    window.UI?.toast?.(`Uploading ${files.length} photo${files.length === 1 ? "" : "s"} → ${dest}…`, "info");
+    for (const file of files) {
+      try {
+        const entry = await uploadImage(file, { folder, tags: "" });
+        state.entries.unshift(entry);
+        done++;
+      } catch (err) {
+        failed++;
+      }
+    }
+    await load();
+    if (failed) {
+      window.UI?.toast?.(`Uploaded ${done}, ${failed} failed.`, "error");
+    } else {
+      window.UI?.toast?.(`Uploaded ${done} photo${done === 1 ? "" : "s"} → ${dest}.`, "success");
+    }
+  }
 
   async function moveItemsToFolder(ids, folder) {
     try {
