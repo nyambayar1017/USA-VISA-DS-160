@@ -19,7 +19,9 @@ function applyWorkspaceBranding() {
   if (!ws) return;
   const company = COMPANIES[ws];
   if (!company) return;
-  document.title = company.name;
+  // Keep each page's own <title> (e.g. "TravelX Gallery") so the browser
+  // tab reflects what page the user is on. Only the favicon swaps per
+  // workspace.
   let icon = document.querySelector('link[rel="icon"]');
   if (!icon) {
     icon = document.createElement("link");
