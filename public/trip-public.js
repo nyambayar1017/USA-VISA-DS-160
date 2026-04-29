@@ -105,43 +105,205 @@
     `;
   }
 
-  function render(doc) {
-    const meta = [];
-    if (doc.totalDays) meta.push(`${escapeHtml(doc.totalDays)} өдөр`);
-    if (doc.totalKm) meta.push(`${escapeHtml(doc.totalKm)} km`);
-    if (doc.tripType) meta.push(escapeHtml(doc.tripType));
-    if (doc.trip && doc.trip.startDate) {
-      const range = doc.trip.endDate
-        ? `${doc.trip.startDate} → ${doc.trip.endDate}`
-        : doc.trip.startDate;
-      meta.push(escapeHtml(range));
+  function renderDots(filled, total) {
+    let out = "";
+    for (let i = 0; i < total; i++) {
+      out += `<span class="tp-dot${i < filled ? " is-on" : ""}"></span>`;
     }
-    const themes = (doc.themes || [])
-      .map((t) => `<span class="trip-public-chip">${escapeHtml(t)}</span>`)
-      .join(" ");
-    const coverIds = Array.isArray(doc.coverIds) ? doc.coverIds : [];
-    const galleryUrl = (id, size) => `/api/gallery/${encodeURIComponent(id)}/file${size ? `?size=${size}` : ""}`;
-    const heroImage = coverIds[0]
-      ? `<div class="trip-public-hero-photo" style="background-image:url('${galleryUrl(coverIds[0], "medium")}');"></div>`
+    return out;
+  }
+
+  function renderHighlights(doc) {
+    const highlights = doc.highlights || [];
+    const summary = doc.accommSummary || [];
+    if (!highlights.length && !summary.length) return "";
+    const bullets = highlights.length
+      ? `<ul class="tp-highlights">
+          ${highlights.map((h) => `<li><span class="tp-bullet"></span>${escapeHtml(h)}</li>`).join("")}
+        </ul>`
       : "";
-    const coverGalleryThumbs = coverIds.length > 1
-      ? `
-        <div class="trip-public-cover-strip">
-          ${coverIds.slice(1).map((id) => `
-            <a class="trip-public-cover-thumb" href="${galleryUrl(id)}" target="_blank" rel="noopener">
-              <img src="${galleryUrl(id, "thumb")}" alt="" loading="lazy" />
-            </a>
+    const summaryRows = summary.length
+      ? `<div class="tp-accomm-summary">
+          ${summary.map((a) => `
+            <div class="tp-accomm-summary-row">
+              <span>${escapeHtml(a.label || "")}${a.label ? " — " : ""}</span>
+              <span class="tp-accomm-summary-hotel">${escapeHtml(a.hotel || "")}</span>
+            </div>
           `).join("")}
+        </div>`
+      : "";
+    return `
+      <section class="tp-card">
+        <h2 class="tp-card-h"><span class="tp-bar"></span>Trip highlights</h2>
+        ${bullets}
+        ${summaryRows}
+      </section>
+    `;
+  }
+
+  function renderRouteBlock(row) {
+    const fromName = row.fromName || "";
+    const toName = row.toName || "";
+    if (!fromName && !toName && !row.distance && !row.drive) return "";
+    const middle = row.drive === "Free day"
+      ? `<span class="tp-route-free">Free day</span>`
+      : (row.distance || row.drive
+          ? `<span class="tp-route-line">
+              ${row.distance ? `<span>🚙 ${escapeHtml(row.distance)}</span>` : ""}
+              ${row.distance && row.drive ? `<span class="tp-route-sep">·</span>` : ""}
+              ${row.drive ? `<span>⏱ ${escapeHtml(row.drive)}</span>` : ""}
+            </span>`
+          : "");
+    return `
+      <div class="tp-route">
+        ${fromName ? `<div class="tp-route-stop"><span>📍</span><span>${escapeHtml(fromName)}</span></div>` : ""}
+        ${middle ? `<div class="tp-route-mid">${middle}</div>` : ""}
+        ${toName ? `<div class="tp-route-stop"><span>📍</span><span>${escapeHtml(toName)}</span></div>` : ""}
+      </div>
+    `;
+  }
+
+  function renderAccommodation(row) {
+    const accom = row.accommodation || "";
+    const meals = row.meals || {};
+    const hasMeals = meals.breakfast || meals.lunch || meals.dinner;
+    if (!accom && !hasMeals) return "";
+    const chip = (label, on) =>
+      `<span class="tp-meal-chip${on ? " is-on" : ""}" title="${label === "B" ? "Breakfast" : label === "L" ? "Lunch" : "Dinner"}">${label}</span>`;
+    return `
+      <div class="tp-accomm">
+        <span class="tp-accomm-icon">🛏</span>
+        <span class="tp-accomm-name">${escapeHtml(accom || "—")}</span>
+        <span class="tp-meal-chips">
+          ${chip("B", meals.breakfast)}${chip("L", meals.lunch)}${chip("D", meals.dinner)}
+        </span>
+      </div>
+    `;
+  }
+
+  function renderDayCard(row) {
+    const route = renderRouteBlock(row);
+    const accomm = renderAccommodation(row);
+    const body = row.body
+      ? `<div class="tp-day-body">${linkifyContent(nl2br(row.body))}</div>`
+      : "";
+    return `
+      <div class="tp-day-grid">
+        <div class="tp-day-route-col">${route}</div>
+        <article class="tp-day-card">
+          <div class="tp-day-head">
+            <div>
+              <span class="tp-day-pill">${escapeHtml(row.day || "")}</span>
+              <span class="tp-day-title">${escapeHtml(row.title || "")}</span>
+            </div>
+            ${row.date ? `<div class="tp-day-date">${escapeHtml(row.date)}</div>` : ""}
+          </div>
+          ${body}
+          ${accomm}
+        </article>
+      </div>
+    `;
+  }
+
+  function renderIncluded(doc) {
+    const inc = doc.included || [];
+    const not = doc.notIncluded || [];
+    if (!inc.length && !not.length) return "";
+    const list = (items, kind) => items.length
+      ? `<ul class="tp-inc-list tp-inc-list--${kind}">
+          ${items.map((i) => `
+            <li><span class="tp-inc-mark">${kind === "yes" ? "✓" : "×"}</span><span>${escapeHtml(i)}</span></li>
+          `).join("")}
+        </ul>`
+      : "";
+    return `
+      <section class="tp-card">
+        <h2 class="tp-card-h"><span class="tp-bar"></span>What's included</h2>
+        <div class="tp-inc-grid">
+          ${inc.length ? `<div><div class="tp-inc-head tp-inc-head--yes">Included</div>${list(inc, "yes")}</div>` : ""}
+          ${not.length ? `<div><div class="tp-inc-head tp-inc-head--no">Not included</div>${list(not, "no")}</div>` : ""}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderFlightTable(legs) {
+    if (!legs || !legs.length) return "";
+    return `
+      <section class="tp-card tp-card--narrow">
+        <h2 class="tp-card-h"><span class="tp-bar"></span>Flights</h2>
+        <table class="tp-flights">
+          <thead>
+            <tr><th>#</th><th>Date</th><th>Dep</th><th>From</th><th>Arr</th><th>To</th><th>Flight</th></tr>
+          </thead>
+          <tbody>
+            ${legs.map((l, i) => `
+              <tr>
+                <td>${escapeHtml(l.n || String(i + 1))}</td>
+                <td>${escapeHtml(l.date || "")}</td>
+                <td>${escapeHtml(l.dep || "")}</td>
+                <td>${escapeHtml(l.depFrom || "")}</td>
+                <td>${escapeHtml(l.arr || "")}</td>
+                <td>${escapeHtml(l.arrTo || "")}</td>
+                <td>${escapeHtml(l.flight || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  function renderInfoCard(doc) {
+    const m = doc.manager || {};
+    const totalDays = doc.totalDays || (doc.program || []).length || "";
+    const dateLabel = doc.trip && doc.trip.startDate
+      ? (doc.trip.endDate ? `${doc.trip.startDate} → ${doc.trip.endDate}` : doc.trip.startDate)
+      : "";
+    const priceLine = doc.priceFrom
+      ? `<div class="tp-info-price"><span class="tp-info-price-num">$${escapeHtml(doc.priceFrom)}</span><span class="tp-info-price-label">Price from</span></div>`
+      : "";
+    const managerBlock = (m.name || m.phone || m.email)
+      ? `
+        <div class="tp-info-mgr">
+          ${m.avatar ? `<img class="tp-info-mgr-avatar" src="${escAttr(m.avatar)}" alt="${escAttr(m.name || "")}" />` : `<div class="tp-info-mgr-avatar tp-info-mgr-avatar--blank">👤</div>`}
+          <div>
+            ${m.name ? `<div class="tp-info-mgr-name">${escapeHtml(m.name)}</div>` : ""}
+            ${m.role ? `<div class="tp-info-mgr-role">${escapeHtml(m.role)}</div>` : ""}
+          </div>
+        </div>
+        <div class="tp-info-contact">
+          ${m.phone ? `<a href="tel:${escAttr(m.phone)}"><span>📞</span>${escapeHtml(m.phone)}</a>` : ""}
+          ${m.email ? `<a href="mailto:${escAttr(m.email)}"><span>✉</span>${escapeHtml(m.email)}</a>` : ""}
         </div>
       `
       : "";
-    // Collect every per-day photo into a single ordered list so we can
-    // show them as a full-width strip at the top of the page (between
-    // the header and the title), instead of repeating them inside each
-    // day card.
+    return `
+      <aside class="tp-info">
+        <div class="tp-info-head">
+          ${totalDays ? `<div class="tp-info-line"><strong>${escapeHtml(totalDays)} days</strong>${dateLabel ? ` <span>${escapeHtml(dateLabel)}</span>` : ""}</div>` : ""}
+          ${priceLine}
+          <div class="tp-info-row"><span class="tp-info-row-label">Difficulty:</span><span class="tp-info-dots">${renderDots(doc.difficulty || 0, 5)}</span><span class="tp-info-row-num">${doc.difficulty || 0}/5</span></div>
+          <div class="tp-info-row"><span class="tp-info-row-label">Comfort:</span><span class="tp-info-dots">${renderDots(doc.comfort || 0, 5)}</span><span class="tp-info-row-num">${doc.comfort || 0}/5</span></div>
+          <div class="tp-info-row"><span class="tp-info-row-label">Rate:</span><span class="tp-info-dots">${renderDots(doc.rate || 0, 5)}</span><span class="tp-info-row-num">${doc.rate || 0}/5</span></div>
+        </div>
+        ${managerBlock}
+        <div class="tp-info-actions">
+          ${m.email ? `<a class="tp-info-cta" href="mailto:${escAttr(m.email)}?subject=${encodeURIComponent("Quotation for " + (doc.title || "your trip"))}">Ask for quotation</a>` : `<button type="button" class="tp-info-cta" onclick="window.print()">Download itinerary</button>`}
+          <button type="button" class="tp-info-cta tp-info-cta--ghost" onclick="window.print()">⤓ Download PDF</button>
+        </div>
+      </aside>
+    `;
+  }
+
+  function render(doc) {
+    const program = doc.program || [];
+    const galleryUrl = (id, size) => `/api/gallery/${encodeURIComponent(id)}/file${size ? `?size=${size}` : ""}`;
+
+    // All per-day photos collected (de-duped) for the top hero strip + gallery card.
     const allDayImageIds = [];
     const seenDayImageIds = new Set();
-    (doc.program || []).forEach((row) => {
+    program.forEach((row) => {
       (Array.isArray(row.imageIds) ? row.imageIds : []).forEach((id) => {
         if (id && !seenDayImageIds.has(id)) {
           seenDayImageIds.add(id);
@@ -164,61 +326,85 @@
       `
       : "";
 
-    const program = (doc.program || [])
-      .map((row) => {
-        return `
-          <article class="trip-public-day">
-            <div class="trip-public-day-head">
-              <span class="trip-public-day-pill">${escapeHtml(row.day || "")}</span>
-              <h3>${escapeHtml(row.title || "")}</h3>
-            </div>
-            ${row.body ? `<p>${linkifyContent(nl2br(row.body))}</p>` : ""}
-          </article>
-        `;
-      })
-      .join("");
+    // Smaller gallery card — one tile per day with a "D{n}" badge.
+    const galleryCard = program.length && program.some((p) => (p.imageIds || []).length)
+      ? `
+        <section class="tp-card">
+          <h2 class="tp-card-h"><span class="tp-bar"></span>Gallery</h2>
+          <div class="tp-gallery">
+            ${program.map((p, i) => {
+              const id = (p.imageIds || [])[0];
+              if (!id) return "";
+              return `
+                <button type="button" class="tp-gallery-tile"
+                  data-lightbox-urls="${heroStripUrlsAttr}"
+                  data-lightbox-index="${heroStripUrls.indexOf(galleryUrl(id))}">
+                  <img src="${galleryUrl(id, "thumb")}" alt="" loading="lazy" />
+                  <span class="tp-gallery-badge">${escapeHtml(p.day || `D${i + 1}`)}</span>
+                </button>
+              `;
+            }).join("")}
+          </div>
+        </section>
+      `
+      : "";
 
-    document.title = doc.title ? `${doc.title} · TravelX` : "TravelX Trip";
+    const company = (doc.trip || {}).company || "DTX";
+    const brand = company === "USM" ? "STEPPE MONGOLIA" : "ДЭЛХИЙ ТРЭВЕЛ ИКС";
+    const subtitleText = doc.subtitle
+      || [
+        doc.totalDays ? `${doc.totalDays} өдөр` : "",
+        doc.tripType,
+        doc.trip && doc.trip.serial ? doc.trip.serial : "",
+      ].filter(Boolean).join(" · ");
+
+    document.title = doc.title ? `${doc.title} · ${brand}` : brand;
+
+    const programHtml = program.map(renderDayCard).join("");
 
     root.innerHTML = `
-      <header class="trip-public-hero${heroImage ? " has-photo" : ""}">
-        ${heroImage}
-        ${coverGalleryThumbs}
+      <header class="tp-head">
+        <div class="tp-head-brand">
+          <span class="tp-head-brand-dot"></span>${escapeHtml(brand)}
+        </div>
+        <button type="button" class="tp-head-print" onclick="window.print()">
+          <span class="tp-head-print-icon">⤓</span> Download itinerary PDF
+        </button>
       </header>
 
       ${heroStrip}
 
-      <section class="trip-public-title-section">
-        <p class="trip-public-kicker">TravelX${doc.trip && doc.trip.serial ? ` · ${escapeHtml(doc.trip.serial)}` : ""}</p>
-        <h1>${escapeHtml(doc.title || "Trip")}</h1>
-        ${meta.length ? `<p class="trip-public-meta">${meta.join(" · ")}</p>` : ""}
-        ${themes ? `<div class="trip-public-chips">${themes}</div>` : ""}
-        <div class="trip-public-ratings">
-          <div><span>Rate</span>${renderStars(doc.rate)}</div>
-          <div><span>Comfort</span>${renderStars(doc.comfort)}</div>
-          <div><span>Difficulty</span>${renderStars(doc.difficulty)}</div>
-        </div>
-        <p class="trip-public-flight-note">
-          Олон улсын нислэг: <strong>${doc.internationalFlight === "excluded" ? "Багтаагүй" : "Багтсан"}</strong>
-          · Үнэ: <strong>${doc.offerType === "fixed" ? "Тогтмол" : "Уян хатан"}</strong>
-        </p>
-      </section>
+      <div class="tp-wrap">
+        <main class="tp-main">
+          <section class="tp-card tp-overview">
+            ${subtitleText ? `<div class="tp-kicker">${escapeHtml(subtitleText)}</div>` : ""}
+            <h1>${escapeHtml(doc.title || "Trip")}</h1>
+            ${doc.intro ? `<div class="tp-intro">${linkifyContent(nl2br(doc.intro))}</div>` : ""}
+          </section>
 
-      ${doc.intro
-        ? `<section class="trip-public-section trip-public-intro"><p>${linkifyContent(nl2br(doc.intro))}</p></section>`
-        : ""}
+          ${galleryCard}
 
-      ${program
-        ? `<section class="trip-public-section">
-            <h2>Хөтөлбөр</h2>
-            <div class="trip-public-program">${program}</div>
-          </section>`
-        : ""}
+          ${renderHighlights(doc)}
 
-      ${renderQuote(doc.quotation, doc.currency)}
+          ${program.length ? `
+            <section class="tp-program">
+              <h2 class="tp-section-h"><span class="tp-bar"></span>Day-by-day itinerary</h2>
+              ${programHtml}
+            </section>
+          ` : ""}
 
-      <footer class="trip-public-footer">
-        <p>TravelX · backoffice.travelx.mn</p>
+          ${renderIncluded(doc)}
+
+          ${renderFlightTable(doc.flightLegs)}
+
+          ${renderQuote(doc.quotation, doc.currency)}
+        </main>
+
+        ${renderInfoCard(doc)}
+      </div>
+
+      <footer class="tp-foot">
+        <p>${escapeHtml(brand)} · backoffice.travelx.mn</p>
       </footer>
     `;
   }

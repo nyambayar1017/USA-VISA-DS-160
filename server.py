@@ -1746,10 +1746,12 @@ def handle_download_announcement_attachment(environ, start_response, announcemen
 # to one trip. Stored as {tripId: doc} so per-trip read/write is O(1).
 TRIP_CREATOR_DEFAULT = {
     "title": "",
+    "subtitle": "",  # e.g. "Family-friendly · 7 days · Central Mongolia"
     "language": "mn",
     "currency": "MNT",
     "totalDays": "",
     "totalKm": "",
+    "priceFrom": "",
     "tripType": "TRIP",
     "offerType": "range",
     "internationalFlight": "included",
@@ -1760,6 +1762,17 @@ TRIP_CREATOR_DEFAULT = {
     "intro": "",
     "coverIds": [],
     "program": [],
+    # Highlights bullets shown above day cards.
+    "highlights": [],
+    # Accommodation summary lines like "Ulaanbaatar (2 nights) – 3★ Hotel".
+    "accommSummary": [],   # list[{nights, label, hotel}]
+    # What the price covers / does not.
+    "included": [],
+    "notIncluded": [],
+    # Per-trip primary contact shown in the sidebar.
+    "manager": {"name": "", "role": "", "phone": "", "email": "", "avatar": ""},
+    # International flight legs for the brochure flight table.
+    "flightLegs": [],     # list[{n, date, dep, depFrom, arr, arrTo, flight}]
     "quotation": {"rows": [], "note": ""},
 }
 
@@ -1770,8 +1783,8 @@ def _trip_creator_normalize(payload):
     out = dict(TRIP_CREATOR_DEFAULT)
     if not isinstance(payload, dict):
         return out
-    for key in ("title", "language", "currency", "totalDays", "totalKm",
-                "tripType", "offerType", "internationalFlight", "intro"):
+    for key in ("title", "subtitle", "language", "currency", "totalDays", "totalKm",
+                "priceFrom", "tripType", "offerType", "internationalFlight", "intro"):
         if key in payload and payload[key] is not None:
             out[key] = str(payload[key])
     if isinstance(payload.get("themes"), list):
@@ -1793,13 +1806,66 @@ def _trip_creator_normalize(payload):
                 day_image_ids = [str(i).strip() for i in day_image_ids if str(i).strip()]
             else:
                 day_image_ids = []
+            meals_raw = entry.get("meals") or {}
+            if not isinstance(meals_raw, dict):
+                meals_raw = {}
             prog.append({
                 "day": str(entry.get("day") or "").strip(),
                 "title": str(entry.get("title") or "").strip(),
+                "date": str(entry.get("date") or "").strip(),
+                "fromName": str(entry.get("fromName") or "").strip(),
+                "toName": str(entry.get("toName") or "").strip(),
+                "distance": str(entry.get("distance") or "").strip(),
+                "drive": str(entry.get("drive") or "").strip(),
+                "accommodation": str(entry.get("accommodation") or "").strip(),
+                "meals": {
+                    "breakfast": bool(meals_raw.get("breakfast")),
+                    "lunch": bool(meals_raw.get("lunch")),
+                    "dinner": bool(meals_raw.get("dinner")),
+                },
                 "body": str(entry.get("body") or ""),
                 "imageIds": day_image_ids,
             })
         out["program"] = prog
+    # Free-form bullet lists.
+    for key in ("highlights", "included", "notIncluded"):
+        if isinstance(payload.get(key), list):
+            out[key] = [str(s).strip() for s in payload[key] if str(s).strip()]
+    if isinstance(payload.get("accommSummary"), list):
+        summary = []
+        for row in payload["accommSummary"]:
+            if not isinstance(row, dict):
+                continue
+            summary.append({
+                "nights": str(row.get("nights") or "").strip(),
+                "label": str(row.get("label") or "").strip(),
+                "hotel": str(row.get("hotel") or "").strip(),
+            })
+        out["accommSummary"] = summary
+    if isinstance(payload.get("manager"), dict):
+        m = payload["manager"]
+        out["manager"] = {
+            "name": str(m.get("name") or "").strip(),
+            "role": str(m.get("role") or "").strip(),
+            "phone": str(m.get("phone") or "").strip(),
+            "email": str(m.get("email") or "").strip(),
+            "avatar": str(m.get("avatar") or "").strip(),
+        }
+    if isinstance(payload.get("flightLegs"), list):
+        legs = []
+        for leg in payload["flightLegs"]:
+            if not isinstance(leg, dict):
+                continue
+            legs.append({
+                "n": str(leg.get("n") or "").strip(),
+                "date": str(leg.get("date") or "").strip(),
+                "dep": str(leg.get("dep") or "").strip(),
+                "depFrom": str(leg.get("depFrom") or "").strip(),
+                "arr": str(leg.get("arr") or "").strip(),
+                "arrTo": str(leg.get("arrTo") or "").strip(),
+                "flight": str(leg.get("flight") or "").strip(),
+            })
+        out["flightLegs"] = legs
     if isinstance(payload.get("quotation"), dict):
         q = payload["quotation"]
         rows = []
@@ -1843,8 +1909,10 @@ def build_public_trip_view(trip_id):
     return {
         "tripId": trip_id,
         "title": doc.get("title") or trip.get("tripName") or "",
+        "subtitle": doc.get("subtitle") or "",
         "totalDays": doc.get("totalDays") or trip.get("totalDays") or "",
         "totalKm": doc.get("totalKm") or "",
+        "priceFrom": doc.get("priceFrom") or "",
         "language": doc.get("language") or "mn",
         "tripType": doc.get("tripType") or trip.get("tripType") or "TRIP",
         "currency": doc.get("currency") or "MNT",
@@ -1857,11 +1925,18 @@ def build_public_trip_view(trip_id):
         "intro": doc.get("intro") or "",
         "coverIds": doc.get("coverIds") or [],
         "program": doc.get("program") or [],
+        "highlights": doc.get("highlights") or [],
+        "accommSummary": doc.get("accommSummary") or [],
+        "included": doc.get("included") or [],
+        "notIncluded": doc.get("notIncluded") or [],
+        "manager": doc.get("manager") or {},
+        "flightLegs": doc.get("flightLegs") or [],
         "quotation": doc.get("quotation") or {"rows": [], "note": ""},
         "trip": {
             "serial": trip.get("serial"),
             "startDate": trip.get("startDate"),
             "endDate": trip.get("endDate"),
+            "company": normalize_company(trip.get("company")),
         },
     }
 
