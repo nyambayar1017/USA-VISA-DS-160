@@ -13551,18 +13551,18 @@ body.is-fit-trip .reservation-addon-table tbody td:nth-child(3) {
 }
 
 /* On phones, when the Group column is shown (GIT trips), a long group
-   name like "ALTANGEREL DORJ 1PAX: BRA VS MAR CAT3-1 TICKET 2026-06-13"
-   forces the cell wide and visually dominates the row. Shrink the cell
-   font and clamp the width so the column reads as "secondary metadata"
-   like Last/First name, not as a giant title. */
+   name forces the cell wide and dominates the row. Shrink the font and
+   clip with an ellipsis so it reads as secondary metadata, not a
+   giant title. (Keep nowrap — wrapping a long all-caps string with
+   no spaces between code segments breaks every 3 chars and looks
+   worse than truncating.) */
 @media (max-width: 720px) {
   body:not(.is-fit-trip) .reservation-addon-table tbody td:nth-child(3) {
     font-size: 11.5px !important;
     font-weight: 500 !important;
-    max-width: 140px;
-    white-space: normal !important;
-    line-height: 1.3 !important;
-    word-break: break-word;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 

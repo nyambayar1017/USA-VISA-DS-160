@@ -355,7 +355,11 @@
       const cells = {
         select: `<td class="tourist-cb-cell"><input type="checkbox" class="tourist-select" data-id="${escapeHtml(t.id)}" ${selectedTouristIds.has(t.id) ? "checked" : ""} /></td>`,
         rowNum: `<td>${idx + 1}</td>`,
-        group: `<td>${escapeHtml((groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-")}</td>`,
+        group: (() => {
+          const groupLabel = (groups.find((g) => g.id === t.groupId) || {}).name || t.groupSerial || "-";
+          const safe = escapeHtml(groupLabel);
+          return `<td title="${safe}">${safe}</td>`;
+        })(),
         lastName: `<td>${escapeHtml(t.lastName || "")}</td>`,
         firstName: `<td>${escapeHtml(t.firstName || "")}</td>`,
         dob: `<td>${escapeHtml(t.dob || "-")}</td>`,
