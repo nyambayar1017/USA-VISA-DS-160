@@ -508,58 +508,109 @@ function renderManagerOptions() {
   managerFilter.value = uniqueManagers.includes(currentValue) ? currentValue : "";
 }
 
-function renderAnswerListSectionsHtml(entry) {
-  // Modal-styled mirror of renderListSectionsHtml. Renders the three
-  // repeat groups (countryList, languageList, educationList) so the
-  // See-answers view shows what the client actually submitted.
-  const countries = pickList(entry, "countryList").filter((row) => row && (row.name || "").trim());
-  const languages = pickList(entry, "languageList").filter((row) => row && (row.name || "").trim());
-  const educations = pickList(entry, "educationList").filter((row) =>
-    row && (row.institutionName || row.courseOfStudy || row.startDate || row.endDate || row.country)
-  );
+// Each entry covers one repeat group from the client form. `key` is the
+// `${name}List` field, `title` is the section heading, and `summarize(row)`
+// returns {primary, secondary} that the renderers turn into list items
+// (modal) or table rows (PDF). Order matches the form's section order.
+const REPEAT_LIST_CONFIG = [
+  { key: "otherNameList", title: "Өмнө хэрэглэж байсан нэрс",
+    summarize: (r) => ({
+      primary: [r.surname, r.givenName].filter(Boolean).join(" "),
+      secondary: "",
+    }) },
+  { key: "otherNatList", title: "Бусад иргэншил",
+    summarize: (r) => ({
+      primary: r.country || "",
+      secondary: r.hasPassport === "ТИЙМ"
+        ? `Паспорттой${r.passportNumber ? ` · ${r.passportNumber}` : ""}`
+        : (r.hasPassport ? "Паспортгүй" : ""),
+    }) },
+  { key: "companionList", title: "Хамт явах хүмүүс",
+    summarize: (r) => ({
+      primary: [r.surname, r.givenName].filter(Boolean).join(" "),
+      secondary: r.relationship || "",
+    }) },
+  { key: "prevVisitList", title: "Өмнөх АНУ-ын аяллууд",
+    summarize: (r) => ({
+      primary: r.arrivedDate || "",
+      secondary: [r.lengthNumber, r.lengthUnit].filter(Boolean).join(" "),
+    }) },
+  { key: "otherPhoneList", title: "Бусад утасны дугаарууд",
+    summarize: (r) => ({ primary: r.number || "", secondary: "" }) },
+  { key: "otherEmailList", title: "Бусад и-мэйл хаягууд",
+    summarize: (r) => ({ primary: r.email || "", secondary: "" }) },
+  { key: "socialList", title: "Сошиал медиа хаягууд",
+    summarize: (r) => ({ primary: r.platform || "", secondary: r.handle || "" }) },
+  { key: "otherWebList", title: "Бусад вэб / апп платформ",
+    summarize: (r) => ({ primary: r.platform || "", secondary: r.handle || "" }) },
+  { key: "lostPassportList", title: "Үрэгдсэн / хулгайлагдсан паспорт",
+    summarize: (r) => ({
+      primary: r.number || "",
+      secondary: [r.country, r.explain].filter(Boolean).join(" · "),
+    }) },
+  { key: "immRelativeList", title: "АНУ дахь ойрын төрөл садан",
+    summarize: (r) => ({
+      primary: [r.surname, r.givenName].filter(Boolean).join(" "),
+      secondary: [r.relationship, r.status].filter(Boolean).join(" · "),
+    }) },
+  { key: "prevEmpList", title: "Өмнөх ажил байдлууд",
+    summarize: (r) => ({
+      primary: r.employerName || "",
+      secondary: [
+        r.jobTitle,
+        [r.city, r.province, r.country].filter(Boolean).join(", "),
+        [r.startDate, r.endDate].filter(Boolean).join(" → "),
+      ].filter(Boolean).join(" · "),
+    }) },
+  { key: "educationList", title: "Боловсролын мэдээлэл",
+    summarize: (r) => ({
+      primary: r.institutionName || "",
+      secondary: [
+        r.courseOfStudy,
+        [r.city, r.province, r.country].filter(Boolean).join(", "),
+        [r.startDate, r.endDate].filter(Boolean).join(" → "),
+      ].filter(Boolean).join(" · "),
+    }) },
+  { key: "languageList", title: "Ярьдаг хэлнүүд",
+    summarize: (r) => ({ primary: r.name || "", secondary: "" }) },
+  { key: "countryList", title: "Сүүлийн 5 жилд зорчсон улсууд",
+    summarize: (r) => ({ primary: r.name || "", secondary: "" }) },
+  { key: "orgList", title: "Харьяалагддаг байгууллагууд",
+    summarize: (r) => ({ primary: r.name || "", secondary: "" }) },
+  { key: "militaryList", title: "Цэргийн алба",
+    summarize: (r) => ({
+      primary: r.country || "",
+      secondary: [
+        r.branch, r.rank, r.specialty,
+        [r.startDate, r.endDate].filter(Boolean).join(" → "),
+      ].filter(Boolean).join(" · "),
+    }) },
+];
 
-  let out = "";
-  if (countries.length) {
-    const items = countries.map((row, i) => `
-      <div class="ds160-answer-item">
-        <span>${i + 1}</span>
-        <strong>${escapeHtml(row.name || "-")}</strong>
-      </div>
-    `).join("");
-    out += `<section class="ds160-answer-section">
-      <h4>Сүүлийн 5 жилд зорчсон улсууд</h4>
-      <div class="ds160-answer-grid">${items}</div>
-    </section>`;
-  }
-  if (languages.length) {
-    const items = languages.map((row, i) => `
-      <div class="ds160-answer-item">
-        <span>${i + 1}</span>
-        <strong>${escapeHtml(row.name || "-")}</strong>
-      </div>
-    `).join("");
-    out += `<section class="ds160-answer-section">
-      <h4>Ярьдаг хэлнүүд</h4>
-      <div class="ds160-answer-grid">${items}</div>
-    </section>`;
-  }
-  if (educations.length) {
-    const items = educations.map((row, i) => `
+function repeatListRowsFor(entry, cfg) {
+  const rows = pickList(entry, cfg.key);
+  return rows
+    .map((row) => ({ row, summary: cfg.summarize(row || {}) }))
+    .filter(({ summary }) => (summary.primary || "").trim() || (summary.secondary || "").trim());
+}
+
+function renderAnswerListSectionsHtml(entry) {
+  // Modal-styled rendering of every repeat group from the client form
+  // (otherNameList, companionList, …, militaryList). Skips empty groups.
+  return REPEAT_LIST_CONFIG.map((cfg) => {
+    const rows = repeatListRowsFor(entry, cfg);
+    if (!rows.length) return "";
+    const items = rows.map(({ summary }, i) => `
       <div class="ds160-answer-item" style="grid-column: 1 / -1;">
-        <span>${i + 1}. ${escapeHtml(row.institutionName || "-")}</span>
-        <strong>
-          ${escapeHtml(row.courseOfStudy || "-")} ·
-          ${escapeHtml([row.city, row.province, row.country].filter(Boolean).join(", ") || "-")} ·
-          ${escapeHtml(row.startDate || "-")} → ${escapeHtml(row.endDate || "-")}
-        </strong>
+        <span>${i + 1}. ${escapeHtml(summary.primary || "-")}</span>
+        <strong>${escapeHtml(summary.secondary || "")}</strong>
       </div>
     `).join("");
-    out += `<section class="ds160-answer-section">
-      <h4>Боловсролын мэдээлэл</h4>
+    return `<section class="ds160-answer-section">
+      <h4>${escapeHtml(cfg.title)}</h4>
       <div class="ds160-answer-grid">${items}</div>
     </section>`;
-  }
-  return out;
+  }).join("");
 }
 
 function renderAnswers(entry) {
@@ -644,62 +695,38 @@ function pickList(entry, key) {
 }
 
 function renderListSectionsHtml(entry) {
-  const countries = pickList(entry, "countryList").filter((row) => row && (row.name || "").trim());
-  const educations = pickList(entry, "educationList").filter((row) =>
-    row && (row.institutionName || row.courseOfStudy || row.startDate || row.endDate || row.country)
-  );
-  const languages = pickList(entry, "languageList").filter((row) => row && (row.name || "").trim());
-
-  let out = "";
-  if (countries.length) {
-    const rows = countries.map((row, i) =>
-      `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td><td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.name || "")}</td></tr>`
+  // Print-styled rendering of every repeat group. Each group becomes a
+  // mini table with #, primary value, secondary value (or just #/value
+  // when the row is single-field). Skips empty groups.
+  return REPEAT_LIST_CONFIG.map((cfg) => {
+    const rows = repeatListRowsFor(entry, cfg);
+    if (!rows.length) return "";
+    const hasSecondary = rows.some(({ summary }) => (summary.secondary || "").trim());
+    const headerCells = hasSecondary
+      ? `<th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th>
+         <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Үндсэн</th>
+         <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Дэлгэрэнгүй</th>`
+      : `<th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th>
+         <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Утга</th>`;
+    const body = rows.map(({ summary }, i) => hasSecondary
+      ? `<tr>
+          <td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td>
+          <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.primary || "-")}</td>
+          <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.secondary || "-")}</td>
+        </tr>`
+      : `<tr>
+          <td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td>
+          <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.primary || "-")}</td>
+        </tr>`
     ).join("");
-    out += `<section style="margin-bottom:18px;page-break-inside:avoid;">
-      <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">Сүүлийн 5 жилд зорчсон улсууд</h3>
+    return `<section style="margin-bottom:18px;page-break-inside:avoid;">
+      <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">${escapeHtml(cfg.title)}</h3>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Улс</th></tr></thead>
-        <tbody>${rows}</tbody>
+        <thead><tr>${headerCells}</tr></thead>
+        <tbody>${body}</tbody>
       </table>
     </section>`;
-  }
-  if (languages.length) {
-    const rows = languages.map((row, i) =>
-      `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td><td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.name || "")}</td></tr>`
-    ).join("");
-    out += `<section style="margin-bottom:18px;page-break-inside:avoid;">
-      <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">Ярьдаг хэлнүүд</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Хэл</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </section>`;
-  }
-  if (educations.length) {
-    const rows = educations.map((row, i) => `
-      <tr>
-        <td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td>
-        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.institutionName || "-")}</td>
-        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.courseOfStudy || "-")}</td>
-        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml([row.city, row.province, row.country].filter(Boolean).join(", ") || "-")}</td>
-        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.startDate || "-")} → ${escapeHtml(row.endDate || "-")}</td>
-      </tr>
-    `).join("");
-    out += `<section style="margin-bottom:18px;page-break-inside:avoid;">
-      <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">Боловсролын мэдээлэл</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr>
-          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th>
-          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Сургууль</th>
-          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Чиглэл</th>
-          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Хаяг</th>
-          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Хугацаа</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </section>`;
-  }
-  return out;
+  }).join("");
 }
 
 function openPrintWindow(entry) {
