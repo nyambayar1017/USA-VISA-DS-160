@@ -124,6 +124,7 @@ function renderSidebar(user) {
     settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     gallery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><polyline points="21,16 16,11 8,19"/></svg>',
     content: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
+    templates: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.2"/><rect x="13" y="4" width="7" height="7" rx="1.2"/><rect x="4" y="13" width="7" height="7" rx="1.2"/><rect x="13" y="13" width="7" height="7" rx="1.2"/></svg>',
   };
 
   const link = (page, href, label, extraClass = "") => {
@@ -159,6 +160,7 @@ function renderSidebar(user) {
     ${link("contacts", "/contacts", "Contacts")}
     ${link("notes", "/notes", "Notes")}
     ${link("content", "/content", "Content")}
+    ${link("templates", "/templates", "Templates")}
     ${link("gallery", "/gallery", "Gallery")}
     ${link("flight-reservations", "/flight-reservations", "Flight Reservations")}
     ${link("transfer-reservations", "/transfer-reservations", "Transfer Reservations")}
@@ -182,6 +184,7 @@ function renderSidebar(user) {
     ${link("contacts", "/contacts", "Contacts")}
     ${link("notes", "/notes", "Notes")}
     ${link("content", "/content", "Content")}
+    ${link("templates", "/templates", "Templates")}
     ${link("gallery", "/gallery", "Gallery")}
     ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
     ${link("settings", "/settings", "Settings")}

@@ -14703,6 +14703,117 @@ body.img-picker-open { overflow: hidden; }
   padding: 4px 0 18px;
 }
 
+/* ── Templates admin page ──────────────────────────────────────────
+   Two-column layout: left = template categories (Meals, Days,
+   Services, …), right = the active category's editor pane. */
+.tpl-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 18px;
+  align-items: flex-start;
+}
+.tpl-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+.tpl-cat {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  padding: 9px 12px;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tpl-cat:hover { background: #f1f5f9; }
+.tpl-cat.is-active { background: #253a77; color: #fff; }
+.tpl-cat.is-disabled { color: #94a3b8; cursor: not-allowed; }
+.tpl-cat.is-disabled:hover { background: transparent; }
+.tpl-soon {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #e5e7eb;
+  color: #475569;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.tpl-pane {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 18px 22px;
+}
+.tpl-empty {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.tpl-meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tpl-meal-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+}
+.tpl-meal-name {
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+.tpl-meal-save {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #253a77;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tpl-meal-save:hover { background: #1c2c5e; }
+.tpl-meal-delete {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  color: #64748b;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+.tpl-meal-delete:hover { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+@media (max-width: 720px) {
+  .tpl-layout { grid-template-columns: 1fr; }
+}
+
 /* ── Trip public page redesign (Family Mongolia layout) ─────────── */
 :root {
   --tp-or: #C46A2C;

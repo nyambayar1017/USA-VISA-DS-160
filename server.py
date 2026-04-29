@@ -68,6 +68,7 @@ GALLERY_FILE = DATA_DIR / "gallery.json"
 GALLERY_FOLDERS_FILE = DATA_DIR / "gallery_folders.json"
 GALLERY_UPLOADS_DIR = DATA_DIR / "gallery-uploads"
 CONTENT_FILE = DATA_DIR / "content.json"
+MEAL_TEMPLATES_FILE = DATA_DIR / "meal_templates.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 SESSION_COOKIE = "travelx_session"
@@ -2554,6 +2555,91 @@ def handle_get_public_content(environ, start_response, slug):
     if not public:
         return json_response(start_response, "404 Not Found", {"error": "Content not found"})
     return json_response(start_response, "200 OK", public)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Meal templates
+# Reusable venue strings ("Hotel", "Local restaurant") that the trip-
+# creator surfaces as datalist suggestions for breakfast/lunch/dinner.
+# Schema: {id, name, createdAt}.
+# ──────────────────────────────────────────────────────────────────────────
+
+def read_meal_templates():
+    return read_json_list(MEAL_TEMPLATES_FILE)
+
+
+def write_meal_templates(records):
+    write_json_list(MEAL_TEMPLATES_FILE, records)
+
+
+def _meal_template_normalize(payload, existing=None):
+    base = dict(existing or {})
+    if not isinstance(payload, dict):
+        return base
+    out = dict(base)
+    if "name" in payload:
+        out["name"] = str(payload.get("name") or "").strip()
+    return out
+
+
+def handle_list_meal_templates(environ, start_response):
+    if not require_login(environ, start_response):
+        return []
+    rows = read_meal_templates()
+    rows.sort(key=lambda r: (r.get("name") or "").lower())
+    return json_response(start_response, "200 OK", {"entries": rows, "count": len(rows)})
+
+
+def handle_create_meal_template(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    rec = _meal_template_normalize(payload)
+    if not rec.get("name"):
+        return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
+    records = read_meal_templates()
+    if any((r.get("name") or "").lower() == rec["name"].lower() for r in records):
+        return json_response(start_response, "400 Bad Request", {"error": f"'{rec['name']}' already exists"})
+    rec["id"] = str(uuid4())
+    rec["createdAt"] = now_mongolia().isoformat()
+    records.append(rec)
+    write_meal_templates(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": rec})
+
+
+def handle_update_meal_template(environ, start_response, item_id):
+    if not require_login(environ, start_response):
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    records = read_meal_templates()
+    idx = next((i for i, r in enumerate(records) if r.get("id") == item_id), None)
+    if idx is None:
+        return json_response(start_response, "404 Not Found", {"error": "Template not found"})
+    merged = _meal_template_normalize(payload, existing=records[idx])
+    if not merged.get("name"):
+        return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
+    if any((r.get("name") or "").lower() == merged["name"].lower() and r.get("id") != item_id for r in records):
+        return json_response(start_response, "400 Bad Request", {"error": f"'{merged['name']}' already exists"})
+    merged["id"] = item_id
+    records[idx] = merged
+    write_meal_templates(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+
+
+def handle_delete_meal_template(environ, start_response, item_id):
+    if not require_login(environ, start_response):
+        return []
+    records = read_meal_templates()
+    new_records = [r for r in records if r.get("id") != item_id]
+    if len(new_records) == len(records):
+        return json_response(start_response, "404 Not Found", {"error": "Template not found"})
+    write_meal_templates(new_records)
+    return json_response(start_response, "200 OK", {"ok": True})
 
 
 def handle_dismiss_announcement(environ, start_response, announcement_id):
@@ -16233,6 +16319,22 @@ def _dispatch(environ, start_response):
             return handle_delete_content(environ, start_response, item_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/meal-templates":
+        if method == "GET":
+            return handle_list_meal_templates(environ, start_response)
+        if method == "POST":
+            return handle_create_meal_template(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path.startswith("/api/meal-templates/"):
+        item_id = path.replace("/api/meal-templates/", "", 1).strip("/")
+        if not item_id:
+            return json_response(start_response, "400 Bad Request", {"error": "id required"})
+        if method == "POST":
+            return handle_update_meal_template(environ, start_response, item_id)
+        if method == "DELETE":
+            return handle_delete_meal_template(environ, start_response, item_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/notifications":
         if method == "GET":
             return handle_list_notifications(environ, start_response)
@@ -17030,6 +17132,11 @@ def _dispatch(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "content.html")
+
+    if path == "/templates":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "templates.html")
 
     # /trip/<id> — public brochure for clients. No auth gate. We inline the
     # trip-creator doc as a <script type="application/json"> so the page

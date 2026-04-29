@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelX Templates</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-316" />
+  </head>
+  <body class="app-body" data-page="templates">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">TravelX</p>
+            <h1>Templates</h1>
+            <p class="workspace-subtitle">Reusable building blocks for trip programs. More template types coming soon.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <div class="tpl-layout">
+          <nav class="tpl-side" aria-label="Template categories">
+            <button type="button" class="tpl-cat is-active" data-cat="meals">Meals</button>
+            <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Days <span class="tpl-soon">soon</span></button>
+            <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Services <span class="tpl-soon">soon</span></button>
+            <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Accommodation <span class="tpl-soon">soon</span></button>
+          </nav>
+
+          <section class="tpl-pane" data-pane="meals">
+            <div class="section-head">
+              <div>
+                <h2>Meal templates</h2>
+                <p>Reusable venue strings the trip-creator suggests on Breakfast, Lunch, and Dinner inputs.</p>
+              </div>
+              <div class="camp-toolbar">
+                <button type="button" class="header-action-btn" id="tpl-meal-add">+ Add meal</button>
+              </div>
+            </div>
+
+            <div class="tpl-meal-list" id="tpl-meal-list">
+              <p class="tpl-empty">Loading…</p>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="/app-shell.js?v=workspace-124"></script>
+    <script src="/templates.js?v=workspace-1"></script>
+    <script src="/ui-dialog.js?v=workspace-1"></script>
+  </body>
+</html>

@@ -108,13 +108,13 @@
                 <input type="text" class="tc-program-accommodation" placeholder="Holiday Inn (or content slug)" value="${escapeHtml(row.accommodation || "")}" />
               </label>
               <label>Breakfast
-                <input type="text" class="tc-program-meal-b" placeholder="Hotel" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" />
+                <input type="text" class="tc-program-meal-b" list="tc-meal-templates" placeholder="Hotel" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" />
               </label>
               <label>Lunch
-                <input type="text" class="tc-program-meal-l" placeholder="Restaurant" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" />
+                <input type="text" class="tc-program-meal-l" list="tc-meal-templates" placeholder="Restaurant" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" />
               </label>
               <label>Dinner
-                <input type="text" class="tc-program-meal-d" placeholder="Restaurant" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" />
+                <input type="text" class="tc-program-meal-d" list="tc-meal-templates" placeholder="Restaurant" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" />
               </label>
             </div>
             <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
@@ -614,5 +614,30 @@
     }
   });
 
+  // Pull meal templates so the Breakfast/Lunch/Dinner inputs (which all
+  // reference list="tc-meal-templates") get autocomplete suggestions.
+  // Mounts a single <datalist> on the page; the inputs reference it by
+  // id, so per-day rows don't each duplicate the data.
+  async function loadMealTemplates() {
+    try {
+      const res = await fetch("/api/meal-templates");
+      if (!res.ok) return;
+      const data = await res.json();
+      const entries = data.entries || [];
+      let dl = document.getElementById("tc-meal-templates");
+      if (!dl) {
+        dl = document.createElement("datalist");
+        dl.id = "tc-meal-templates";
+        document.body.appendChild(dl);
+      }
+      dl.innerHTML = entries
+        .map((t) => `<option value="${(t.name || "").replace(/"/g, "&quot;")}"></option>`)
+        .join("");
+    } catch (_err) {
+      // Suggestions are optional — silent fail.
+    }
+  }
+
+  loadMealTemplates();
   loadDoc();
 })();
