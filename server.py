@@ -1645,6 +1645,7 @@ TRIP_CREATOR_DEFAULT = {
     "comfort": 0,
     "difficulty": 0,
     "intro": "",
+    "coverIds": [],
     "program": [],
     "quotation": {"rows": [], "note": ""},
 }
@@ -1662,6 +1663,8 @@ def _trip_creator_normalize(payload):
             out[key] = str(payload[key])
     if isinstance(payload.get("themes"), list):
         out["themes"] = [str(t) for t in payload["themes"] if str(t).strip()]
+    if isinstance(payload.get("coverIds"), list):
+        out["coverIds"] = [str(t).strip() for t in payload["coverIds"] if str(t).strip()]
     for key in ("rate", "comfort", "difficulty"):
         try:
             out[key] = int(payload.get(key) or 0)
@@ -1672,10 +1675,16 @@ def _trip_creator_normalize(payload):
         for entry in payload["program"]:
             if not isinstance(entry, dict):
                 continue
+            day_image_ids = entry.get("imageIds")
+            if isinstance(day_image_ids, list):
+                day_image_ids = [str(i).strip() for i in day_image_ids if str(i).strip()]
+            else:
+                day_image_ids = []
             prog.append({
                 "day": str(entry.get("day") or "").strip(),
                 "title": str(entry.get("title") or "").strip(),
                 "body": str(entry.get("body") or ""),
+                "imageIds": day_image_ids,
             })
         out["program"] = prog
     if isinstance(payload.get("quotation"), dict):
@@ -1733,6 +1742,7 @@ def handle_get_public_trip_creator(environ, start_response, trip_id):
         "comfort": doc.get("comfort") or 0,
         "difficulty": doc.get("difficulty") or 0,
         "intro": doc.get("intro") or "",
+        "coverIds": doc.get("coverIds") or [],
         "program": doc.get("program") or [],
         "quotation": doc.get("quotation") or {"rows": [], "note": ""},
         "trip": {
@@ -1785,6 +1795,7 @@ def _gallery_view(rec, request_origin=""):
         "mimeType": rec.get("mimeType") or "",
         "size": rec.get("size") or 0,
         "tags": rec.get("tags") or [],
+        "folder": rec.get("folder") or "",
         "videoUrl": rec.get("videoUrl") or "",
         "uploadedAt": rec.get("uploadedAt") or "",
         "uploadedBy": rec.get("uploadedBy") or {},
@@ -1798,10 +1809,17 @@ def handle_list_gallery(environ, start_response):
     qs = parse_qs(environ.get("QUERY_STRING", ""))
     tag = (qs.get("tag") or [""])[0].strip().lower()
     kind = (qs.get("kind") or [""])[0].strip().lower()
+    folder = (qs.get("folder") or [""])[0].strip()
     q = (qs.get("q") or [""])[0].strip().lower()
     rows = read_gallery()
     if kind:
         rows = [r for r in rows if (r.get("kind") or "image") == kind]
+    if folder:
+        # "__none__" matches items without a folder, anything else is exact match.
+        if folder == "__none__":
+            rows = [r for r in rows if not (r.get("folder") or "").strip()]
+        else:
+            rows = [r for r in rows if (r.get("folder") or "").lower() == folder.lower()]
     if tag:
         rows = [r for r in rows if any(tag == t.lower() for t in (r.get("tags") or []))]
     if q:
@@ -1811,8 +1829,36 @@ def handle_list_gallery(environ, start_response):
             or any(q in t.lower() for t in (r.get("tags") or []))
         ]
     rows.sort(key=lambda r: r.get("uploadedAt") or "", reverse=True)
+    folders = sorted({(r.get("folder") or "").strip() for r in read_gallery() if (r.get("folder") or "").strip()})
     out = [_gallery_view(r) for r in rows]
-    return json_response(start_response, "200 OK", {"entries": out, "count": len(out)})
+    return json_response(start_response, "200 OK", {"entries": out, "count": len(out), "folders": folders})
+
+
+def handle_update_gallery_item(environ, start_response, item_id):
+    """Patch fields on a gallery record. Currently used for folder + tags."""
+    if not require_login(environ, start_response):
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    records = read_gallery()
+    rec = next((r for r in records if r.get("id") == item_id), None)
+    if not rec:
+        return json_response(start_response, "404 Not Found", {"error": "Item not found"})
+    if "folder" in payload:
+        rec["folder"] = str(payload["folder"] or "").strip()
+    if "tags" in payload:
+        raw = payload["tags"]
+        if isinstance(raw, list):
+            rec["tags"] = [str(t).strip() for t in raw if str(t).strip()]
+        else:
+            rec["tags"] = [t.strip() for t in str(raw).split(",") if t.strip()]
+    if "originalName" in payload:
+        new_name = str(payload["originalName"] or "").strip()
+        if new_name:
+            rec["originalName"] = new_name
+    write_gallery(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": _gallery_view(rec)})
 
 
 def handle_upload_gallery_image(environ, start_response):
@@ -1836,6 +1882,7 @@ def handle_upload_gallery_image(environ, start_response):
     (GALLERY_UPLOADS_DIR / stored_name).write_bytes(data)
     raw_tags = fields.get("tags") or ""
     tag_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
+    folder = (fields.get("folder") or "").strip()
     rec = {
         "id": rec_id,
         "kind": "image",
@@ -1844,6 +1891,7 @@ def handle_upload_gallery_image(environ, start_response):
         "mimeType": upload.get("content_type") or "application/octet-stream",
         "size": len(data),
         "tags": tag_list,
+        "folder": folder,
         "uploadedAt": now_mongolia().isoformat(),
         "uploadedBy": actor_snapshot(actor),
     }
@@ -15723,6 +15771,8 @@ def _dispatch(environ, start_response):
         item_id = path.replace("/api/gallery/", "", 1).strip("/")
         if method == "DELETE" and item_id:
             return handle_delete_gallery_item(environ, start_response, item_id)
+        if method == "POST" and item_id:
+            return handle_update_gallery_item(environ, start_response, item_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     # Content library CRUD.

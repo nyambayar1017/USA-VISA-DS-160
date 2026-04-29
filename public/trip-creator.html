@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-296" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-297" />
   </head>
   <body class="app-body" data-page="trip-creator">
     <div class="workspace-shell">
@@ -125,6 +125,14 @@
             </label>
 
             <div class="tc-section-head">
+              <h3>Cover photos</h3>
+              <button type="button" class="header-action-btn" id="tc-pick-covers">+ Add cover photos</button>
+            </div>
+            <p class="ct-hint">Shown at the top of the public trip page. First image is the hero.</p>
+            <input type="hidden" id="tc-cover-ids" />
+            <div id="tc-cover-preview" class="ct-image-preview"></div>
+
+            <div class="tc-section-head">
               <h3>Day-by-day program</h3>
               <button type="button" class="header-action-btn" id="tc-add-day">+ Add day</button>
             </div>
@@ -169,7 +177,8 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-120"></script>
-    <script src="/trip-creator.js?v=workspace-2"></script>
+    <script src="/image-picker.js?v=workspace-1"></script>
+    <script src="/trip-creator.js?v=workspace-3"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

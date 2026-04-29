@@ -7,6 +7,7 @@
   const count = document.getElementById("gal-count");
   const searchInput = document.getElementById("gal-search");
   const kindSelect = document.getElementById("gal-kind");
+  const folderSelect = document.getElementById("gal-folder");
   const tagInput = document.getElementById("gal-tag");
   const fileInput = document.getElementById("gal-file");
   const uploadLabel = document.getElementById("gal-upload-btn");
@@ -14,8 +15,13 @@
   const videoForm = document.getElementById("gal-video-form");
   const videoStatus = document.getElementById("gal-video-status");
   const addVideoBtn = document.getElementById("gal-add-video-btn");
+  const bulkBar = document.getElementById("gal-bulk-bar");
+  const bulkCount = document.getElementById("gal-bulk-count");
+  const bulkFolderInput = document.getElementById("gal-bulk-folder");
+  const bulkMoveBtn = document.getElementById("gal-bulk-move");
+  const bulkClearBtn = document.getElementById("gal-bulk-clear");
 
-  const state = { entries: [] };
+  const state = { entries: [], folders: [], selected: new Set() };
 
   function escapeHtml(value) {
     return String(value || "")
@@ -32,15 +38,42 @@
     return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
   }
 
+  function refreshBulkBar() {
+    if (!bulkBar) return;
+    if (!state.selected.size) {
+      bulkBar.hidden = true;
+      return;
+    }
+    bulkBar.hidden = false;
+    bulkCount.textContent = `${state.selected.size} selected`;
+  }
+
+  function refreshFolderOptions() {
+    if (!folderSelect) return;
+    const prev = folderSelect.value;
+    const optsHtml = state.folders
+      .map((f) => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`)
+      .join("");
+    folderSelect.innerHTML = `
+      <option value="">All folders</option>
+      <option value="__none__">No folder</option>
+      ${optsHtml}
+    `;
+    if ([...folderSelect.options].some((o) => o.value === prev)) folderSelect.value = prev;
+  }
+
   function render() {
     const q = (searchInput.value || "").trim().toLowerCase();
     const tag = (tagInput.value || "").trim().toLowerCase();
     const kind = kindSelect.value;
+    const folderFilter = folderSelect ? folderSelect.value : "";
     const filtered = state.entries.filter((e) => {
       if (kind && e.kind !== kind) return false;
+      if (folderFilter === "__none__" && (e.folder || "").trim()) return false;
+      else if (folderFilter && folderFilter !== "__none__" && (e.folder || "").toLowerCase() !== folderFilter.toLowerCase()) return false;
       if (tag && !(e.tags || []).some((t) => t.toLowerCase() === tag)) return false;
       if (q) {
-        const hay = `${e.originalName} ${(e.tags || []).join(" ")}`.toLowerCase();
+        const hay = `${e.originalName} ${(e.tags || []).join(" ")} ${e.folder || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -61,15 +94,22 @@
         const meta = e.kind === "image"
           ? fmtSize(e.size)
           : `<a href="${escapeHtml(e.url)}" target="_blank" rel="noopener">Open ↗</a>`;
+        const isSelected = state.selected.has(e.id);
+        const folderBadge = e.folder
+          ? `<span class="gallery-folder-badge">📁 ${escapeHtml(e.folder)}</span>`
+          : "";
         return `
-          <article class="gallery-card" data-id="${escapeHtml(e.id)}">
+          <article class="gallery-card${isSelected ? " is-selected" : ""}" data-id="${escapeHtml(e.id)}">
+            <label class="gallery-select">
+              <input type="checkbox" data-action="toggle-select" data-id="${escapeHtml(e.id)}" ${isSelected ? "checked" : ""} />
+            </label>
             <div class="gallery-thumb">${preview}</div>
             <div class="gallery-card-body">
               <p class="gallery-card-title" title="${escapeHtml(e.originalName)}">${escapeHtml(e.originalName)}</p>
-              <p class="gallery-card-meta">${meta}</p>
+              <p class="gallery-card-meta">${meta} ${folderBadge}</p>
               <div class="gallery-tags">${tags}</div>
               <div class="gallery-actions">
-                <button type="button" class="gallery-copy-id" data-action="copy-id" data-id="${escapeHtml(e.id)}" title="Copy ID for content editor">📋 ID</button>
+                <button type="button" class="gallery-copy-id" data-action="copy-id" data-id="${escapeHtml(e.id)}" title="Copy ID">📋 ID</button>
                 <button type="button" class="gallery-delete" data-action="delete" data-id="${escapeHtml(e.id)}">Delete</button>
               </div>
             </div>
@@ -85,6 +125,8 @@
       const res = await fetch("/api/gallery");
       const data = await res.json();
       state.entries = data.entries || [];
+      state.folders = data.folders || [];
+      refreshFolderOptions();
       render();
     } catch (err) {
       grid.innerHTML = `<p class="empty">${escapeHtml(err.message || "Could not load.")}</p>`;
@@ -166,7 +208,17 @@
     }
   });
 
-  // ── Card actions: copy id, delete ─────────────────────────────
+  // ── Card actions: select, copy id, delete ───────────────────
+  grid.addEventListener("change", (event) => {
+    const cb = event.target.closest('[data-action="toggle-select"]');
+    if (!cb) return;
+    const id = cb.dataset.id;
+    if (cb.checked) state.selected.add(id);
+    else state.selected.delete(id);
+    refreshBulkBar();
+    cb.closest(".gallery-card")?.classList.toggle("is-selected", cb.checked);
+  });
+
   grid.addEventListener("click", async (event) => {
     const target = event.target.closest("[data-action]");
     if (!target) return;
@@ -191,6 +243,8 @@
           throw new Error(err.error || "Delete failed");
         }
         state.entries = state.entries.filter((e) => e.id !== id);
+        state.selected.delete(id);
+        refreshBulkBar();
         render();
       } catch (err) {
         alert(err.message || "Delete failed");
@@ -198,7 +252,44 @@
     }
   });
 
-  [searchInput, kindSelect, tagInput].forEach((node) => {
+  // ── Bulk move-to-folder ──────────────────────────────────────
+  bulkMoveBtn?.addEventListener("click", async () => {
+    if (!state.selected.size) return;
+    const folder = (bulkFolderInput.value || "").trim();
+    bulkMoveBtn.disabled = true;
+    try {
+      for (const id of Array.from(state.selected)) {
+        const res = await fetch(`/api/gallery/${encodeURIComponent(id)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folder }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const idx = state.entries.findIndex((e) => e.id === id);
+          if (idx >= 0) state.entries[idx] = { ...state.entries[idx], ...data.entry };
+        }
+      }
+      state.selected.clear();
+      bulkFolderInput.value = "";
+      // Re-derive folders from current entries since we just renamed some.
+      state.folders = Array.from(new Set(state.entries.map((e) => (e.folder || "").trim()).filter(Boolean))).sort();
+      refreshFolderOptions();
+      refreshBulkBar();
+      render();
+    } catch (err) {
+      alert(err.message || "Could not move");
+    } finally {
+      bulkMoveBtn.disabled = false;
+    }
+  });
+  bulkClearBtn?.addEventListener("click", () => {
+    state.selected.clear();
+    refreshBulkBar();
+    render();
+  });
+
+  [searchInput, kindSelect, folderSelect, tagInput].forEach((node) => {
     node?.addEventListener("input", render);
     node?.addEventListener("change", render);
   });

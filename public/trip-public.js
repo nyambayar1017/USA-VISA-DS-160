@@ -109,37 +109,69 @@
     const themes = (doc.themes || [])
       .map((t) => `<span class="trip-public-chip">${escapeHtml(t)}</span>`)
       .join(" ");
+    const coverIds = Array.isArray(doc.coverIds) ? doc.coverIds : [];
+    const heroImage = coverIds[0]
+      ? `<div class="trip-public-hero-photo" style="background-image:url('/api/gallery/${encodeURIComponent(coverIds[0])}/file');"></div>`
+      : "";
+    const coverGalleryThumbs = coverIds.length > 1
+      ? `
+        <div class="trip-public-cover-strip">
+          ${coverIds.slice(1).map((id) => `
+            <a class="trip-public-cover-thumb" href="/api/gallery/${encodeURIComponent(id)}/file" target="_blank" rel="noopener">
+              <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+            </a>
+          `).join("")}
+        </div>
+      `
+      : "";
     const program = (doc.program || [])
-      .map(
-        (row) => `
+      .map((row) => {
+        const ids = Array.isArray(row.imageIds) ? row.imageIds : [];
+        const dayImages = ids.length
+          ? `
+            <div class="trip-public-day-photos">
+              ${ids.map((id) => `
+                <a class="trip-public-day-thumb" href="/api/gallery/${encodeURIComponent(id)}/file" target="_blank" rel="noopener">
+                  <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+                </a>
+              `).join("")}
+            </div>
+          `
+          : "";
+        return `
           <article class="trip-public-day">
             <div class="trip-public-day-head">
               <span class="trip-public-day-pill">${escapeHtml(row.day || "")}</span>
               <h3>${escapeHtml(row.title || "")}</h3>
             </div>
             ${row.body ? `<p>${nl2br(row.body)}</p>` : ""}
+            ${dayImages}
           </article>
-        `
-      )
+        `;
+      })
       .join("");
 
     document.title = doc.title ? `${doc.title} · TravelX` : "TravelX Trip";
 
     root.innerHTML = `
-      <header class="trip-public-hero">
-        <p class="trip-public-kicker">TravelX${doc.trip && doc.trip.serial ? ` · ${escapeHtml(doc.trip.serial)}` : ""}</p>
-        <h1>${escapeHtml(doc.title || "Trip")}</h1>
-        ${meta.length ? `<p class="trip-public-meta">${meta.join(" · ")}</p>` : ""}
-        ${themes ? `<div class="trip-public-chips">${themes}</div>` : ""}
-        <div class="trip-public-ratings">
-          <div><span>Rate</span>${renderStars(doc.rate)}</div>
-          <div><span>Comfort</span>${renderStars(doc.comfort)}</div>
-          <div><span>Difficulty</span>${renderStars(doc.difficulty)}</div>
+      <header class="trip-public-hero${heroImage ? " has-photo" : ""}">
+        ${heroImage}
+        <div class="trip-public-hero-body">
+          <p class="trip-public-kicker">TravelX${doc.trip && doc.trip.serial ? ` · ${escapeHtml(doc.trip.serial)}` : ""}</p>
+          <h1>${escapeHtml(doc.title || "Trip")}</h1>
+          ${meta.length ? `<p class="trip-public-meta">${meta.join(" · ")}</p>` : ""}
+          ${themes ? `<div class="trip-public-chips">${themes}</div>` : ""}
+          <div class="trip-public-ratings">
+            <div><span>Rate</span>${renderStars(doc.rate)}</div>
+            <div><span>Comfort</span>${renderStars(doc.comfort)}</div>
+            <div><span>Difficulty</span>${renderStars(doc.difficulty)}</div>
+          </div>
+          <p class="trip-public-flight-note">
+            Олон улсын нислэг: <strong>${doc.internationalFlight === "excluded" ? "Багтаагүй" : "Багтсан"}</strong>
+            · Үнэ: <strong>${doc.offerType === "fixed" ? "Тогтмол" : "Уян хатан"}</strong>
+          </p>
         </div>
-        <p class="trip-public-flight-note">
-          Олон улсын нислэг: <strong>${doc.internationalFlight === "excluded" ? "Багтаагүй" : "Багтсан"}</strong>
-          · Үнэ: <strong>${doc.offerType === "fixed" ? "Тогтмол" : "Уян хатан"}</strong>
-        </p>
+        ${coverGalleryThumbs}
       </header>
 
       ${doc.intro

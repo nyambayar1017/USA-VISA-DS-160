@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-296" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-297" />
   </head>
   <body class="app-body" data-page="content">
     <div class="workspace-shell">
@@ -130,11 +130,11 @@
 
           <div class="ct-section">
             <div class="ct-section-head">
-              <h3>Photos from gallery</h3>
-              <a class="header-action-btn" href="/gallery" target="_blank" rel="noopener">Open gallery ↗</a>
+              <h3>Photos</h3>
+              <button type="button" class="header-action-btn" id="ct-pick-images-btn">+ Add photos from gallery</button>
             </div>
-            <p class="ct-hint">Paste image IDs (one per line) — copy them from the Gallery page.</p>
-            <textarea id="ct-image-ids" rows="3" placeholder="One gallery image ID per line"></textarea>
+            <p class="ct-hint">Click thumbnails to remove. Use <a href="/gallery" target="_blank" rel="noopener">Gallery</a> to upload more.</p>
+            <input type="hidden" id="ct-image-ids" />
             <div id="ct-image-preview" class="ct-image-preview"></div>
           </div>
 
@@ -149,7 +149,8 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-120"></script>
-    <script src="/content.js?v=workspace-1"></script>
+    <script src="/image-picker.js?v=workspace-1"></script>
+    <script src="/content.js?v=workspace-2"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

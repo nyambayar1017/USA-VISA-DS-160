@@ -71,8 +71,19 @@
 
   function renderProgram(rows) {
     programList.innerHTML = (rows || [])
-      .map(
-        (row, idx) => `
+      .map((row, idx) => {
+        const ids = Array.isArray(row.imageIds) ? row.imageIds : [];
+        const thumbs = ids
+          .map(
+            (id) => `
+              <div class="ct-image-thumb" data-id="${escapeHtml(id)}">
+                <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+                <button type="button" class="ct-image-remove" data-action="remove-day-image" data-idx="${idx}" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
+              </div>
+            `
+          )
+          .join("");
+        return `
           <div class="tc-program-row" data-idx="${idx}">
             <div class="tc-program-row-head">
               <input type="text" class="tc-program-day" placeholder="Өдөр ${idx + 1}" value="${escapeHtml(row.day || `Өдөр ${idx + 1}`)}" />
@@ -80,9 +91,14 @@
               <button type="button" class="tc-program-delete" data-action="delete-day" data-idx="${idx}" aria-label="Remove day">✕</button>
             </div>
             <textarea class="tc-program-body" rows="3" placeholder="Description, attractions, notes…">${escapeHtml(row.body || "")}</textarea>
+            <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
+            <div class="tc-program-day-photos">
+              <button type="button" class="ct-add-item-btn" data-action="pick-day-images" data-idx="${idx}">+ Photos</button>
+              <div class="ct-image-preview tc-day-thumbs">${thumbs}</div>
+            </div>
           </div>
-        `
-      )
+        `;
+      })
       .join("");
   }
 
@@ -92,22 +108,98 @@
     renderProgram(current);
   });
 
-  programList.addEventListener("click", (event) => {
+  programList.addEventListener("click", async (event) => {
     const del = event.target.closest('[data-action="delete-day"]');
-    if (!del) return;
-    const idx = Number(del.dataset.idx);
-    const current = readProgram();
-    current.splice(idx, 1);
-    renderProgram(current);
+    if (del) {
+      const idx = Number(del.dataset.idx);
+      const current = readProgram();
+      current.splice(idx, 1);
+      renderProgram(current);
+      return;
+    }
+    const removeImg = event.target.closest('[data-action="remove-day-image"]');
+    if (removeImg) {
+      const idx = Number(removeImg.dataset.idx);
+      const id = removeImg.dataset.id;
+      const current = readProgram();
+      const day = current[idx];
+      if (day) {
+        day.imageIds = (day.imageIds || []).filter((existing) => existing !== id);
+        renderProgram(current);
+      }
+      return;
+    }
+    const pick = event.target.closest('[data-action="pick-day-images"]');
+    if (pick && window.ImagePicker) {
+      const idx = Number(pick.dataset.idx);
+      const current = readProgram();
+      const day = current[idx] || { imageIds: [] };
+      const picked = await window.ImagePicker.open({
+        selected: day.imageIds || [],
+        multiple: true,
+        title: `Photos for ${day.day || `Day ${idx + 1}`}`,
+      });
+      if (Array.isArray(picked)) {
+        day.imageIds = picked;
+        current[idx] = day;
+        renderProgram(current);
+      }
+    }
   });
 
   function readProgram() {
-    return Array.from(programList.querySelectorAll(".tc-program-row")).map((row) => ({
-      day: row.querySelector(".tc-program-day")?.value || "",
-      title: row.querySelector(".tc-program-title")?.value || "",
-      body: row.querySelector(".tc-program-body")?.value || "",
-    }));
+    return Array.from(programList.querySelectorAll(".tc-program-row")).map((row) => {
+      const idsRaw = row.querySelector(".tc-program-image-ids")?.value || "";
+      return {
+        day: row.querySelector(".tc-program-day")?.value || "",
+        title: row.querySelector(".tc-program-title")?.value || "",
+        body: row.querySelector(".tc-program-body")?.value || "",
+        imageIds: idsRaw.split(",").map((s) => s.trim()).filter(Boolean),
+      };
+    });
   }
+
+  // ── Cover photos ────────────────────────────────────────────────
+  const coverIdsInput = document.getElementById("tc-cover-ids");
+  const coverPreview = document.getElementById("tc-cover-preview");
+  const pickCoversBtn = document.getElementById("tc-pick-covers");
+
+  function getCoverIds() {
+    return (coverIdsInput.value || "").split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  function setCoverIds(ids) {
+    coverIdsInput.value = (ids || []).filter(Boolean).join(",");
+    refreshCoverPreview();
+  }
+  function refreshCoverPreview() {
+    const ids = getCoverIds();
+    if (!ids.length) {
+      coverPreview.innerHTML = `<p class="ct-hint">No cover photos. Click "+ Add cover photos".</p>`;
+      return;
+    }
+    coverPreview.innerHTML = ids
+      .map((id) => `
+        <div class="ct-image-thumb" title="${escapeHtml(id)}">
+          <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+          <button type="button" class="ct-image-remove" data-action="remove-cover" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
+        </div>
+      `)
+      .join("");
+  }
+  coverPreview.addEventListener("click", (event) => {
+    const remove = event.target.closest('[data-action="remove-cover"]');
+    if (!remove) return;
+    setCoverIds(getCoverIds().filter((id) => id !== remove.dataset.id));
+  });
+  pickCoversBtn?.addEventListener("click", async () => {
+    if (!window.ImagePicker) return;
+    const picked = await window.ImagePicker.open({
+      selected: getCoverIds(),
+      multiple: true,
+      title: "Choose cover photos for the trip",
+    });
+    if (Array.isArray(picked)) setCoverIds(picked);
+  });
 
   // ── Quotation editor (rows) ─────────────────────────────────────
   const quoteRows = document.getElementById("tc-quote-rows");
@@ -227,6 +319,7 @@
           $(`tc-${key}-out`).textContent = `${doc[key] || 0}/5`;
         });
         renderProgram(doc.program && doc.program.length ? doc.program : seedProgramFromTrip(trip));
+        setCoverIds(Array.isArray(doc.coverIds) ? doc.coverIds : []);
         renderQuote((doc.quotation && doc.quotation.rows) || []);
         $("tc-quote-note").value = (doc.quotation && doc.quotation.note) || "";
         // The doc has updatedAt only after at least one save — that's our
@@ -272,6 +365,7 @@
       comfort: Number($("tc-comfort").value) || 0,
       difficulty: Number($("tc-difficulty").value) || 0,
       intro: $("tc-intro").value,
+      coverIds: getCoverIds(),
       program: readProgram(),
       quotation: {
         rows: readQuoteRows(),

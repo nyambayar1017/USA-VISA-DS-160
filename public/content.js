@@ -15,8 +15,9 @@
   const statusNode = document.getElementById("ct-status");
   const deleteBtn = document.getElementById("ct-delete-btn");
   const groupsNode = document.getElementById("ct-groups");
-  const imageIdsTextarea = document.getElementById("ct-image-ids");
+  const imageIdsInput = document.getElementById("ct-image-ids");
   const imagePreview = document.getElementById("ct-image-preview");
+  const pickImagesBtn = document.getElementById("ct-pick-images-btn");
   const modalTitle = document.getElementById("ct-modal-title");
 
   const state = { entries: [], editingId: "" };
@@ -113,8 +114,7 @@
     form.elements.videoUrl.value = rec ? rec.videoUrl || "" : "";
     form.elements.summary.value = rec ? rec.summary || "" : "";
     renderGroups((rec && rec.bulletGroups) || [{ heading: "", items: [""] }]);
-    imageIdsTextarea.value = ((rec && rec.imageIds) || []).join("\n");
-    refreshImagePreview();
+    setImageIds((rec && rec.imageIds) || []);
     deleteBtn.hidden = !state.editingId;
     setStatus("");
     modal.classList.remove("is-hidden");
@@ -203,21 +203,50 @@
     }
   });
 
+  function getImageIds() {
+    return (imageIdsInput.value || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  function setImageIds(ids) {
+    const cleaned = (ids || []).filter(Boolean);
+    imageIdsInput.value = cleaned.join(",");
+    refreshImagePreview();
+  }
+
   function refreshImagePreview() {
-    const ids = imageIdsTextarea.value.split("\n").map((s) => s.trim()).filter(Boolean);
+    const ids = getImageIds();
     if (!ids.length) {
-      imagePreview.innerHTML = `<p class="ct-hint">No photos yet. Paste gallery image IDs above.</p>`;
+      imagePreview.innerHTML = `<p class="ct-hint">No photos yet. Click "+ Add photos from gallery".</p>`;
       return;
     }
     imagePreview.innerHTML = ids
       .map((id) => `
         <div class="ct-image-thumb" title="${escapeHtml(id)}">
           <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+          <button type="button" class="ct-image-remove" data-action="remove-image" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
         </div>
       `)
       .join("");
   }
-  imageIdsTextarea.addEventListener("input", refreshImagePreview);
+
+  imagePreview.addEventListener("click", (event) => {
+    const target = event.target.closest('[data-action="remove-image"]');
+    if (!target) return;
+    setImageIds(getImageIds().filter((id) => id !== target.dataset.id));
+  });
+
+  pickImagesBtn?.addEventListener("click", async () => {
+    if (!window.ImagePicker) return;
+    const picked = await window.ImagePicker.open({
+      selected: getImageIds(),
+      multiple: true,
+      title: "Choose photos for this content",
+    });
+    if (Array.isArray(picked)) setImageIds(picked);
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -232,7 +261,7 @@
       videoUrl: form.elements.videoUrl.value.trim(),
       summary: form.elements.summary.value,
       bulletGroups: readGroups(),
-      imageIds: imageIdsTextarea.value.split("\n").map((s) => s.trim()).filter(Boolean),
+      imageIds: getImageIds(),
     };
     try {
       const url = id ? `/api/content/${encodeURIComponent(id)}` : "/api/content";
