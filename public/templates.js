@@ -2,12 +2,27 @@
   "use strict";
 
   const listNode = document.getElementById("tpl-meal-list");
+  const locListNode = document.getElementById("tpl-loc-list");
 
   function escapeHtml(s) {
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
     }[c]));
   }
+
+  // Category switching ── Locations / Meals / (Days/Services/Accomm soon)
+  document.querySelectorAll(".tpl-cat").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      const cat = btn.dataset.cat;
+      document.querySelectorAll(".tpl-cat").forEach((b) => b.classList.toggle("is-active", b === btn));
+      document.querySelectorAll(".tpl-pane").forEach((p) => {
+        const match = p.dataset.pane === cat;
+        p.classList.toggle("is-active", match);
+        p.hidden = !match;
+      });
+    });
+  });
 
   // Three meal categories the trip-creator filters on. "" (empty) is
   // for legacy templates created before category was a field; they get
@@ -181,4 +196,267 @@
   });
 
   load();
+
+  // ──────────────────────────────────────────────────────────────────
+  // Locations
+  // ──────────────────────────────────────────────────────────────────
+  const LOC_LANGS = [
+    { code: "mn", label: "Mongolian (Монгол)" },
+    { code: "en", label: "English" },
+    { code: "fr", label: "French (Français)" },
+    { code: "it", label: "Italian (Italiano)" },
+    { code: "es", label: "Spanish (Español)" },
+    { code: "ko", label: "Korean (한국어)" },
+    { code: "zh", label: "Chinese (中文)" },
+    { code: "ja", label: "Japanese (日本語)" },
+    { code: "ru", label: "Russian (Русский)" },
+  ];
+
+  let locations = [];
+
+  async function loadLocations() {
+    locListNode.innerHTML = `<p class="tpl-empty">Loading…</p>`;
+    try {
+      const res = await fetch("/api/locations");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      locations = data.entries || [];
+      renderLocations();
+    } catch (err) {
+      locListNode.innerHTML = `<p class="tpl-empty">Could not load locations: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderLocations() {
+    if (!locations.length) {
+      locListNode.innerHTML = `<p class="tpl-empty">No locations yet. Click <strong>+ Add location</strong> to create one (e.g. "Ulaanbaatar", "Kharkhorin").</p>`;
+      return;
+    }
+    locListNode.innerHTML = `
+      <table class="tpl-loc-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Lat / Lon</th>
+            <th>Photos</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${locations.map((l, i) => `
+            <tr data-id="${escapeHtml(l.id)}">
+              <td>${i + 1}</td>
+              <td><strong>${escapeHtml(l.name || "—")}</strong></td>
+              <td>${l.latlonEnabled && (l.latitude || l.longitude)
+                ? `${escapeHtml(l.latitude || "?")}, ${escapeHtml(l.longitude || "?")}`
+                : "—"}</td>
+              <td>${(l.imageIds || []).length}</td>
+              <td class="tpl-loc-row-actions">
+                <button type="button" class="header-action-btn" data-action="edit-loc">Edit</button>
+                <button type="button" class="header-action-btn" data-action="delete-loc">Delete</button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // ── Edit modal state ─────────────────────────────────────────────
+  const locModal = document.getElementById("tpl-loc-modal");
+  const locForm = document.getElementById("tpl-loc-form");
+  const locIdField = document.getElementById("tpl-loc-id");
+  const locNameField = document.getElementById("tpl-loc-name");
+  const locCommentField = document.getElementById("tpl-loc-comment");
+  const locLatlonEnabledField = document.getElementById("tpl-loc-latlon-enabled");
+  const locLatField = document.getElementById("tpl-loc-lat");
+  const locLonField = document.getElementById("tpl-loc-lon");
+  const locLangGrid = document.getElementById("tpl-loc-lang-grid");
+  const locImageIdsField = document.getElementById("tpl-loc-image-ids");
+  const locImagePreview = document.getElementById("tpl-loc-image-preview");
+  const locMapPreview = document.getElementById("tpl-loc-map-preview");
+  const locMapFrame = document.getElementById("tpl-loc-map-frame");
+  const locGmapsLink = document.getElementById("tpl-loc-gmaps-link");
+
+  function openLocModal(rec) {
+    locIdField.value = rec ? (rec.id || "") : "";
+    locNameField.value = rec ? (rec.name || "") : "";
+    locCommentField.value = rec ? (rec.comment || "") : "";
+    locLatlonEnabledField.checked = rec ? !!rec.latlonEnabled : false;
+    locLatField.value = rec ? (rec.latitude || "") : "";
+    locLonField.value = rec ? (rec.longitude || "") : "";
+    locImageIdsField.value = rec && Array.isArray(rec.imageIds) ? rec.imageIds.join(",") : "";
+    // Language inputs.
+    const names = (rec && rec.names) || {};
+    locLangGrid.innerHTML = LOC_LANGS.map((l) => `
+      <label class="tpl-loc-field">
+        ${l.label}
+        <input type="text" data-loc-lang="${l.code}" value="${escapeHtml(names[l.code] || "")}" />
+      </label>
+    `).join("");
+    // Image preview.
+    renderLocImages();
+    // Map preview.
+    refreshLocMapPreview();
+    // Switch to Latlon tab.
+    document.querySelectorAll(".tpl-loc-tab").forEach((t) => t.classList.toggle("is-active", t.dataset.locTab === "latlon"));
+    document.querySelectorAll(".tpl-loc-pane").forEach((p) => {
+      const match = p.dataset.locPane === "latlon";
+      p.classList.toggle("is-active", match);
+      p.hidden = !match;
+    });
+    locModal.classList.remove("is-hidden");
+    locModal.hidden = false;
+    setTimeout(() => locNameField.focus(), 50);
+  }
+
+  function closeLocModal() {
+    locModal.classList.add("is-hidden");
+    locModal.hidden = true;
+  }
+
+  function renderLocImages() {
+    const ids = (locImageIdsField.value || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (!ids.length) {
+      locImagePreview.innerHTML = `<p class="tpl-empty">No photos yet.</p>`;
+      return;
+    }
+    locImagePreview.innerHTML = ids.map((id) => `
+      <div class="ct-image-thumb" data-id="${escapeHtml(id)}">
+        <img src="/api/gallery/${encodeURIComponent(id)}/file?size=thumb" alt="" loading="lazy" />
+        <button type="button" class="ct-image-remove" data-action="remove-loc-image" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
+      </div>
+    `).join("");
+  }
+
+  function refreshLocMapPreview() {
+    const lat = locLatField.value.trim();
+    const lon = locLonField.value.trim();
+    if (locLatlonEnabledField.checked && lat && lon) {
+      locMapFrame.src = `https://maps.google.com/maps?q=${encodeURIComponent(`${lat},${lon}`)}&z=10&output=embed`;
+      locMapPreview.hidden = false;
+      locGmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lon}`)}`;
+    } else {
+      locMapPreview.hidden = true;
+      locGmapsLink.href = "https://www.google.com/maps";
+    }
+  }
+
+  document.getElementById("tpl-loc-add").addEventListener("click", () => openLocModal(null));
+
+  locListNode.addEventListener("click", (event) => {
+    const row = event.target.closest("tr[data-id]");
+    if (!row) return;
+    const id = row.dataset.id;
+    const rec = locations.find((l) => l.id === id);
+    if (event.target.closest('[data-action="edit-loc"]')) {
+      openLocModal(rec);
+      return;
+    }
+    if (event.target.closest('[data-action="delete-loc"]')) {
+      const ui = window.UI;
+      const ok = ui && ui.confirm
+        ? ui.confirm(`Delete location "${rec ? rec.name : id}"?`, { title: "Delete location", confirmLabel: "Delete" })
+        : Promise.resolve(window.confirm(`Delete location "${rec ? rec.name : id}"?`));
+      Promise.resolve(ok).then(async (yes) => {
+        if (!yes) return;
+        try {
+          const res = await fetch(`/api/locations/${encodeURIComponent(id)}`, { method: "DELETE" });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          await loadLocations();
+        } catch (err) {
+          alert(`Could not delete: ${err.message}`);
+        }
+      });
+      return;
+    }
+  });
+
+  // Modal close + tab switching
+  locModal.addEventListener("click", (event) => {
+    if (event.target.closest('[data-action="close-loc"]')) {
+      closeLocModal();
+      return;
+    }
+    const tab = event.target.closest(".tpl-loc-tab");
+    if (tab) {
+      const target = tab.dataset.locTab;
+      document.querySelectorAll(".tpl-loc-tab").forEach((t) => t.classList.toggle("is-active", t === tab));
+      document.querySelectorAll(".tpl-loc-pane").forEach((p) => {
+        const match = p.dataset.locPane === target;
+        p.classList.toggle("is-active", match);
+        p.hidden = !match;
+      });
+      return;
+    }
+    const removeImg = event.target.closest('[data-action="remove-loc-image"]');
+    if (removeImg) {
+      const id = removeImg.dataset.id;
+      const ids = (locImageIdsField.value || "").split(",").map((s) => s.trim()).filter(Boolean);
+      locImageIdsField.value = ids.filter((x) => x !== id).join(",");
+      renderLocImages();
+      return;
+    }
+  });
+
+  document.getElementById("tpl-loc-pick-images").addEventListener("click", async () => {
+    if (!window.ImagePicker) return;
+    const current = (locImageIdsField.value || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const picked = await window.ImagePicker.open({
+      selected: current,
+      multiple: true,
+      title: "Choose location photos",
+    });
+    if (Array.isArray(picked)) {
+      locImageIdsField.value = picked.join(",");
+      renderLocImages();
+    }
+  });
+
+  [locLatField, locLonField, locLatlonEnabledField].forEach((el) => {
+    el.addEventListener("input", refreshLocMapPreview);
+    el.addEventListener("change", refreshLocMapPreview);
+  });
+
+  locForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const id = locIdField.value;
+    const names = {};
+    locLangGrid.querySelectorAll("[data-loc-lang]").forEach((input) => {
+      names[input.dataset.locLang] = (input.value || "").trim();
+    });
+    const payload = {
+      name: (locNameField.value || "").trim(),
+      comment: (locCommentField.value || "").trim(),
+      latlonEnabled: locLatlonEnabledField.checked,
+      latitude: (locLatField.value || "").trim(),
+      longitude: (locLonField.value || "").trim(),
+      names,
+      imageIds: (locImageIdsField.value || "").split(",").map((s) => s.trim()).filter(Boolean),
+    };
+    if (!payload.name) {
+      alert("Name is required");
+      return;
+    }
+    try {
+      const url = id ? `/api/locations/${encodeURIComponent(id)}` : "/api/locations";
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      closeLocModal();
+      await loadLocations();
+    } catch (err) {
+      alert(`Could not save: ${err.message}`);
+    }
+  });
+
+  loadLocations();
 })();

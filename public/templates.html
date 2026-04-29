@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-317" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-323" />
   </head>
   <body class="app-body" data-page="templates">
     <div class="workspace-shell">
@@ -30,13 +30,29 @@
 
         <div class="tpl-layout">
           <nav class="tpl-side" aria-label="Template categories">
-            <button type="button" class="tpl-cat is-active" data-cat="meals">Meals</button>
+            <button type="button" class="tpl-cat is-active" data-cat="locations">Locations</button>
+            <button type="button" class="tpl-cat" data-cat="meals">Meals</button>
             <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Days <span class="tpl-soon">soon</span></button>
             <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Services <span class="tpl-soon">soon</span></button>
             <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Accommodation <span class="tpl-soon">soon</span></button>
           </nav>
 
-          <section class="tpl-pane" data-pane="meals">
+          <section class="tpl-pane is-active" data-pane="locations">
+            <div class="section-head">
+              <div>
+                <h2>Locations</h2>
+                <p>Reusable places with multilingual names and photos. The trip-creator pulls each day's hero image from the location you pick for that day.</p>
+              </div>
+              <div class="camp-toolbar">
+                <button type="button" class="header-action-btn" id="tpl-loc-add">+ Add location</button>
+              </div>
+            </div>
+            <div class="tpl-loc-list" id="tpl-loc-list">
+              <p class="tpl-empty">Loading…</p>
+            </div>
+          </section>
+
+          <section class="tpl-pane" data-pane="meals" hidden>
             <div class="section-head">
               <div>
                 <h2>Meal templates</h2>
@@ -52,8 +68,84 @@
       </main>
     </div>
 
+    <!-- Location edit modal -->
+    <div id="tpl-loc-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-loc"></div>
+      <div class="camp-modal-dialog camp-modal-dialog-wide">
+        <div class="camp-modal-header">
+          <div>
+            <h2 id="tpl-loc-modal-title">Edit location</h2>
+            <p class="camp-modal-copy">Use Google Maps to fill <strong>Name</strong> and <strong>Latlon</strong> fields.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-loc" aria-label="Close">×</button>
+        </div>
+
+        <form id="tpl-loc-form" class="tpl-loc-form">
+          <input type="hidden" id="tpl-loc-id" />
+          <label class="tpl-loc-field">
+            Name *
+            <input id="tpl-loc-name" type="text" required placeholder="e.g. Ulaanbaatar" />
+          </label>
+          <label class="tpl-loc-field">
+            Comment
+            <textarea id="tpl-loc-comment" rows="2"></textarea>
+          </label>
+
+          <div class="tpl-loc-tabs" role="tablist">
+            <button type="button" class="tpl-loc-tab is-active" data-loc-tab="latlon" role="tab">Latlon</button>
+            <button type="button" class="tpl-loc-tab" data-loc-tab="language" role="tab">Language</button>
+            <button type="button" class="tpl-loc-tab" data-loc-tab="image" role="tab">Image</button>
+          </div>
+
+          <div class="tpl-loc-pane is-active" data-loc-pane="latlon">
+            <label class="tpl-loc-toggle">
+              <input id="tpl-loc-latlon-enabled" type="checkbox" />
+              <span>Enable lat/lon</span>
+            </label>
+            <div class="tpl-loc-grid">
+              <label class="tpl-loc-field">
+                Latitude
+                <input id="tpl-loc-lat" type="text" placeholder="47.918873" />
+              </label>
+              <label class="tpl-loc-field">
+                Longitude
+                <input id="tpl-loc-lon" type="text" placeholder="106.917702" />
+              </label>
+            </div>
+            <p class="tpl-loc-hint">
+              Tip: open <a id="tpl-loc-gmaps-link" href="https://www.google.com/maps" target="_blank" rel="noopener">Google Maps</a>,
+              right-click the place, copy the lat/lon, paste here.
+            </p>
+            <div class="tpl-loc-map" id="tpl-loc-map-preview" hidden>
+              <iframe id="tpl-loc-map-frame" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+          </div>
+
+          <div class="tpl-loc-pane" data-loc-pane="language" hidden>
+            <p class="tpl-loc-hint">Translated names. Used for the public itinerary in the matching language.</p>
+            <div class="tpl-loc-grid tpl-loc-grid--langs" id="tpl-loc-lang-grid"></div>
+          </div>
+
+          <div class="tpl-loc-pane" data-loc-pane="image" hidden>
+            <p class="tpl-loc-hint">Photos shown above the day card when this location is the day's stop. Order = use order.</p>
+            <input type="hidden" id="tpl-loc-image-ids" />
+            <div class="tpl-loc-image-actions">
+              <button type="button" class="header-action-btn" id="tpl-loc-pick-images">+ Choose photos</button>
+            </div>
+            <div class="tpl-loc-image-preview ct-image-preview" id="tpl-loc-image-preview"></div>
+          </div>
+
+          <div class="camp-modal-footer">
+            <button type="button" class="header-action-btn" data-action="close-loc">Close</button>
+            <button type="submit" class="header-action-btn header-action-publish">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script src="/app-shell.js?v=workspace-124"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
-    <script src="/templates.js?v=workspace-3"></script>
+    <script src="/image-picker.js?v=workspace-1"></script>
+    <script src="/templates.js?v=workspace-4"></script>
   </body>
 </html>

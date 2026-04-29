@@ -69,6 +69,7 @@ GALLERY_FOLDERS_FILE = DATA_DIR / "gallery_folders.json"
 GALLERY_UPLOADS_DIR = DATA_DIR / "gallery-uploads"
 CONTENT_FILE = DATA_DIR / "content.json"
 MEAL_TEMPLATES_FILE = DATA_DIR / "meal_templates.json"
+LOCATIONS_FILE = DATA_DIR / "locations.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 SESSION_COOKIE = "travelx_session"
@@ -2690,6 +2691,124 @@ def handle_delete_meal_template(environ, start_response, item_id):
     if len(new_records) == len(records):
         return json_response(start_response, "404 Not Found", {"error": "Template not found"})
     write_meal_templates(new_records)
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Locations (template type)
+# A reusable place record (e.g. "Ulaanbaatar", "Kharkhorin") with multi-
+# language names, optional lat/lon for the sidebar map, and a list of
+# gallery image ids that the trip-creator pulls from to auto-fill day
+# hero images. Schema: {id, name, comment, latlonEnabled, latitude,
+# longitude, names: {mn,en,fr,it,es,ko,zh,ja,ru}, imageIds[]}.
+# ──────────────────────────────────────────────────────────────────────────
+
+LOCATION_LANGUAGES = ["mn", "en", "fr", "it", "es", "ko", "zh", "ja", "ru"]
+
+
+def read_locations():
+    return read_json_list(LOCATIONS_FILE)
+
+
+def write_locations(records):
+    write_json_list(LOCATIONS_FILE, records)
+
+
+def _location_normalize(payload, existing=None):
+    base = dict(existing or {})
+    if not isinstance(payload, dict):
+        return base
+    out = dict(base)
+    if "name" in payload:
+        out["name"] = str(payload.get("name") or "").strip()
+    if "comment" in payload:
+        out["comment"] = str(payload.get("comment") or "").strip()
+    if "latlonEnabled" in payload:
+        out["latlonEnabled"] = bool(payload.get("latlonEnabled"))
+    if "latitude" in payload:
+        out["latitude"] = str(payload.get("latitude") or "").strip()
+    if "longitude" in payload:
+        out["longitude"] = str(payload.get("longitude") or "").strip()
+    if "names" in payload and isinstance(payload["names"], dict):
+        names = dict(out.get("names") or {})
+        for lang in LOCATION_LANGUAGES:
+            if lang in payload["names"]:
+                names[lang] = str(payload["names"].get(lang) or "").strip()
+        out["names"] = names
+    elif "names" not in out:
+        out["names"] = {lang: "" for lang in LOCATION_LANGUAGES}
+    if "imageIds" in payload and isinstance(payload["imageIds"], list):
+        out["imageIds"] = [str(i).strip() for i in payload["imageIds"] if str(i).strip()]
+    elif "imageIds" not in out:
+        out["imageIds"] = []
+    return out
+
+
+def handle_list_locations(environ, start_response):
+    if not require_login(environ, start_response):
+        return []
+    rows = read_locations()
+    rows.sort(key=lambda r: (r.get("name") or "").lower())
+    return json_response(start_response, "200 OK", {"entries": rows, "count": len(rows)})
+
+
+def handle_create_location(environ, start_response):
+    if not require_login(environ, start_response):
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    rec = _location_normalize(payload)
+    if not rec.get("name"):
+        return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
+    records = read_locations()
+    if any((r.get("name") or "").lower() == rec["name"].lower() for r in records):
+        return json_response(start_response, "400 Bad Request", {"error": f"'{rec['name']}' already exists"})
+    rec["id"] = str(uuid4())
+    rec["createdAt"] = now_mongolia().isoformat()
+    records.append(rec)
+    write_locations(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": rec})
+
+
+def handle_get_location(environ, start_response, item_id):
+    if not require_login(environ, start_response):
+        return []
+    rec = next((r for r in read_locations() if r.get("id") == item_id), None)
+    if not rec:
+        return json_response(start_response, "404 Not Found", {"error": "Location not found"})
+    return json_response(start_response, "200 OK", rec)
+
+
+def handle_update_location(environ, start_response, item_id):
+    if not require_login(environ, start_response):
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    records = read_locations()
+    idx = next((i for i, r in enumerate(records) if r.get("id") == item_id), None)
+    if idx is None:
+        return json_response(start_response, "404 Not Found", {"error": "Location not found"})
+    merged = _location_normalize(payload, existing=records[idx])
+    if not merged.get("name"):
+        return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
+    if any((r.get("name") or "").lower() == merged["name"].lower() and r.get("id") != item_id for r in records):
+        return json_response(start_response, "400 Bad Request", {"error": f"'{merged['name']}' already exists"})
+    merged["id"] = item_id
+    records[idx] = merged
+    write_locations(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+
+
+def handle_delete_location(environ, start_response, item_id):
+    if not require_login(environ, start_response):
+        return []
+    records = read_locations()
+    new_records = [r for r in records if r.get("id") != item_id]
+    if len(new_records) == len(records):
+        return json_response(start_response, "404 Not Found", {"error": "Location not found"})
+    write_locations(new_records)
     return json_response(start_response, "200 OK", {"ok": True})
 
 
@@ -16384,6 +16503,24 @@ def _dispatch(environ, start_response):
             return handle_update_meal_template(environ, start_response, item_id)
         if method == "DELETE":
             return handle_delete_meal_template(environ, start_response, item_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/locations":
+        if method == "GET":
+            return handle_list_locations(environ, start_response)
+        if method == "POST":
+            return handle_create_location(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path.startswith("/api/locations/"):
+        item_id = path.replace("/api/locations/", "", 1).strip("/")
+        if not item_id:
+            return json_response(start_response, "400 Bad Request", {"error": "id required"})
+        if method == "GET":
+            return handle_get_location(environ, start_response, item_id)
+        if method == "POST":
+            return handle_update_location(environ, start_response, item_id)
+        if method == "DELETE":
+            return handle_delete_location(environ, start_response, item_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/notifications":
