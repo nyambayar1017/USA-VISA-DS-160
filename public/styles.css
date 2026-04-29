@@ -14240,7 +14240,9 @@ body.img-picker-open { overflow: hidden; }
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
-  z-index: 200;
+  /* Above .camp-modal (z-index 400) so it stacks on top of the Content
+     editor modal that opened it. */
+  z-index: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14522,7 +14524,7 @@ body.trip-popup-open { overflow: hidden; }
 .trip-popup-overlay {
   position: fixed;
   inset: 0;
-  z-index: 240;
+  z-index: 700;
   background: rgba(15, 23, 42, 0.6);
   display: flex;
   align-items: flex-start;
