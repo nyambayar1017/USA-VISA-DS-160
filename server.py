@@ -14145,8 +14145,8 @@ def _tool_send_email(args, actor):
     raw_attachments = args.get("attachments") or []
     if not isinstance(raw_attachments, list):
         raw_attachments = []
-    if len(raw_attachments) > 10:
-        return {"error": "too many attachments (max 10 per email)"}
+    if len(raw_attachments) > 35:
+        return {"error": "too many attachments (max 35 per email)"}
 
     api_attachments = []
     failed = []
