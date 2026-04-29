@@ -481,7 +481,7 @@ function renderList() {
     ? `
         <th>#</th>
         <th>Name</th>
-        <th>From</th>
+        <th>Manager</th>
         <th>Phone</th>
         <th>Type</th>
         <th>Status</th>
@@ -494,7 +494,7 @@ function renderList() {
     : `
         <th>#</th>
         <th>Title</th>
-        <th>From</th>
+        <th>Created by</th>
         <th>Assigned to</th>
         <th>Priority</th>
         <th>Status</th>

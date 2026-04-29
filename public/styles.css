@@ -13550,6 +13550,22 @@ body.is-fit-trip .reservation-addon-table tbody td:nth-child(3) {
   display: none;
 }
 
+/* On phones, when the Group column is shown (GIT trips), a long group
+   name like "ALTANGEREL DORJ 1PAX: BRA VS MAR CAT3-1 TICKET 2026-06-13"
+   forces the cell wide and visually dominates the row. Shrink the cell
+   font and clamp the width so the column reads as "secondary metadata"
+   like Last/First name, not as a giant title. */
+@media (max-width: 720px) {
+  body:not(.is-fit-trip) .reservation-addon-table tbody td:nth-child(3) {
+    font-size: 11.5px !important;
+    font-weight: 500 !important;
+    max-width: 140px;
+    white-space: normal !important;
+    line-height: 1.3 !important;
+    word-break: break-word;
+  }
+}
+
 /* ── Trip notes: inline NOTE button (next to Edit) + slide-in drawer ─── */
 .trip-notes-fab {
   display: inline-flex;
