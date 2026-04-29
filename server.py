@@ -2572,6 +2572,9 @@ def write_meal_templates(records):
     write_json_list(MEAL_TEMPLATES_FILE, records)
 
 
+MEAL_TEMPLATE_CATEGORIES = {"breakfast", "lunch", "dinner"}
+
+
 def _meal_template_normalize(payload, existing=None):
     base = dict(existing or {})
     if not isinstance(payload, dict):
@@ -2579,6 +2582,9 @@ def _meal_template_normalize(payload, existing=None):
     out = dict(base)
     if "name" in payload:
         out["name"] = str(payload.get("name") or "").strip()
+    if "category" in payload:
+        cat = str(payload.get("category") or "").strip().lower()
+        out["category"] = cat if cat in MEAL_TEMPLATE_CATEGORIES else ""
     return out
 
 
@@ -2588,6 +2594,20 @@ def handle_list_meal_templates(environ, start_response):
     rows = read_meal_templates()
     rows.sort(key=lambda r: (r.get("name") or "").lower())
     return json_response(start_response, "200 OK", {"entries": rows, "count": len(rows)})
+
+
+def _meal_template_collision(records, rec, ignore_id=None):
+    name_lc = (rec.get("name") or "").lower()
+    cat = rec.get("category") or ""
+    for r in records:
+        if r.get("id") == ignore_id:
+            continue
+        if (r.get("name") or "").lower() != name_lc:
+            continue
+        # Same name only collides when both are in the same category.
+        if (r.get("category") or "") == cat:
+            return r
+    return None
 
 
 def handle_create_meal_template(environ, start_response):
@@ -2601,8 +2621,8 @@ def handle_create_meal_template(environ, start_response):
     if not rec.get("name"):
         return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
     records = read_meal_templates()
-    if any((r.get("name") or "").lower() == rec["name"].lower() for r in records):
-        return json_response(start_response, "400 Bad Request", {"error": f"'{rec['name']}' already exists"})
+    if _meal_template_collision(records, rec):
+        return json_response(start_response, "400 Bad Request", {"error": f"'{rec['name']}' already exists in this category"})
     rec["id"] = str(uuid4())
     rec["createdAt"] = now_mongolia().isoformat()
     records.append(rec)
@@ -2623,8 +2643,8 @@ def handle_update_meal_template(environ, start_response, item_id):
     merged = _meal_template_normalize(payload, existing=records[idx])
     if not merged.get("name"):
         return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
-    if any((r.get("name") or "").lower() == merged["name"].lower() and r.get("id") != item_id for r in records):
-        return json_response(start_response, "400 Bad Request", {"error": f"'{merged['name']}' already exists"})
+    if _meal_template_collision(records, merged, ignore_id=item_id):
+        return json_response(start_response, "400 Bad Request", {"error": f"'{merged['name']}' already exists in this category"})
     merged["id"] = item_id
     records[idx] = merged
     write_meal_templates(records)
