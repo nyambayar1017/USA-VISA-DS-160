@@ -345,9 +345,16 @@
     const mapEmbedUrl = waypoints.length
       ? `https://maps.google.com/maps?q=${encodeURIComponent(waypoints.join(" to "))}&output=embed`
       : "";
+    // The iframe captures its own clicks (Google's UI), so we layer a
+    // transparent overlay button on top to intercept clicks and open a
+    // large in-page popup with the same map. "Open larger map" badge
+    // hints at the affordance without crowding the small sidebar tile.
     const mapBlock = mapEmbedUrl
-      ? `<div class="tp-info-map">
-          <iframe src="${escAttr(mapEmbedUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      ? `<div class="tp-info-map" data-action="open-trip-map" data-map-url="${escAttr(mapEmbedUrl)}">
+          <iframe src="${escAttr(mapEmbedUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1"></iframe>
+          <button type="button" class="tp-info-map-cover" aria-label="Open larger map">
+            <span class="tp-info-map-pill">⤢ Open larger map</span>
+          </button>
         </div>`
       : "";
     return `
@@ -653,6 +660,41 @@
     }
   }
 
+  // Big-map overlay launched from the sidebar's map tile. The same
+  // Google embed URL is rendered at near-fullscreen with a Fullscreen
+  // button that promotes the iframe via the Fullscreen API.
+  function openTripMap(mapUrl) {
+    const overlay = document.createElement("div");
+    overlay.className = "trip-popup-overlay tp-trip-map-overlay";
+    overlay.innerHTML = `
+      <div class="trip-popup-dialog tp-trip-map-dialog" role="dialog" aria-modal="true" aria-label="Trip route map">
+        <button type="button" class="trip-popup-close" data-action="close-popup" aria-label="Close">×</button>
+        <div class="tp-trip-map-actions">
+          <button type="button" class="trip-popup-map-fs" data-action="map-fullscreen" title="Fullscreen">⛶ Fullscreen</button>
+          <a class="trip-popup-map-link" href="${escAttr(mapUrl.replace("&output=embed", ""))}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+        </div>
+        <div class="tp-trip-map-frame" data-map-frame>
+          <iframe src="${escAttr(mapUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add("trip-popup-open");
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay || event.target.closest('[data-action="close-popup"]')) {
+        overlay.remove();
+        document.body.classList.remove("trip-popup-open");
+        return;
+      }
+      if (event.target.closest('[data-action="map-fullscreen"]')) {
+        const frame = overlay.querySelector("[data-map-frame] iframe");
+        if (!frame) return;
+        if (frame.requestFullscreen) frame.requestFullscreen();
+        else if (frame.webkitRequestFullscreen) frame.webkitRequestFullscreen();
+      }
+    });
+  }
+
   // Inline expansion for an accommodation row: 3 images + summary + Read
   // more button. Re-uses the popup's content cache, so a Read more click
   // never re-fetches.
@@ -705,6 +747,14 @@
     if (readMore) {
       const slug = readMore.dataset.slug;
       if (slug) openSlug(slug);
+      return;
+    }
+
+    // Sidebar map tile → big in-page map popup.
+    const mapTile = event.target.closest('[data-action="open-trip-map"]');
+    if (mapTile) {
+      const url = mapTile.dataset.mapUrl;
+      if (url) openTripMap(url);
       return;
     }
 

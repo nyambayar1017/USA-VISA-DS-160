@@ -15651,12 +15651,77 @@ body.trip-public-body {
   font-size: 12px;
 }
 .tp-info-map {
+  position: relative;
   width: 100%;
   height: 200px;
   border-bottom: 1px solid var(--tp-bd);
   background: var(--tp-or-p);
 }
 .tp-info-map iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  pointer-events: none;
+}
+.tp-info-map-cover {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+}
+.tp-info-map:hover .tp-info-map-cover { background: rgba(31, 27, 22, 0.06); }
+.tp-info-map-pill {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--tp-dk);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(31, 27, 22, 0.18);
+}
+.tp-info-map:hover .tp-info-map-pill {
+  background: var(--tp-or);
+  color: #fff;
+}
+
+/* Big-map popup launched from the sidebar's map tile. Re-uses the
+   .trip-popup-overlay backdrop but stretches the dialog to a near-
+   fullscreen frame — the iframe inside is interactive and supports
+   actual fullscreen via the Fullscreen API. */
+.tp-trip-map-overlay .tp-trip-map-dialog {
+  width: min(96vw, 1100px);
+  max-width: none;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tp-trip-map-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+}
+.tp-trip-map-frame {
+  width: 100%;
+  height: min(75vh, 720px);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--tp-or-p);
+}
+.tp-trip-map-frame iframe {
   width: 100%;
   height: 100%;
   border: 0;
