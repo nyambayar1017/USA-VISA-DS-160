@@ -34,6 +34,25 @@
     saveStatus.dataset.tone = tone || "";
   }
 
+  // Reflect "is this trip live for clients?" in the toolbar. The public
+  // /trip/<id> URL only resolves once a doc has been saved at least once,
+  // so we gate Preview/Copy until that happens.
+  let isPublished = false;
+  function setPublishedState(published) {
+    isPublished = !!published;
+    const stateNode = document.getElementById("tc-publish-state");
+    const previewLink = document.getElementById("tc-preview-link");
+    const copyBtn = document.getElementById("tc-copy-link-btn");
+    if (stateNode) {
+      stateNode.dataset.state = isPublished ? "live" : "draft";
+      stateNode.textContent = isPublished
+        ? "✓ Published — share the link with clients"
+        : "Draft — click Publish to share with clients";
+    }
+    if (previewLink) previewLink.classList.toggle("is-disabled", !isPublished);
+    if (copyBtn) copyBtn.disabled = !isPublished;
+  }
+
   // ── Tabs ─────────────────────────────────────────────────────────
   document.getElementById("tc-tabs").addEventListener("click", (event) => {
     const btn = event.target.closest(".tc-tab");
@@ -210,8 +229,12 @@
         renderProgram(doc.program && doc.program.length ? doc.program : seedProgramFromTrip(trip));
         renderQuote((doc.quotation && doc.quotation.rows) || []);
         $("tc-quote-note").value = (doc.quotation && doc.quotation.note) || "";
+        // The doc has updatedAt only after at least one save — that's our
+        // proxy for "this trip is live at /trip/<id>".
+        setPublishedState(!!doc.updatedAt);
       } else {
         metaNode.textContent = "Trip not found.";
+        setPublishedState(false);
       }
       setStatus("");
     } catch (err) {
@@ -258,7 +281,7 @@
   }
 
   async function save() {
-    setStatus("Saving…");
+    setStatus("Publishing…");
     saveBtn.disabled = true;
     try {
       const res = await fetch(`/api/trip-creators/${encodeURIComponent(tripId)}`, {
@@ -267,11 +290,12 @@
         body: JSON.stringify(readPayload()),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Save failed");
-      setStatus("Saved.", "ok");
+      if (!res.ok) throw new Error(data.error || "Publish failed");
+      setStatus("✓ Published.", "ok");
+      setPublishedState(true);
       setTimeout(() => setStatus(""), 1800);
     } catch (err) {
-      setStatus(err.message || "Save failed.", "error");
+      setStatus(err.message || "Publish failed.", "error");
     } finally {
       saveBtn.disabled = false;
     }
@@ -283,16 +307,25 @@
   const previewLink = document.getElementById("tc-preview-link");
   const copyBtn = document.getElementById("tc-copy-link-btn");
   const publicUrl = `${window.location.origin}/trip/${encodeURIComponent(tripId)}`;
-  if (previewLink) previewLink.href = publicUrl;
+  if (previewLink) {
+    previewLink.href = publicUrl;
+    previewLink.addEventListener("click", (event) => {
+      if (!isPublished) {
+        event.preventDefault();
+        setStatus("Click Publish first so the page exists.", "error");
+        setTimeout(() => setStatus(""), 2400);
+      }
+    });
+  }
   if (copyBtn) {
     copyBtn.addEventListener("click", async () => {
+      if (!isPublished) return;
       try {
         await navigator.clipboard.writeText(publicUrl);
         const prev = copyBtn.textContent;
         copyBtn.textContent = "✓ Copied";
         setTimeout(() => { copyBtn.textContent = prev; }, 1500);
       } catch {
-        // Fall back to selecting an inline text node so user can copy manually.
         window.prompt("Copy this link to share with the client:", publicUrl);
       }
     });

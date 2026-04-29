@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-294" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-295" />
   </head>
   <body class="app-body" data-page="trip-creator">
     <div class="workspace-shell">
@@ -32,10 +32,11 @@
           <div class="tc-tab-strip" role="tablist" id="tc-tabs">
             <button type="button" class="tc-tab is-active" role="tab" data-tab="presentation">Presentation</button>
             <button type="button" class="tc-tab" role="tab" data-tab="quotation">Quotation</button>
+            <span class="tc-publish-state" id="tc-publish-state" data-state="draft">Draft — not yet published</span>
             <span class="tc-save-status" id="tc-save-status"></span>
-            <button type="button" class="header-action-btn" id="tc-copy-link-btn" title="Copy public link">🔗 Copy link</button>
-            <a class="header-action-btn tc-preview-link" id="tc-preview-link" target="_blank" rel="noopener">👁 Preview</a>
-            <button type="button" class="header-action-btn" id="tc-save-btn">Save</button>
+            <button type="button" class="header-action-btn" id="tc-copy-link-btn" title="Copy public link" disabled>🔗 Copy link</button>
+            <a class="header-action-btn tc-preview-link is-disabled" id="tc-preview-link" target="_blank" rel="noopener" aria-disabled="true">👁 Preview</a>
+            <button type="button" class="header-action-btn header-action-publish" id="tc-save-btn">📢 Publish</button>
           </div>
 
           <!-- Presentation tab -->
@@ -168,7 +169,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-119"></script>
-    <script src="/trip-creator.js?v=workspace-1"></script>
+    <script src="/trip-creator.js?v=workspace-2"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

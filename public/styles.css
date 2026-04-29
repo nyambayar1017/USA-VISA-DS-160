@@ -14019,3 +14019,34 @@ body.trip-notes-drawer-open { overflow: hidden; }
   gap: 6px;
   text-decoration: none;
 }
+
+/* Trip Creator publish-state badge in the toolbar */
+.tc-publish-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.tc-publish-state[data-state="draft"] {
+  background: #fef3c7;
+  color: #92400e;
+}
+.tc-publish-state[data-state="live"] {
+  background: #dcfce7;
+  color: #166534;
+}
+.header-action-publish {
+  background: #20356f !important;
+  color: #fff !important;
+}
+.header-action-publish:hover { background: #16265a !important; }
+.header-action-btn.is-disabled,
+.header-action-btn[disabled] {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: not-allowed;
+}

@@ -169,7 +169,12 @@
     try {
       const res = await fetch(`/api/public/trips/${encodeURIComponent(tripId)}`);
       if (res.status === 404) {
-        root.innerHTML = `<p class="trip-public-empty">This trip hasn't been published yet.</p>`;
+        root.innerHTML = `
+          <p class="trip-public-empty">
+            This trip hasn't been published yet.<br>
+            <small>Ask your travel manager to click <strong>Publish</strong> in the trip editor.</small>
+          </p>
+        `;
         return;
       }
       if (!res.ok) throw new Error("Failed to load");
