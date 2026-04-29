@@ -14938,7 +14938,9 @@ body.gallery-file-drag .gallery-folder-card.is-drop-hover {
   padding: 8px 10px;
   border: 0;
   background: transparent;
+  color: #20356f;
   font: inherit;
+  font-weight: 500;
   border-radius: 6px;
   cursor: pointer;
 }
