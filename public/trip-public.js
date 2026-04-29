@@ -135,20 +135,37 @@
         </div>
       `
       : "";
+    // Collect every per-day photo into a single ordered list so we can
+    // show them as a full-width strip at the top of the page (between
+    // the header and the title), instead of repeating them inside each
+    // day card.
+    const allDayImageIds = [];
+    const seenDayImageIds = new Set();
+    (doc.program || []).forEach((row) => {
+      (Array.isArray(row.imageIds) ? row.imageIds : []).forEach((id) => {
+        if (id && !seenDayImageIds.has(id)) {
+          seenDayImageIds.add(id);
+          allDayImageIds.push(id);
+        }
+      });
+    });
+    const heroStripUrls = allDayImageIds.map((id) => galleryUrl(id));
+    const heroStripUrlsAttr = escAttr(JSON.stringify(heroStripUrls));
+    const heroStrip = allDayImageIds.length
+      ? `
+        <div class="trip-public-hero-strip">
+          ${allDayImageIds.map((id, i) => `
+            <button type="button" class="trip-public-hero-strip-tile"
+              data-lightbox-urls="${heroStripUrlsAttr}" data-lightbox-index="${i}">
+              <img src="${galleryUrl(id, "thumb")}" alt="" loading="lazy" />
+            </button>
+          `).join("")}
+        </div>
+      `
+      : "";
+
     const program = (doc.program || [])
       .map((row) => {
-        const ids = Array.isArray(row.imageIds) ? row.imageIds : [];
-        const dayImages = ids.length
-          ? `
-            <div class="trip-public-day-photos">
-              ${ids.map((id) => `
-                <a class="trip-public-day-thumb" href="${galleryUrl(id)}" target="_blank" rel="noopener">
-                  <img src="${galleryUrl(id, "thumb")}" alt="" loading="lazy" />
-                </a>
-              `).join("")}
-            </div>
-          `
-          : "";
         return `
           <article class="trip-public-day">
             <div class="trip-public-day-head">
@@ -156,7 +173,6 @@
               <h3>${escapeHtml(row.title || "")}</h3>
             </div>
             ${row.body ? `<p>${linkifyContent(nl2br(row.body))}</p>` : ""}
-            ${dayImages}
           </article>
         `;
       })
@@ -167,23 +183,26 @@
     root.innerHTML = `
       <header class="trip-public-hero${heroImage ? " has-photo" : ""}">
         ${heroImage}
-        <div class="trip-public-hero-body">
-          <p class="trip-public-kicker">TravelX${doc.trip && doc.trip.serial ? ` · ${escapeHtml(doc.trip.serial)}` : ""}</p>
-          <h1>${escapeHtml(doc.title || "Trip")}</h1>
-          ${meta.length ? `<p class="trip-public-meta">${meta.join(" · ")}</p>` : ""}
-          ${themes ? `<div class="trip-public-chips">${themes}</div>` : ""}
-          <div class="trip-public-ratings">
-            <div><span>Rate</span>${renderStars(doc.rate)}</div>
-            <div><span>Comfort</span>${renderStars(doc.comfort)}</div>
-            <div><span>Difficulty</span>${renderStars(doc.difficulty)}</div>
-          </div>
-          <p class="trip-public-flight-note">
-            Олон улсын нислэг: <strong>${doc.internationalFlight === "excluded" ? "Багтаагүй" : "Багтсан"}</strong>
-            · Үнэ: <strong>${doc.offerType === "fixed" ? "Тогтмол" : "Уян хатан"}</strong>
-          </p>
-        </div>
         ${coverGalleryThumbs}
       </header>
+
+      ${heroStrip}
+
+      <section class="trip-public-title-section">
+        <p class="trip-public-kicker">TravelX${doc.trip && doc.trip.serial ? ` · ${escapeHtml(doc.trip.serial)}` : ""}</p>
+        <h1>${escapeHtml(doc.title || "Trip")}</h1>
+        ${meta.length ? `<p class="trip-public-meta">${meta.join(" · ")}</p>` : ""}
+        ${themes ? `<div class="trip-public-chips">${themes}</div>` : ""}
+        <div class="trip-public-ratings">
+          <div><span>Rate</span>${renderStars(doc.rate)}</div>
+          <div><span>Comfort</span>${renderStars(doc.comfort)}</div>
+          <div><span>Difficulty</span>${renderStars(doc.difficulty)}</div>
+        </div>
+        <p class="trip-public-flight-note">
+          Олон улсын нислэг: <strong>${doc.internationalFlight === "excluded" ? "Багтаагүй" : "Багтсан"}</strong>
+          · Үнэ: <strong>${doc.offerType === "fixed" ? "Тогтмол" : "Уян хатан"}</strong>
+        </p>
+      </section>
 
       ${doc.intro
         ? `<section class="trip-public-section trip-public-intro"><p>${linkifyContent(nl2br(doc.intro))}</p></section>`
