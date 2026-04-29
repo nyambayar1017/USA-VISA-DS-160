@@ -9,8 +9,23 @@
   const kindSelect = document.getElementById("gal-kind");
   const folderBar = document.getElementById("gal-folder-bar");
   const tagInput = document.getElementById("gal-tag");
+  const tagListEl = document.getElementById("gal-tag-list");
   const fileInput = document.getElementById("gal-file");
-  const uploadLabel = document.getElementById("gal-upload-btn");
+  const uploadBtn = document.getElementById("gal-upload-btn");
+  const uploadModal = document.getElementById("gal-upload-modal");
+  const uploadForm = document.getElementById("gal-upload-form");
+  const uploadStatus = document.getElementById("gal-upload-status");
+  const uploadDestinationInput = document.getElementById("gal-upload-destination");
+  const uploadDestinationList = document.getElementById("gal-upload-destination-list");
+  const uploadTagsInput = document.getElementById("gal-upload-tags");
+  const uploadFolderSelect = document.getElementById("gal-upload-folder");
+  const uploadSubmit = document.getElementById("gal-upload-submit");
+  const editModal = document.getElementById("gal-edit-modal");
+  const editForm = document.getElementById("gal-edit-form");
+  const editStatus = document.getElementById("gal-edit-status");
+  const editNameInput = document.getElementById("gal-edit-name");
+  const editFolderSelect = document.getElementById("gal-edit-folder");
+  const editTagsInput = document.getElementById("gal-edit-tags");
   const videoModal = document.getElementById("gal-video-modal");
   const videoForm = document.getElementById("gal-video-form");
   const videoStatus = document.getElementById("gal-video-status");
@@ -46,6 +61,7 @@
   }
 
   function refreshBulkBar() {
+    document.body.classList.toggle("gallery-select-mode", state.selected.size > 0);
     if (!bulkBar) return;
     if (!state.selected.size) {
       bulkBar.hidden = true;
@@ -75,6 +91,35 @@
     });
     chips.push('<button type="button" class="gallery-folder-chip is-add" id="gal-new-folder-btn" data-folder-action="new">+ New folder</button>');
     folderBar.innerHTML = chips.join("");
+  }
+
+  function allTags() {
+    const set = new Set();
+    state.entries.forEach((e) => {
+      (e.tags || []).forEach((t) => {
+        const v = String(t || "").trim();
+        if (v) set.add(v);
+      });
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }
+
+  function refreshTagDatalists() {
+    const tags = allTags();
+    const opts = tags.map((t) => `<option value="${escapeHtml(t)}"></option>`).join("");
+    if (tagListEl) tagListEl.innerHTML = opts;
+    if (uploadDestinationList) uploadDestinationList.innerHTML = opts;
+  }
+
+  function populateFolderSelect(selectEl, currentValue) {
+    if (!selectEl) return;
+    const options = ['<option value="">— No folder —</option>'];
+    state.folders.forEach((f) => {
+      const val = escapeHtml(f.name);
+      options.push(`<option value="${val}">📁 ${val}</option>`);
+    });
+    selectEl.innerHTML = options.join("");
+    if (currentValue != null) selectEl.value = currentValue;
   }
 
   function render() {
@@ -128,6 +173,7 @@
               <div class="gallery-tags">${tags}</div>
               <div class="gallery-actions">
                 <button type="button" class="gallery-copy-id" data-action="copy-id" data-id="${escapeHtml(e.id)}" title="Copy ID">📋 ID</button>
+                <button type="button" class="gallery-edit" data-action="edit" data-id="${escapeHtml(e.id)}">Edit</button>
                 <button type="button" class="gallery-delete" data-action="delete" data-id="${escapeHtml(e.id)}">Delete</button>
               </div>
             </div>
@@ -147,6 +193,7 @@
       state.noFolderCount = Number(data.noFolderCount || 0);
       state.totalCount = Number(data.totalCount || state.entries.length);
       refreshFolderBar();
+      refreshTagDatalists();
       render();
     } catch (err) {
       grid.innerHTML = `<p class="empty">${escapeHtml(err.message || "Could not load.")}</p>`;
@@ -154,42 +201,73 @@
   }
 
   // ── Image upload (client-compressed) ──────────────────────────
-  async function uploadImage(file) {
+  async function uploadImage(file, { folder = "", tags = "" } = {}) {
     const compressed = (window.CompressUpload && window.CompressUpload.compressToFile)
       ? await window.CompressUpload.compressToFile(file)
       : file;
     const formData = new FormData();
     formData.append("file", compressed, compressed.name || "image.jpg");
-    // If a folder chip is currently active (and it's not "All" / "No folder"),
-    // upload straight into that folder so the user doesn't have to move it.
-    if (state.activeFolder && state.activeFolder !== "__none__") {
-      formData.append("folder", state.activeFolder);
-    }
+    if (folder) formData.append("folder", folder);
+    if (tags) formData.append("tags", tags);
     const res = await fetch("/api/gallery", { method: "POST", body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Upload failed");
     return data.entry;
   }
 
-  fileInput.addEventListener("change", async () => {
+  function openUploadModal() {
+    uploadForm.reset();
+    if (uploadStatus) uploadStatus.textContent = "";
+    refreshTagDatalists();
+    // Default folder to the currently-active folder chip (if a real folder).
+    const defaultFolder = state.activeFolder && state.activeFolder !== "__none__" ? state.activeFolder : "";
+    populateFolderSelect(uploadFolderSelect, defaultFolder);
+    uploadModal.classList.remove("is-hidden");
+    uploadModal.removeAttribute("hidden");
+    document.body.classList.add("modal-open");
+    setTimeout(() => uploadDestinationInput?.focus(), 60);
+  }
+  function closeUploadModal() {
+    uploadModal.classList.add("is-hidden");
+    uploadModal.setAttribute("hidden", "");
+    document.body.classList.remove("modal-open");
+  }
+  uploadBtn.addEventListener("click", openUploadModal);
+  uploadModal.addEventListener("click", (event) => {
+    if (event.target.dataset.action === "close-upload-modal") closeUploadModal();
+  });
+  uploadForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
     const files = Array.from(fileInput.files || []);
-    if (!files.length) return;
-    uploadLabel.classList.add("is-disabled");
+    if (!files.length) {
+      if (uploadStatus) uploadStatus.textContent = "Pick at least one file.";
+      return;
+    }
+    const destination = (uploadDestinationInput.value || "").trim();
+    const extra = (uploadTagsInput.value || "").trim();
+    // Combine destination + extra tags into a single comma-separated list.
+    const combinedTags = [destination, extra].filter(Boolean).join(", ");
+    const folder = uploadFolderSelect.value || "";
+    uploadSubmit.disabled = true;
+    if (uploadStatus) uploadStatus.textContent = `Uploading 0 / ${files.length}…`;
     let succeeded = 0;
     for (const file of files) {
       try {
-        const entry = await uploadImage(file);
+        const entry = await uploadImage(file, { folder, tags: combinedTags });
         state.entries.unshift(entry);
         succeeded++;
-        render();
+        if (uploadStatus) uploadStatus.textContent = `Uploading ${succeeded} / ${files.length}…`;
       } catch (err) {
-        // Continue uploading remaining files but flag the failure.
         alert(`${file.name}: ${err.message}`);
       }
     }
-    uploadLabel.classList.remove("is-disabled");
-    fileInput.value = "";
-    if (succeeded) load();
+    uploadSubmit.disabled = false;
+    if (succeeded) {
+      closeUploadModal();
+      await load();
+    } else if (uploadStatus) {
+      uploadStatus.textContent = "Upload failed.";
+    }
   });
 
   // ── Add video URL modal ───────────────────────────────────────
@@ -233,47 +311,127 @@
     }
   });
 
-  // ── Card actions: select, copy id, delete ───────────────────
+  // ── Card actions: select, copy id, edit, delete ─────────────
+  function toggleSelected(id, on) {
+    if (on) state.selected.add(id);
+    else state.selected.delete(id);
+    const card = grid.querySelector(`.gallery-card[data-id="${CSS.escape(id)}"]`);
+    card?.classList.toggle("is-selected", on);
+    const cb = card?.querySelector('[data-action="toggle-select"]');
+    if (cb) cb.checked = on;
+    refreshBulkBar();
+  }
+
   grid.addEventListener("change", (event) => {
     const cb = event.target.closest('[data-action="toggle-select"]');
     if (!cb) return;
-    const id = cb.dataset.id;
-    if (cb.checked) state.selected.add(id);
-    else state.selected.delete(id);
-    refreshBulkBar();
-    cb.closest(".gallery-card")?.classList.toggle("is-selected", cb.checked);
+    toggleSelected(cb.dataset.id, cb.checked);
   });
 
   grid.addEventListener("click", async (event) => {
     const target = event.target.closest("[data-action]");
-    if (!target) return;
-    const id = target.dataset.id;
-    if (target.dataset.action === "copy-id") {
-      try {
-        await navigator.clipboard.writeText(id);
-        const prev = target.textContent;
-        target.textContent = "✓ Copied";
-        setTimeout(() => { target.textContent = prev; }, 1200);
-      } catch {
-        window.prompt("Copy this ID:", id);
-      }
-      return;
-    }
-    if (target.dataset.action === "delete") {
-      if (!window.confirm("Delete this media item?")) return;
-      try {
-        const res = await fetch(`/api/gallery/${encodeURIComponent(id)}`, { method: "DELETE" });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Delete failed");
+    if (target) {
+      const id = target.dataset.id;
+      if (target.dataset.action === "copy-id") {
+        try {
+          await navigator.clipboard.writeText(id);
+          const prev = target.textContent;
+          target.textContent = "✓ Copied";
+          setTimeout(() => { target.textContent = prev; }, 1200);
+        } catch {
+          window.prompt("Copy this ID:", id);
         }
-        state.entries = state.entries.filter((e) => e.id !== id);
-        state.selected.delete(id);
-        refreshBulkBar();
-        render();
-      } catch (err) {
-        alert(err.message || "Delete failed");
+        return;
       }
+      if (target.dataset.action === "edit") {
+        const entry = state.entries.find((e) => e.id === id);
+        if (entry) openEditModal(entry);
+        return;
+      }
+      if (target.dataset.action === "delete") {
+        const ok = window.UI?.confirm
+          ? await window.UI.confirm("Delete this media item?", { dangerous: true, confirmLabel: "Delete" })
+          : window.confirm("Delete this media item?");
+        if (!ok) return;
+        try {
+          const res = await fetch(`/api/gallery/${encodeURIComponent(id)}`, { method: "DELETE" });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Delete failed");
+          }
+          state.entries = state.entries.filter((e) => e.id !== id);
+          state.selected.delete(id);
+          refreshBulkBar();
+          render();
+        } catch (err) {
+          alert(err.message || "Delete failed");
+        }
+        return;
+      }
+      // toggle-select handled by the change listener above.
+      if (target.dataset.action === "toggle-select") return;
+    }
+
+    // Click-to-select: once at least one item is already selected, clicking
+    // anywhere on a card toggles its selection (no need to find the tiny
+    // checkbox). Skip when the click was on an interactive element.
+    if (state.selected.size > 0) {
+      const card = event.target.closest(".gallery-card");
+      if (!card) return;
+      // Ignore clicks on the checkbox/label, action buttons, or links —
+      // those have their own behavior.
+      if (event.target.closest("a") || event.target.closest("button") || event.target.closest("input") || event.target.closest("label")) return;
+      event.preventDefault();
+      const id = card.dataset.id;
+      toggleSelected(id, !state.selected.has(id));
+    }
+  });
+
+  // ── Edit modal ───────────────────────────────────────────────
+  function openEditModal(entry) {
+    editForm.reset();
+    if (editStatus) editStatus.textContent = "";
+    editForm.elements.id.value = entry.id;
+    editNameInput.value = entry.originalName || "";
+    populateFolderSelect(editFolderSelect, entry.folder || "");
+    editTagsInput.value = (entry.tags || []).join(", ");
+    editModal.classList.remove("is-hidden");
+    editModal.removeAttribute("hidden");
+    document.body.classList.add("modal-open");
+    setTimeout(() => editNameInput.focus(), 60);
+  }
+  function closeEditModal() {
+    editModal.classList.add("is-hidden");
+    editModal.setAttribute("hidden", "");
+    document.body.classList.remove("modal-open");
+  }
+  editModal.addEventListener("click", (event) => {
+    if (event.target.dataset.action === "close-edit-modal") closeEditModal();
+  });
+  editForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const id = editForm.elements.id.value;
+    const payload = {
+      originalName: editNameInput.value.trim(),
+      folder: editFolderSelect.value || "",
+      tags: editTagsInput.value.split(",").map((s) => s.trim()).filter(Boolean),
+    };
+    if (editStatus) editStatus.textContent = "Saving…";
+    try {
+      const res = await fetch(`/api/gallery/${encodeURIComponent(id)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Save failed");
+      const idx = state.entries.findIndex((e) => e.id === id);
+      if (idx >= 0) state.entries[idx] = { ...state.entries[idx], ...data.entry };
+      closeEditModal();
+      // Reload so folder counts + tag list stay accurate.
+      await load();
+    } catch (err) {
+      if (editStatus) editStatus.textContent = err.message || "Save failed.";
     }
   });
 

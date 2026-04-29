@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-304" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-305" />
   </head>
   <body class="app-body" data-page="gallery">
     <div class="workspace-shell">
@@ -35,10 +35,7 @@
               <p>Images are auto-resized to ≤1600 px and re-encoded as JPEG before upload to keep storage small.</p>
             </div>
             <div class="camp-toolbar">
-              <label class="header-action-btn" id="gal-upload-btn" style="cursor:pointer;">
-                + Upload image
-                <input id="gal-file" type="file" accept="image/*" multiple hidden />
-              </label>
+              <button type="button" class="header-action-btn" id="gal-upload-btn">+ Upload image</button>
               <button type="button" class="header-action-btn" id="gal-add-video-btn">+ Add video URL</button>
             </div>
           </div>
@@ -52,7 +49,8 @@
               <option value="image">Images</option>
               <option value="video">Videos</option>
             </select>
-            <input id="gal-tag" type="search" placeholder="Filter by tag" autocomplete="off" class="trip-filter-input" />
+            <input id="gal-tag" type="search" placeholder="Filter by destination / tag" autocomplete="off" class="trip-filter-input" list="gal-tag-list" />
+            <datalist id="gal-tag-list"></datalist>
           </div>
 
           <div class="gallery-bulk-bar" id="gal-bulk-bar" hidden>
@@ -66,6 +64,80 @@
           <div id="gal-grid" class="gallery-grid"><p class="empty">Loading…</p></div>
         </section>
       </main>
+    </div>
+
+    <!-- Upload-images modal: ask for destination + folder before files -->
+    <div id="gal-upload-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-upload-modal"></div>
+      <div class="camp-modal-dialog home-manager-modal">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Upload images</h2>
+            <p class="camp-modal-copy">Set a destination so the photos are easy to filter later (e.g. Malaysia, KL Tower). Optional: drop them in a folder.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-upload-modal" aria-label="Close">×</button>
+        </div>
+        <form id="gal-upload-form" class="manager-form-grid manager-form-grid-vertical">
+          <label>
+            Destination (becomes a tag)
+            <input id="gal-upload-destination" name="destination" placeholder="e.g. Malaysia, Mongolia, Singapore" list="gal-upload-destination-list" />
+            <datalist id="gal-upload-destination-list"></datalist>
+          </label>
+          <label>
+            Extra tags (comma-separated, optional)
+            <input id="gal-upload-tags" name="tags" placeholder="kl tower, sunset" />
+          </label>
+          <label>
+            Folder
+            <select id="gal-upload-folder">
+              <option value="">— No folder —</option>
+            </select>
+          </label>
+          <label>
+            Files
+            <input id="gal-file" type="file" accept="image/*" multiple required />
+          </label>
+          <div class="actions">
+            <button type="submit" id="gal-upload-submit">Upload</button>
+            <button type="button" class="button-secondary" data-action="close-upload-modal">Cancel</button>
+            <p id="gal-upload-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit-item modal: rename + folder + tags for a single gallery item -->
+    <div id="gal-edit-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-edit-modal"></div>
+      <div class="camp-modal-dialog home-manager-modal">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Edit item</h2>
+            <p class="camp-modal-copy">Rename, move to a folder, or update tags.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-edit-modal" aria-label="Close">×</button>
+        </div>
+        <form id="gal-edit-form" class="manager-form-grid manager-form-grid-vertical">
+          <input type="hidden" name="id" />
+          <label>
+            Name
+            <input id="gal-edit-name" name="name" />
+          </label>
+          <label>
+            Folder
+            <select id="gal-edit-folder"></select>
+          </label>
+          <label>
+            Tags (comma-separated)
+            <input id="gal-edit-tags" name="tags" placeholder="malaysia, kl tower" />
+          </label>
+          <div class="actions">
+            <button type="submit">Save</button>
+            <button type="button" class="button-secondary" data-action="close-edit-modal">Cancel</button>
+            <p id="gal-edit-status" class="status"></p>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Add-video modal -->
@@ -103,7 +175,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-121"></script>
-    <script src="/gallery.js?v=workspace-4"></script>
+    <script src="/gallery.js?v=workspace-5"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

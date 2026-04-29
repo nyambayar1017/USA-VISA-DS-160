@@ -14145,6 +14145,13 @@ body.trip-notes-drawer-open { overflow: hidden; }
   border-color: #fecaca;
 }
 .gallery-actions .gallery-delete:hover { background: #fee2e2; }
+.gallery-actions .gallery-edit {
+  border-color: #cbd5e1;
+}
+.gallery-actions .gallery-edit:hover { background: rgba(32, 53, 111, 0.08); }
+/* Once any image is selected, hint that the whole card is now clickable. */
+body.gallery-select-mode .gallery-card { cursor: pointer; }
+body.gallery-select-mode .gallery-card .gallery-thumb img { pointer-events: none; }
 
 /* ── Content library ─────────────────────────────────────────────── */
 .ct-modal-dialog {
