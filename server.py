@@ -249,13 +249,30 @@ def read_json_list(file_path):
 def write_json_list(file_path, records):
     """Atomic write: render to a sibling temp file then rename, so a worker
     crash mid-write can't leave the canonical file half-written (which would
-    500 every read endpoint downstream)."""
+    500 every read endpoint downstream).
+
+    The temp filename is per-write unique (pid + random suffix) so two
+    concurrent saves of the same file don't share a .tmp and clobber each
+    other's rename — that was producing FileNotFoundError on tourists.json
+    when the user clicked move-down quickly."""
     ensure_data_store()
-    tmp_path = file_path.with_suffix(file_path.suffix + ".tmp")
-    tmp_path.write_text(
-        json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
+    tmp_path = file_path.with_suffix(
+        f"{file_path.suffix}.{os.getpid()}.{uuid4().hex[:8]}.tmp"
     )
-    os.replace(tmp_path, file_path)
+    try:
+        tmp_path.write_text(
+            json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        os.replace(tmp_path, file_path)
+    except Exception:
+        # If the rename fails for any reason, don't leave the unique .tmp
+        # behind to accumulate.
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        except Exception:
+            pass
+        raise
 
 
 def list_backup_sources():
