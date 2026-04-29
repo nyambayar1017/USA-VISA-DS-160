@@ -323,7 +323,7 @@
           ${allDayImageIds.map((id, i) => `
             <button type="button" class="trip-public-hero-strip-tile"
               data-lightbox-urls="${heroStripUrlsAttr}" data-lightbox-index="${i}">
-              <img src="${galleryUrl(id, "thumb")}" alt="" loading="lazy" />
+              <img src="${galleryUrl(id, "medium")}" alt="" loading="lazy" />
             </button>
           `).join("")}
         </div>
