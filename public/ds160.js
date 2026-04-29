@@ -576,6 +576,67 @@ function formatDs160Status(status) {
   }
 }
 
+function pickList(entry, key) {
+  // The structured array fields (country, education) live on the entry
+  // (after server flatten) but on older records they live nested under
+  // entry.payload — check both.
+  const direct = entry && entry[key];
+  if (Array.isArray(direct)) return direct;
+  const nested = entry && entry.payload && entry.payload[key];
+  if (Array.isArray(nested)) return nested;
+  return [];
+}
+
+function renderListSectionsHtml(entry) {
+  // Structured lists from the client form that aren't covered by
+  // ANSWER_SECTIONS' single-field summaries. Currently: traveled
+  // countries + previous education. Both are rendered as small tables
+  // matching the rest of the print layout.
+  const countries = pickList(entry, "country").filter((row) => row && (row.name || "").trim());
+  const educations = pickList(entry, "education").filter((row) =>
+    row && (row.institutionName || row.courseOfStudy || row.startDate || row.endDate || row.country)
+  );
+
+  let out = "";
+  if (countries.length) {
+    const rows = countries.map((row, i) =>
+      `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td><td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.name || "")}</td></tr>`
+    ).join("");
+    out += `<section style="margin-bottom:18px;page-break-inside:avoid;">
+      <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">Сүүлийн 5 жилд зорчсон улсууд</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Улс</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>`;
+  }
+  if (educations.length) {
+    const rows = educations.map((row, i) => `
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.institutionName || "-")}</td>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.courseOfStudy || "-")}</td>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml([row.city, row.province, row.country].filter(Boolean).join(", ") || "-")}</td>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.startDate || "-")} → ${escapeHtml(row.endDate || "-")}</td>
+      </tr>
+    `).join("");
+    out += `<section style="margin-bottom:18px;page-break-inside:avoid;">
+      <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">Боловсролын мэдээлэл</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr>
+          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th>
+          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Сургууль</th>
+          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Чиглэл</th>
+          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Хаяг</th>
+          <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Хугацаа</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>`;
+  }
+  return out;
+}
+
 function openPrintWindow(entry) {
   const { surname, givenName } = splitClientName(entry);
   const fullName = [surname, givenName].filter(Boolean).join(" ") || entry.clientName || "applicant";
@@ -590,6 +651,7 @@ function openPrintWindow(entry) {
       return `<section style="margin-bottom:18px;page-break-inside:avoid;"><h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">${escapeHtml(section.title)}</h3><table style="width:100%;border-collapse:collapse;font-size:12px;">${rows}</table></section>`;
     })
     .join("");
+  const listSections = renderListSectionsHtml(entry);
   const html = `
     <!DOCTYPE html>
     <html><head><meta charset="UTF-8"><title>DS-160 — ${escapeHtml(fullName)}</title>
@@ -608,6 +670,7 @@ function openPrintWindow(entry) {
         </div>
       </div>
       ${sections}
+      ${listSections}
       <script>window.onload = function() { setTimeout(function(){ window.print(); }, 400); };<\/script>
     </body></html>
   `;
