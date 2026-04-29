@@ -14411,6 +14411,91 @@ body.img-picker-open { overflow: hidden; }
 }
 #gal-bulk-move { background: #20356f; color: #fff; border-color: #20356f; }
 
+/* Gallery: folder chip bar */
+.gallery-folder-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0 14px;
+}
+.gallery-folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #d0d7e8;
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: #1f2937;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.gallery-folder-chip:hover { background: rgba(32, 53, 111, 0.06); }
+.gallery-folder-chip.is-active {
+  background: #20356f;
+  border-color: #20356f;
+  color: #fff;
+}
+.gallery-folder-chip em {
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+}
+.gallery-folder-chip.is-active em {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.gallery-folder-chip.is-add {
+  border-style: dashed;
+  color: #20356f;
+  background: transparent;
+}
+.gallery-folder-chip.is-add:hover {
+  background: rgba(32, 53, 111, 0.08);
+}
+.gallery-folder-menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  line-height: 1;
+  opacity: 0.65;
+}
+.gallery-folder-menu:hover { opacity: 1; background: rgba(0, 0, 0, 0.08); }
+.gallery-folder-chip.is-active .gallery-folder-menu:hover { background: rgba(255, 255, 255, 0.2); }
+.gallery-folder-dropdown {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #d0d7e8;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+}
+.gallery-folder-dropdown button {
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.gallery-folder-dropdown button:hover { background: rgba(32, 53, 111, 0.08); }
+.gallery-folder-dropdown button[data-folder-act="delete"] { color: #b42318; }
+
 /* Trip Creator: per-day photo strip */
 .tc-program-day-photos {
   display: flex;

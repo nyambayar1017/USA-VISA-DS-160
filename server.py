@@ -65,6 +65,7 @@ TOURISTS_FILE = DATA_DIR / "tourists.json"
 INVOICES_FILE = DATA_DIR / "invoices.json"
 TRIP_CREATORS_FILE = DATA_DIR / "trip_creators.json"
 GALLERY_FILE = DATA_DIR / "gallery.json"
+GALLERY_FOLDERS_FILE = DATA_DIR / "gallery_folders.json"
 GALLERY_UPLOADS_DIR = DATA_DIR / "gallery-uploads"
 CONTENT_FILE = DATA_DIR / "content.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -1878,6 +1879,27 @@ def write_gallery(records):
     write_json_list(GALLERY_FILE, records)
 
 
+def read_gallery_folders():
+    """Registered (named) folders. Items still carry the folder name in their
+    own `folder` string field — this list just lets a user create an empty
+    folder up front so they can set it as the destination at upload time."""
+    return read_json_list(GALLERY_FOLDERS_FILE)
+
+
+def write_gallery_folders(records):
+    write_json_list(GALLERY_FOLDERS_FILE, records)
+
+
+def _all_gallery_folder_names():
+    """Union of registered folder names + names derived from gallery items."""
+    names = {(rec.get("name") or "").strip() for rec in read_gallery_folders()}
+    for item in read_gallery():
+        f = (item.get("folder") or "").strip()
+        if f:
+            names.add(f)
+    return sorted({n for n in names if n}, key=str.lower)
+
+
 def _gallery_view(rec, request_origin=""):
     """Trim down to the public-safe shape + add a downloadable URL."""
     return {
@@ -1921,9 +1943,25 @@ def handle_list_gallery(environ, start_response):
             or any(q in t.lower() for t in (r.get("tags") or []))
         ]
     rows.sort(key=lambda r: r.get("uploadedAt") or "", reverse=True)
-    folders = sorted({(r.get("folder") or "").strip() for r in read_gallery() if (r.get("folder") or "").strip()})
+    folder_names = _all_gallery_folder_names()
+    counts = {}
+    none_count = 0
+    for item in read_gallery():
+        f = (item.get("folder") or "").strip()
+        if f:
+            counts[f] = counts.get(f, 0) + 1
+        else:
+            none_count += 1
+    folders_with_counts = [{"name": n, "count": counts.get(n, 0)} for n in folder_names]
     out = [_gallery_view(r) for r in rows]
-    return json_response(start_response, "200 OK", {"entries": out, "count": len(out), "folders": folders})
+    return json_response(start_response, "200 OK", {
+        "entries": out,
+        "count": len(out),
+        "folders": folder_names,
+        "folderStats": folders_with_counts,
+        "noFolderCount": none_count,
+        "totalCount": len(read_gallery()),
+    })
 
 
 def handle_update_gallery_item(environ, start_response, item_id):
@@ -2041,6 +2079,88 @@ def handle_delete_gallery_item(environ, start_response, item_id):
                 pass
     write_gallery([r for r in records if r.get("id") != item_id])
     return json_response(start_response, "200 OK", {"ok": True})
+
+
+def handle_create_gallery_folder(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return json_response(start_response, "400 Bad Request", {"error": "Folder name required"})
+    if len(name) > 60:
+        return json_response(start_response, "400 Bad Request", {"error": "Folder name too long"})
+    folders = read_gallery_folders()
+    if any((f.get("name") or "").strip().lower() == name.lower() for f in folders):
+        return json_response(start_response, "400 Bad Request", {"error": "Folder already exists"})
+    folders.append({
+        "name": name,
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(actor),
+    })
+    write_gallery_folders(folders)
+    return json_response(start_response, "201 Created", {"ok": True, "name": name})
+
+
+def handle_rename_gallery_folder(environ, start_response, old_name):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    new_name = (payload.get("name") or "").strip()
+    if not new_name:
+        return json_response(start_response, "400 Bad Request", {"error": "New name required"})
+    folders = read_gallery_folders()
+    # Update the registered list
+    found = False
+    for rec in folders:
+        if (rec.get("name") or "").strip().lower() == old_name.strip().lower():
+            rec["name"] = new_name
+            rec["renamedAt"] = now_mongolia().isoformat()
+            found = True
+    if not any((rec.get("name") or "").strip().lower() == new_name.lower() for rec in folders):
+        folders.append({
+            "name": new_name,
+            "createdAt": now_mongolia().isoformat(),
+            "createdBy": actor_snapshot(actor),
+        }) if not found else None
+    write_gallery_folders(folders)
+    # Move items that were in the old folder
+    items = read_gallery()
+    moved = 0
+    for item in items:
+        if (item.get("folder") or "").strip().lower() == old_name.strip().lower():
+            item["folder"] = new_name
+            moved += 1
+    if moved:
+        write_gallery(items)
+    return json_response(start_response, "200 OK", {"ok": True, "moved": moved})
+
+
+def handle_delete_gallery_folder(environ, start_response, name):
+    """Remove the folder from the registered list. Items in it are
+    un-foldered (their `folder` field cleared) — we don't delete the
+    photos themselves."""
+    if not require_login(environ, start_response):
+        return []
+    folders = read_gallery_folders()
+    target = name.strip().lower()
+    new_folders = [f for f in folders if (f.get("name") or "").strip().lower() != target]
+    write_gallery_folders(new_folders)
+    items = read_gallery()
+    cleared = 0
+    for item in items:
+        if (item.get("folder") or "").strip().lower() == target:
+            item["folder"] = ""
+            cleared += 1
+    if cleared:
+        write_gallery(items)
+    return json_response(start_response, "200 OK", {"ok": True, "cleared": cleared})
 
 
 def handle_serve_gallery_image(environ, start_response, item_id):
@@ -15865,6 +15985,21 @@ def _dispatch(environ, start_response):
     if path == "/api/gallery/video":
         if method == "POST":
             return handle_create_gallery_video(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path == "/api/gallery/folders":
+        if method == "POST":
+            return handle_create_gallery_folder(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path.startswith("/api/gallery/folders/") and path.endswith("/rename"):
+        old_name = path.replace("/api/gallery/folders/", "", 1).rsplit("/rename", 1)[0]
+        old_name = unquote(old_name)
+        if method == "POST" and old_name:
+            return handle_rename_gallery_folder(environ, start_response, old_name)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path.startswith("/api/gallery/folders/"):
+        name = unquote(path.replace("/api/gallery/folders/", "", 1).strip("/"))
+        if method == "DELETE" and name:
+            return handle_delete_gallery_folder(environ, start_response, name)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
     if path.startswith("/api/gallery/") and path.endswith("/file"):
         item_id = path.replace("/api/gallery/", "", 1).rsplit("/file", 1)[0].strip("/")

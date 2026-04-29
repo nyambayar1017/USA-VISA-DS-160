@@ -7,7 +7,7 @@
   const count = document.getElementById("gal-count");
   const searchInput = document.getElementById("gal-search");
   const kindSelect = document.getElementById("gal-kind");
-  const folderSelect = document.getElementById("gal-folder");
+  const folderBar = document.getElementById("gal-folder-bar");
   const tagInput = document.getElementById("gal-tag");
   const fileInput = document.getElementById("gal-file");
   const uploadLabel = document.getElementById("gal-upload-btn");
@@ -21,7 +21,14 @@
   const bulkMoveBtn = document.getElementById("gal-bulk-move");
   const bulkClearBtn = document.getElementById("gal-bulk-clear");
 
-  const state = { entries: [], folders: [], selected: new Set() };
+  const state = {
+    entries: [],
+    folders: [], // [{name, count}]
+    noFolderCount: 0,
+    totalCount: 0,
+    activeFolder: "", // "" = All, "__none__" = no folder, else folder name
+    selected: new Set(),
+  };
 
   function escapeHtml(value) {
     return String(value || "")
@@ -48,25 +55,33 @@
     bulkCount.textContent = `${state.selected.size} selected`;
   }
 
-  function refreshFolderOptions() {
-    if (!folderSelect) return;
-    const prev = folderSelect.value;
-    const optsHtml = state.folders
-      .map((f) => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`)
-      .join("");
-    folderSelect.innerHTML = `
-      <option value="">All folders</option>
-      <option value="__none__">No folder</option>
-      ${optsHtml}
-    `;
-    if ([...folderSelect.options].some((o) => o.value === prev)) folderSelect.value = prev;
+  function refreshFolderBar() {
+    if (!folderBar) return;
+    const total = state.totalCount;
+    const noneCount = state.noFolderCount;
+    const chips = [
+      `<button type="button" class="gallery-folder-chip${state.activeFolder === "" ? " is-active" : ""}" data-folder=""><span>All</span><em>${total}</em></button>`,
+      `<button type="button" class="gallery-folder-chip${state.activeFolder === "__none__" ? " is-active" : ""}" data-folder="__none__"><span>No folder</span><em>${noneCount}</em></button>`,
+    ];
+    state.folders.forEach((f) => {
+      const isActive = state.activeFolder.toLowerCase() === f.name.toLowerCase();
+      chips.push(`
+        <button type="button" class="gallery-folder-chip${isActive ? " is-active" : ""}" data-folder="${escapeHtml(f.name)}">
+          <span>📁 ${escapeHtml(f.name)}</span>
+          <em>${f.count}</em>
+          <span class="gallery-folder-menu" data-folder-menu="${escapeHtml(f.name)}" title="Rename / delete">⋯</span>
+        </button>
+      `);
+    });
+    chips.push('<button type="button" class="gallery-folder-chip is-add" id="gal-new-folder-btn" data-folder-action="new">+ New folder</button>');
+    folderBar.innerHTML = chips.join("");
   }
 
   function render() {
     const q = (searchInput.value || "").trim().toLowerCase();
     const tag = (tagInput.value || "").trim().toLowerCase();
     const kind = kindSelect.value;
-    const folderFilter = folderSelect ? folderSelect.value : "";
+    const folderFilter = state.activeFolder;
     const filtered = state.entries.filter((e) => {
       if (kind && e.kind !== kind) return false;
       if (folderFilter === "__none__" && (e.folder || "").trim()) return false;
@@ -128,8 +143,10 @@
       const res = await fetch("/api/gallery");
       const data = await res.json();
       state.entries = data.entries || [];
-      state.folders = data.folders || [];
-      refreshFolderOptions();
+      state.folders = data.folderStats || [];
+      state.noFolderCount = Number(data.noFolderCount || 0);
+      state.totalCount = Number(data.totalCount || state.entries.length);
+      refreshFolderBar();
       render();
     } catch (err) {
       grid.innerHTML = `<p class="empty">${escapeHtml(err.message || "Could not load.")}</p>`;
@@ -143,6 +160,11 @@
       : file;
     const formData = new FormData();
     formData.append("file", compressed, compressed.name || "image.jpg");
+    // If a folder chip is currently active (and it's not "All" / "No folder"),
+    // upload straight into that folder so the user doesn't have to move it.
+    if (state.activeFolder && state.activeFolder !== "__none__") {
+      formData.append("folder", state.activeFolder);
+    }
     const res = await fetch("/api/gallery", { method: "POST", body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Upload failed");
@@ -153,7 +175,6 @@
     const files = Array.from(fileInput.files || []);
     if (!files.length) return;
     uploadLabel.classList.add("is-disabled");
-    const originalText = uploadLabel.firstChild;
     let succeeded = 0;
     for (const file of files) {
       try {
@@ -168,6 +189,7 @@
     }
     uploadLabel.classList.remove("is-disabled");
     fileInput.value = "";
+    if (succeeded) load();
   });
 
   // ── Add video URL modal ───────────────────────────────────────
@@ -275,11 +297,9 @@
       }
       state.selected.clear();
       bulkFolderInput.value = "";
-      // Re-derive folders from current entries since we just renamed some.
-      state.folders = Array.from(new Set(state.entries.map((e) => (e.folder || "").trim()).filter(Boolean))).sort();
-      refreshFolderOptions();
       refreshBulkBar();
-      render();
+      // Reload to get refreshed folder counts from the server.
+      await load();
     } catch (err) {
       alert(err.message || "Could not move");
     } finally {
@@ -292,9 +312,139 @@
     render();
   });
 
-  [searchInput, kindSelect, folderSelect, tagInput].forEach((node) => {
+  [searchInput, kindSelect, tagInput].forEach((node) => {
     node?.addEventListener("input", render);
     node?.addEventListener("change", render);
+  });
+
+  // ── Folder bar interactions ──────────────────────────────────
+  // The chip ⋯ menu uses a small inline dropdown rendered into the bar.
+  let openFolderMenu = null; // {name, dropdownEl}
+  function closeFolderMenu() {
+    if (openFolderMenu && openFolderMenu.dropdownEl?.parentNode) {
+      openFolderMenu.dropdownEl.parentNode.removeChild(openFolderMenu.dropdownEl);
+    }
+    openFolderMenu = null;
+  }
+
+  function openFolderActionsMenu(folderName, anchor) {
+    closeFolderMenu();
+    const drop = document.createElement("div");
+    drop.className = "gallery-folder-dropdown";
+    drop.innerHTML = `
+      <button type="button" data-folder-act="rename">Rename</button>
+      <button type="button" data-folder-act="delete">Delete</button>
+    `;
+    document.body.appendChild(drop);
+    const rect = anchor.getBoundingClientRect();
+    drop.style.position = "fixed";
+    drop.style.top = `${Math.round(rect.bottom + 6)}px`;
+    drop.style.left = `${Math.round(rect.left)}px`;
+    drop.style.zIndex = "500";
+    openFolderMenu = { name: folderName, dropdownEl: drop };
+
+    drop.addEventListener("click", async (ev) => {
+      const btn = ev.target.closest("[data-folder-act]");
+      if (!btn) return;
+      const act = btn.dataset.folderAct;
+      closeFolderMenu();
+      if (act === "rename") await renameFolder(folderName);
+      if (act === "delete") await deleteFolder(folderName);
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (!openFolderMenu) return;
+    if (e.target.closest(".gallery-folder-dropdown")) return;
+    if (e.target.closest("[data-folder-menu]")) return;
+    closeFolderMenu();
+  });
+
+  async function createFolder() {
+    const name = window.UI?.prompt
+      ? await window.UI.prompt("Folder name", { confirmLabel: "Create" })
+      : window.prompt("Folder name");
+    const trimmed = (name || "").trim();
+    if (!trimmed) return;
+    try {
+      const res = await fetch("/api/gallery/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not create folder");
+      state.activeFolder = trimmed;
+      await load();
+    } catch (err) {
+      alert(err.message || "Could not create folder");
+    }
+  }
+
+  async function renameFolder(oldName) {
+    const next = window.UI?.prompt
+      ? await window.UI.prompt(`Rename "${oldName}" to:`, { defaultValue: oldName, confirmLabel: "Rename" })
+      : window.prompt(`Rename "${oldName}" to:`, oldName);
+    const trimmed = (next || "").trim();
+    if (!trimmed || trimmed === oldName) return;
+    try {
+      const res = await fetch(`/api/gallery/folders/${encodeURIComponent(oldName)}/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Rename failed");
+      if (state.activeFolder.toLowerCase() === oldName.toLowerCase()) {
+        state.activeFolder = trimmed;
+      }
+      await load();
+    } catch (err) {
+      alert(err.message || "Rename failed");
+    }
+  }
+
+  async function deleteFolder(name) {
+    const ok = window.UI?.confirm
+      ? await window.UI.confirm(
+          `Delete folder "${name}"? Photos inside will stay in the gallery but lose their folder.`,
+          { dangerous: true, confirmLabel: "Delete folder" }
+        )
+      : window.confirm(`Delete folder "${name}"? Photos stay; folder is removed.`);
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/gallery/folders/${encodeURIComponent(name)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Delete failed");
+      if (state.activeFolder.toLowerCase() === name.toLowerCase()) {
+        state.activeFolder = "";
+      }
+      await load();
+    } catch (err) {
+      alert(err.message || "Delete failed");
+    }
+  }
+
+  folderBar?.addEventListener("click", (event) => {
+    // ⋯ menu trigger sits inside the chip. Handle it first so the chip
+    // click handler below doesn't also fire and switch the active folder.
+    const menuTrigger = event.target.closest("[data-folder-menu]");
+    if (menuTrigger) {
+      event.stopPropagation();
+      const folderName = menuTrigger.dataset.folderMenu;
+      openFolderActionsMenu(folderName, menuTrigger);
+      return;
+    }
+    const chip = event.target.closest("[data-folder]");
+    if (chip) {
+      state.activeFolder = chip.dataset.folder;
+      refreshFolderBar();
+      render();
+      return;
+    }
+    if (event.target.closest('[data-folder-action="new"]')) {
+      createFolder();
+    }
   });
 
   load();

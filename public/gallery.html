@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-303" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-304" />
   </head>
   <body class="app-body" data-page="gallery">
     <div class="workspace-shell">
@@ -43,16 +43,14 @@
             </div>
           </div>
 
+          <div class="gallery-folder-bar" id="gal-folder-bar"></div>
+
           <div class="invoices-filter-bar">
             <input id="gal-search" type="search" placeholder="Search by name or tag" autocomplete="off" />
             <select id="gal-kind" class="trip-filter-input">
               <option value="">All kinds</option>
               <option value="image">Images</option>
               <option value="video">Videos</option>
-            </select>
-            <select id="gal-folder" class="trip-filter-input">
-              <option value="">All folders</option>
-              <option value="__none__">No folder</option>
             </select>
             <input id="gal-tag" type="search" placeholder="Filter by tag" autocomplete="off" class="trip-filter-input" />
           </div>
@@ -105,7 +103,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-120"></script>
-    <script src="/gallery.js?v=workspace-2"></script>
+    <script src="/gallery.js?v=workspace-4"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
