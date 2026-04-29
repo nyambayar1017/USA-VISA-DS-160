@@ -281,24 +281,28 @@
     `;
   }
 
-  function renderFlightTable(legs) {
+  function renderFlightCard(legs) {
     if (!legs || !legs.length) return "";
     return `
-      <section class="tp-card tp-card--narrow">
+      <section class="tp-card tp-card--narrow tp-flight-card">
         <h2 class="tp-card-h"><span class="tp-bar"></span>Flights</h2>
-        <table class="tp-flights">
+        <table class="tp-flights-table">
           <thead>
-            <tr><th>#</th><th>Date</th><th>Dep</th><th>From</th><th>Arr</th><th>To</th><th>Flight</th></tr>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Departure</th>
+              <th>Arrival</th>
+              <th>Fl</th>
+            </tr>
           </thead>
           <tbody>
             ${legs.map((l, i) => `
               <tr>
                 <td>${escapeHtml(l.n || String(i + 1))}</td>
                 <td>${escapeHtml(l.date || "")}</td>
-                <td>${escapeHtml(l.dep || "")}</td>
-                <td>${escapeHtml(l.depFrom || "")}</td>
-                <td>${escapeHtml(l.arr || "")}</td>
-                <td>${escapeHtml(l.arrTo || "")}</td>
+                <td><strong>${escapeHtml(l.dep || "")}</strong><div>${escapeHtml(l.depFrom || "")}</div></td>
+                <td><strong>${escapeHtml(l.arr || "")}</strong><div>${escapeHtml(l.arrTo || "")}</div></td>
                 <td>${escapeHtml(l.flight || "")}</td>
               </tr>
             `).join("")}
@@ -463,8 +467,6 @@
 
             ${renderIncluded(doc)}
 
-            ${renderFlightTable(doc.flightLegs)}
-
             ${renderQuote(doc.quotation, doc.currency)}
           </div>
 
@@ -478,7 +480,10 @@
           ` : ""}
         </main>
 
-        ${renderInfoCard(doc)}
+        <aside class="tp-side">
+          ${renderInfoCard(doc)}
+          ${renderFlightCard(doc.flightLegs)}
+        </aside>
       </div>
 
       <footer class="tp-foot">

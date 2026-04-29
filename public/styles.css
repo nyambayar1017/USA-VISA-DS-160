@@ -15596,13 +15596,59 @@ body.trip-public-body {
 }
 
 /* Sidebar info card */
+/* Sidebar column wrapper. Stacks the info card + flights card and
+   carries the sticky position so they scroll together with the main
+   itinerary. */
+.tp-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 80px;
+  align-self: flex-start;
+}
 .tp-info {
   background: #fff;
   border: 1px solid var(--tp-bd);
   border-radius: 14px;
   overflow: hidden;
-  position: sticky;
-  top: 80px;
+}
+
+/* Compact flight schedule rendered inside the sidebar. Two-line cells
+   for departure/arrival (bold time, city below) and uppercase navy
+   column headers — see image #60 for the target. */
+.tp-flight-card .tp-flights-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.tp-flight-card .tp-flights-table thead th {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tp-navy);
+  background: rgba(27, 42, 74, 0.05);
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--tp-bd);
+}
+.tp-flight-card .tp-flights-table tbody td {
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--tp-bd);
+  vertical-align: top;
+}
+.tp-flight-card .tp-flights-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.tp-flight-card .tp-flights-table strong {
+  font-weight: 700;
+  color: var(--tp-dk);
+  display: block;
+}
+.tp-flight-card .tp-flights-table td > div {
+  color: var(--tp-mid);
+  font-size: 12px;
 }
 .tp-info-map {
   width: 100%;

@@ -1933,14 +1933,20 @@ def build_public_trip_view(trip_id):
         return None
     trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None) or {}
     # Manager block: prefer the explicit doc.manager that the brochure
-    # editor sets; if name+email are both empty, fall back to the last
-    # editor's login profile so the public sidebar still shows a real
-    # contact instead of a blank card.
+    # editor sets; for any missing field fall back to the last editor's
+    # login profile (name, email, phone, avatar) so the public sidebar
+    # always shows a real contact + face.
     manager = dict(doc.get("manager") or {})
-    if not (manager.get("name") or manager.get("email")):
-        editor = doc.get("updatedBy") or doc.get("createdBy") or {}
-        manager.setdefault("name", editor.get("name") or "")
-        manager.setdefault("email", editor.get("email") or "")
+    editor_snap = doc.get("updatedBy") or doc.get("createdBy") or {}
+    editor_user = find_user_by_id(editor_snap.get("id")) if editor_snap.get("id") else None
+    if not manager.get("name"):
+        manager["name"] = (editor_user.get("fullName") if editor_user else "") or editor_snap.get("name") or ""
+    if not manager.get("email"):
+        manager["email"] = (editor_user.get("email") if editor_user else "") or editor_snap.get("email") or ""
+    if not manager.get("phone") and editor_user:
+        manager["phone"] = editor_user.get("contractPhone") or ""
+    if not manager.get("avatar") and editor_user:
+        manager["avatar"] = editor_user.get("avatarPath") or ""
     # Map waypoints: dedup'd from each program row's fromName/toName,
     # in order, so the public sidebar can render a Google-Maps directions
     # embed that traces the trip route.
