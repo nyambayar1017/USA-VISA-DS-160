@@ -13551,15 +13551,13 @@ body.is-fit-trip .reservation-addon-table tbody td:nth-child(3) {
 }
 
 /* On phones, when the Group column is shown (GIT trips), a long group
-   name forces the cell wide and dominates the row. Shrink the font and
-   clip with an ellipsis so it reads as secondary metadata, not a
-   giant title. (Keep nowrap — wrapping a long all-caps string with
-   no spaces between code segments breaks every 3 chars and looks
-   worse than truncating.) */
+   name forces the cell wide and dominates the row. Cap the column
+   width and clip with an ellipsis — keep the same font-size/weight
+   as sibling cells so the row visually balances. (Wrap is avoided
+   because long all-caps strings with no internal spaces break every
+   ~3 chars and produce a tall vertical strip, which is worse.) */
 @media (max-width: 720px) {
   body:not(.is-fit-trip) .reservation-addon-table tbody td:nth-child(3) {
-    font-size: 11.5px !important;
-    font-weight: 500 !important;
     max-width: 130px;
     overflow: hidden;
     text-overflow: ellipsis;
