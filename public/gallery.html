@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelX Gallery</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-296" />
+  </head>
+  <body class="app-body" data-page="gallery">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">TravelX</p>
+            <h1>Gallery</h1>
+            <p class="workspace-subtitle">Shared images and videos for trip brochures and content cards.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <h2>Media library</h2>
+              <p>Images are auto-resized to ≤1600 px and re-encoded as JPEG before upload to keep storage small.</p>
+            </div>
+            <div class="camp-toolbar">
+              <label class="header-action-btn" id="gal-upload-btn" style="cursor:pointer;">
+                + Upload image
+                <input id="gal-file" type="file" accept="image/*" multiple hidden />
+              </label>
+              <button type="button" class="header-action-btn" id="gal-add-video-btn">+ Add video URL</button>
+            </div>
+          </div>
+
+          <div class="invoices-filter-bar">
+            <input id="gal-search" type="search" placeholder="Search by name or tag" autocomplete="off" />
+            <select id="gal-kind" class="trip-filter-input">
+              <option value="">All kinds</option>
+              <option value="image">Images</option>
+              <option value="video">Videos</option>
+            </select>
+            <input id="gal-tag" type="search" placeholder="Filter by tag" autocomplete="off" class="trip-filter-input" />
+          </div>
+
+          <p class="tourist-count" id="gal-count"></p>
+          <div id="gal-grid" class="gallery-grid"><p class="empty">Loading…</p></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Add-video modal -->
+    <div id="gal-video-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-video-modal"></div>
+      <div class="camp-modal-dialog home-manager-modal">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Add video URL</h2>
+            <p class="camp-modal-copy">Paste a YouTube / Vimeo link. Videos aren't uploaded — only the URL is stored.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-video-modal" aria-label="Close">×</button>
+        </div>
+        <form id="gal-video-form" class="manager-form-grid manager-form-grid-vertical">
+          <label>
+            Title
+            <input name="title" placeholder="e.g. Marina Bay Sands SPECTRA" />
+          </label>
+          <label>
+            Video URL
+            <input name="videoUrl" type="url" placeholder="https://youtube.com/watch?v=…" required />
+          </label>
+          <label>
+            Tags (comma-separated)
+            <input name="tags" placeholder="malaysia, kl tower" />
+          </label>
+          <div class="actions">
+            <button type="submit">Save video</button>
+            <button type="button" class="button-secondary" data-action="close-video-modal">Cancel</button>
+            <p id="gal-video-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/compress-upload.js?v=workspace-1"></script>
+    <script src="/app-shell.js?v=workspace-120"></script>
+    <script src="/gallery.js?v=workspace-1"></script>
+    <script src="/ui-dialog.js?v=workspace-1"></script>
+  </body>
+</html>

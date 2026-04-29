@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelX Content</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-296" />
+  </head>
+  <body class="app-body" data-page="content">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">TravelX</p>
+            <h1>Content</h1>
+            <p class="workspace-subtitle">Reusable attractions, hotels, activities and locations. Linked from trip programs by slug.</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <h2>Content library</h2>
+              <p>Click a row to edit. Use slug names like <code>kl_tower_kuala_lumpur</code> in trip programs.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" class="header-action-btn" id="ct-add-btn">+ Add content</button>
+            </div>
+          </div>
+
+          <div class="invoices-filter-bar">
+            <input id="ct-search" type="search" placeholder="Search slug, title, summary" autocomplete="off" />
+            <select id="ct-type" class="trip-filter-input">
+              <option value="">All types</option>
+              <option value="attraction">Attraction</option>
+              <option value="accommodation">Accommodation</option>
+              <option value="activity">Activity</option>
+              <option value="destination">Destination</option>
+              <option value="supplier">Supplier</option>
+              <option value="location">Location</option>
+            </select>
+            <input id="ct-country" type="search" placeholder="Country" class="trip-filter-input" />
+            <select id="ct-publish" class="trip-filter-input">
+              <option value="">All</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+
+          <p class="tourist-count" id="ct-count"></p>
+          <div id="ct-list" class="submission-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Edit modal -->
+    <div id="ct-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-modal"></div>
+      <div class="camp-modal-dialog ct-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2 id="ct-modal-title">Add content</h2>
+            <p class="camp-modal-copy">Trip programs link to these by slug. Once you publish, the popup is shareable to clients.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-modal" aria-label="Close">×</button>
+        </div>
+
+        <form id="ct-form" class="ct-form">
+          <input type="hidden" name="id" />
+          <div class="ct-form-grid">
+            <label class="full-span">
+              Title
+              <input name="title" required placeholder="e.g. Малайз, Куала Лумпур – КЛ цамхаг" />
+            </label>
+            <label>
+              Slug
+              <input name="slug" placeholder="kl_tower_kuala_lumpur" />
+            </label>
+            <label>
+              Type
+              <select name="type">
+                <option value="attraction">Attraction</option>
+                <option value="accommodation">Accommodation</option>
+                <option value="activity">Activity</option>
+                <option value="destination">Destination</option>
+                <option value="supplier">Supplier</option>
+                <option value="location">Location</option>
+              </select>
+            </label>
+            <label>
+              Country
+              <input name="country" placeholder="Malaysia" />
+            </label>
+            <label>
+              Publish status
+              <select name="publishStatus">
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </label>
+            <label>
+              Video URL (optional)
+              <input name="videoUrl" type="url" placeholder="https://youtube.com/…" />
+            </label>
+            <label class="full-span">
+              Summary / intro paragraph
+              <textarea name="summary" rows="4" placeholder="Short description shown at the top of the popup."></textarea>
+            </label>
+          </div>
+
+          <div class="ct-section">
+            <div class="ct-section-head">
+              <h3>Bullet groups</h3>
+              <button type="button" class="header-action-btn" data-action="add-group">+ Add group</button>
+            </div>
+            <p class="ct-hint">Mongolian example: a "Ерөнхий мэдээлэл" group with bullets, then "Аяллын зөвлөмж", etc.</p>
+            <div id="ct-groups" class="ct-groups"></div>
+          </div>
+
+          <div class="ct-section">
+            <div class="ct-section-head">
+              <h3>Photos from gallery</h3>
+              <a class="header-action-btn" href="/gallery" target="_blank" rel="noopener">Open gallery ↗</a>
+            </div>
+            <p class="ct-hint">Paste image IDs (one per line) — copy them from the Gallery page.</p>
+            <textarea id="ct-image-ids" rows="3" placeholder="One gallery image ID per line"></textarea>
+            <div id="ct-image-preview" class="ct-image-preview"></div>
+          </div>
+
+          <div class="actions">
+            <button type="submit">Save</button>
+            <button type="button" class="button-secondary" data-action="close-modal">Cancel</button>
+            <button type="button" class="button-secondary" id="ct-delete-btn" hidden>Delete</button>
+            <p id="ct-status" class="status"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/app-shell.js?v=workspace-120"></script>
+    <script src="/content.js?v=workspace-1"></script>
+    <script src="/ui-dialog.js?v=workspace-1"></script>
+  </body>
+</html>

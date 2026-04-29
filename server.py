@@ -64,6 +64,9 @@ GROUPS_FILE = DATA_DIR / "tourist_groups.json"
 TOURISTS_FILE = DATA_DIR / "tourists.json"
 INVOICES_FILE = DATA_DIR / "invoices.json"
 TRIP_CREATORS_FILE = DATA_DIR / "trip_creators.json"
+GALLERY_FILE = DATA_DIR / "gallery.json"
+GALLERY_UPLOADS_DIR = DATA_DIR / "gallery-uploads"
+CONTENT_FILE = DATA_DIR / "content.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 SESSION_COOKIE = "travelx_session"
@@ -123,6 +126,7 @@ def ensure_data_store():
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     TRIP_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     ANNOUNCEMENT_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    GALLERY_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     TOURIST_PASSPORT_TEMP_DIR.mkdir(parents=True, exist_ok=True)
     MAIL_MESSAGES_DIR.mkdir(parents=True, exist_ok=True)
     MAIL_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1758,6 +1762,340 @@ def handle_save_trip_creator(environ, start_response, trip_id):
     store[trip_id] = doc
     write_trip_creators(store)
     return json_response(start_response, "200 OK", {"ok": True, "doc": doc})
+
+
+# ── Gallery (shared media library: images + video URLs) ───────────────
+GALLERY_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+
+def read_gallery():
+    return read_json_list(GALLERY_FILE)
+
+
+def write_gallery(records):
+    write_json_list(GALLERY_FILE, records)
+
+
+def _gallery_view(rec, request_origin=""):
+    """Trim down to the public-safe shape + add a downloadable URL."""
+    return {
+        "id": rec.get("id"),
+        "kind": rec.get("kind") or "image",
+        "originalName": rec.get("originalName") or "",
+        "mimeType": rec.get("mimeType") or "",
+        "size": rec.get("size") or 0,
+        "tags": rec.get("tags") or [],
+        "videoUrl": rec.get("videoUrl") or "",
+        "uploadedAt": rec.get("uploadedAt") or "",
+        "uploadedBy": rec.get("uploadedBy") or {},
+        "url": f"/api/gallery/{rec.get('id')}/file" if rec.get("kind") == "image" else (rec.get("videoUrl") or ""),
+    }
+
+
+def handle_list_gallery(environ, start_response):
+    if not require_login(environ, start_response):
+        return []
+    qs = parse_qs(environ.get("QUERY_STRING", ""))
+    tag = (qs.get("tag") or [""])[0].strip().lower()
+    kind = (qs.get("kind") or [""])[0].strip().lower()
+    q = (qs.get("q") or [""])[0].strip().lower()
+    rows = read_gallery()
+    if kind:
+        rows = [r for r in rows if (r.get("kind") or "image") == kind]
+    if tag:
+        rows = [r for r in rows if any(tag == t.lower() for t in (r.get("tags") or []))]
+    if q:
+        rows = [
+            r for r in rows
+            if q in (r.get("originalName") or "").lower()
+            or any(q in t.lower() for t in (r.get("tags") or []))
+        ]
+    rows.sort(key=lambda r: r.get("uploadedAt") or "", reverse=True)
+    out = [_gallery_view(r) for r in rows]
+    return json_response(start_response, "200 OK", {"entries": out, "count": len(out)})
+
+
+def handle_upload_gallery_image(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    fields, files = parse_multipart(environ)
+    upload = files.get("file")
+    if not upload or not upload.get("data"):
+        return json_response(start_response, "400 Bad Request", {"error": "No file provided"})
+    original_name = upload.get("filename") or "image"
+    ext = Path(original_name).suffix.lower()
+    if ext not in GALLERY_IMAGE_EXTS:
+        return json_response(start_response, "400 Bad Request", {"error": f"Image type {ext} not allowed"})
+    data = upload["data"]
+    if len(data) > MAX_UPLOAD_BYTES:
+        return json_response(start_response, "400 Bad Request", {"error": "Image too large (max 10 MB)"})
+    ensure_data_store()
+    rec_id = str(uuid4())
+    stored_name = rec_id + ext
+    (GALLERY_UPLOADS_DIR / stored_name).write_bytes(data)
+    raw_tags = fields.get("tags") or ""
+    tag_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
+    rec = {
+        "id": rec_id,
+        "kind": "image",
+        "originalName": original_name,
+        "storedName": stored_name,
+        "mimeType": upload.get("content_type") or "application/octet-stream",
+        "size": len(data),
+        "tags": tag_list,
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+    records = read_gallery()
+    records.append(rec)
+    write_gallery(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": _gallery_view(rec)})
+
+
+def handle_create_gallery_video(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    url = (payload.get("videoUrl") or "").strip()
+    if not url.startswith("http"):
+        return json_response(start_response, "400 Bad Request", {"error": "videoUrl must be a full http(s) URL"})
+    raw_tags = payload.get("tags") or []
+    tag_list = (
+        [str(t).strip() for t in raw_tags if str(t).strip()]
+        if isinstance(raw_tags, list)
+        else [t.strip() for t in str(raw_tags).split(",") if t.strip()]
+    )
+    rec = {
+        "id": str(uuid4()),
+        "kind": "video",
+        "originalName": (payload.get("title") or url).strip(),
+        "videoUrl": url,
+        "tags": tag_list,
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+    records = read_gallery()
+    records.append(rec)
+    write_gallery(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": _gallery_view(rec)})
+
+
+def handle_delete_gallery_item(environ, start_response, item_id):
+    if not require_login(environ, start_response):
+        return []
+    records = read_gallery()
+    rec = next((r for r in records if r.get("id") == item_id), None)
+    if not rec:
+        return json_response(start_response, "404 Not Found", {"error": "Item not found"})
+    stored = rec.get("storedName")
+    if stored:
+        path = (GALLERY_UPLOADS_DIR / stored).resolve()
+        if str(path).startswith(str(GALLERY_UPLOADS_DIR.resolve())) and path.exists():
+            try:
+                path.unlink()
+            except Exception:
+                pass
+    write_gallery([r for r in records if r.get("id") != item_id])
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
+def handle_serve_gallery_image(environ, start_response, item_id):
+    """Public — gallery images may appear on /trip/<id> brochures so they
+    must be reachable without auth. The item id is unguessable (UUID4)."""
+    rec = next((r for r in read_gallery() if r.get("id") == item_id), None)
+    if not rec or rec.get("kind") != "image":
+        return json_response(start_response, "404 Not Found", {"error": "Image not found"})
+    stored = rec.get("storedName") or ""
+    path = (GALLERY_UPLOADS_DIR / stored).resolve()
+    if not str(path).startswith(str(GALLERY_UPLOADS_DIR.resolve())) or not path.exists():
+        return json_response(start_response, "404 Not Found", {"error": "File missing"})
+    data = path.read_bytes()
+    headers = [
+        ("Content-Type", rec.get("mimeType") or "application/octet-stream"),
+        ("Content-Length", str(len(data))),
+        ("Cache-Control", "public, max-age=86400"),
+    ]
+    start_response("200 OK", headers)
+    return [data]
+
+
+# ── Content library (Attractions / Hotels / Activities / etc.) ───────
+CONTENT_TYPES = {"attraction", "accommodation", "activity", "destination", "supplier", "location"}
+
+
+def read_content():
+    return read_json_list(CONTENT_FILE)
+
+
+def write_content(records):
+    write_json_list(CONTENT_FILE, records)
+
+
+def _slugify(value):
+    """Conservative slug — keep ASCII letters/digits, replace anything else
+    with underscores. Used as a fallback when the user doesn't provide one."""
+    s = re.sub(r"[^A-Za-z0-9]+", "_", str(value or "").lower()).strip("_")
+    return s or "item"
+
+
+def _content_normalize(payload, existing=None):
+    base = dict(existing or {})
+    if not isinstance(payload, dict):
+        return base
+    out = dict(base)
+    for key in ("slug", "type", "country", "title", "summary", "videoUrl", "publishStatus"):
+        if key in payload and payload[key] is not None:
+            out[key] = str(payload[key]).strip()
+    out["type"] = (out.get("type") or "").lower() or "attraction"
+    if out["type"] not in CONTENT_TYPES:
+        out["type"] = "attraction"
+    out["publishStatus"] = (out.get("publishStatus") or "published").lower()
+    if out["publishStatus"] not in {"published", "draft"}:
+        out["publishStatus"] = "draft"
+    out["slug"] = _slugify(out.get("slug") or out.get("title") or "")
+    if isinstance(payload.get("imageIds"), list):
+        out["imageIds"] = [str(i) for i in payload["imageIds"] if str(i).strip()]
+    elif "imageIds" not in out:
+        out["imageIds"] = []
+    if isinstance(payload.get("bulletGroups"), list):
+        groups = []
+        for g in payload["bulletGroups"]:
+            if not isinstance(g, dict):
+                continue
+            items = g.get("items") or []
+            if not isinstance(items, list):
+                continue
+            groups.append({
+                "heading": str(g.get("heading") or "").strip(),
+                "items": [str(i).strip() for i in items if str(i).strip()],
+            })
+        out["bulletGroups"] = groups
+    elif "bulletGroups" not in out:
+        out["bulletGroups"] = []
+    return out
+
+
+def handle_list_content(environ, start_response):
+    if not require_login(environ, start_response):
+        return []
+    qs = parse_qs(environ.get("QUERY_STRING", ""))
+    type_filter = (qs.get("type") or [""])[0].strip().lower()
+    country = (qs.get("country") or [""])[0].strip()
+    publish = (qs.get("publish") or [""])[0].strip().lower()
+    q = (qs.get("q") or [""])[0].strip().lower()
+    rows = read_content()
+    if type_filter:
+        rows = [r for r in rows if (r.get("type") or "") == type_filter]
+    if country:
+        rows = [r for r in rows if (r.get("country") or "").lower() == country.lower()]
+    if publish:
+        rows = [r for r in rows if (r.get("publishStatus") or "") == publish]
+    if q:
+        rows = [
+            r for r in rows
+            if q in (r.get("slug") or "").lower()
+            or q in (r.get("title") or "").lower()
+            or q in (r.get("summary") or "").lower()
+        ]
+    rows.sort(key=lambda r: (r.get("slug") or "").lower())
+    return json_response(start_response, "200 OK", {"entries": rows, "count": len(rows)})
+
+
+def handle_create_content(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    rec = _content_normalize(payload)
+    if not rec.get("title"):
+        return json_response(start_response, "400 Bad Request", {"error": "Title is required"})
+    records = read_content()
+    if any(r.get("slug") == rec["slug"] for r in records):
+        # Slug collision — append -2, -3 …
+        n = 2
+        base_slug = rec["slug"]
+        while any(r.get("slug") == f"{base_slug}_{n}" for r in records):
+            n += 1
+        rec["slug"] = f"{base_slug}_{n}"
+    rec["id"] = str(uuid4())
+    rec["createdAt"] = now_mongolia().isoformat()
+    rec["createdBy"] = actor_snapshot(actor)
+    rec["updatedAt"] = rec["createdAt"]
+    records.append(rec)
+    write_content(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": rec})
+
+
+def handle_get_content(environ, start_response, item_id):
+    if not require_login(environ, start_response):
+        return []
+    rec = next((r for r in read_content() if r.get("id") == item_id), None)
+    if not rec:
+        return json_response(start_response, "404 Not Found", {"error": "Content not found"})
+    return json_response(start_response, "200 OK", rec)
+
+
+def handle_update_content(environ, start_response, item_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    records = read_content()
+    idx = next((i for i, r in enumerate(records) if r.get("id") == item_id), None)
+    if idx is None:
+        return json_response(start_response, "404 Not Found", {"error": "Content not found"})
+    merged = _content_normalize(payload, existing=records[idx])
+    # Keep slug uniqueness — if the user changed the slug to an existing one,
+    # block the update so the public lookup table stays clean.
+    if any(r.get("slug") == merged["slug"] and r.get("id") != item_id for r in records):
+        return json_response(start_response, "400 Bad Request", {"error": f"Slug '{merged['slug']}' already exists"})
+    merged["id"] = item_id
+    merged["createdAt"] = records[idx].get("createdAt") or now_mongolia().isoformat()
+    merged["updatedAt"] = now_mongolia().isoformat()
+    merged["updatedBy"] = actor_snapshot(actor)
+    records[idx] = merged
+    write_content(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": merged})
+
+
+def handle_delete_content(environ, start_response, item_id):
+    if not require_login(environ, start_response):
+        return []
+    records = read_content()
+    new_records = [r for r in records if r.get("id") != item_id]
+    if len(new_records) == len(records):
+        return json_response(start_response, "404 Not Found", {"error": "Content not found"})
+    write_content(new_records)
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
+def handle_get_public_content(environ, start_response, slug):
+    """No auth — clients hit this through trip brochures."""
+    rec = next((r for r in read_content() if r.get("slug") == slug), None)
+    if not rec or rec.get("publishStatus") == "draft":
+        return json_response(start_response, "404 Not Found", {"error": "Content not found"})
+    images = [
+        {"id": img_id, "url": f"/api/gallery/{img_id}/file"}
+        for img_id in (rec.get("imageIds") or [])
+    ]
+    return json_response(start_response, "200 OK", {
+        "slug": rec.get("slug"),
+        "type": rec.get("type"),
+        "country": rec.get("country"),
+        "title": rec.get("title"),
+        "summary": rec.get("summary"),
+        "videoUrl": rec.get("videoUrl"),
+        "images": images,
+        "bulletGroups": rec.get("bulletGroups") or [],
+    })
 
 
 def handle_dismiss_announcement(environ, start_response, announcement_id):
@@ -15357,6 +15695,55 @@ def _dispatch(environ, start_response):
             return handle_get_public_trip_creator(environ, start_response, trip_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    # Public content lookup by slug, used by trip-public popups.
+    if path.startswith("/api/public/content/"):
+        slug = path.replace("/api/public/content/", "", 1).strip("/")
+        if method == "GET" and slug:
+            return handle_get_public_content(environ, start_response, slug)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    # Gallery (image upload + listing). Image bytes are public via /file
+    # because trip brochures embed them.
+    if path == "/api/gallery":
+        if method == "GET":
+            return handle_list_gallery(environ, start_response)
+        if method == "POST":
+            return handle_upload_gallery_image(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path == "/api/gallery/video":
+        if method == "POST":
+            return handle_create_gallery_video(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path.startswith("/api/gallery/") and path.endswith("/file"):
+        item_id = path.replace("/api/gallery/", "", 1).rsplit("/file", 1)[0].strip("/")
+        if method == "GET" and item_id:
+            return handle_serve_gallery_image(environ, start_response, item_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path.startswith("/api/gallery/"):
+        item_id = path.replace("/api/gallery/", "", 1).strip("/")
+        if method == "DELETE" and item_id:
+            return handle_delete_gallery_item(environ, start_response, item_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    # Content library CRUD.
+    if path == "/api/content":
+        if method == "GET":
+            return handle_list_content(environ, start_response)
+        if method == "POST":
+            return handle_create_content(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path.startswith("/api/content/"):
+        item_id = path.replace("/api/content/", "", 1).strip("/")
+        if not item_id:
+            return json_response(start_response, "400 Bad Request", {"error": "id required"})
+        if method == "GET":
+            return handle_get_content(environ, start_response, item_id)
+        if method == "POST":
+            return handle_update_content(environ, start_response, item_id)
+        if method == "DELETE":
+            return handle_delete_content(environ, start_response, item_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/notifications":
         if method == "GET":
             return handle_list_notifications(environ, start_response)
@@ -16144,6 +16531,16 @@ def _dispatch(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "trip-creator.html")
+
+    if path == "/gallery":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "gallery.html")
+
+    if path == "/content":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "content.html")
 
     # /trip/<id> — public brochure for clients. No auth gate; the page JS
     # fetches /api/public/trips/<id> which 404s if the doc doesn't exist.
