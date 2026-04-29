@@ -1070,6 +1070,48 @@ td {
 .mail-pop-tag--dtx { color: #c2410c; background: rgba(194, 65, 12, 0.1); }
 .mail-pop-tag--usm { color: #1d4ed8; background: rgba(29, 78, 216, 0.1); }
 
+/* Per-item Read / Delete buttons inside the unread mail popover. The
+   item itself is no longer a single <a> — instead a sibling <a> handles
+   the click-to-open and a sibling actions row sits next to it. */
+.mail-pop-item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.mail-pop-item-link {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 10px;
+}
+.mail-pop-item-link:hover { background: rgba(32, 53, 111, 0.05); }
+.mail-pop-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 8px 8px 0;
+  align-items: stretch;
+}
+.mail-pop-action {
+  border: 1px solid #d0d7e8;
+  background: #fff;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #1f2937;
+}
+.mail-pop-action:disabled { opacity: 0.6; cursor: default; }
+.mail-pop-action--read { color: #1d4ed8; border-color: #c7d2fe; }
+.mail-pop-action--read:hover:not(:disabled) { background: #eff6ff; }
+.mail-pop-action--dismiss { color: #b91c1c; border-color: #fecaca; }
+.mail-pop-action--dismiss:hover:not(:disabled) { background: #fee2e2; }
+
 .workspace-mobile-bar {
   display: none;
 }

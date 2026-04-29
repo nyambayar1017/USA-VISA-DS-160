@@ -441,6 +441,8 @@ function buildProfileChrome() {
   profileCard.querySelector('[data-action="close-mail"]')?.addEventListener("click", () => {
     closeMailPopover();
   });
+  // Per-item Read / Delete buttons inside the unread mail dropdown.
+  mailPopoverNode?.querySelector("[data-mail-list]")?.addEventListener("click", handleMailItemAction);
   profileCard.querySelector('[data-action="toggle-reminders"]')?.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleReminderPopover();
@@ -512,15 +514,35 @@ function closeMailPopover() {
   toggleMailPopover(false);
 }
 
+// Per-user dismissed list lives in localStorage. "Delete from notification"
+// removes the email from the unread popup only — the message itself stays
+// untouched in the inbox. Re-syncs server state on next mark-read action.
+const DISMISSED_MAIL_KEY = "dismissedMailKeys";
+function readDismissedMail() {
+  try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_MAIL_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+function writeDismissedMail(set) {
+  try {
+    const arr = Array.from(set);
+    // Cap so a heavy mailbox doesn't bloat localStorage forever.
+    const trimmed = arr.length > 500 ? arr.slice(arr.length - 500) : arr;
+    localStorage.setItem(DISMISSED_MAIL_KEY, JSON.stringify(trimmed));
+  } catch {}
+}
+function mailKey(m) { return `${m.accountId}:${m.uid}`; }
+
 function renderMailUnreadList() {
   if (!mailPopoverNode) return;
   const list = mailPopoverNode.querySelector("[data-mail-list]");
   if (!list) return;
-  if (!mailUnreadCache.length) {
+  const dismissed = readDismissedMail();
+  const visible = mailUnreadCache.filter((m) => !dismissed.has(mailKey(m)));
+  if (!visible.length) {
     list.innerHTML = `<p class="notifications-empty">No unread mail.</p>`;
     return;
   }
-  list.innerHTML = mailUnreadCache
+  list.innerHTML = visible
     .map((m) => {
       const sender = m.fromName || m.fromEmail || "(unknown)";
       const subject = m.subject || "(no subject)";
@@ -528,19 +550,68 @@ function renderMailUnreadList() {
       const url = `/mail?key=${encodeURIComponent(m.accountId)}:${encodeURIComponent(m.uid)}`;
       const tag = (m.workspace || "DTX").toUpperCase();
       const tagClass = tag === "USM" ? "mail-pop-tag mail-pop-tag--usm" : "mail-pop-tag mail-pop-tag--dtx";
+      const key = mailKey(m);
       return `
-        <a class="notifications-item notifications-item--link mail-pop-item" href="${escapeHtml(url)}">
-          <span class="notification-avatar notification-avatar-icon">✉</span>
-          <div class="notifications-item-body">
-            <p><strong>${escapeHtml(sender)}</strong> <span class="${tagClass}">${escapeHtml(tag)}</span></p>
-            <p class="mail-pop-subject">${escapeHtml(subject)}</p>
-            ${snippet ? `<p class="mail-pop-snippet">${escapeHtml(snippet.slice(0, 110))}</p>` : ""}
-            <time>${escapeHtml(formatRelativeTime(m.date))} · ${escapeHtml(m.accountAddress || "")}</time>
+        <div class="notifications-item mail-pop-item" data-mail-key="${escapeHtml(key)}">
+          <a class="mail-pop-item-link" href="${escapeHtml(url)}">
+            <span class="notification-avatar notification-avatar-icon">✉</span>
+            <div class="notifications-item-body">
+              <p><strong>${escapeHtml(sender)}</strong> <span class="${tagClass}">${escapeHtml(tag)}</span></p>
+              <p class="mail-pop-subject">${escapeHtml(subject)}</p>
+              ${snippet ? `<p class="mail-pop-snippet">${escapeHtml(snippet.slice(0, 110))}</p>` : ""}
+              <time>${escapeHtml(formatRelativeTime(m.date))} · ${escapeHtml(m.accountAddress || "")}</time>
+            </div>
+          </a>
+          <div class="mail-pop-item-actions">
+            <button type="button" class="mail-pop-action mail-pop-action--read"
+              data-mail-action="read"
+              data-account="${escapeHtml(m.accountId)}"
+              data-uid="${escapeHtml(String(m.uid))}"
+              title="Mark as read">Read</button>
+            <button type="button" class="mail-pop-action mail-pop-action--dismiss"
+              data-mail-action="dismiss"
+              data-key="${escapeHtml(key)}"
+              title="Remove from this notification (keeps the email)">Delete</button>
           </div>
-        </a>
+        </div>
       `;
     })
     .join("");
+}
+
+async function handleMailItemAction(event) {
+  const btn = event.target.closest("[data-mail-action]");
+  if (!btn) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const action = btn.dataset.mailAction;
+  if (action === "dismiss") {
+    const key = btn.dataset.key;
+    const dismissed = readDismissedMail();
+    dismissed.add(key);
+    writeDismissedMail(dismissed);
+    // Drop from cache so the unread badge updates too.
+    mailUnreadCache = mailUnreadCache.filter((m) => mailKey(m) !== key);
+    updateMailCount(mailUnreadCache.length);
+    renderMailUnreadList();
+    return;
+  }
+  if (action === "read") {
+    const accountId = btn.dataset.account;
+    const uid = btn.dataset.uid;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}/read`, { method: "POST" });
+      if (!res.ok) throw new Error("mark read failed");
+      mailUnreadCache = mailUnreadCache.filter((m) => !(m.accountId === accountId && String(m.uid) === String(uid)));
+      updateMailCount(mailUnreadCache.length);
+      renderMailUnreadList();
+    } catch (_) {
+      btn.disabled = false;
+      window.UI?.toast?.("Could not mark as read.", "error");
+    }
+    return;
+  }
 }
 
 function updateMailCount(unread) {
