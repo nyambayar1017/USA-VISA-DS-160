@@ -77,7 +77,7 @@
           .map(
             (id) => `
               <div class="ct-image-thumb" data-id="${escapeHtml(id)}">
-                <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+                <img src="/api/gallery/${encodeURIComponent(id)}/file?size=thumb" alt="" loading="lazy" />
                 <button type="button" class="ct-image-remove" data-action="remove-day-image" data-idx="${idx}" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
               </div>
             `
@@ -204,7 +204,7 @@
     coverPreview.innerHTML = ids
       .map((id) => `
         <div class="ct-image-thumb" title="${escapeHtml(id)}">
-          <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+          <img src="/api/gallery/${encodeURIComponent(id)}/file?size=thumb" alt="" loading="lazy" />
           <button type="button" class="ct-image-remove" data-action="remove-cover" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
         </div>
       `)

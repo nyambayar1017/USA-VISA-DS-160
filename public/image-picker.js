@@ -86,9 +86,10 @@
     grid.innerHTML = filtered
       .map((e) => {
         const sel = STATE.selected.has(e.id);
+        const thumb = `/api/gallery/${encodeURIComponent(e.id)}/file?size=thumb`;
         return `
           <button type="button" class="img-picker-tile${sel ? " is-selected" : ""}" data-id="${escapeHtml(e.id)}" title="${escapeHtml(e.originalName)}">
-            <img src="${escapeHtml(e.url)}" alt="${escapeHtml(e.originalName)}" loading="lazy" />
+            <img src="${escapeHtml(thumb)}" alt="${escapeHtml(e.originalName)}" loading="lazy" />
             <span class="img-picker-check">✓</span>
           </button>
         `;

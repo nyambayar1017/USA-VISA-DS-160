@@ -237,7 +237,7 @@
     imagePreview.innerHTML = ids
       .map((id) => `
         <div class="ct-image-thumb" title="${escapeHtml(id)}">
-          <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+          <img src="/api/gallery/${encodeURIComponent(id)}/file?size=thumb" alt="" loading="lazy" />
           <button type="button" class="ct-image-remove" data-action="remove-image" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
         </div>
       `)

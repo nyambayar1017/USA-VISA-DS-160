@@ -120,15 +120,16 @@
       .map((t) => `<span class="trip-public-chip">${escapeHtml(t)}</span>`)
       .join(" ");
     const coverIds = Array.isArray(doc.coverIds) ? doc.coverIds : [];
+    const galleryUrl = (id, size) => `/api/gallery/${encodeURIComponent(id)}/file${size ? `?size=${size}` : ""}`;
     const heroImage = coverIds[0]
-      ? `<div class="trip-public-hero-photo" style="background-image:url('/api/gallery/${encodeURIComponent(coverIds[0])}/file');"></div>`
+      ? `<div class="trip-public-hero-photo" style="background-image:url('${galleryUrl(coverIds[0], "medium")}');"></div>`
       : "";
     const coverGalleryThumbs = coverIds.length > 1
       ? `
         <div class="trip-public-cover-strip">
           ${coverIds.slice(1).map((id) => `
-            <a class="trip-public-cover-thumb" href="/api/gallery/${encodeURIComponent(id)}/file" target="_blank" rel="noopener">
-              <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+            <a class="trip-public-cover-thumb" href="${galleryUrl(id)}" target="_blank" rel="noopener">
+              <img src="${galleryUrl(id, "thumb")}" alt="" loading="lazy" />
             </a>
           `).join("")}
         </div>
@@ -141,8 +142,8 @@
           ? `
             <div class="trip-public-day-photos">
               ${ids.map((id) => `
-                <a class="trip-public-day-thumb" href="/api/gallery/${encodeURIComponent(id)}/file" target="_blank" rel="noopener">
-                  <img src="/api/gallery/${encodeURIComponent(id)}/file" alt="" loading="lazy" />
+                <a class="trip-public-day-thumb" href="${galleryUrl(id)}" target="_blank" rel="noopener">
+                  <img src="${galleryUrl(id, "thumb")}" alt="" loading="lazy" />
                 </a>
               `).join("")}
             </div>
@@ -208,6 +209,19 @@
       root.innerHTML = `<p class="trip-public-empty">Trip not found.</p>`;
       return;
     }
+    // Server-rendered inline payload (instant first paint, no fetch round-trip).
+    const inline = document.getElementById("__initial_data");
+    if (inline && inline.textContent.trim()) {
+      try {
+        const doc = JSON.parse(inline.textContent);
+        if (doc) {
+          render(doc);
+          return;
+        }
+      } catch {
+        /* fall through to fetch */
+      }
+    }
     try {
       const res = await fetch(`/api/public/trips/${encodeURIComponent(tripId)}`);
       if (res.status === 404) {
@@ -252,14 +266,18 @@
     overlay.className = "trip-popup-overlay";
     const images = (content.images || []).map((img) => img.url).filter(Boolean);
     const urlsAttr = escapeHtml(JSON.stringify(images));
+    const sizedThumb = (url, size) => url + (url.includes("?") ? "&" : "?") + "size=" + size;
     const galleryHtml = images.length
       ? `
         <div class="content-gallery${images.length === 1 ? " is-single" : ""}">
-          ${images.map((url, i) => `
-            <button type="button" class="content-gallery-tile${i === 0 ? " is-featured" : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${i}">
-              <img src="${escapeHtml(url)}" alt="" loading="lazy" />
-            </button>
-          `).join("")}
+          ${images.map((url, i) => {
+            const variant = (i === 0 && images.length > 1) ? "medium" : "thumb";
+            return `
+              <button type="button" class="content-gallery-tile${i === 0 ? " is-featured" : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${i}">
+                <img src="${escapeHtml(sizedThumb(url, variant))}" alt="" loading="lazy" />
+              </button>
+            `;
+          }).join("")}
         </div>
       `
       : "";

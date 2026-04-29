@@ -88,8 +88,11 @@
         const tags = (e.tags || [])
           .map((t) => `<span class="gallery-chip">${escapeHtml(t)}</span>`)
           .join(" ");
+        const thumb = e.kind === "image"
+          ? `/api/gallery/${encodeURIComponent(e.id)}/file?size=thumb`
+          : "";
         const preview = e.kind === "image"
-          ? `<img src="${escapeHtml(e.url)}" alt="${escapeHtml(e.originalName)}" loading="lazy" />`
+          ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(e.originalName)}" loading="lazy" />`
           : `<div class="gallery-video-placeholder">▶ Video</div>`;
         const meta = e.kind === "image"
           ? fmtSize(e.size)

@@ -38,17 +38,22 @@
   function render(content) {
     document.title = content.title ? `${content.title} · TravelX` : "TravelX";
     const images = (content.images || []).map((img) => img.url).filter(Boolean);
+    // Lightbox always opens the full-resolution version; grid tiles use
+    // smaller variants (medium for the 2x2 hero, thumb for the side tiles)
+    // so the page paints fast.
     const urlsAttr = escapeHtml(JSON.stringify(images));
-    // Gallery: every image up top, click to open lightbox. First image is
-    // larger ("featured") so the layout has visual rhythm.
+    const sizedThumb = (url, size) => url + (url.includes("?") ? "&" : "?") + "size=" + size;
     const galleryHtml = images.length
       ? `
         <div class="content-gallery${images.length === 1 ? " is-single" : ""}">
-          ${images.map((url, i) => `
-            <button type="button" class="content-gallery-tile${i === 0 ? " is-featured" : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${i}">
-              <img src="${escapeHtml(url)}" alt="" loading="lazy" />
-            </button>
-          `).join("")}
+          ${images.map((url, i) => {
+            const variant = (i === 0 && images.length > 1) ? "medium" : "thumb";
+            return `
+              <button type="button" class="content-gallery-tile${i === 0 ? " is-featured" : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${i}">
+                <img src="${escapeHtml(sizedThumb(url, variant))}" alt="" loading="lazy" />
+              </button>
+            `;
+          }).join("")}
         </div>
       `
       : "";
@@ -120,6 +125,18 @@
     if (!slug) {
       root.innerHTML = `<p class="trip-public-empty">Content not found.</p>`;
       return;
+    }
+    const inline = document.getElementById("__initial_data");
+    if (inline && inline.textContent.trim()) {
+      try {
+        const content = JSON.parse(inline.textContent);
+        if (content) {
+          render(content);
+          return;
+        }
+      } catch {
+        /* fall through to fetch */
+      }
     }
     try {
       const res = await fetch(`/api/public/content/${encodeURIComponent(slug)}`);

@@ -1170,6 +1170,33 @@ def generated_download_headers(file_path):
     return [("Content-Disposition", f'inline; filename="{file_path.name}"')]
 
 
+def _serve_html_with_inline_data(start_response, html_path, data):
+    """Serve an HTML file but replace the <!--__INITIAL_DATA__--> marker
+    with a <script type="application/json"> tag holding `data`. Lets public
+    pages render without a round-trip fetch on the first paint."""
+    body = html_path.read_text(encoding="utf-8")
+    if data is None:
+        replacement = ""
+    else:
+        # Escape `</` so a literal "</script>" inside the JSON payload can't
+        # break out of the script tag. ensure_ascii=False keeps Mongolian
+        # characters readable in view-source.
+        encoded = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+        replacement = f'<script type="application/json" id="__initial_data">{encoded}</script>'
+    body = body.replace("<!--__INITIAL_DATA__-->", replacement)
+    encoded_body = body.encode("utf-8")
+    headers = [
+        ("Content-Type", "text/html; charset=utf-8"),
+        ("Content-Length", str(len(encoded_body))),
+        # The doc is per-request; don't let intermediaries cache stale data.
+        ("Cache-Control", "no-cache, no-store, must-revalidate"),
+        ("Pragma", "no-cache"),
+        ("Expires", "0"),
+    ]
+    start_response("200 OK", headers)
+    return [encoded_body]
+
+
 def collect_json(environ):
     try:
         content_length = int(environ.get("CONTENT_LENGTH") or "0")
@@ -1718,16 +1745,16 @@ def handle_get_trip_creator(environ, start_response, trip_id):
     return json_response(start_response, "200 OK", {"trip_id": trip_id, "doc": merged})
 
 
-def handle_get_public_trip_creator(environ, start_response, trip_id):
-    """No auth required — this is the read-only client-facing brochure
-    fetched by /trip/<id>. Returns only fields that are safe to share
-    publicly (no internal Mongolian notes the editor might use)."""
+def build_public_trip_view(trip_id):
+    """Reusable build of the public trip-creator brochure shape. Returns
+    the dict (or None if the trip isn't published). Used both by the API
+    endpoint and by the inline injection on /trip/<id>."""
     store = read_trip_creators()
     doc = store.get(trip_id)
     if not doc:
-        return json_response(start_response, "404 Not Found", {"error": "Trip not published"})
+        return None
     trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None) or {}
-    public = {
+    return {
         "tripId": trip_id,
         "title": doc.get("title") or trip.get("tripName") or "",
         "totalDays": doc.get("totalDays") or trip.get("totalDays") or "",
@@ -1751,6 +1778,15 @@ def handle_get_public_trip_creator(environ, start_response, trip_id):
             "endDate": trip.get("endDate"),
         },
     }
+
+
+def handle_get_public_trip_creator(environ, start_response, trip_id):
+    """No auth required — this is the read-only client-facing brochure
+    fetched by /trip/<id>. Returns only fields that are safe to share
+    publicly (no internal Mongolian notes the editor might use)."""
+    public = build_public_trip_view(trip_id)
+    if not public:
+        return json_response(start_response, "404 Not Found", {"error": "Trip not published"})
     return json_response(start_response, "200 OK", public)
 
 
@@ -1776,6 +1812,62 @@ def handle_save_trip_creator(environ, start_response, trip_id):
 
 # ── Gallery (shared media library: images + video URLs) ───────────────
 GALLERY_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+# Pre-generated size variants. We keep client-compressed full image (≤1600px)
+# as the canonical, and lazy-generate two smaller copies for grid consumers
+# so a phone listing the gallery downloads ~30 KB thumbnails not 400 KB
+# full photos. Skipped for animated GIFs (Pillow can't write multi-frame
+# resampled GIFs cleanly without ImageMagick).
+GALLERY_VARIANT_DIMS = {"thumb": 400, "medium": 1200}
+
+
+def _gallery_variant_path(rec, size):
+    """Return on-disk path for a size variant of a gallery image. Lazily
+    generates the variant on first request and caches it. Returns the full
+    image's path if size is unknown or generation fails."""
+    stored_name = rec.get("storedName") or ""
+    if not stored_name:
+        return None
+    full_path = (GALLERY_UPLOADS_DIR / stored_name).resolve()
+    if not str(full_path).startswith(str(GALLERY_UPLOADS_DIR.resolve())) or not full_path.exists():
+        return None
+    if not size or size not in GALLERY_VARIANT_DIMS:
+        return full_path
+    suffix = full_path.suffix.lower()
+    if suffix == ".gif":
+        # Don't try to resize animated GIFs — fall back to original.
+        return full_path
+    variant_name = f"{full_path.stem}-{size}{suffix}"
+    variant_path = GALLERY_UPLOADS_DIR / variant_name
+    if variant_path.exists():
+        return variant_path
+    try:
+        from PIL import Image
+        max_dim = GALLERY_VARIANT_DIMS[size]
+        with Image.open(full_path) as img:
+            img.load()
+            # Don't upscale — if the source is already smaller than the target
+            # variant, we'd just be re-encoding for no reason. Hand back the
+            # original instead.
+            if max(img.size) <= max_dim:
+                return full_path
+            img.thumbnail((max_dim, max_dim))
+            save_kwargs = {"optimize": True}
+            if suffix in {".jpg", ".jpeg"}:
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                save_kwargs["quality"] = 82
+                save_kwargs["progressive"] = True
+            elif suffix == ".png":
+                # Keep transparency for PNG; optimize crunches the size.
+                pass
+            elif suffix == ".webp":
+                save_kwargs["quality"] = 82
+                save_kwargs["method"] = 6
+            img.save(variant_path, **save_kwargs)
+        return variant_path
+    except Exception as exc:
+        print(f"[gallery] variant gen failed for {stored_name} → {size}: {exc}", flush=True)
+        return full_path
 
 
 def read_gallery():
@@ -1953,19 +2045,23 @@ def handle_delete_gallery_item(environ, start_response, item_id):
 
 def handle_serve_gallery_image(environ, start_response, item_id):
     """Public — gallery images may appear on /trip/<id> brochures so they
-    must be reachable without auth. The item id is unguessable (UUID4)."""
+    must be reachable without auth. The item id is unguessable (UUID4).
+    Supports ?size=thumb|medium|full (default full)."""
     rec = next((r for r in read_gallery() if r.get("id") == item_id), None)
     if not rec or rec.get("kind") != "image":
         return json_response(start_response, "404 Not Found", {"error": "Image not found"})
-    stored = rec.get("storedName") or ""
-    path = (GALLERY_UPLOADS_DIR / stored).resolve()
-    if not str(path).startswith(str(GALLERY_UPLOADS_DIR.resolve())) or not path.exists():
+    qs = parse_qs(environ.get("QUERY_STRING", ""))
+    size = (qs.get("size") or [""])[0].strip().lower()
+    path = _gallery_variant_path(rec, size if size in GALLERY_VARIANT_DIMS else "")
+    if not path:
         return json_response(start_response, "404 Not Found", {"error": "File missing"})
     data = path.read_bytes()
+    # Variants are immutable for a given (id, size) pair, so cache aggressively.
+    cache_max = 31536000 if size in GALLERY_VARIANT_DIMS else 86400
     headers = [
         ("Content-Type", rec.get("mimeType") or "application/octet-stream"),
         ("Content-Length", str(len(data))),
-        ("Cache-Control", "public, max-age=86400"),
+        ("Cache-Control", f"public, max-age={cache_max}"),
     ]
     start_response("200 OK", headers)
     return [data]
@@ -2125,16 +2221,15 @@ def handle_delete_content(environ, start_response, item_id):
     return json_response(start_response, "200 OK", {"ok": True})
 
 
-def handle_get_public_content(environ, start_response, slug):
-    """No auth — clients hit this through trip brochures."""
+def build_public_content_view(slug):
     rec = next((r for r in read_content() if r.get("slug") == slug), None)
     if not rec or rec.get("publishStatus") == "draft":
-        return json_response(start_response, "404 Not Found", {"error": "Content not found"})
+        return None
     images = [
         {"id": img_id, "url": f"/api/gallery/{img_id}/file"}
         for img_id in (rec.get("imageIds") or [])
     ]
-    return json_response(start_response, "200 OK", {
+    return {
         "slug": rec.get("slug"),
         "type": rec.get("type"),
         "country": rec.get("country"),
@@ -2144,7 +2239,15 @@ def handle_get_public_content(environ, start_response, slug):
         "location": rec.get("location") or "",
         "images": images,
         "bulletGroups": rec.get("bulletGroups") or [],
-    })
+    }
+
+
+def handle_get_public_content(environ, start_response, slug):
+    """No auth — clients hit this through trip brochures."""
+    public = build_public_content_view(slug)
+    if not public:
+        return json_response(start_response, "404 Not Found", {"error": "Content not found"})
+    return json_response(start_response, "200 OK", public)
 
 
 def handle_dismiss_announcement(environ, start_response, announcement_id):
@@ -16593,15 +16696,20 @@ def _dispatch(environ, start_response):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "content.html")
 
-    # /trip/<id> — public brochure for clients. No auth gate; the page JS
-    # fetches /api/public/trips/<id> which 404s if the doc doesn't exist.
+    # /trip/<id> — public brochure for clients. No auth gate. We inline the
+    # trip-creator doc as a <script type="application/json"> so the page
+    # paints without a fetch round-trip; the JS still falls back to fetching
+    # if the inline data is missing (e.g. a 404 placeholder served as HTML).
     if path.startswith("/trip/"):
-        return file_response(start_response, PUBLIC_DIR / "trip-public.html")
+        trip_id = path.replace("/trip/", "", 1).strip("/")
+        public = build_public_trip_view(trip_id) if trip_id else None
+        return _serve_html_with_inline_data(start_response, PUBLIC_DIR / "trip-public.html", public)
 
-    # /c/<slug> — standalone public view of one content item. Same auth
-    # rule as /trip/<id>: served to anyone, the API lookup enforces draft.
+    # /c/<slug> — standalone public view of one content item. Same trick.
     if path.startswith("/c/"):
-        return file_response(start_response, PUBLIC_DIR / "content-view.html")
+        slug = path.replace("/c/", "", 1).strip("/")
+        public = build_public_content_view(slug) if slug else None
+        return _serve_html_with_inline_data(start_response, PUBLIC_DIR / "content-view.html", public)
 
     if path == "/tourist":
         if not current_user(environ):
