@@ -1822,6 +1822,12 @@ def _trip_creator_normalize(payload):
             meals_raw = entry.get("meals") or {}
             if not isinstance(meals_raw, dict):
                 meals_raw = {}
+            def _meal_venue(v):
+                # Legacy schema stored bools (B/L/D checkboxes). Drop those
+                # — the new schema is venue strings ("Hotel", "Restaurant").
+                if isinstance(v, bool):
+                    return ""
+                return str(v or "").strip()
             prog.append({
                 "id": _ensure_id(entry),
                 "templateId": str(entry.get("templateId") or "").strip(),
@@ -1834,9 +1840,9 @@ def _trip_creator_normalize(payload):
                 "drive": str(entry.get("drive") or "").strip(),
                 "accommodation": str(entry.get("accommodation") or "").strip(),
                 "meals": {
-                    "breakfast": bool(meals_raw.get("breakfast")),
-                    "lunch": bool(meals_raw.get("lunch")),
-                    "dinner": bool(meals_raw.get("dinner")),
+                    "breakfast": _meal_venue(meals_raw.get("breakfast")),
+                    "lunch": _meal_venue(meals_raw.get("lunch")),
+                    "dinner": _meal_venue(meals_raw.get("dinner")),
                 },
                 "body": str(entry.get("body") or ""),
                 "imageIds": day_image_ids,

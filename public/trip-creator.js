@@ -105,13 +105,17 @@
             <textarea class="tc-program-body" rows="3" placeholder="Description. Use + Content link to embed [[slug]] markers that turn yellow on the public page.">${escapeHtml(row.body || "")}</textarea>
             <div class="tc-program-accomm">
               <label class="tc-program-accomm-name">Accommodation
-                <input type="text" class="tc-program-accommodation" placeholder="Hotel name (or content slug)" value="${escapeHtml(row.accommodation || "")}" />
+                <input type="text" class="tc-program-accommodation" placeholder="Holiday Inn (or content slug)" value="${escapeHtml(row.accommodation || "")}" />
               </label>
-              <span class="tc-program-meals">
-                <label><input type="checkbox" class="tc-program-meal-b" ${meals.breakfast ? "checked" : ""}/> B</label>
-                <label><input type="checkbox" class="tc-program-meal-l" ${meals.lunch ? "checked" : ""}/> L</label>
-                <label><input type="checkbox" class="tc-program-meal-d" ${meals.dinner ? "checked" : ""}/> D</label>
-              </span>
+              <label>Breakfast
+                <input type="text" class="tc-program-meal-b" placeholder="Hotel" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" />
+              </label>
+              <label>Lunch
+                <input type="text" class="tc-program-meal-l" placeholder="Restaurant" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" />
+              </label>
+              <label>Dinner
+                <input type="text" class="tc-program-meal-d" placeholder="Restaurant" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" />
+              </label>
             </div>
             <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
             <div class="tc-program-day-photos">
@@ -208,9 +212,9 @@
         drive: row.querySelector(".tc-program-drive")?.value || "",
         accommodation: row.querySelector(".tc-program-accommodation")?.value || "",
         meals: {
-          breakfast: !!row.querySelector(".tc-program-meal-b")?.checked,
-          lunch: !!row.querySelector(".tc-program-meal-l")?.checked,
-          dinner: !!row.querySelector(".tc-program-meal-d")?.checked,
+          breakfast: row.querySelector(".tc-program-meal-b")?.value || "",
+          lunch: row.querySelector(".tc-program-meal-l")?.value || "",
+          dinner: row.querySelector(".tc-program-meal-d")?.value || "",
         },
         body: row.querySelector(".tc-program-body")?.value || "",
         imageIds: idsRaw.split(",").map((s) => s.trim()).filter(Boolean),

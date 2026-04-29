@@ -182,17 +182,20 @@
   function renderAccommodation(row) {
     const accom = row.accommodation || "";
     const meals = row.meals || {};
-    const hasMeals = meals.breakfast || meals.lunch || meals.dinner;
-    if (!accom && !hasMeals) return "";
-    const chip = (label, on) =>
-      `<span class="tp-meal-chip${on ? " is-on" : ""}" title="${label === "B" ? "Breakfast" : label === "L" ? "Lunch" : "Dinner"}">${label}</span>`;
+    const mealVal = (v) => (typeof v === "string" ? v.trim() : "");
+    const breakfast = mealVal(meals.breakfast);
+    const lunch = mealVal(meals.lunch);
+    const dinner = mealVal(meals.dinner);
+    if (!accom && !breakfast && !lunch && !dinner) return "";
+    const line = (label, value) => value
+      ? `<div class="tp-meal-row"><span class="tp-meal-label">${label}</span><span class="tp-meal-value">${escapeHtml(value)}</span></div>`
+      : "";
     return `
-      <div class="tp-accomm">
-        <span class="tp-accomm-icon">🛏</span>
-        <span class="tp-accomm-name">${escapeHtml(accom || "—")}</span>
-        <span class="tp-meal-chips">
-          ${chip("B", meals.breakfast)}${chip("L", meals.lunch)}${chip("D", meals.dinner)}
-        </span>
+      <div class="tp-meals">
+        ${line("Breakfast", breakfast)}
+        ${line("Lunch", lunch)}
+        ${line("Dinner", dinner)}
+        ${line("Accommodation", accom)}
       </div>
     `;
   }
@@ -204,9 +207,19 @@
       ? `<div class="tp-day-body">${linkifyContent(nl2br(row.body))}</div>`
       : "";
     const dayId = row.id || `day-${idx}`;
+    const heroId = (Array.isArray(row.imageIds) ? row.imageIds : [])[0] || "";
+    const galleryUrl = (id, size) => `/api/gallery/${encodeURIComponent(id)}/file${size ? `?size=${size}` : ""}`;
+    const dayHero = heroId
+      ? `<div class="tp-day-hero">
+          <img src="${galleryUrl(heroId, "medium")}" alt="" loading="lazy" />
+        </div>`
+      : "";
     return `
       <div class="tp-day-grid">
-        <div class="tp-day-route-col">${route}</div>
+        <div class="tp-day-route-col">
+          ${dayHero}
+          ${route}
+        </div>
         <article class="tp-day-card is-open" data-day-id="${escAttr(dayId)}">
           <button type="button" class="tp-day-head" data-action="toggle-day">
             <div>
@@ -346,29 +359,6 @@
       `
       : "";
 
-    // Smaller gallery card — one tile per day with a "D{n}" badge.
-    const galleryCard = program.length && program.some((p) => (p.imageIds || []).length)
-      ? `
-        <section class="tp-card">
-          <h2 class="tp-card-h"><span class="tp-bar"></span>Gallery</h2>
-          <div class="tp-gallery">
-            ${program.map((p, i) => {
-              const id = (p.imageIds || [])[0];
-              if (!id) return "";
-              return `
-                <button type="button" class="tp-gallery-tile"
-                  data-lightbox-urls="${heroStripUrlsAttr}"
-                  data-lightbox-index="${heroStripUrls.indexOf(galleryUrl(id))}">
-                  <img src="${galleryUrl(id, "thumb")}" alt="" loading="lazy" />
-                  <span class="tp-gallery-badge">${escapeHtml(p.day || `D${i + 1}`)}</span>
-                </button>
-              `;
-            }).join("")}
-          </div>
-        </section>
-      `
-      : "";
-
     const company = (doc.trip || {}).company || "DTX";
     const brand = company === "USM" ? "STEPPE MONGOLIA" : "ДЭЛХИЙ ТРЭВЕЛ ИКС";
     const subtitleText = doc.subtitle
@@ -415,8 +405,6 @@
             <h1>${escapeHtml(doc.title || "Trip")}</h1>
             ${doc.intro ? `<div class="tp-intro">${linkifyContent(nl2br(doc.intro))}</div>` : ""}
           </section>
-
-          ${galleryCard}
 
           ${hasGuide ? `
             <div class="tp-tabs" role="tablist">
