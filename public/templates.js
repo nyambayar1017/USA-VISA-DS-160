@@ -275,9 +275,9 @@
   const locLangGrid = document.getElementById("tpl-loc-lang-grid");
   const locImageIdsField = document.getElementById("tpl-loc-image-ids");
   const locImagePreview = document.getElementById("tpl-loc-image-preview");
-  const locMapPreview = document.getElementById("tpl-loc-map-preview");
-  const locMapFrame = document.getElementById("tpl-loc-map-frame");
-  const locGmapsLink = document.getElementById("tpl-loc-gmaps-link");
+  const locMapNode = document.getElementById("tpl-loc-map");
+  let locLeafletMap = null;
+  let locLeafletMarker = null;
 
   function openLocModal(rec) {
     locIdField.value = rec ? (rec.id || "") : "";
@@ -297,8 +297,6 @@
     `).join("");
     // Image preview.
     renderLocImages();
-    // Map preview.
-    refreshLocMapPreview();
     // Switch to Latlon tab.
     document.querySelectorAll(".tpl-loc-tab").forEach((t) => t.classList.toggle("is-active", t.dataset.locTab === "latlon"));
     document.querySelectorAll(".tpl-loc-pane").forEach((p) => {
@@ -308,7 +306,11 @@
     });
     locModal.classList.remove("is-hidden");
     locModal.hidden = false;
-    setTimeout(() => locNameField.focus(), 50);
+    // Map needs the modal to be visible before it can measure itself.
+    setTimeout(() => {
+      locNameField.focus();
+      refreshLocMapPreview();
+    }, 80);
   }
 
   function closeLocModal() {
@@ -331,17 +333,77 @@
   }
 
   function refreshLocMapPreview() {
-    const lat = locLatField.value.trim();
-    const lon = locLonField.value.trim();
-    if (locLatlonEnabledField.checked && lat && lon) {
-      locMapFrame.src = `https://maps.google.com/maps?q=${encodeURIComponent(`${lat},${lon}`)}&z=10&output=embed`;
-      locMapPreview.hidden = false;
-      locGmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lon}`)}`;
+    const lat = parseFloat(locLatField.value);
+    const lon = parseFloat(locLonField.value);
+    const enabled = locLatlonEnabledField.checked && Number.isFinite(lat) && Number.isFinite(lon);
+    if (!enabled) {
+      locMapNode.hidden = true;
+      return;
+    }
+    locMapNode.hidden = false;
+    if (!window.L) return;
+    if (!locLeafletMap) {
+      locLeafletMap = L.map(locMapNode, { scrollWheelZoom: false }).setView([lat, lon], 8);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(locLeafletMap);
+      locLeafletMarker = L.marker([lat, lon], { draggable: true }).addTo(locLeafletMap);
+      locLeafletMarker.on("dragend", () => {
+        const ll = locLeafletMarker.getLatLng();
+        locLatField.value = ll.lat.toFixed(6);
+        locLonField.value = ll.lng.toFixed(6);
+      });
     } else {
-      locMapPreview.hidden = true;
-      locGmapsLink.href = "https://www.google.com/maps";
+      locLeafletMap.setView([lat, lon], locLeafletMap.getZoom());
+      if (locLeafletMarker) locLeafletMarker.setLatLng([lat, lon]);
+      // Leaflet needs invalidateSize after the map node toggles visible.
+      setTimeout(() => locLeafletMap.invalidateSize(), 0);
     }
   }
+
+  // OpenStreetMap (Nominatim) place lookup. Fills lat/lon plus
+  // translated names returned in the namedetails block. Free, no key.
+  async function autofillFromNominatim() {
+    const query = (locNameField.value || "").trim();
+    if (!query) {
+      alert("Type a name first.");
+      return;
+    }
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&namedetails=1&limit=1`;
+    try {
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data) || !data.length) {
+        alert(`No place found for "${query}". Try a different name.`);
+        return;
+      }
+      const r = data[0];
+      // Lat/lon → enable + fill + remap.
+      locLatField.value = parseFloat(r.lat).toFixed(6);
+      locLonField.value = parseFloat(r.lon).toFixed(6);
+      locLatlonEnabledField.checked = true;
+      refreshLocMapPreview();
+      // Multilingual names from namedetails: { "name:en": "...", … }.
+      const nd = r.namedetails || {};
+      LOC_LANGS.forEach((l) => {
+        const key = `name:${l.code}`;
+        const input = locLangGrid.querySelector(`[data-loc-lang="${l.code}"]`);
+        if (!input) return;
+        const value = (nd[key] || "").trim();
+        if (value && !input.value.trim()) input.value = value;
+      });
+      // English fallback if name:en missing.
+      const enInput = locLangGrid.querySelector('[data-loc-lang="en"]');
+      if (enInput && !enInput.value.trim() && r.display_name) {
+        enInput.value = r.display_name.split(",")[0].trim();
+      }
+    } catch (err) {
+      alert(`Lookup failed: ${err.message}`);
+    }
+  }
+  document.getElementById("tpl-loc-autofill").addEventListener("click", autofillFromNominatim);
 
   document.getElementById("tpl-loc-add").addEventListener("click", () => openLocModal(null));
 
@@ -391,6 +453,9 @@
         p.classList.toggle("is-active", match);
         p.hidden = !match;
       });
+      if (target === "latlon" && locLeafletMap) {
+        setTimeout(() => locLeafletMap.invalidateSize(), 0);
+      }
       return;
     }
     const removeImg = event.target.closest('[data-action="remove-loc-image"]');
