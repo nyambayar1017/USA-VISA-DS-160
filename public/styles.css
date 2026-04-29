@@ -14916,10 +14916,10 @@ body.trip-public-body {
 }
 .tp-day-route-col {}
 .tp-route {
-  background: #fff;
-  border: 1px solid var(--tp-bd);
-  border-radius: 12px;
-  padding: 14px 16px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 6px 4px 0;
   font-size: 13px;
 }
 .tp-route-stop {
@@ -14995,7 +14995,8 @@ body.trip-public-body {
   display: block;
 }
 
-/* Meals + accommodation as labeled rows (Breakfast — Hotel, …). */
+/* Meals + accommodation: left-aligned "icon Label - Value" rows. Icon
+   and label use the brand orange (--tp-or, a tawny / copper tone). */
 .tp-meals {
   margin-top: 14px;
   padding-top: 14px;
@@ -15006,18 +15007,24 @@ body.trip-public-body {
 }
 .tp-meal-row {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
-  gap: 12px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tp-meal-icon {
+  color: var(--tp-or);
+  font-size: 14px;
 }
 .tp-meal-label {
-  color: var(--tp-mid);
-  font-weight: 500;
+  color: var(--tp-or);
+  font-weight: 600;
+}
+.tp-meal-sep {
+  color: var(--tp-mid-l);
 }
 .tp-meal-value {
   color: var(--tp-dk);
-  font-weight: 600;
-  text-align: right;
+  font-weight: 500;
 }
 
 /* Accommodation row that points at a content slug — clickable, expands
@@ -15030,16 +15037,21 @@ body.trip-public-body {
   padding: 0;
   margin: 0;
   font: inherit;
+  font-size: 13.5px;
   text-align: left;
   width: 100%;
   cursor: pointer;
   color: inherit;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 .tp-accomm-toggle:hover .tp-meal-value { color: var(--tp-or); }
 .tp-accomm-chev {
-  display: inline-block;
-  margin-left: 4px;
+  margin-left: auto;
   font-size: 12px;
+  color: var(--tp-mid);
   transition: transform 200ms ease;
 }
 .tp-accomm-toggle.is-open .tp-accomm-chev { transform: rotate(180deg); }

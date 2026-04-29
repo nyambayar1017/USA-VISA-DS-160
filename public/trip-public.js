@@ -187,8 +187,13 @@
     const lunch = mealVal(meals.lunch);
     const dinner = mealVal(meals.dinner);
     if (!accom && !breakfast && !lunch && !dinner) return "";
-    const line = (label, value) => value
-      ? `<div class="tp-meal-row"><span class="tp-meal-label">${label}</span><span class="tp-meal-value">${escapeHtml(value)}</span></div>`
+    const line = (icon, label, value) => value
+      ? `<div class="tp-meal-row">
+          <span class="tp-meal-icon">${icon}</span>
+          <span class="tp-meal-label">${label}</span>
+          <span class="tp-meal-sep">-</span>
+          <span class="tp-meal-value">${escapeHtml(value)}</span>
+        </div>`
       : "";
     // If the accommodation value looks like a content slug (no spaces,
     // only [a-z0-9_-]), render as expandable: click → fetch the content
@@ -198,16 +203,19 @@
       ? ""
       : accomIsSlug
         ? `<button type="button" class="tp-meal-row tp-accomm-toggle" data-action="toggle-accomm" data-slug="${escAttr(accom)}">
+            <span class="tp-meal-icon">🛏</span>
             <span class="tp-meal-label">Accommodation</span>
-            <span class="tp-meal-value">${escapeHtml(accom)} <span class="tp-accomm-chev" aria-hidden="true">⌄</span></span>
+            <span class="tp-meal-sep">-</span>
+            <span class="tp-meal-value">${escapeHtml(accom)}</span>
+            <span class="tp-accomm-chev" aria-hidden="true">⌄</span>
           </button>
           <div class="tp-accomm-panel" data-accomm-panel="${escAttr(accom)}" hidden></div>`
-        : line("Accommodation", accom);
+        : line("🛏", "Accommodation", accom);
     return `
       <div class="tp-meals">
-        ${line("Breakfast", breakfast)}
-        ${line("Lunch", lunch)}
-        ${line("Dinner", dinner)}
+        ${line("☕", "Breakfast", breakfast)}
+        ${line("🍴", "Lunch", lunch)}
+        ${line("🍷", "Dinner", dinner)}
         ${accomBlock}
       </div>
     `;
