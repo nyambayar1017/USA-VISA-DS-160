@@ -4,7 +4,7 @@ const taskFormPanel = document.querySelector("#task-form-panel");
 const contactFormPanel = document.querySelector("#contact-form-panel");
 const taskToggleForm = document.querySelector("#task-toggle-form");
 const contactToggleForm = document.querySelector("#contact-toggle-form");
-const taskManagerSelect = document.querySelector("#task-manager-select");
+const taskManagerPicker = document.querySelector("#task-manager-picker");
 const taskSubmitButton = document.querySelector("#task-submit-button");
 const contactSubmitButton = document.querySelector("#contact-submit-button");
 const taskCancelButton = document.querySelector("#task-cancel-button");
@@ -14,6 +14,7 @@ const todoList = document.querySelector("#todo-list");
 const todoCount = document.querySelector("#todo-count");
 const todoSearch = document.querySelector("#todo-search");
 const todoTypeFilter = document.querySelector("#todo-type-filter");
+const todoManagerFilter = document.querySelector("#todo-manager-filter");
 const todoPriorityFilter = document.querySelector("#todo-priority-filter");
 const todoStatusPills = document.querySelector("#todo-status-pills");
 
@@ -53,10 +54,23 @@ const state = {
   tasks: [],
   contacts: [],
   teamMembers: [],
+  currentUser: null,
   editingTaskId: "",
   editingContactId: "",
   activeStatus: "all",
 };
+
+// Tasks used to store a single `owner` string. Newer ones use `owners` (list).
+// This helper returns the canonical list either way so filters and display
+// don't have to branch.
+function taskOwnerList(task) {
+  if (!task) return [];
+  if (Array.isArray(task.owners) && task.owners.length) {
+    return task.owners.filter(Boolean);
+  }
+  if (task.owner) return [task.owner];
+  return [];
+}
 
 const STATUS_LABEL = {
   todo: "Pending",
@@ -149,24 +163,59 @@ function isTaskOverdue(task) {
   return !!(due && due.getTime() < Date.now());
 }
 
-function renderManagerOptions() {
-  if (!taskManagerSelect) return;
-  const currentValue = taskManagerSelect.value;
-  const options = state.teamMembers.length
-    ? state.teamMembers
-        .map(
-          (member) =>
-            `<option value="${escapeHtml(member.fullName)}">${escapeHtml(member.fullName)}</option>`
-        )
-        .join("")
-    : '<option value="">No registered managers found</option>';
+function setTaskManagerSelection(names) {
+  if (!taskManagerPicker) return;
+  const wanted = new Set((names || []).filter(Boolean));
+  taskManagerPicker.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+    cb.checked = wanted.has(cb.value);
+  });
+}
 
-  taskManagerSelect.innerHTML = `
-    <option value="">Choose registered manager</option>
-    ${options}
-  `;
-  if (state.teamMembers.some((member) => member.fullName === currentValue)) {
-    taskManagerSelect.value = currentValue;
+function getTaskManagerSelection() {
+  if (!taskManagerPicker) return [];
+  return Array.from(taskManagerPicker.querySelectorAll('input[type="checkbox"]:checked')).map(
+    (cb) => cb.value
+  );
+}
+
+function renderManagerOptions() {
+  if (taskManagerPicker) {
+    const currentSelection = getTaskManagerSelection();
+    if (!state.teamMembers.length) {
+      taskManagerPicker.innerHTML = '<p class="task-manager-empty">No registered managers found.</p>';
+    } else {
+      taskManagerPicker.innerHTML = state.teamMembers
+        .map(
+          (member) => `
+            <label class="task-manager-chip">
+              <input type="checkbox" name="owners" value="${escapeHtml(member.fullName)}" />
+              <span>${escapeHtml(member.fullName)}</span>
+            </label>
+          `
+        )
+        .join("");
+    }
+    if (currentSelection.length) setTaskManagerSelection(currentSelection);
+  }
+
+  if (todoManagerFilter) {
+    const prevValue = todoManagerFilter.value || "all";
+    const optionsHtml = state.teamMembers
+      .map(
+        (member) =>
+          `<option value="${escapeHtml(member.fullName)}">${escapeHtml(member.fullName)}</option>`
+      )
+      .join("");
+    todoManagerFilter.innerHTML = `
+      <option value="all">All managers</option>
+      <option value="__me__">Assigned to me</option>
+      ${optionsHtml}
+    `;
+    const stillValid =
+      prevValue === "all" ||
+      prevValue === "__me__" ||
+      state.teamMembers.some((m) => m.fullName === prevValue);
+    todoManagerFilter.value = stillValid ? prevValue : "all";
   }
 }
 
@@ -174,6 +223,7 @@ function resetTaskForm() {
   taskForm.reset();
   taskForm.elements.id.value = "";
   state.editingTaskId = "";
+  setTaskManagerSelection([]);
   taskSubmitButton.textContent = "Add task";
   clearStatus(taskStatusNode);
 }
@@ -220,7 +270,7 @@ function startTaskEdit(taskId) {
   state.editingTaskId = taskId;
   taskForm.elements.id.value = task.id;
   taskForm.elements.title.value = task.title || "";
-  taskForm.elements.owner.value = task.owner || "";
+  setTaskManagerSelection(taskOwnerList(task));
   taskForm.elements.priority.value = task.priority || "medium";
   taskForm.elements.status.value = task.status || "todo";
   taskForm.elements.dueDate.value = task.dueDate || "";
@@ -269,8 +319,10 @@ function applyFilters(items) {
   const query = (todoSearch?.value || "").trim().toLowerCase();
   const typeFilter = todoTypeFilter?.value || "all";
   const priority = todoPriorityFilter?.value || "all";
+  const managerFilter = todoManagerFilter?.value || "all";
   const status = state.activeStatus;
   const archiveMode = status === "archive";
+  const meName = (state.currentUser?.fullName || "").toLowerCase();
 
   return items.filter((item) => {
     if (typeFilter === "task" && item.kind !== "task") return false;
@@ -284,15 +336,25 @@ function applyFilters(items) {
         if (status !== "all" && statusKey(item.data) !== status) return false;
       }
       if (priority !== "all" && item.data.priority !== priority) return false;
+      if (managerFilter !== "all") {
+        const owners = taskOwnerList(item.data).map((o) => String(o).toLowerCase());
+        if (managerFilter === "__me__") {
+          if (!meName || !owners.includes(meName)) return false;
+        } else {
+          if (!owners.includes(managerFilter.toLowerCase())) return false;
+        }
+      }
     } else {
       // Contacts don't have task-statuses; hide them when a task-only status pill is active.
       if (status !== "all") return false;
       if (priority !== "all") return false;
+      if (managerFilter !== "all") return false;
     }
 
     if (!query) return true;
     if (item.kind === "task") {
-      return [item.data.title, item.data.owner, item.data.note].some((v) =>
+      const ownersJoined = taskOwnerList(item.data).join(" ");
+      return [item.data.title, ownersJoined, item.data.note].some((v) =>
         String(v || "").toLowerCase().includes(query)
       );
     }
@@ -329,16 +391,21 @@ function renderTaskRow(task, idx) {
   const sLabel = STATUS_LABEL[sKey] || sKey;
   const hasNote = !!(task.note && task.note.trim());
   const dests = Array.isArray(task.destinations) ? task.destinations : [];
+  const owners = taskOwnerList(task);
+  const ownerCell = owners.length
+    ? owners.map((o) => `<span class="todo-owner-chip">${escapeHtml(o)}</span>`).join(" ")
+    : "—";
+  const createdLabel = task.createdAt ? formatDate(task.createdAt) : "—";
   return `
     <tr class="todo-tr todo-tr--task">
       <td>${idx + 1}</td>
-      <td><span class="todo-kind-pill">Task</span></td>
       <td class="todo-cell-title"><strong>${escapeHtml(task.title)}</strong></td>
       <td class="todo-cell-assigner">${escapeHtml(task.createdBy?.name || task.createdBy?.email || "—")}</td>
-      <td class="todo-cell-owner">${escapeHtml(task.owner || "—")}</td>
+      <td class="todo-cell-owner">${ownerCell}</td>
       <td><span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span></td>
       <td><span class="todo-badge status-${escapeHtml(sKey)}">${escapeHtml(sLabel)}</span></td>
       <td><span class="todo-due todo-due--${due.tone}">${escapeHtml(due.label)}${task.dueTime ? ` ${escapeHtml(task.dueTime)}` : ""}</span></td>
+      <td class="todo-cell-created">${escapeHtml(createdLabel)}</td>
       <td class="todo-cell-dests">${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join(" ") : "—"}</td>
       <td>${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">See note</button>` : "—"}</td>
       <td class="todo-cell-actions">
@@ -360,16 +427,17 @@ function renderTaskRow(task, idx) {
 function renderContactRow(contact, idx) {
   const dests = Array.isArray(contact.destinations) ? contact.destinations : [];
   const hasNote = !!(contact.note && contact.note.trim());
+  const createdLabel = contact.createdAt ? formatDate(contact.createdAt) : "—";
   return `
     <tr class="todo-tr todo-tr--contact">
       <td>${idx + 1}</td>
-      <td><span class="todo-kind-pill todo-kind-pill--contact">Contact</span></td>
       <td class="todo-cell-title"><strong>${escapeHtml(contact.name)}</strong></td>
       <td class="todo-cell-assigner">${escapeHtml(contact.createdBy?.name || contact.createdBy?.email || "—")}</td>
       <td class="todo-cell-owner"><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></td>
       <td><span class="todo-badge contact-${escapeHtml(contact.type || "client")}">${escapeHtml(contact.type || "client")}</span></td>
       <td><span class="todo-badge status-${escapeHtml(contact.status || "new")}">${escapeHtml(contact.status || "new")}</span></td>
       <td>${contact.lastContacted ? escapeHtml(formatDate(contact.lastContacted)) : "—"}</td>
+      <td class="todo-cell-created">${escapeHtml(createdLabel)}</td>
       <td class="todo-cell-dests">${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join(" ") : "—"}</td>
       <td>${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(contact.id)}" data-note-kind="contact">See note</button>` : "—"}</td>
       <td class="todo-cell-actions">
@@ -410,13 +478,13 @@ function renderList() {
         <thead>
           <tr>
             <th>#</th>
-            <th>Type</th>
             <th>Title / Name</th>
             <th>From</th>
             <th>To / Phone</th>
             <th>Priority / Type</th>
             <th>Status</th>
             <th>Due / Last contact</th>
+            <th>Created</th>
             <th>Destinations</th>
             <th>Note</th>
             <th>Actions</th>
@@ -438,13 +506,15 @@ function renderStatusPills() {
 async function loadDashboard() {
   todoList.innerHTML = '<p class="empty">Loading...</p>';
   try {
-    const [payload, teamMembersPayload] = await Promise.all([
+    const [payload, teamMembersPayload, mePayload] = await Promise.all([
       fetchJson("/api/manager-dashboard"),
       fetchJson("/api/team-members"),
+      fetchJson("/api/auth/me").catch(() => null),
     ]);
     state.tasks = payload.tasks || [];
     state.contacts = payload.contacts || [];
     state.teamMembers = teamMembersPayload.entries || [];
+    state.currentUser = mePayload?.user || null;
     renderManagerOptions();
     renderList();
   } catch (error) {
@@ -475,10 +545,31 @@ async function submitForm(form, url, statusNode, onSuccess) {
 
 taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const owners = getTaskManagerSelection();
+  if (!owners.length) {
+    setStatus(taskStatusNode, "Choose at least one manager.", true);
+    return;
+  }
   const taskId = taskForm.elements.id.value;
   const url = taskId ? `/api/manager-dashboard/tasks/${taskId}` : "/api/manager-dashboard/tasks";
-  const saved = await submitForm(taskForm, url, taskStatusNode, resetTaskForm);
-  if (saved) closePanel(taskFormPanel);
+  clearStatus(taskStatusNode);
+  const formData = new FormData(taskForm);
+  const payload = Object.fromEntries(formData.entries());
+  payload.owners = owners;
+  delete payload.owner;
+  try {
+    await fetchJson(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    resetTaskForm();
+    setStatus(taskStatusNode, "Saved.");
+    await loadDashboard();
+    closePanel(taskFormPanel);
+  } catch (error) {
+    setStatus(taskStatusNode, error.message, true);
+  }
 });
 
 contactForm.addEventListener("submit", async (event) => {
@@ -633,7 +724,7 @@ contactToggleForm?.addEventListener("click", () => {
   });
 });
 
-[todoSearch, todoTypeFilter, todoPriorityFilter].forEach((node) => {
+[todoSearch, todoTypeFilter, todoManagerFilter, todoPriorityFilter].forEach((node) => {
   node?.addEventListener("input", renderList);
   node?.addEventListener("change", renderList);
 });

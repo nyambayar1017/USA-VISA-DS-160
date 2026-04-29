@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-287" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-288" />
   </head>
   <body class="app-body" data-page="admin">
     <div class="workspace-shell">
@@ -41,7 +41,7 @@
           <h2>Broadcast to Team</h2>
         </div>
         <p style="margin: 0 0 12px; color: #475569;">Post a message that pops up for every manager on their next page load. They tap "Got it" once and it stops appearing for them.</p>
-        <form id="announcement-form" class="field-grid">
+        <form id="announcement-form" class="field-grid" enctype="multipart/form-data">
           <label class="full-span">
             Title
             <input name="title" placeholder="e.g. Friday merge freeze" required />
@@ -49,6 +49,11 @@
           <label class="full-span">
             Message
             <textarea name="body" rows="4" placeholder="Write the full message…" required></textarea>
+          </label>
+          <label class="full-span">
+            Attachment (optional)
+            <input id="announcement-file" name="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt" />
+            <small style="color:#64748b;font-size:0.78rem;">PDF, Word, Excel, image up to 10 MB.</small>
           </label>
           <div class="actions full-span">
             <button type="submit" class="primary-pill">Post broadcast</button>
@@ -84,8 +89,8 @@
     </div>
 
     <script src="/compress-upload.js?v=workspace-1"></script>
-    <script src="/app-shell.js?v=workspace-118"></script>
-    <script src="/admin.js?v=workspace-15"></script>
+    <script src="/app-shell.js?v=workspace-119"></script>
+    <script src="/admin.js?v=workspace-16"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

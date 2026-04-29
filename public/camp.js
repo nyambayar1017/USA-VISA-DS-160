@@ -2996,6 +2996,12 @@ campToggleForm.addEventListener("click", () => {
 });
 
 tripList.addEventListener("click", async (event) => {
+  const menuTrigger = event.target.closest(".trip-menu summary");
+  if (menuTrigger) {
+    closeOpenTripMenus(menuTrigger.closest(".trip-menu"));
+    event.stopPropagation();
+    return;
+  }
   const actionTarget = event.target.closest("[data-action]");
   if (!actionTarget) {
     return;
@@ -3124,6 +3130,7 @@ document.getElementById("trip-rooming-download")?.addEventListener("click", asyn
 async function handleCampTableClick(event) {
   const menuTrigger = event.target.closest(".trip-menu summary");
   if (menuTrigger) {
+    closeOpenTripMenus(menuTrigger.closest(".trip-menu"));
     event.stopPropagation();
     return;
   }

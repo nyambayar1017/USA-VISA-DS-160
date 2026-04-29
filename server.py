@@ -43,6 +43,7 @@ FLIGHT_RESERVATIONS_FILE = DATA_DIR / "flight_reservations.json"
 TRANSFER_RESERVATIONS_FILE = DATA_DIR / "transfer_reservations.json"
 CAMP_TRIPS_FILE = DATA_DIR / "camp_trips.json"
 TRIP_UPLOADS_DIR = DATA_DIR / "trip-uploads"
+ANNOUNCEMENT_UPLOADS_DIR = DATA_DIR / "announcement-uploads"
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".txt"}
 CAMP_SETTINGS_FILE = DATA_DIR / "camp_settings.json"
@@ -120,6 +121,7 @@ def ensure_data_store():
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     TRIP_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    ANNOUNCEMENT_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     TOURIST_PASSPORT_TEMP_DIR.mkdir(parents=True, exist_ok=True)
     MAIL_MESSAGES_DIR.mkdir(parents=True, exist_ok=True)
     MAIL_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1464,6 +1466,18 @@ def write_announcements(records):
     write_json_list(ANNOUNCEMENTS_FILE, records)
 
 
+def _announcement_attachment_view(rec):
+    att = rec.get("attachment") or None
+    if not att:
+        return None
+    return {
+        "originalName": att.get("originalName"),
+        "size": att.get("size"),
+        "mimeType": att.get("mimeType"),
+        "downloadUrl": f"/api/announcements/{rec.get('id')}/attachment",
+    }
+
+
 def handle_list_announcements_active(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -1481,6 +1495,7 @@ def handle_list_announcements_active(environ, start_response):
             "body": rec.get("body", ""),
             "createdAt": rec.get("createdAt", ""),
             "createdBy": rec.get("createdBy", {}),
+            "attachment": _announcement_attachment_view(rec),
         })
     out.sort(key=lambda r: r.get("createdAt") or "", reverse=True)
     return json_response(start_response, "200 OK", {"entries": out})
@@ -1504,6 +1519,7 @@ def handle_list_announcements(environ, start_response):
             "archived": bool(rec.get("archived")),
             "dismissedCount": len(dismissed),
             "dismissedNames": [user_name_by_id.get(uid, uid) for uid in dismissed if uid],
+            "attachment": _announcement_attachment_view(rec),
         })
     out.sort(key=lambda r: r.get("createdAt") or "", reverse=True)
     return json_response(start_response, "200 OK", {"entries": out})
@@ -1513,26 +1529,81 @@ def handle_create_announcement(environ, start_response):
     admin = require_admin(environ, start_response)
     if not admin:
         return []
-    payload = collect_json(environ)
-    if payload is None:
-        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
-    title = normalize_text(payload.get("title"))
-    body = str(payload.get("body") or "").strip()
+    content_type = environ.get("CONTENT_TYPE", "")
+    title = ""
+    body = ""
+    upload = None
+    if "multipart/form-data" in content_type:
+        fields, files = parse_multipart(environ)
+        title = normalize_text(fields.get("title"))
+        body = str(fields.get("body") or "").strip()
+        upload = files.get("file")
+    else:
+        payload = collect_json(environ)
+        if payload is None:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+        title = normalize_text(payload.get("title"))
+        body = str(payload.get("body") or "").strip()
     if not title or not body:
         return json_response(start_response, "400 Bad Request", {"error": "Title and message are both required"})
+    ann_id = str(uuid4())
+    attachment = None
+    if upload and upload.get("data"):
+        original_name = upload.get("filename") or "file"
+        ext = Path(original_name).suffix.lower()
+        if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+            return json_response(start_response, "400 Bad Request", {"error": f"File type {ext} not allowed"})
+        data = upload["data"]
+        if len(data) > MAX_UPLOAD_BYTES:
+            return json_response(start_response, "400 Bad Request", {"error": "File too large (max 10 MB)"})
+        ensure_data_store()
+        stored_name = ann_id + ext
+        (ANNOUNCEMENT_UPLOADS_DIR / stored_name).write_bytes(data)
+        attachment = {
+            "originalName": original_name,
+            "storedName": stored_name,
+            "mimeType": upload.get("content_type") or "application/octet-stream",
+            "size": len(data),
+        }
     rec = {
-        "id": str(uuid4()),
+        "id": ann_id,
         "title": title,
         "body": body,
         "createdAt": now_mongolia().isoformat(),
         "createdBy": actor_snapshot(admin),
         "archived": False,
         "dismissedBy": [],
+        "attachment": attachment,
     }
     records = read_announcements()
     records.append(rec)
     write_announcements(records)
     return json_response(start_response, "200 OK", {"ok": True, "entry": rec})
+
+
+def handle_download_announcement_attachment(environ, start_response, announcement_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    rec = next((r for r in read_announcements() if r.get("id") == announcement_id), None)
+    if not rec or not rec.get("attachment"):
+        return json_response(start_response, "404 Not Found", {"error": "Attachment not found"})
+    att = rec["attachment"]
+    file_path = (ANNOUNCEMENT_UPLOADS_DIR / (att.get("storedName") or "")).resolve()
+    if not str(file_path).startswith(str(ANNOUNCEMENT_UPLOADS_DIR.resolve())) or not file_path.exists():
+        return json_response(start_response, "404 Not Found", {"error": "File missing"})
+    data = file_path.read_bytes()
+    headers = [
+        ("Content-Type", att.get("mimeType") or "application/octet-stream"),
+        ("Content-Length", str(len(data))),
+        (
+            "Content-Disposition",
+            'attachment; filename="' + (att.get("originalName") or "file").replace('"', "") + '"',
+        ),
+        ("Cache-Control", "private, max-age=0, no-cache"),
+    ]
+    start_response("200 OK", headers)
+    return [data]
 
 
 def handle_dismiss_announcement(environ, start_response, announcement_id):
@@ -7125,16 +7196,24 @@ def _find_user_by_name(name):
     return None
 
 
-def send_task_assignment_email(task, actor):
-    """Email the task's assignee that a manager assigned this task to them.
+def _task_owner_names(task):
+    raw = task.get("owners")
+    if isinstance(raw, list) and raw:
+        return [normalize_text(name) for name in raw if normalize_text(name)]
+    single = normalize_text(task.get("owner"))
+    return [single] if single else []
+
+
+def send_task_assignment_email(task, actor, owner_filter=None):
+    """Email each task assignee that a manager assigned this task to them.
     Best-effort: any failure is logged and swallowed so the task save still
-    succeeds. Skips silently if the assignee has no resolvable email."""
-    owner_name = normalize_text(task.get("owner"))
-    if not owner_name:
-        return
-    user = _find_user_by_name(owner_name)
-    owner_email = normalize_text(user.get("email")) if user else ""
-    if not owner_email:
+    succeeds. Skips silently if no assignee has a resolvable email.
+
+    If `owner_filter` is provided (a set of lowercased names), only those
+    owners get an email — used on update so we don't re-spam owners who
+    were already assigned before this edit."""
+    owner_names = _task_owner_names(task)
+    if not owner_names:
         return
     title = normalize_text(task.get("title")) or "Untitled task"
     assigner = normalize_text((actor or {}).get("fullName")) or normalize_text((actor or {}).get("email")) or "Менежер"
@@ -7150,26 +7229,33 @@ def send_task_assignment_email(task, actor):
         f"<strong>Note:</strong><br>{html.escape(note_raw).replace(chr(10), '<br>')}"
         f"</div>"
     ) if note_raw else ""
-    body_html = (
-        f"<p>Сайн байна уу, {html.escape(owner_name)}.</p>"
-        f"<p><strong>{html.escape(assigner)}</strong> танд <strong>{html.escape(title)}</strong> "
-        f"гэсэн шинэ ажил оноолоо.</p>"
-        f"<p>Дуусах хугацаа: <strong>{html.escape(due_label)}</strong></p>"
-        f"{note_html}"
-    )
-    try:
-        _tool_send_email(
-            {
-                "to": owner_email,
-                "subject": f"NEW TASK · {title}",
-                "body": "",
-                "_body_html_override": body_html,
-                "_skip_footer": True,
-            },
-            None,
+    for owner_name in owner_names:
+        if owner_filter is not None and owner_name.lower() not in owner_filter:
+            continue
+        user = _find_user_by_name(owner_name)
+        owner_email = normalize_text(user.get("email")) if user else ""
+        if not owner_email:
+            continue
+        body_html = (
+            f"<p>Сайн байна уу, {html.escape(owner_name)}.</p>"
+            f"<p><strong>{html.escape(assigner)}</strong> танд <strong>{html.escape(title)}</strong> "
+            f"гэсэн шинэ ажил оноолоо.</p>"
+            f"<p>Дуусах хугацаа: <strong>{html.escape(due_label)}</strong></p>"
+            f"{note_html}"
         )
-    except Exception as exc:
-        print(f"[task-assignment] email failed for {owner_email}: {exc}", flush=True)
+        try:
+            _tool_send_email(
+                {
+                    "to": owner_email,
+                    "subject": f"NEW TASK · {title}",
+                    "body": "",
+                    "_body_html_override": body_html,
+                    "_skip_footer": True,
+                },
+                None,
+            )
+        except Exception as exc:
+            print(f"[task-assignment] email failed for {owner_email}: {exc}", flush=True)
 
 
 _TASK_REMINDER_SCAN_AT = [0.0]
@@ -7207,11 +7293,10 @@ def scan_task_reminders():
             continue
         delta = due_dt - now_local
 
-        owner_name = normalize_text(task.get("owner"))
-        user = _find_user_by_name(owner_name)
-        owner_email = normalize_text(user.get("email")) if user else ""
+        owner_names = _task_owner_names(task)
         title = normalize_text(task.get("title")) or "Untitled task"
         due_label = due_dt.strftime("%Y-%m-%d %H:%M")
+        owner_summary = ", ".join(owner_names)
         # Preserve newlines in the user's note so multi-line content keeps
         # its formatting in both the reminder and overdue emails.
         note_raw = str(task.get("note") or "").strip()
@@ -7227,36 +7312,39 @@ def scan_task_reminders():
             and delta > timedelta(seconds=0)
             and delta <= horizon
         ):
-            body_html = (
-                f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
-                f"<p>Танд <strong>{html.escape(title)}</strong> гэсэн ажил <strong>{html.escape(due_label)}</strong>-д дуусах хугацаатай байна. "
-                "Энэ цагаас өмнө гүйцэтгэхээ мартахгүй байгаарай.</p>"
-                f"{note_html}"
-            )
-            if owner_email:
-                try:
-                    _tool_send_email(
-                        {
-                            "to": owner_email,
-                            "subject": f"REMINDER TASK · {title}",
-                            "body": "",
-                            "_body_html_override": body_html,
-                            "_skip_footer": True,
-                        },
-                        None,
-                    )
-                except Exception as exc:
-                    print(f"[task-reminder] approaching email failed for {owner_email}: {exc}", flush=True)
-            try:
-                log_notification(
-                    "task.reminder",
-                    {"id": "system", "email": "noreply", "name": "TravelX"},
-                    f"REMINDER TASK · {title}",
-                    detail=f"Due {due_label}" + (f" · {owner_name}" if owner_name else ""),
-                    meta={"id": task.get("id"), "key": "tasks", "userId": (user or {}).get("id") or ""},
+            for owner_name in owner_names or [""]:
+                user = _find_user_by_name(owner_name) if owner_name else None
+                owner_email = normalize_text(user.get("email")) if user else ""
+                body_html = (
+                    f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
+                    f"<p>Танд <strong>{html.escape(title)}</strong> гэсэн ажил <strong>{html.escape(due_label)}</strong>-д дуусах хугацаатай байна. "
+                    "Энэ цагаас өмнө гүйцэтгэхээ мартахгүй байгаарай.</p>"
+                    f"{note_html}"
                 )
-            except Exception:
-                pass
+                if owner_email:
+                    try:
+                        _tool_send_email(
+                            {
+                                "to": owner_email,
+                                "subject": f"REMINDER TASK · {title}",
+                                "body": "",
+                                "_body_html_override": body_html,
+                                "_skip_footer": True,
+                            },
+                            None,
+                        )
+                    except Exception as exc:
+                        print(f"[task-reminder] approaching email failed for {owner_email}: {exc}", flush=True)
+                try:
+                    log_notification(
+                        "task.reminder",
+                        {"id": "system", "email": "noreply", "name": "TravelX"},
+                        f"REMINDER TASK · {title}",
+                        detail=f"Due {due_label}" + (f" · {owner_summary}" if owner_summary else ""),
+                        meta={"id": task.get("id"), "key": "tasks", "userId": (user or {}).get("id") or ""},
+                    )
+                except Exception:
+                    pass
             task["reminderSentAt"] = now_local.isoformat()
             changed = True
 
@@ -7265,37 +7353,40 @@ def scan_task_reminders():
             not normalize_text(task.get("overdueSentAt"))
             and delta <= timedelta(seconds=0)
         ):
-            body_html = (
-                f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
-                f"<p><strong>{html.escape(title)}</strong> ажлын дуусах хугацаа "
-                f"<strong>{html.escape(due_label)}</strong>-аар хэтэрсэн байна. "
-                "Аль болох хурдан гүйцэтгэж, төлөвийг 'Done' болгоно уу.</p>"
-                f"{note_html}"
-            )
-            if owner_email:
-                try:
-                    _tool_send_email(
-                        {
-                            "to": owner_email,
-                            "subject": f"OVERDUE TASK · {title}",
-                            "body": "",
-                            "_body_html_override": body_html,
-                            "_skip_footer": True,
-                        },
-                        None,
-                    )
-                except Exception as exc:
-                    print(f"[task-reminder] overdue email failed for {owner_email}: {exc}", flush=True)
-            try:
-                log_notification(
-                    "task.overdue",
-                    {"id": "system", "email": "noreply", "name": "TravelX"},
-                    f"OVERDUE TASK · {title}",
-                    detail=f"Due {due_label}" + (f" · {owner_name}" if owner_name else ""),
-                    meta={"id": task.get("id"), "key": "tasks", "userId": (user or {}).get("id") or ""},
+            for owner_name in owner_names or [""]:
+                user = _find_user_by_name(owner_name) if owner_name else None
+                owner_email = normalize_text(user.get("email")) if user else ""
+                body_html = (
+                    f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
+                    f"<p><strong>{html.escape(title)}</strong> ажлын дуусах хугацаа "
+                    f"<strong>{html.escape(due_label)}</strong>-аар хэтэрсэн байна. "
+                    "Аль болох хурдан гүйцэтгэж, төлөвийг 'Done' болгоно уу.</p>"
+                    f"{note_html}"
                 )
-            except Exception:
-                pass
+                if owner_email:
+                    try:
+                        _tool_send_email(
+                            {
+                                "to": owner_email,
+                                "subject": f"OVERDUE TASK · {title}",
+                                "body": "",
+                                "_body_html_override": body_html,
+                                "_skip_footer": True,
+                            },
+                            None,
+                        )
+                    except Exception as exc:
+                        print(f"[task-reminder] overdue email failed for {owner_email}: {exc}", flush=True)
+                try:
+                    log_notification(
+                        "task.overdue",
+                        {"id": "system", "email": "noreply", "name": "TravelX"},
+                        f"OVERDUE TASK · {title}",
+                        detail=f"Due {due_label}" + (f" · {owner_summary}" if owner_summary else ""),
+                        meta={"id": task.get("id"), "key": "tasks", "userId": (user or {}).get("id") or ""},
+                    )
+                except Exception:
+                    pass
             task["overdueSentAt"] = now_local.isoformat()
             changed = True
 
@@ -7322,11 +7413,40 @@ def handle_get_manager_dashboard(start_response):
     )
 
 
+def _normalize_owner_list(payload):
+    """Accept either `owners` (list) or legacy `owner` (string).
+    Returns (owners_list, primary_owner_string) — primary is owners[0] or "".
+    Used to keep email + reminder lookup working while moving to multi-assign."""
+    raw = payload.get("owners")
+    owners: list[str] = []
+    if isinstance(raw, list):
+        owners = [normalize_text(item) for item in raw if normalize_text(item)]
+    elif isinstance(raw, str):
+        owners = [normalize_text(part) for part in raw.split(",") if normalize_text(part)]
+    if not owners:
+        single = normalize_text(payload.get("owner"))
+        if single:
+            owners = [single]
+    # de-dupe while preserving order
+    seen = set()
+    deduped: list[str] = []
+    for name in owners:
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(name)
+    return deduped, deduped[0] if deduped else ""
+
+
 def build_manager_task(payload):
+    owners, primary = _normalize_owner_list(payload)
     return {
         "id": str(uuid4()),
         "title": normalize_text(payload.get("title")),
-        "owner": normalize_text(payload.get("owner")),
+        "owners": owners,
+        # Keep `owner` populated for older callers / agents that still read it.
+        "owner": primary,
         "priority": normalize_text(payload.get("priority")).lower() or "medium",
         "status": normalize_text(payload.get("status")).lower() or "todo",
         "dueDate": normalize_text(payload.get("dueDate")),
@@ -7899,10 +8019,11 @@ def handle_manager_item_update(environ, start_response, key, item_id, builder, v
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
     store = read_manager_dashboard()
-    prior_owner = ""
+    prior_owners: set[str] = set()
     if key == "tasks":
         existing = next((t for t in store.get(key, []) if t.get("id") == item_id), None)
-        prior_owner = normalize_text((existing or {}).get("owner")).lower()
+        if existing:
+            prior_owners = {n.lower() for n in _task_owner_names(existing)}
     record, error = update_manager_item(store[key], item_id, payload, builder, validator)
     if error == "Record not found":
         return json_response(start_response, "404 Not Found", {"error": error})
@@ -7910,10 +8031,11 @@ def handle_manager_item_update(environ, start_response, key, item_id, builder, v
         return json_response(start_response, "400 Bad Request", {"error": error})
     write_manager_dashboard(store)
     if key == "tasks":
-        new_owner = normalize_text(record.get("owner")).lower()
-        if new_owner and new_owner != prior_owner:
+        new_owners = {n.lower() for n in _task_owner_names(record)}
+        added = new_owners - prior_owners
+        if added:
             try:
-                send_task_assignment_email(record, actor)
+                send_task_assignment_email(record, actor, owner_filter=added)
             except Exception as exc:
                 print(f"[task-assignment] dispatch failed: {exc}", flush=True)
     try:
@@ -13453,6 +13575,7 @@ def _tool_create_task(args, actor):
     payload = {
         "title": normalize_text(args.get("title")),
         "owner": normalize_text(args.get("owner")),
+        "owners": args.get("owners"),
         "priority": (normalize_text(args.get("priority")) or "medium").lower(),
         "status": (normalize_text(args.get("status")) or "pending").lower(),
         "dueDate": normalize_text(args.get("dueDate")),
@@ -14404,9 +14527,10 @@ AGENT_TOOLS = [
     {"name": "list_tasks", "description": "List manager-dashboard tasks. Optional status filter (pending, in-progress, done, cancelled, overdue).",
      "input_schema": {"type": "object", "properties": {"status": {"type": "string"}}},
      "handler": _tool_list_tasks},
-    {"name": "create_task", "description": "Create a to-do task. owner is the assigned manager's name; createdBy stamps automatically.",
+    {"name": "create_task", "description": "Create a to-do task. Pass `owners` (list of manager names) for multi-assign, or `owner` (single name) for backwards compat. createdBy stamps automatically.",
      "input_schema": {"type": "object", "required": ["title"], "properties": {
          "title": {"type": "string"}, "owner": {"type": "string"},
+         "owners": {"type": "array", "items": {"type": "string"}},
          "priority": {"type": "string", "enum": ["low", "medium", "high"]},
          "status": {"type": "string", "enum": ["pending", "in-progress", "done", "cancelled"]},
          "dueDate": {"type": "string"}, "dueTime": {"type": "string"},
@@ -15054,6 +15178,12 @@ def _dispatch(environ, start_response):
         announcement_id = path.replace("/api/announcements/", "", 1).rsplit("/archive", 1)[0].strip("/")
         if method == "POST" and announcement_id:
             return handle_archive_announcement(environ, start_response, announcement_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/announcements/") and path.endswith("/attachment"):
+        announcement_id = path.replace("/api/announcements/", "", 1).rsplit("/attachment", 1)[0].strip("/")
+        if method == "GET" and announcement_id:
+            return handle_download_announcement_attachment(environ, start_response, announcement_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/notifications":

@@ -307,6 +307,10 @@ function renderAnnouncements(entries) {
     const archiveBtn = e.archived
       ? ""
       : `<button type="button" class="secondary-button" data-archive="${annEsc(e.id)}">Archive</button>`;
+    const att = e.attachment || null;
+    const attachmentHtml = att
+      ? `<div style="margin-top:8px;font-size:0.85rem;">📎 <a href="${annEsc(att.downloadUrl)}" target="_blank" rel="noopener">${annEsc(att.originalName)}</a></div>`
+      : "";
     return `
       <div class="card" style="margin-bottom:10px;padding:14px 16px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
@@ -316,6 +320,7 @@ function renderAnnouncements(entries) {
               ${annEsc(created)} ${author ? "· " + author : ""} ${archivedTag}
             </div>
             <div style="margin-top:8px;color:#1f2937;line-height:1.45;">${body}</div>
+            ${attachmentHtml}
             <div style="margin-top:8px;font-size:0.78rem;color:#64748b;">${readers} · ${e.dismissedCount || 0} read</div>
           </div>
           <div>${archiveBtn}</div>
@@ -337,13 +342,19 @@ async function loadAnnouncements() {
 announcementForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (announcementStatus) announcementStatus.textContent = "Posting…";
-  const data = Object.fromEntries(new FormData(announcementForm).entries());
+  const formData = new FormData(announcementForm);
+  // Drop empty file part so the server doesn't waste cycles parsing it.
+  const fileInput = announcementForm.querySelector('#announcement-file');
+  if (fileInput && (!fileInput.files || fileInput.files.length === 0 || !fileInput.files[0].size)) {
+    formData.delete("file");
+  }
   try {
-    await fetchJson("/api/announcements", {
+    const response = await fetch("/api/announcements", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: data.title, body: data.body }),
+      body: formData,
     });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Request failed");
     announcementForm.reset();
     if (announcementStatus) announcementStatus.textContent = "Broadcast posted.";
     await loadAnnouncements();

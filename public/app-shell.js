@@ -1393,12 +1393,30 @@ function showOneAnnouncement(ann, onClose) {
   const titleSafe = String(ann.title || "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const metaSafe = `${created}${author ? " · " + author.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""}`;
+  const escAttr = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const att = ann.attachment || null;
+  let attachmentHtml = "";
+  if (att) {
+    const isImage = /^image\//.test(att.mimeType || "") || /\.(png|jpe?g|gif)$/i.test(att.originalName || "");
+    const previewHtml = isImage
+      ? `<img src="${escAttr(att.downloadUrl)}" alt="${escAttr(att.originalName)}" class="announcement-modal-image" />`
+      : "";
+    attachmentHtml = `
+      <div class="announcement-modal-attachment">
+        ${previewHtml}
+        <a href="${escAttr(att.downloadUrl)}" target="_blank" rel="noopener" download>
+          📎 ${escAttr(att.originalName)}
+        </a>
+      </div>
+    `;
+  }
   overlay.innerHTML = `
     <div class="announcement-modal-dialog" role="dialog" aria-modal="true">
       <div class="announcement-modal-kicker">Message from admin</div>
       <h2 class="announcement-modal-title">${titleSafe}</h2>
       <p class="announcement-modal-meta">${metaSafe}</p>
       <div class="announcement-modal-body">${bodyHtml}</div>
+      ${attachmentHtml}
       <div class="announcement-modal-actions">
         <button type="button" class="primary-pill" data-action="ack">Got it</button>
       </div>
