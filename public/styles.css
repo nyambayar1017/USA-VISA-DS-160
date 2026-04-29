@@ -15524,24 +15524,32 @@ body[data-page="trip-creator"] .tc-publish-state[data-state="draft"] {
 .tpl-loc-tabs {
   display: flex;
   gap: 6px;
-  border-bottom: 1px solid #e5e7eb;
   padding-bottom: 4px;
 }
 .tpl-loc-tab {
   appearance: none;
   -webkit-appearance: none;
-  background: transparent;
-  border: 0;
-  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid rgba(32, 53, 111, 0.18);
+  padding: 6px 14px;
   font: inherit;
   font-size: 13px;
   font-weight: 600;
-  color: #475569;
-  border-bottom: 2px solid transparent;
+  color: #20356f;
+  border-radius: 999px;
   cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
-.tpl-loc-tab:hover { color: #253a77; }
-.tpl-loc-tab.is-active { color: #253a77; border-bottom-color: #253a77; }
+.tpl-loc-tab:hover {
+  background: rgba(32, 53, 111, 0.06);
+  border-color: rgba(32, 53, 111, 0.3);
+}
+.tpl-loc-tab.is-active {
+  background: #20356f;
+  color: #fff;
+  border-color: #20356f;
+}
+.tpl-loc-tab.is-active:hover { background: #16265a; }
 .tpl-loc-pane {
   display: flex;
   flex-direction: column;
