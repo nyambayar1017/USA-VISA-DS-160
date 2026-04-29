@@ -110,6 +110,9 @@
   const bulkDeleteBtn = document.getElementById("gal-bulk-delete");
   const bulkClearBtn = document.getElementById("gal-bulk-clear");
   const selectAllBtn = document.getElementById("gal-select-all");
+  const sortSelect = document.getElementById("gal-sort");
+  const groupSelect = document.getElementById("gal-group");
+  const viewToggleEl = document.querySelector(".gallery-view-toggle");
 
   const state = {
     entries: [],
@@ -118,6 +121,9 @@
     totalCount: 0,
     activeFolder: "", // "" = All, "__none__" = no folder, else folder name
     selected: new Set(),
+    view: localStorage.getItem("gal_view") || "icons",     // icons | compact | list
+    sort: localStorage.getItem("gal_sort") || "newest",    // newest | oldest | name-asc | name-desc | size-desc
+    group: localStorage.getItem("gal_group") || "none",    // none | folder | month | tag
   };
 
   function escapeHtml(value) {
@@ -229,17 +235,125 @@
     });
   }
 
+  function sortEntries(entries) {
+    const arr = entries.slice();
+    switch (state.sort) {
+      case "oldest":
+        arr.sort((a, b) => (a.uploadedAt || "").localeCompare(b.uploadedAt || ""));
+        break;
+      case "name-asc":
+        arr.sort((a, b) => (a.originalName || "").localeCompare(b.originalName || "", undefined, { sensitivity: "base" }));
+        break;
+      case "name-desc":
+        arr.sort((a, b) => (b.originalName || "").localeCompare(a.originalName || "", undefined, { sensitivity: "base" }));
+        break;
+      case "size-desc":
+        arr.sort((a, b) => (b.size || 0) - (a.size || 0));
+        break;
+      case "newest":
+      default:
+        arr.sort((a, b) => (b.uploadedAt || "").localeCompare(a.uploadedAt || ""));
+    }
+    return arr;
+  }
+
+  function groupKey(entry) {
+    switch (state.group) {
+      case "folder":
+        return (entry.folder || "").trim() || "— No folder —";
+      case "month": {
+        const t = entry.uploadedAt || "";
+        // ISO timestamps lead with YYYY-MM; group key = "2026-04"
+        const m = t.match(/^(\d{4})-(\d{2})/);
+        return m ? `${m[1]}-${m[2]}` : "Unknown";
+      }
+      case "tag": {
+        const tags = entry.tags || [];
+        return tags.length ? tags[0] : "— No tag —";
+      }
+      default:
+        return "";
+    }
+  }
+
+  function groupEntries(entries) {
+    if (state.group === "none") return [{ key: "", items: entries }];
+    const buckets = new Map();
+    entries.forEach((e) => {
+      const key = groupKey(e);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(e);
+    });
+    return Array.from(buckets.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: "base" }))
+      .map(([key, items]) => ({ key, items }));
+  }
+
+  function cardHtml(e) {
+    const tags = (e.tags || [])
+      .map((t) => `<span class="gallery-chip">${escapeHtml(t)}</span>`)
+      .join(" ");
+    const thumb = e.kind === "image"
+      ? `/api/gallery/${encodeURIComponent(e.id)}/file?size=thumb`
+      : "";
+    const preview = e.kind === "image"
+      ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(e.originalName)}" loading="lazy" />`
+      : `<div class="gallery-video-placeholder">▶ Video</div>`;
+    const meta = e.kind === "image"
+      ? fmtSize(e.size)
+      : `<a href="${escapeHtml(e.url)}" target="_blank" rel="noopener">Open ↗</a>`;
+    const isSelected = state.selected.has(e.id);
+    const folderBadge = e.folder
+      ? `<span class="gallery-folder-badge">📁 ${escapeHtml(e.folder)}</span>`
+      : "";
+    return `
+      <article class="gallery-card${isSelected ? " is-selected" : ""}" data-id="${escapeHtml(e.id)}" draggable="true">
+        <label class="gallery-select">
+          <input type="checkbox" data-action="toggle-select" data-id="${escapeHtml(e.id)}" ${isSelected ? "checked" : ""} />
+        </label>
+        <div class="gallery-thumb">${preview}</div>
+        <div class="gallery-card-body">
+          <p class="gallery-card-title" title="${escapeHtml(e.originalName)}">${escapeHtml(e.originalName)}</p>
+          <p class="gallery-card-meta">${meta} ${folderBadge}</p>
+          <div class="gallery-tags">${tags}</div>
+          <div class="gallery-actions">
+            <button type="button" class="gallery-copy-id" data-action="copy-id" data-id="${escapeHtml(e.id)}" title="Copy ID">📋 ID</button>
+            <button type="button" class="gallery-edit" data-action="edit" data-id="${escapeHtml(e.id)}">Edit</button>
+            <button type="button" class="gallery-delete" data-action="delete" data-id="${escapeHtml(e.id)}">Delete</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function applyViewClass() {
+    grid.classList.remove("gallery-grid--icons", "gallery-grid--compact", "gallery-grid--list");
+    grid.classList.add(`gallery-grid--${state.view}`);
+  }
+
+  function refreshViewControls() {
+    if (viewToggleEl) {
+      viewToggleEl.querySelectorAll("[data-view]").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.dataset.view === state.view);
+      });
+    }
+    if (sortSelect) sortSelect.value = state.sort;
+    if (groupSelect) groupSelect.value = state.group;
+  }
+
   function render() {
+    applyViewClass();
+    refreshViewControls();
     const q = (searchInput.value || "").trim().toLowerCase();
     const tag = (tagInput.value || "").trim().toLowerCase();
     const kind = kindSelect.value;
     const folderFilter = state.activeFolder;
-    const filtered = currentFiltered();
+    const filtered = sortEntries(currentFiltered());
 
     // Folder cards appear inline with media — but only on the "All" view
-    // (no folder selected) so the grid doubles as a Finder-style browser.
-    // Inside a folder, we want to focus on its contents only.
-    const showFolderCards = folderFilter === "" && !q && !tag && !kind;
+    // (no folder selected, no grouping, no search/tag/kind filter) and
+    // only in icon mode where the visual cards make sense.
+    const showFolderCards = folderFilter === "" && !q && !tag && !kind && state.group === "none" && state.view === "icons";
     const folderCardsHtml = showFolderCards
       ? state.folders.map((f) => {
           const sample = state.entries.find(
@@ -265,44 +379,15 @@
       grid.innerHTML = `<p class="empty">No media match these filters.</p>`;
       return;
     }
-    grid.innerHTML = folderCardsHtml + filtered
-      .map((e) => {
-        const tags = (e.tags || [])
-          .map((t) => `<span class="gallery-chip">${escapeHtml(t)}</span>`)
-          .join(" ");
-        const thumb = e.kind === "image"
-          ? `/api/gallery/${encodeURIComponent(e.id)}/file?size=thumb`
-          : "";
-        const preview = e.kind === "image"
-          ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(e.originalName)}" loading="lazy" />`
-          : `<div class="gallery-video-placeholder">▶ Video</div>`;
-        const meta = e.kind === "image"
-          ? fmtSize(e.size)
-          : `<a href="${escapeHtml(e.url)}" target="_blank" rel="noopener">Open ↗</a>`;
-        const isSelected = state.selected.has(e.id);
-        const folderBadge = e.folder
-          ? `<span class="gallery-folder-badge">📁 ${escapeHtml(e.folder)}</span>`
-          : "";
-        return `
-          <article class="gallery-card${isSelected ? " is-selected" : ""}" data-id="${escapeHtml(e.id)}" draggable="true">
-            <label class="gallery-select">
-              <input type="checkbox" data-action="toggle-select" data-id="${escapeHtml(e.id)}" ${isSelected ? "checked" : ""} />
-            </label>
-            <div class="gallery-thumb">${preview}</div>
-            <div class="gallery-card-body">
-              <p class="gallery-card-title" title="${escapeHtml(e.originalName)}">${escapeHtml(e.originalName)}</p>
-              <p class="gallery-card-meta">${meta} ${folderBadge}</p>
-              <div class="gallery-tags">${tags}</div>
-              <div class="gallery-actions">
-                <button type="button" class="gallery-copy-id" data-action="copy-id" data-id="${escapeHtml(e.id)}" title="Copy ID">📋 ID</button>
-                <button type="button" class="gallery-edit" data-action="edit" data-id="${escapeHtml(e.id)}">Edit</button>
-                <button type="button" class="gallery-delete" data-action="delete" data-id="${escapeHtml(e.id)}">Delete</button>
-              </div>
-            </div>
-          </article>
-        `;
-      })
-      .join("");
+    if (state.group === "none") {
+      grid.innerHTML = folderCardsHtml + filtered.map(cardHtml).join("");
+    } else {
+      const groups = groupEntries(filtered);
+      grid.innerHTML = folderCardsHtml + groups.map((g) => `
+        <h3 class="gallery-group-head">${escapeHtml(g.key)} <em>${g.items.length}</em></h3>
+        <div class="gallery-group-body">${g.items.map(cardHtml).join("")}</div>
+      `).join("");
+    }
   }
 
   async function load() {
@@ -894,6 +979,25 @@
   [searchInput, kindSelect, tagInput].forEach((node) => {
     node?.addEventListener("input", render);
     node?.addEventListener("change", render);
+  });
+
+  // ── View toggle / sort / group ──────────────────────────────
+  viewToggleEl?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-view]");
+    if (!btn) return;
+    state.view = btn.dataset.view;
+    localStorage.setItem("gal_view", state.view);
+    render();
+  });
+  sortSelect?.addEventListener("change", () => {
+    state.sort = sortSelect.value;
+    localStorage.setItem("gal_sort", state.sort);
+    render();
+  });
+  groupSelect?.addEventListener("change", () => {
+    state.group = groupSelect.value;
+    localStorage.setItem("gal_group", state.group);
+    render();
   });
 
   // ── Folder bar interactions ──────────────────────────────────

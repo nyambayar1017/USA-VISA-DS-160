@@ -14573,6 +14573,163 @@ body.gallery-file-drag .gallery-folder-card.is-drop-hover {
   outline: 3px solid #20356f;
 }
 
+/* Gallery: view-mode toolbar (Icons / Compact / List) + sort + group */
+.gallery-view-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 6px 0 12px;
+}
+.gallery-view-toggle {
+  display: inline-flex;
+  border: 1px solid #d0d7e8;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #fff;
+}
+.gallery-view-toggle button {
+  border: 0;
+  background: #fff;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #475569;
+}
+.gallery-view-toggle button.is-active {
+  background: #20356f;
+  color: #fff;
+}
+.gallery-view-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+  color: #475569;
+  font-weight: 600;
+}
+.gallery-view-select select {
+  padding: 5px 10px;
+  border: 1px solid #d0d7e8;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  background: #fff;
+}
+
+/* Gallery view modes — these override .gallery-grid grid-template-columns */
+.gallery-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+}
+.gallery-grid--compact .gallery-card-body {
+  padding: 6px 8px;
+}
+.gallery-grid--compact .gallery-card-title { font-size: 0.78rem; }
+.gallery-grid--compact .gallery-card-meta,
+.gallery-grid--compact .gallery-tags,
+.gallery-grid--compact .gallery-actions {
+  display: none;
+}
+.gallery-grid--compact .gallery-thumb { aspect-ratio: 1; }
+
+.gallery-grid--list {
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px !important;
+}
+.gallery-grid--list .gallery-card {
+  display: grid;
+  grid-template-columns: 32px 56px minmax(160px, 2fr) minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  position: relative;
+}
+.gallery-grid--list .gallery-thumb {
+  width: 56px;
+  height: 56px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.gallery-grid--list .gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gallery-grid--list .gallery-card-body {
+  padding: 0;
+  display: contents;
+}
+.gallery-grid--list .gallery-card-title {
+  font-size: 0.88rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+.gallery-grid--list .gallery-card-meta {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gallery-grid--list .gallery-tags { display: none; }
+.gallery-grid--list .gallery-actions {
+  display: flex;
+  gap: 4px;
+}
+.gallery-grid--list .gallery-actions button {
+  font-size: 0.76rem;
+  padding: 4px 8px;
+}
+.gallery-grid--list .gallery-select {
+  position: static;
+}
+.gallery-grid--list .gallery-folder-card {
+  /* Folder cards are hidden in list mode (see render()), but if any
+     slip through, keep them visually consistent. */
+  grid-template-columns: 32px 56px 1fr;
+}
+
+/* Group-by headers shown when state.group !== "none" */
+.gallery-group-head {
+  grid-column: 1 / -1;
+  margin: 14px 0 6px;
+  font-size: 0.94rem;
+  color: #20356f;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gallery-group-head em {
+  font-style: normal;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #6b7280;
+  background: #eef2f7;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+.gallery-group-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  align-content: start;
+  margin-bottom: 4px;
+}
+.gallery-grid--compact .gallery-group-body {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.gallery-grid--list .gallery-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* Gallery: alt-text 9-language grid */
 .gal-alt-fieldset {
   border: 1px solid #e5e7eb;
