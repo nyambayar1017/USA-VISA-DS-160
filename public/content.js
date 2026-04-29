@@ -18,6 +18,16 @@
   const imageIdsInput = document.getElementById("ct-image-ids");
   const imagePreview = document.getElementById("ct-image-preview");
   const pickImagesBtn = document.getElementById("ct-pick-images-btn");
+  const viewLink = document.getElementById("ct-view-link");
+
+  // Keep the View link's href in sync with the slug field, but only enable
+  // it once the item has been saved (otherwise /c/<slug> 404s).
+  function setViewLink(slug, enabled) {
+    if (!viewLink) return;
+    viewLink.href = slug ? `/c/${encodeURIComponent(slug)}` : "#";
+    viewLink.classList.toggle("is-disabled", !enabled || !slug);
+    viewLink.setAttribute("aria-disabled", (!enabled || !slug) ? "true" : "false");
+  }
   const modalTitle = document.getElementById("ct-modal-title");
 
   const state = { entries: [], editingId: "" };
@@ -116,6 +126,7 @@
     renderGroups((rec && rec.bulletGroups) || [{ heading: "", items: [""] }]);
     setImageIds((rec && rec.imageIds) || []);
     deleteBtn.hidden = !state.editingId;
+    setViewLink(rec ? rec.slug : "", !!state.editingId);
     setStatus("");
     modal.classList.remove("is-hidden");
     modal.removeAttribute("hidden");
@@ -238,6 +249,14 @@
     setImageIds(getImageIds().filter((id) => id !== target.dataset.id));
   });
 
+  viewLink?.addEventListener("click", (event) => {
+    if (viewLink.classList.contains("is-disabled")) {
+      event.preventDefault();
+      setStatus("Save first, then click View.", "error");
+      setTimeout(() => setStatus(""), 2000);
+    }
+  });
+
   pickImagesBtn?.addEventListener("click", async () => {
     if (!window.ImagePicker) return;
     const picked = await window.ImagePicker.open({
@@ -273,6 +292,12 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Save failed");
       setStatus("Saved.", "ok");
+      // Activate View link with the saved slug (slug may have been auto-
+      // generated from the title or de-duped server-side).
+      if (data.entry && data.entry.slug) {
+        state.editingId = data.entry.id || state.editingId;
+        setViewLink(data.entry.slug, true);
+      }
       closeModal();
       load();
     } catch (err) {

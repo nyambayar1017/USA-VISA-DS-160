@@ -16597,6 +16597,11 @@ def _dispatch(environ, start_response):
     if path.startswith("/trip/"):
         return file_response(start_response, PUBLIC_DIR / "trip-public.html")
 
+    # /c/<slug> — standalone public view of one content item. Same auth
+    # rule as /trip/<id>: served to anyone, the API lookup enforces draft.
+    if path.startswith("/c/"):
+        return file_response(start_response, PUBLIC_DIR / "content-view.html")
+
     if path == "/tourist":
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
