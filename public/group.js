@@ -1526,8 +1526,16 @@ function findMissingParticipantFields(form) {
     const el = form.elements[key];
     if (!el || !String(el.value || "").trim()) missing.push(label);
   }
+  // Passport scan check: a fresh upload sets a one-shot token on the
+  // form, but when editing a tourist that already has a passport on
+  // file the token is empty — so also look for an existing passport
+  // document linked to this tourist before flagging it as missing.
   const tokenEl = form.elements.passportFileToken;
-  if (!tokenEl || !String(tokenEl.value || "").trim()) missing.push("Passport scan");
+  const hasFreshUpload = tokenEl && String(tokenEl.value || "").trim();
+  const hasExistingPassport = editingId && ((trip && trip.documents) || []).some(
+    (d) => d.touristId === editingId && /passport/i.test(String(d.category || ""))
+  );
+  if (!hasFreshUpload && !hasExistingPassport) missing.push("Passport scan");
   return missing;
 }
 
