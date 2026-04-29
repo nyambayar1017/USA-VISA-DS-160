@@ -40,7 +40,15 @@
   }
 
   async function createTemplate() {
-    const name = (window.prompt("Meal template name (e.g. \"Hotel breakfast\")") || "").trim();
+    const ui = window.UI;
+    const raw = ui && ui.prompt
+      ? await ui.prompt("Reusable venue string the trip-creator suggests on Breakfast/Lunch/Dinner inputs.", {
+          title: "New meal template",
+          confirmLabel: "Add",
+          defaultValue: "",
+        })
+      : window.prompt("Meal template name (e.g. \"Hotel breakfast\")");
+    const name = (raw || "").trim();
     if (!name) return;
     try {
       const res = await fetch("/api/meal-templates", {
@@ -72,7 +80,15 @@
   }
 
   async function deleteTemplate(id, name) {
-    if (!window.confirm(`Delete meal template "${name}"?`)) return;
+    const ui = window.UI;
+    const ok = ui && ui.confirm
+      ? await ui.confirm(`Delete meal template "${name}"?`, {
+          title: "Delete template",
+          confirmLabel: "Delete",
+          cancelLabel: "Cancel",
+        })
+      : window.confirm(`Delete meal template "${name}"?`);
+    if (!ok) return;
     try {
       const res = await fetch(`/api/meal-templates/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (!res.ok) {
