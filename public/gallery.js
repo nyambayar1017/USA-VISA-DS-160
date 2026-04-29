@@ -138,12 +138,37 @@
       }
       return true;
     });
+
+    // Folder cards appear inline with media — but only on the "All" view
+    // (no folder selected) so the grid doubles as a Finder-style browser.
+    // Inside a folder, we want to focus on its contents only.
+    const showFolderCards = folderFilter === "" && !q && !tag && !kind;
+    const folderCardsHtml = showFolderCards
+      ? state.folders.map((f) => {
+          const sample = state.entries.find(
+            (e) => e.kind === "image" && (e.folder || "").toLowerCase() === f.name.toLowerCase()
+          );
+          const cover = sample
+            ? `<img src="/api/gallery/${encodeURIComponent(sample.id)}/file?size=thumb" alt="" loading="lazy" />`
+            : `<div class="gallery-folder-cover-empty">📁</div>`;
+          return `
+            <article class="gallery-card gallery-folder-card" data-folder-target="${escapeHtml(f.name)}">
+              <div class="gallery-thumb gallery-folder-cover">${cover}</div>
+              <div class="gallery-card-body">
+                <p class="gallery-card-title" title="${escapeHtml(f.name)}">📁 ${escapeHtml(f.name)}</p>
+                <p class="gallery-card-meta">${f.count} item${f.count === 1 ? "" : "s"}</p>
+              </div>
+            </article>
+          `;
+        }).join("")
+      : "";
+
     count.textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}`;
-    if (!filtered.length) {
+    if (!filtered.length && !folderCardsHtml) {
       grid.innerHTML = `<p class="empty">No media match these filters.</p>`;
       return;
     }
-    grid.innerHTML = filtered
+    grid.innerHTML = folderCardsHtml + filtered
       .map((e) => {
         const tags = (e.tags || [])
           .map((t) => `<span class="gallery-chip">${escapeHtml(t)}</span>`)
@@ -162,7 +187,7 @@
           ? `<span class="gallery-folder-badge">📁 ${escapeHtml(e.folder)}</span>`
           : "";
         return `
-          <article class="gallery-card${isSelected ? " is-selected" : ""}" data-id="${escapeHtml(e.id)}">
+          <article class="gallery-card${isSelected ? " is-selected" : ""}" data-id="${escapeHtml(e.id)}" draggable="true">
             <label class="gallery-select">
               <input type="checkbox" data-action="toggle-select" data-id="${escapeHtml(e.id)}" ${isSelected ? "checked" : ""} />
             </label>
@@ -604,6 +629,124 @@
       createFolder();
     }
   });
+
+  // ── Folder cards in the grid: click to enter ─────────────────
+  // Folder cards (rendered when no folder is active) double as drop
+  // targets and as folder navigation. The drag-and-drop logic below
+  // handles the drop case; this handles the plain click.
+  grid.addEventListener("click", (event) => {
+    const folderCard = event.target.closest(".gallery-folder-card");
+    if (!folderCard) return;
+    // Skip if this click is part of a drag (browsers fire click after a
+    // failed drop — but `dragging` flag below is cleared on dragend).
+    state.activeFolder = folderCard.dataset.folderTarget;
+    refreshFolderBar();
+    render();
+  });
+
+  // ── Drag-and-drop: move media into a folder ──────────────────
+  // The grid (image cards) and the folder chip bar both participate.
+  // Folder cards in the grid and folder chips in the chip bar are drop
+  // targets; image cards are drag sources. If the dragged card is one of
+  // many selected, we move all selected items in one go.
+  let dragPayload = null; // Set { ids: [...] }
+  function clearDragHover() {
+    document.querySelectorAll(".is-drop-hover").forEach((el) => el.classList.remove("is-drop-hover"));
+  }
+
+  grid.addEventListener("dragstart", (event) => {
+    const card = event.target.closest(".gallery-card");
+    if (!card || card.classList.contains("gallery-folder-card")) {
+      event.preventDefault();
+      return;
+    }
+    const id = card.dataset.id;
+    // If the dragged card is part of a multi-selection, drag the whole set.
+    const ids = state.selected.has(id) && state.selected.size > 1
+      ? Array.from(state.selected)
+      : [id];
+    dragPayload = { ids };
+    event.dataTransfer.effectAllowed = "move";
+    try { event.dataTransfer.setData("text/plain", ids.join(",")); } catch (_) {}
+    document.body.classList.add("gallery-dragging");
+  });
+  grid.addEventListener("dragend", () => {
+    dragPayload = null;
+    document.body.classList.remove("gallery-dragging");
+    clearDragHover();
+  });
+
+  function bindDropTarget(root, getFolderName) {
+    if (!root) return;
+    root.addEventListener("dragover", (event) => {
+      if (!dragPayload) return;
+      const target = event.target.closest("[data-folder-target], [data-folder]");
+      if (!target) return;
+      const name = getFolderName(target);
+      if (name === null) return; // not a valid drop spot
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      // Visual hint: only highlight the current target.
+      if (!target.classList.contains("is-drop-hover")) {
+        clearDragHover();
+        target.classList.add("is-drop-hover");
+      }
+    });
+    root.addEventListener("dragleave", (event) => {
+      const target = event.target.closest("[data-folder-target], [data-folder]");
+      if (target && !target.contains(event.relatedTarget)) {
+        target.classList.remove("is-drop-hover");
+      }
+    });
+    root.addEventListener("drop", async (event) => {
+      if (!dragPayload) return;
+      const target = event.target.closest("[data-folder-target], [data-folder]");
+      if (!target) return;
+      const name = getFolderName(target);
+      if (name === null) return;
+      event.preventDefault();
+      const ids = dragPayload.ids;
+      dragPayload = null;
+      clearDragHover();
+      await moveItemsToFolder(ids, name);
+    });
+  }
+  // Folder cards in the grid carry data-folder-target. The chip bar uses
+  // data-folder. The "All" chip (data-folder="") is skipped because
+  // dragging "to All" has no clear meaning.
+  bindDropTarget(grid, (target) => target.dataset.folderTarget || null);
+  bindDropTarget(folderBar, (target) => {
+    const v = target.dataset.folder;
+    if (v == null) return null;
+    if (v === "") return null; // "All" — ignore drops here
+    if (v === "__none__") return ""; // "No folder" → clear folder
+    return v;
+  });
+
+  async function moveItemsToFolder(ids, folder) {
+    try {
+      for (const id of ids) {
+        const res = await fetch(`/api/gallery/${encodeURIComponent(id)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folder }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const idx = state.entries.findIndex((e) => e.id === id);
+          if (idx >= 0) state.entries[idx] = { ...state.entries[idx], ...data.entry };
+        }
+      }
+      // Clear selection so the user isn't surprised by lingering selections.
+      state.selected.clear();
+      refreshBulkBar();
+      await load();
+      const target = folder ? `📁 ${folder}` : "No folder";
+      window.UI?.toast?.(`Moved ${ids.length} item${ids.length === 1 ? "" : "s"} → ${target}`, "success");
+    } catch (err) {
+      alert(err.message || "Could not move");
+    }
+  }
 
   load();
 })();

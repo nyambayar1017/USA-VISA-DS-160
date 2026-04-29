@@ -14153,6 +14153,45 @@ body.trip-notes-drawer-open { overflow: hidden; }
 body.gallery-select-mode .gallery-card { cursor: pointer; }
 body.gallery-select-mode .gallery-card .gallery-thumb img { pointer-events: none; }
 
+/* Folder cards inside the grid (Finder-style — folders + media together). */
+.gallery-folder-card {
+  cursor: pointer;
+  background: linear-gradient(180deg, #fff8e9 0%, #fff 70%);
+  border-color: #f59e0b33;
+}
+.gallery-folder-card:hover {
+  border-color: #f59e0b66;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.12);
+}
+.gallery-folder-cover {
+  background: #fef3c7;
+  position: relative;
+}
+.gallery-folder-cover img { opacity: 0.9; }
+.gallery-folder-cover-empty {
+  font-size: 2.4rem;
+  color: #92400e;
+}
+.gallery-folder-card .gallery-card-title { color: #92400e; }
+
+/* Drag-and-drop hover state for folder drop targets. */
+body.gallery-dragging .gallery-folder-card,
+body.gallery-dragging .gallery-folder-chip {
+  outline: 2px dashed transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.1s, background 0.1s;
+}
+.gallery-folder-card.is-drop-hover {
+  outline: 2px dashed #f59e0b;
+  background: #fef3c7;
+}
+.gallery-folder-chip.is-drop-hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+body.gallery-dragging .gallery-card[draggable="true"] { opacity: 0.85; }
+
 /* ── Content library ─────────────────────────────────────────────── */
 .ct-modal-dialog {
   width: min(720px, calc(100vw - 32px));
