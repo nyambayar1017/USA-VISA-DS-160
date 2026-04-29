@@ -577,8 +577,9 @@ function formatDs160Status(status) {
 }
 
 function pickList(entry, key) {
-  // The structured array fields (country, education) live on the entry
-  // (after server flatten) but on older records they live nested under
+  // The client form posts repeat groups as `${name}List` (e.g.
+  // countryList, educationList, languageList). Server flatten preserves
+  // those keys on the entry; older records keep them nested under
   // entry.payload — check both.
   const direct = entry && entry[key];
   if (Array.isArray(direct)) return direct;
@@ -588,14 +589,11 @@ function pickList(entry, key) {
 }
 
 function renderListSectionsHtml(entry) {
-  // Structured lists from the client form that aren't covered by
-  // ANSWER_SECTIONS' single-field summaries. Currently: traveled
-  // countries + previous education. Both are rendered as small tables
-  // matching the rest of the print layout.
-  const countries = pickList(entry, "country").filter((row) => row && (row.name || "").trim());
-  const educations = pickList(entry, "education").filter((row) =>
+  const countries = pickList(entry, "countryList").filter((row) => row && (row.name || "").trim());
+  const educations = pickList(entry, "educationList").filter((row) =>
     row && (row.institutionName || row.courseOfStudy || row.startDate || row.endDate || row.country)
   );
+  const languages = pickList(entry, "languageList").filter((row) => row && (row.name || "").trim());
 
   let out = "";
   if (countries.length) {
@@ -606,6 +604,18 @@ function renderListSectionsHtml(entry) {
       <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">Сүүлийн 5 жилд зорчсон улсууд</h3>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Улс</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>`;
+  }
+  if (languages.length) {
+    const rows = languages.map((row, i) =>
+      `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td><td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(row.name || "")}</td></tr>`
+    ).join("");
+    out += `<section style="margin-bottom:18px;page-break-inside:avoid;">
+      <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">Ярьдаг хэлнүүд</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th><th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Хэл</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </section>`;
