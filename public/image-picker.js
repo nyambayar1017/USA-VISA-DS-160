@@ -42,8 +42,12 @@
             <option value="__none__">No folder</option>
           </select>
           <input type="search" placeholder="Search name / tag" data-action="search" />
+          <button type="button" class="img-picker-tool-btn" data-action="new-folder" title="Create a new folder">+ Folder</button>
+          <button type="button" class="img-picker-tool-btn is-primary" data-action="upload" title="Upload photos to the current folder">+ Upload</button>
+          <input type="file" accept="image/*" multiple hidden data-action="file-input" />
           <span class="img-picker-count" data-picker-count>0 selected</span>
         </div>
+        <p class="img-picker-status" data-picker-status hidden></p>
         <div class="img-picker-grid" data-picker-grid>
           <p class="empty">Loading…</p>
         </div>
@@ -80,7 +84,7 @@
       return true;
     });
     if (!filtered.length) {
-      grid.innerHTML = `<p class="empty">No images match these filters. Upload more from <a href="/gallery" target="_blank" rel="noopener">Gallery</a>.</p>`;
+      grid.innerHTML = `<p class="empty">No images match these filters. Use <strong>+ Upload</strong> above to add some.</p>`;
       return;
     }
     grid.innerHTML = filtered
@@ -103,6 +107,20 @@
     node.textContent = `${STATE.selected.size} selected`;
   }
 
+  function setStatus(msg, kind) {
+    const node = STATE.overlay?.querySelector("[data-picker-status]");
+    if (!node) return;
+    if (!msg) {
+      node.hidden = true;
+      node.textContent = "";
+      node.className = "img-picker-status";
+      return;
+    }
+    node.hidden = false;
+    node.textContent = msg;
+    node.className = `img-picker-status${kind ? ` is-${kind}` : ""}`;
+  }
+
   async function load() {
     try {
       const res = await fetch("/api/gallery?kind=image");
@@ -114,6 +132,85 @@
     } catch (err) {
       const grid = STATE.overlay.querySelector("[data-picker-grid]");
       grid.innerHTML = `<p class="empty">${escapeHtml(err.message || "Could not load gallery.")}</p>`;
+    }
+  }
+
+  // Upload destination = currently active folder filter, unless it's
+  // "All" or "No folder" — in which case upload to no folder.
+  function uploadFolder() {
+    if (!STATE.folder || STATE.folder === "__none__") return "";
+    return STATE.folder;
+  }
+
+  async function uploadOne(file, folder) {
+    const compressed =
+      window.CompressUpload && window.CompressUpload.compressToFile
+        ? await window.CompressUpload.compressToFile(file)
+        : file;
+    const fd = new FormData();
+    fd.append("file", compressed, compressed.name || "image.jpg");
+    if (folder) fd.append("folder", folder);
+    const res = await fetch("/api/gallery", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+    return data.entry;
+  }
+
+  async function uploadFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const folder = uploadFolder();
+    const dest = folder ? `📁 ${folder}` : "no folder";
+    let done = 0;
+    setStatus(`Uploading 0 / ${files.length} → ${dest}…`);
+    const newIds = [];
+    for (const file of files) {
+      try {
+        const entry = await uploadOne(file, folder);
+        if (entry?.id) {
+          STATE.entries.unshift(entry);
+          newIds.push(entry.id);
+          if (STATE.multiple) STATE.selected.add(entry.id);
+          else STATE.selected = new Set([entry.id]);
+        }
+        done++;
+        setStatus(`Uploading ${done} / ${files.length} → ${dest}…`);
+      } catch (err) {
+        setStatus(`${file.name}: ${err.message || "upload failed"}`, "error");
+      }
+    }
+    // Folder may now exist if it was just created via "+ Folder" — reload
+    // from server so folder list + counts stay accurate.
+    await load();
+    if (newIds.length) {
+      setStatus(`Uploaded ${newIds.length} photo${newIds.length === 1 ? "" : "s"}.`, "ok");
+      setTimeout(() => setStatus(""), 2400);
+    }
+  }
+
+  async function createFolder() {
+    const name = window.UI?.prompt
+      ? await window.UI.prompt("Folder name", { confirmLabel: "Create" })
+      : window.prompt("Folder name");
+    const trimmed = (name || "").trim();
+    if (!trimmed) return;
+    try {
+      const res = await fetch("/api/gallery/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not create folder");
+      STATE.folder = trimmed;
+      await load();
+      // Keep the new folder selected in the dropdown.
+      const sel = STATE.overlay.querySelector('[data-action="folder"]');
+      if (sel) sel.value = trimmed;
+      setStatus(`Folder "${trimmed}" created. Uploads will go here.`, "ok");
+      setTimeout(() => setStatus(""), 2400);
+    } catch (err) {
+      setStatus(err.message || "Could not create folder", "error");
     }
   }
 
@@ -143,6 +240,14 @@
       const tile = event.target.closest(".img-picker-tile");
       if (action === "cancel") return close(null);
       if (action === "confirm") return close(Array.from(STATE.selected));
+      if (action === "upload") {
+        STATE.overlay.querySelector('[data-action="file-input"]').click();
+        return;
+      }
+      if (action === "new-folder") {
+        createFolder();
+        return;
+      }
       if (tile) {
         const id = tile.dataset.id;
         if (!STATE.multiple) {
@@ -165,6 +270,13 @@
       if (event.target.dataset.action === "folder") {
         STATE.folder = event.target.value;
         refreshGrid();
+      } else if (event.target.dataset.action === "file-input") {
+        const input = event.target;
+        const files = input.files;
+        // Clear the value so the same file can be re-picked later.
+        uploadFiles(files).finally(() => {
+          input.value = "";
+        });
       }
     });
 
