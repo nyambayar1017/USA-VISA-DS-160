@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-326" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-327" />
   </head>
   <body class="app-body" data-page="gallery">
     <div class="workspace-shell">
@@ -81,7 +81,7 @@
           </div>
           <button type="button" class="camp-modal-close" data-action="close-upload-modal" aria-label="Close">×</button>
         </div>
-        <form id="gal-upload-form" class="manager-form-grid manager-form-grid-vertical">
+        <form id="gal-upload-form" class="manager-form-grid manager-form-grid-vertical" data-step="upload">
           <label>
             Destination (becomes a tag)
             <select id="gal-upload-destination" name="destination">
@@ -94,9 +94,13 @@
             <input id="gal-upload-tags" name="tags" placeholder="kl tower, sunset" />
           </label>
           <label>
-            Alt text (SEO + accessibility, optional)
+            Alt text in English (SEO + accessibility, optional)
             <input id="gal-upload-alt" name="alt" placeholder="What's in the photo, e.g. Sukhbaatar Square at sunset" />
-            <small class="form-hint">Applied to all photos in this batch. You can refine per-photo afterwards.</small>
+            <small class="form-hint">Applied to every photo in this batch. After upload you can fine-tune per-photo and translate to other languages.</small>
+          </label>
+          <label class="gal-upload-translate-row">
+            <input type="checkbox" id="gal-upload-auto-translate" />
+            <span>Auto-translate to other 8 languages on upload (you can review afterwards)</span>
           </label>
           <label>
             Folder
@@ -114,6 +118,22 @@
             <p id="gal-upload-status" class="status"></p>
           </div>
         </form>
+
+        <section class="gal-review" id="gal-review" hidden>
+          <div class="gal-review-head">
+            <div>
+              <h3>Review uploaded photos</h3>
+              <p class="form-hint">Update the name and alt text for each photo. Click 🌐 to auto-translate alt to the other 8 languages.</p>
+            </div>
+            <button type="button" class="header-action-btn" id="gal-review-translate-all">🌐 Auto-translate all</button>
+          </div>
+          <div class="gal-review-list" id="gal-review-list"></div>
+          <div class="actions">
+            <button type="button" id="gal-review-save">Save all</button>
+            <button type="button" class="button-secondary" data-action="close-upload-modal">Done (skip)</button>
+            <p id="gal-review-status" class="status"></p>
+          </div>
+        </section>
       </div>
     </div>
 
@@ -138,10 +158,15 @@
             Folder
             <select id="gal-edit-folder"></select>
           </label>
-          <label>
-            Alt text (SEO + accessibility)
-            <input id="gal-edit-alt" name="alt" placeholder="What's in the photo, e.g. Sukhbaatar Square at sunset" />
-          </label>
+          <fieldset class="gal-alt-fieldset">
+            <legend>
+              Alt text per language
+              <button type="button" class="gal-alt-translate-btn" id="gal-edit-alt-translate" title="Translate from English to all other languages">🌐 Auto-translate from English</button>
+            </legend>
+            <p class="form-hint">Used as the image's alt attribute on the language version of the public site that matches.</p>
+            <div class="gal-alt-grid" id="gal-edit-alt-grid"></div>
+            <p class="form-hint" id="gal-edit-alt-status"></p>
+          </fieldset>
           <label>
             Tags (comma-separated)
             <input id="gal-edit-tags" name="tags" placeholder="malaysia, kl tower" />
@@ -190,7 +215,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-124"></script>
-    <script src="/gallery.js?v=workspace-8"></script>
+    <script src="/gallery.js?v=workspace-9"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

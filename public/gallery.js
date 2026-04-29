@@ -18,6 +18,7 @@
   const uploadDestinationSelect = document.getElementById("gal-upload-destination");
   const uploadTagsInput = document.getElementById("gal-upload-tags");
   const uploadAltInput = document.getElementById("gal-upload-alt");
+  const uploadAutoTranslateInput = document.getElementById("gal-upload-auto-translate");
   const uploadFolderSelect = document.getElementById("gal-upload-folder");
   const uploadSubmit = document.getElementById("gal-upload-submit");
   const editModal = document.getElementById("gal-edit-modal");
@@ -25,8 +26,79 @@
   const editStatus = document.getElementById("gal-edit-status");
   const editNameInput = document.getElementById("gal-edit-name");
   const editFolderSelect = document.getElementById("gal-edit-folder");
-  const editAltInput = document.getElementById("gal-edit-alt");
+  const editAltGrid = document.getElementById("gal-edit-alt-grid");
+  const editAltTranslateBtn = document.getElementById("gal-edit-alt-translate");
+  const editAltStatus = document.getElementById("gal-edit-alt-status");
   const editTagsInput = document.getElementById("gal-edit-tags");
+
+  // Languages match LOCATION_LANGUAGES on the server. English first so
+  // it doubles as the auto-translate source language.
+  const ALT_LANGS = [
+    { code: "en", label: "English" },
+    { code: "mn", label: "Монгол" },
+    { code: "fr", label: "Français" },
+    { code: "it", label: "Italiano" },
+    { code: "es", label: "Español" },
+    { code: "ko", label: "한국어" },
+    { code: "zh", label: "中文" },
+    { code: "ja", label: "日本語" },
+    { code: "ru", label: "Русский" },
+  ];
+
+  function buildAltGrid(gridEl, altObj) {
+    if (!gridEl) return;
+    gridEl.innerHTML = ALT_LANGS.map((l) => {
+      const value = (altObj && altObj[l.code]) || "";
+      return `
+        <label class="gal-alt-row">
+          <span class="gal-alt-label">${escapeHtml(l.label)}</span>
+          <input type="text" data-alt-lang="${l.code}" value="${escapeHtml(value)}" placeholder="${escapeHtml(l.label)} alt text" />
+        </label>
+      `;
+    }).join("");
+  }
+
+  function readAltGrid(gridEl) {
+    const out = {};
+    if (!gridEl) return out;
+    ALT_LANGS.forEach((l) => {
+      const input = gridEl.querySelector(`[data-alt-lang="${l.code}"]`);
+      out[l.code] = (input?.value || "").trim();
+    });
+    return out;
+  }
+
+  // MyMemory free public API. CORS-enabled, no key required, plenty of
+  // headroom for typical alt-text volume (10-50 chars per call).
+  async function translateText(text, sourceLang, targetLang) {
+    if (!text) return "";
+    if (sourceLang === targetLang) return text;
+    // MyMemory uses a few different codes (zh-CN, etc.). Stick with the
+    // 2-letter codes we use everywhere else; MyMemory accepts them.
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(sourceLang)}|${encodeURIComponent(targetLang)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Translate failed (${res.status})`);
+    const data = await res.json();
+    return data?.responseData?.translatedText || "";
+  }
+
+  async function autoTranslateAlt(altObj, sourceLang = "en", { onlyEmpty = true } = {}) {
+    const source = (altObj?.[sourceLang] || "").trim();
+    if (!source) throw new Error(`No ${sourceLang.toUpperCase()} text to translate from.`);
+    const out = { ...altObj };
+    const targets = ALT_LANGS.filter((l) => l.code !== sourceLang)
+      .filter((l) => (onlyEmpty ? !(out[l.code] || "").trim() : true));
+    const results = await Promise.all(
+      targets.map((l) =>
+        translateText(source, sourceLang, l.code)
+          .then((t) => ({ code: l.code, text: t, ok: true }))
+          .catch((err) => ({ code: l.code, text: "", ok: false, err }))
+      )
+    );
+    results.forEach((r) => { if (r.ok && r.text) out[r.code] = r.text; });
+    const failed = results.filter((r) => !r.ok).length;
+    return { alt: out, failed };
+  }
   const videoModal = document.getElementById("gal-video-modal");
   const videoForm = document.getElementById("gal-video-form");
   const videoStatus = document.getElementById("gal-video-status");
@@ -251,7 +323,7 @@
   }
 
   // ── Image upload (client-compressed) ──────────────────────────
-  async function uploadImage(file, { folder = "", tags = "", alt = "" } = {}) {
+  async function uploadImage(file, { folder = "", tags = "", alt = null } = {}) {
     const compressed = (window.CompressUpload && window.CompressUpload.compressToFile)
       ? await window.CompressUpload.compressToFile(file)
       : file;
@@ -259,7 +331,12 @@
     formData.append("file", compressed, compressed.name || "image.jpg");
     if (folder) formData.append("folder", folder);
     if (tags) formData.append("tags", tags);
-    if (alt) formData.append("alt", alt);
+    if (alt && typeof alt === "object") {
+      formData.append("alt", JSON.stringify(alt));
+    } else if (typeof alt === "string" && alt) {
+      // Server normalises string → {en: alt} for back-compat
+      formData.append("alt", alt);
+    }
     const res = await fetch("/api/gallery", { method: "POST", body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Upload failed");
@@ -318,13 +395,29 @@
     // Combine destination + extra tags into a single comma-separated list.
     const combinedTags = [destination, extra].filter(Boolean).join(", ");
     const folder = uploadFolderSelect.value || "";
-    const alt = (uploadAltInput?.value || "").trim();
+    const altEn = (uploadAltInput?.value || "").trim();
+    const wantTranslate = !!(uploadAutoTranslateInput?.checked && altEn);
+    let altObj = altEn ? { en: altEn } : null;
     uploadSubmit.disabled = true;
+    if (wantTranslate) {
+      if (uploadStatus) uploadStatus.textContent = "Translating to other languages…";
+      try {
+        const { alt: translated, failed } = await autoTranslateAlt({ en: altEn }, "en");
+        altObj = translated;
+        if (failed && uploadStatus) {
+          uploadStatus.textContent = `${failed} translation(s) failed — you can fix them after upload.`;
+        }
+      } catch (err) {
+        if (uploadStatus) uploadStatus.textContent = `Translate failed: ${err.message || "see console"}. Uploading without translations…`;
+      }
+    }
     if (uploadStatus) uploadStatus.textContent = `Uploading 0 / ${files.length}…`;
     let succeeded = 0;
+    const uploadedEntries = [];
     for (const file of files) {
       try {
-        const entry = await uploadImage(file, { folder, tags: combinedTags, alt });
+        const entry = await uploadImage(file, { folder, tags: combinedTags, alt: altObj });
+        uploadedEntries.push(entry);
         state.entries.unshift(entry);
         succeeded++;
         if (uploadStatus) uploadStatus.textContent = `Uploading ${succeeded} / ${files.length}…`;
@@ -334,12 +427,189 @@
     }
     uploadSubmit.disabled = false;
     if (succeeded) {
-      closeUploadModal();
+      // Refresh the underlying lists so folder counts etc. are right —
+      // but keep the modal open and pivot it to the review step.
       await load();
+      openReviewStep(uploadedEntries);
     } else if (uploadStatus) {
       uploadStatus.textContent = "Upload failed.";
     }
   });
+
+  // ── Review step (post-upload) ─────────────────────────────────
+  // After multi-photo upload, the modal stays open and switches to a
+  // review list — one row per uploaded photo with thumbnail + name +
+  // English alt. User can tweak, optionally auto-translate all, then
+  // Save all. "Done (skip)" closes the modal without changes.
+  const uploadFormEl = document.getElementById("gal-upload-form");
+  const reviewSection = document.getElementById("gal-review");
+  const reviewList = document.getElementById("gal-review-list");
+  const reviewSaveBtn = document.getElementById("gal-review-save");
+  const reviewStatus = document.getElementById("gal-review-status");
+  const reviewTranslateAllBtn = document.getElementById("gal-review-translate-all");
+
+  // Holds the entries currently being reviewed so the Save handler can
+  // PATCH each one. We keep alt as an object on the row data so we don't
+  // re-translate on every save.
+  let reviewEntries = [];
+
+  function openReviewStep(entries) {
+    reviewEntries = entries.slice();
+    if (uploadFormEl) uploadFormEl.hidden = true;
+    if (reviewSection) {
+      reviewSection.hidden = false;
+      reviewSection.removeAttribute("hidden");
+    }
+    renderReviewList();
+    if (reviewStatus) reviewStatus.textContent = "";
+  }
+
+  function renderReviewList() {
+    if (!reviewList) return;
+    reviewList.innerHTML = reviewEntries
+      .map((e, idx) => {
+        const altObj = (e.alt && typeof e.alt === "object") ? e.alt : { en: e.alt || "" };
+        const altEn = altObj.en || "";
+        const thumb = `/api/gallery/${encodeURIComponent(e.id)}/file?size=thumb`;
+        return `
+          <div class="gal-review-row" data-row-idx="${idx}">
+            <img class="gal-review-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" />
+            <div class="gal-review-fields">
+              <label>
+                Name
+                <input type="text" data-review="name" value="${escapeHtml(e.originalName || "")}" />
+              </label>
+              <label>
+                Alt text (English)
+                <input type="text" data-review="alt" value="${escapeHtml(altEn)}" placeholder="Describe the photo" />
+              </label>
+            </div>
+            <button type="button" class="gal-review-translate" data-review-action="translate" title="Auto-translate this photo's alt to other 8 languages">🌐</button>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  function readReviewRow(idx) {
+    const row = reviewList?.querySelector(`[data-row-idx="${idx}"]`);
+    if (!row) return null;
+    const name = row.querySelector('[data-review="name"]')?.value?.trim() || "";
+    const altEn = row.querySelector('[data-review="alt"]')?.value?.trim() || "";
+    return { name, altEn };
+  }
+
+  reviewList?.addEventListener("click", async (event) => {
+    const btn = event.target.closest('[data-review-action="translate"]');
+    if (!btn) return;
+    const row = btn.closest("[data-row-idx]");
+    const idx = Number(row?.dataset.rowIdx);
+    if (!Number.isInteger(idx)) return;
+    const { altEn } = readReviewRow(idx) || {};
+    if (!altEn) {
+      if (reviewStatus) reviewStatus.textContent = "Type the English alt first, then click 🌐.";
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "…";
+    try {
+      const existing = (reviewEntries[idx].alt && typeof reviewEntries[idx].alt === "object")
+        ? reviewEntries[idx].alt
+        : { en: altEn };
+      existing.en = altEn;
+      const { alt: translated } = await autoTranslateAlt(existing, "en");
+      reviewEntries[idx] = { ...reviewEntries[idx], alt: translated };
+      btn.textContent = "✓";
+      setTimeout(() => { btn.textContent = "🌐"; btn.disabled = false; }, 1200);
+    } catch (err) {
+      btn.textContent = "🌐";
+      btn.disabled = false;
+      if (reviewStatus) reviewStatus.textContent = err.message || "Translate failed.";
+    }
+  });
+
+  reviewTranslateAllBtn?.addEventListener("click", async () => {
+    if (!reviewEntries.length) return;
+    reviewTranslateAllBtn.disabled = true;
+    if (reviewStatus) reviewStatus.textContent = "Translating all photos…";
+    let done = 0;
+    let totalFailed = 0;
+    for (let i = 0; i < reviewEntries.length; i++) {
+      const { altEn } = readReviewRow(i) || {};
+      if (!altEn) continue;
+      try {
+        const seed = (reviewEntries[i].alt && typeof reviewEntries[i].alt === "object")
+          ? reviewEntries[i].alt
+          : { en: altEn };
+        seed.en = altEn;
+        const { alt, failed } = await autoTranslateAlt(seed, "en");
+        reviewEntries[i] = { ...reviewEntries[i], alt };
+        totalFailed += failed;
+        done++;
+        if (reviewStatus) reviewStatus.textContent = `Translated ${done} / ${reviewEntries.length}…`;
+      } catch (_) {
+        totalFailed++;
+      }
+    }
+    reviewTranslateAllBtn.disabled = false;
+    if (reviewStatus) {
+      reviewStatus.textContent = totalFailed
+        ? `Done — ${totalFailed} translation(s) failed, edit those manually.`
+        : "All translated. Review and Save all.";
+    }
+  });
+
+  reviewSaveBtn?.addEventListener("click", async () => {
+    if (!reviewEntries.length) return;
+    reviewSaveBtn.disabled = true;
+    if (reviewStatus) reviewStatus.textContent = "Saving…";
+    let saved = 0;
+    let failed = 0;
+    for (let i = 0; i < reviewEntries.length; i++) {
+      const entry = reviewEntries[i];
+      const { name, altEn } = readReviewRow(i) || {};
+      // Merge English from the input on top of any translations done
+      // through the 🌐 buttons so we always send the latest text.
+      const altObj = (entry.alt && typeof entry.alt === "object")
+        ? { ...entry.alt, en: altEn }
+        : { en: altEn };
+      const payload = {};
+      if (name && name !== entry.originalName) payload.originalName = name;
+      payload.alt = altObj;
+      try {
+        const res = await fetch(`/api/gallery/${encodeURIComponent(entry.id)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("save failed");
+        saved++;
+      } catch (_) {
+        failed++;
+      }
+    }
+    reviewSaveBtn.disabled = false;
+    if (failed) {
+      if (reviewStatus) reviewStatus.textContent = `Saved ${saved}, ${failed} failed.`;
+    } else {
+      window.UI?.toast?.(`Saved ${saved} photo${saved === 1 ? "" : "s"}.`, "success");
+      closeUploadModal();
+      await load();
+    }
+  });
+
+  // Reset the modal back to the upload step whenever it's closed so
+  // the next open isn't stuck on the review pane.
+  const _origCloseUploadModal = closeUploadModal;
+  closeUploadModal = function () {
+    _origCloseUploadModal();
+    if (uploadFormEl) uploadFormEl.hidden = false;
+    if (reviewSection) {
+      reviewSection.hidden = true;
+      reviewSection.setAttribute("hidden", "");
+    }
+    reviewEntries = [];
+  };
 
   // ── Add video URL modal ───────────────────────────────────────
   function openVideoModal() {
@@ -465,7 +735,12 @@
     editForm.elements.id.value = entry.id;
     editNameInput.value = entry.originalName || "";
     populateFolderSelect(editFolderSelect, entry.folder || "");
-    if (editAltInput) editAltInput.value = entry.alt || "";
+    // alt may come back as object (new) or string (legacy) — both handled.
+    const altObj = (entry.alt && typeof entry.alt === "object")
+      ? entry.alt
+      : { en: entry.alt || "" };
+    buildAltGrid(editAltGrid, altObj);
+    if (editAltStatus) editAltStatus.textContent = "";
     editTagsInput.value = (entry.tags || []).join(", ");
     editModal.classList.remove("is-hidden");
     editModal.removeAttribute("hidden");
@@ -480,13 +755,36 @@
   editModal.addEventListener("click", (event) => {
     if (event.target.dataset.action === "close-edit-modal") closeEditModal();
   });
+
+  editAltTranslateBtn?.addEventListener("click", async () => {
+    const current = readAltGrid(editAltGrid);
+    if (!current.en) {
+      if (editAltStatus) editAltStatus.textContent = "Type the English alt first, then click translate.";
+      return;
+    }
+    editAltTranslateBtn.disabled = true;
+    if (editAltStatus) editAltStatus.textContent = "Translating to other 8 languages…";
+    try {
+      const { alt: translated, failed } = await autoTranslateAlt(current, "en");
+      buildAltGrid(editAltGrid, translated);
+      if (editAltStatus) {
+        editAltStatus.textContent = failed
+          ? `Done — ${failed} translation(s) failed, fill those manually.`
+          : "Translated. Review and tweak any that look off, then Save.";
+      }
+    } catch (err) {
+      if (editAltStatus) editAltStatus.textContent = err.message || "Translation failed.";
+    } finally {
+      editAltTranslateBtn.disabled = false;
+    }
+  });
   editForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const id = editForm.elements.id.value;
     const payload = {
       originalName: editNameInput.value.trim(),
       folder: editFolderSelect.value || "",
-      alt: (editAltInput?.value || "").trim(),
+      alt: readAltGrid(editAltGrid),
       tags: editTagsInput.value.split(",").map((s) => s.trim()).filter(Boolean),
     };
     if (editStatus) editStatus.textContent = "Saving…";

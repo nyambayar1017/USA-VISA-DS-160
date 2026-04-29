@@ -2119,13 +2119,36 @@ def _all_gallery_folder_names():
     return sorted({n for n in names if n}, key=str.lower)
 
 
+def _normalize_gallery_alt(value):
+    """Coerce alt into the 9-language object shape.
+
+    - string  → {"en": value, ...other langs blank}
+    - dict    → keep recognised keys, blank the rest
+    - other   → all blank
+
+    Always returns a dict with every key in LOCATION_LANGUAGES so callers
+    don't need to defensively check key presence.
+    """
+    out = {code: "" for code in LOCATION_LANGUAGES}
+    if isinstance(value, dict):
+        for code in LOCATION_LANGUAGES:
+            v = value.get(code)
+            if isinstance(v, str):
+                out[code] = v.strip()
+    elif isinstance(value, str):
+        out["en"] = value.strip()
+    return out
+
+
 def _gallery_view(rec, request_origin=""):
     """Trim down to the public-safe shape + add a downloadable URL."""
+    alt_obj = _normalize_gallery_alt(rec.get("alt"))
     return {
         "id": rec.get("id"),
         "kind": rec.get("kind") or "image",
         "originalName": rec.get("originalName") or "",
-        "alt": rec.get("alt") or "",
+        "alt": alt_obj,
+        "altText": alt_obj.get("en", ""),  # back-compat: legacy callers expecting flat string
         "mimeType": rec.get("mimeType") or "",
         "size": rec.get("size") or 0,
         "tags": rec.get("tags") or [],
@@ -2208,7 +2231,7 @@ def handle_update_gallery_item(environ, start_response, item_id):
         if new_name:
             rec["originalName"] = new_name
     if "alt" in payload:
-        rec["alt"] = str(payload["alt"] or "").strip()
+        rec["alt"] = _normalize_gallery_alt(payload["alt"])
     write_gallery(records)
     return json_response(start_response, "200 OK", {"ok": True, "entry": _gallery_view(rec)})
 
@@ -2235,12 +2258,19 @@ def handle_upload_gallery_image(environ, start_response):
     raw_tags = fields.get("tags") or ""
     tag_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
     folder = (fields.get("folder") or "").strip()
-    alt = (fields.get("alt") or "").strip()
+    # Upload form posts a JSON-encoded alt object (one key per language)
+    # under the "alt" field. Fall back to plain string for older clients.
+    raw_alt = fields.get("alt") or ""
+    try:
+        alt_payload = json.loads(raw_alt) if raw_alt.startswith("{") else raw_alt
+    except (ValueError, TypeError):
+        alt_payload = raw_alt
+    alt_obj = _normalize_gallery_alt(alt_payload)
     rec = {
         "id": rec_id,
         "kind": "image",
         "originalName": original_name,
-        "alt": alt,
+        "alt": alt_obj,
         "storedName": stored_name,
         "mimeType": upload.get("content_type") or "application/octet-stream",
         "size": len(data),
