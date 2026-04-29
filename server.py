@@ -1932,6 +1932,30 @@ def build_public_trip_view(trip_id):
     if not doc:
         return None
     trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None) or {}
+    # Manager block: prefer the explicit doc.manager that the brochure
+    # editor sets; if name+email are both empty, fall back to the last
+    # editor's login profile so the public sidebar still shows a real
+    # contact instead of a blank card.
+    manager = dict(doc.get("manager") or {})
+    if not (manager.get("name") or manager.get("email")):
+        editor = doc.get("updatedBy") or doc.get("createdBy") or {}
+        manager.setdefault("name", editor.get("name") or "")
+        manager.setdefault("email", editor.get("email") or "")
+    # Map waypoints: dedup'd from each program row's fromName/toName,
+    # in order, so the public sidebar can render a Google-Maps directions
+    # embed that traces the trip route.
+    waypoints = []
+    seen = set()
+    for row in (doc.get("program") or []):
+        for key in ("fromName", "toName"):
+            value = (row.get(key) or "").strip()
+            if not value:
+                continue
+            low = value.lower()
+            if low in seen:
+                continue
+            seen.add(low)
+            waypoints.append(value)
     return {
         "tripId": trip_id,
         "title": doc.get("title") or trip.get("tripName") or "",
@@ -1955,7 +1979,8 @@ def build_public_trip_view(trip_id):
         "accommSummary": doc.get("accommSummary") or [],
         "included": doc.get("included") or [],
         "notIncluded": doc.get("notIncluded") or [],
-        "manager": doc.get("manager") or {},
+        "manager": manager,
+        "mapWaypoints": waypoints,
         "flightLegs": doc.get("flightLegs") or [],
         "mongoliaGuide": doc.get("mongoliaGuide") or "",
         "quotation": doc.get("quotation") or {"rows": [], "note": ""},

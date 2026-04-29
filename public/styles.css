@@ -15299,6 +15299,16 @@ body.trip-public-body {
   gap: 12px;
   margin-bottom: 8px;
 }
+/* When the row is collapsed (parent .tp-day-grid loses .is-open), hide
+   the per-day hero + route block in the left column too — the row
+   should read as a single thin pill, not just a closed card with a
+   floating photo next to it. */
+.tp-day-grid:not(.is-open) {
+  grid-template-columns: 1fr;
+}
+.tp-day-grid:not(.is-open) .tp-day-route-col {
+  display: none;
+}
 .tp-day-route-col {}
 .tp-route {
   background: transparent;
@@ -15593,6 +15603,18 @@ body.trip-public-body {
   overflow: hidden;
   position: sticky;
   top: 80px;
+}
+.tp-info-map {
+  width: 100%;
+  height: 200px;
+  border-bottom: 1px solid var(--tp-bd);
+  background: var(--tp-or-p);
+}
+.tp-info-map iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
 }
 .tp-info-head { padding: 18px 22px; }
 .tp-info-line { font-size: 13px; margin-bottom: 8px; color: var(--tp-mid); }

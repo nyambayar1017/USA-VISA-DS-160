@@ -236,7 +236,7 @@
         </div>`
       : "";
     return `
-      <div class="tp-day-grid">
+      <div class="tp-day-grid is-open">
         <div class="tp-day-route-col">
           ${dayHero}
           ${route}
@@ -332,8 +332,29 @@
         </div>
       `
       : "";
+    // Build a Google Maps embed URL from the trip's waypoints. Use the
+    // "directions" pattern (origin/destination/+waypoints) so the map
+    // traces the actual route. With only one stop it degrades to a
+    // single-point search; with none, the whole map block is omitted.
+    const waypoints = Array.isArray(doc.mapWaypoints) ? doc.mapWaypoints : [];
+    let mapEmbedUrl = "";
+    if (waypoints.length === 1) {
+      mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(waypoints[0])}&output=embed`;
+    } else if (waypoints.length >= 2) {
+      const origin = encodeURIComponent(waypoints[0]);
+      const destination = encodeURIComponent(waypoints[waypoints.length - 1]);
+      const middle = waypoints.slice(1, -1).map(encodeURIComponent).join("/");
+      const path = middle ? `${origin}/${middle}/${destination}` : `${origin}/${destination}`;
+      mapEmbedUrl = `https://www.google.com/maps/dir/${path}/?output=embed`;
+    }
+    const mapBlock = mapEmbedUrl
+      ? `<div class="tp-info-map">
+          <iframe src="${escAttr(mapEmbedUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>`
+      : "";
     return `
       <aside class="tp-info">
+        ${mapBlock}
         <div class="tp-info-head">
           ${totalDays ? `<div class="tp-info-line"><strong>${escapeHtml(totalDays)} days</strong>${dateLabel ? ` <span>${escapeHtml(dateLabel)}</span>` : ""}</div>` : ""}
           ${priceLine}
@@ -344,7 +365,6 @@
         ${managerBlock}
         <div class="tp-info-actions">
           ${m.email ? `<a class="tp-info-cta" href="mailto:${escAttr(m.email)}?subject=${encodeURIComponent("Quotation for " + (doc.title || "your trip"))}">Ask for quotation</a>` : `<button type="button" class="tp-info-cta" onclick="window.print()">Download itinerary</button>`}
-          <button type="button" class="tp-info-cta tp-info-cta--ghost" onclick="window.print()">⤓ Download PDF</button>
         </div>
       </aside>
     `;
@@ -712,10 +732,18 @@
       return;
     }
 
-    // Toggle a single day card open/closed.
+    // Toggle a single day card open/closed. Mirror the state on the
+    // surrounding .tp-day-grid so the route block + per-day hero in the
+    // left column collapse alongside the card body.
     const dayHead = event.target.closest('[data-action="toggle-day"]');
     if (dayHead) {
-      dayHead.closest(".tp-day-card")?.classList.toggle("is-open");
+      const card = dayHead.closest(".tp-day-card");
+      const grid = card?.closest(".tp-day-grid");
+      if (card) {
+        const willOpen = !card.classList.contains("is-open");
+        card.classList.toggle("is-open", willOpen);
+        if (grid) grid.classList.toggle("is-open", willOpen);
+      }
       return;
     }
 
@@ -724,7 +752,10 @@
     if (toggleAll) {
       const cards = document.querySelectorAll(".tp-day-card");
       const anyClosed = Array.from(cards).some((c) => !c.classList.contains("is-open"));
-      cards.forEach((c) => c.classList.toggle("is-open", anyClosed));
+      cards.forEach((c) => {
+        c.classList.toggle("is-open", anyClosed);
+        c.closest(".tp-day-grid")?.classList.toggle("is-open", anyClosed);
+      });
       toggleAll.textContent = anyClosed ? "Collapse all" : "Expand all";
       return;
     }
