@@ -747,6 +747,74 @@ def validate_invoice(data):
     return None
 
 
+def reconcile_trip_serial_with_company(trip):
+    """If a trip's stored serial uses a prefix that doesn't match its
+    current company (e.g. company switched from USM→DTX after the serial
+    was minted, or it was migrated incorrectly), rewrite the serial in
+    place so the prefix lines up with the active company. Persists the
+    fix to disk and cascades to existing group/tourist serials that
+    embed the old trip serial.
+
+    Returns the corrected serial string. No-op when already consistent.
+    """
+    if not trip:
+        return ""
+    serial = (trip.get("serial") or "").strip()
+    if not serial:
+        return serial
+    company = normalize_company(trip.get("company"))
+    expected_prefix = "S-" if company == "USM" else "T-"
+    cur_prefix = serial[:2] if serial[:2] in ("S-", "T-") else ""
+    if not cur_prefix or cur_prefix == expected_prefix:
+        return serial
+    new_serial = expected_prefix + serial[len(cur_prefix):]
+    # Persist the trip update.
+    try:
+        trips = read_camp_trips()
+        for rec in trips:
+            if rec.get("id") == trip.get("id") and (rec.get("serial") or "") == serial:
+                rec["serial"] = new_serial
+                break
+        write_json_list(CAMP_TRIPS_FILE, trips)
+    except Exception:
+        return serial
+    trip["serial"] = new_serial
+    # Cascade: existing groups + tourists store serials prefixed with the
+    # old trip serial; rewrite them so navigation links + display stay in
+    # sync.
+    try:
+        groups = read_json_list(GROUPS_FILE)
+        changed = False
+        for g in groups:
+            if (g.get("tripSerial") or "") == serial:
+                g["tripSerial"] = new_serial
+                changed = True
+            g_serial = g.get("serial") or ""
+            if g_serial.startswith(serial + "-"):
+                g["serial"] = new_serial + g_serial[len(serial):]
+                changed = True
+        if changed:
+            write_json_list(GROUPS_FILE, groups)
+    except Exception:
+        pass
+    try:
+        tourists = read_json_list(TOURISTS_FILE)
+        changed = False
+        for t in tourists:
+            if (t.get("tripSerial") or "") == serial:
+                t["tripSerial"] = new_serial
+                changed = True
+            t_serial = t.get("serial") or ""
+            if t_serial.startswith(serial + "-"):
+                t["serial"] = new_serial + t_serial[len(serial):]
+                changed = True
+        if changed:
+            write_json_list(TOURISTS_FILE, tourists)
+    except Exception:
+        pass
+    return new_serial
+
+
 def next_group_serial(trip_serial, trip_id):
     if not trip_serial:
         return ""
@@ -6752,7 +6820,11 @@ def find_tourist(tourist_id):
 def build_tourist_group(payload, actor=None):
     trip_id = normalize_text(payload.get("tripId"))
     trip = find_camp_trip(trip_id)
-    trip_serial = trip.get("serial") if trip else ""
+    # Self-heal any company / serial-prefix mismatch (e.g. trip was once
+    # USM, got an S- serial, then switched to DTX). This rewrites the
+    # trip serial to the company-correct prefix so the new group
+    # inherits the right one.
+    trip_serial = reconcile_trip_serial_with_company(trip) if trip else ""
     return {
         "id": str(uuid4()),
         "serial": next_group_serial(trip_serial, trip_id),
@@ -6830,8 +6902,14 @@ def build_tourist(payload, actor=None, environ=None):
     group = find_tourist_group(group_id) if group_id else None
     trip_id = (group or {}).get("tripId") or normalize_text(payload.get("tripId"))
     trip = find_camp_trip(trip_id) if trip_id else None
+    # Self-heal a stale T-/S- prefix on the trip's serial before deriving
+    # the tourist's. Cascades to the group serial too — see
+    # reconcile_trip_serial_with_company for details.
+    trip_serial = reconcile_trip_serial_with_company(trip) if trip else ""
+    # Re-fetch the group so a cascaded serial rewrite is reflected here.
+    if group_id:
+        group = find_tourist_group(group_id) or group
     group_serial = (group or {}).get("serial") or ""
-    trip_serial = (trip or {}).get("serial") or ""
     # Promo-only contacts (no trip + no group) skip the per-group serial scheme
     # since there's no parent group counter to use; we fall back to a workspace-
     # scoped "PR-####" sequence so they still sort and look identifiable.
