@@ -7664,6 +7664,7 @@ def handle_export_tourists(environ, start_response):
 
     if is_dtx:
         columns = [
+            ("#", "_index"),
             ("Serial", "serial"),
             ("Last name", "lastName"),
             ("First name", "firstName"),
@@ -7681,6 +7682,7 @@ def handle_export_tourists(environ, start_response):
         ]
     else:
         columns = [
+            ("#", "_index"),
             ("Serial", "serial"),
             ("Last name", "lastName"),
             ("First name", "firstName"),
@@ -7700,7 +7702,7 @@ def handle_export_tourists(environ, start_response):
         ]
 
     column_widths = {
-        "Serial": 14, "Last name": 16, "First name": 16, "Group": 18,
+        "#": 5, "Serial": 14, "Last name": 16, "First name": 16, "Group": 18,
         "Gender": 8, "Date of birth": 12, "Nationality": 14,
         "Passport #": 14, "Passport issue date": 14, "Passport expiry": 14,
         "Passport issued at": 18, "Registration #": 14, "Phone": 14,
@@ -7820,11 +7822,13 @@ def handle_export_tourists(environ, start_response):
                 room_color_map[k] = PALETTE[len(room_color_map) % len(PALETTE)]
 
         section_data_start = current_row
-        for t in tourists:
+        for row_index, t in enumerate(tourists, start=1):
             group = groups_by_id.get(t.get("groupId")) or {}
             tstart = (trip or {}).get("startDate", "")
             for col_idx, (label, key) in enumerate(columns, start=1):
-                if key == "_group":
+                if key == "_index":
+                    val = row_index
+                elif key == "_group":
                     val = group.get("name") or t.get("groupSerial", "")
                 elif key == "_room":
                     if t.get("roomType"):
