@@ -114,7 +114,23 @@
   }
 
   function renderHighlights(doc) {
-    const highlights = doc.highlights || [];
+    // Manual highlights[] from the editor wins. When empty, fall back to
+    // day titles ("Day 1: Ulaanbaatar - Singapore", etc.) so every trip
+    // shows a meaningful highlights list without manual data entry.
+    const manual = (doc.highlights || []).filter((h) => (h || "").trim());
+    const program = Array.isArray(doc.program) ? doc.program : [];
+    const auto = manual.length
+      ? []
+      : program
+          .map((row, i) => {
+            const label = (row.day || `Day ${i + 1}`).trim();
+            const title = (row.title || "").trim();
+            if (!label && !title) return "";
+            if (!title) return label;
+            return `${label}: ${title}`;
+          })
+          .filter(Boolean);
+    const highlights = manual.length ? manual : auto;
     const summary = doc.accommSummary || [];
     if (!highlights.length && !summary.length) return "";
     const bullets = highlights.length
