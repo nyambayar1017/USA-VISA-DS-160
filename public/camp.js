@@ -1352,6 +1352,7 @@ function renderActiveTrip() {
       </div>
       <div class="trip-summary-actions">
         ${fitActions}
+        <a class="header-action-btn header-action-create-trip" href="/trip-creator?tripId=${encodeURIComponent(trip.id)}" aria-label="Open trip creator">+ Create Trip</a>
         <button type="button" class="header-action-btn header-action-edit" id="active-trip-edit-btn" aria-label="Edit trip">✎ Edit</button>
         <select id="active-trip-status-select" class="trip-status-select trip-status-select--compact trip-status-select--${normalizeStatus(trip.status) || "offer"}" aria-label="Trip status">
           ${["offer","confirmed","cancelled","ignored"].map((s) =>

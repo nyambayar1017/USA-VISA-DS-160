@@ -63,6 +63,7 @@ NOTIFICATIONS_MAX = 200
 GROUPS_FILE = DATA_DIR / "tourist_groups.json"
 TOURISTS_FILE = DATA_DIR / "tourists.json"
 INVOICES_FILE = DATA_DIR / "invoices.json"
+TRIP_CREATORS_FILE = DATA_DIR / "trip_creators.json"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
 SESSION_COOKIE = "travelx_session"
@@ -611,6 +612,23 @@ def read_invoices():
 def write_invoices(records):
     INVOICES_FILE.parent.mkdir(parents=True, exist_ok=True)
     INVOICES_FILE.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def read_trip_creators():
+    """Trip-creator records: presentation + quotation per trip, keyed by tripId.
+    Stored as a JSON object {tripId: doc} so the per-trip lookup is O(1)."""
+    try:
+        if not TRIP_CREATORS_FILE.exists():
+            TRIP_CREATORS_FILE.write_text("{}", encoding="utf-8")
+        data = json.loads(TRIP_CREATORS_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def write_trip_creators(store):
+    TRIP_CREATORS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    TRIP_CREATORS_FILE.write_text(json.dumps(store, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def next_invoice_serial(company=None):
@@ -1604,6 +1622,107 @@ def handle_download_announcement_attachment(environ, start_response, announcemen
     ]
     start_response("200 OK", headers)
     return [data]
+
+
+# ── Trip Creator (presentation + quotation per trip) ──────────────────
+# A "trip creator" doc is the public-facing brochure + price quote attached
+# to one trip. Stored as {tripId: doc} so per-trip read/write is O(1).
+TRIP_CREATOR_DEFAULT = {
+    "title": "",
+    "language": "mn",
+    "currency": "MNT",
+    "totalDays": "",
+    "totalKm": "",
+    "tripType": "TRIP",
+    "offerType": "range",
+    "internationalFlight": "included",
+    "themes": [],
+    "rate": 0,
+    "comfort": 0,
+    "difficulty": 0,
+    "intro": "",
+    "program": [],
+    "quotation": {"rows": [], "note": ""},
+}
+
+
+def _trip_creator_normalize(payload):
+    """Coerce client payload to the storage shape — protects the JSON file
+    against junk types if the editor ever sends a wrong field."""
+    out = dict(TRIP_CREATOR_DEFAULT)
+    if not isinstance(payload, dict):
+        return out
+    for key in ("title", "language", "currency", "totalDays", "totalKm",
+                "tripType", "offerType", "internationalFlight", "intro"):
+        if key in payload and payload[key] is not None:
+            out[key] = str(payload[key])
+    if isinstance(payload.get("themes"), list):
+        out["themes"] = [str(t) for t in payload["themes"] if str(t).strip()]
+    for key in ("rate", "comfort", "difficulty"):
+        try:
+            out[key] = int(payload.get(key) or 0)
+        except (TypeError, ValueError):
+            out[key] = 0
+    if isinstance(payload.get("program"), list):
+        prog = []
+        for entry in payload["program"]:
+            if not isinstance(entry, dict):
+                continue
+            prog.append({
+                "day": str(entry.get("day") or "").strip(),
+                "title": str(entry.get("title") or "").strip(),
+                "body": str(entry.get("body") or ""),
+            })
+        out["program"] = prog
+    if isinstance(payload.get("quotation"), dict):
+        q = payload["quotation"]
+        rows = []
+        if isinstance(q.get("rows"), list):
+            for row in q["rows"]:
+                if not isinstance(row, dict):
+                    continue
+                rows.append({
+                    "label": str(row.get("label") or "").strip(),
+                    "qty": str(row.get("qty") or "").strip(),
+                    "unitPrice": str(row.get("unitPrice") or "").strip(),
+                    "currency": str(row.get("currency") or "").strip(),
+                })
+        out["quotation"] = {
+            "rows": rows,
+            "note": str(q.get("note") or ""),
+        }
+    return out
+
+
+def handle_get_trip_creator(environ, start_response, trip_id):
+    if not require_login(environ, start_response):
+        return []
+    store = read_trip_creators()
+    doc = store.get(trip_id) or {}
+    # Merge with defaults so the editor always sees every key.
+    merged = dict(TRIP_CREATOR_DEFAULT)
+    merged.update(doc)
+    return json_response(start_response, "200 OK", {"trip_id": trip_id, "doc": merged})
+
+
+def handle_save_trip_creator(environ, start_response, trip_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ)
+    if payload is None:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    # Validate the trip exists — saving against a nonexistent tripId would
+    # leave orphan rows in the store.
+    if not any(t.get("id") == trip_id for t in read_camp_trips()):
+        return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
+    doc = _trip_creator_normalize(payload)
+    doc["updatedAt"] = now_mongolia().isoformat()
+    doc["updatedBy"] = actor_snapshot(actor)
+    store = read_trip_creators()
+    store[trip_id] = doc
+    write_trip_creators(store)
+    return json_response(start_response, "200 OK", {"ok": True, "doc": doc})
 
 
 def handle_dismiss_announcement(environ, start_response, announcement_id):
@@ -15186,6 +15305,16 @@ def _dispatch(environ, start_response):
             return handle_download_announcement_attachment(environ, start_response, announcement_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path.startswith("/api/trip-creators/"):
+        trip_id = path.replace("/api/trip-creators/", "", 1).strip("/")
+        if not trip_id:
+            return json_response(start_response, "400 Bad Request", {"error": "tripId required"})
+        if method == "GET":
+            return handle_get_trip_creator(environ, start_response, trip_id)
+        if method == "POST":
+            return handle_save_trip_creator(environ, start_response, trip_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path == "/api/notifications":
         if method == "GET":
             return handle_list_notifications(environ, start_response)
@@ -15968,6 +16097,11 @@ def _dispatch(environ, start_response):
         if not current_user(environ):
             return file_response(start_response, PUBLIC_DIR / "login.html")
         return file_response(start_response, PUBLIC_DIR / "trip-detail.html")
+
+    if path == "/trip-creator":
+        if not current_user(environ):
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        return file_response(start_response, PUBLIC_DIR / "trip-creator.html")
 
     if path == "/tourist":
         if not current_user(environ):

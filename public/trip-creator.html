@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="mn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelX Trip Creator</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-293" />
+  </head>
+  <body class="app-body" data-page="trip-creator">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">TravelX</p>
+            <h1 id="tc-page-title">Trip Creator</h1>
+            <p class="workspace-subtitle" id="tc-trip-meta">Loading trip…</p>
+          </div>
+          <div class="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="tc-tab-strip" role="tablist" id="tc-tabs">
+            <button type="button" class="tc-tab is-active" role="tab" data-tab="presentation">Presentation</button>
+            <button type="button" class="tc-tab" role="tab" data-tab="quotation">Quotation</button>
+            <span class="tc-save-status" id="tc-save-status"></span>
+            <button type="button" class="header-action-btn" id="tc-save-btn">Save</button>
+          </div>
+
+          <!-- Presentation tab -->
+          <section class="tc-pane is-active" id="tc-pane-presentation" role="tabpanel">
+            <div class="tc-form-grid">
+              <label>
+                Title
+                <input id="tc-title" type="text" placeholder="DTX Turkiye 2026-05-10 3+2+2" />
+              </label>
+              <label>
+                Total days
+                <input id="tc-total-days" type="number" min="1" />
+              </label>
+              <label>
+                Total km
+                <input id="tc-total-km" type="number" min="0" />
+              </label>
+              <label>
+                Language
+                <select id="tc-language">
+                  <option value="mn">MN</option>
+                  <option value="en">EN</option>
+                  <option value="ru">RU</option>
+                </select>
+              </label>
+              <label>
+                Trip type
+                <select id="tc-trip-type">
+                  <option value="TRIP">TRIP</option>
+                  <option value="TOUR">TOUR</option>
+                  <option value="GIT">GIT</option>
+                  <option value="FIT">FIT</option>
+                </select>
+              </label>
+              <label>
+                Currency
+                <select id="tc-currency">
+                  <option value="MNT">MNT</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="KRW">KRW</option>
+                </select>
+              </label>
+              <label>
+                Offer type
+                <select id="tc-offer-type">
+                  <option value="range">Range price</option>
+                  <option value="fixed">Fixed price</option>
+                </select>
+              </label>
+              <label>
+                International flight
+                <select id="tc-international-flight">
+                  <option value="included">Included</option>
+                  <option value="excluded">Excluded</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="tc-rating-row">
+              <label class="tc-rating">
+                <span>Rate</span>
+                <input id="tc-rate" type="range" min="0" max="5" step="1" value="0" />
+                <output id="tc-rate-out">0/5</output>
+              </label>
+              <label class="tc-rating">
+                <span>Comfort</span>
+                <input id="tc-comfort" type="range" min="0" max="5" step="1" value="0" />
+                <output id="tc-comfort-out">0/5</output>
+              </label>
+              <label class="tc-rating">
+                <span>Difficulty</span>
+                <input id="tc-difficulty" type="range" min="0" max="5" step="1" value="0" />
+                <output id="tc-difficulty-out">0/5</output>
+              </label>
+            </div>
+
+            <label class="tc-full">
+              Themes (comma-separated)
+              <input id="tc-themes" type="text" placeholder="e.g. cultural, adventure, beach" />
+            </label>
+
+            <label class="tc-full">
+              Intro / Хөтөлбөрийн хураангуй
+              <textarea id="tc-intro" rows="4" placeholder="Trip overview shown above the day-by-day program."></textarea>
+            </label>
+
+            <div class="tc-section-head">
+              <h3>Day-by-day program</h3>
+              <button type="button" class="header-action-btn" id="tc-add-day">+ Add day</button>
+            </div>
+            <div id="tc-program-list" class="tc-program-list"></div>
+          </section>
+
+          <!-- Quotation tab -->
+          <section class="tc-pane" id="tc-pane-quotation" role="tabpanel" hidden>
+            <div class="tc-section-head">
+              <h3>Quotation</h3>
+              <button type="button" class="header-action-btn" id="tc-add-row">+ Add line</button>
+            </div>
+            <div class="tc-quote-table-wrap">
+              <table class="tc-quote-table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Unit price</th>
+                    <th>Currency</th>
+                    <th>Subtotal</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tc-quote-rows"></tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="4" style="text-align:right;font-weight:600;">Total</td>
+                    <td id="tc-quote-total" style="font-weight:700;">—</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <label class="tc-full">
+              Notes shown under the quotation
+              <textarea id="tc-quote-note" rows="3" placeholder="Inclusions, exclusions, payment terms…"></textarea>
+            </label>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app-shell.js?v=workspace-119"></script>
+    <script src="/trip-creator.js?v=workspace-1"></script>
+    <script src="/ui-dialog.js?v=workspace-1"></script>
+  </body>
+</html>
