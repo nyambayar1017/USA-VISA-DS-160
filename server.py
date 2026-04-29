@@ -2397,16 +2397,37 @@ def handle_rename_gallery_folder(environ, start_response, old_name):
 
 
 def handle_delete_gallery_folder(environ, start_response, name):
-    """Remove the folder from the registered list. Items in it are
-    un-foldered (their `folder` field cleared) — we don't delete the
-    photos themselves."""
+    """Remove the folder. With ?cascade=true also delete every photo
+    inside; otherwise the photos are kept and just un-foldered."""
     if not require_login(environ, start_response):
         return []
+    qs = parse_qs(environ.get("QUERY_STRING", ""))
+    cascade = (qs.get("cascade") or [""])[0].strip().lower() in ("1", "true", "yes")
     folders = read_gallery_folders()
     target = name.strip().lower()
     new_folders = [f for f in folders if (f.get("name") or "").strip().lower() != target]
     write_gallery_folders(new_folders)
     items = read_gallery()
+    if cascade:
+        # Remove the actual records + their stored files for items in this folder.
+        keep = []
+        deleted = 0
+        for item in items:
+            if (item.get("folder") or "").strip().lower() == target:
+                stored = item.get("storedName") or ""
+                if stored:
+                    fp = GALLERY_UPLOADS_DIR / stored
+                    try:
+                        if fp.exists():
+                            fp.unlink()
+                    except OSError:
+                        pass
+                deleted += 1
+            else:
+                keep.append(item)
+        if deleted:
+            write_gallery(keep)
+        return json_response(start_response, "200 OK", {"ok": True, "deleted": deleted, "cleared": 0})
     cleared = 0
     for item in items:
         if (item.get("folder") or "").strip().lower() == target:
@@ -2414,7 +2435,7 @@ def handle_delete_gallery_folder(environ, start_response, name):
             cleared += 1
     if cleared:
         write_gallery(items)
-    return json_response(start_response, "200 OK", {"ok": True, "cleared": cleared})
+    return json_response(start_response, "200 OK", {"ok": True, "cleared": cleared, "deleted": 0})
 
 
 def handle_serve_gallery_image(environ, start_response, item_id):

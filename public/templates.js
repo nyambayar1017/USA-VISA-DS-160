@@ -213,6 +213,11 @@
   ];
 
   let locations = [];
+  const locSearchEl = document.getElementById("tpl-loc-search");
+  const locCoordsFilterEl = document.getElementById("tpl-loc-coords-filter");
+  const locPhotosFilterEl = document.getElementById("tpl-loc-photos-filter");
+  const locSortEl = document.getElementById("tpl-loc-sort");
+  const locCountEl = document.getElementById("tpl-loc-count");
 
   async function loadLocations() {
     locListNode.innerHTML = `<p class="tpl-empty">Loading…</p>`;
@@ -227,9 +232,58 @@
     }
   }
 
+  function filteredLocations() {
+    const q = (locSearchEl?.value || "").trim().toLowerCase();
+    const coordsFilter = locCoordsFilterEl?.value || "";
+    const photosFilter = locPhotosFilterEl?.value || "";
+    const sort = locSortEl?.value || "name-asc";
+    const matchesQuery = (l) => {
+      if (!q) return true;
+      // Search across the primary name + every translated name.
+      const haystacks = [l.name || "", ...Object.values(l.names || {})];
+      return haystacks.some((s) => String(s).toLowerCase().includes(q));
+    };
+    const matchesCoords = (l) => {
+      const has = !!(l.latlonEnabled && (l.latitude || l.longitude));
+      if (coordsFilter === "with-coords") return has;
+      if (coordsFilter === "no-coords") return !has;
+      return true;
+    };
+    const matchesPhotos = (l) => {
+      const has = (l.imageIds || []).length > 0;
+      if (photosFilter === "with-photos") return has;
+      if (photosFilter === "no-photos") return !has;
+      return true;
+    };
+    const out = locations.filter((l) => matchesQuery(l) && matchesCoords(l) && matchesPhotos(l));
+    switch (sort) {
+      case "name-desc":
+        out.sort((a, b) => (b.name || "").localeCompare(a.name || "", undefined, { sensitivity: "base" }));
+        break;
+      case "photos-desc":
+        out.sort((a, b) => (b.imageIds || []).length - (a.imageIds || []).length);
+        break;
+      case "newest":
+        out.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+        break;
+      case "name-asc":
+      default:
+        out.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
+    }
+    return out;
+  }
+
   function renderLocations() {
+    const list = filteredLocations();
+    if (locCountEl) {
+      locCountEl.textContent = `${list.length} of ${locations.length}`;
+    }
     if (!locations.length) {
       locListNode.innerHTML = `<p class="tpl-empty">No locations yet. Click <strong>+ Add location</strong> to create one (e.g. "Ulaanbaatar", "Kharkhorin").</p>`;
+      return;
+    }
+    if (!list.length) {
+      locListNode.innerHTML = `<p class="tpl-empty">No locations match these filters.</p>`;
       return;
     }
     locListNode.innerHTML = `
@@ -244,7 +298,7 @@
           </tr>
         </thead>
         <tbody>
-          ${locations.map((l, i) => `
+          ${list.map((l, i) => `
             <tr data-id="${escapeHtml(l.id)}">
               <td>${i + 1}</td>
               <td><strong>${escapeHtml(l.name || "—")}</strong></td>
@@ -262,6 +316,11 @@
       </table>
     `;
   }
+
+  [locSearchEl, locCoordsFilterEl, locPhotosFilterEl, locSortEl].forEach((el) => {
+    el?.addEventListener("input", renderLocations);
+    el?.addEventListener("change", renderLocations);
+  });
 
   // ── Edit modal state ─────────────────────────────────────────────
   const locModal = document.getElementById("tpl-loc-modal");
@@ -553,7 +612,28 @@
       closeLocModal();
       await loadLocations();
     } catch (err) {
-      alert(`Could not save: ${err.message}`);
+      const msg = err?.message || "Save failed";
+      // Special-case the duplicate-name error: when the user is *creating*
+      // a new location whose name collides with an existing one, offer to
+      // open that existing one for editing instead of just rejecting.
+      if (!id && /already exists/i.test(msg)) {
+        const existing = (locations || []).find(
+          (l) => (l.name || "").toLowerCase() === payload.name.toLowerCase()
+        );
+        const goEdit = existing && (window.UI?.confirm
+          ? await window.UI.confirm(
+              `A location named "${payload.name}" already exists. Open that one to edit instead?`,
+              { confirmLabel: "Open existing" }
+            )
+          : window.confirm(`"${payload.name}" already exists. Open it to edit?`));
+        if (goEdit && existing) {
+          openLocModal(existing);
+          return;
+        }
+        alert(`A location named "${payload.name}" already exists. Pick a different name (e.g. add a country code) or close this dialog and click that one in the list.`);
+        return;
+      }
+      alert(`Could not save: ${msg}`);
     }
   });
 

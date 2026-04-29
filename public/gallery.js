@@ -845,9 +845,12 @@
     const current = readAltGrid(editAltGrid);
     if (!current.en) {
       if (editAltStatus) editAltStatus.textContent = "Type the English alt first, then click translate.";
+      window.UI?.toast?.("Type English alt text first", "error");
       return;
     }
+    const origLabel = editAltTranslateBtn.textContent;
     editAltTranslateBtn.disabled = true;
+    editAltTranslateBtn.textContent = "Translating…";
     if (editAltStatus) editAltStatus.textContent = "Translating to other 8 languages…";
     try {
       const { alt: translated, failed } = await autoTranslateAlt(current, "en");
@@ -857,10 +860,14 @@
           ? `Done — ${failed} translation(s) failed, fill those manually.`
           : "Translated. Review and tweak any that look off, then Save.";
       }
+      window.UI?.toast?.(failed ? `Translated; ${failed} failed.` : "Translated to 8 languages.", failed ? "error" : "success");
     } catch (err) {
-      if (editAltStatus) editAltStatus.textContent = err.message || "Translation failed.";
+      const msg = err?.message || "Translation failed.";
+      if (editAltStatus) editAltStatus.textContent = msg;
+      window.UI?.toast?.(`Translate failed: ${msg}`, "error");
     } finally {
       editAltTranslateBtn.disabled = false;
+      editAltTranslateBtn.textContent = origLabel;
     }
   });
   editForm.addEventListener("submit", async (event) => {
@@ -1088,21 +1095,26 @@
   }
 
   async function deleteFolder(name) {
+    const stat = state.folders.find((f) => f.name.toLowerCase() === name.toLowerCase());
+    const count = stat?.count || 0;
+    const msg = count
+      ? `Delete folder "${name}" AND the ${count} photo${count === 1 ? "" : "s"} inside? This can't be undone.`
+      : `Delete folder "${name}"? It's empty.`;
     const ok = window.UI?.confirm
-      ? await window.UI.confirm(
-          `Delete folder "${name}"? Photos inside will stay in the gallery but lose their folder.`,
-          { dangerous: true, confirmLabel: "Delete folder" }
-        )
-      : window.confirm(`Delete folder "${name}"? Photos stay; folder is removed.`);
+      ? await window.UI.confirm(msg, { dangerous: true, confirmLabel: "Delete everything" })
+      : window.confirm(msg);
     if (!ok) return;
     try {
-      const res = await fetch(`/api/gallery/folders/${encodeURIComponent(name)}`, { method: "DELETE" });
+      const res = await fetch(`/api/gallery/folders/${encodeURIComponent(name)}?cascade=true`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Delete failed");
       if (state.activeFolder.toLowerCase() === name.toLowerCase()) {
         state.activeFolder = "";
       }
       await load();
+      if (data.deleted) {
+        window.UI?.toast?.(`Deleted folder "${name}" and ${data.deleted} photo${data.deleted === 1 ? "" : "s"}.`, "success");
+      }
     } catch (err) {
       alert(err.message || "Delete failed");
     }
@@ -1307,23 +1319,30 @@
 
   async function uploadDroppedFiles(files, folder) {
     const dest = folder ? `📁 ${folder}` : "No folder";
-    let done = 0;
     let failed = 0;
+    const uploadedEntries = [];
     window.UI?.toast?.(`Uploading ${files.length} photo${files.length === 1 ? "" : "s"} → ${dest}…`, "info");
     for (const file of files) {
       try {
         const entry = await uploadImage(file, { folder, tags: "" });
-        state.entries.unshift(entry);
-        done++;
+        if (entry) {
+          state.entries.unshift(entry);
+          uploadedEntries.push(entry);
+        }
       } catch (err) {
         failed++;
       }
     }
     await load();
     if (failed) {
-      window.UI?.toast?.(`Uploaded ${done}, ${failed} failed.`, "error");
-    } else {
-      window.UI?.toast?.(`Uploaded ${done} photo${done === 1 ? "" : "s"} → ${dest}.`, "success");
+      window.UI?.toast?.(`Uploaded ${uploadedEntries.length}, ${failed} failed.`, "error");
+    }
+    // Pivot the upload modal to the review pane so the user can fill in
+    // alt text for each just-dropped photo. Same UX as the click-to-upload
+    // flow — keeps alt asks consistent across both upload paths.
+    if (uploadedEntries.length) {
+      openUploadModal();
+      openReviewStep(uploadedEntries);
     }
   }
 

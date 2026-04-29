@@ -14087,10 +14087,11 @@ body.trip-notes-drawer-open { overflow: hidden; }
   color: #166534;
 }
 .header-action-publish {
-  background: #20356f !important;
+  background: var(--accent) !important;
   color: #fff !important;
+  border-color: var(--accent) !important;
 }
-.header-action-publish:hover { background: #16265a !important; }
+.header-action-publish:hover { background: var(--accent-strong) !important; }
 .header-action-btn.is-disabled,
 .header-action-btn[disabled] {
   opacity: 0.45;
@@ -15452,6 +15453,39 @@ body[data-page="trip-creator"] .tc-publish-state[data-state="draft"] {
 }
 
 /* Locations pane: list table + edit modal with three-tab editor. */
+.tpl-loc-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  background: rgba(32, 53, 111, 0.04);
+  border-radius: 12px;
+}
+.tpl-loc-filters input[type="search"] {
+  flex: 1;
+  min-width: 180px;
+  padding: 6px 10px;
+  border: 1px solid #d0d7e8;
+  border-radius: 8px;
+  font-size: 0.86rem;
+}
+.tpl-loc-filters select {
+  padding: 6px 10px;
+  border: 1px solid #d0d7e8;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  background: #fff;
+  color: #20356f;
+  font-weight: 600;
+}
+.tpl-loc-count {
+  margin-left: auto;
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
 .tpl-loc-list {
   margin-top: 12px;
 }
@@ -15545,11 +15579,11 @@ body[data-page="trip-creator"] .tc-publish-state[data-state="draft"] {
   border-color: rgba(32, 53, 111, 0.3);
 }
 .tpl-loc-tab.is-active {
-  background: #20356f;
+  background: var(--accent);
   color: #fff;
-  border-color: #20356f;
+  border-color: var(--accent);
 }
-.tpl-loc-tab.is-active:hover { background: #16265a; }
+.tpl-loc-tab.is-active:hover { background: var(--accent-strong); }
 .tpl-loc-pane {
   display: flex;
   flex-direction: column;
