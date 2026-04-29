@@ -238,6 +238,15 @@
     return m ? `https://www.youtube.com/embed/${m[1]}` : "";
   }
 
+  function mapEmbedUrl(value) {
+    if (!value) return "";
+    const v = String(value).trim();
+    const iframeMatch = v.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+    if (iframeMatch) return iframeMatch[1];
+    if (/^https:\/\/(www\.)?google\.com\/maps\/embed/.test(v)) return v;
+    return `https://maps.google.com/maps?q=${encodeURIComponent(v)}&output=embed`;
+  }
+
   function renderPopup(content) {
     const overlay = document.createElement("div");
     overlay.className = "trip-popup-overlay";
@@ -245,9 +254,9 @@
     const heroImg = images[0]
       ? `<img class="trip-popup-hero-img" src="${escapeHtml(images[0])}" alt="${escapeHtml(content.title || "")}" />`
       : "";
-    const otherThumbs = images.slice(1)
-      .map((url) => `<a class="trip-popup-thumb" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="" loading="lazy" /></a>`)
-      .join("");
+    const galleryThumbs = images.length > 1
+      ? images.map((url) => `<a class="trip-popup-thumb" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="" loading="lazy" /></a>`).join("")
+      : "";
     const groups = (content.bulletGroups || [])
       .map((g) => `
         <div class="trip-popup-group">
@@ -262,6 +271,17 @@
       : (content.videoUrl
         ? `<div class="trip-popup-video-link"><a href="${escapeHtml(content.videoUrl)}" target="_blank" rel="noopener">▶ Watch video</a></div>`
         : "");
+    const mapSrc = mapEmbedUrl(content.location);
+    const map = mapSrc
+      ? `
+        <div class="trip-popup-map-section">
+          <h3>📍 Байршил</h3>
+          <div class="trip-popup-map">
+            <iframe src="${escapeHtml(mapSrc)}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+          </div>
+        </div>
+      `
+      : "";
     overlay.innerHTML = `
       <div class="trip-popup-dialog" role="dialog" aria-modal="true">
         <button type="button" class="trip-popup-close" data-action="close-popup" aria-label="Close">×</button>
@@ -269,9 +289,10 @@
         <div class="trip-popup-body">
           <h2>${escapeHtml(content.title || content.slug || "")}</h2>
           ${content.summary ? `<p class="trip-popup-summary">${nl2br(content.summary)}</p>` : ""}
-          ${otherThumbs ? `<div class="trip-popup-gallery">${otherThumbs}</div>` : ""}
+          ${galleryThumbs ? `<div class="trip-popup-gallery">${galleryThumbs}</div>` : ""}
           ${groups}
           ${video}
+          ${map}
         </div>
       </div>
     `;

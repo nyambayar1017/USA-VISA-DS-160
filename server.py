@@ -1995,7 +1995,7 @@ def _content_normalize(payload, existing=None):
     if not isinstance(payload, dict):
         return base
     out = dict(base)
-    for key in ("slug", "type", "country", "title", "summary", "videoUrl", "publishStatus"):
+    for key in ("slug", "type", "country", "title", "summary", "videoUrl", "location", "publishStatus"):
         if key in payload and payload[key] is not None:
             out[key] = str(payload[key]).strip()
     out["type"] = (out.get("type") or "").lower() or "attraction"
@@ -2141,6 +2141,7 @@ def handle_get_public_content(environ, start_response, slug):
         "title": rec.get("title"),
         "summary": rec.get("summary"),
         "videoUrl": rec.get("videoUrl"),
+        "location": rec.get("location") or "",
         "images": images,
         "bulletGroups": rec.get("bulletGroups") or [],
     })

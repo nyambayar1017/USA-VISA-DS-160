@@ -122,6 +122,7 @@
     form.elements.country.value = rec ? rec.country || "" : "";
     form.elements.publishStatus.value = rec ? rec.publishStatus || "published" : "published";
     form.elements.videoUrl.value = rec ? rec.videoUrl || "" : "";
+    form.elements.location.value = rec ? rec.location || "" : "";
     form.elements.summary.value = rec ? rec.summary || "" : "";
     renderGroups((rec && rec.bulletGroups) || [{ heading: "", items: [""] }]);
     setImageIds((rec && rec.imageIds) || []);
@@ -278,6 +279,7 @@
       country: form.elements.country.value.trim(),
       publishStatus: form.elements.publishStatus.value,
       videoUrl: form.elements.videoUrl.value.trim(),
+      location: form.elements.location.value.trim(),
       summary: form.elements.summary.value,
       bulletGroups: readGroups(),
       imageIds: getImageIds(),

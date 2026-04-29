@@ -24,15 +24,30 @@
     return m ? `https://www.youtube.com/embed/${m[1]}` : "";
   }
 
+  // Accepts a place name, lat/lng pair, full Google Maps share URL, or
+  // an <iframe …> snippet pasted from Google's "Embed a map" panel.
+  function mapEmbedUrl(value) {
+    if (!value) return "";
+    const v = String(value).trim();
+    const iframeMatch = v.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+    if (iframeMatch) return iframeMatch[1];
+    if (/^https:\/\/(www\.)?google\.com\/maps\/embed/.test(v)) return v;
+    return `https://maps.google.com/maps?q=${encodeURIComponent(v)}&output=embed`;
+  }
+
   function render(content) {
     document.title = content.title ? `${content.title} · TravelX` : "TravelX";
     const images = (content.images || []).map((img) => img.url).filter(Boolean);
     const heroImg = images[0]
       ? `<img class="trip-popup-hero-img" src="${escapeHtml(images[0])}" alt="${escapeHtml(content.title || "")}" />`
       : "";
-    const otherThumbs = images.slice(1)
-      .map((url) => `<a class="trip-popup-thumb" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="" loading="lazy" /></a>`)
-      .join("");
+    // Show every selected image. The first is also the hero up top, but we
+    // repeat it in the gallery grid so a multi-photo content reads as a
+    // proper gallery (and so a single-photo content still has a click-to-
+    // open thumbnail). Each thumb links to the full-resolution file.
+    const galleryThumbs = images.length > 1
+      ? images.map((url) => `<a class="trip-popup-thumb" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="" loading="lazy" /></a>`).join("")
+      : "";
     const groups = (content.bulletGroups || [])
       .map((g) => `
         <div class="trip-popup-group">
@@ -47,6 +62,17 @@
       : (content.videoUrl
         ? `<div class="trip-popup-video-link"><a href="${escapeHtml(content.videoUrl)}" target="_blank" rel="noopener">▶ Watch video</a></div>`
         : "");
+    const mapSrc = mapEmbedUrl(content.location);
+    const map = mapSrc
+      ? `
+        <div class="trip-popup-map-section">
+          <h3>📍 Байршил</h3>
+          <div class="trip-popup-map">
+            <iframe src="${escapeHtml(mapSrc)}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+          </div>
+        </div>
+      `
+      : "";
 
     root.innerHTML = `
       <div class="trip-popup-dialog content-view-dialog">
@@ -55,9 +81,10 @@
           <p class="trip-public-kicker">${escapeHtml(content.type || "")}${content.country ? ` · ${escapeHtml(content.country)}` : ""}</p>
           <h2>${escapeHtml(content.title || content.slug || "")}</h2>
           ${content.summary ? `<p class="trip-popup-summary">${nl2br(content.summary)}</p>` : ""}
-          ${otherThumbs ? `<div class="trip-popup-gallery">${otherThumbs}</div>` : ""}
+          ${galleryThumbs ? `<div class="trip-popup-gallery">${galleryThumbs}</div>` : ""}
           ${groups}
           ${video}
+          ${map}
         </div>
       </div>
       <footer class="trip-public-footer">
