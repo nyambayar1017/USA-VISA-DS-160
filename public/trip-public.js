@@ -24,6 +24,16 @@
     return escapeHtml(value).replace(/\n/g, "<br>");
   }
 
+  // Replace [[slug]] or [[slug|Display Text]] in already-escaped HTML with
+  // a clickable link. We run this after escapeHtml because the brackets
+  // survive (HTML doesn't escape them) — the regex still matches.
+  function linkifyContent(html) {
+    return html.replace(/\[\[([a-z0-9_\-]+)(?:\|([^\]]+))?\]\]/gi, (_match, slug, label) => {
+      const text = (label || slug).trim();
+      return `<a class="trip-public-content-link" href="#" data-slug="${slug}">${text}</a>`;
+    });
+  }
+
   function renderStars(value) {
     const v = Math.max(0, Math.min(5, Number(value) || 0));
     let out = "";
@@ -144,7 +154,7 @@
               <span class="trip-public-day-pill">${escapeHtml(row.day || "")}</span>
               <h3>${escapeHtml(row.title || "")}</h3>
             </div>
-            ${row.body ? `<p>${nl2br(row.body)}</p>` : ""}
+            ${row.body ? `<p>${linkifyContent(nl2br(row.body))}</p>` : ""}
             ${dayImages}
           </article>
         `;
@@ -175,7 +185,7 @@
       </header>
 
       ${doc.intro
-        ? `<section class="trip-public-section trip-public-intro"><p>${nl2br(doc.intro)}</p></section>`
+        ? `<section class="trip-public-section trip-public-intro"><p>${linkifyContent(nl2br(doc.intro))}</p></section>`
         : ""}
 
       ${program
@@ -216,6 +226,92 @@
       root.innerHTML = `<p class="trip-public-empty">${escapeHtml(err.message || "Could not load.")}</p>`;
     }
   }
+
+  // ── Content popup ─────────────────────────────────────────────
+  // Click on a [[slug]] link → fetch /api/public/content/<slug> → modal
+  // with title, photo gallery, summary, bullet groups, and YouTube embed.
+  const popupCache = new Map();
+
+  function youtubeEmbedUrl(url) {
+    if (!url) return "";
+    const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{6,})/);
+    return m ? `https://www.youtube.com/embed/${m[1]}` : "";
+  }
+
+  function renderPopup(content) {
+    const overlay = document.createElement("div");
+    overlay.className = "trip-popup-overlay";
+    const images = (content.images || []).map((img) => img.url).filter(Boolean);
+    const heroImg = images[0]
+      ? `<img class="trip-popup-hero-img" src="${escapeHtml(images[0])}" alt="${escapeHtml(content.title || "")}" />`
+      : "";
+    const otherThumbs = images.slice(1)
+      .map((url) => `<a class="trip-popup-thumb" href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="" loading="lazy" /></a>`)
+      .join("");
+    const groups = (content.bulletGroups || [])
+      .map((g) => `
+        <div class="trip-popup-group">
+          ${g.heading ? `<h3>${escapeHtml(g.heading)}</h3>` : ""}
+          <ul>${(g.items || []).map((it) => `<li>${escapeHtml(it)}</li>`).join("")}</ul>
+        </div>
+      `)
+      .join("");
+    const embed = youtubeEmbedUrl(content.videoUrl);
+    const video = embed
+      ? `<div class="trip-popup-video"><iframe src="${escapeHtml(embed)}" loading="lazy" allowfullscreen></iframe></div>`
+      : (content.videoUrl
+        ? `<div class="trip-popup-video-link"><a href="${escapeHtml(content.videoUrl)}" target="_blank" rel="noopener">▶ Watch video</a></div>`
+        : "");
+    overlay.innerHTML = `
+      <div class="trip-popup-dialog" role="dialog" aria-modal="true">
+        <button type="button" class="trip-popup-close" data-action="close-popup" aria-label="Close">×</button>
+        ${heroImg ? `<div class="trip-popup-hero">${heroImg}</div>` : ""}
+        <div class="trip-popup-body">
+          <h2>${escapeHtml(content.title || content.slug || "")}</h2>
+          ${content.summary ? `<p class="trip-popup-summary">${nl2br(content.summary)}</p>` : ""}
+          ${otherThumbs ? `<div class="trip-popup-gallery">${otherThumbs}</div>` : ""}
+          ${groups}
+          ${video}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add("trip-popup-open");
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay || event.target.closest('[data-action="close-popup"]')) {
+        overlay.remove();
+        document.body.classList.remove("trip-popup-open");
+      }
+    });
+  }
+
+  async function openSlug(slug) {
+    if (popupCache.has(slug)) {
+      renderPopup(popupCache.get(slug));
+      return;
+    }
+    try {
+      const res = await fetch(`/api/public/content/${encodeURIComponent(slug)}`);
+      if (res.status === 404) {
+        alert("This content hasn't been published yet.");
+        return;
+      }
+      if (!res.ok) throw new Error("Could not load content");
+      const content = await res.json();
+      popupCache.set(slug, content);
+      renderPopup(content);
+    } catch (err) {
+      alert(err.message || "Could not open content.");
+    }
+  }
+
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest(".trip-public-content-link");
+    if (!link) return;
+    event.preventDefault();
+    const slug = link.dataset.slug;
+    if (slug) openSlug(slug);
+  });
 
   load();
 })();

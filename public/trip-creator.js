@@ -90,10 +90,11 @@
               <input type="text" class="tc-program-title" placeholder="e.g. УБ - Истанбул нислэг" value="${escapeHtml(row.title || "")}" />
               <button type="button" class="tc-program-delete" data-action="delete-day" data-idx="${idx}" aria-label="Remove day">✕</button>
             </div>
-            <textarea class="tc-program-body" rows="3" placeholder="Description, attractions, notes…">${escapeHtml(row.body || "")}</textarea>
+            <textarea class="tc-program-body" rows="3" placeholder="Description. Use + Content link to embed [[slug]] markers that turn yellow on the public page.">${escapeHtml(row.body || "")}</textarea>
             <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
             <div class="tc-program-day-photos">
               <button type="button" class="ct-add-item-btn" data-action="pick-day-images" data-idx="${idx}">+ Photos</button>
+              <button type="button" class="ct-add-item-btn" data-action="insert-content" data-idx="${idx}">+ Content link</button>
               <div class="ct-image-preview tc-day-thumbs">${thumbs}</div>
             </div>
           </div>
@@ -144,6 +145,29 @@
         current[idx] = day;
         renderProgram(current);
       }
+      return;
+    }
+    const insertContent = event.target.closest('[data-action="insert-content"]');
+    if (insertContent && window.ContentPicker) {
+      const idx = Number(insertContent.dataset.idx);
+      const row = programList.querySelector(`.tc-program-row[data-idx="${idx}"]`);
+      const textarea = row?.querySelector(".tc-program-body");
+      if (!textarea) return;
+      const item = await window.ContentPicker.open({ title: "Insert content link" });
+      if (!item || !item.slug) return;
+      const insert = `[[${item.slug}|${(item.title || item.slug).replace(/\]/g, "")}]]`;
+      // Replace any selected range or insert at the caret. After insertion,
+      // place the cursor right after so the user can keep typing.
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? textarea.value.length;
+      const before = textarea.value.slice(0, start);
+      const after = textarea.value.slice(end);
+      const sep = before && !/\s$/.test(before) ? " " : "";
+      const trail = after && !/^\s/.test(after) ? " " : "";
+      textarea.value = `${before}${sep}${insert}${trail}${after}`;
+      const caret = before.length + sep.length + insert.length + trail.length;
+      textarea.focus();
+      textarea.setSelectionRange(caret, caret);
     }
   });
 
