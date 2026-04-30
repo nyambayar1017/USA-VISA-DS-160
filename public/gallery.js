@@ -356,15 +356,14 @@
     const showFolderCards = folderFilter === "" && !q && !tag && !kind && state.group === "none" && state.view === "icons";
     const folderCardsHtml = showFolderCards
       ? state.folders.map((f) => {
-          const sample = state.entries.find(
-            (e) => e.kind === "image" && (e.folder || "").toLowerCase() === f.name.toLowerCase()
-          );
-          const cover = sample
-            ? `<img src="/api/gallery/${encodeURIComponent(sample.id)}/file?size=thumb" alt="" loading="lazy" />`
-            : `<div class="gallery-folder-cover-empty">📁</div>`;
+          // Always show a clean folder visual — no sample photo. The
+          // user explicitly asked for folders to be visually distinct
+          // from regular image cards.
           return `
             <article class="gallery-card gallery-folder-card" data-folder-target="${escapeHtml(f.name)}">
-              <div class="gallery-thumb gallery-folder-cover">${cover}</div>
+              <div class="gallery-thumb gallery-folder-cover">
+                <div class="gallery-folder-cover-empty">📁</div>
+              </div>
               <div class="gallery-card-body">
                 <p class="gallery-card-title" title="${escapeHtml(f.name)}">📁 ${escapeHtml(f.name)}</p>
                 <p class="gallery-card-meta">${f.count} item${f.count === 1 ? "" : "s"}</p>

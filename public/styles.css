@@ -14492,11 +14492,14 @@ body.gallery-select-mode .gallery-card .gallery-thumb img { pointer-events: none
 .gallery-folder-cover {
   background: #fef3c7;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.gallery-folder-cover img { opacity: 0.9; }
 .gallery-folder-cover-empty {
-  font-size: 2.4rem;
+  font-size: 4rem;
   color: #92400e;
+  line-height: 1;
 }
 .gallery-folder-card .gallery-card-title { color: #92400e; }
 
