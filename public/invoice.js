@@ -1210,11 +1210,19 @@
     ).join("");
   }
   function renderWizardStep() {
-    const body = document.getElementById("invoice-wizard-body");
+    let body = document.getElementById("invoice-wizard-body");
     const copy = document.getElementById("invoice-wizard-copy");
     const nextBtn = document.getElementById("invoice-next-btn");
     const backBtn = document.getElementById("invoice-back-btn");
     if (!body) return;
+    // Replace the wizard body with a fresh clone every render so the
+    // wireStepN() helpers can attach a brand-new click listener
+    // without stacking onto the previous render's handlers (the
+    // listener-stacking bug that made + Add installment add 1, then
+    // 2, then 3, then 4 rows on successive clicks).
+    const fresh = body.cloneNode(false);
+    body.replaceWith(fresh);
+    body = fresh;
     backBtn.disabled = wizardStep === 1;
     nextBtn.textContent = wizardStep === 3 ? "Finish" : "Next";
     if (wizardStep === 1) { copy.textContent = "Step 1 — Pick group, payer, participants."; body.innerHTML = renderStep1(); wireStep1(body); }
