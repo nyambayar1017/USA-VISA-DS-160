@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-353" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-354" />
   </head>
   <body class="app-body" data-page="home">
     <div class="workspace-shell">
@@ -157,6 +157,40 @@
                     <button type="button" class="secondary-button trip-flight-add" data-action="trip-flight-add">+ Add flight</button>
                   </div>
                   <div class="trip-flights-list" data-trip-flights-list></div>
+                </div>
+                <div class="full-span trip-costing-block" data-trip-form-costing>
+                  <div class="trip-flights-head">
+                    <strong>Trip costing</strong>
+                    <span class="muted" style="font-size:12px;">Plan the expenses you'll pay on this trip (camp, hotel, transfer, salaries, museums, etc.). Pick a template to fill the table or add lines manually.</span>
+                  </div>
+                  <div class="field-grid trip-costing-toolbar">
+                    <label>Use template
+                      <select data-trip-template-pick>
+                        <option value="">— No template —</option>
+                      </select>
+                    </label>
+                    <label>Margin %
+                      <input type="number" min="0" step="0.01" name="marginPct" value="0" />
+                    </label>
+                    <label>USD → MNT rate
+                      <input type="number" min="0" step="0.01" name="rateUsd" placeholder="e.g. 3450" />
+                    </label>
+                    <label>EUR → MNT rate
+                      <input type="number" min="0" step="0.01" name="rateEur" placeholder="e.g. 3700" />
+                    </label>
+                  </div>
+                  <div class="camp-table-wrap">
+                    <table class="camp-table tpl-trip-lines-table">
+                      <thead>
+                        <tr><th>Day</th><th>Category</th><th>Payee</th><th>Amount</th><th>Currency</th><th>Note</th><th></th></tr>
+                      </thead>
+                      <tbody data-trip-expense-lines></tbody>
+                    </table>
+                  </div>
+                  <div class="trip-costing-foot">
+                    <button type="button" class="secondary-button" data-action="trip-expense-add">+ Add line</button>
+                    <span class="trip-costing-totals" data-trip-costing-totals></span>
+                  </div>
                 </div>
                 <div class="actions full-span">
                   <button type="submit">Save trip</button>
@@ -786,7 +820,7 @@
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-159"></script>
+    <script src="/camp.js?v=workspace-160"></script>
     <script src="/reservations-addon.js?v=workspace-27"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>

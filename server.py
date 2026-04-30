@@ -7840,6 +7840,19 @@ def build_camp_trip(payload, actor=None):
     trip_type = normalize_text(payload.get("tripType")).lower() or "git"
     if trip_type not in {"fit", "git"}:
         trip_type = "git"
+    raw_rates = payload.get("exchangeRates") or {}
+    fx = {}
+    for k in ("USD", "EUR"):
+        try:
+            v = float(raw_rates.get(k) or 0)
+        except (TypeError, ValueError):
+            v = 0
+        if v > 0:
+            fx[k] = v
+    try:
+        margin_pct = float(payload.get("marginPct") or 0)
+    except (TypeError, ValueError):
+        margin_pct = 0
     return {
         "id": str(uuid4()),
         "serial": next_trip_serial(company),
@@ -7859,6 +7872,9 @@ def build_camp_trip(payload, actor=None):
         "language": normalize_text(payload.get("language")) or "Other",
         "status": normalize_text(payload.get("status")).lower() or "planning",
         "tags": normalize_tag_list(payload.get("tags")),
+        "expenseLines": _normalize_trip_template_lines(payload.get("expenseLines")),
+        "marginPct": margin_pct,
+        "exchangeRates": fx,
         "inboundCompany": "Unlock Steppe Mongolia",
         "company": company,
         "createdBy": actor_snapshot(actor),
@@ -11898,6 +11914,24 @@ def handle_update_camp_trip(environ, start_response, trip_id):
             tt = normalize_text(payload.get("tripType")).lower()
             if tt in {"fit", "git"}:
                 merged["tripType"] = tt
+        if "expenseLines" in payload:
+            merged["expenseLines"] = _normalize_trip_template_lines(payload.get("expenseLines"))
+        if "marginPct" in payload:
+            try:
+                merged["marginPct"] = float(payload.get("marginPct") or 0)
+            except (TypeError, ValueError):
+                pass
+        if "exchangeRates" in payload:
+            raw_rates = payload.get("exchangeRates") or {}
+            fx = {}
+            for k in ("USD", "EUR"):
+                try:
+                    v = float(raw_rates.get(k) or 0)
+                except (TypeError, ValueError):
+                    v = 0
+                if v > 0:
+                    fx[k] = v
+            merged["exchangeRates"] = fx
         error = validate_camp_trip(merged)
         if error:
             return json_response(start_response, "400 Bad Request", {"error": error})

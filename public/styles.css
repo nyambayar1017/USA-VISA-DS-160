@@ -17488,6 +17488,61 @@ body.lightbox-open { overflow: hidden; }
 .acct-stats-pending dd .is-positive { color: #1f8550; margin-right: 6px; }
 .acct-stats-pending dd .is-negative { color: #c44747; }
 
+/* Trip costing block inside the trip-edit modal + P&L card on
+   trip-detail. Shares table styles with the template editor. */
+.trip-costing-block {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px dashed #cfd8e6;
+  border-radius: 12px;
+  background: #fafbff;
+}
+.trip-costing-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+.trip-costing-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+.trip-costing-totals {
+  font-size: 13px;
+  color: #475569;
+}
+.trip-costing-totals strong { color: #1f2d50; }
+
+.trip-pl-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.trip-pl-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.trip-pl-card dt {
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.trip-pl-card dd { margin: 0; font-size: 16px; font-weight: 700; color: #1f2d50; }
+.trip-pl-card dd.is-positive { color: #1f8550; }
+.trip-pl-card dd.is-negative { color: #c44747; }
+.trip-pl-adhoc td { background: rgba(255, 245, 189, 0.18); }
+
 /* Trip costing template list + editor */
 .tpl-trip-list { display: grid; gap: 12px; }
 .tpl-trip-card {

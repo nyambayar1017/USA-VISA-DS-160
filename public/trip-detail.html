@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-353" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-354" />
   </head>
   <body class="app-body" data-page="home">
     <script>
@@ -154,6 +154,40 @@
                   </div>
                   <div class="trip-flights-list" data-trip-flights-list></div>
                 </div>
+                <div class="full-span trip-costing-block" data-trip-form-costing>
+                  <div class="trip-flights-head">
+                    <strong>Trip costing</strong>
+                    <span class="muted" style="font-size:12px;">Plan the expenses for this trip. Pick a template to fill the table or add lines manually.</span>
+                  </div>
+                  <div class="field-grid trip-costing-toolbar">
+                    <label>Use template
+                      <select data-trip-template-pick>
+                        <option value="">— No template —</option>
+                      </select>
+                    </label>
+                    <label>Margin %
+                      <input type="number" min="0" step="0.01" name="marginPct" value="0" />
+                    </label>
+                    <label>USD → MNT rate
+                      <input type="number" min="0" step="0.01" name="rateUsd" placeholder="e.g. 3450" />
+                    </label>
+                    <label>EUR → MNT rate
+                      <input type="number" min="0" step="0.01" name="rateEur" placeholder="e.g. 3700" />
+                    </label>
+                  </div>
+                  <div class="camp-table-wrap">
+                    <table class="camp-table tpl-trip-lines-table">
+                      <thead>
+                        <tr><th>Day</th><th>Category</th><th>Payee</th><th>Amount</th><th>Currency</th><th>Note</th><th></th></tr>
+                      </thead>
+                      <tbody data-trip-expense-lines></tbody>
+                    </table>
+                  </div>
+                  <div class="trip-costing-foot">
+                    <button type="button" class="secondary-button" data-action="trip-expense-add">+ Add line</button>
+                    <span class="trip-costing-totals" data-trip-costing-totals></span>
+                  </div>
+                </div>
                 <div class="actions full-span">
                   <button type="submit">Save trip</button>
                   <p id="trip-status" class="status"></p>
@@ -229,6 +263,35 @@
             </div>
           </div>
           <div id="group-list" class="submission-list"></div>
+        </section>
+
+        <section class="card" id="trip-pnl-section" hidden>
+          <div class="section-head">
+            <div>
+              <h2>Profit &amp; Loss</h2>
+              <p class="muted">Planned vs actual paid vs income on this trip. Daily breakdown reads from the costing template, actuals come from the Accountant ledger, income from the trip's invoices.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" class="header-action-btn" id="trip-pl-add-line">+ Pay an expense</button>
+            </div>
+          </div>
+          <div id="trip-pl-summary" class="trip-pl-summary"></div>
+          <div class="camp-table-wrap">
+            <table class="camp-table" id="trip-pl-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Category</th>
+                  <th>Payee</th>
+                  <th>Planned</th>
+                  <th>Actual paid</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="trip-pl-tbody"><tr><td colspan="7" class="empty">No expense lines planned for this trip yet.</td></tr></tbody>
+            </table>
+          </div>
         </section>
 
         <section class="card" id="tourists-section">
@@ -1157,7 +1220,7 @@
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-159"></script>
+    <script src="/camp.js?v=workspace-160"></script>
     <script src="/reservations-addon.js?v=workspace-27"></script>
     <script src="/participant-chooser.js?v=workspace-1"></script>
     <script src="/nationality-select.js?v=workspace-1"></script>
@@ -1167,5 +1230,6 @@
     <script src="/trip-notes.js?v=workspace-11"></script>
     <script src="/contracts.js?v=workspace-7"></script>
     <script src="/invoice.js?v=workspace-36"></script>
+    <script src="/trip-pl.js?v=workspace-1"></script>
   </body>
 </html>

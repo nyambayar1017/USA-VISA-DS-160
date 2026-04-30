@@ -2502,6 +2502,15 @@ function startTripEdit(id) {
   // appends a new row instead of starting at "Flight 1" again.
   clearTripFlightRows();
   loadExistingTripFlights(id);
+  // Trip costing — fill the template picker, restore previously saved
+  // expense lines + margin + FX rates.
+  loadTripTemplatesIntoPicker();
+  renderTripExpenseLines((trip.expenseLines || []).map((l) => ({ ...l })));
+  if (tripForm.elements.marginPct) tripForm.elements.marginPct.value = String(trip.marginPct || 0);
+  const rates = trip.exchangeRates || {};
+  if (tripForm.elements.rateUsd) tripForm.elements.rateUsd.value = rates.USD || "";
+  if (tripForm.elements.rateEur) tripForm.elements.rateEur.value = rates.EUR || "";
+  refreshTripCostingTotals();
   tripForm.elements.tripName.value = trip.tripName || "";
   if (tripForm.elements.reservationName) tripForm.elements.reservationName.value = trip.reservationName || trip.tripName || "";
   tripForm.elements.startDate.value = String(trip.startDate || "").slice(0, 10);
@@ -2540,6 +2549,8 @@ function resetTripFormState() {
   if (tripForm.elements.tripType) tripForm.elements.tripType.value = "git";
   applyTripTypeMode();
   clearTripFlightRows();
+  loadTripTemplatesIntoPicker();
+  renderTripExpenseLines([]);
   tripStatus.textContent = "";
 }
 
@@ -2893,6 +2904,152 @@ function clearTripFlightRows() {
   if (list) list.innerHTML = "";
 }
 
+// ── Trip costing: expense lines + template picker + margin + FX ──
+let tripTemplateCache = [];
+
+function getTripExpenseBody() {
+  return tripForm?.querySelector("[data-trip-expense-lines]") || null;
+}
+
+function blankExpenseLine(dayOffset = 1) {
+  return { dayOffset, category: "", payeeName: "", amount: 0, currency: "MNT", note: "" };
+}
+
+function renderTripExpenseLines(lines) {
+  const body = getTripExpenseBody();
+  if (!body) return;
+  if (!lines.length) {
+    body.innerHTML = `<tr><td colspan="7" class="muted">No expense lines yet — click + Add line</td></tr>`;
+    refreshTripCostingTotals([]);
+    return;
+  }
+  body.innerHTML = lines.map((l, i) => `
+    <tr data-line-i="${i}">
+      <td><input type="number" min="0" data-expense-field="dayOffset" value="${escapeHtml(l.dayOffset)}" style="width:60px;" /></td>
+      <td><input type="text" data-expense-field="category" value="${escapeHtml(l.category || "")}" placeholder="Camp / Driver salary…" /></td>
+      <td><input type="text" data-expense-field="payeeName" value="${escapeHtml(l.payeeName || "")}" placeholder="Payee" /></td>
+      <td><input type="number" step="0.01" min="0" data-expense-field="amount" value="${escapeHtml(l.amount || 0)}" style="width:120px;" /></td>
+      <td>
+        <select data-expense-field="currency">
+          <option value="MNT" ${l.currency === "MNT" ? "selected" : ""}>MNT</option>
+          <option value="USD" ${l.currency === "USD" ? "selected" : ""}>USD</option>
+          <option value="EUR" ${l.currency === "EUR" ? "selected" : ""}>EUR</option>
+        </select>
+      </td>
+      <td><input type="text" data-expense-field="note" value="${escapeHtml(l.note || "")}" placeholder="Optional" /></td>
+      <td><button type="button" class="button-secondary is-danger" data-expense-remove="${i}">×</button></td>
+    </tr>
+  `).join("");
+  refreshTripCostingTotals(lines);
+}
+
+function readTripExpenseLines() {
+  const body = getTripExpenseBody();
+  if (!body) return [];
+  return Array.from(body.querySelectorAll("tr[data-line-i]")).map((row) => {
+    const get = (f) => row.querySelector(`[data-expense-field="${f}"]`)?.value || "";
+    return {
+      dayOffset: Number(get("dayOffset")) || 0,
+      category: get("category").trim(),
+      payeeName: get("payeeName").trim(),
+      amount: Number(get("amount")) || 0,
+      currency: get("currency") || "MNT",
+      note: get("note").trim(),
+    };
+  }).filter((l) => l.category || l.payeeName || l.amount);
+}
+
+function refreshTripCostingTotals(linesArg) {
+  const node = tripForm?.querySelector("[data-trip-costing-totals]");
+  if (!node) return;
+  const lines = linesArg || readTripExpenseLines();
+  const usd = Number(tripForm.elements.rateUsd?.value) || 0;
+  const eur = Number(tripForm.elements.rateEur?.value) || 0;
+  const margin = Number(tripForm.elements.marginPct?.value) || 0;
+  let mntTotal = 0;
+  const byCcy = {};
+  lines.forEach((l) => {
+    const ccy = (l.currency || "MNT").toUpperCase();
+    const amt = Number(l.amount) || 0;
+    byCcy[ccy] = (byCcy[ccy] || 0) + amt;
+    if (ccy === "MNT") mntTotal += amt;
+    else if (ccy === "USD") mntTotal += amt * (usd || 0);
+    else if (ccy === "EUR") mntTotal += amt * (eur || 0);
+  });
+  const summary = Object.entries(byCcy)
+    .map(([c, a]) => `${c} ${a.toLocaleString()}`)
+    .join(" + ");
+  const quoted = mntTotal * (1 + margin / 100);
+  node.innerHTML = `
+    <span>Cost: <strong>${escapeHtml(summary || "—")}</strong></span>
+    ${(usd || eur)
+      ? `<span> · MNT total <strong>${mntTotal.toLocaleString()}</strong></span>`
+      : ""}
+    ${margin
+      ? `<span> · Margin ${margin}% → quote <strong>${quoted.toLocaleString()} MNT</strong></span>`
+      : ""}
+  `;
+}
+
+async function loadTripTemplatesIntoPicker() {
+  const sel = tripForm?.querySelector("[data-trip-template-pick]");
+  if (!sel) return;
+  try {
+    const r = await fetch("/api/trip-templates");
+    const data = await r.json();
+    tripTemplateCache = data.entries || [];
+  } catch {
+    tripTemplateCache = [];
+  }
+  sel.innerHTML = '<option value="">— No template —</option>'
+    + tripTemplateCache
+        .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}${t.workspace ? ` (${escapeHtml(t.workspace)})` : ""}</option>`)
+        .join("");
+}
+
+function applyTripTemplate(templateId) {
+  const tpl = tripTemplateCache.find((t) => t.id === templateId);
+  if (!tpl) return;
+  if (!tripForm.elements.totalDays.value || tripForm.elements.totalDays.value === "1") {
+    tripForm.elements.totalDays.value = String(tpl.days || 1);
+  }
+  if (tripForm.elements.marginPct && (!tripForm.elements.marginPct.value || tripForm.elements.marginPct.value === "0")) {
+    tripForm.elements.marginPct.value = String(tpl.marginPct || 0);
+  }
+  renderTripExpenseLines((tpl.expenseLines || []).map((l) => ({ ...l })));
+}
+
+if (tripForm) {
+  tripForm.addEventListener("click", (e) => {
+    if (e.target.dataset?.action === "trip-expense-add") {
+      e.preventDefault();
+      const lines = readTripExpenseLines();
+      lines.push(blankExpenseLine(lines.length ? Math.max(...lines.map((l) => l.dayOffset)) : 1));
+      renderTripExpenseLines(lines);
+    }
+    const removeIdx = e.target.dataset?.expenseRemove;
+    if (removeIdx !== undefined) {
+      e.preventDefault();
+      const lines = readTripExpenseLines();
+      lines.splice(Number(removeIdx), 1);
+      renderTripExpenseLines(lines);
+    }
+  });
+  tripForm.addEventListener("change", (e) => {
+    if (e.target.dataset?.tripTemplatePick !== undefined || e.target.matches("[data-trip-template-pick]")) {
+      applyTripTemplate(e.target.value);
+    }
+    if (["marginPct", "rateUsd", "rateEur"].includes(e.target.name) || e.target.dataset?.expenseField) {
+      refreshTripCostingTotals();
+    }
+  });
+  tripForm.addEventListener("input", (e) => {
+    if (e.target.dataset?.expenseField === "amount" || ["marginPct", "rateUsd", "rateEur"].includes(e.target.name)) {
+      refreshTripCostingTotals();
+    }
+  });
+}
+
 // Set on edit, used by the submit handler to detect rows that were
 // removed in this session so we can DELETE them server-side.
 let initialTripFlightIds = new Set();
@@ -2943,6 +3100,14 @@ tripForm.addEventListener("submit", async (event) => {
   try {
     const payload = buildPayload(tripForm);
     if (!payload.language) payload.language = "Other";
+    // Trip costing fields — expense plan, margin %, FX snapshot.
+    payload.expenseLines = readTripExpenseLines();
+    payload.marginPct = Number(tripForm.elements.marginPct?.value) || 0;
+    payload.exchangeRates = {};
+    const rateUsd = Number(tripForm.elements.rateUsd?.value) || 0;
+    const rateEur = Number(tripForm.elements.rateEur?.value) || 0;
+    if (rateUsd) payload.exchangeRates.USD = rateUsd;
+    if (rateEur) payload.exchangeRates.EUR = rateEur;
     // Destinations are required on DTX so the trip flows correctly
     // into the confirmed-tourist destination breakdown and the
     // public render. USM only operates inside Mongolia and the
