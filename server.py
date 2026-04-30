@@ -9235,9 +9235,18 @@ def handle_list_accountant_paid(environ, start_response):
         return []
     workspace_filter = (active_workspace(environ) or "").upper()
     requests_all = read_payment_requests()
-    invoices_by_id = {r.get("id"): r for r in read_invoices()}
+    invoices_all = read_invoices()
+    invoices_by_id = {r.get("id"): r for r in invoices_all}
     trips_by_id = {t.get("id"): t for t in read_camp_trips()}
     banks_by_id = {b.get("id"): b for b in (read_settings().get("bankAccounts") or [])}
+    # Track which (invoiceId, installmentIndex) pairs are already
+    # represented by a payment_request so we don't double-count them
+    # when we also surface paid installments below.
+    request_index_pairs = {
+        (r.get("invoiceId"), r.get("installmentIndex"))
+        for r in requests_all
+        if r.get("invoiceId") and r.get("installmentIndex") is not None
+    }
     rows = []
     for r in requests_all:
         status = (r.get("status") or "").lower()
@@ -9308,6 +9317,64 @@ def handle_list_accountant_paid(environ, start_response):
             "paidDocumentUrl": paid_doc_url,
             "workspace": r.get("workspace") or "",
         })
+    # Backfill: any paid installment on an existing invoice that has no
+    # matching payment_request shows up as a synthetic incoming row so
+    # the ledger reflects the company's actual paid history (records
+    # that were marked paid before the request flow existed).
+    for invoice in invoices_all:
+        ws = _payment_request_workspace(invoice)
+        if workspace_filter and ws != workspace_filter:
+            continue
+        installments = invoice.get("installments") or []
+        for idx, inst in enumerate(installments):
+            inst_status = (inst.get("status") or "").lower()
+            if inst_status not in ("paid", "confirmed"):
+                continue
+            if (invoice.get("id"), idx) in request_index_pairs:
+                continue
+            trip = trips_by_id.get(invoice.get("tripId")) or {}
+            bank_id = inst.get("bankAccountId") or ""
+            bank = banks_by_id.get(bank_id) or inst.get("bankAccount") or {}
+            paid_amount = inst.get("paidAmount")
+            if paid_amount is None:
+                paid_amount = inst.get("amount") or 0
+            paid_by = inst.get("paidBy") or {}
+            rows.append({
+                "id": f"legacy-{invoice.get('id')}-{idx}",
+                "status": "approved",
+                "direction": "incoming",
+                "scope": "trip",
+                "category": "Invoice",
+                "paidDate": inst.get("paidDate") or "",
+                "dueDate": inst.get("dueDate") or "",
+                "requestedAt": inst.get("paidAt") or invoice.get("createdAt") or "",
+                "tripId": invoice.get("tripId") or "",
+                "tripName": trip.get("tripName") or "",
+                "tripSerial": trip.get("serial") or "",
+                "invoiceId": invoice.get("id") or "",
+                "invoiceSerial": invoice.get("serial") or "",
+                "installmentDescription": inst.get("description") or "",
+                "installmentIndex": idx,
+                "payerName": invoice.get("payerName") or "",
+                "payeeName": "",
+                "amount": paid_amount,
+                "currency": invoice.get("currency") or "MNT",
+                "bankAccountId": bank_id,
+                "bankLabel": (bank.get("label") or bank.get("bankName") or ""),
+                "bankAccountNumber": bank.get("accountNumber") or "",
+                "manager": (paid_by.get("name") or paid_by.get("email") or ""),
+                "approvedBy": (paid_by.get("name") or ""),
+                "approvedAt": inst.get("paidAt") or "",
+                "requestedBy": paid_by,
+                "note": inst.get("note") or "",
+                "paidDocumentId": "",
+                "paidDocumentName": "",
+                "paidDocumentMime": "",
+                "paidDocumentUrl": "",
+                "workspace": ws,
+                "isLegacy": True,
+            })
+
     # Pending rows float to top (so the accountant sees what to act on),
     # then approved rows ordered by paid date desc.
     def sort_key(x):
