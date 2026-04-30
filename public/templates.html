@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-352" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-353" />
   </head>
   <body class="app-body" data-page="templates">
     <div class="workspace-shell">
@@ -33,7 +33,7 @@
           <nav class="tpl-side" aria-label="Template categories">
             <button type="button" class="tpl-cat is-active" data-cat="locations">Locations</button>
             <button type="button" class="tpl-cat" data-cat="meals">Meals</button>
-            <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Days <span class="tpl-soon">soon</span></button>
+            <button type="button" class="tpl-cat" data-cat="trips">Trip costing</button>
             <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Services <span class="tpl-soon">soon</span></button>
             <button type="button" class="tpl-cat is-disabled" disabled title="Coming soon">Accommodation <span class="tpl-soon">soon</span></button>
           </nav>
@@ -85,6 +85,82 @@
               <p class="tpl-empty">Loading…</p>
             </div>
           </section>
+
+          <section class="tpl-pane" data-pane="trips" hidden>
+            <div class="section-head">
+              <div>
+                <h2>Trip costing templates</h2>
+                <p>Reusable cost recipes per trip type — camp, hotel, flight, transfer, driver, cook, guide, museums, etc. with per-day amounts. The trip builder loads these to plan a trip's expenses; the accountant ledger uses the same categories when payments come through.</p>
+              </div>
+              <div class="camp-toolbar">
+                <button type="button" class="header-action-btn" id="tpl-trip-add">+ New trip template</button>
+              </div>
+            </div>
+            <div class="tpl-trip-list" id="tpl-trip-list">
+              <p class="tpl-empty">Loading…</p>
+            </div>
+          </section>
+        </div>
+
+        <!-- Trip-template editor modal -->
+        <div id="tpl-trip-modal" class="camp-modal is-hidden" hidden>
+          <div class="camp-modal-backdrop" data-action="close-trip-tpl"></div>
+          <div class="camp-modal-dialog camp-modal-dialog-wide">
+            <div class="camp-modal-header">
+              <div>
+                <h2 id="tpl-trip-modal-title">Trip costing template</h2>
+                <p class="camp-modal-copy">List every line the company pays on this kind of trip — camp, hotel, transfers, salaries, museums, etc. Each line carries a default amount, currency, and the trip day it falls on.</p>
+              </div>
+              <button type="button" class="camp-modal-close" data-action="close-trip-tpl" aria-label="Close">×</button>
+            </div>
+            <form id="tpl-trip-form" class="manager-form-grid manager-form-grid-vertical">
+              <input type="hidden" name="id" />
+              <div class="field-grid">
+                <label>Template name <input name="name" required placeholder="e.g. Standard Mongolia 8 days" /></label>
+                <label>Workspace
+                  <select name="workspace">
+                    <option value="DTX">DTX</option>
+                    <option value="USM">USM</option>
+                    <option value="BOTH">Both</option>
+                  </select>
+                </label>
+                <label>Trip duration (days) <input name="days" type="number" min="1" value="1" required /></label>
+                <label>Default margin %
+                  <input name="marginPct" type="number" min="0" step="0.01" value="0" />
+                </label>
+                <label class="full-span">Notes
+                  <textarea name="notes" rows="2" placeholder="Anything to remember when applying this template"></textarea>
+                </label>
+              </div>
+              <div class="tpl-trip-lines">
+                <div class="section-head">
+                  <h3 style="margin:0;">Expense lines</h3>
+                  <button type="button" class="header-action-btn" id="tpl-trip-add-line">+ Add line</button>
+                </div>
+                <div class="camp-table-wrap">
+                  <table class="camp-table tpl-trip-lines-table">
+                    <thead>
+                      <tr>
+                        <th>Day</th>
+                        <th>Category</th>
+                        <th>Payee</th>
+                        <th>Amount</th>
+                        <th>Currency</th>
+                        <th>Note</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="tpl-trip-lines-body"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="submit">Save template</button>
+                <button type="button" class="button-secondary" data-action="close-trip-tpl">Cancel</button>
+                <p id="tpl-trip-status" class="status"></p>
+              </div>
+            </form>
+          </div>
         </div>
       </main>
     </div>
@@ -168,6 +244,6 @@
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/image-picker.js?v=workspace-2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="/templates.js?v=workspace-7"></script>
+    <script src="/templates.js?v=workspace-8"></script>
   </body>
 </html>

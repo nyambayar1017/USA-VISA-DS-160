@@ -638,4 +638,202 @@
   });
 
   loadLocations();
+
+  // ─────────────────────────────────────────────────────────────────
+  // Trip costing templates
+  // Each template lists the expense lines we typically pay on this
+  // kind of trip (camp, hotel, transfer, driver, cook, guide,
+  // museums, …) with default amount + currency + trip day. The trip
+  // builder will copy these lines onto a new trip; the accountant
+  // ledger reuses the same categories when payments come through.
+  // ─────────────────────────────────────────────────────────────────
+  const tripListNode = document.getElementById("tpl-trip-list");
+  const tripModal    = document.getElementById("tpl-trip-modal");
+  const tripForm     = document.getElementById("tpl-trip-form");
+  const tripLinesBody = document.getElementById("tpl-trip-lines-body");
+  const tripAddBtn   = document.getElementById("tpl-trip-add");
+  const tripAddLine  = document.getElementById("tpl-trip-add-line");
+  const tripStatus   = document.getElementById("tpl-trip-status");
+  let tripTemplates = [];
+
+  async function loadTripTemplates() {
+    try {
+      const r = await fetch("/api/trip-templates");
+      const data = await r.json();
+      tripTemplates = data.entries || [];
+    } catch {
+      tripTemplates = [];
+    }
+    renderTripTemplates();
+  }
+
+  function renderTripTemplates() {
+    if (!tripListNode) return;
+    if (!tripTemplates.length) {
+      tripListNode.innerHTML = '<p class="tpl-empty">No trip templates yet. Click <strong>+ New trip template</strong> to add one.</p>';
+      return;
+    }
+    tripListNode.innerHTML = tripTemplates.map((t) => {
+      const ws = (t.workspace || "DTX").toUpperCase();
+      const days = t.days || 1;
+      const lineCount = (t.expenseLines || []).length;
+      const total = (t.expenseLines || []).reduce((acc, l) => {
+        const cur = (l.currency || "MNT").toUpperCase();
+        acc[cur] = (acc[cur] || 0) + (Number(l.amount) || 0);
+        return acc;
+      }, {});
+      const totalsHtml = Object.entries(total)
+        .map(([ccy, amt]) => `<span class="tpl-trip-total">${escapeHtml(ccy)} ${amt.toLocaleString()}</span>`)
+        .join(" ");
+      return `
+        <article class="tpl-trip-card" data-id="${escapeHtml(t.id)}">
+          <header>
+            <div>
+              <h3>${escapeHtml(t.name)} <span class="tpl-trip-ws">${escapeHtml(ws)}</span></h3>
+              <p class="muted">${days} day${days === 1 ? "" : "s"} · ${lineCount} line${lineCount === 1 ? "" : "s"} · ${totalsHtml || "no expenses yet"}</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" class="header-action-btn" data-trip-tpl-edit="${escapeHtml(t.id)}">Edit</button>
+              <button type="button" class="header-action-btn button-secondary is-danger" data-trip-tpl-delete="${escapeHtml(t.id)}">Delete</button>
+            </div>
+          </header>
+          ${t.notes ? `<p class="muted">${escapeHtml(t.notes)}</p>` : ""}
+        </article>
+      `;
+    }).join("");
+  }
+
+  function blankLine(dayOffset = 1) {
+    return { dayOffset, category: "", payeeName: "", amount: 0, currency: "MNT", note: "" };
+  }
+
+  function renderTripLines(lines) {
+    tripLinesBody.innerHTML = lines.map((l, i) => `
+      <tr data-line-i="${i}">
+        <td><input type="number" min="0" data-line-field="dayOffset" value="${escapeHtml(l.dayOffset)}" style="width:60px;" /></td>
+        <td><input type="text" data-line-field="category" value="${escapeHtml(l.category || "")}" placeholder="Camp / Hotel / Driver salary…" /></td>
+        <td><input type="text" data-line-field="payeeName" value="${escapeHtml(l.payeeName || "")}" placeholder="Who gets paid" /></td>
+        <td><input type="number" step="0.01" min="0" data-line-field="amount" value="${escapeHtml(l.amount || 0)}" style="width:120px;" /></td>
+        <td>
+          <select data-line-field="currency">
+            <option value="MNT" ${l.currency === "MNT" ? "selected" : ""}>MNT</option>
+            <option value="USD" ${l.currency === "USD" ? "selected" : ""}>USD</option>
+            <option value="EUR" ${l.currency === "EUR" ? "selected" : ""}>EUR</option>
+          </select>
+        </td>
+        <td><input type="text" data-line-field="note" value="${escapeHtml(l.note || "")}" placeholder="Optional note" /></td>
+        <td><button type="button" class="button-secondary is-danger" data-line-remove="${i}">×</button></td>
+      </tr>
+    `).join("") || `<tr><td colspan="7" class="tpl-empty">No expense lines yet — click + Add line</td></tr>`;
+  }
+
+  function readTripLines() {
+    return Array.from(tripLinesBody.querySelectorAll("tr[data-line-i]")).map((row) => {
+      const get = (field) => row.querySelector(`[data-line-field="${field}"]`)?.value || "";
+      return {
+        dayOffset: Number(get("dayOffset")) || 0,
+        category: get("category").trim(),
+        payeeName: get("payeeName").trim(),
+        amount: Number(get("amount")) || 0,
+        currency: get("currency") || "MNT",
+        note: get("note").trim(),
+      };
+    });
+  }
+
+  let editingTripId = "";
+
+  function openTripModal(template) {
+    if (!tripModal) return;
+    editingTripId = template?.id || "";
+    tripForm.reset();
+    tripForm.elements.id.value = editingTripId;
+    tripForm.elements.name.value = template?.name || "";
+    tripForm.elements.workspace.value = template?.workspace || "DTX";
+    tripForm.elements.days.value = template?.days || 1;
+    tripForm.elements.marginPct.value = template?.marginPct || 0;
+    tripForm.elements.notes.value = template?.notes || "";
+    const lines = (template?.expenseLines || []).slice();
+    if (!lines.length) lines.push(blankLine(1));
+    renderTripLines(lines);
+    tripStatus.textContent = "";
+    tripModal.classList.remove("is-hidden");
+    tripModal.removeAttribute("hidden");
+    document.body.classList.add("modal-open");
+  }
+
+  function closeTripModal() {
+    if (!tripModal) return;
+    tripModal.classList.add("is-hidden");
+    tripModal.setAttribute("hidden", "");
+    document.body.classList.remove("modal-open");
+  }
+
+  tripAddBtn?.addEventListener("click", () => openTripModal(null));
+  tripAddLine?.addEventListener("click", () => {
+    const lines = readTripLines();
+    lines.push(blankLine(lines.length ? Math.max(...lines.map((l) => l.dayOffset)) : 1));
+    renderTripLines(lines);
+  });
+  tripModal?.addEventListener("click", (e) => {
+    if (e.target.dataset.action === "close-trip-tpl") closeTripModal();
+    const removeIdx = e.target.dataset.lineRemove;
+    if (removeIdx !== undefined) {
+      const lines = readTripLines();
+      lines.splice(Number(removeIdx), 1);
+      renderTripLines(lines.length ? lines : [blankLine(1)]);
+    }
+  });
+  tripListNode?.addEventListener("click", async (e) => {
+    const editId = e.target.dataset.tripTplEdit;
+    if (editId) {
+      const tpl = tripTemplates.find((t) => t.id === editId);
+      if (tpl) openTripModal(tpl);
+      return;
+    }
+    const delId = e.target.dataset.tripTplDelete;
+    if (delId) {
+      const tpl = tripTemplates.find((t) => t.id === delId);
+      const ok = window.UI?.confirm
+        ? await window.UI.confirm(`Delete template "${tpl?.name || ""}"?`, { dangerous: true })
+        : window.confirm(`Delete template "${tpl?.name || ""}"?`);
+      if (!ok) return;
+      try {
+        const r = await fetch(`/api/trip-templates/${encodeURIComponent(delId)}`, { method: "DELETE" });
+        if (!r.ok) throw new Error((await r.json()).error || "Delete failed");
+        loadTripTemplates();
+      } catch (err) {
+        alert(err.message || "Delete failed");
+      }
+    }
+  });
+  tripForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const body = {
+      name: tripForm.elements.name.value.trim(),
+      workspace: tripForm.elements.workspace.value || "DTX",
+      days: Number(tripForm.elements.days.value) || 1,
+      marginPct: Number(tripForm.elements.marginPct.value) || 0,
+      notes: tripForm.elements.notes.value.trim(),
+      expenseLines: readTripLines().filter((l) => l.category || l.payeeName || l.amount),
+    };
+    if (!body.name) { tripStatus.textContent = "Name is required."; return; }
+    tripStatus.textContent = "Saving…";
+    try {
+      const url = editingTripId ? `/api/trip-templates/${encodeURIComponent(editingTripId)}` : "/api/trip-templates";
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Save failed");
+      closeTripModal();
+      loadTripTemplates();
+    } catch (err) {
+      tripStatus.textContent = err.message || "Save failed";
+    }
+  });
+
+  loadTripTemplates();
 })();

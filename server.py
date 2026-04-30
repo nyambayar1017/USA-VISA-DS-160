@@ -66,6 +66,7 @@ GROUPS_FILE = DATA_DIR / "tourist_groups.json"
 TOURISTS_FILE = DATA_DIR / "tourists.json"
 INVOICES_FILE = DATA_DIR / "invoices.json"
 PAYMENT_REQUESTS_FILE = DATA_DIR / "payment_requests.json"
+TRIP_TEMPLATES_FILE = DATA_DIR / "trip_templates.json"
 TRIP_CREATORS_FILE = DATA_DIR / "trip_creators.json"
 GALLERY_FILE = DATA_DIR / "gallery.json"
 GALLERY_FOLDERS_FILE = DATA_DIR / "gallery_folders.json"
@@ -656,6 +657,48 @@ def write_payment_requests(records):
     PAYMENT_REQUESTS_FILE.write_text(
         json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+
+
+def read_trip_templates():
+    try:
+        if not TRIP_TEMPLATES_FILE.exists():
+            TRIP_TEMPLATES_FILE.write_text("[]", encoding="utf-8")
+        return json.loads(TRIP_TEMPLATES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def write_trip_templates(records):
+    TRIP_TEMPLATES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    TRIP_TEMPLATES_FILE.write_text(
+        json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def _normalize_trip_template_lines(raw):
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            day_offset = int(item.get("dayOffset") or 1)
+        except (TypeError, ValueError):
+            day_offset = 1
+        try:
+            amount = float(item.get("amount") or 0)
+        except (TypeError, ValueError):
+            amount = 0.0
+        out.append({
+            "dayOffset": max(0, day_offset),
+            "category": str(item.get("category") or "").strip(),
+            "payeeName": str(item.get("payeeName") or "").strip(),
+            "amount": amount,
+            "currency": (str(item.get("currency") or "MNT").strip().upper() or "MNT"),
+            "note": str(item.get("note") or "").strip(),
+        })
+    return out
 
 
 def read_trip_creators():
@@ -9272,6 +9315,104 @@ def handle_list_accountant_paid(environ, start_response):
         return (0 if is_pending else 1, -(int((x.get("paidDate") or "0").replace("-", "") or 0) or 0))
     rows.sort(key=sort_key)
     return json_response(start_response, "200 OK", {"entries": rows})
+
+
+def handle_list_trip_templates(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    workspace_filter = (active_workspace(environ) or "").upper()
+    records = read_trip_templates()
+    if workspace_filter:
+        records = [
+            r for r in records
+            if (r.get("workspace") or "").upper() in ("", "BOTH", workspace_filter)
+        ]
+    return json_response(start_response, "200 OK", {"entries": records})
+
+
+def handle_create_trip_template(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    name = normalize_text(payload.get("name"))
+    if not name:
+        return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
+    workspace = (normalize_text(payload.get("workspace")) or active_workspace(environ) or "DTX").upper()
+    if workspace not in ("DTX", "USM", "BOTH"):
+        workspace = "DTX"
+    try:
+        days = max(1, int(payload.get("days") or 1))
+    except (TypeError, ValueError):
+        days = 1
+    record = {
+        "id": uuid4().hex,
+        "name": name,
+        "workspace": workspace,
+        "days": days,
+        "marginPct": float(payload.get("marginPct") or 0),
+        "notes": normalize_text(payload.get("notes")),
+        "expenseLines": _normalize_trip_template_lines(payload.get("expenseLines")),
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": now_mongolia().isoformat(),
+    }
+    records = read_trip_templates()
+    records.insert(0, record)
+    write_trip_templates(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": record})
+
+
+def handle_update_trip_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    records = read_trip_templates()
+    target = next((r for r in records if r.get("id") == template_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Template not found"})
+    if "name" in payload:
+        target["name"] = normalize_text(payload.get("name")) or target.get("name")
+    if "workspace" in payload:
+        ws = (normalize_text(payload.get("workspace")) or "").upper()
+        if ws in ("DTX", "USM", "BOTH"):
+            target["workspace"] = ws
+    if "days" in payload:
+        try:
+            target["days"] = max(1, int(payload.get("days") or 1))
+        except (TypeError, ValueError):
+            pass
+    if "marginPct" in payload:
+        try:
+            target["marginPct"] = float(payload.get("marginPct") or 0)
+        except (TypeError, ValueError):
+            pass
+    if "notes" in payload:
+        target["notes"] = normalize_text(payload.get("notes"))
+    if "expenseLines" in payload:
+        target["expenseLines"] = _normalize_trip_template_lines(payload.get("expenseLines"))
+    target["updatedAt"] = now_mongolia().isoformat()
+    target["updatedBy"] = actor_snapshot(actor)
+    for i, r in enumerate(records):
+        if r.get("id") == template_id:
+            records[i] = target
+            break
+    write_trip_templates(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": target})
+
+
+def handle_delete_trip_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_trip_templates()
+    if not any(r.get("id") == template_id for r in records):
+        return json_response(start_response, "404 Not Found", {"error": "Template not found"})
+    records = [r for r in records if r.get("id") != template_id]
+    write_trip_templates(records)
+    return json_response(start_response, "200 OK", {"ok": True})
 
 
 def handle_accountant_download_zip(environ, start_response):
@@ -18271,6 +18412,21 @@ def _dispatch(environ, start_response):
     if path == "/api/payment-requests/count":
         if method == "GET":
             return handle_payment_request_count(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/trip-templates":
+        if method == "GET":
+            return handle_list_trip_templates(environ, start_response)
+        if method == "POST":
+            return handle_create_trip_template(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/trip-templates/"):
+        template_id = path.replace("/api/trip-templates/", "", 1).strip("/")
+        if method == "POST" and template_id:
+            return handle_update_trip_template(environ, start_response, template_id)
+        if method == "DELETE" and template_id:
+            return handle_delete_trip_template(environ, start_response, template_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/accountant/paid":
