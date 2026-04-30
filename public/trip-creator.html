@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-357" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-358" />
   </head>
   <body class="app-body" data-page="trip-creator">
     <div class="workspace-shell">
@@ -17,7 +17,10 @@
       <main class="workspace-main">
         <section class="workspace-topbar">
           <div>
-            <p class="workspace-kicker">TravelX</p>
+            <p class="workspace-kicker">
+              <a href="#" id="tc-back-to-trip" class="tc-back-link" hidden>← Back to trip details</a>
+              <span id="tc-back-fallback">TravelX</span>
+            </p>
             <h1 id="tc-page-title">Trip Creator</h1>
             <p class="workspace-subtitle" id="tc-trip-meta">Loading trip…</p>
           </div>
@@ -264,11 +267,11 @@ A rich nomadic heritage shaped by Buddhism…"></textarea>
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-136"></script>
+    <script src="/app-shell.js?v=workspace-137"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/image-picker.js?v=workspace-2"></script>
     <script src="/content-picker.js?v=workspace-1"></script>
-    <script src="/trip-creator.js?v=workspace-9"></script>
+    <script src="/trip-creator.js?v=workspace-10"></script>
   </body>
 </html>

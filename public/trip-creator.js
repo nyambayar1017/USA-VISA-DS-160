@@ -20,6 +20,16 @@
     saveBtn.disabled = true;
     return;
   }
+  // Show the "← Back to trip details" link in place of the generic
+  // "TravelX" kicker once we know the trip — matches the user's ask
+  // to return to /trip-detail without bouncing through Home.
+  const backLink = document.getElementById("tc-back-to-trip");
+  const backFallback = document.getElementById("tc-back-fallback");
+  if (backLink && backFallback) {
+    backLink.href = `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
+    backLink.removeAttribute("hidden");
+    backFallback.setAttribute("hidden", "");
+  }
 
   function escapeHtml(value) {
     return String(value || "")

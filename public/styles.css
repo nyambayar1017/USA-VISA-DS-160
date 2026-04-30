@@ -4952,6 +4952,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
 }
 .status-pill.is-paid { background: #dcf4e3; color: #1f8550; }
 .status-pill.is-pending { background: #fff5bd; color: #8a4b12; }
+.status-pill.is-overdue { background: #f8dede; color: #c44747; }
+.inv-inst-paid-date {
+  color: #1f8550;
+  font-weight: 600;
+}
+.tc-back-link {
+  color: #253a77;
+  text-decoration: none;
+  font-weight: 600;
+}
+.tc-back-link:hover { text-decoration: underline; }
 
 .trip-select-link {
   width: 100%;

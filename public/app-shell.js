@@ -872,12 +872,17 @@ function buildExpenseModal() {
         <p class="payment-approve-sub">Ask the accountant to pay this from one of our bank accounts. They will attach the bank-transfer receipt when they pay.</p>
       </header>
       <form class="expense-form" data-expense-form enctype="multipart/form-data">
-        <label class="payment-approve-file-label">
+        <div class="payment-approve-file-label">
           Vendor invoice / quote
-          <input type="file" name="vendorInvoice" accept=".pdf,.png,.jpg,.jpeg,.gif" />
-          <small class="form-hint">Upload the bill / quote / contract from the vendor. The accountant will pay it and attach the bank receipt at approval time.</small>
-        </label>
-        <label class="payment-approve-file-label">
+          <div class="payment-approve-drop" data-expense-drop>
+            <input type="file" name="vendorInvoice" accept=".pdf,.png,.jpg,.jpeg,.gif" hidden data-expense-file />
+            <p class="payment-approve-drop-msg" data-expense-drop-msg>
+              <strong>Drag the vendor's bill here</strong> or <button type="button" class="link-btn" data-action="expense-pick-file">click to pick a file</button>.
+            </p>
+            <small class="form-hint">Bill, quote, or contract from the vendor. The accountant will pay it and attach the bank receipt at approval time.</small>
+          </div>
+        </div>
+        <label class="payment-approve-file-label" data-expense-scope-row>
           Scope
           <select name="scope">
             <option value="office">Office / overhead (rent, ads, salary…)</option>
@@ -907,7 +912,7 @@ function buildExpenseModal() {
         <div class="expense-form-row">
           <label class="payment-approve-file-label">
             Amount <span class="inv-required" style="color:#c44747">*</span>
-            <input type="number" name="paidAmount" min="0" step="0.01" required />
+            <input type="number" name="paidAmount" min="0" step="1" inputmode="numeric" pattern="[0-9]*" required />
           </label>
           <label class="payment-approve-file-label">
             Currency
@@ -946,6 +951,37 @@ function buildExpenseModal() {
     if (a === "close-expense") closeExpenseRequestModal();
   });
   expenseModalNode.querySelector("[data-expense-form]").addEventListener("submit", submitExpenseRequest);
+  // Vendor-invoice dropzone wiring (matches the approve-modal one).
+  const drop = expenseModalNode.querySelector("[data-expense-drop]");
+  const fileInput = expenseModalNode.querySelector("[data-expense-file]");
+  const dropMsg = expenseModalNode.querySelector("[data-expense-drop-msg]");
+  const showFile = (file) => {
+    if (!file || !dropMsg) return;
+    dropMsg.innerHTML = `<strong>📎 ${escapeHtml(file.name)}</strong> <button type="button" class="link-btn" data-action="expense-pick-file">change</button>`;
+  };
+  drop?.addEventListener("click", (e) => {
+    if (e.target.dataset?.action === "expense-pick-file") fileInput.click();
+  });
+  drop?.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-drag"); });
+  drop?.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
+  drop?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("is-drag");
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    showFile(file);
+  });
+  fileInput?.addEventListener("change", () => showFile(fileInput.files?.[0]));
+  // Strip decimals from the amount input so users can't enter
+  // 38393999.99 — the field is integer-only per the user's ask.
+  const amtInput = expenseModalNode.querySelector("input[name='paidAmount']");
+  amtInput?.addEventListener("input", () => {
+    const cleaned = String(amtInput.value || "").replace(/[^\d]/g, "");
+    if (cleaned !== amtInput.value) amtInput.value = cleaned;
+  });
   expenseModalNode.querySelector("select[name='scope']").addEventListener("change", (e) => {
     const tripRow = expenseModalNode.querySelector("[data-expense-trip-row]");
     if (e.target.value === "trip") tripRow.removeAttribute("hidden");
@@ -990,14 +1026,27 @@ window.openExpenseRequestModal = async function openExpenseRequestModal(opts = {
   fillExpenseModalSelects();
   const form = expenseModalNode.querySelector("[data-expense-form]");
   form.reset();
-  if (opts.scope) {
-    form.scope.value = opts.scope;
-    form.scope.dispatchEvent(new Event("change"));
-  }
-  if (opts.tripId) {
+  // When the modal is opened from a trip context (Trip P&L "+ Pay"
+  // button), skip the Scope + Trip pickers entirely — scope is
+  // obviously "trip" and the tripId is already known. Only the
+  // generic Accountant-page entry point needs those fields.
+  const scopeRow = expenseModalNode.querySelector("[data-expense-scope-row]");
+  const tripRow  = expenseModalNode.querySelector("[data-expense-trip-row]");
+  const fromTrip = !!opts.tripId;
+  if (fromTrip) {
     form.scope.value = "trip";
-    form.scope.dispatchEvent(new Event("change"));
     form.tripId.value = opts.tripId;
+    scopeRow?.setAttribute("hidden", "");
+    tripRow?.setAttribute("hidden", "");
+  } else {
+    scopeRow?.removeAttribute("hidden");
+    if (opts.scope) {
+      form.scope.value = opts.scope;
+      form.scope.dispatchEvent(new Event("change"));
+    } else {
+      form.scope.value = "office";
+      form.scope.dispatchEvent(new Event("change"));
+    }
   }
   if (opts.category) form.category.value = opts.category;
   if (opts.payeeName) form.payeeName.value = opts.payeeName;

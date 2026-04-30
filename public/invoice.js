@@ -257,12 +257,20 @@
               ? `<div class="inv-installment-balance is-short">⚠ Paid ${escapeHtml(fmtMoney(paidAmt, inv.currency))} — owed ${escapeHtml(fmtMoney(diff, inv.currency))}</div>`
               : `<div class="inv-installment-balance is-over">Paid ${escapeHtml(fmtMoney(paidAmt, inv.currency))} — overpaid ${escapeHtml(fmtMoney(-diff, inv.currency))}</div>`)
           : "";
+        // After payment, swap the Due Date column for the actual paid
+        // date (or show "due 2026-04-25 → paid 2026-04-30" so the user
+        // sees both timings on one line). Pre-paid rows just show due.
+        const paidDate = String(ins.paidDate || "").slice(0, 10);
+        const dueDate = String(ins.dueDate || "").slice(0, 10);
+        const dueCellHtml = isPaid && paidDate
+          ? `<span class="inv-inst-paid-date" title="${escapeHtml("Due " + (dueDate || "—"))}">Paid ${escapeHtml(fmtDateShort(paidDate))}</span>`
+          : escapeHtml(fmtDateShort(ins.dueDate));
         return `
           <div class="inv-installment-line">
             <span class="inv-inst-desc">${escapeHtml(ins.description || "-")}</span>
             <span class="inv-inst-amount">${fmtMoney(ins.amount, inv.currency)}</span>
-            <span class="inv-inst-status"><span class="payment-status payment-status-${status}">${statusLabel}</span></span>
-            <span class="inv-inst-due">${escapeHtml(fmtDateShort(ins.dueDate))}</span>
+            <span class="inv-inst-status"><span class="status-pill is-${status === "paid" || status === "confirmed" ? "paid" : (status === "overdue" ? "overdue" : "pending")}">${statusLabel}</span></span>
+            <span class="inv-inst-due">${dueCellHtml}</span>
           </div>
           ${balanceLine}
           ${noteLine}
@@ -305,7 +313,7 @@
             <span class="inv-inst-desc">Description</span>
             <span class="inv-inst-amount">Amount</span>
             <span class="inv-inst-status">Status</span>
-            <span class="inv-inst-due">Due Date</span>
+            <span class="inv-inst-due">Due / Paid</span>
           </div>
         </div>
         ${rows}
