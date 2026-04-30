@@ -144,8 +144,8 @@
 
   async function uploadOne(file, folder) {
     const compressed =
-      window.CompressUpload && window.CompressUpload.compressToFile
-        ? await window.CompressUpload.compressToFile(file)
+      window.CompressUpload && window.CompressUpload.file
+        ? await window.CompressUpload.file(file)
         : file;
     const fd = new FormData();
     fd.append("file", compressed, compressed.name || "image.jpg");

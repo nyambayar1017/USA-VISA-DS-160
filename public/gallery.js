@@ -409,8 +409,8 @@
 
   // ── Image upload (client-compressed) ──────────────────────────
   async function uploadImage(file, { folder = "", tags = "", alt = null } = {}) {
-    const compressed = (window.CompressUpload && window.CompressUpload.compressToFile)
-      ? await window.CompressUpload.compressToFile(file)
+    const compressed = (window.CompressUpload && window.CompressUpload.file)
+      ? await window.CompressUpload.file(file)
       : file;
     const formData = new FormData();
     formData.append("file", compressed, compressed.name || "image.jpg");
@@ -639,6 +639,18 @@
     return { name, altSrc, translations };
   }
 
+  // Keep reviewEntries in sync with the user's typing so a row re-render
+  // (after clicking 🌐 etc.) doesn't clobber an in-flight name edit.
+  reviewList?.addEventListener("input", (event) => {
+    const row = event.target.closest("[data-row-idx]");
+    if (!row) return;
+    const idx = Number(row.dataset.rowIdx);
+    if (!Number.isInteger(idx) || !reviewEntries[idx]) return;
+    if (event.target.matches('[data-review="name"]')) {
+      reviewEntries[idx].originalName = event.target.value;
+    }
+  });
+
   reviewList?.addEventListener("click", async (event) => {
     const btn = event.target.closest('[data-review-action="translate"]');
     if (!btn) return;
@@ -752,7 +764,11 @@
       const base = (entry.alt && typeof entry.alt === "object") ? entry.alt : {};
       const altObj = { ...base, ...(translations || {}), [sourceLang]: altSrc };
       const payload = {};
-      if (name && name !== entry.originalName) payload.originalName = name;
+      // Always send the latest typed name (when non-empty), even if it
+      // appears to match — protects against stale entry.originalName
+      // after row re-renders that happen mid-flight (e.g. after 🌐).
+      const trimmedName = (name || "").trim();
+      if (trimmedName) payload.originalName = trimmedName;
       payload.alt = altObj;
       try {
         const res = await fetch(`/api/gallery/${encodeURIComponent(entry.id)}`, {
