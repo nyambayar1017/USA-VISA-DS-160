@@ -1326,7 +1326,13 @@
           <label>Issue Date<input type="date" data-inst-field="issueDate" value="${escapeHtml(inst.issueDate || today)}" /></label>
           <label>Due Date<input type="date" data-inst-field="dueDate" value="${escapeHtml(inst.dueDate || "")}" /></label>
           <label>Quick due-date<select data-inst-field="duePreset">${presetOpts}</select></label>
-          <label>Amount<input type="number" min="0" step="0.01" data-inst-field="amount" value="${escapeHtml(inst.amount || 0)}" /></label>
+          <label class="invoice-installment-amount-field">
+            Amount
+            <div class="invoice-installment-amount-row">
+              <input type="number" min="0" step="0.01" data-inst-field="amount" value="${escapeHtml(inst.amount || 0)}" />
+              <button type="button" class="invoice-balance-btn" data-action="inst-balance" title="Fill in the remaining balance (Total − other installments)">= Balance</button>
+            </div>
+          </label>
         </div>
       </div>
     `).join("");
@@ -1365,6 +1371,18 @@
       } else if (action === "inst-remove") {
         const idx = Number(e.target.closest(".invoice-installment")?.dataset.instIndex);
         if (!Number.isNaN(idx)) { draft.installments.splice(idx, 1); renderWizardStep(); }
+      } else if (action === "inst-balance") {
+        // Auto-fill this installment's amount with the remaining balance:
+        // Total price minus the sum of every OTHER installment. Lets the
+        // user split N installments where the last one absorbs the rest.
+        const idx = Number(e.target.closest(".invoice-installment")?.dataset.instIndex);
+        if (Number.isNaN(idx)) return;
+        const total = totalPrice();
+        const sumOthers = (draft.installments || [])
+          .reduce((acc, x, i) => acc + (i === idx ? 0 : (Number(x.amount) || 0)), 0);
+        const balance = Math.max(0, total - sumOthers);
+        draft.installments[idx].amount = balance;
+        renderWizardStep();
       }
     });
     // Split-presets dropdown — picking an option re-creates the installments
