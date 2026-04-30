@@ -6132,22 +6132,34 @@ def build_standalone_invoice_html_usm(invoice):
         margin: 0 0 4px; font-size: 11px; line-height: 1.45; color: #27272a; }
       .suggestion-block ul { margin: 0 0 6px 18px; padding: 0; }
       .suggestion-block .accent { color: #c44747; font-weight: 700; }
-      .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
-        margin-top: 24px; padding-top: 14px; border-top: 1px solid #d9e0ea;
+      .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
+        margin-top: 24px; padding-top: 18px; border-top: 1px solid #e5e7eb;
         align-items: start; }
-      .signature-card { position: relative; min-height: 180px; }
+      /* Tall card so the big stamp can overlap label + signature row from
+         a single absolute position. */
+      .signature-card { position: relative; min-height: 260px; }
       .signature-label { position: relative; z-index: 3;
         font-size: 12px; color: #5d6b87; font-weight: 600; margin-bottom: 6px; }
-      .signature-line { border-bottom: 1px dashed #d5ddec; margin: 110px 0 6px; }
-      /* Stamp + signature sized to match the user's reference PDFs:
-         stamp ~175px wide overlapping the label and signature line, the
-         hand-written signature crossing diagonally over the stamp. */
-      .accountant-stamp { position: absolute; left: 0; top: 12px; width: 175px;
-        z-index: 1; opacity: 0.95; }
-      .accountant-signature { position: absolute; left: 110px; top: 60px; width: 215px;
-        z-index: 2; }
-      .signature-name, .signature-role {
-        position: relative; z-index: 3; font-size: 12px; font-weight: 700; color: #27272a; }
+      /* Stamp covers the company label, the signature, and the accountant
+         name (matching the reference invoice). Big and slightly translucent
+         so the text is still readable underneath. */
+      .accountant-stamp { position: absolute; left: 16px; top: 12px;
+        width: 240px; z-index: 1; opacity: 0.92; }
+      .signature-row {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        display: flex; align-items: flex-end; gap: 8px;
+      }
+      .signature-name {
+        position: relative; z-index: 3;
+        font-size: 13px; font-weight: 700; color: #27272a;
+        white-space: nowrap;
+      }
+      .signature-line {
+        position: relative; flex: 1; height: 56px; margin-bottom: 4px;
+        border-bottom: 2px dotted #cbd5e1;
+      }
+      .accountant-signature { position: absolute; left: 0; bottom: 4px;
+        height: 90px; width: auto; z-index: 4; }
     """
     return f"""<!DOCTYPE html>
 <html lang="{lang}"><head><meta charset="UTF-8"><title>{html.escape(L['title'])} #{serial}</title>
@@ -6203,16 +6215,20 @@ def build_standalone_invoice_html_usm(invoice):
   <div class="signature-grid">
     <div class="signature-card">
       <div class="signature-label">{html.escape(L['company_label'])}</div>
-      <div class="signature-line"></div>
       {f'<img class="accountant-stamp" src="{stamp_src}" alt="">' if stamp_src else ''}
-      {f'<img class="accountant-signature" src="{sig_src}" alt="">' if sig_src else ''}
-      <div class="signature-name">{html.escape(L['accountant'])}</div>
-      <div class="signature-role">{html.escape(USM_COMPANY['accountant'])}</div>
+      <div class="signature-row">
+        <div class="signature-name">{html.escape(L['accountant'])} {html.escape(USM_COMPANY['accountant'])}</div>
+        <div class="signature-line">
+          {f'<img class="accountant-signature" src="{sig_src}" alt="">' if sig_src else ''}
+        </div>
+      </div>
     </div>
     <div class="signature-card">
       <div class="signature-label">{html.escape(L['bill_to'])}</div>
-      <div class="signature-line"></div>
-      <div class="signature-name">{customer}</div>
+      <div class="signature-row">
+        <div class="signature-name">{customer}</div>
+        <div class="signature-line"></div>
+      </div>
     </div>
   </div>
 </div></body></html>"""

@@ -396,26 +396,37 @@
         display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
         margin-top: 32px; padding-top: 32px; border-top: 1px solid #e5e7eb;
       }
-      .usm-view .usm-foot { display: flex; flex-direction: column; gap: 4px; }
-      .usm-view .usm-foot-label { color: #71717a; font-size: 12px; }
-      .usm-view .usm-foot-row { position: relative; display: flex; align-items: flex-end; gap: 8px; }
+      /* Footer column needs to be tall enough for the stamp to overlap
+         the company label, signature, and accountant name from one
+         absolutely-positioned image. */
+      .usm-view .usm-foot { position: relative; min-height: 260px; }
+      .usm-view .usm-foot-label {
+        position: relative; z-index: 3;
+        color: #71717a; font-size: 13px; margin-bottom: 8px;
+      }
       .usm-view .usm-foot-stamp {
-        position: absolute; bottom: 8px; left: 40px;
-        display: flex; align-items: center; justify-content: center;
-        z-index: 1;
+        position: absolute; top: 12px; left: 16px;
+        z-index: 1; pointer-events: none;
       }
       .usm-view .usm-foot-stamp img {
-        height: 150px; width: auto; object-fit: contain; opacity: 0.9;
+        height: 240px; width: auto; object-fit: contain; opacity: 0.92;
       }
-      .usm-view .usm-foot-name { position: relative; z-index: 2; font-size: 14px; }
-      .usm-view .usm-foot-name strong { font-weight: 700; }
+      .usm-view .usm-foot-row {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        display: flex; align-items: flex-end; gap: 8px;
+      }
+      .usm-view .usm-foot-name {
+        position: relative; z-index: 3;
+        font-size: 14px; font-weight: 700;
+      }
       .usm-view .usm-foot-line {
-        position: relative; flex: 1; height: 80px; margin-bottom: 8px;
-        border-bottom: 2px dotted #d1d5db;
+        position: relative; flex: 1; height: 60px; margin-bottom: 4px;
+        border-bottom: 2px dotted #cbd5e1;
       }
       .usm-view .usm-foot-line img {
-        position: absolute; bottom: 0; left: 0; top: 20px;
-        height: 70px; width: auto; object-fit: contain;
+        position: absolute; left: 0; bottom: 4px;
+        height: 90px; width: auto; object-fit: contain;
+        z-index: 4;
       }
       @media (max-width: 720px) {
         .usm-view .row { grid-template-columns: 1fr; }
@@ -787,9 +798,9 @@
           <div class="usm-footer-grid">
             <div class="usm-foot">
               <div class="usm-foot-label">${escapeHtml(L.companyLabel)}</div>
+              <div class="usm-foot-stamp"><img src="/assets/usm-stamp.png" alt="" onerror="this.style.display='none'" /></div>
               <div class="usm-foot-row">
-                <div class="usm-foot-stamp"><img src="/assets/usm-stamp.png" alt="" onerror="this.style.display='none'" /></div>
-                <div class="usm-foot-name"><strong>${escapeHtml(L.accountant)} G.Bayasgalan</strong></div>
+                <div class="usm-foot-name">${escapeHtml(L.accountant)} G.Bayasgalan</div>
                 <div class="usm-foot-line">
                   <img src="/assets/invoice-finance-signature.png" alt="" onerror="this.style.display='none'" />
                 </div>
@@ -798,7 +809,7 @@
             <div class="usm-foot">
               <div class="usm-foot-label">${escapeHtml(L.billTo)}</div>
               <div class="usm-foot-row">
-                <div class="usm-foot-name" style="white-space:nowrap;"><strong>${escapeHtml(customerName)}</strong></div>
+                <div class="usm-foot-name" style="white-space:nowrap;">${escapeHtml(customerName)}</div>
                 <div class="usm-foot-line"></div>
               </div>
             </div>
