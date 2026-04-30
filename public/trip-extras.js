@@ -216,10 +216,11 @@
               .map((p) => p[0]?.toUpperCase() || "")
               .join("") || "?";
             const href = `/group?tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(g.id)}`;
+            const groupStatus = (g.status || "pending").toLowerCase();
             return `
               <div class="group-card" data-group-href="${escapeHtml(href)}" tabindex="0" role="link">
                 <div class="group-card-row">
-                  <span class="group-card-status"></span>
+                  <span class="group-card-status group-card-status-${escapeHtml(groupStatus)}" title="${escapeHtml(groupStatus)}"></span>
                   <span class="group-card-title">${escapeHtml(g.serial)} · ${escapeHtml(g.name)}</span>
                   <details class="group-card-menu-wrap">
                     <summary class="group-card-menu" aria-label="Group menu">⋯</summary>
@@ -503,6 +504,14 @@
     }
   });
 
+  // Keyboard support for the role="link" cards (Enter / Space → navigate).
+  groupListNode?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const card = e.target.closest(".group-card[data-group-href]");
+    if (!card || e.target !== card) return;
+    e.preventDefault();
+    window.location.href = card.dataset.groupHref;
+  });
   groupListNode?.addEventListener("click", async (e) => {
     // Card-as-link navigation: clicking anywhere on the card navigates to
     // the group page UNLESS the click was inside the menu (details/summary

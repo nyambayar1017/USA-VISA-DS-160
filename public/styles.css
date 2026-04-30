@@ -1497,12 +1497,18 @@ td {
   background: #f1f5fc;
   text-decoration: none;
   color: inherit;
-  transition: background 140ms ease, transform 140ms ease;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
 .group-card:hover {
   background: #e7eefb;
   transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(32, 53, 111, 0.08);
+}
+.group-card:focus-visible {
+  outline: 2px solid #20356f;
+  outline-offset: 2px;
 }
 
 .group-card-row {
@@ -1516,8 +1522,12 @@ td {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #2fb46d;
+  background: #94a3b8;
+  flex-shrink: 0;
 }
+.group-card-status-confirmed { background: #16a34a; }
+.group-card-status-pending   { background: #f59e0b; }
+.group-card-status-cancelled { background: #ef4444; }
 
 .group-card-title {
   flex: 1;

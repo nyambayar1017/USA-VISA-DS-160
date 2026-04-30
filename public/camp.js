@@ -2900,6 +2900,17 @@ tripForm.addEventListener("submit", async (event) => {
   try {
     const payload = buildPayload(tripForm);
     if (!payload.language) payload.language = "Other";
+    // Destinations are required so the trip flows correctly into the
+    // confirmed-tourist destination breakdown and the public render.
+    // Without at least one tag, the trip would never appear under any
+    // destination in stats.
+    const tagsRaw = (tripForm.elements.tags?.value || "").trim();
+    const hasTags = tagsRaw.length > 0;
+    if (!hasTags) {
+      tripStatus.textContent = "Pick at least one destination before saving.";
+      tripForm.querySelector("[data-trip-form-destinations]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     const flights = readTripFlightRows();
     const result = await fetchJson(editingTripId ? `/api/camp-trips/${editingTripId}` : "/api/camp-trips", {
       method: "POST",
