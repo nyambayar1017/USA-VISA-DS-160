@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelX Accountant</title>
+    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-346" />
+  </head>
+  <body class="app-body" data-page="accountant">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar" data-workspace-sidebar></aside>
+
+      <main class="workspace-main">
+        <section class="workspace-topbar">
+          <div>
+            <p class="workspace-kicker">TravelX</p>
+            <h1>Accountant</h1>
+            <p class="workspace-subtitle">Every approved payment with its proof receipt. Workspace-scoped.</p>
+          </div>
+          <div class="workspace-profile" id="workspace-profile">
+            <span class="workspace-profile-label">Signed in</span>
+            <strong data-profile-name>TravelX Staff</strong>
+            <span data-profile-email>Loading profile...</span>
+          </div>
+        </section>
+
+        <section class="card" id="accountant-section">
+          <div class="section-head">
+            <div>
+              <h2>Paid documents</h2>
+              <p class="workspace-subtitle">Filter by trip, manager, currency, bank, or paid date.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" class="header-action-btn" id="acct-bulk-download" disabled>Download selected</button>
+            </div>
+          </div>
+
+          <div class="trip-filter-bar" data-trip-filter-bar>
+            <div class="trip-filter-row trip-filter-saved-row">
+              <details class="trip-saved-filter-dropdown" id="acct-saved-filter">
+                <summary>
+                  <span data-saved-filter-current>Select saved filter</span>
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="trip-saved-filter-popover" data-saved-filter-popover>
+                  <p class="muted" style="padding:8px 4px;">Saved filters land in a later pass.</p>
+                </div>
+              </details>
+              <button type="button" class="trip-saved-filter-action" id="acct-clear-filter">Clear</button>
+              <details class="trip-saved-filter-dropdown" id="acct-view-dropdown">
+                <summary>
+                  <span>View</span>
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </summary>
+                <div class="trip-saved-filter-popover">
+                  <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="trip" checked /><span>Trip</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="invoice" checked /><span>Invoice</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="payer" checked /><span>Payer</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="manager" checked /><span>Manager</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="bank" checked /><span>Bank</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="note" /><span>Note</span></label>
+                </div>
+              </details>
+            </div>
+            <div class="trip-filter-row">
+              <input id="acct-search" type="search" placeholder="Search payer / trip / invoice" class="trip-filter-input" autocomplete="off" />
+              <select id="acct-currency" class="trip-filter-input">
+                <option value="">All currencies</option>
+              </select>
+              <select id="acct-bank" class="trip-filter-input">
+                <option value="">All banks</option>
+              </select>
+              <input id="acct-date-from" type="date" class="trip-filter-input" />
+              <input id="acct-date-to" type="date" class="trip-filter-input" />
+            </div>
+          </div>
+
+          <div class="camp-table-wrap">
+            <table class="camp-table" id="acct-table">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" id="acct-select-all" /></th>
+                  <th>#</th>
+                  <th>Date paid</th>
+                  <th data-col="trip">Trip</th>
+                  <th data-col="invoice">Invoice</th>
+                  <th data-col="payer">Payer</th>
+                  <th>Amount</th>
+                  <th>Currency</th>
+                  <th data-col="bank">Bank</th>
+                  <th data-col="manager">Manager</th>
+                  <th>Paid document</th>
+                  <th data-col="note">Note</th>
+                </tr>
+              </thead>
+              <tbody id="acct-tbody">
+                <tr><td colspan="12" class="empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="tourist-count" id="acct-count"></p>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app-shell.js?v=workspace-129"></script>
+    <script src="/accountant.js?v=workspace-1"></script>
+    <script src="/ui-dialog.js?v=workspace-1"></script>
+  </body>
+</html>

@@ -8951,6 +8951,76 @@ def handle_delete_payment_request(environ, start_response, request_id):
     return json_response(start_response, "200 OK", {"ok": True})
 
 
+def handle_list_accountant_paid(environ, start_response):
+    """Joins approved payment requests with the latest invoice / trip
+    snapshots so the Accountant page can render one row per paid
+    document with all the columns the user asked for (date paid, trip,
+    invoice serial, payer, amount, currency, bank, manager, paid doc
+    link). Workspace-scoped so DTX and USM lists never bleed."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    if (actor or {}).get("role", "").lower() not in ("admin", "accountant"):
+        return json_response(start_response, "403 Forbidden", {"error": "Accountant access required"})
+    workspace_filter = (active_workspace(environ) or "").upper()
+    requests_all = read_payment_requests()
+    invoices_by_id = {r.get("id"): r for r in read_invoices()}
+    trips_by_id = {t.get("id"): t for t in read_camp_trips()}
+    banks_by_id = {b.get("id"): b for b in (read_settings().get("bankAccounts") or [])}
+    rows = []
+    for r in requests_all:
+        if (r.get("status") or "").lower() != "approved":
+            continue
+        if workspace_filter and (r.get("workspace") or "").upper() != workspace_filter:
+            continue
+        invoice = invoices_by_id.get(r.get("invoiceId")) or {}
+        trip = trips_by_id.get(r.get("tripId")) or {}
+        bank = banks_by_id.get(r.get("bankAccountId")) or {}
+        # Find the trip document this approval saved.
+        paid_doc = None
+        for d in (trip.get("documents") or []):
+            if d.get("id") == r.get("paidDocumentId"):
+                paid_doc = d
+                break
+        manager_name = ""
+        for source in (invoice.get("createdBy"), invoice.get("updatedBy"), r.get("requestedBy")):
+            if source and source.get("name"):
+                manager_name = source.get("name")
+                break
+            if source and source.get("email"):
+                manager_name = source.get("email")
+                break
+        rows.append({
+            "id": r.get("id"),
+            "paidDate": r.get("paidDate") or "",
+            "tripId": r.get("tripId") or "",
+            "tripName": trip.get("tripName") or "",
+            "tripSerial": trip.get("serial") or "",
+            "invoiceId": r.get("invoiceId") or "",
+            "invoiceSerial": r.get("invoiceSerial") or invoice.get("serial") or "",
+            "payerName": r.get("payerName") or invoice.get("payerName") or "",
+            "amount": r.get("paidAmount") or 0,
+            "currency": r.get("currency") or invoice.get("currency") or "MNT",
+            "bankAccountId": r.get("bankAccountId") or "",
+            "bankLabel": (bank.get("label") or bank.get("bankName") or ""),
+            "bankAccountNumber": bank.get("accountNumber") or "",
+            "manager": manager_name,
+            "approvedBy": (r.get("approvedBy") or {}).get("name") or "",
+            "approvedAt": r.get("approvedAt") or "",
+            "note": r.get("note") or "",
+            "paidDocumentId": r.get("paidDocumentId") or "",
+            "paidDocumentName": (paid_doc or {}).get("originalName") or "",
+            "paidDocumentMime": (paid_doc or {}).get("mimeType") or "",
+            "paidDocumentUrl": (
+                f"/trip-uploads/{r.get('tripId')}/{paid_doc.get('storedName')}"
+                if paid_doc and paid_doc.get("storedName") else ""
+            ),
+            "workspace": r.get("workspace") or "",
+        })
+    rows.sort(key=lambda x: (x.get("paidDate") or "", x.get("approvedAt") or ""), reverse=True)
+    return json_response(start_response, "200 OK", {"entries": rows})
+
+
 def handle_export_tourists(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -17880,6 +17950,11 @@ def _dispatch(environ, start_response):
             return handle_payment_request_count(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/accountant/paid":
+        if method == "GET":
+            return handle_list_accountant_paid(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
     if path.startswith("/api/payment-requests/") and path.endswith("/approve"):
         request_id = path.replace("/api/payment-requests/", "", 1).replace("/approve", "", 1).strip("/")
         if method == "POST" and request_id:
@@ -18661,6 +18736,14 @@ def _dispatch(environ, start_response):
         if user.get("role") != "admin":
             return text_response(start_response, "403 Forbidden", "Admin access required")
         return file_response(start_response, PUBLIC_DIR / "admin.html")
+
+    if path == "/accountant":
+        user = current_user(environ)
+        if not user:
+            return file_response(start_response, PUBLIC_DIR / "login.html")
+        if user.get("role") not in ("admin", "accountant"):
+            return text_response(start_response, "403 Forbidden", "Accountant access required")
+        return file_response(start_response, PUBLIC_DIR / "accountant.html")
 
     if path == "/mail":
         if not current_user(environ):

@@ -110,7 +110,10 @@ function renderSidebar(user) {
   const company = COMPANIES[workspace];
   const other = workspace === "DTX" ? COMPANIES.USM : COMPANIES.DTX;
   const otherKey = workspace === "DTX" ? "USM" : "DTX";
-  const isAdmin = (user?.role || "").toLowerCase() === "admin";
+  const role = (user?.role || "").toLowerCase();
+  const isAdmin = role === "admin";
+  const isAccountant = role === "accountant";
+  const showAccountant = isAdmin || isAccountant;
   const isDtx = workspace === "DTX";
 
   const ICONS = {
@@ -133,6 +136,7 @@ function renderSidebar(user) {
     gallery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><polyline points="21,16 16,11 8,19"/></svg>',
     content: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
     templates: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.2"/><rect x="13" y="4" width="7" height="7" rx="1.2"/><rect x="4" y="13" width="7" height="7" rx="1.2"/><rect x="13" y="13" width="7" height="7" rx="1.2"/></svg>',
+    accountant: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M16 3v4h4"/><text x="12" y="17" text-anchor="middle" font-size="9" font-family="Arial" fill="currentColor" stroke="none">₮</text></svg>',
   };
 
   const link = (page, href, label, extraClass = "") => {
@@ -175,6 +179,7 @@ function renderSidebar(user) {
     ${link("camp-reservations", "/camp-reservations", "Camp Reservations")}
     ${link("ds160", "/ds160", "DS-160")}
     ${fifaBlock}
+    ${showAccountant ? link("accountant", "/accountant", "Accountant") : ""}
     ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
     ${link("settings", "/settings", "Settings")}
   `;
@@ -194,6 +199,7 @@ function renderSidebar(user) {
     ${link("content", "/content", "Content")}
     ${link("templates", "/templates", "Templates")}
     ${link("gallery", "/gallery", "Gallery")}
+    ${showAccountant ? link("accountant", "/accountant", "Accountant") : ""}
     ${isAdmin ? link("admin", "/admin", "Team / Admin") : ""}
     ${link("settings", "/settings", "Settings")}
   `;
