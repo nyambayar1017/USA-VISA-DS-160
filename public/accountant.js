@@ -293,6 +293,25 @@
     load();
   });
 
+  // Close any open kebab menu when another row's menu opens (only
+  // one ⋯ should be visible at a time) and when the user clicks
+  // anywhere outside the open menu — <details> doesn't do this on
+  // its own.
+  tbody?.addEventListener("toggle", (e) => {
+    if (!(e.target instanceof HTMLElement)) return;
+    if (e.target.tagName !== "DETAILS" || !e.target.open) return;
+    tbody.querySelectorAll("details.row-action-menu[open]").forEach((d) => {
+      if (d !== e.target) d.removeAttribute("open");
+    });
+  }, true);
+  document.addEventListener("click", (e) => {
+    const open = tbody?.querySelectorAll("details.row-action-menu[open]");
+    if (!open?.length) return;
+    open.forEach((d) => {
+      if (!d.contains(e.target)) d.removeAttribute("open");
+    });
+  });
+
   // If we landed here from the ₮ popover with ?open=<requestId>, scroll to
   // and highlight that row once data is in.
   load().then(() => {

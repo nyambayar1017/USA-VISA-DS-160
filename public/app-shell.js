@@ -775,10 +775,29 @@ function renderPaymentRequestList() {
   list.innerHTML = paymentRequestsCache.map((r) => {
     const amount = `${(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}`;
     const requester = (r.requestedBy && (r.requestedBy.name || r.requestedBy.email)) || "Unknown";
+    const status = (r.status || "pending").toLowerCase();
+    let statusPill = "";
+    let footer = "";
+    if (status === "approved") {
+      const approver = (r.approvedBy && (r.approvedBy.name || r.approvedBy.email)) || "an accountant";
+      statusPill = `<span class="payment-pop-status is-approved">Approved</span>`;
+      footer = `<span>${escapeHtml(formatRelativeTime(r.approvedAt))}</span><span class="payment-pop-dot">·</span><span>by ${escapeHtml(approver)}</span>`;
+    } else if (status === "rejected") {
+      const rejecter = (r.rejectedBy && (r.rejectedBy.name || r.rejectedBy.email)) || "an accountant";
+      statusPill = `<span class="payment-pop-status is-rejected">Rejected</span>`;
+      footer = `<span>${escapeHtml(formatRelativeTime(r.rejectedAt))}</span><span class="payment-pop-dot">·</span><span>by ${escapeHtml(rejecter)}</span>`;
+    } else {
+      statusPill = `<span class="payment-pop-status is-pending">Pending</span>`;
+      footer = `<span>${escapeHtml(formatRelativeTime(r.requestedAt))}</span><span class="payment-pop-dot">·</span><span>by ${escapeHtml(requester)}</span>`;
+    }
+    const reasonRow = (status === "rejected" && r.rejectReason)
+      ? `<div class="payment-pop-reason">"${escapeHtml(r.rejectReason)}"</div>`
+      : "";
     return `
-      <button type="button" class="payment-pop-item" data-payment-request-open="${escapeHtml(r.id)}">
+      <button type="button" class="payment-pop-item is-${status}" data-payment-request-open="${escapeHtml(r.id)}">
         <div class="payment-pop-row">
           <strong class="payment-pop-serial">${escapeHtml(r.invoiceSerial || "Invoice")}</strong>
+          ${statusPill}
           <span class="payment-pop-amount">${escapeHtml(amount)}</span>
         </div>
         <div class="payment-pop-meta">
@@ -786,17 +805,19 @@ function renderPaymentRequestList() {
           <span class="payment-pop-dot">·</span>
           <span>${escapeHtml(r.installmentDescription || "Installment")}</span>
         </div>
-        <div class="payment-pop-foot">
-          <span>${escapeHtml(formatRelativeTime(r.requestedAt))}</span>
-          <span class="payment-pop-dot">·</span>
-          <span>by ${escapeHtml(requester)}</span>
-        </div>
+        ${reasonRow}
+        <div class="payment-pop-foot">${footer}</div>
       </button>
     `;
   }).join("");
   list.querySelectorAll("[data-payment-request-open]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      openPaymentRequestApproveModal(btn.dataset.paymentRequestOpen);
+      const id = btn.dataset.paymentRequestOpen;
+      const entry = paymentRequestsCache.find((r) => r.id === id);
+      // Resolved rows are notifications, not actions — clicking does
+      // nothing for them.
+      if (!entry || (entry.status || "pending") !== "pending") return;
+      openPaymentRequestApproveModal(id);
     });
   });
 }
@@ -976,20 +997,37 @@ async function submitPaymentReject() {
 
 async function fetchPaymentRequests() {
   // Skip the request when neither the desktop nor the mobile ₮ button
-  // is visible (i.e. the user isn't admin/accountant). Either side
-  // toggling visible is enough to keep polling.
+  // is visible.
   const desktopVisible = paymentIconNode && !paymentIconNode.hasAttribute("hidden");
   const mobileBtn = mobileBar?.querySelector('[data-action="toggle-payment-requests-mobile"]');
   const mobileVisible = mobileBtn && !mobileBtn.hasAttribute("hidden");
   if (!desktopVisible && !mobileVisible) return;
   try {
     const ws = readWorkspace();
-    const qs = `?status=pending${ws ? `&workspace=${encodeURIComponent(ws)}` : ""}`;
-    const response = await fetch(`/api/payment-requests${qs}`);
-    if (!response.ok) return;
-    const data = await response.json();
-    paymentRequestsCache = Array.isArray(data.entries) ? data.entries : [];
-    updatePaymentRequestCount(paymentRequestsCache.length);
+    const wsQs = ws ? `&workspace=${encodeURIComponent(ws)}` : "";
+    // Two parallel fetches: pending visible to everyone, plus the
+    // current user's own resolved (approved + rejected) requests, so
+    // managers see in ₮ that their requests went through (or got
+    // bounced back).
+    const [pendingRes, mineRes] = await Promise.all([
+      fetch(`/api/payment-requests?status=pending${wsQs}`),
+      fetch(`/api/payment-requests?mine=1${wsQs}`),
+    ]);
+    const pending = pendingRes.ok ? ((await pendingRes.json()).entries || []) : [];
+    const mine = mineRes.ok ? ((await mineRes.json()).entries || []) : [];
+    // Merge — pending first, then the user's own resolved requests
+    // (most recent first, capped at 10) so the popover doesn't grow
+    // unbounded.
+    const seen = new Set(pending.map((r) => r.id));
+    const resolved = mine
+      .filter((r) => !seen.has(r.id) && (r.status || "").toLowerCase() !== "pending")
+      .sort((a, b) => String(b.approvedAt || b.rejectedAt || "").localeCompare(String(a.approvedAt || a.rejectedAt || "")))
+      .slice(0, 10);
+    paymentRequestsCache = pending.concat(resolved);
+    // Badge count reflects pending + the user's *unread* resolved.
+    // For now we just show pending count to avoid stale-counter
+    // surprises; resolved entries still appear in the popover.
+    updatePaymentRequestCount(pending.length);
     renderPaymentRequestList();
   } catch {}
 }

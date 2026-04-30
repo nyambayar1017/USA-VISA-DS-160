@@ -8937,6 +8937,8 @@ def handle_reject_payment_request(environ, start_response, request_id):
         return json_response(start_response, "403 Forbidden", {"error": "Only admins / accountants can reject payment requests."})
     payload = collect_json(environ) or {}
     reason = normalize_text(payload.get("reason"))
+    if not reason:
+        return json_response(start_response, "400 Bad Request", {"error": "Rejection reason is required so the manager understands what to fix."})
     records = read_payment_requests()
     target = next((r for r in records if r.get("id") == request_id), None)
     if not target:
@@ -8952,6 +8954,26 @@ def handle_reject_payment_request(environ, start_response, request_id):
             records[i] = target
             break
     write_payment_requests(records)
+
+    # Notify the manager who originally requested the payment so they
+    # see the rejection (with reason) in their ₮ popover and bell.
+    requester = target.get("requestedBy") or {}
+    log_notification(
+        kind="payment_request.rejected",
+        actor=actor,
+        title=f"Payment request rejected · {target.get('invoiceSerial') or ''}",
+        detail=f"{actor.get('fullName') or actor.get('email')} rejected your "
+               f"{target.get('installmentDescription') or 'installment'} "
+               f"payment request — {reason}",
+        meta={
+            "paymentRequestId": target.get("id"),
+            "invoiceId": target.get("invoiceId"),
+            "tripId": target.get("tripId"),
+            "workspace": target.get("workspace"),
+            "recipientUserId": requester.get("id") or "",
+            "rejectReason": reason,
+        },
+    )
     return json_response(start_response, "200 OK", {"ok": True, "entry": target})
 
 

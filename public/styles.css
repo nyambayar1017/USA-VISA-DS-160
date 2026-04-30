@@ -17505,6 +17505,32 @@ body.lightbox-open { overflow: hidden; }
 }
 .payment-pop-foot { color: #94a3b8; font-size: 11px; }
 .payment-pop-dot { color: #cbd5e1; }
+.payment-pop-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: auto;
+  margin-right: 8px;
+}
+.payment-pop-status.is-pending { background: #fff5bd; color: #8a4b12; }
+.payment-pop-status.is-approved { background: #dcf4e3; color: #1f8550; }
+.payment-pop-status.is-rejected { background: #f8dede; color: #c44747; }
+.payment-pop-item.is-approved { border-left: 3px solid #1f8550; }
+.payment-pop-item.is-rejected { border-left: 3px solid #c44747; }
+.payment-pop-reason {
+  font-size: 12px;
+  color: #b91c1c;
+  font-style: italic;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: #fef2f2;
+  border-radius: 6px;
+}
 
 /* Payment-request approval modal — opened from the ₮ popover. */
 .payment-approve-modal {
