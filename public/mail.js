@@ -341,7 +341,9 @@
     return `${days}d`;
   }
   function bellSvg() {
-    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 5.5 2 7 2 7H4s2-1.5 2-7Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>';
+    // Heroicons-style outline bell: clear handle + dome + clapper that read
+    // unambiguously as a bell even when shrunk to 16-18px on phones.
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v1.5"/><path d="M18 9.75V9a6 6 0 1 0-12 0v.75c0 2.36-.86 4.62-2.31 6.02 1.73.64 3.56 1.08 5.45 1.3a24.6 24.6 0 0 0 5.71 0c1.9-.22 3.73-.66 5.46-1.3A8.93 8.93 0 0 1 18 9.75Z"/><path d="M9.143 17.07a3 3 0 0 0 5.714 0"/></svg>';
   }
   function renderFollowupBadge(m) {
     const f = followupFor(m);

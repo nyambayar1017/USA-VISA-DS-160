@@ -497,17 +497,10 @@ function renderTaskRow(task, idx) {
   const taskImages = Array.isArray(task.images) && task.images.length
     ? task.images
     : (task.imageExt ? [{ id: "legacy", ext: task.imageExt }] : []);
-  const firstImg = taskImages[0];
-  const imgThumb = firstImg
-    ? `<a class="todo-img-thumb" href="/api/manager-dashboard/tasks/${escapeHtml(task.id)}/image/${encodeURIComponent(firstImg.id)}" target="_blank" rel="noreferrer" title="Open reference image">
-         <img src="/api/manager-dashboard/tasks/${escapeHtml(task.id)}/image/${encodeURIComponent(firstImg.id)}" alt="" />
-         ${taskImages.length > 1 ? `<span class="todo-img-thumb-count">+${taskImages.length - 1}</span>` : ""}
-       </a>`
-    : "";
   return `
     <tr class="todo-tr todo-tr--task">
       <td>${idx + 1}</td>
-      <td class="todo-cell-title"><strong>${escapeHtml(task.title)}</strong>${imgThumb}</td>
+      <td class="todo-cell-title"><strong>${escapeHtml(task.title)}</strong></td>
       <td class="todo-cell-assigner">${escapeHtml(task.createdBy?.name || task.createdBy?.email || "—")}</td>
       <td class="todo-cell-owner">${ownerCell}</td>
       <td><span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span></td>
