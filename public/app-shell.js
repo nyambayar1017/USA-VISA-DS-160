@@ -98,7 +98,10 @@ function renderSidebar(user) {
   if (!sidebar) return;
   const workspace = readWorkspace();
   if (!workspace) return;
-  const active = document.body.dataset.page || "";
+  // /todo and /contacts both serve backoffice.html (data-page="todo"), so
+  // fall back to the URL when the body tag can't tell them apart.
+  const path = window.location.pathname || "";
+  const active = path === "/contacts" ? "contacts" : (document.body.dataset.page || "");
   const company = COMPANIES[workspace];
   const other = workspace === "DTX" ? COMPANIES.USM : COMPANIES.DTX;
   const otherKey = workspace === "DTX" ? "USM" : "DTX";
