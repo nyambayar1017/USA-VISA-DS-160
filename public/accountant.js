@@ -6,6 +6,8 @@
   const tbody = document.getElementById("acct-tbody");
   const countNode = document.getElementById("acct-count");
   const searchInput = document.getElementById("acct-search");
+  const directionSelect = document.getElementById("acct-direction");
+  const categorySelect = document.getElementById("acct-category");
   const currencySelect = document.getElementById("acct-currency");
   const bankSelect = document.getElementById("acct-bank");
   const dateFromInput = document.getElementById("acct-date-from");
@@ -14,6 +16,7 @@
   const selectAll = document.getElementById("acct-select-all");
   const bulkBtn = document.getElementById("acct-bulk-download");
   const viewDropdown = document.getElementById("acct-view-dropdown");
+  const newExpenseBtn = document.getElementById("acct-new-expense");
 
   let rows = [];
   const selected = new Set();
@@ -58,23 +61,55 @@
       + uniq(rows.map((r) => r.bankLabel))
         .map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`)
         .join("");
+    if (categorySelect) {
+      categorySelect.innerHTML = '<option value="">All categories</option>'
+        + uniq(rows.map((r) => r.category))
+          .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+          .join("");
+    }
+  }
+
+  function fmtPendingFor(requestedAt) {
+    if (!requestedAt) return "";
+    const ts = new Date(requestedAt).getTime();
+    if (!Number.isFinite(ts)) return "";
+    const diff = Date.now() - ts;
+    if (diff < 60000) return "just now";
+    const m = Math.floor(diff / 60000);
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} h`;
+    const d = Math.floor(h / 24);
+    return `${d} d`;
+  }
+
+  function pendingTone(requestedAt) {
+    if (!requestedAt) return "";
+    const diff = Date.now() - new Date(requestedAt).getTime();
+    if (diff > 72 * 3600 * 1000) return "is-overdue";
+    if (diff > 24 * 3600 * 1000) return "is-warning";
+    return "";
   }
 
   function filtered() {
     const q = (searchInput.value || "").trim().toLowerCase();
     const ccy = currencySelect.value;
     const bank = bankSelect.value;
+    const dir = directionSelect ? directionSelect.value : "";
+    const cat = categorySelect ? categorySelect.value : "";
     const dateFrom = dateFromInput.value;
     const dateTo = dateToInput.value;
     return rows.filter((r) => {
       if (q) {
-        const hay = `${r.payerName} ${r.tripName} ${r.tripSerial} ${r.invoiceSerial} ${r.manager}`.toLowerCase();
+        const hay = `${r.payerName} ${r.payeeName} ${r.tripName} ${r.tripSerial} ${r.invoiceSerial} ${r.manager} ${r.category}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+      if (dir && r.direction !== dir) return false;
+      if (cat && r.category !== cat) return false;
       if (ccy && r.currency !== ccy) return false;
       if (bank && r.bankLabel !== bank) return false;
-      if (dateFrom && (r.paidDate || "") < dateFrom) return false;
-      if (dateTo && (r.paidDate || "") > dateTo) return false;
+      if (dateFrom && (r.paidDate || r.requestedAt || "").slice(0, 10) < dateFrom) return false;
+      if (dateTo && (r.paidDate || r.requestedAt || "").slice(0, 10) > dateTo) return false;
       return true;
     });
   }
@@ -107,6 +142,7 @@
     const canApprove = isAdminOrAccountant();
     tbody.innerHTML = list.map((r, i) => {
       const isPending = (r.status || "") === "pending";
+      const isOutgoing = (r.direction || "incoming") === "outgoing";
       const isSel = selected.has(r.id);
       const downloadUrl = r.paidDocumentUrl ? `${r.paidDocumentUrl}?download=1` : "";
       const docCell = r.paidDocumentUrl
@@ -116,13 +152,22 @@
             : `<span class="muted">—</span>`);
       const tripCell = r.tripId
         ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" class="trip-name-link">${escapeHtml(r.tripName || r.tripSerial || r.tripId)}</a>`
-        : escapeHtml(r.tripName || "—");
+        : (isOutgoing ? `<span class="muted">Office / overhead</span>` : `<span class="muted">—</span>`);
       const numCell = r.paidDocumentUrl
         ? `<a href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">${i + 1}</a>`
         : (i + 1);
       const statusCell = isPending
         ? `<span class="payment-status waiting">Pending</span>`
         : `<span class="payment-status paid">Paid</span>`;
+      const dirCell = isOutgoing
+        ? `<span class="acct-direction is-outgoing" title="We pay">↙ Outgoing</span>`
+        : `<span class="acct-direction is-incoming" title="Client pays us">↗ Incoming</span>`;
+      const counterParty = isOutgoing
+        ? (r.payeeName || "—")
+        : (r.payerName || "—");
+      const pendingForCell = isPending
+        ? `<span class="acct-pending-for ${pendingTone(r.requestedAt)}">${escapeHtml(fmtPendingFor(r.requestedAt))}</span>`
+        : `<span class="muted">—</span>`;
 
       // Build the kebab-menu items per row.
       const items = [];
@@ -155,15 +200,18 @@
         <tr class="${isPending ? "is-pending-row" : ""}">
           <td><input type="checkbox" data-acct-select="${escapeHtml(r.id)}" data-acct-url="${escapeHtml(downloadUrl)}" data-acct-name="${escapeHtml(r.paidDocumentName || "")}" ${isSel ? "checked" : ""} ${r.paidDocumentUrl ? "" : "disabled"}/></td>
           <td>${numCell}</td>
+          <td>${dirCell}</td>
+          <td data-col="category">${escapeHtml(r.category || "—")}</td>
           <td>${escapeHtml(r.paidDate || "—")}</td>
           <td data-col="trip">${tripCell}</td>
-          <td data-col="invoice">${escapeHtml(r.invoiceSerial || "—")}</td>
-          <td data-col="payer">${escapeHtml(r.payerName || "—")}</td>
+          <td data-col="invoice">${escapeHtml(r.invoiceSerial || (isOutgoing ? "—" : "—"))}</td>
+          <td data-col="payer">${escapeHtml(counterParty)}</td>
           <td>${escapeHtml(fmtAmount(r.amount))}</td>
           <td>${escapeHtml(r.currency || "—")}</td>
           <td data-col="bank">${escapeHtml(r.bankLabel || "—")}</td>
           <td data-col="manager">${escapeHtml(r.manager || "—")}</td>
           <td>${statusCell}</td>
+          <td data-col="pending">${pendingForCell}</td>
           <td>${docCell}</td>
           <td data-col="note">${escapeHtml(r.note || "")}</td>
           <td class="acct-actions-cell">${actionsCell}</td>
@@ -176,13 +224,20 @@
   }
 
   searchInput?.addEventListener("input", render);
+  directionSelect?.addEventListener("change", render);
+  categorySelect?.addEventListener("change", render);
   currencySelect?.addEventListener("change", render);
   bankSelect?.addEventListener("change", render);
   dateFromInput?.addEventListener("change", render);
   dateToInput?.addEventListener("change", render);
 
+  // Pending-for cells age live; re-render once a minute.
+  setInterval(() => { if (rows.length) render(); }, 60000);
+
   clearBtn?.addEventListener("click", () => {
     searchInput.value = "";
+    if (directionSelect) directionSelect.value = "";
+    if (categorySelect) categorySelect.value = "";
     currencySelect.value = "";
     bankSelect.value = "";
     dateFromInput.value = "";
@@ -190,6 +245,12 @@
     selected.clear();
     if (selectAll) selectAll.checked = false;
     render();
+  });
+
+  newExpenseBtn?.addEventListener("click", () => {
+    if (typeof window.openExpenseRequestModal === "function") {
+      window.openExpenseRequestModal({ scope: "office", onSuccess: load });
+    }
   });
 
   selectAll?.addEventListener("change", () => {

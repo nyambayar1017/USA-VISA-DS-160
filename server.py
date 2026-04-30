@@ -1185,6 +1185,38 @@ def _normalize_bank_accounts(value):
     return out
 
 
+_DEFAULT_EXPENSE_CATEGORIES = [
+    # Trip-related (outgoing payments tied to a specific trip)
+    "Camp deposit", "Camp payment", "Hotel deposit", "Hotel payment",
+    "Flight deposit", "Flight payment", "Transfer payment",
+    "Driver salary", "Cook salary", "Guide salary",
+    "Insurance", "Visa fees", "Restaurant", "Activities",
+    # Office / overhead
+    "Office rent", "Electricity", "СӨХ", "Internet", "Television",
+    "Google Ads", "Meta Ads", "Chatbot", "Manager salary",
+    "Director salary", "Accountant salary", "Bonus",
+    # Catch-alls
+    "Other",
+]
+
+
+def _normalize_categories(raw):
+    if not isinstance(raw, list):
+        return []
+    seen = set()
+    out = []
+    for value in raw:
+        v = str(value or "").strip()
+        if not v:
+            continue
+        key = v.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(v)
+    return out
+
+
 def read_settings():
     payload = read_json_object(SETTINGS_FILE, default_settings())
     destinations = normalize_option_list(payload.get("destinations"))
@@ -1196,7 +1228,16 @@ def read_settings():
     # picker has options the moment the page loads.
     if not bank_accounts:
         bank_accounts = _normalize_bank_accounts(default_settings()["bankAccounts"])
-    return {"destinations": destinations, "bankAccounts": bank_accounts}
+    expense_categories = _normalize_categories(payload.get("expenseCategories"))
+    if not expense_categories:
+        expense_categories = list(_DEFAULT_EXPENSE_CATEGORIES)
+    payees = _normalize_categories(payload.get("expensePayees"))
+    return {
+        "destinations": destinations,
+        "bankAccounts": bank_accounts,
+        "expenseCategories": expense_categories,
+        "expensePayees": payees,
+    }
 
 
 def write_settings(payload):
@@ -8647,69 +8688,165 @@ def handle_create_payment_request(environ, start_response):
     if not actor:
         return []
     payload = collect_json(environ) or {}
-    invoice_id = normalize_text(payload.get("invoiceId"))
-    if not invoice_id:
-        return json_response(start_response, "400 Bad Request", {"error": "invoiceId required"})
-    inst_index_raw = payload.get("installmentIndex")
-    try:
-        inst_index = int(inst_index_raw)
-    except Exception:
-        return json_response(start_response, "400 Bad Request", {"error": "installmentIndex required"})
+    direction = (normalize_text(payload.get("direction")) or "incoming").lower()
+    if direction not in ("incoming", "outgoing"):
+        direction = "incoming"
 
-    invoices = read_invoices()
-    invoice = next((r for r in invoices if r.get("id") == invoice_id), None)
-    if not invoice:
-        return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
-    installments = invoice.get("installments") or []
-    if inst_index < 0 or inst_index >= len(installments):
-        return json_response(start_response, "400 Bad Request", {"error": "installment out of range"})
-
-    paid_amount_raw = payload.get("paidAmount")
-    try:
-        paid_amount = float(paid_amount_raw)
-    except (TypeError, ValueError):
-        paid_amount = float(installments[inst_index].get("amount") or 0)
-
-    request = {
-        "id": uuid4().hex,
-        "invoiceId": invoice_id,
-        "invoiceSerial": invoice.get("serial") or "",
-        "tripId": invoice.get("tripId") or "",
-        "installmentIndex": inst_index,
-        "installmentDescription": installments[inst_index].get("description") or "",
-        "paidDate": normalize_text(payload.get("paidDate")),
-        "paidAmount": paid_amount,
-        "currency": (invoice.get("currency") or "MNT").upper(),
-        "bankAccountId": normalize_text(payload.get("bankAccountId")),
-        "note": normalize_text(payload.get("note")),
-        "payerName": invoice.get("payerName") or "",
-        "workspace": _payment_request_workspace(invoice),
-        "status": "pending",
-        "requestedBy": actor_snapshot(actor),
-        "requestedAt": now_mongolia().isoformat(),
-        "approvedBy": None,
-        "approvedAt": "",
-        "rejectedBy": None,
-        "rejectedAt": "",
-        "rejectReason": "",
-        "paidDocumentId": "",
-    }
+    if direction == "incoming":
+        # Existing flow: client paid us → record against an invoice +
+        # installment.
+        invoice_id = normalize_text(payload.get("invoiceId"))
+        if not invoice_id:
+            return json_response(start_response, "400 Bad Request", {"error": "invoiceId required"})
+        inst_index_raw = payload.get("installmentIndex")
+        try:
+            inst_index = int(inst_index_raw)
+        except Exception:
+            return json_response(start_response, "400 Bad Request", {"error": "installmentIndex required"})
+        invoices = read_invoices()
+        invoice = next((r for r in invoices if r.get("id") == invoice_id), None)
+        if not invoice:
+            return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+        installments = invoice.get("installments") or []
+        if inst_index < 0 or inst_index >= len(installments):
+            return json_response(start_response, "400 Bad Request", {"error": "installment out of range"})
+        paid_amount_raw = payload.get("paidAmount")
+        try:
+            paid_amount = float(paid_amount_raw)
+        except (TypeError, ValueError):
+            paid_amount = float(installments[inst_index].get("amount") or 0)
+        request = {
+            "id": uuid4().hex,
+            "direction": "incoming",
+            "scope": "trip",
+            "category": "Invoice",
+            "invoiceId": invoice_id,
+            "invoiceSerial": invoice.get("serial") or "",
+            "tripId": invoice.get("tripId") or "",
+            "installmentIndex": inst_index,
+            "installmentDescription": installments[inst_index].get("description") or "",
+            "paidDate": normalize_text(payload.get("paidDate")),
+            "paidAmount": paid_amount,
+            "currency": (invoice.get("currency") or "MNT").upper(),
+            "bankAccountId": normalize_text(payload.get("bankAccountId")),
+            "note": normalize_text(payload.get("note")),
+            "payerName": invoice.get("payerName") or "",
+            "payeeName": "",
+            "dueDate": "",
+            "referenceDocId": "",
+            "workspace": _payment_request_workspace(invoice),
+            "status": "pending",
+            "requestedBy": actor_snapshot(actor),
+            "requestedAt": now_mongolia().isoformat(),
+            "approvedBy": None,
+            "approvedAt": "",
+            "rejectedBy": None,
+            "rejectedAt": "",
+            "rejectReason": "",
+            "paidDocumentId": "",
+        }
+    else:
+        # New outgoing flow: manager asks the company to pay a vendor /
+        # employee / overhead bill. Trip is optional (office expenses).
+        category = normalize_text(payload.get("category")) or "Other"
+        payee = normalize_text(payload.get("payeeName"))
+        if not payee:
+            return json_response(start_response, "400 Bad Request", {"error": "Payee name is required."})
+        try:
+            paid_amount = float(payload.get("paidAmount") or 0)
+        except (TypeError, ValueError):
+            paid_amount = 0.0
+        if paid_amount <= 0:
+            return json_response(start_response, "400 Bad Request", {"error": "Amount must be greater than zero."})
+        scope = (normalize_text(payload.get("scope")) or "office").lower()
+        if scope not in ("trip", "office", "other"):
+            scope = "other"
+        trip_id = normalize_text(payload.get("tripId"))
+        trip_name = ""
+        if trip_id:
+            trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None)
+            if trip:
+                trip_name = trip.get("tripName") or ""
+        workspace_field = (active_workspace(environ) or "").upper() or "DTX"
+        # Persist the category on the workspace settings so it shows up
+        # next time someone opens the dropdown.
+        try:
+            settings = read_settings()
+            cats = list(settings.get("expenseCategories") or [])
+            if category and category.lower() not in {c.lower() for c in cats}:
+                cats.append(category)
+                payees = list(settings.get("expensePayees") or [])
+                if payee and payee.lower() not in {p.lower() for p in payees}:
+                    payees.append(payee)
+                write_settings({**settings, "expenseCategories": cats, "expensePayees": payees})
+            elif payee:
+                payees = list(settings.get("expensePayees") or [])
+                if payee.lower() not in {p.lower() for p in payees}:
+                    payees.append(payee)
+                    write_settings({**settings, "expensePayees": payees})
+        except Exception:
+            pass
+        request = {
+            "id": uuid4().hex,
+            "direction": "outgoing",
+            "scope": scope,
+            "category": category,
+            "invoiceId": "",
+            "invoiceSerial": "",
+            "tripId": trip_id,
+            "tripName": trip_name,
+            "installmentIndex": -1,
+            "installmentDescription": category,
+            "paidDate": "",
+            "dueDate": normalize_text(payload.get("dueDate")),
+            "paidAmount": paid_amount,
+            "currency": (normalize_text(payload.get("currency")) or "MNT").upper(),
+            "bankAccountId": normalize_text(payload.get("bankAccountId")),
+            "note": normalize_text(payload.get("note")),
+            "payerName": "",
+            "payeeName": payee,
+            "referenceDocId": normalize_text(payload.get("referenceDocId")),
+            "workspace": workspace_field,
+            "status": "pending",
+            "requestedBy": actor_snapshot(actor),
+            "requestedAt": now_mongolia().isoformat(),
+            "approvedBy": None,
+            "approvedAt": "",
+            "rejectedBy": None,
+            "rejectedAt": "",
+            "rejectReason": "",
+            "paidDocumentId": "",
+        }
     records = read_payment_requests()
     records.insert(0, request)
     write_payment_requests(records)
 
+    if direction == "incoming":
+        notif_title = f"Payment request · {request.get('invoiceSerial') or ''}"
+        notif_detail = (
+            f"{actor.get('fullName') or actor.get('email')} requested payment for "
+            f"{request['installmentDescription'] or 'installment'} "
+            f"({_fmt_money_ccy(paid_amount, request['currency'])})"
+        )
+    else:
+        notif_title = f"Expense request · {request.get('category') or 'Other'}"
+        notif_detail = (
+            f"{actor.get('fullName') or actor.get('email')} asked to pay "
+            f"{request.get('payeeName') or ''} "
+            f"{_fmt_money_ccy(paid_amount, request['currency'])} for "
+            f"{request.get('category') or 'an expense'}"
+        )
     log_notification(
         kind="payment_request.created",
         actor=actor,
-        title=f"Payment request · {invoice.get('serial') or ''}",
-        detail=f"{actor.get('fullName') or actor.get('email')} requested payment for "
-               f"{request['installmentDescription'] or 'installment'} "
-               f"({_fmt_money_ccy(paid_amount, request['currency'])})",
+        title=notif_title,
+        detail=notif_detail,
         meta={
             "paymentRequestId": request["id"],
-            "invoiceId": invoice_id,
-            "tripId": request["tripId"],
-            "workspace": request["workspace"],
+            "invoiceId": request.get("invoiceId") or "",
+            "tripId": request.get("tripId") or "",
+            "workspace": request.get("workspace") or "",
+            "direction": request.get("direction"),
         },
     )
     return json_response(start_response, "200 OK", {"ok": True, "entry": request})
@@ -8791,6 +8928,38 @@ def _apply_payment_to_invoice(invoice, request, actor, paid_amount, paid_date, b
     return True, ""
 
 
+def _attach_orphan_paid_document(upload, actor):
+    """For outgoing office/overhead expenses where there's no trip to
+    attach the receipt to. Stored under data/trip-uploads/_office/ so
+    the existing trip-uploads route serves it like any other file.
+    Returns a dict with the metadata the request record needs to keep
+    so the Accountant page can link to it later."""
+    if not upload:
+        return None
+    original_name = upload.get("filename") or "paid-document"
+    ext = Path(original_name).suffix.lower()
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        return None
+    data = upload.get("data") or b""
+    if len(data) > MAX_UPLOAD_BYTES:
+        return None
+    ensure_data_store()
+    doc_id = str(uuid4())
+    out_dir = TRIP_UPLOADS_DIR / "_office"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = doc_id + ext
+    (out_dir / stored_name).write_bytes(data)
+    return {
+        "id": doc_id,
+        "storedName": stored_name,
+        "originalName": original_name,
+        "mimeType": upload.get("content_type") or "application/octet-stream",
+        "size": len(data),
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+
+
 def _attach_paid_document_to_trip(trip_id, upload, actor):
     """When the accountant uploads the proof file, attach it to the
     trip's documents under category "Paid documents" and return the
@@ -8860,9 +9029,10 @@ def handle_approve_payment_request(environ, start_response, request_id):
     if (target.get("status") or "").lower() != "pending":
         return json_response(start_response, "409 Conflict", {"error": "Request already resolved."})
 
+    is_outgoing = (target.get("direction") or "incoming") == "outgoing"
     invoices = read_invoices()
-    invoice = next((r for r in invoices if r.get("id") == target.get("invoiceId")), None)
-    if not invoice:
+    invoice = None if is_outgoing else next((r for r in invoices if r.get("id") == target.get("invoiceId")), None)
+    if not is_outgoing and not invoice:
         return json_response(start_response, "404 Not Found", {"error": "Invoice has been deleted."})
 
     paid_amount = payload.get("paidAmount")
@@ -8874,24 +9044,31 @@ def handle_approve_payment_request(environ, start_response, request_id):
     paid_document_id = normalize_text(payload.get("paidDocumentId"))
 
     # Auto-attach the uploaded proof to the trip's Documents under
-    # "Paid documents". Required: an approval without the receipt
-    # leaves no audit trail, so reject if neither a file nor an
-    # already-linked doc is provided.
+    # "Paid documents" when there is a trip — outgoing office expenses
+    # don't have one, so the file is stored on the request only.
     if upload and target.get("tripId"):
         attached_id = _attach_paid_document_to_trip(target["tripId"], upload, actor)
         if attached_id:
             paid_document_id = attached_id
+    elif upload and not target.get("tripId"):
+        attached = _attach_orphan_paid_document(upload, actor)
+        if attached:
+            paid_document_id = attached["id"]
+            # Store the office-doc metadata on the request so the
+            # Accountant page can render a link without a trip lookup.
+            target["paidDocumentMeta"] = attached
     if not paid_document_id:
         return json_response(start_response, "400 Bad Request", {"error": "Upload the paid receipt before approving."})
 
-    ok, err = _apply_payment_to_invoice(invoice, target, actor, paid_amount, paid_date, bank_account_id, note)
-    if not ok:
-        return json_response(start_response, "400 Bad Request", {"error": err})
-    for i, r in enumerate(invoices):
-        if r.get("id") == invoice.get("id"):
-            invoices[i] = invoice
-            break
-    write_invoices(invoices)
+    if not is_outgoing:
+        ok, err = _apply_payment_to_invoice(invoice, target, actor, paid_amount, paid_date, bank_account_id, note)
+        if not ok:
+            return json_response(start_response, "400 Bad Request", {"error": err})
+        for i, r in enumerate(invoices):
+            if r.get("id") == invoice.get("id"):
+                invoices[i] = invoice
+                break
+        write_invoices(invoices)
 
     target["status"] = "approved"
     target["approvedBy"] = actor_snapshot(actor)
@@ -9025,12 +9202,22 @@ def handle_list_accountant_paid(environ, start_response):
         invoice = invoices_by_id.get(r.get("invoiceId")) or {}
         trip = trips_by_id.get(r.get("tripId")) or {}
         bank = banks_by_id.get(r.get("bankAccountId")) or {}
-        # Find the trip document this approval saved.
+        # Find the trip document this approval saved. Office expenses
+        # don't have a trip, so fall back to the metadata stashed on
+        # the request itself.
         paid_doc = None
+        paid_doc_url = ""
         for d in (trip.get("documents") or []):
             if d.get("id") == r.get("paidDocumentId"):
                 paid_doc = d
+                if d.get("storedName"):
+                    paid_doc_url = f"/trip-uploads/{r.get('tripId')}/{d.get('storedName')}"
                 break
+        if not paid_doc and r.get("paidDocumentMeta"):
+            meta = r.get("paidDocumentMeta") or {}
+            if meta.get("storedName"):
+                paid_doc = meta
+                paid_doc_url = f"/trip-uploads/_office/{meta.get('storedName')}"
         manager_name = ""
         for source in (invoice.get("createdBy"), invoice.get("updatedBy"), r.get("requestedBy")):
             if source and source.get("name"):
@@ -9042,16 +9229,21 @@ def handle_list_accountant_paid(environ, start_response):
         rows.append({
             "id": r.get("id"),
             "status": status,
+            "direction": r.get("direction") or "incoming",
+            "scope": r.get("scope") or "trip",
+            "category": r.get("category") or "Invoice",
             "paidDate": r.get("paidDate") or "",
+            "dueDate": r.get("dueDate") or "",
             "requestedAt": r.get("requestedAt") or "",
             "tripId": r.get("tripId") or "",
-            "tripName": trip.get("tripName") or "",
+            "tripName": trip.get("tripName") or r.get("tripName") or "",
             "tripSerial": trip.get("serial") or "",
             "invoiceId": r.get("invoiceId") or "",
             "invoiceSerial": r.get("invoiceSerial") or invoice.get("serial") or "",
             "installmentDescription": r.get("installmentDescription") or "",
             "installmentIndex": r.get("installmentIndex") if r.get("installmentIndex") is not None else -1,
             "payerName": r.get("payerName") or invoice.get("payerName") or "",
+            "payeeName": r.get("payeeName") or "",
             "amount": r.get("paidAmount") or 0,
             "currency": r.get("currency") or invoice.get("currency") or "MNT",
             "bankAccountId": r.get("bankAccountId") or "",
@@ -9065,10 +9257,7 @@ def handle_list_accountant_paid(environ, start_response):
             "paidDocumentId": r.get("paidDocumentId") or "",
             "paidDocumentName": (paid_doc or {}).get("originalName") or "",
             "paidDocumentMime": (paid_doc or {}).get("mimeType") or "",
-            "paidDocumentUrl": (
-                f"/trip-uploads/{r.get('tripId')}/{paid_doc.get('storedName')}"
-                if paid_doc and paid_doc.get("storedName") else ""
-            ),
+            "paidDocumentUrl": paid_doc_url,
             "workspace": r.get("workspace") or "",
         })
     # Pending rows float to top (so the accountant sees what to act on),

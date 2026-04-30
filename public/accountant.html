@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-350" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-351" />
   </head>
   <body class="app-body" data-page="accountant">
     <div class="workspace-shell">
@@ -31,11 +31,12 @@
         <section class="card" id="accountant-section">
           <div class="section-head">
             <div>
-              <h2>Paid documents</h2>
-              <p class="workspace-subtitle">Filter by trip, manager, currency, bank, or paid date.</p>
+              <h2>Payment ledger</h2>
+              <p class="workspace-subtitle">Incoming + outgoing payment requests with their proof receipts.</p>
             </div>
             <div class="camp-toolbar">
-              <button type="button" class="header-action-btn" id="acct-bulk-download" disabled>Download selected</button>
+              <button type="button" class="header-action-btn" id="acct-new-expense">+ Request expense</button>
+              <button type="button" class="header-action-btn button-secondary" id="acct-bulk-download" disabled>Download selected</button>
             </div>
           </div>
 
@@ -67,7 +68,15 @@
               </details>
             </div>
             <div class="trip-filter-row">
-              <input id="acct-search" type="search" placeholder="Search payer / trip / invoice" class="trip-filter-input" autocomplete="off" />
+              <input id="acct-search" type="search" placeholder="Search payer / payee / trip / invoice / category" class="trip-filter-input" autocomplete="off" />
+              <select id="acct-direction" class="trip-filter-input">
+                <option value="">All payments</option>
+                <option value="incoming">Incoming (clients pay us)</option>
+                <option value="outgoing">Outgoing (we pay)</option>
+              </select>
+              <select id="acct-category" class="trip-filter-input">
+                <option value="">All categories</option>
+              </select>
               <select id="acct-currency" class="trip-filter-input">
                 <option value="">All currencies</option>
               </select>
@@ -85,22 +94,25 @@
                 <tr>
                   <th><input type="checkbox" id="acct-select-all" /></th>
                   <th>#</th>
+                  <th>Type</th>
+                  <th data-col="category">Category</th>
                   <th>Date paid</th>
                   <th data-col="trip">Trip</th>
                   <th data-col="invoice">Invoice</th>
-                  <th data-col="payer">Payer</th>
+                  <th data-col="payer">Payer / Payee</th>
                   <th>Amount</th>
                   <th>Currency</th>
                   <th data-col="bank">Bank</th>
                   <th data-col="manager">Manager</th>
                   <th>Status</th>
+                  <th data-col="pending">Pending for</th>
                   <th>Paid document</th>
                   <th data-col="note">Note</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="acct-tbody">
-                <tr><td colspan="14" class="empty">Loading…</td></tr>
+                <tr><td colspan="17" class="empty">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -109,8 +121,8 @@
       </main>
     </div>
 
-    <script src="/app-shell.js?v=workspace-132"></script>
-    <script src="/accountant.js?v=workspace-5"></script>
+    <script src="/app-shell.js?v=workspace-133"></script>
+    <script src="/accountant.js?v=workspace-6"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

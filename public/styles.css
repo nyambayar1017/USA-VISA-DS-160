@@ -17433,6 +17433,37 @@ body.lightbox-open { overflow: hidden; }
 .acct-actions-cell .row-action-item.is-danger:hover { background: #fee2e2; }
 .is-pending-row td { background: rgba(255, 245, 189, 0.35); }
 .acct-pending-doc { color: #94a3b8; font-style: italic; font-size: 12px; }
+.acct-direction {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.acct-direction.is-incoming { background: #dcf4e3; color: #1f8550; }
+.acct-direction.is-outgoing { background: #ffe4d4; color: #b85a25; }
+.acct-pending-for { font-size: 12px; color: #475569; font-weight: 600; }
+.acct-pending-for.is-warning { color: #b85a25; }
+.acct-pending-for.is-overdue { color: #c44747; }
+.expense-request-modal .expense-form-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+.expense-request-modal .payment-approve-file-label input[type="text"],
+.expense-request-modal .payment-approve-file-label input[type="number"],
+.expense-request-modal .payment-approve-file-label input[type="date"],
+.expense-request-modal .payment-approve-file-label select,
+.expense-request-modal .payment-approve-file-label textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d0d7e8;
+  border-radius: 8px;
+  font: inherit;
+  margin-top: 6px;
+}
 
 /* "REQUEST SENT" pill — replaces the Register payment button on
    installments whose request is waiting on the accountant. Green so

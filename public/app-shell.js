@@ -827,6 +827,222 @@ function isAccountantOrAdmin() {
   return role === "admin" || role === "accountant";
 }
 
+// "+ Request expense" — outgoing payment request that managers create
+// from the Accountant page topbar (and, in a follow-up, trip / group
+// pages). The form lets the user pick a category from a workspace
+// settings list, type a payee, amount, currency, bank account, due
+// date, and an optional note. On submit it POSTs to
+// /api/payment-requests with direction=outgoing.
+let expenseModalNode = null;
+let expenseSettings = { expenseCategories: [], expensePayees: [], bankAccounts: [] };
+let expenseTrips = [];
+
+async function loadExpenseSettings() {
+  try {
+    const [settingsRes, tripsRes] = await Promise.all([
+      fetch("/api/settings").then((r) => r.ok ? r.json() : null),
+      fetch("/api/camp-trips").then((r) => r.ok ? r.json() : { entries: [] }),
+    ]);
+    expenseSettings = settingsRes || expenseSettings;
+    expenseTrips = (tripsRes?.entries || []).map((t) => ({ id: t.id, name: t.tripName || t.serial || t.id, serial: t.serial || "" }));
+  } catch {}
+}
+
+function buildExpenseModal() {
+  if (expenseModalNode) return expenseModalNode;
+  expenseModalNode = document.createElement("div");
+  expenseModalNode.className = "payment-approve-modal expense-request-modal is-hidden";
+  expenseModalNode.innerHTML = `
+    <div class="payment-approve-backdrop" data-action="close-expense"></div>
+    <div class="payment-approve-dialog">
+      <button type="button" class="payment-approve-close" data-action="close-expense" aria-label="Close">×</button>
+      <header>
+        <h2>Request expense payment</h2>
+        <p class="payment-approve-sub">Ask the accountant to pay this from one of our bank accounts. They will attach the bank-transfer receipt when they pay.</p>
+      </header>
+      <form class="expense-form" data-expense-form>
+        <label class="payment-approve-file-label">
+          Scope
+          <select name="scope">
+            <option value="office">Office / overhead (rent, ads, salary…)</option>
+            <option value="trip">Tied to a trip (driver, hotel, etc.)</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label class="payment-approve-file-label" data-expense-trip-row hidden>
+          Trip
+          <select name="tripId" data-expense-trip-select>
+            <option value="">— Pick a trip —</option>
+          </select>
+        </label>
+        <label class="payment-approve-file-label">
+          Category <span class="inv-required" style="color:#c44747">*</span>
+          <select name="category" data-expense-category-select required></select>
+        </label>
+        <label class="payment-approve-file-label" data-expense-category-other-row hidden>
+          New category name
+          <input type="text" name="categoryOther" placeholder="e.g. Garage rent" />
+        </label>
+        <label class="payment-approve-file-label">
+          Payee <span class="inv-required" style="color:#c44747">*</span>
+          <input type="text" name="payeeName" placeholder="Who gets paid (vendor / employee / hotel)" required list="expense-payee-suggestions" />
+          <datalist id="expense-payee-suggestions"></datalist>
+        </label>
+        <div class="expense-form-row">
+          <label class="payment-approve-file-label">
+            Amount <span class="inv-required" style="color:#c44747">*</span>
+            <input type="number" name="paidAmount" min="0" step="0.01" required />
+          </label>
+          <label class="payment-approve-file-label">
+            Currency
+            <select name="currency">
+              <option value="MNT">MNT</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+          </label>
+        </div>
+        <label class="payment-approve-file-label">
+          Pay from (optional)
+          <select name="bankAccountId" data-expense-bank-select>
+            <option value="">— Accountant will pick —</option>
+          </select>
+        </label>
+        <label class="payment-approve-file-label">
+          Due by (optional)
+          <input type="date" name="dueDate" />
+        </label>
+        <label class="payment-approve-file-label">
+          Note
+          <textarea name="note" rows="2" placeholder="Reference, urgency, account number, etc."></textarea>
+        </label>
+        <footer style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">
+          <p class="status" data-expense-status style="margin-right:auto;font-size:13px;color:#5d6b87;"></p>
+          <button type="button" class="button-secondary" data-action="close-expense">Cancel</button>
+          <button type="submit" class="primary-pill">Send request</button>
+        </footer>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(expenseModalNode);
+  expenseModalNode.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-action]")?.dataset?.action;
+    if (a === "close-expense") closeExpenseRequestModal();
+  });
+  expenseModalNode.querySelector("[data-expense-form]").addEventListener("submit", submitExpenseRequest);
+  expenseModalNode.querySelector("select[name='scope']").addEventListener("change", (e) => {
+    const tripRow = expenseModalNode.querySelector("[data-expense-trip-row]");
+    if (e.target.value === "trip") tripRow.removeAttribute("hidden");
+    else tripRow.setAttribute("hidden", "");
+  });
+  expenseModalNode.querySelector("[data-expense-category-select]").addEventListener("change", (e) => {
+    const otherRow = expenseModalNode.querySelector("[data-expense-category-other-row]");
+    if (e.target.value === "__other__") otherRow.removeAttribute("hidden");
+    else otherRow.setAttribute("hidden", "");
+  });
+  return expenseModalNode;
+}
+
+function fillExpenseModalSelects() {
+  const cats = expenseSettings.expenseCategories || [];
+  const catSel = expenseModalNode.querySelector("[data-expense-category-select]");
+  catSel.innerHTML = '<option value="">— Pick a category —</option>'
+    + cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")
+    + '<option value="__other__">+ New category…</option>';
+
+  const tripSel = expenseModalNode.querySelector("[data-expense-trip-select]");
+  tripSel.innerHTML = '<option value="">— Pick a trip —</option>'
+    + expenseTrips.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}${t.serial ? ` (${escapeHtml(t.serial)})` : ""}</option>`).join("");
+
+  const bankSel = expenseModalNode.querySelector("[data-expense-bank-select]");
+  bankSel.innerHTML = '<option value="">— Accountant will pick —</option>'
+    + (expenseSettings.bankAccounts || []).map((b) => {
+        const label = b.label || `${b.bankName || ""} · ${b.accountNumber || ""}`;
+        return `<option value="${escapeHtml(b.id)}">${escapeHtml(label)}</option>`;
+      }).join("");
+
+  const dlist = expenseModalNode.querySelector("#expense-payee-suggestions");
+  dlist.innerHTML = (expenseSettings.expensePayees || [])
+    .map((p) => `<option value="${escapeHtml(p)}"></option>`).join("");
+}
+
+let expenseOnSuccess = null;
+
+window.openExpenseRequestModal = async function openExpenseRequestModal(opts = {}) {
+  buildExpenseModal();
+  await loadExpenseSettings();
+  fillExpenseModalSelects();
+  const form = expenseModalNode.querySelector("[data-expense-form]");
+  form.reset();
+  if (opts.scope) {
+    form.scope.value = opts.scope;
+    form.scope.dispatchEvent(new Event("change"));
+  }
+  if (opts.tripId) {
+    form.scope.value = "trip";
+    form.scope.dispatchEvent(new Event("change"));
+    form.tripId.value = opts.tripId;
+  }
+  if (opts.category) form.category.value = opts.category;
+  if (opts.payeeName) form.payeeName.value = opts.payeeName;
+  if (opts.amount) form.paidAmount.value = opts.amount;
+  if (opts.currency) form.currency.value = opts.currency;
+  expenseOnSuccess = opts.onSuccess || null;
+  expenseModalNode.classList.remove("is-hidden");
+  document.body.classList.add("modal-open");
+};
+
+function closeExpenseRequestModal() {
+  if (!expenseModalNode) return;
+  expenseModalNode.classList.add("is-hidden");
+  document.body.classList.remove("modal-open");
+  expenseOnSuccess = null;
+}
+
+async function submitExpenseRequest(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const status = expenseModalNode.querySelector("[data-expense-status]");
+  status.style.color = "";
+  status.textContent = "Sending…";
+  const fd = new FormData(form);
+  let category = fd.get("category");
+  if (category === "__other__") {
+    category = (fd.get("categoryOther") || "").trim();
+    if (!category) { status.style.color = "#c44747"; status.textContent = "Type the new category name."; return; }
+  }
+  const body = {
+    direction: "outgoing",
+    scope: fd.get("scope") || "office",
+    category,
+    tripId: fd.get("scope") === "trip" ? (fd.get("tripId") || "") : "",
+    payeeName: (fd.get("payeeName") || "").trim(),
+    paidAmount: Number(fd.get("paidAmount") || 0),
+    currency: fd.get("currency") || "MNT",
+    bankAccountId: fd.get("bankAccountId") || "",
+    dueDate: fd.get("dueDate") || "",
+    note: fd.get("note") || "",
+  };
+  if (!body.payeeName) { status.style.color = "#c44747"; status.textContent = "Payee is required."; return; }
+  if (!(body.paidAmount > 0)) { status.style.color = "#c44747"; status.textContent = "Amount must be greater than zero."; return; }
+  try {
+    const r = await fetch("/api/payment-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Could not send request");
+    closeExpenseRequestModal();
+    window.UI?.toast?.("Expense request sent.", "ok");
+    fetchPaymentRequests();
+    if (typeof expenseOnSuccess === "function") expenseOnSuccess();
+  } catch (err) {
+    status.style.color = "#c44747";
+    status.textContent = err.message || "Could not send";
+  }
+}
+
 // ── Approval modal ──────────────────────────────────────────────────
 // Accountant clicks a pending request → modal shows the request details
 // and asks for the proof file. Submit POSTs multipart to /approve which
