@@ -17376,6 +17376,78 @@ body.lightbox-open { overflow: hidden; }
 }
 .mail-list-followup .mail-followup-btn--off { color: #94a3b8; }
 
+/* "REQUEST SENT" pill — replaces the Register payment button on
+   installments whose request is waiting on the accountant. Green so
+   the manager sees the request has gone through; not a button so a
+   double-click can't open the modal again. */
+.inv-side-request-sent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #dcf4e3;
+  color: #1f8550;
+  border: 1px solid #b9e6c8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: default;
+  user-select: none;
+}
+
+/* ₮ popover row — clean compact card, not the orange pill from the
+   inherited mail-pop styling. */
+.payment-pop-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0 0 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font: inherit;
+  color: inherit;
+}
+.payment-pop-item:hover,
+.payment-pop-item:focus-visible {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  outline: none;
+}
+.payment-pop-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.payment-pop-serial {
+  color: #1f2d50;
+  font-size: 14px;
+  font-weight: 700;
+}
+.payment-pop-amount {
+  color: #1f8550;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.payment-pop-meta,
+.payment-pop-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: #475569;
+  margin-top: 4px;
+}
+.payment-pop-foot { color: #94a3b8; font-size: 11px; }
+.payment-pop-dot { color: #cbd5e1; }
+
 /* Payment-request approval modal — opened from the ₮ popover. */
 .payment-approve-modal {
   position: fixed;

@@ -90,16 +90,23 @@
     });
   }
 
+  function isAdminOrAccountant() {
+    const role = (window.currentUser?.role || "").toLowerCase();
+    return role === "admin" || role === "accountant";
+  }
+
   function render() {
     const list = filtered();
     if (!list.length) {
-      tbody.innerHTML = `<tr><td colspan="12" class="empty">No paid documents match these filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="13" class="empty">No paid documents match these filters.</td></tr>`;
       countNode.textContent = "0 of 0";
       bulkBtn.disabled = true;
       return;
     }
+    const canDelete = isAdminOrAccountant();
     tbody.innerHTML = list.map((r, i) => {
       const isSel = selected.has(r.id);
+      const downloadUrl = r.paidDocumentUrl ? `${r.paidDocumentUrl}?download=1` : "";
       const docCell = r.paidDocumentUrl
         ? `<a href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">${escapeHtml(r.paidDocumentName || "View")}</a>`
         : `<span class="muted">—</span>`;
@@ -109,9 +116,20 @@
       const numCell = r.paidDocumentUrl
         ? `<a href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">${i + 1}</a>`
         : (i + 1);
+      const actions = `
+        <details class="row-action-menu">
+          <summary aria-label="Actions">⋯</summary>
+          <div class="row-action-popover">
+            ${r.paidDocumentUrl ? `<a class="row-action-item" href="${escapeHtml(downloadUrl)}" download>Download</a>` : ""}
+            ${r.paidDocumentUrl ? `<a class="row-action-item" href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">Open</a>` : ""}
+            <button type="button" class="row-action-item" data-acct-rename data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Rename</button>
+            ${canDelete ? `<button type="button" class="row-action-item is-danger" data-acct-delete data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Delete</button>` : ""}
+          </div>
+        </details>
+      `;
       return `
         <tr>
-          <td><input type="checkbox" data-acct-select="${escapeHtml(r.id)}" data-acct-url="${escapeHtml(r.paidDocumentUrl || "")}" data-acct-name="${escapeHtml(r.paidDocumentName || "")}" ${isSel ? "checked" : ""}/></td>
+          <td><input type="checkbox" data-acct-select="${escapeHtml(r.id)}" data-acct-url="${escapeHtml(downloadUrl)}" data-acct-name="${escapeHtml(r.paidDocumentName || "")}" ${isSel ? "checked" : ""}/></td>
           <td>${numCell}</td>
           <td>${escapeHtml(r.paidDate || "—")}</td>
           <td data-col="trip">${tripCell}</td>
@@ -123,6 +141,10 @@
           <td data-col="manager">${escapeHtml(r.manager || "—")}</td>
           <td>${docCell}</td>
           <td data-col="note">${escapeHtml(r.note || "")}</td>
+          <td class="acct-actions-cell">
+            ${r.paidDocumentUrl ? `<a class="table-link" href="${escapeHtml(downloadUrl)}" download title="Download receipt">⬇</a>` : ""}
+            ${actions}
+          </td>
         </tr>
       `;
     }).join("");
@@ -164,6 +186,54 @@
     if (cb.checked) selected.add(id);
     else selected.delete(id);
     bulkBtn.disabled = !selected.size;
+  });
+
+  tbody?.addEventListener("click", async (e) => {
+    const renameBtn = e.target.closest("[data-acct-rename]");
+    if (renameBtn) {
+      e.preventDefault();
+      const trip = renameBtn.dataset.trip;
+      const doc = renameBtn.dataset.doc;
+      const current = renameBtn.dataset.name;
+      const next = window.UI?.prompt
+        ? await window.UI.prompt("Rename document", { initialValue: current, confirmLabel: "Save" })
+        : window.prompt("Rename document", current);
+      if (!next || next.trim() === current) return;
+      try {
+        const r = await fetch(`/api/camp-trips/${encodeURIComponent(trip)}/documents/${encodeURIComponent(doc)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: next.trim() }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Rename failed");
+        load();
+      } catch (err) {
+        window.UI?.alert ? window.UI.alert(err.message || "Rename failed") : alert(err.message || "Rename failed");
+      }
+      return;
+    }
+    const deleteBtn = e.target.closest("[data-acct-delete]");
+    if (deleteBtn) {
+      e.preventDefault();
+      const trip = deleteBtn.dataset.trip;
+      const doc = deleteBtn.dataset.doc;
+      const name = deleteBtn.dataset.name || "this document";
+      const confirmed = window.UI?.confirm
+        ? await window.UI.confirm(`Delete "${name}"? This removes it from the trip's Paid documents.`, { dangerous: true })
+        : window.confirm(`Delete "${name}"?`);
+      if (!confirmed) return;
+      try {
+        const r = await fetch(`/api/camp-trips/${encodeURIComponent(trip)}/documents/${encodeURIComponent(doc)}`, {
+          method: "DELETE",
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Delete failed");
+        load();
+      } catch (err) {
+        window.UI?.alert ? window.UI.alert(err.message || "Delete failed") : alert(err.message || "Delete failed");
+      }
+    }
   });
 
   viewDropdown?.addEventListener("change", () => {

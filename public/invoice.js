@@ -391,6 +391,23 @@
   }
 
   let sidePanelInvoice = null;
+  // installmentIndex → pending payment-request — keeps the side panel
+  // from offering a "Register payment" button for an installment whose
+  // request is still waiting on the accountant.
+  let pendingRequestsByIdx = {};
+  async function refreshPendingRequestsForInvoice(invoiceId) {
+    pendingRequestsByIdx = {};
+    if (!invoiceId) return;
+    try {
+      const res = await fetch(`/api/payment-requests?status=pending&invoiceId=${encodeURIComponent(invoiceId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      (data.entries || []).forEach((r) => {
+        if (r.installmentIndex == null) return;
+        pendingRequestsByIdx[r.installmentIndex] = r;
+      });
+    } catch {}
+  }
   function openSidePanel(invoice) {
     sidePanelInvoice = invoice;
     const panel = ensureSidePanel();
@@ -398,6 +415,8 @@
     panel.classList.remove("is-hidden");
     document.body.classList.add("modal-open");
     renderSidePanel();
+    // Re-render once we know which installments have pending requests.
+    refreshPendingRequestsForInvoice(invoice.id).then(() => renderSidePanel());
   }
   function closeSidePanel() {
     const panel = document.getElementById("inv-side-panel");
@@ -454,13 +473,16 @@
           <span>${escapeHtml(ins.note)}</span>
         </div>
       ` : "";
+      const pending = pendingRequestsByIdx[idx];
       const action = isPaid
         ? (userIsAdmin
             ? `<button type="button" class="inv-side-register is-edit" data-inv-action="register-payment" data-idx="${idx}" title="Edit registered payment (admin)">✎ Edit payment</button>`
             : `<span class="inv-side-paid-locked" title="Paid — ask an admin to edit">🔒 Locked</span>`)
-        : `<button type="button" class="inv-side-register" data-inv-action="register-payment" data-idx="${idx}">
-            <span class="inv-side-register-icon">+</span> Register payment
-          </button>`;
+        : pending
+          ? `<span class="inv-side-request-sent" title="Request sent to accountant on ${escapeHtml(fmtDateOnly(pending.requestedAt) || "")}">REQUEST SENT</span>`
+          : `<button type="button" class="inv-side-register" data-inv-action="register-payment" data-idx="${idx}">
+              <span class="inv-side-register-icon">+</span> Register payment
+            </button>`;
       return `
         <div class="inv-side-installment">
           <div class="inv-side-inst-grid">
@@ -714,10 +736,6 @@
             : "";
         })()}
       </label>
-      <label class="inv-edit-field">
-        <span>Note (context, partial-payment notes, etc.)</span>
-        <textarea id="inv-pay-note" rows="3" placeholder="e.g. Paid only for his father, not his mother">${escapeHtml(inst.note || "")}</textarea>
-      </label>
     `;
     // Live balance: update the hint as the user types so they see
     // immediately if the amount is short or over.
@@ -747,7 +765,6 @@
     const body = document.getElementById("inv-edit-body");
     const dt = body.querySelector("#inv-pay-date")?.value || "";
     const bankId = body.querySelector("#inv-pay-bank")?.value || "";
-    const note = body.querySelector("#inv-pay-note")?.value || "";
     const paidAmountRaw = body.querySelector("#inv-pay-amount")?.value || "";
     const paidAmount = Number(paidAmountRaw);
     if (!dt) return alert("Paid date is required.");
@@ -770,7 +787,6 @@
           paidDate: dt,
           bankAccountId: bankId,
           paidAmount,
-          note,
         }),
       });
       registeringIdx = -1;

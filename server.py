@@ -8722,14 +8722,21 @@ def handle_list_payment_requests(environ, start_response):
     qs = parse_qs(environ.get("QUERY_STRING", ""))
     status_filter = (qs.get("status", [""])[0] or "").lower()
     workspace_filter = (qs.get("workspace", [""])[0] or "").upper()
+    invoice_filter = (qs.get("invoiceId", [""])[0] or "").strip()
+    mine_only = (qs.get("mine", [""])[0] or "").strip() in ("1", "true", "yes")
     if not workspace_filter:
         workspace_filter = active_workspace(environ) or ""
     records = read_payment_requests()
     filtered = []
+    actor_id = (actor or {}).get("id") or ""
     for r in records:
         if status_filter and (r.get("status") or "").lower() != status_filter:
             continue
         if workspace_filter and (r.get("workspace") or "").upper() != workspace_filter:
+            continue
+        if invoice_filter and r.get("invoiceId") != invoice_filter:
+            continue
+        if mine_only and ((r.get("requestedBy") or {}).get("id") or "") != actor_id:
             continue
         filtered.append(r)
     return json_response(start_response, "200 OK", {"entries": filtered})
@@ -8900,6 +8907,25 @@ def handle_approve_payment_request(environ, start_response, request_id):
             records[i] = target
             break
     write_payment_requests(records)
+
+    # Notify the manager who originally requested the payment so they
+    # see in their bell + ₮ that the accountant registered it.
+    requester = target.get("requestedBy") or {}
+    log_notification(
+        kind="payment_request.approved",
+        actor=actor,
+        title=f"Payment registered · {target.get('invoiceSerial') or ''}",
+        detail=f"{actor.get('fullName') or actor.get('email')} registered "
+               f"{_fmt_money_ccy(target.get('paidAmount'), target.get('currency'))} "
+               f"for {target.get('installmentDescription') or 'this installment'}.",
+        meta={
+            "paymentRequestId": target.get("id"),
+            "invoiceId": target.get("invoiceId"),
+            "tripId": target.get("tripId"),
+            "workspace": target.get("workspace"),
+            "recipientUserId": requester.get("id") or "",
+        },
+    )
     return json_response(start_response, "200 OK", {"ok": True, "entry": target, "invoice": invoice})
 
 
@@ -8960,8 +8986,6 @@ def handle_list_accountant_paid(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
         return []
-    if (actor or {}).get("role", "").lower() not in ("admin", "accountant"):
-        return json_response(start_response, "403 Forbidden", {"error": "Accountant access required"})
     workspace_filter = (active_workspace(environ) or "").upper()
     requests_all = read_payment_requests()
     invoices_by_id = {r.get("id"): r for r in read_invoices()}
@@ -14287,6 +14311,12 @@ def handle_delete_trip_document(environ, start_response, trip_id, doc_id):
     doc = next((d for d in documents if d["id"] == doc_id), None)
     if doc is None:
         return json_response(start_response, "404 Not Found", {"error": "Document not found"})
+    # Paid-document deletes are restricted to admins / accountants —
+    # everyone else can still delete their own uploaded trip documents.
+    if (doc.get("category") or "") == "Paid documents":
+        role = (actor.get("role") or "").lower()
+        if role not in ("admin", "accountant"):
+            return json_response(start_response, "403 Forbidden", {"error": "Only admin / accountant can delete paid documents."})
     file_path = (TRIP_UPLOADS_DIR / trip_id / doc["storedName"]).resolve()
     if str(file_path).startswith(str(TRIP_UPLOADS_DIR.resolve())) and file_path.exists():
         file_path.unlink()
@@ -18741,8 +18771,9 @@ def _dispatch(environ, start_response):
         user = current_user(environ)
         if not user:
             return file_response(start_response, PUBLIC_DIR / "login.html")
-        if user.get("role") not in ("admin", "accountant"):
-            return text_response(start_response, "403 Forbidden", "Accountant access required")
+        # Everyone can read the Accountant page (paid-doc archive); only
+        # accountants / admins approve, which is gated server-side on
+        # /api/payment-requests/<id>/approve.
         return file_response(start_response, PUBLIC_DIR / "accountant.html")
 
     if path == "/mail":

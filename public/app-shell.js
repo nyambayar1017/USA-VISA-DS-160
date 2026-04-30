@@ -113,7 +113,8 @@ function renderSidebar(user) {
   const role = (user?.role || "").toLowerCase();
   const isAdmin = role === "admin";
   const isAccountant = role === "accountant";
-  const showAccountant = isAdmin || isAccountant;
+  // Accountant page is read-only for non-accountants; show for all.
+  const showAccountant = !!user;
   const isDtx = workspace === "DTX";
 
   const ICONS = {
@@ -734,8 +735,9 @@ function closePaymentRequestPopover() {
 }
 
 function applyPaymentIconVisibility(user) {
-  const role = (user?.role || "").toLowerCase();
-  const visible = role === "admin" || role === "accountant";
+  // ₮ icon now visible to every logged-in user — managers can watch
+  // their own requests get approved, accountants/admins act on them.
+  const visible = !!user;
   if (paymentIconNode) {
     if (visible) paymentIconNode.removeAttribute("hidden");
     else paymentIconNode.setAttribute("hidden", "");
@@ -774,12 +776,20 @@ function renderPaymentRequestList() {
     const amount = `${(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}`;
     const requester = (r.requestedBy && (r.requestedBy.name || r.requestedBy.email)) || "Unknown";
     return `
-      <button type="button" class="notifications-item mail-pop-item" data-payment-request-open="${escapeHtml(r.id)}">
-        <span class="notification-avatar notification-avatar-icon">₮</span>
-        <div class="notifications-item-body">
-          <p><strong>${escapeHtml(r.invoiceSerial || "Invoice")}</strong> · ${escapeHtml(r.installmentDescription || "Installment")}</p>
-          <p class="mail-pop-snippet">${escapeHtml(r.payerName || "")} — ${escapeHtml(amount)}</p>
-          <time>${escapeHtml(formatRelativeTime(r.requestedAt))} · by ${escapeHtml(requester)}</time>
+      <button type="button" class="payment-pop-item" data-payment-request-open="${escapeHtml(r.id)}">
+        <div class="payment-pop-row">
+          <strong class="payment-pop-serial">${escapeHtml(r.invoiceSerial || "Invoice")}</strong>
+          <span class="payment-pop-amount">${escapeHtml(amount)}</span>
+        </div>
+        <div class="payment-pop-meta">
+          <span>${escapeHtml(r.payerName || "—")}</span>
+          <span class="payment-pop-dot">·</span>
+          <span>${escapeHtml(r.installmentDescription || "Installment")}</span>
+        </div>
+        <div class="payment-pop-foot">
+          <span>${escapeHtml(formatRelativeTime(r.requestedAt))}</span>
+          <span class="payment-pop-dot">·</span>
+          <span>by ${escapeHtml(requester)}</span>
         </div>
       </button>
     `;
@@ -789,6 +799,11 @@ function renderPaymentRequestList() {
       openPaymentRequestApproveModal(btn.dataset.paymentRequestOpen);
     });
   });
+}
+
+function isAccountantOrAdmin() {
+  const role = (window.currentUser?.role || "").toLowerCase();
+  return role === "admin" || role === "accountant";
 }
 
 // ── Approval modal ──────────────────────────────────────────────────
@@ -854,6 +869,7 @@ async function openPaymentRequestApproveModal(requestId) {
   }
   const r = approveCurrentRequest;
   const amount = `${(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}`;
+  const canApprove = isAccountantOrAdmin();
   body.innerHTML = `
     <dl class="payment-approve-details">
       <div><dt>Invoice</dt><dd>${escapeHtml(r.invoiceSerial || "-")}</dd></div>
@@ -863,14 +879,26 @@ async function openPaymentRequestApproveModal(requestId) {
       <div><dt>Paid date</dt><dd>${escapeHtml(r.paidDate || "-")}</dd></div>
       <div><dt>Bank</dt><dd>${escapeHtml(r.bankAccountId || "-")}</dd></div>
       <div><dt>Requested by</dt><dd>${escapeHtml((r.requestedBy && (r.requestedBy.name || r.requestedBy.email)) || "-")}</dd></div>
-      ${r.note ? `<div class="payment-approve-note"><dt>Note</dt><dd>${escapeHtml(r.note)}</dd></div>` : ""}
     </dl>
-    <label class="payment-approve-file-label">
-      Receipt / proof <span class="inv-required" style="color:#c44747">*</span>
-      <input type="file" id="payment-approve-file" accept=".pdf,.png,.jpg,.jpeg,.webp" />
-      <small class="form-hint">PDF or image, max 10 MB. Auto-attached to the trip's "Paid documents".</small>
-    </label>
+    ${canApprove ? `
+      <label class="payment-approve-file-label">
+        Receipt / proof <span class="inv-required" style="color:#c44747">*</span>
+        <input type="file" id="payment-approve-file" accept=".pdf,.png,.jpg,.jpeg,.gif" />
+        <small class="form-hint">PDF or image, max 10 MB. Auto-attached to the trip's "Paid documents".</small>
+      </label>
+      <label class="payment-approve-file-label" style="margin-top:14px;">
+        Note (optional)
+        <textarea id="payment-approve-note" rows="2" placeholder="e.g. Bank fee deducted, partial payment, etc."></textarea>
+      </label>
+    ` : `
+      <p class="form-hint" style="margin-top:8px;">An accountant or admin will register the payment and upload the receipt.</p>
+    `}
   `;
+  // Hide approve / reject buttons for users who can't act on the request.
+  const approveBtn = document.querySelector('#payment-approve-modal [data-action="confirm-approve"]');
+  const rejectBtn = document.querySelector('#payment-approve-modal [data-action="reject-approve"]');
+  if (approveBtn) approveBtn.style.display = canApprove ? "" : "none";
+  if (rejectBtn) rejectBtn.style.display = canApprove ? "" : "none";
 }
 
 function closePaymentRequestApproveModal() {
@@ -889,6 +917,7 @@ async function submitPaymentApprove() {
   if (!modal) return;
   const status = modal.querySelector("[data-approve-status]");
   const fileInput = modal.querySelector("#payment-approve-file");
+  const noteInput = modal.querySelector("#payment-approve-note");
   const file = fileInput?.files?.[0];
   if (!file) {
     status.textContent = "Pick the receipt file first.";
@@ -902,7 +931,7 @@ async function submitPaymentApprove() {
   fd.append("paidAmount", String(approveCurrentRequest.paidAmount || ""));
   fd.append("paidDate", approveCurrentRequest.paidDate || "");
   fd.append("bankAccountId", approveCurrentRequest.bankAccountId || "");
-  fd.append("note", approveCurrentRequest.note || "");
+  fd.append("note", noteInput?.value || "");
   try {
     const r = await fetch(`/api/payment-requests/${encodeURIComponent(approveCurrentRequest.id)}/approve`, {
       method: "POST",
@@ -921,8 +950,10 @@ async function submitPaymentApprove() {
 
 async function submitPaymentReject() {
   if (!approveCurrentRequest) return;
-  const reason = window.prompt("Reason for rejection (optional)?", "");
-  if (reason === null) return;
+  const reason = window.UI?.prompt
+    ? await window.UI.prompt("Reason for rejection (optional)?", { confirmLabel: "Reject", placeholder: "Optional" })
+    : window.prompt("Reason for rejection (optional)?", "");
+  if (reason === null || reason === undefined) return;
   try {
     const r = await fetch(`/api/payment-requests/${encodeURIComponent(approveCurrentRequest.id)}/reject`, {
       method: "POST",
@@ -935,7 +966,7 @@ async function submitPaymentReject() {
     window.UI?.toast?.("Payment request rejected.", "ok");
     fetchPaymentRequests();
   } catch (err) {
-    alert(err.message || "Reject failed");
+    window.UI?.alert ? window.UI.alert(err.message || "Reject failed") : alert(err.message || "Reject failed");
   }
 }
 
