@@ -160,10 +160,16 @@
     const offset = pgn ? (pgn.page - 1) * pgn.pageSize : 0;
     tbody.innerHTML = list.map((inv, i) => {
       const group = groupById.get(inv.groupId);
+      const tripForRow = tripById.get(inv.tripId);
+      const isFit = String(tripForRow?.tripType || "").toLowerCase() === "fit";
       const grp = groupLabel(inv);
-      const groupCell = group
-        ? '<a href="/group?tripId=' + encodeURIComponent(inv.tripId) + "&groupId=" + encodeURIComponent(inv.groupId) + '">' + escapeHtml(grp) + "</a>"
-        : "-";
+      // FIT trips don't have group pages — link to the trip detail page
+      // (which is the right destination for FIT-style invoice context).
+      const groupCell = !group
+        ? "-"
+        : isFit
+          ? '<a href="/trip-detail?tripId=' + encodeURIComponent(inv.tripId) + '">' + escapeHtml(grp) + "</a>"
+          : '<a href="/group?tripId=' + encodeURIComponent(inv.tripId) + "&groupId=" + encodeURIComponent(inv.groupId) + '">' + escapeHtml(grp) + "</a>";
       const serialCell = '<a href="/invoice-view?invoiceId=' + encodeURIComponent(inv.id) + '">' + escapeHtml(inv.serial || inv.id) + "</a>";
       const d = inv._derived;
       return (

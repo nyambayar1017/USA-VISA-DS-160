@@ -9180,14 +9180,38 @@ def scan_task_reminders():
             f"<strong>Note:</strong><br>{html.escape(note_raw).replace(chr(10), '<br>')}"
             f"</div>"
         ) if note_raw else ""
-        # Reference image, embedded inline as base64 so it shows in the
-        # email without needing the recipient to be logged in to fetch it.
-        image_data_url = _task_image_data_url(task.get("id"))
-        image_html = (
-            f"<div style=\"margin-top:14px;\">"
-            f"<img src=\"{image_data_url}\" alt=\"\" style=\"max-width:520px;width:100%;height:auto;border-radius:8px;border:1px solid #e5e7eb;\" />"
-            f"</div>"
-        ) if image_data_url else ""
+        # Reference image: attach as a real email attachment + reference
+        # it inline via cid so the recipient sees it in-body in clients
+        # that support content-id (Gmail, Apple Mail, Outlook). If a
+        # client strips inline images, the attachment is still visible.
+        image_path = _task_image_path(task.get("id"))
+        image_attachments = []
+        image_html = ""
+        if image_path and image_path.exists():
+            try:
+                image_bytes = image_path.read_bytes()
+                ext = image_path.suffix.lower().lstrip(".") or "jpg"
+                mime = {
+                    "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                    "png": "image/png", "gif": "image/gif",
+                    "webp": "image/webp", "heic": "image/heic", "heif": "image/heif",
+                }.get(ext, "application/octet-stream")
+                fn = f"task-reference.{ext}"
+                content_id = f"task-image-{task.get('id')}"
+                image_attachments.append({
+                    "filename": fn,
+                    "content": base64.b64encode(image_bytes).decode("ascii"),
+                    "content_id": content_id,
+                    "type": mime,
+                })
+                image_html = (
+                    f"<div style=\"margin-top:14px;\">"
+                    f"<p style=\"color:#475569;\">📎 Хавсаргасан зураг:</p>"
+                    f"<img src=\"cid:{content_id}\" alt=\"task reference\" style=\"max-width:520px;width:100%;height:auto;border-radius:8px;border:1px solid #e5e7eb;\" />"
+                    f"</div>"
+                )
+            except OSError:
+                pass
 
         # Stage 1: 6 hours before due — "approaching" reminder.
         if (
@@ -9220,6 +9244,7 @@ def scan_task_reminders():
                                 "body": "",
                                 "_body_html_override": body_html,
                                 "_skip_footer": True,
+                                "attachments": image_attachments,
                             },
                             None,
                         )
@@ -9262,6 +9287,7 @@ def scan_task_reminders():
                                 "body": "",
                                 "_body_html_override": body_html,
                                 "_skip_footer": True,
+                                "attachments": image_attachments,
                             },
                             None,
                         )
@@ -16167,6 +16193,20 @@ def _tool_send_email(args, actor):
     api_attachments = []
     failed = []
     for att in raw_attachments:
+        # Pre-encoded attachment (already has filename + content base64) —
+        # just pass through, including optional content_id/type for inline
+        # rendering. Otherwise resolve from a path/URL.
+        if isinstance(att, dict) and att.get("content") and att.get("filename"):
+            entry = {
+                "filename": att["filename"],
+                "content": att["content"],
+            }
+            if att.get("content_id"):
+                entry["content_id"] = att["content_id"]
+            if att.get("type"):
+                entry["type"] = att["type"]
+            api_attachments.append(entry)
+            continue
         filename, payload = _agent_resolve_attachment(att)
         if filename is None:
             failed.append(payload)

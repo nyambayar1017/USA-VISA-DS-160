@@ -283,11 +283,20 @@ function renderSummary() {
     summaryNode.innerHTML = '<p class="empty">Group not found.</p>';
     return;
   }
-  const adults = tourists.filter((t) => {
-    const a = ageFromDob(t.dob);
-    return a === "" || a >= 18;
-  }).length;
-  const children = tourists.length - adults;
+  // When there are real participants, count them. Otherwise the manager
+  // has just declared a headcount on the group ("5 pax NED vs JPN")
+  // without entering names yet — treat that headcount as the booked
+  // count so reservations/stats reflect reality.
+  const headcountNum = Number(group.headcount) || 0;
+  const usePlanned = tourists.length === 0 && headcountNum > 0;
+  const adults = usePlanned
+    ? headcountNum
+    : tourists.filter((t) => {
+        const a = ageFromDob(t.dob);
+        return a === "" || a >= 18;
+      }).length;
+  const children = usePlanned ? 0 : (tourists.length - adults);
+  const headcountActual = usePlanned ? headcountNum : tourists.length;
   const rooming = buildRoomingSummary(tourists) || "Not set";
   const outbound = getOutboundFlight();
   const ret = flights.length > 1 ? getReturnFlight() : null;
@@ -321,7 +330,7 @@ function renderSummary() {
         ${flightInfo}
       </div>
       <div class="group-summary-stats">
-        <div><span class="group-stat-label">Headcount</span><strong>${tourists.length} / ${group.headcount || "-"}</strong></div>
+        <div><span class="group-stat-label">Headcount</span><strong>${headcountActual}${headcountNum ? ` / ${headcountNum}` : ""}</strong></div>
         <div><span class="group-stat-label">Adults</span><strong>${adults}</strong></div>
         <div><span class="group-stat-label">Children</span><strong>${children}</strong></div>
         <div><span class="group-stat-label">Rooming</span><strong>${escapeHtml(rooming)}</strong></div>

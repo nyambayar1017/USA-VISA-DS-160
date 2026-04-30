@@ -458,7 +458,7 @@ function renderTaskRow(task, idx) {
       <td><span class="todo-due todo-due--${due.tone}">${escapeHtml(due.label)}${task.dueTime ? ` ${escapeHtml(task.dueTime)}` : ""}</span></td>
       <td class="todo-cell-created">${escapeHtml(createdLabel)}</td>
       <td class="todo-cell-dests">${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join(" ") : "—"}</td>
-      <td>${hasNote ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">See note</button>` : "—"}</td>
+      <td>${(hasNote || task.imageExt) ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">${task.imageExt ? "See note + image" : "See note"}</button>` : "—"}</td>
       <td class="todo-cell-actions">
         <details class="row-menu">
           <summary class="row-menu-trigger" aria-label="Task actions">⋯</summary>
@@ -671,11 +671,22 @@ contactForm.addEventListener("submit", async (event) => {
   if (saved) closePanel(contactFormPanel);
 });
 
-function showNoteModal(title, body) {
+function showNoteModal(title, body, imageUrl) {
   const modal = document.getElementById("note-view-modal");
   if (!modal) return;
   modal.querySelector("[data-note-modal-title]").textContent = title;
-  modal.querySelector("[data-note-modal-body]").textContent = body;
+  const bodyEl = modal.querySelector("[data-note-modal-body]");
+  bodyEl.textContent = body || "";
+  bodyEl.style.display = body ? "" : "none";
+  const imageWrap = modal.querySelector("[data-note-modal-image]");
+  const imageEl = modal.querySelector("[data-note-modal-image-img]");
+  if (imageUrl && imageWrap && imageEl) {
+    imageEl.src = imageUrl;
+    imageWrap.hidden = false;
+  } else if (imageWrap) {
+    imageWrap.hidden = true;
+    if (imageEl) imageEl.removeAttribute("src");
+  }
   modal.classList.remove("is-hidden");
   modal.removeAttribute("hidden");
   document.body.classList.add("modal-open");
@@ -705,7 +716,10 @@ todoList.addEventListener("click", async (event) => {
       ? state.tasks.find((t) => t.id === id)
       : state.contacts.find((c) => c.id === id);
     if (!item) return;
-    showNoteModal(item.title || item.name || "Note", item.note || "");
+    const imgUrl = (kind === "task" && item.imageExt)
+      ? `/api/manager-dashboard/tasks/${encodeURIComponent(item.id)}/image`
+      : "";
+    showNoteModal(item.title || item.name || "Note", item.note || "", imgUrl);
     return;
   }
   const taskEdit = target.closest("[data-task-edit]");
