@@ -9080,6 +9080,70 @@ def handle_list_accountant_paid(environ, start_response):
     return json_response(start_response, "200 OK", {"entries": rows})
 
 
+def handle_accountant_download_zip(environ, start_response):
+    """POST { ids: ["paymentRequestId", ...] } → streams a ZIP of every
+    paid receipt for the given approved requests. Used by the
+    Accountant page's bulk-download — sequential <a download> clicks
+    were unreliable across browsers."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    raw_ids = payload.get("ids") or []
+    if not isinstance(raw_ids, list) or not raw_ids:
+        return json_response(start_response, "400 Bad Request", {"error": "Pick at least one row."})
+    ids = {str(x) for x in raw_ids if x}
+    workspace_filter = (active_workspace(environ) or "").upper()
+    requests_all = read_payment_requests()
+    trips_by_id = {t.get("id"): t for t in read_camp_trips()}
+
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    written = 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        used_names = set()
+        for r in requests_all:
+            if r.get("id") not in ids:
+                continue
+            if workspace_filter and (r.get("workspace") or "").upper() != workspace_filter:
+                continue
+            if not r.get("paidDocumentId"):
+                continue
+            trip = trips_by_id.get(r.get("tripId")) or {}
+            doc = next((d for d in (trip.get("documents") or []) if d.get("id") == r.get("paidDocumentId")), None)
+            if not doc:
+                continue
+            file_path = (TRIP_UPLOADS_DIR / r.get("tripId", "") / (doc.get("storedName") or "")).resolve()
+            if not str(file_path).startswith(str(TRIP_UPLOADS_DIR.resolve())) or not file_path.exists():
+                continue
+            # Avoid name collisions inside the zip (two managers might
+            # have uploaded "receipt.png").
+            base = doc.get("originalName") or file_path.name
+            stem = Path(base).stem
+            ext = Path(base).suffix
+            arcname = base
+            n = 1
+            while arcname in used_names:
+                arcname = f"{stem} ({n}){ext}"
+                n += 1
+            used_names.add(arcname)
+            zf.write(file_path, arcname=arcname)
+            written += 1
+    if not written:
+        return json_response(start_response, "404 Not Found", {"error": "None of the selected rows have a downloadable receipt."})
+    data = buf.getvalue()
+    workspace_label = workspace_filter or "ALL"
+    filename = f"travelx-{workspace_label.lower()}-receipts-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.zip"
+    headers = [
+        ("Content-Type", "application/zip"),
+        ("Content-Length", str(len(data))),
+        ("Content-Disposition", f'attachment; filename="{filename}"'),
+    ]
+    start_response("200 OK", headers)
+    return [data]
+
+
 def handle_export_tourists(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -18018,6 +18082,11 @@ def _dispatch(environ, start_response):
     if path == "/api/accountant/paid":
         if method == "GET":
             return handle_list_accountant_paid(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/accountant/download-zip":
+        if method == "POST":
+            return handle_accountant_download_zip(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/payment-requests/") and path.endswith("/approve"):

@@ -137,6 +137,13 @@
           items.push(`<button type="button" class="row-action-item is-danger" data-acct-delete data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Delete</button>`);
         }
       }
+      // Always offer "Delete request" for admin/accountant so orphan
+      // records (e.g. approvals from before the auto-attach landed,
+      // status=Paid but no document) can be cleaned up. Falls through
+      // to DELETE /api/payment-requests/<id>.
+      if (canDelete) {
+        items.push(`<button type="button" class="row-action-item is-danger" data-acct-delete-request data-id="${escapeHtml(r.id)}" data-serial="${escapeHtml(r.invoiceSerial || "")}">${isPending ? "Cancel request" : "Delete request"}</button>`);
+      }
       const actionsCell = items.length
         ? `<details class="trip-menu row-action-menu">
              <summary class="trip-menu-trigger" aria-label="Actions">⋯</summary>
@@ -240,6 +247,25 @@
       }
       return;
     }
+    const deleteRequestBtn = e.target.closest("[data-acct-delete-request]");
+    if (deleteRequestBtn) {
+      e.preventDefault();
+      const id = deleteRequestBtn.dataset.id;
+      const serial = deleteRequestBtn.dataset.serial || "this record";
+      const confirmed = window.UI?.confirm
+        ? await window.UI.confirm(`Remove the payment request for "${serial}" from the ledger? This does not unmark the invoice as paid — it only deletes the request record.`, { dangerous: true })
+        : window.confirm(`Remove the payment request for "${serial}"?`);
+      if (!confirmed) return;
+      try {
+        const r = await fetch(`/api/payment-requests/${encodeURIComponent(id)}`, { method: "DELETE" });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Delete failed");
+        load();
+      } catch (err) {
+        window.UI?.alert ? window.UI.alert(err.message || "Delete failed") : alert(err.message || "Delete failed");
+      }
+      return;
+    }
     const deleteBtn = e.target.closest("[data-acct-delete]");
     if (deleteBtn) {
       e.preventDefault();
@@ -267,24 +293,42 @@
     applyViewToggles();
   });
 
-  // Bulk download — one click per file (browsers won't accept a real
-  // multi-file zip without server help). For now sequential opens, which
-  // most browsers handle fine for 5-10 selected files.
-  bulkBtn?.addEventListener("click", () => {
-    const checks = tbody.querySelectorAll("[data-acct-select]:checked");
-    checks.forEach((cb, i) => {
-      const url = cb.dataset.acctUrl;
-      if (!url) return;
-      setTimeout(() => {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = cb.dataset.acctName || "";
-        a.target = "_blank";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }, i * 250);
-    });
+  // Bulk download — server bundles every selected receipt into a
+  // single ZIP. Reliable across browsers (sequential <a download>
+  // clicks got rate-limited or blocked).
+  bulkBtn?.addEventListener("click", async () => {
+    const ids = Array.from(tbody.querySelectorAll("[data-acct-select]:checked")).map((cb) => cb.dataset.acctSelect);
+    if (!ids.length) return;
+    const original = bulkBtn.textContent;
+    bulkBtn.disabled = true;
+    bulkBtn.textContent = "Bundling…";
+    try {
+      const res = await fetch("/api/accountant/download-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Bundle failed");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const cd = res.headers.get("Content-Disposition") || "";
+      const m = /filename="([^"]+)"/.exec(cd);
+      a.download = m ? m[1] : "receipts.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      window.UI?.alert ? window.UI.alert(err.message || "Download failed") : alert(err.message || "Download failed");
+    } finally {
+      bulkBtn.disabled = false;
+      bulkBtn.textContent = original;
+    }
   });
 
   // The approval modal in app-shell.js fires this when a request gets
