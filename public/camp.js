@@ -148,11 +148,18 @@ function openPanel(panel) {
   document.body.classList.add("modal-open");
   // USM only operates inside Mongolia, so the international destinations
   // dropdown is irrelevant on every USM trip — hide it when the trip form
-  // opens in that workspace.
+  // opens in that workspace. Same logic for the per-trip Flights block:
+  // USM tracks flights in its workspace-level Flight Reservations page,
+  // not bolted onto the trip record, so the inline editor would just
+  // duplicate that flow.
+  const ws = (typeof readWorkspace === "function" ? readWorkspace() : "") || "";
   const destBlock = panel.querySelector("[data-trip-form-destinations]");
   if (destBlock) {
-    const ws = (typeof readWorkspace === "function" ? readWorkspace() : "") || "";
     destBlock.style.display = ws === "USM" ? "none" : "";
+  }
+  const flightsBlock = panel.querySelector("[data-trip-form-flights]");
+  if (flightsBlock) {
+    flightsBlock.style.display = ws === "USM" ? "none" : "";
   }
   panel.scrollTop = 0;
   const dialog = panel.querySelector(".camp-modal-dialog");
@@ -2491,6 +2498,10 @@ function startTripEdit(id) {
   }
   editingTripId = id;
   openPanel(tripFormPanel);
+  // Seed the existing flights for this trip so a second "+ Add flight"
+  // appends a new row instead of starting at "Flight 1" again.
+  clearTripFlightRows();
+  loadExistingTripFlights(id);
   tripForm.elements.tripName.value = trip.tripName || "";
   if (tripForm.elements.reservationName) tripForm.elements.reservationName.value = trip.reservationName || trip.tripName || "";
   tripForm.elements.startDate.value = String(trip.startDate || "").slice(0, 10);
@@ -2845,6 +2856,7 @@ function addTripFlightRow(prefill = {}) {
   const idx = list.querySelectorAll(".trip-flight-row").length + 1;
   const div = document.createElement("div");
   div.className = "trip-flight-row";
+  if (prefill.id) div.dataset.flightId = prefill.id;
   div.innerHTML = `
     <div class="trip-flight-row-head">
       <strong>Flight ${idx}</strong>
@@ -2868,7 +2880,7 @@ function readTripFlightRows() {
   const list = getTripFlightsList();
   if (!list) return [];
   return Array.from(list.querySelectorAll(".trip-flight-row")).map((row) => {
-    const obj = {};
+    const obj = { id: row.dataset.flightId || "" };
     row.querySelectorAll("[data-flight-field]").forEach((el) => {
       obj[el.dataset.flightField] = el.value || "";
     });
@@ -2879,6 +2891,37 @@ function readTripFlightRows() {
 function clearTripFlightRows() {
   const list = getTripFlightsList();
   if (list) list.innerHTML = "";
+}
+
+// Set on edit, used by the submit handler to detect rows that were
+// removed in this session so we can DELETE them server-side.
+let initialTripFlightIds = new Set();
+
+async function loadExistingTripFlights(tripId) {
+  initialTripFlightIds = new Set();
+  if (!tripId) return;
+  try {
+    const data = await fetch("/api/flight-reservations").then((r) => r.json());
+    const flights = (data.entries || [])
+      .filter((f) => f.tripId === tripId)
+      .sort((a, b) => String(a.departureDate || "").localeCompare(String(b.departureDate || "")));
+    flights.forEach((f) => {
+      if (f.id) initialTripFlightIds.add(f.id);
+      addTripFlightRow({
+        id: f.id || "",
+        airline: f.airline || "",
+        flightNumber: f.flightNumber || "",
+        fromCity: f.fromCity || "",
+        toCity: f.toCity || "",
+        departureDate: String(f.departureDate || "").slice(0, 10),
+        departureTime: String(f.departureTime || "").slice(0, 5),
+        arrivalDate: String(f.arrivalDate || "").slice(0, 10),
+        arrivalTime: String(f.arrivalTime || "").slice(0, 5),
+      });
+    });
+  } catch (err) {
+    console.warn("Could not load trip flights for editing", err);
+  }
 }
 
 tripForm?.addEventListener("click", (e) => {
@@ -2918,9 +2961,13 @@ tripForm.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload),
     });
     const tripId = result.entry.id;
-    if (flights.length) {
+    if (flights.length || initialTripFlightIds.size) {
       tripStatus.textContent = "Saving flights...";
+      const survivingIds = new Set(flights.map((f) => f.id).filter(Boolean));
       for (const f of flights) {
+        // Existing rows update in place (preserve ticket / payment state
+        // set elsewhere); new rows create with workspace defaults.
+        const existing = !!f.id;
         const flightPayload = {
           tripId,
           tripName: result.entry.tripName,
@@ -2932,20 +2979,30 @@ tripForm.addEventListener("submit", async (event) => {
           departureTime: f.departureTime || "",
           arrivalDate: f.arrivalDate || "",
           arrivalTime: f.arrivalTime || "",
-          passengerCount: result.entry.participantCount || 0,
-          staffCount: result.entry.staffCount || 0,
-          touristTicketStatus: "waiting_list",
-          guideTicketStatus: "waiting_list",
-          paymentStatus: "unpaid",
         };
+        if (!existing) {
+          flightPayload.passengerCount = result.entry.participantCount || 0;
+          flightPayload.staffCount = result.entry.staffCount || 0;
+          flightPayload.touristTicketStatus = "waiting_list";
+          flightPayload.guideTicketStatus = "waiting_list";
+          flightPayload.paymentStatus = "unpaid";
+        }
+        const url = existing ? `/api/flight-reservations/${encodeURIComponent(f.id)}` : "/api/flight-reservations";
         try {
-          await fetchJson("/api/flight-reservations", {
+          await fetchJson(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(flightPayload),
           });
         } catch (e) { console.warn("Flight save failed", e); }
       }
+      for (const oldId of initialTripFlightIds) {
+        if (survivingIds.has(oldId)) continue;
+        try {
+          await fetch(`/api/flight-reservations/${encodeURIComponent(oldId)}`, { method: "DELETE" });
+        } catch (e) { console.warn("Flight delete failed", e); }
+      }
+      initialTripFlightIds = new Set();
     }
     tripStatus.textContent = editingTripId ? `Trip updated: ${result.entry.tripName}` : `Trip created: ${result.entry.tripName}`;
     resetTripFormState();
