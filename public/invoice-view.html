@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Нэхэмжлэх</title>
-    <link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <link rel="icon" id="invoice-favicon" type="image/png" href="/assets/favicon-dtx-x.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -606,7 +606,8 @@
       const editMode = false;
       function render(inv) {
         currentInvoice = inv;
-        if (companyFromSerial(inv.serial) === "USM") {
+        const company = companyFromSerial(inv.serial);
+        if (company === "USM") {
           renderUsm(inv);
         } else {
           renderDtx(inv);
@@ -614,6 +615,14 @@
         document.title = `${pdfButtonLabel(inv).replace("Download ", "").replace("Télécharger ", "").replace("PDF Татах", "Нэхэмжлэх")} #${inv.serial}`;
         const btnPdf = document.getElementById("btn-pdf");
         if (btnPdf) btnPdf.textContent = pdfButtonLabel(inv);
+        // Swap favicon to match the issuing company so the tab is
+        // visually scoped (USM small logo for S-, DTX X for T-).
+        const favicon = document.getElementById("invoice-favicon");
+        if (favicon) {
+          favicon.href = company === "USM"
+            ? "/assets/usm-logo-square.png"
+            : "/assets/favicon-dtx-x.png";
+        }
       }
       function renderUsm(inv) {
         const page = document.getElementById("invoice-page");

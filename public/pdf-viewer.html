@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PDF Viewer</title>
+    <link rel="icon" id="pdf-favicon" type="image/png" href="/assets/favicon-dtx-x.png" />
+    <script>
+      // Swap the favicon for USM (S-) invoices so the browser tab matches
+      // the issuing company. Looks at the ?title= and ?src= URL params
+      // for an S-xxx serial; falls back to DTX otherwise.
+      (function () {
+        try {
+          var params = new URLSearchParams(location.search);
+          var hint = (params.get("title") || "") + " " + (params.get("src") || "");
+          var isUsm = /\bS-\d/.test(hint);
+          var fav = document.getElementById("pdf-favicon");
+          if (fav && isUsm) fav.href = "/assets/usm-logo-square.png";
+        } catch (e) {}
+      })();
+    </script>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
 
