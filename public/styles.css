@@ -4973,6 +4973,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   transition: background 0.15s;
 }
 .tc-back-btn:hover { background: #dbe4ff; }
+/* Mirror of the back button, lives inside the tab strip so the
+   user can jump back to /trip-detail even if the topbar is
+   scrolled out of view. */
+.tc-back-strip-btn {
+  background: #eef2ff !important;
+  color: #253a77 !important;
+  border: 1px solid #d0d7e8 !important;
+  margin-right: 8px;
+  text-decoration: none;
+}
+.tc-back-strip-btn:hover { background: #dbe4ff !important; }
 
 .trip-select-link {
   width: 100%;

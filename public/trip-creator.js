@@ -30,6 +30,13 @@
     backLink.removeAttribute("hidden");
     backFallback.setAttribute("hidden", "");
   }
+  // Second back link, in the tab strip — sticky inside the card so
+  // the user can jump back even when the topbar is scrolled out.
+  const backStrip = document.getElementById("tc-back-to-trip-strip");
+  if (backStrip) {
+    backStrip.href = `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
+    backStrip.removeAttribute("hidden");
+  }
 
   function escapeHtml(value) {
     return String(value || "")
