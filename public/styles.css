@@ -17365,3 +17365,15 @@ body.lightbox-open { overflow: hidden; }
   height: 18px;
 }
 .mail-list-followup .mail-followup-btn--off { color: #94a3b8; }
+
+/* Transfer table "Type time" cells get a contextual "Flight" / "Train"
+   prefix so the same column reads correctly for airport and train rows. */
+.transfer-type-time-prefix {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #6b7793;
+  text-transform: uppercase;
+  margin-right: 4px;
+}

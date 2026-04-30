@@ -523,6 +523,16 @@
     return "—";
   }
 
+  // The "Type time" column means different things per row: flight time on
+  // airport rows, train time on train rows. Show the time with that
+  // contextual prefix so the column header can stay generic.
+  function transferTypeTimeCellLabel(transferType) {
+    const v = String(transferType || "").toLowerCase();
+    if (v.startsWith("airport")) return "Flight";
+    if (v.startsWith("train")) return "Train";
+    return "";
+  }
+
   function renderTransfers() {
     const rows = getFilteredTransfers();
     if (!rows.length) {
@@ -560,7 +570,14 @@
                     <td>${escapeHtml(transferTypeLabel(entry.transferType))}</td>
                     <td class="table-nowrap">${escapeHtml(formatDate(entry.serviceDate))}</td>
                     <td class="table-nowrap ${pickupTimeUrgency(entry.serviceDate)}">${escapeHtml(entry.serviceTime || "—")}</td>
-                    <td class="table-nowrap">${escapeHtml(entry.typeTime || "—")}</td>
+                    <td class="table-nowrap">${(() => {
+                      const t = entry.typeTime || "";
+                      if (!t) return "—";
+                      const prefix = transferTypeTimeCellLabel(entry.transferType);
+                      return prefix
+                        ? `<span class="transfer-type-time-prefix">${escapeHtml(prefix)}</span> ${escapeHtml(t)}`
+                        : escapeHtml(t);
+                    })()}</td>
                     <td>${escapeHtml(entry.driverName || "—")}</td>
                     <td>${escapeHtml(entry.vehicleType || "—")}</td>
                     <td>${escapeHtml(entry.plateNumber || "—")}</td>
