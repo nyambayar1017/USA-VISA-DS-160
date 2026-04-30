@@ -31,9 +31,33 @@
       .replace(/'/g, "&#39;");
   }
 
-  function fmtMoney(n) {
+  // Currencies we invoice in. Order = preferred display order in the picker.
+  // Symbol shows when present; otherwise the ISO code is shown next to the amount.
+  const CURRENCIES = [
+    { code: "MNT", symbol: "₮",  label: "MNT — Mongolian tugrik" },
+    { code: "USD", symbol: "$",  label: "USD — US dollar" },
+    { code: "EUR", symbol: "€",  label: "EUR — Euro" },
+    { code: "GBP", symbol: "£",  label: "GBP — British pound" },
+    { code: "JPY", symbol: "¥",  label: "JPY — Japanese yen" },
+    { code: "KRW", symbol: "₩",  label: "KRW — South Korean won" },
+    { code: "CNY", symbol: "¥",  label: "CNY — Chinese yuan" },
+    { code: "RUB", symbol: "₽",  label: "RUB — Russian ruble" },
+    { code: "AUD", symbol: "A$", label: "AUD — Australian dollar" },
+  ];
+  function currencyMeta(code) {
+    return CURRENCIES.find((c) => c.code === code) || CURRENCIES[0];
+  }
+  function fmtMoney(n, code) {
     const num = Number(String(n || 0).replace(/[^0-9.-]/g, "")) || 0;
-    return num.toLocaleString("en-US") + " ₮";
+    const ccy = code || (typeof draft === "object" && draft?.currency) || "MNT";
+    const meta = currencyMeta(ccy);
+    const formatted = num.toLocaleString("en-US");
+    // Prefix-style symbols (USD/EUR/GBP/JPY/CNY/AUD) read better as "$ 1,234".
+    // For MNT, KRW, RUB the local convention is suffix.
+    if (["USD", "EUR", "GBP", "JPY", "CNY", "AUD"].includes(meta.code)) {
+      return `${meta.symbol}${formatted}`;
+    }
+    return `${formatted} ${meta.symbol}`;
   }
 
   function fmtDateOnly(value) {
@@ -213,7 +237,7 @@
         return `
           <div class="inv-installment-line">
             <span class="inv-inst-desc">${escapeHtml(ins.description || "-")}</span>
-            <span class="inv-inst-amount">${fmtMoney(ins.amount)}</span>
+            <span class="inv-inst-amount">${fmtMoney(ins.amount, inv.currency)}</span>
             <span class="inv-inst-status"><span class="payment-status payment-status-${status}">${statusLabel}</span></span>
             <span class="inv-inst-due">${escapeHtml(fmtDateShort(ins.dueDate))}</span>
           </div>
@@ -230,7 +254,7 @@
               <a href="#" class="inv-serial-link" data-inv-action="open" data-id="${escapeHtml(inv.id)}">${escapeHtml(inv.serial || inv.id)}</a>
             </span>
             <span class="inv-cell inv-payer">${escapeHtml(inv.payerName || "-")}</span>
-            <span class="inv-cell inv-total">${fmtMoney(inv.total)}</span>
+            <span class="inv-cell inv-total">${fmtMoney(inv.total, inv.currency)}</span>
             <span class="inv-row-actions">
               <button type="button" class="inv-row-action-btn" data-inv-action="open" data-id="${escapeHtml(inv.id)}" title="Edit" aria-label="Edit">✎</button>
               <button type="button" class="inv-row-action-btn is-danger" data-inv-action="delete" data-id="${escapeHtml(inv.id)}" title="Delete" aria-label="Delete">✕</button>
@@ -356,9 +380,9 @@
     const itemRows = (inv.items || []).map((it) => `
       <tr>
         <td>${escapeHtml(it.description || "-")}</td>
-        <td class="t-right">${fmtMoney(it.price)}</td>
+        <td class="t-right">${fmtMoney(it.price, inv.currency)}</td>
         <td class="t-center">${escapeHtml(it.qty)}</td>
-        <td class="t-right">${fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0))}</td>
+        <td class="t-right">${fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0), inv.currency)}</td>
       </tr>
     `).join("");
     const installmentCards = (inv.installments || []).map((ins, idx) => {
@@ -380,7 +404,7 @@
               <div class="inv-side-inst-label">Status</div>
               <div><span class="payment-status payment-status-${status}">${statusLabel}</span></div>
             </div>
-            <div class="inv-side-inst-amount">${fmtMoney(ins.amount)}</div>
+            <div class="inv-side-inst-amount">${fmtMoney(ins.amount, inv.currency)}</div>
           </div>
           <button type="button" class="inv-side-register" data-inv-action="register-payment" data-idx="${idx}">
             <span class="inv-side-register-icon">+</span> Register payment
@@ -418,7 +442,7 @@
         <div class="inv-side-card-head">
           <div>
             <h3>Price Details</h3>
-            <p class="inv-side-card-sub">All prices in MNT</p>
+            <p class="inv-side-card-sub">All prices in ${escapeHtml(inv.currency || "MNT")}</p>
           </div>
           <button type="button" class="inv-side-edit" data-inv-edit="price" aria-label="Edit price">${pencilSvg()}</button>
         </div>
@@ -430,7 +454,7 @@
             ${itemRows}
             <tr class="inv-side-table-total">
               <td colspan="3" class="t-right"><strong>Total</strong></td>
-              <td class="t-right"><strong>${fmtMoney(inv.total)}</strong></td>
+              <td class="t-right"><strong>${fmtMoney(inv.total, inv.currency)}</strong></td>
             </tr>
           </tbody>
         </table>
@@ -594,7 +618,7 @@
         ${items.map((it, i) => priceRowHtml(it, i)).join("")}
       </div>
       <button type="button" class="inv-add-item" id="inv-add-item-btn">+ Add Item</button>
-      <div class="inv-price-total"><span>Total</span><strong>${fmtMoney(grand)}</strong></div>
+      <div class="inv-price-total"><span>Total</span><strong>${fmtMoney(grand, sidePanelInvoice?.currency)}</strong></div>
     `;
     body.querySelector("#inv-add-item-btn").addEventListener("click", () => {
       sidePanelInvoice._editItems.push({ description: "", qty: 1, price: 0 });
@@ -611,7 +635,7 @@
         <input class="inv-price-desc" data-field="description" value="${escapeHtml(it.description || "")}" placeholder="Description" />
         <input class="inv-price-qty" type="number" min="0" data-field="qty" value="${escapeHtml(it.qty || 0)}" />
         <input class="inv-price-price" type="number" min="0" data-field="price" value="${escapeHtml(it.price || 0)}" />
-        <span class="inv-price-total-cell">${fmtMoney(total)}</span>
+        <span class="inv-price-total-cell">${fmtMoney(total, sidePanelInvoice?.currency)}</span>
       </div>
     `;
   }
@@ -623,10 +647,10 @@
     if (!field) return;
     sidePanelInvoice._editItems[i][field] = field === "qty" || field === "price" ? Number(e.target.value) || 0 : e.target.value;
     const it = sidePanelInvoice._editItems[i];
-    row.querySelector(".inv-price-total-cell").textContent = fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0));
+    row.querySelector(".inv-price-total-cell").textContent = fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0), sidePanelInvoice?.currency);
     const grand = sidePanelInvoice._editItems.reduce((a, x) => a + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
     const tNode = document.querySelector("#inv-edit-body .inv-price-total strong");
-    if (tNode) tNode.textContent = fmtMoney(grand);
+    if (tNode) tNode.textContent = fmtMoney(grand, sidePanelInvoice?.currency);
   }
   function priceRowClick(e) {
     if (e.target.closest("[data-action='remove-row']")) {
@@ -656,9 +680,9 @@
       </div>
       <button type="button" class="inv-add-item" id="inv-add-inst-btn">+ Add installment</button>
       <div class="inv-inst-totals">
-        <div><span>Total Installments:</span><strong>${fmtMoney(sumInst)}</strong></div>
-        <div><span>Total Price:</span><strong>${fmtMoney(total)}</strong></div>
-        <div class="${diff !== 0 ? "is-warning" : ""}"><span>Difference:</span><strong>${fmtMoney(diff)}</strong></div>
+        <div><span>Total Installments:</span><strong>${fmtMoney(sumInst, sidePanelInvoice?.currency)}</strong></div>
+        <div><span>Total Price:</span><strong>${fmtMoney(total, sidePanelInvoice?.currency)}</strong></div>
+        <div class="${diff !== 0 ? "is-warning" : ""}"><span>Difference:</span><strong>${fmtMoney(diff, sidePanelInvoice?.currency)}</strong></div>
       </div>
     `;
     body.querySelector("#inv-add-inst-btn").addEventListener("click", () => {
@@ -709,7 +733,7 @@
           <div class="inv-inst-card-summary">
             <span>${escapeHtml(ins.description || "-")}</span>
             <span>Due: ${escapeHtml(fmtDateShort(ins.dueDate))}</span>
-            <strong>${fmtMoney(ins.amount)}</strong>
+            <strong>${fmtMoney(ins.amount, sidePanelInvoice?.currency)}</strong>
           </div>
         `}
       </div>
@@ -733,9 +757,9 @@
     const totals = document.querySelector("#inv-edit-body .inv-inst-totals");
     if (!totals) return;
     totals.innerHTML = `
-      <div><span>Total Installments:</span><strong>${fmtMoney(sumInst)}</strong></div>
-      <div><span>Total Price:</span><strong>${fmtMoney(total)}</strong></div>
-      <div class="${diff !== 0 ? "is-warning" : ""}"><span>Difference:</span><strong>${fmtMoney(diff)}</strong></div>
+      <div><span>Total Installments:</span><strong>${fmtMoney(sumInst, sidePanelInvoice?.currency)}</strong></div>
+      <div><span>Total Price:</span><strong>${fmtMoney(total, sidePanelInvoice?.currency)}</strong></div>
+      <div class="${diff !== 0 ? "is-warning" : ""}"><span>Difference:</span><strong>${fmtMoney(diff, sidePanelInvoice?.currency)}</strong></div>
     `;
   }
   function instClick(e) {
@@ -966,8 +990,15 @@
       </div>
     `).join("");
     const grand = draft.items.reduce((acc, it) => acc + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+    const ccyOpts = CURRENCIES
+      .map((c) => `<option value="${c.code}" ${c.code === (draft.currency || "MNT") ? "selected" : ""}>${escapeHtml(c.label)}</option>`)
+      .join("");
     return `
       <div class="invoice-wizard-section">
+        <label class="invoice-field">
+          <span>Currency</span>
+          <select id="invoice-currency-select">${ccyOpts}</select>
+        </label>
         <div class="invoice-items-head"><span>Description</span><span>Qty</span><span>Price</span><span>Total</span><span></span></div>
         <div id="invoice-items-list">${itemRows}</div>
         <button type="button" class="secondary-button invoice-add-item" data-action="invoice-item-add">+ Add item</button>
@@ -976,6 +1007,12 @@
     `;
   }
   function wireStep2(body) {
+    const ccySelect = body.querySelector("#invoice-currency-select");
+    ccySelect?.addEventListener("change", () => {
+      draft.currency = ccySelect.value;
+      // Re-render so all the totals reformat with the new currency symbol.
+      renderWizardStep();
+    });
     body.querySelector("[data-action='invoice-item-add']").addEventListener("click", () => {
       draft.items.push({ description: "", qty: 1, price: 0 }); renderWizardStep();
     });
@@ -1008,11 +1045,51 @@
   function totalPrice() {
     return draft.items.reduce((a, it) => a + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
   }
+  function tripStartIso() {
+    return trip?.startDate || trip?.tripStartDate || "";
+  }
+  // Builds the optgroup'd dropdown shown next to each installment's Due Date.
+  // "From today" works always; "Before departure" only renders if the trip
+  // has a startDate so the user isn't given options that produce empty dates.
+  function dueDatePresetOptions() {
+    const fromNow = [3, 7, 10, 15, 20, 30, 45, 60];
+    const beforeDep = [60, 45, 30, 20, 15, 10, 7, 3, 0];
+    const fromNowOpts = fromNow.map((d) => `<option value="now+${d}">${d} days from today</option>`).join("");
+    const hasTripStart = !!tripStartIso();
+    const beforeOpts = hasTripStart
+      ? beforeDep.map((d) => `<option value="dep-${d}">${d === 0 ? "On departure day" : `${d} days before departure`}</option>`).join("")
+      : "";
+    return `
+      <option value="">Pick a preset…</option>
+      <optgroup label="From today">${fromNowOpts}</optgroup>
+      ${hasTripStart ? `<optgroup label="Before departure">${beforeOpts}</optgroup>` : ""}
+    `;
+  }
+  // Resolve a preset key (e.g. "now+30" / "dep-15") into an ISO date string.
+  function resolvePresetDate(preset) {
+    if (!preset) return "";
+    const today = new Date();
+    if (preset.startsWith("now+")) {
+      const d = parseInt(preset.slice(4), 10);
+      const dt = new Date(today.getTime() + d * 86400000);
+      return dt.toISOString().slice(0, 10);
+    }
+    if (preset.startsWith("dep-")) {
+      const d = parseInt(preset.slice(4), 10);
+      const start = tripStartIso();
+      if (!start) return "";
+      const dt = new Date(start + "T00:00:00Z");
+      dt.setUTCDate(dt.getUTCDate() - d);
+      return dt.toISOString().slice(0, 10);
+    }
+    return "";
+  }
   function renderStep3() {
     const total = totalPrice();
     const sumInst = (draft.installments || []).reduce((a, i) => a + (Number(i.amount) || 0), 0);
     const diff = total - sumInst;
     const today = new Date().toISOString().slice(0, 10);
+    const presetOpts = dueDatePresetOptions();
     const rows = (draft.installments || []).map((inst, i) => `
       <div class="invoice-installment" data-inst-index="${i}">
         <div class="invoice-installment-head">
@@ -1023,15 +1100,24 @@
           <label>Description<input data-inst-field="description" value="${escapeHtml(inst.description || "")}" /></label>
           <label>Issue Date<input type="date" data-inst-field="issueDate" value="${escapeHtml(inst.issueDate || today)}" /></label>
           <label>Due Date<input type="date" data-inst-field="dueDate" value="${escapeHtml(inst.dueDate || "")}" /></label>
+          <label>Quick due-date<select data-inst-field="duePreset">${presetOpts}</select></label>
           <label>Amount<input type="number" min="0" step="0.01" data-inst-field="amount" value="${escapeHtml(inst.amount || 0)}" /></label>
         </div>
       </div>
     `).join("");
+    const splitOpts = [
+      ["", "+ Split presets…"],
+      ["30-70", "30 / 70"],
+      ["40-60", "40 / 60"],
+      ["50-50", "50 / 50"],
+      ["60-40", "60 / 40"],
+      ["70-30", "70 / 30"],
+    ].map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
     return `
       <div class="invoice-wizard-section">
         <div class="invoice-inst-toolbar">
           <button type="button" class="secondary-button" data-action="inst-add">+ Add installment</button>
-          <button type="button" class="secondary-button" data-action="inst-split-30-70">+ Split 30/70</button>
+          <select class="secondary-button" id="invoice-split-select">${splitOpts}</select>
           <button type="button" class="secondary-button" data-action="inst-full">+ Full payment</button>
         </div>
         <div id="invoice-installments-list">${rows || '<p class="empty">No installments yet.</p>'}</div>
@@ -1048,19 +1134,30 @@
     body.addEventListener("click", (e) => {
       const action = e.target.dataset?.action;
       if (action === "inst-add") { draft.installments.push({ description: "Installment", issueDate: today, dueDate: "", amount: 0, status: "pending" }); renderWizardStep(); }
-      else if (action === "inst-split-30-70") {
-        const total = totalPrice();
-        draft.installments = [
-          { description: "30% deposit", issueDate: today, dueDate: "", amount: Math.round(total * 0.3), status: "pending" },
-          { description: "70% balance", issueDate: today, dueDate: "", amount: total - Math.round(total * 0.3), status: "pending" },
-        ]; renderWizardStep();
-      } else if (action === "inst-full") {
+      else if (action === "inst-full") {
         draft.installments = [{ description: "Full payment", issueDate: today, dueDate: "", amount: totalPrice(), status: "pending" }];
         renderWizardStep();
       } else if (action === "inst-remove") {
         const idx = Number(e.target.closest(".invoice-installment")?.dataset.instIndex);
         if (!Number.isNaN(idx)) { draft.installments.splice(idx, 1); renderWizardStep(); }
       }
+    });
+    // Split-presets dropdown — picking an option re-creates the installments
+    // proportional to the price total. Pick "+ Split presets…" (empty value)
+    // does nothing so the user can re-open the dropdown without applying.
+    const splitSelect = body.querySelector("#invoice-split-select");
+    splitSelect?.addEventListener("change", () => {
+      const v = splitSelect.value;
+      splitSelect.value = "";
+      if (!v) return;
+      const [a, b] = v.split("-").map(Number);
+      const total = totalPrice();
+      const first = Math.round(total * (a / 100));
+      draft.installments = [
+        { description: `${a}% deposit`,  issueDate: today, dueDate: "", amount: first,         status: "pending" },
+        { description: `${b}% balance`,  issueDate: today, dueDate: "", amount: total - first, status: "pending" },
+      ];
+      renderWizardStep();
     });
     body.addEventListener("input", (e) => {
       const row = e.target.closest(".invoice-installment");
@@ -1069,13 +1166,29 @@
       const inst = draft.installments[idx];
       if (!inst) return;
       const field = e.target.dataset.instField;
-      if (!field) return;
+      if (!field || field === "duePreset") return; // duePreset handled in change
       inst[field] = field === "amount" ? Number(e.target.value) || 0 : e.target.value;
       const sumNode = body.querySelector(".invoice-totals strong");
       if (sumNode) {
         const sum = draft.installments.reduce((a, i) => a + (Number(i.amount) || 0), 0);
         sumNode.textContent = fmtMoney(sum);
       }
+    });
+    // Quick due-date preset → write resolved ISO into the dueDate field.
+    body.addEventListener("change", (e) => {
+      if (e.target.dataset?.instField !== "duePreset") return;
+      const row = e.target.closest(".invoice-installment");
+      const idx = Number(row?.dataset.instIndex);
+      const inst = draft.installments[idx];
+      if (!inst) return;
+      const iso = resolvePresetDate(e.target.value);
+      if (iso) {
+        inst.dueDate = iso;
+        const dueInput = row.querySelector('[data-inst-field="dueDate"]');
+        if (dueInput) dueInput.value = iso;
+      }
+      // Reset preset so user can pick again later.
+      e.target.value = "";
     });
   }
   async function onWizardNext() {
@@ -1089,6 +1202,26 @@
       const valid = draft.items.filter((it) => (it.description || "").trim());
       if (!valid.length) return alert("Add at least one item with a description.");
       draft.items = valid; wizardStep = 3; renderWizardStep(); return;
+    }
+    // Step 3 — installment-level validation. Block save until everything
+    // looks right; bad invoices are hard to fix later, especially once
+    // they've been sent to the customer.
+    const insts = draft.installments || [];
+    if (!insts.length) return alert("Add at least one installment (or click + Full payment).");
+    for (let i = 0; i < insts.length; i++) {
+      const ins = insts[i];
+      const label = `Installment ${i + 1}`;
+      if (!(ins.description || "").trim()) return alert(`${label}: please write a description.`);
+      if (!ins.issueDate) return alert(`${label}: please pick an issue date.`);
+      if (!ins.dueDate) return alert(`${label}: please pick a due date (or use the Quick due-date preset).`);
+      if (ins.dueDate < ins.issueDate) return alert(`${label}: due date can't be earlier than the issue date.`);
+      if (!Number(ins.amount) || Number(ins.amount) <= 0) return alert(`${label}: amount must be greater than zero.`);
+    }
+    const total = totalPrice();
+    const sumInst = insts.reduce((a, x) => a + (Number(x.amount) || 0), 0);
+    // Allow a 1-unit rounding difference (e.g. 30/70 split of an odd total).
+    if (Math.abs(total - sumInst) > 1) {
+      return alert(`Installment total (${fmtMoney(sumInst)}) does not match invoice total (${fmtMoney(total)}). Adjust the amounts before saving.`);
     }
     try {
       const payload = {
