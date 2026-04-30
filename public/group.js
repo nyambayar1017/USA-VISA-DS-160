@@ -298,8 +298,14 @@ function renderSummary() {
       ${ret ? `<p><strong>Return:</strong> ${escapeHtml(formatDate(ret.departureDate))} ${escapeHtml(ret.departureTime || "")} · ${escapeHtml(ret.fromCity || "-")} → ${escapeHtml(ret.toCity || "-")} ${escapeHtml(ret.airline || "")} ${escapeHtml(ret.flightNumber || "")}</p>` : ""}
     </div>
   ` : "";
+  const currentStatus = (group.status || "pending").toLowerCase();
   summaryNode.innerHTML = `
     <div class="group-summary-actions">
+      <select class="group-status-select group-status-${escapeHtml(currentStatus)}" id="group-status-select" aria-label="Group status">
+        <option value="pending"   ${currentStatus === "pending"   ? "selected" : ""}>Pending</option>
+        <option value="confirmed" ${currentStatus === "confirmed" ? "selected" : ""}>Confirmed</option>
+        <option value="cancelled" ${currentStatus === "cancelled" ? "selected" : ""}>Cancelled</option>
+      </select>
       <button type="button" class="header-action-btn header-action-edit" id="group-edit-btn" aria-label="Edit group">✎ Edit</button>
     </div>
     <div class="group-summary-grid">
@@ -311,7 +317,6 @@ function renderSummary() {
           <span>${escapeHtml(trip?.tripName || "")}</span>
           <span>${formatDate(trip?.startDate)} → ${formatDate(trip?.endDate || "")}</span>
           ${trip?.tripType ? `<span class="trip-type-pill">${escapeHtml(trip.tripType.toUpperCase())}</span>` : ""}
-          ${group.status ? `<span class="status-pill is-${escapeHtml(group.status)}">${escapeHtml(group.status)}</span>` : ""}
         </p>
         ${flightInfo}
       </div>
@@ -331,6 +336,36 @@ function renderSummary() {
     </div>
   `;
   document.getElementById("group-edit-btn")?.addEventListener("click", openGroupEdit);
+  document.getElementById("group-status-select")?.addEventListener("change", changeGroupStatus);
+}
+
+async function changeGroupStatus(event) {
+  const next = event.target.value;
+  const select = event.target;
+  const prev = select.dataset.prev || "";
+  select.dataset.prev = next;
+  select.disabled = true;
+  try {
+    const tripId = new URLSearchParams(location.search).get("tripId") || "";
+    const groupId = new URLSearchParams(location.search).get("groupId") || "";
+    const res = await fetch(`/api/tourist-groups/${encodeURIComponent(groupId)}?tripId=${encodeURIComponent(tripId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Could not update status");
+    }
+    // Swap the colour class so the chip reflects the new status without a reload.
+    select.className = `group-status-select group-status-${next}`;
+    if (window.UI?.toast) window.UI.toast(`Group status set to ${next}.`, "success");
+  } catch (err) {
+    if (prev) select.value = prev;
+    alert(err.message || "Could not update status");
+  } finally {
+    select.disabled = false;
+  }
 }
 
 function fmtMoney(n) {

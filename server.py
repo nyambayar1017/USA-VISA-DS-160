@@ -9994,13 +9994,25 @@ def handle_delete_fifa_sale(environ, start_response, sale_id):
 
 def handle_list_camp_trips(environ, start_response):
     trips = filter_by_company(read_camp_trips(), environ)
-    # Enrich each trip with the live tourist count (across all groups) so the
-    # GIT pax tile can render "actual / planned" without a second round-trip.
+    # Enrich each trip with the live tourist count so the GIT pax tile can
+    # render "actual / planned". A tourist only counts toward the trip's
+    # actual pax when their group is confirmed — pending/cancelled groups
+    # don't add to the booked headcount on the trips list.
+    confirmed_group_ids = {
+        g.get("id")
+        for g in read_tourist_groups()
+        if (g.get("status") or "").lower() in ("confirmed", "")
+    }
     counts_by_trip = {}
     for t in read_tourists():
         tid = t.get("tripId")
-        if tid:
-            counts_by_trip[tid] = counts_by_trip.get(tid, 0) + 1
+        if not tid:
+            continue
+        # Tourists without a group still count (treat as confirmed) so old
+        # data that pre-dates the group.status field doesn't disappear.
+        if t.get("groupId") and t.get("groupId") not in confirmed_group_ids:
+            continue
+        counts_by_trip[tid] = counts_by_trip.get(tid, 0) + 1
     enriched = []
     for trip in trips:
         copy = dict(trip)

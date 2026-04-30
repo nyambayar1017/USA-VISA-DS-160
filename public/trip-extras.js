@@ -215,12 +215,13 @@
               .slice(0, 2)
               .map((p) => p[0]?.toUpperCase() || "")
               .join("") || "?";
+            const href = `/group?tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(g.id)}`;
             return `
-              <a class="group-card" href="/group?tripId=${encodeURIComponent(tripId)}&groupId=${encodeURIComponent(g.id)}">
+              <div class="group-card" data-group-href="${escapeHtml(href)}" tabindex="0" role="link">
                 <div class="group-card-row">
                   <span class="group-card-status"></span>
                   <span class="group-card-title">${escapeHtml(g.serial)} · ${escapeHtml(g.name)}</span>
-                  <details class="group-card-menu-wrap" onclick="event.preventDefault(); event.stopPropagation();">
+                  <details class="group-card-menu-wrap">
                     <summary class="group-card-menu" aria-label="Group menu">⋯</summary>
                     <div class="group-card-menu-popover">
                       <button type="button" class="trip-menu-item" data-group-action="edit" data-id="${escapeHtml(g.id)}">Edit</button>
@@ -235,7 +236,7 @@
                 <div class="group-card-leader">
                   <span class="group-card-avatar">${escapeHtml(initials)}</span>
                 </div>
-              </a>
+              </div>
             `;
           })
           .join("")}
@@ -503,6 +504,17 @@
   });
 
   groupListNode?.addEventListener("click", async (e) => {
+    // Card-as-link navigation: clicking anywhere on the card navigates to
+    // the group page UNLESS the click was inside the menu (details/summary
+    // or one of its buttons). The menu's own actions still work below.
+    const card = e.target.closest(".group-card[data-group-href]");
+    if (card) {
+      const inMenu = !!e.target.closest(".group-card-menu-wrap");
+      if (!inMenu && !e.target.closest("[data-group-action]")) {
+        window.location.href = card.dataset.groupHref;
+        return;
+      }
+    }
     const btn = e.target.closest("[data-group-action]");
     if (!btn) return;
     e.preventDefault();
