@@ -90,6 +90,11 @@ let mailCountNode = null;
 let mailPopoverNode = null;
 let mailUnreadCache = [];
 let mailUnreadPollTimer = null;
+let paymentIconNode = null;
+let paymentCountNode = null;
+let paymentPopoverNode = null;
+let paymentRequestsCache = [];
+let paymentRequestsPollTimer = null;
 let sidebarBackdrop = null;
 let mobileBar = null;
 
@@ -361,6 +366,10 @@ function buildProfileChrome() {
       </svg>
       <span class="workspace-bell-count" data-notif-count hidden>0</span>
     </button>
+    <button type="button" class="workspace-bell workspace-payment-icon" data-action="toggle-payment-requests" aria-label="Payment requests" hidden>
+      <span class="workspace-bell-tugrik" aria-hidden="true">₮</span>
+      <span class="workspace-bell-count" data-payment-request-count hidden>0</span>
+    </button>
     <button type="button" class="workspace-profile-trigger" data-action="toggle-profile-menu" aria-haspopup="menu" aria-expanded="false">
       <span class="workspace-profile-avatar" data-profile-avatar>
         <span class="workspace-profile-avatar-fallback">?</span>
@@ -406,6 +415,18 @@ function buildProfileChrome() {
       </div>
       <footer class="mail-popover-footer">
         <a class="mail-popover-see-all" href="/notes">See all notes →</a>
+      </footer>
+    </div>
+    <div class="notifications-popover" data-payment-request-popover hidden>
+      <header>
+        <h3>Pending payment requests</h3>
+        <button type="button" class="notifications-close" data-action="close-payment-requests" aria-label="Close">×</button>
+      </header>
+      <div class="notifications-list" data-payment-request-list>
+        <p class="notifications-empty">Loading…</p>
+      </div>
+      <footer class="mail-popover-footer">
+        <a class="mail-popover-see-all" href="/accountant?status=pending">Open Accountant →</a>
       </footer>
     </div>
   `;
@@ -456,6 +477,19 @@ function buildProfileChrome() {
   profileCard.querySelector('[data-action="close-reminders"]')?.addEventListener("click", () => {
     closeReminderPopover();
   });
+  // ₮ icon — only mounted for users with role admin/accountant. The
+  // icon stays hidden until applyPaymentIconVisibility() flips it in
+  // based on /api/auth/me.
+  paymentIconNode = profileCard.querySelector('[data-action="toggle-payment-requests"]');
+  paymentCountNode = profileCard.querySelector("[data-payment-request-count]");
+  paymentPopoverNode = profileCard.querySelector("[data-payment-request-popover]");
+  paymentIconNode?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    togglePaymentRequestPopover();
+  });
+  profileCard.querySelector('[data-action="close-payment-requests"]')?.addEventListener("click", () => {
+    closePaymentRequestPopover();
+  });
   document.addEventListener("click", (event) => {
     const inProfile = profileCard.contains(event.target);
     const inMobileBar = mobileBar?.contains(event.target);
@@ -464,6 +498,7 @@ function buildProfileChrome() {
       closeNotifications();
       closeMailPopover();
       closeReminderPopover();
+      closePaymentRequestPopover();
     }
   });
 }
@@ -670,6 +705,88 @@ function startMailUnreadPolling() {
   if (mailUnreadPollTimer) clearInterval(mailUnreadPollTimer);
   fetchMailUnread();
   mailUnreadPollTimer = setInterval(fetchMailUnread, 60000);
+}
+
+// ── ₮ Payment-request queue (admin / accountant only) ───────────────
+function togglePaymentRequestPopover(forceState) {
+  if (!paymentPopoverNode) return;
+  const isOpen = typeof forceState === "boolean" ? forceState : paymentPopoverNode.hasAttribute("hidden");
+  if (isOpen) {
+    paymentPopoverNode.removeAttribute("hidden");
+    closeProfileMenu();
+    closeNotifications();
+    closeMailPopover();
+    closeReminderPopover();
+    fetchPaymentRequests();
+  } else {
+    paymentPopoverNode.setAttribute("hidden", "");
+  }
+}
+
+function closePaymentRequestPopover() {
+  togglePaymentRequestPopover(false);
+}
+
+function applyPaymentIconVisibility(user) {
+  if (!paymentIconNode) return;
+  const role = (user?.role || "").toLowerCase();
+  if (role === "admin" || role === "accountant") {
+    paymentIconNode.removeAttribute("hidden");
+  } else {
+    paymentIconNode.setAttribute("hidden", "");
+  }
+}
+
+function updatePaymentRequestCount(count) {
+  if (!paymentCountNode) return;
+  paymentCountNode.textContent = String(count || 0);
+  if (count > 0) paymentCountNode.removeAttribute("hidden");
+  else paymentCountNode.setAttribute("hidden", "");
+}
+
+function renderPaymentRequestList() {
+  if (!paymentPopoverNode) return;
+  const list = paymentPopoverNode.querySelector("[data-payment-request-list]");
+  if (!list) return;
+  if (!paymentRequestsCache.length) {
+    list.innerHTML = `<p class="notifications-empty">No pending payment requests.</p>`;
+    return;
+  }
+  list.innerHTML = paymentRequestsCache.map((r) => {
+    const url = `/accountant?status=pending&open=${encodeURIComponent(r.id)}`;
+    const amount = `${(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}`;
+    const requester = (r.requestedBy && (r.requestedBy.name || r.requestedBy.email)) || "Unknown";
+    return `
+      <a class="notifications-item mail-pop-item" href="${escapeHtml(url)}">
+        <span class="notification-avatar notification-avatar-icon">₮</span>
+        <div class="notifications-item-body">
+          <p><strong>${escapeHtml(r.invoiceSerial || "Invoice")}</strong> · ${escapeHtml(r.installmentDescription || "Installment")}</p>
+          <p class="mail-pop-snippet">${escapeHtml(r.payerName || "")} — ${escapeHtml(amount)}</p>
+          <time>${escapeHtml(formatRelativeTime(r.requestedAt))} · by ${escapeHtml(requester)}</time>
+        </div>
+      </a>
+    `;
+  }).join("");
+}
+
+async function fetchPaymentRequests() {
+  if (!paymentIconNode || paymentIconNode.hasAttribute("hidden")) return;
+  try {
+    const ws = readWorkspace();
+    const qs = `?status=pending${ws ? `&workspace=${encodeURIComponent(ws)}` : ""}`;
+    const response = await fetch(`/api/payment-requests${qs}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    paymentRequestsCache = Array.isArray(data.entries) ? data.entries : [];
+    updatePaymentRequestCount(paymentRequestsCache.length);
+    renderPaymentRequestList();
+  } catch {}
+}
+
+function startPaymentRequestPolling() {
+  if (paymentRequestsPollTimer) clearInterval(paymentRequestsPollTimer);
+  fetchPaymentRequests();
+  paymentRequestsPollTimer = setInterval(fetchPaymentRequests, 60000);
 }
 
 // ── Reminder bell (between mail + notification) ─────────────────────
@@ -1443,6 +1560,8 @@ async function loadProfile() {
     startNotificationPolling();
     startMailUnreadPolling();
     startReminderPolling();
+    applyPaymentIconVisibility(data.user);
+    startPaymentRequestPolling();
     showActiveAnnouncements();
   } catch {
     if (profileNameNode) profileNameNode.textContent = "TravelX Staff";

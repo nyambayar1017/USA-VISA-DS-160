@@ -668,10 +668,10 @@
     }
     openEditModal(
       "register-payment",
-      isPaid ? "Edit registered payment" : "Register payment",
+      isPaid ? "Edit registered payment" : "Request payment",
       isPaid
         ? "Admins can correct a registered payment. The change is logged."
-        : `Record a payment for ${inst.description || "this installment"}.`,
+        : `Send a payment request to the accountant for ${inst.description || "this installment"}.`,
     );
     const body = document.getElementById("inv-edit-body");
     const bankOpts = banks.map((b) => {
@@ -755,13 +755,18 @@
     if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
       return alert("Amount paid must be greater than zero.");
     }
+    // The form now creates a payment REQUEST that goes to the
+    // accountant queue (₮ icon) instead of mutating the invoice
+    // directly. The accountant uploads the proof document and clicks
+    // approve, which flips the installment to paid and attaches the
+    // doc to the trip's "Paid documents" category.
     try {
-      await fetchJson(`/api/invoices/${sidePanelInvoice.id}/payment`, {
+      await fetchJson("/api/payment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          invoiceId: sidePanelInvoice.id,
           installmentIndex: registeringIdx,
-          status: "paid",
           paidDate: dt,
           bankAccountId: bankId,
           paidAmount,
@@ -770,10 +775,11 @@
       });
       registeringIdx = -1;
       closeEditModal();
+      window.UI?.toast?.("Payment request sent. The accountant will register the payment and upload the receipt.", "ok");
       await loadAll();
       const updated = invoices.find((x) => x.id === sidePanelInvoice.id);
       if (updated) openSidePanel(updated);
-    } catch (err) { alert(err.message || "Payment failed"); }
+    } catch (err) { alert(err.message || "Could not submit request"); }
   }
   // Legacy entrypoint kept for the per-row click handler in openSidePanel().
   async function registerPayment(idx) { await openRegisterPaymentModal(idx); }
@@ -814,6 +820,11 @@
     const m = ensureEditModal();
     document.getElementById("inv-edit-title").textContent = title;
     document.getElementById("inv-edit-sub").textContent = sub;
+    // Save button copy depends on what the modal is doing — for the
+    // payment-request flow it's "Request payment" (since approval and
+    // the actual payment registration happens later, by the accountant).
+    const saveBtn = m.querySelector('[data-inv-action="save-edit"]');
+    if (saveBtn) saveBtn.textContent = kind === "register-payment" ? "Request payment" : "Save Changes";
     m.classList.remove("is-hidden");
     document.body.classList.add("modal-open");
   }

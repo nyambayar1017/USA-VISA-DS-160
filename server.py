@@ -65,6 +65,7 @@ NOTIFICATIONS_MAX = 200
 GROUPS_FILE = DATA_DIR / "tourist_groups.json"
 TOURISTS_FILE = DATA_DIR / "tourists.json"
 INVOICES_FILE = DATA_DIR / "invoices.json"
+PAYMENT_REQUESTS_FILE = DATA_DIR / "payment_requests.json"
 TRIP_CREATORS_FILE = DATA_DIR / "trip_creators.json"
 GALLERY_FILE = DATA_DIR / "gallery.json"
 GALLERY_FOLDERS_FILE = DATA_DIR / "gallery_folders.json"
@@ -639,6 +640,22 @@ def read_invoices():
 def write_invoices(records):
     INVOICES_FILE.parent.mkdir(parents=True, exist_ok=True)
     INVOICES_FILE.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def read_payment_requests():
+    try:
+        if not PAYMENT_REQUESTS_FILE.exists():
+            PAYMENT_REQUESTS_FILE.write_text("[]", encoding="utf-8")
+        return json.loads(PAYMENT_REQUESTS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def write_payment_requests(records):
+    PAYMENT_REQUESTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PAYMENT_REQUESTS_FILE.write_text(
+        json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 def read_trip_creators():
@@ -8604,6 +8621,268 @@ def handle_invoice_payment(environ, start_response, invoice_id):
         write_invoices(records)
         return json_response(start_response, "200 OK", {"ok": True, "entry": record})
     return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+
+
+# Payment-request flow:
+#   1) any logged-in user opens an invoice and submits a "Register payment"
+#      form. Instead of mutating the invoice immediately, this endpoint
+#      stores a pending payment-request record.
+#   2) accountants/admins see the request in the ₮ queue.
+#   3) accountant approves → register the payment on the invoice + attach
+#      the proof document to the trip's "Paid documents" category.
+def _payment_request_workspace(invoice):
+    serial = (invoice.get("serial") or "").upper()
+    if serial.startswith("S-"):
+        return "USM"
+    return "DTX"
+
+
+def _can_approve_payment_request(user):
+    role = (user or {}).get("role", "").lower()
+    return role in ("admin", "accountant")
+
+
+def handle_create_payment_request(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    invoice_id = normalize_text(payload.get("invoiceId"))
+    if not invoice_id:
+        return json_response(start_response, "400 Bad Request", {"error": "invoiceId required"})
+    inst_index_raw = payload.get("installmentIndex")
+    try:
+        inst_index = int(inst_index_raw)
+    except Exception:
+        return json_response(start_response, "400 Bad Request", {"error": "installmentIndex required"})
+
+    invoices = read_invoices()
+    invoice = next((r for r in invoices if r.get("id") == invoice_id), None)
+    if not invoice:
+        return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+    installments = invoice.get("installments") or []
+    if inst_index < 0 or inst_index >= len(installments):
+        return json_response(start_response, "400 Bad Request", {"error": "installment out of range"})
+
+    paid_amount_raw = payload.get("paidAmount")
+    try:
+        paid_amount = float(paid_amount_raw)
+    except (TypeError, ValueError):
+        paid_amount = float(installments[inst_index].get("amount") or 0)
+
+    request = {
+        "id": uuid4().hex,
+        "invoiceId": invoice_id,
+        "invoiceSerial": invoice.get("serial") or "",
+        "tripId": invoice.get("tripId") or "",
+        "installmentIndex": inst_index,
+        "installmentDescription": installments[inst_index].get("description") or "",
+        "paidDate": normalize_text(payload.get("paidDate")),
+        "paidAmount": paid_amount,
+        "currency": (invoice.get("currency") or "MNT").upper(),
+        "bankAccountId": normalize_text(payload.get("bankAccountId")),
+        "note": normalize_text(payload.get("note")),
+        "payerName": invoice.get("payerName") or "",
+        "workspace": _payment_request_workspace(invoice),
+        "status": "pending",
+        "requestedBy": actor_snapshot(actor),
+        "requestedAt": now_mongolia().isoformat(),
+        "approvedBy": None,
+        "approvedAt": "",
+        "rejectedBy": None,
+        "rejectedAt": "",
+        "rejectReason": "",
+        "paidDocumentId": "",
+    }
+    records = read_payment_requests()
+    records.insert(0, request)
+    write_payment_requests(records)
+
+    log_notification(
+        kind="payment_request.created",
+        actor=actor,
+        title=f"Payment request · {invoice.get('serial') or ''}",
+        detail=f"{actor.get('fullName') or actor.get('email')} requested payment for "
+               f"{request['installmentDescription'] or 'installment'} "
+               f"({_fmt_money_ccy(paid_amount, request['currency'])})",
+        meta={
+            "paymentRequestId": request["id"],
+            "invoiceId": invoice_id,
+            "tripId": request["tripId"],
+            "workspace": request["workspace"],
+        },
+    )
+    return json_response(start_response, "200 OK", {"ok": True, "entry": request})
+
+
+def handle_list_payment_requests(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    qs = parse_qs(environ.get("QUERY_STRING", ""))
+    status_filter = (qs.get("status", [""])[0] or "").lower()
+    workspace_filter = (qs.get("workspace", [""])[0] or "").upper()
+    if not workspace_filter:
+        workspace_filter = active_workspace(environ) or ""
+    records = read_payment_requests()
+    filtered = []
+    for r in records:
+        if status_filter and (r.get("status") or "").lower() != status_filter:
+            continue
+        if workspace_filter and (r.get("workspace") or "").upper() != workspace_filter:
+            continue
+        filtered.append(r)
+    return json_response(start_response, "200 OK", {"entries": filtered})
+
+
+def handle_payment_request_count(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    if not _can_approve_payment_request(actor):
+        return json_response(start_response, "200 OK", {"count": 0})
+    workspace_filter = active_workspace(environ) or ""
+    records = read_payment_requests()
+    count = 0
+    for r in records:
+        if (r.get("status") or "").lower() != "pending":
+            continue
+        if workspace_filter and (r.get("workspace") or "").upper() != workspace_filter:
+            continue
+        count += 1
+    return json_response(start_response, "200 OK", {"count": count})
+
+
+def _apply_payment_to_invoice(invoice, request, actor, paid_amount, paid_date, bank_account_id, note):
+    """Mirrors handle_invoice_payment's mutation but without the HTTP
+    response — used when an accountant approves a request and we need to
+    flip the underlying installment to paid in one transaction."""
+    installments = invoice.get("installments") or []
+    inst_index = int(request.get("installmentIndex") or 0)
+    if inst_index < 0 or inst_index >= len(installments):
+        return False, "installment out of range"
+    target = installments[inst_index]
+    target["status"] = "paid"
+    if paid_date:
+        target["paidDate"] = paid_date
+    target["paidAmount"] = float(paid_amount or 0)
+    target["bankAccountId"] = bank_account_id or ""
+    target["note"] = note or target.get("note") or ""
+    bank_snapshot = None
+    if bank_account_id:
+        for b in read_settings().get("bankAccounts") or []:
+            if b.get("id") == bank_account_id:
+                bank_snapshot = b
+                break
+    target["bankAccount"] = bank_snapshot or {}
+    target["paidBy"] = actor_snapshot(actor)
+    target["paidAt"] = now_mongolia().isoformat()
+    installments[inst_index] = target
+    invoice["installments"] = installments
+    invoice["updatedAt"] = now_mongolia().isoformat()
+    invoice["updatedBy"] = actor_snapshot(actor)
+    return True, ""
+
+
+def handle_approve_payment_request(environ, start_response, request_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    if not _can_approve_payment_request(actor):
+        return json_response(start_response, "403 Forbidden", {"error": "Only admins / accountants can approve payment requests."})
+    payload = collect_json(environ) or {}
+    records = read_payment_requests()
+    target = next((r for r in records if r.get("id") == request_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Request not found"})
+    if (target.get("status") or "").lower() != "pending":
+        return json_response(start_response, "409 Conflict", {"error": "Request already resolved."})
+
+    invoices = read_invoices()
+    invoice = next((r for r in invoices if r.get("id") == target.get("invoiceId")), None)
+    if not invoice:
+        return json_response(start_response, "404 Not Found", {"error": "Invoice has been deleted."})
+
+    paid_amount = payload.get("paidAmount")
+    if paid_amount is None:
+        paid_amount = target.get("paidAmount")
+    paid_date = normalize_text(payload.get("paidDate")) or target.get("paidDate") or ""
+    bank_account_id = normalize_text(payload.get("bankAccountId")) or target.get("bankAccountId") or ""
+    note = normalize_text(payload.get("note")) or target.get("note") or ""
+    paid_document_id = normalize_text(payload.get("paidDocumentId"))
+
+    ok, err = _apply_payment_to_invoice(invoice, target, actor, paid_amount, paid_date, bank_account_id, note)
+    if not ok:
+        return json_response(start_response, "400 Bad Request", {"error": err})
+    for i, r in enumerate(invoices):
+        if r.get("id") == invoice.get("id"):
+            invoices[i] = invoice
+            break
+    write_invoices(invoices)
+
+    target["status"] = "approved"
+    target["approvedBy"] = actor_snapshot(actor)
+    target["approvedAt"] = now_mongolia().isoformat()
+    target["paidAmount"] = float(paid_amount or 0)
+    target["paidDate"] = paid_date
+    target["bankAccountId"] = bank_account_id
+    target["note"] = note
+    if paid_document_id:
+        target["paidDocumentId"] = paid_document_id
+    for i, r in enumerate(records):
+        if r.get("id") == request_id:
+            records[i] = target
+            break
+    write_payment_requests(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": target, "invoice": invoice})
+
+
+def handle_reject_payment_request(environ, start_response, request_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    if not _can_approve_payment_request(actor):
+        return json_response(start_response, "403 Forbidden", {"error": "Only admins / accountants can reject payment requests."})
+    payload = collect_json(environ) or {}
+    reason = normalize_text(payload.get("reason"))
+    records = read_payment_requests()
+    target = next((r for r in records if r.get("id") == request_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Request not found"})
+    if (target.get("status") or "").lower() != "pending":
+        return json_response(start_response, "409 Conflict", {"error": "Request already resolved."})
+    target["status"] = "rejected"
+    target["rejectedBy"] = actor_snapshot(actor)
+    target["rejectedAt"] = now_mongolia().isoformat()
+    target["rejectReason"] = reason
+    for i, r in enumerate(records):
+        if r.get("id") == request_id:
+            records[i] = target
+            break
+    write_payment_requests(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": target})
+
+
+def handle_delete_payment_request(environ, start_response, request_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_payment_requests()
+    target = next((r for r in records if r.get("id") == request_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Request not found"})
+    # Requesters can cancel their own pending request; admins/accountants
+    # can delete anything.
+    can_delete = (
+        _can_approve_payment_request(actor)
+        or ((target.get("requestedBy") or {}).get("id") == actor.get("id")
+            and (target.get("status") or "").lower() == "pending")
+    )
+    if not can_delete:
+        return json_response(start_response, "403 Forbidden", {"error": "Only the requester or an admin can cancel."})
+    records = [r for r in records if r.get("id") != request_id]
+    write_payment_requests(records)
+    return json_response(start_response, "200 OK", {"ok": True})
 
 
 def handle_export_tourists(environ, start_response):
@@ -17521,6 +17800,36 @@ def _dispatch(environ, start_response):
             return handle_update_invoice(environ, start_response, invoice_id)
         if method == "DELETE" and invoice_id:
             return handle_delete_invoice(environ, start_response, invoice_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/payment-requests":
+        if method == "GET":
+            return handle_list_payment_requests(environ, start_response)
+        if method == "POST":
+            return handle_create_payment_request(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/payment-requests/count":
+        if method == "GET":
+            return handle_payment_request_count(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/payment-requests/") and path.endswith("/approve"):
+        request_id = path.replace("/api/payment-requests/", "", 1).replace("/approve", "", 1).strip("/")
+        if method == "POST" and request_id:
+            return handle_approve_payment_request(environ, start_response, request_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/payment-requests/") and path.endswith("/reject"):
+        request_id = path.replace("/api/payment-requests/", "", 1).replace("/reject", "", 1).strip("/")
+        if method == "POST" and request_id:
+            return handle_reject_payment_request(environ, start_response, request_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/payment-requests/"):
+        request_id = path.replace("/api/payment-requests/", "", 1).strip("/")
+        if method == "DELETE" and request_id:
+            return handle_delete_payment_request(environ, start_response, request_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/tourists/"):

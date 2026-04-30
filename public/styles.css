@@ -17376,6 +17376,24 @@ body.lightbox-open { overflow: hidden; }
 }
 .mail-list-followup .mail-followup-btn--off { color: #94a3b8; }
 
+/* ₮ tugrik icon for the workspace-bell payment-requests button.
+   Same square button as the bell siblings; the SVG slot is replaced
+   by a single big glyph in the brand color. */
+.workspace-bell-tugrik {
+  font-family: "Montserrat", "Nunito", Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  color: currentColor;
+  display: inline-block;
+}
+.workspace-payment-icon {
+  color: #1f8550;
+}
+.workspace-payment-icon:hover {
+  color: #166538;
+}
+
 /* Transfer table "Type time" cells get a contextual "Flight" / "Train"
    prefix so the same column reads correctly for airport and train rows. */
 .transfer-type-time-prefix {
