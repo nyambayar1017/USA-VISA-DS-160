@@ -98,38 +98,55 @@
   function render() {
     const list = filtered();
     if (!list.length) {
-      tbody.innerHTML = `<tr><td colspan="13" class="empty">No paid documents match these filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="14" class="empty">No payments match these filters.</td></tr>`;
       countNode.textContent = "0 of 0";
       bulkBtn.disabled = true;
       return;
     }
     const canDelete = isAdminOrAccountant();
+    const canApprove = isAdminOrAccountant();
     tbody.innerHTML = list.map((r, i) => {
+      const isPending = (r.status || "") === "pending";
       const isSel = selected.has(r.id);
       const downloadUrl = r.paidDocumentUrl ? `${r.paidDocumentUrl}?download=1` : "";
       const docCell = r.paidDocumentUrl
         ? `<a href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">${escapeHtml(r.paidDocumentName || "View")}</a>`
-        : `<span class="muted">—</span>`;
+        : (isPending
+            ? `<span class="acct-pending-doc">— awaiting receipt —</span>`
+            : `<span class="muted">—</span>`);
       const tripCell = r.tripId
         ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" class="trip-name-link">${escapeHtml(r.tripName || r.tripSerial || r.tripId)}</a>`
         : escapeHtml(r.tripName || "—");
       const numCell = r.paidDocumentUrl
         ? `<a href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">${i + 1}</a>`
         : (i + 1);
-      const actions = `
-        <details class="row-action-menu">
-          <summary aria-label="Actions">⋯</summary>
-          <div class="row-action-popover">
-            ${r.paidDocumentUrl ? `<a class="row-action-item" href="${escapeHtml(downloadUrl)}" download>Download</a>` : ""}
-            ${r.paidDocumentUrl ? `<a class="row-action-item" href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">Open</a>` : ""}
-            <button type="button" class="row-action-item" data-acct-rename data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Rename</button>
-            ${canDelete ? `<button type="button" class="row-action-item is-danger" data-acct-delete data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Delete</button>` : ""}
-          </div>
-        </details>
-      `;
+      const statusCell = isPending
+        ? `<span class="payment-status waiting">Pending</span>`
+        : `<span class="payment-status paid">Paid</span>`;
+
+      // Build the kebab-menu items per row.
+      const items = [];
+      if (isPending && canApprove) {
+        items.push(`<button type="button" class="row-action-item" data-acct-register data-id="${escapeHtml(r.id)}">+ Register payment</button>`);
+      }
+      if (r.paidDocumentUrl) {
+        items.push(`<a class="row-action-item" href="${escapeHtml(downloadUrl)}" download>Download</a>`);
+        items.push(`<a class="row-action-item" href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">Open</a>`);
+        items.push(`<button type="button" class="row-action-item" data-acct-rename data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Rename</button>`);
+        if (canDelete) {
+          items.push(`<button type="button" class="row-action-item is-danger" data-acct-delete data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Delete</button>`);
+        }
+      }
+      const actionsCell = items.length
+        ? `<details class="trip-menu row-action-menu">
+             <summary class="trip-menu-trigger" aria-label="Actions">⋯</summary>
+             <div class="trip-menu-popover">${items.join("")}</div>
+           </details>`
+        : `<span class="muted">—</span>`;
+
       return `
-        <tr>
-          <td><input type="checkbox" data-acct-select="${escapeHtml(r.id)}" data-acct-url="${escapeHtml(downloadUrl)}" data-acct-name="${escapeHtml(r.paidDocumentName || "")}" ${isSel ? "checked" : ""}/></td>
+        <tr class="${isPending ? "is-pending-row" : ""}">
+          <td><input type="checkbox" data-acct-select="${escapeHtml(r.id)}" data-acct-url="${escapeHtml(downloadUrl)}" data-acct-name="${escapeHtml(r.paidDocumentName || "")}" ${isSel ? "checked" : ""} ${r.paidDocumentUrl ? "" : "disabled"}/></td>
           <td>${numCell}</td>
           <td>${escapeHtml(r.paidDate || "—")}</td>
           <td data-col="trip">${tripCell}</td>
@@ -139,12 +156,10 @@
           <td>${escapeHtml(r.currency || "—")}</td>
           <td data-col="bank">${escapeHtml(r.bankLabel || "—")}</td>
           <td data-col="manager">${escapeHtml(r.manager || "—")}</td>
+          <td>${statusCell}</td>
           <td>${docCell}</td>
           <td data-col="note">${escapeHtml(r.note || "")}</td>
-          <td class="acct-actions-cell">
-            ${r.paidDocumentUrl ? `<a class="table-link" href="${escapeHtml(downloadUrl)}" download title="Download receipt">⬇</a>` : ""}
-            ${actions}
-          </td>
+          <td class="acct-actions-cell">${actionsCell}</td>
         </tr>
       `;
     }).join("");
@@ -189,6 +204,18 @@
   });
 
   tbody?.addEventListener("click", async (e) => {
+    const registerBtn = e.target.closest("[data-acct-register]");
+    if (registerBtn) {
+      e.preventDefault();
+      // The approval modal lives in app-shell.js. It expects the request
+      // to be in the global paymentRequestsCache; if it isn't (this row
+      // came from /api/accountant/paid, not the ₮ popover) the modal
+      // will refetch on its own.
+      if (typeof window.openPaymentRequestApproveModal === "function") {
+        window.openPaymentRequestApproveModal(registerBtn.dataset.id);
+      }
+      return;
+    }
     const renameBtn = e.target.closest("[data-acct-rename]");
     if (renameBtn) {
       e.preventDefault();
@@ -258,6 +285,12 @@
         a.remove();
       }, i * 250);
     });
+  });
+
+  // The approval modal in app-shell.js fires this when a request gets
+  // approved or rejected, so the table refreshes without polling.
+  window.addEventListener("payment-request:resolved", () => {
+    load();
   });
 
   // If we landed here from the ₮ popover with ?open=<requestId>, scroll to

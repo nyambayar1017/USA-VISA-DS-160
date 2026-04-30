@@ -17381,6 +17381,59 @@ body.lightbox-open { overflow: hidden; }
 }
 .mail-list-followup .mail-followup-btn--off { color: #94a3b8; }
 
+/* Accountant table — kebab-only actions cell, no extra inline icons,
+   so the column reads as cleanly as the rest of the camp-tables. */
+.acct-actions-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+.acct-actions-cell .row-action-menu summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 18px;
+  line-height: 1;
+}
+.acct-actions-cell .row-action-menu summary::-webkit-details-marker { display: none; }
+.acct-actions-cell .row-action-menu summary:hover { background: #f1f5f9; }
+.acct-actions-cell .row-action-menu[open] > .trip-menu-popover {
+  position: absolute;
+  margin-top: 6px;
+  right: 8px;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+.acct-actions-cell .row-action-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #1f2d50;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+.acct-actions-cell .row-action-item:hover { background: #f1f5f9; }
+.acct-actions-cell .row-action-item.is-danger { color: #c44747; }
+.acct-actions-cell .row-action-item.is-danger:hover { background: #fee2e2; }
+.is-pending-row td { background: rgba(255, 245, 189, 0.35); }
+.acct-pending-doc { color: #94a3b8; font-style: italic; font-size: 12px; }
+
 /* "REQUEST SENT" pill — replaces the Register payment button on
    installments whose request is waiting on the accountant. Green so
    the manager sees the request has gone through; not a button so a

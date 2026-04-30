@@ -8978,11 +8978,11 @@ def handle_delete_payment_request(environ, start_response, request_id):
 
 
 def handle_list_accountant_paid(environ, start_response):
-    """Joins approved payment requests with the latest invoice / trip
-    snapshots so the Accountant page can render one row per paid
-    document with all the columns the user asked for (date paid, trip,
-    invoice serial, payer, amount, currency, bank, manager, paid doc
-    link). Workspace-scoped so DTX and USM lists never bleed."""
+    """Joins payment requests with the latest invoice / trip snapshots
+    so the Accountant page can render one row per request — both
+    pending (still waiting on the accountant) and approved (paid) —
+    with all the columns the user asked for. Workspace-scoped so DTX
+    and USM lists never bleed."""
     actor = require_login(environ, start_response)
     if not actor:
         return []
@@ -8993,7 +8993,10 @@ def handle_list_accountant_paid(environ, start_response):
     banks_by_id = {b.get("id"): b for b in (read_settings().get("bankAccounts") or [])}
     rows = []
     for r in requests_all:
-        if (r.get("status") or "").lower() != "approved":
+        status = (r.get("status") or "").lower()
+        # Skip rejected / cancelled — only pending and approved are useful
+        # in the Accountant ledger view.
+        if status not in ("pending", "approved"):
             continue
         if workspace_filter and (r.get("workspace") or "").upper() != workspace_filter:
             continue
@@ -9016,12 +9019,16 @@ def handle_list_accountant_paid(environ, start_response):
                 break
         rows.append({
             "id": r.get("id"),
+            "status": status,
             "paidDate": r.get("paidDate") or "",
+            "requestedAt": r.get("requestedAt") or "",
             "tripId": r.get("tripId") or "",
             "tripName": trip.get("tripName") or "",
             "tripSerial": trip.get("serial") or "",
             "invoiceId": r.get("invoiceId") or "",
             "invoiceSerial": r.get("invoiceSerial") or invoice.get("serial") or "",
+            "installmentDescription": r.get("installmentDescription") or "",
+            "installmentIndex": r.get("installmentIndex") if r.get("installmentIndex") is not None else -1,
             "payerName": r.get("payerName") or invoice.get("payerName") or "",
             "amount": r.get("paidAmount") or 0,
             "currency": r.get("currency") or invoice.get("currency") or "MNT",
@@ -9031,6 +9038,7 @@ def handle_list_accountant_paid(environ, start_response):
             "manager": manager_name,
             "approvedBy": (r.get("approvedBy") or {}).get("name") or "",
             "approvedAt": r.get("approvedAt") or "",
+            "requestedBy": r.get("requestedBy") or {},
             "note": r.get("note") or "",
             "paidDocumentId": r.get("paidDocumentId") or "",
             "paidDocumentName": (paid_doc or {}).get("originalName") or "",
@@ -9041,7 +9049,12 @@ def handle_list_accountant_paid(environ, start_response):
             ),
             "workspace": r.get("workspace") or "",
         })
-    rows.sort(key=lambda x: (x.get("paidDate") or "", x.get("approvedAt") or ""), reverse=True)
+    # Pending rows float to top (so the accountant sees what to act on),
+    # then approved rows ordered by paid date desc.
+    def sort_key(x):
+        is_pending = (x.get("status") or "") == "pending"
+        return (0 if is_pending else 1, -(int((x.get("paidDate") or "0").replace("-", "") or 0) or 0))
+    rows.sort(key=sort_key)
     return json_response(start_response, "200 OK", {"entries": rows})
 
 

@@ -942,6 +942,9 @@ async function submitPaymentApprove() {
     closePaymentRequestApproveModal();
     window.UI?.toast?.("Payment registered and receipt attached to the trip.", "ok");
     fetchPaymentRequests();
+    // Pages like /accountant listen for this event to refresh their
+    // table without polling.
+    window.dispatchEvent(new CustomEvent("payment-request:resolved", { detail: { id: approveCurrentRequest?.id, action: "approved" } }));
   } catch (err) {
     status.textContent = err.message || "Approve failed";
     status.style.color = "#c44747";
@@ -965,6 +968,7 @@ async function submitPaymentReject() {
     closePaymentRequestApproveModal();
     window.UI?.toast?.("Payment request rejected.", "ok");
     fetchPaymentRequests();
+    window.dispatchEvent(new CustomEvent("payment-request:resolved", { detail: { id: approveCurrentRequest?.id, action: "rejected" } }));
   } catch (err) {
     window.UI?.alert ? window.UI.alert(err.message || "Reject failed") : alert(err.message || "Reject failed");
   }
