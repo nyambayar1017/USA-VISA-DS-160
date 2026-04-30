@@ -4957,12 +4957,22 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   color: #1f8550;
   font-weight: 600;
 }
-.tc-back-link {
+.tc-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: #eef2ff;
   color: #253a77;
-  text-decoration: none;
+  font-size: 13px;
   font-weight: 600;
+  text-decoration: none;
+  border: 1px solid #d0d7e8;
+  transition: background 0.15s;
 }
-.tc-back-link:hover { text-decoration: underline; }
+.tc-back-btn:hover { background: #dbe4ff; }
 
 .trip-select-link {
   width: 100%;
