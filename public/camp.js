@@ -1131,11 +1131,15 @@ function computeConfirmedTouristStats(allTrips) {
     else { gitTrips += 1; gitPax += pax; }
     const tags = Array.isArray(t.tags) ? t.tags.filter(Boolean) : [];
     if (pax) {
-      if (!tags.length) {
-        byDestination.set("(no destination)", (byDestination.get("(no destination)") || 0) + pax);
-      } else {
-        tags.forEach((tag) => byDestination.set(tag, (byDestination.get(tag) || 0) + pax));
-      }
+      // A trip with multiple destinations (e.g. "Singapore Malaysia") is
+      // ONE trip, not one per destination — combine the tags into a single
+      // key so the sum across rows equals the overall total. Sort the tags
+      // first so "Singapore, Malaysia" and "Malaysia, Singapore" don't end
+      // up as different buckets.
+      const key = tags.length
+        ? tags.slice().sort((a, b) => a.localeCompare(b)).join(", ")
+        : "(no destination)";
+      byDestination.set(key, (byDestination.get(key) || 0) + pax);
     }
     const statusKey = normalizeStatus(t.status) || "unknown";
     byStatus.set(statusKey, (byStatus.get(statusKey) || 0) + pax);
