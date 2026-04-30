@@ -17447,6 +17447,46 @@ body.lightbox-open { overflow: hidden; }
 .acct-pending-for { font-size: 12px; color: #475569; font-weight: 600; }
 .acct-pending-for.is-warning { color: #b85a25; }
 .acct-pending-for.is-overdue { color: #c44747; }
+.acct-pending-for.is-resolved { color: #1f8550; }
+
+/* Stats panel — daily / weekly / monthly / yearly / custom */
+.acct-stats {
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fafbff;
+}
+.acct-stats-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
+.acct-stats-period { display: flex; flex-wrap: wrap; gap: 6px; }
+.acct-stats-period button {
+  padding: 5px 12px;
+  border: 1px solid #d0d7e8;
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  color: #475569;
+  cursor: pointer;
+}
+.acct-stats-period button:hover { background: #eef2f7; }
+.acct-stats-period button.is-active { background: #1f2d50; color: #fff; border-color: #1f2d50; }
+.acct-stats-custom-range { display: flex; gap: 12px; align-items: center; font-size: 12px; color: #475569; }
+.acct-stats-custom-range input { padding: 4px 8px; border: 1px solid #d0d7e8; border-radius: 6px; font: inherit; }
+.acct-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.acct-stats-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; }
+.acct-stats-card header { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; }
+.acct-stats-card dl { margin: 0; display: grid; grid-template-columns: 1fr; gap: 4px; }
+.acct-stats-card dl > div { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; }
+.acct-stats-card dt { font-size: 12px; color: #5d6b87; margin: 0; }
+.acct-stats-card dd { margin: 0; font-size: 13px; font-weight: 700; }
+.acct-stats-card dd.is-positive { color: #1f8550; }
+.acct-stats-card dd.is-negative { color: #c44747; }
+.acct-stats-net { border-top: 1px dashed #e5e7eb; padding-top: 6px !important; margin-top: 4px; }
+.acct-stats-pending { border-top: 1px dashed #e5e7eb; padding-top: 6px !important; }
+.acct-stats-pending dd { font-size: 12px; }
+.acct-stats-pending dd .is-positive { color: #1f8550; margin-right: 6px; }
+.acct-stats-pending dd .is-negative { color: #c44747; }
 .expense-request-modal .expense-form-row {
   display: grid;
   grid-template-columns: 2fr 1fr;

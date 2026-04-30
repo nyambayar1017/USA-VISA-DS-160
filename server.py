@@ -9039,6 +9039,11 @@ def handle_approve_payment_request(environ, start_response, request_id):
     if paid_amount is None:
         paid_amount = target.get("paidAmount")
     paid_date = normalize_text(payload.get("paidDate")) or target.get("paidDate") or ""
+    # Outgoing requests don't carry a paid date from the manager — the
+    # accountant pays it later. Default to today so the ledger column
+    # isn't blank when the file gets uploaded.
+    if not paid_date:
+        paid_date = now_mongolia().date().isoformat()
     bank_account_id = normalize_text(payload.get("bankAccountId")) or target.get("bankAccountId") or ""
     note = normalize_text(payload.get("note")) or target.get("note") or ""
     paid_document_id = normalize_text(payload.get("paidDocumentId"))

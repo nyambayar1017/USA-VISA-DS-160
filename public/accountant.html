@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-351" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-352" />
   </head>
   <body class="app-body" data-page="accountant">
     <div class="workspace-shell">
@@ -38,6 +38,27 @@
               <button type="button" class="header-action-btn" id="acct-new-expense">+ Request expense</button>
               <button type="button" class="header-action-btn button-secondary" id="acct-bulk-download" disabled>Download selected</button>
             </div>
+          </div>
+
+          <div class="acct-stats" id="acct-stats" hidden>
+            <div class="acct-stats-head">
+              <div class="acct-stats-period">
+                <button type="button" data-period="day">Today</button>
+                <button type="button" data-period="week">This week</button>
+                <button type="button" data-period="2week">2 weeks</button>
+                <button type="button" data-period="3week">3 weeks</button>
+                <button type="button" data-period="month" class="is-active">This month</button>
+                <button type="button" data-period="quarter">3 months</button>
+                <button type="button" data-period="year">This year</button>
+                <button type="button" data-period="all">All time</button>
+                <button type="button" data-period="custom">Custom…</button>
+              </div>
+              <div class="acct-stats-custom-range" id="acct-stats-custom" hidden>
+                <label>From <input type="date" id="acct-stats-from" /></label>
+                <label>To <input type="date" id="acct-stats-to" /></label>
+              </div>
+            </div>
+            <div class="acct-stats-grid" id="acct-stats-grid"></div>
           </div>
 
           <div class="trip-filter-bar" data-trip-filter-bar>
@@ -122,7 +143,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-133"></script>
-    <script src="/accountant.js?v=workspace-6"></script>
+    <script src="/accountant.js?v=workspace-7"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

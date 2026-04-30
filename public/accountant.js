@@ -17,6 +17,13 @@
   const bulkBtn = document.getElementById("acct-bulk-download");
   const viewDropdown = document.getElementById("acct-view-dropdown");
   const newExpenseBtn = document.getElementById("acct-new-expense");
+  const statsBlock = document.getElementById("acct-stats");
+  const statsGrid = document.getElementById("acct-stats-grid");
+  const statsCustom = document.getElementById("acct-stats-custom");
+  const statsFromInput = document.getElementById("acct-stats-from");
+  const statsToInput = document.getElementById("acct-stats-to");
+
+  let statsPeriod = "month";
 
   let rows = [];
   const selected = new Set();
@@ -50,7 +57,115 @@
     }
     populateFilters();
     render();
+    renderStats();
   }
+
+  function statsRange() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (statsPeriod === "day") return [today, null];
+    if (statsPeriod === "week") {
+      const d = new Date(today); d.setDate(today.getDate() - 6); return [d, null];
+    }
+    if (statsPeriod === "2week") {
+      const d = new Date(today); d.setDate(today.getDate() - 13); return [d, null];
+    }
+    if (statsPeriod === "3week") {
+      const d = new Date(today); d.setDate(today.getDate() - 20); return [d, null];
+    }
+    if (statsPeriod === "month") {
+      return [new Date(now.getFullYear(), now.getMonth(), 1), null];
+    }
+    if (statsPeriod === "quarter") {
+      const d = new Date(today); d.setMonth(today.getMonth() - 3); return [d, null];
+    }
+    if (statsPeriod === "year") {
+      return [new Date(now.getFullYear(), 0, 1), null];
+    }
+    if (statsPeriod === "custom") {
+      const from = statsFromInput?.value ? new Date(statsFromInput.value) : null;
+      const to = statsToInput?.value ? new Date(statsToInput.value) : null;
+      if (to) to.setHours(23, 59, 59, 999);
+      return [from, to];
+    }
+    return [null, null]; // "all"
+  }
+
+  function renderStats() {
+    if (!statsBlock || !statsGrid) return;
+    statsBlock.removeAttribute("hidden");
+    const [from, to] = statsRange();
+    const inRange = (iso) => {
+      if (!from && !to) return true;
+      if (!iso) return false;
+      const ts = new Date(iso).getTime();
+      if (!Number.isFinite(ts)) return false;
+      if (from && ts < from.getTime()) return false;
+      if (to && ts > to.getTime()) return false;
+      return true;
+    };
+
+    // Group by currency. For paid rows the relevant date is paidDate;
+    // for pending rows we still show counts but not amounts in the
+    // totals (otherwise pending volume inflates "we paid X").
+    const byCcy = {};
+    let pendingCount = 0;
+    rows.forEach((r) => {
+      const status = (r.status || "").toLowerCase();
+      const dir = r.direction || "incoming";
+      const dateStr = r.paidDate || r.requestedAt || "";
+      if (!inRange(dateStr)) return;
+      const ccy = r.currency || "MNT";
+      const bucket = (byCcy[ccy] = byCcy[ccy] || { incoming: 0, outgoing: 0, pendingIn: 0, pendingOut: 0 });
+      const amt = Number(r.amount) || 0;
+      if (status === "pending") {
+        pendingCount += 1;
+        if (dir === "incoming") bucket.pendingIn += amt;
+        else bucket.pendingOut += amt;
+      } else if (status === "approved") {
+        if (dir === "incoming") bucket.incoming += amt;
+        else bucket.outgoing += amt;
+      }
+    });
+
+    const fmt = (n, ccy) => `${ccy} ${Number(n || 0).toLocaleString()}`;
+    const cards = Object.entries(byCcy).map(([ccy, b]) => {
+      const net = (b.incoming || 0) - (b.outgoing || 0);
+      const netClass = net >= 0 ? "is-positive" : "is-negative";
+      return `
+        <div class="acct-stats-card">
+          <header>${escapeHtml(ccy)}</header>
+          <dl>
+            <div><dt>Incoming</dt><dd class="is-positive">${escapeHtml(fmt(b.incoming, ccy))}</dd></div>
+            <div><dt>Outgoing</dt><dd class="is-negative">${escapeHtml(fmt(b.outgoing, ccy))}</dd></div>
+            <div class="acct-stats-net"><dt>Net</dt><dd class="${netClass}">${escapeHtml(fmt(net, ccy))}</dd></div>
+            ${b.pendingIn || b.pendingOut ? `
+              <div class="acct-stats-pending">
+                <dt>Pending</dt>
+                <dd>${b.pendingIn ? `<span class="is-positive">+${escapeHtml(fmt(b.pendingIn, ccy))}</span>` : ""} ${b.pendingOut ? `<span class="is-negative">-${escapeHtml(fmt(b.pendingOut, ccy))}</span>` : ""}</dd>
+              </div>
+            ` : ""}
+          </dl>
+        </div>
+      `;
+    }).join("");
+
+    statsGrid.innerHTML = cards || `<p class="muted">No payments in this period.</p>`;
+  }
+
+  // Period chip handler.
+  document.querySelectorAll("#acct-stats [data-period]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#acct-stats [data-period]").forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      statsPeriod = btn.dataset.period;
+      if (statsPeriod === "custom") statsCustom.removeAttribute("hidden");
+      else statsCustom.setAttribute("hidden", "");
+      renderStats();
+    });
+  });
+  statsFromInput?.addEventListener("change", () => statsPeriod === "custom" && renderStats());
+  statsToInput?.addEventListener("change", () => statsPeriod === "custom" && renderStats());
 
   function populateFilters() {
     currencySelect.innerHTML = '<option value="">All currencies</option>'
@@ -69,13 +184,10 @@
     }
   }
 
-  function fmtPendingFor(requestedAt) {
-    if (!requestedAt) return "";
-    const ts = new Date(requestedAt).getTime();
-    if (!Number.isFinite(ts)) return "";
-    const diff = Date.now() - ts;
-    if (diff < 60000) return "just now";
-    const m = Math.floor(diff / 60000);
+  function fmtDuration(ms) {
+    if (!Number.isFinite(ms) || ms < 0) return "";
+    if (ms < 5 * 60 * 1000) return "Instant";   // approved within 5 minutes
+    const m = Math.floor(ms / 60000);
     if (m < 60) return `${m} min`;
     const h = Math.floor(m / 60);
     if (h < 24) return `${h} h`;
@@ -83,9 +195,25 @@
     return `${d} d`;
   }
 
-  function pendingTone(requestedAt) {
-    if (!requestedAt) return "";
-    const diff = Date.now() - new Date(requestedAt).getTime();
+  function fmtPendingFor(row) {
+    // Pending rows: how long they've been waiting.
+    // Resolved rows: how long the round-trip took (request → paid).
+    if (!row?.requestedAt) return "";
+    const requestedTs = new Date(row.requestedAt).getTime();
+    if (!Number.isFinite(requestedTs)) return "";
+    const status = (row.status || "").toLowerCase();
+    if (status === "pending") return fmtDuration(Date.now() - requestedTs);
+    const resolvedAt = row.approvedAt || row.rejectedAt || row.paidDate || "";
+    const resolvedTs = resolvedAt ? new Date(resolvedAt).getTime() : NaN;
+    if (!Number.isFinite(resolvedTs)) return "";
+    return fmtDuration(resolvedTs - requestedTs);
+  }
+
+  function pendingTone(row) {
+    if (!row?.requestedAt) return "";
+    const status = (row.status || "").toLowerCase();
+    if (status !== "pending") return "is-resolved";
+    const diff = Date.now() - new Date(row.requestedAt).getTime();
     if (diff > 72 * 3600 * 1000) return "is-overdue";
     if (diff > 24 * 3600 * 1000) return "is-warning";
     return "";
@@ -165,9 +293,7 @@
       const counterParty = isOutgoing
         ? (r.payeeName || "—")
         : (r.payerName || "—");
-      const pendingForCell = isPending
-        ? `<span class="acct-pending-for ${pendingTone(r.requestedAt)}">${escapeHtml(fmtPendingFor(r.requestedAt))}</span>`
-        : `<span class="muted">—</span>`;
+      const pendingForCell = `<span class="acct-pending-for ${pendingTone(r)}">${escapeHtml(fmtPendingFor(r) || "—")}</span>`;
 
       // Build the kebab-menu items per row.
       const items = [];
