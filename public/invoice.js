@@ -539,7 +539,9 @@
     try {
       const res = await fetch("/api/settings");
       const data = await res.json();
-      bankAccountsCache = Array.isArray(data?.bankAccounts) ? data.bankAccounts : [];
+      // /api/settings wraps the payload as {entry: {bankAccounts, ...}}.
+      const list = data?.entry?.bankAccounts ?? data?.bankAccounts;
+      bankAccountsCache = Array.isArray(list) ? list : [];
     } catch {
       bankAccountsCache = [];
     }
@@ -561,17 +563,36 @@
     }
     registeringIdx = idx;
     const allBanks = await loadBankAccounts();
-    // Filter by the trip's company. DTX trips only see DTX + shared
-    // accounts; USM trips only see USM + shared. Shared (no company set)
-    // appears in both. This enforces the "USM = Steppe accounts, DTX =
-    // DTX accounts" rule per company licence.
+    // Filter by the trip's company AND the invoice currency. DTX trips
+    // only see DTX + shared accounts; USM trips only see USM + shared.
+    // The currency filter narrows further: a USD invoice should only
+    // surface USD bank accounts so the manager can't accidentally pick
+    // an MNT account that the customer is not paying into.
     const tripCompany = (trip?.company || "").toUpperCase();
-    const banks = allBanks.filter((b) => {
+    const invCurrency = (sidePanelInvoice.currency || "").toUpperCase();
+    const matchesCompany = (b) => {
       const c = (b.company || "").toUpperCase();
       if (!c) return true; // shared
       if (!tripCompany) return true; // unknown company → show all
       return c === tripCompany;
-    });
+    };
+    const matchesCurrency = (b) => {
+      const bc = (b.currency || "").toUpperCase();
+      return !invCurrency || !bc || bc === invCurrency;
+    };
+    let banks = allBanks.filter((b) => matchesCompany(b) && matchesCurrency(b));
+    // If the strict filter (company + currency) leaves nothing but there
+    // ARE company-matched banks, fall back to the company-only set so the
+    // user isn't stuck — they can still pick an account and we hint about
+    // the currency mismatch in the help text below.
+    let fallbackUsed = false;
+    if (!banks.length) {
+      const companyOnly = allBanks.filter(matchesCompany);
+      if (companyOnly.length) {
+        banks = companyOnly;
+        fallbackUsed = true;
+      }
+    }
     openEditModal(
       "register-payment",
       isPaid ? "Edit registered payment" : "Register payment",
@@ -596,9 +617,19 @@
           <option value="">— Pick the bank that received the payment —</option>
           ${bankOpts}
         </select>
-        ${banks.length
-          ? (tripCompany ? `<small class="form-hint">Showing ${escapeHtml(tripCompany)} + shared accounts only.</small>` : "")
-          : `<small class="form-hint">No ${escapeHtml(tripCompany || "")} bank accounts configured. Add them in Settings → Bank accounts (and tag them ${escapeHtml(tripCompany || "DTX/USM")}).</small>`}
+        ${(() => {
+          if (!banks.length) {
+            const need = [tripCompany, invCurrency].filter(Boolean).join(" · ");
+            return `<small class="form-hint">No ${escapeHtml(need || "")} bank accounts configured. Add them in Settings → Bank accounts (tag the company and pick the matching currency).</small>`;
+          }
+          if (fallbackUsed) {
+            return `<small class="form-hint">No ${escapeHtml(invCurrency)} account configured for ${escapeHtml(tripCompany || "this company")} — showing all ${escapeHtml(tripCompany || "")} accounts. Pick the closest one or add a ${escapeHtml(invCurrency)} account in Settings.</small>`;
+          }
+          const filterParts = [tripCompany, invCurrency].filter(Boolean).join(" + ");
+          return filterParts
+            ? `<small class="form-hint">Showing ${escapeHtml(filterParts)} accounts (and shared).</small>`
+            : "";
+        })()}
       </label>
       <label class="inv-edit-field">
         <span>Note (context, partial-payment notes, etc.)</span>
