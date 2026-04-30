@@ -6080,8 +6080,13 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
     font-size: 0.78rem !important;
     line-height: 1.3;
     white-space: normal;
-    word-break: break-word;
-    max-width: 140px;
+    /* break only at long-word boundaries, not per-character. The
+       column is narrow on phones so use anywhere — but keep min-width
+       generous enough that short tokens like "T-0001-G1" don't end up
+       one-character-per-line. */
+    word-break: normal;
+    overflow-wrap: anywhere;
+    min-width: 110px;
     display: inline-block;
   }
   /* Trip-detail Groups card: shrink the "S-0006-G1 · ALTANGEREL DORJ 1PAX"
@@ -10216,7 +10221,19 @@ body.announcement-modal-open {
   color: #20356f;
   font-weight: 600;
 }
-.task-manager-picker .task-manager-chip input { accent-color: #20356f; }
+.task-manager-picker .task-manager-chip input[type="checkbox"] {
+  /* Defeat the global `input { width: 100%; padding: 14px 16px }` rule
+     so the checkbox keeps its native size on iOS Safari (otherwise the
+     chip's checkbox stretches to fill the whole chip). */
+  width: auto;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  accent-color: #20356f;
+  flex: 0 0 auto;
+}
 .task-manager-empty { margin: 0; padding: 4px 6px; color: #6b7280; font-size: 0.85rem; }
 .task-manager-hint { color: #6b7280; font-size: 0.78rem; margin-top: 4px; }
 /* Scope to direct/legacy action buttons only — the polished .row-menu
