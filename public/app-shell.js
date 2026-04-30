@@ -1175,6 +1175,11 @@ async function openPaymentRequestApproveModal(requestId) {
   document.body.classList.add("modal-open");
   const body = modal.querySelector("[data-approve-body]");
   body.innerHTML = `<p class="notifications-empty">Loading…</p>`;
+  // Pull workspace settings (bank accounts) so the bank picker has
+  // options to render.
+  if (!expenseSettings.bankAccounts?.length) {
+    try { await loadExpenseSettings(); } catch {}
+  }
   approveCurrentRequest = paymentRequestsCache.find((r) => r.id === requestId) || null;
   if (!approveCurrentRequest) {
     // Cache miss — refetch and try again.
@@ -1188,18 +1193,43 @@ async function openPaymentRequestApproveModal(requestId) {
   const r = approveCurrentRequest;
   const amount = `${(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}`;
   const canApprove = isAccountantOrAdmin();
+  const isOutgoing = (r.direction || "incoming") === "outgoing";
+  // Outgoing payments need the accountant to record which OF OUR
+  // bank accounts paid the bill. Incoming requests already carried
+  // the receiving-bank choice from the manager's request modal.
+  // Pre-load the bank list once per modal open.
+  const bankOpts = (expenseSettings.bankAccounts || []).map((b) => {
+    const sel = (r.bankAccountId || "") === b.id ? "selected" : "";
+    const label = b.label || `${b.bankName || ""} · ${b.accountNumber || ""}`;
+    return `<option value="${escapeHtml(b.id)}" ${sel}>${escapeHtml(label)}</option>`;
+  }).join("");
+
   body.innerHTML = `
     <dl class="payment-approve-details">
-      <div><dt>Invoice</dt><dd>${escapeHtml(r.invoiceSerial || "-")}</dd></div>
-      <div><dt>Installment</dt><dd>${escapeHtml(r.installmentDescription || "-")}</dd></div>
-      <div><dt>Payer</dt><dd>${escapeHtml(r.payerName || "-")}</dd></div>
+      <div><dt>${isOutgoing ? "Payee" : "Invoice"}</dt><dd>${escapeHtml(isOutgoing ? (r.payeeName || "-") : (r.invoiceSerial || "-"))}</dd></div>
+      <div><dt>${isOutgoing ? "Category" : "Installment"}</dt><dd>${escapeHtml(isOutgoing ? (r.category || "-") : (r.installmentDescription || "-"))}</dd></div>
+      ${isOutgoing ? "" : `<div><dt>Payer</dt><dd>${escapeHtml(r.payerName || "-")}</dd></div>`}
       <div><dt>Amount</dt><dd>${escapeHtml(amount)}</dd></div>
-      <div><dt>Paid date</dt><dd>${escapeHtml(r.paidDate || "-")}</dd></div>
-      <div><dt>Bank</dt><dd>${escapeHtml(r.bankAccountId || "-")}</dd></div>
+      ${isOutgoing
+        ? `<div><dt>Due by</dt><dd>${escapeHtml(r.dueDate || "—")}</dd></div>`
+        : `<div><dt>Paid date</dt><dd>${escapeHtml(r.paidDate || "-")}</dd></div>`}
       <div><dt>Requested by</dt><dd>${escapeHtml((r.requestedBy && (r.requestedBy.name || r.requestedBy.email)) || "-")}</dd></div>
     </dl>
     ${canApprove ? `
-      <div class="payment-approve-file-label">
+      <label class="payment-approve-file-label">
+        ${isOutgoing ? "Pay from (which of our bank accounts)" : "Received in bank account"} <span class="inv-required" style="color:#c44747">*</span>
+        <select id="payment-approve-bank" required>
+          <option value="">— Pick the bank ${isOutgoing ? "we paid from" : "that received the payment"} —</option>
+          ${bankOpts}
+        </select>
+      </label>
+      ${isOutgoing ? `
+        <label class="payment-approve-file-label" style="margin-top:14px;">
+          Paid date
+          <input type="date" id="payment-approve-paid-date" value="${escapeHtml(r.paidDate || new Date().toISOString().slice(0, 10))}" />
+        </label>
+      ` : ""}
+      <div class="payment-approve-file-label" style="margin-top:14px;">
         Receipt / proof
         <div class="payment-approve-drop" data-approve-drop>
           <input type="file" id="payment-approve-file" accept=".pdf,.png,.jpg,.jpeg,.gif" hidden />
@@ -1312,13 +1342,21 @@ async function submitPaymentApprove() {
     return;
   }
   const file = getApproveFileWithName(rawFile);
+  const bankSel = modal.querySelector("#payment-approve-bank");
+  const dateInput = modal.querySelector("#payment-approve-paid-date");
+  const bankId = (bankSel?.value || approveCurrentRequest.bankAccountId || "").trim();
+  if (!bankId) {
+    status.textContent = "Pick the bank account first.";
+    status.style.color = "#c44747";
+    return;
+  }
   status.style.color = "";
   status.textContent = "Uploading and registering payment…";
   const fd = new FormData();
   fd.append("file", file, file.name);
   fd.append("paidAmount", String(approveCurrentRequest.paidAmount || ""));
-  fd.append("paidDate", approveCurrentRequest.paidDate || "");
-  fd.append("bankAccountId", approveCurrentRequest.bankAccountId || "");
+  fd.append("paidDate", dateInput?.value || approveCurrentRequest.paidDate || "");
+  fd.append("bankAccountId", bankId);
   fd.append("note", noteInput?.value || "");
   try {
     const r = await fetch(`/api/payment-requests/${encodeURIComponent(approveCurrentRequest.id)}/approve`, {
@@ -1348,6 +1386,13 @@ async function submitPaymentApproveNoDoc() {
   const modal = document.getElementById("payment-approve-modal");
   const status = modal?.querySelector("[data-approve-status]");
   const noteInput = modal?.querySelector("#payment-approve-note");
+  const bankSel = modal?.querySelector("#payment-approve-bank");
+  const dateInput = modal?.querySelector("#payment-approve-paid-date");
+  const bankId = (bankSel?.value || approveCurrentRequest.bankAccountId || "").trim();
+  if (!bankId) {
+    if (status) { status.textContent = "Pick the bank account first."; status.style.color = "#c44747"; }
+    return;
+  }
   if (status) { status.style.color = ""; status.textContent = "Registering payment…"; }
   try {
     const r = await fetch(`/api/payment-requests/${encodeURIComponent(approveCurrentRequest.id)}/approve`, {
@@ -1356,8 +1401,8 @@ async function submitPaymentApproveNoDoc() {
       body: JSON.stringify({
         skipDocument: true,
         paidAmount: approveCurrentRequest.paidAmount || 0,
-        paidDate: approveCurrentRequest.paidDate || "",
-        bankAccountId: approveCurrentRequest.bankAccountId || "",
+        paidDate: dateInput?.value || approveCurrentRequest.paidDate || "",
+        bankAccountId: bankId,
         note: noteInput?.value || "",
       }),
     });
