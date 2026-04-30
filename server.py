@@ -9441,11 +9441,18 @@ def handle_list_accountant_paid(environ, start_response):
             })
 
     # Pending rows float to top (so the accountant sees what to act on),
-    # then approved rows ordered by paid date desc.
+    # then approved rows ordered by paid date desc. Sort by the
+    # 10-char ISO prefix of paidDate so a legacy record with garbage
+    # in the field (e.g. "2026-04-30 manager-name 12345") doesn't
+    # crash the whole endpoint.
     def sort_key(x):
         is_pending = (x.get("status") or "") == "pending"
-        return (0 if is_pending else 1, -(int((x.get("paidDate") or "0").replace("-", "") or 0) or 0))
-    rows.sort(key=sort_key)
+        date_str = str(x.get("paidDate") or "")[:10]
+        return (0 if is_pending else 1, "" if is_pending else date_str)
+    # First sort approved rows by date desc among themselves, then
+    # pending rows pile on top in their original order.
+    rows.sort(key=lambda x: sort_key(x)[1], reverse=True)
+    rows.sort(key=lambda x: sort_key(x)[0])
     return json_response(start_response, "200 OK", {"entries": rows})
 
 
