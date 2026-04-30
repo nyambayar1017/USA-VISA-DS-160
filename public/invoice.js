@@ -402,10 +402,11 @@
     const installmentCards = (inv.installments || []).map((ins, idx) => {
       const status = (ins.status || "pending").toLowerCase();
       const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+      const isPaid = status === "paid" || status === "confirmed";
       return `
         <div class="inv-side-installment">
           <div class="inv-side-inst-grid">
-            <div class="inv-side-inst-desc">${escapeHtml(ins.description || "-")}</div>
+            <div class="inv-side-inst-desc" title="${escapeHtml(ins.description || "-")}">${escapeHtml(ins.description || "-")}</div>
             <div>
               <div class="inv-side-inst-label">Issue Date</div>
               <div>${escapeHtml(fmtDateOnly(ins.issueDate))}</div>
@@ -419,10 +420,10 @@
               <div><span class="payment-status payment-status-${status}">${statusLabel}</span></div>
             </div>
             <div class="inv-side-inst-amount">${fmtMoney(ins.amount, inv.currency)}</div>
+            ${isPaid ? "" : `<button type="button" class="inv-side-register" data-inv-action="register-payment" data-idx="${idx}">
+              <span class="inv-side-register-icon">+</span> Register payment
+            </button>`}
           </div>
-          <button type="button" class="inv-side-register" data-inv-action="register-payment" data-idx="${idx}">
-            <span class="inv-side-register-icon">+</span> Register payment
-          </button>
         </div>
       `;
     }).join("") || '<p class="empty">No installments yet.</p>';

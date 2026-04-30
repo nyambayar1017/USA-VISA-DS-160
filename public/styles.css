@@ -1985,7 +1985,19 @@ td {
 .inv-row-installments .inv-installment-line:first-child { border-top: 0; }
 .inv-inst-amount, .inv-inst-due { white-space: nowrap; color: #1f2a44; font-weight: 600; }
 .inv-inst-status .payment-status { padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
-.payment-status::before { content: "•"; font-size: 14px; line-height: 0; }
+.payment-status {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.payment-status::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 999px;
+  background: currentColor; opacity: 0.7;
+  display: inline-block;
+  margin-right: 4px;
+}
 .payment-status-pending { background: #fef3c7; color: #92400e; }
 .payment-status-paid, .payment-status-confirmed { background: #dcfce7; color: #14532d; }
 .payment-status-overdue, .payment-status-cancelled { background: #fee2e2; color: #991b1b; }
@@ -2042,14 +2054,16 @@ td {
 /* === Side panel (Image #69) === */
 .inv-side-panel {
   position: fixed; inset: 0; z-index: 1500;
-  display: flex; justify-content: flex-end;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
 }
 .inv-side-panel.is-hidden { display: none; }
-.inv-side-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.42); }
+.inv-side-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.55); }
 .inv-side-dialog {
-  position: relative; z-index: 1; height: 100%; overflow-y: auto;
-  width: min(560px, 96vw); background: #ffffff;
-  box-shadow: -16px 0 40px rgba(15, 23, 42, 0.18);
+  position: relative; z-index: 1; max-height: 90vh; overflow-y: auto;
+  width: min(880px, 96vw); background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.32);
+  border-radius: 18px;
   display: flex; flex-direction: column;
 }
 .inv-side-header {
@@ -2123,24 +2137,50 @@ td {
 .inv-side-installment {
   border: 1px solid #e5e9f3; border-radius: 12px; padding: 12px 14px;
   margin-top: 10px;
+  display: flex; flex-direction: column; gap: 10px;
 }
 .inv-side-installment:first-child { margin-top: 0; }
 .inv-side-inst-grid {
-  display: grid; grid-template-columns: 1fr 110px 110px 110px auto;
-  gap: 12px; align-items: center;
+  display: grid;
+  grid-template-columns: minmax(140px, 1.4fr) 110px 110px 110px auto auto;
+  gap: 14px; align-items: center;
 }
-.inv-side-inst-desc { font-weight: 700; color: #0f172a; }
-.inv-side-inst-label { font-size: 11px; color: #5d6b87; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
-.inv-side-inst-amount { font-weight: 700; color: #0f172a; text-align: right; }
+.inv-side-inst-desc {
+  font-weight: 700; color: #0f172a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-side-inst-label {
+  font-size: 11px; color: #5d6b87; text-transform: uppercase;
+  letter-spacing: 0.04em; font-weight: 700;
+  font-family: inherit;
+}
+.inv-side-inst-amount {
+  font-weight: 700; color: #0f172a; text-align: right;
+  white-space: nowrap;
+}
 .inv-side-register {
-  margin-top: 10px; background: transparent; border: 0; padding: 6px 0;
-  color: #2563eb; font-weight: 700; font-size: 13px; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 6px;
-  border-top: 1px solid #f1f3f8; width: 100%;
+  background: var(--accent); color: #fff;
+  border: 0; padding: 6px 14px; border-radius: 999px;
+  font-weight: 600; font-size: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+  white-space: nowrap; line-height: 1.2;
+  font-family: inherit;
+  height: auto;
 }
+.inv-side-register:hover { background: var(--accent-strong); }
 .inv-side-register-icon {
-  width: 20px; height: 20px; border-radius: 999px; border: 1px solid #2563eb;
-  display: inline-flex; align-items: center; justify-content: center; font-size: 14px; line-height: 0;
+  width: 16px; height: 16px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; line-height: 1;
+}
+@media (max-width: 720px) {
+  .inv-side-inst-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .inv-side-inst-grid > .inv-side-inst-desc { grid-column: 1 / -1; }
+  .inv-side-inst-amount { grid-column: 1 / -1; text-align: left; font-size: 1.1rem; }
 }
 
 /* === Edit modals (Images #70/#71/#72) === */
