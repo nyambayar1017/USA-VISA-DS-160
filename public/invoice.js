@@ -312,6 +312,8 @@
           <div class="inv-side-header-actions">
             <button type="button" class="inv-text-btn" data-inv-action="copy">Copy link</button>
             <button type="button" class="inv-text-btn" data-inv-action="open-view">Open</button>
+            <button type="button" class="inv-text-btn" data-inv-action="edit-wizard">Edit</button>
+            <button type="button" class="inv-text-btn is-danger" data-inv-action="delete-from-panel">Delete</button>
             <button type="button" class="inv-icon-btn" data-inv-action="close-panel" aria-label="Close">×</button>
           </div>
         </div>
@@ -340,6 +342,27 @@
       if (action === "publish-now") {
         const id = panel.dataset.invoiceId;
         publishInvoice(id);
+      }
+      if (action === "edit-wizard") {
+        const id = panel.dataset.invoiceId;
+        const invoice = invoices.find((x) => x.id === id);
+        if (!invoice) return;
+        closeSidePanel();
+        openWizard(invoice);
+      }
+      if (action === "delete-from-panel") {
+        const id = panel.dataset.invoiceId;
+        const invoice = invoices.find((x) => x.id === id);
+        if (!invoice) return;
+        UI.confirm(`Delete invoice ${invoice.serial || invoice.id}?`, { dangerous: true, confirmLabel: "Delete" })
+          .then(async (ok) => {
+            if (!ok) return;
+            try {
+              await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
+              closeSidePanel();
+              await loadAll();
+            } catch (err) { alert(err.message || "Could not delete invoice."); }
+          });
       }
       const editAction = e.target.closest("[data-inv-edit]")?.dataset?.invEdit;
       if (editAction === "payer") openEditPayerModal();

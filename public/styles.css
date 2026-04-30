@@ -2076,6 +2076,8 @@ td {
   display: inline-flex; align-items: center;
 }
 .inv-text-btn:hover { background: #dde2ee; color: #0f172a; }
+.inv-text-btn.is-danger { color: #b42318; }
+.inv-text-btn.is-danger:hover { background: #fee4e2; color: #7a271a; }
 .inv-publish-btn {
   margin-left: 8px;
   padding: 4px 12px; border-radius: 999px; border: 0;
