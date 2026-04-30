@@ -17339,28 +17339,10 @@ body.lightbox-open { overflow: hidden; }
 .content-view-dialog .trip-popup-body { padding-top: 18px; }
 
 /* ----------------------------------------------------------------------
-   Mobile fixes: sticky actions column on horizontally scrolling tables,
-   stacked pagination row, taller mail follow-up bell so it reads as a
-   bell instead of a paperclip silhouette on small screens.
+   Mobile fixes: stack the 3-col pagination row, bigger/darker mail
+   follow-up bell so it reads as a bell on phones.
    ---------------------------------------------------------------------- */
 @media (max-width: 720px) {
-  /* Camp + manager-style tables overflow horizontally on phones; pin the
-     last cell (the ⋯ menu) so it stays visible without scrolling. */
-  .camp-table th:last-child,
-  .camp-table td:last-child,
-  .manager-table th:last-child,
-  .manager-table td:last-child {
-    position: sticky;
-    right: 0;
-    background: #fff;
-    box-shadow: -6px 0 8px -6px rgba(15, 23, 42, 0.18);
-    z-index: 2;
-  }
-  .camp-table tbody tr.is-trip-active td:last-child,
-  .camp-table tbody tr.is-editing td:last-child {
-    background: #f4f6fb;
-  }
-
   /* Trips-page 3-col pagination (count | confirmed-pill | prev/next)
      overlaps on phone widths. Stack each row vertically. */
   .table-pagination-3col {
@@ -17372,18 +17354,6 @@ body.lightbox-open { overflow: hidden; }
   .table-pagination-3col .confirmed-stat,
   .table-pagination-3col .pagination-actions {
     justify-self: center;
-  }
-
-  /* FIFA match grid is fixed-width; pin the actions column so the ⋯
-     stays on screen when the row is scrolled horizontally. */
-  .fifa-match-card { position: relative; }
-  .fifa-match-col--actions {
-    position: sticky;
-    right: 0;
-    background: #fff;
-    padding-left: 6px;
-    padding-right: 6px;
-    box-shadow: -6px 0 8px -6px rgba(15, 23, 42, 0.18);
   }
 }
 
