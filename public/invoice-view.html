@@ -859,130 +859,136 @@
         `;
       }
       function renderDtx(inv) {
-        // Reuses the USM layout (usm-header / usm-table / usm-installments
-        // / usm-bank-row / signature-grid) with Mongolian labels and DTX
-        // branding. Bank section is collapsed to a single Mongolian-style
-        // row since DTX has only the local Төрийн Банк account, no IBAN
-        // or intermediaries.
         const page = document.getElementById("invoice-page");
-        page.classList.add("usm-view");
-        const customerName = (inv.payerName || "CLIENT").trim() || "CLIENT";
-        const billingAddress = (inv.payerAddress || "").trim();
+        page.classList.remove("usm-view");
+        const customerName = (inv.payerName || "CLIENT").toUpperCase();
+        const issueDate = (inv.createdAt || "").slice(0, 10);
         const items = inv.items || [];
-        const currency = (inv.currency || "MNT").toUpperCase();
-        const L = USM_LABELS.mn;
         const grandTotal = items.reduce((a, it) => a + (Number(it.qty) || 0) * (Number(it.price) || 0), 0) || (Number(inv.total) || 0);
-        const itemRowsHtml = items.map((it, i) => `
+        const itemsHtml = items.map((it, i) => editMode ? `
+          <tr data-item-i="${i}">
+            <td>${i + 1}</td>
+            <td class="cell-desc"><input class="invoice-edit-input" data-field="description" value="${escapeHtml(it.description || "")}" /></td>
+            <td><input class="invoice-edit-input" data-field="qty" type="number" min="0" value="${escapeHtml(it.qty || 0)}" /></td>
+            <td><input class="invoice-edit-input" data-field="price" type="number" min="0" value="${escapeHtml(it.price || 0)}" /></td>
+            <td>${fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0))}</td>
+          </tr>
+        ` : `
           <tr>
             <td>${i + 1}</td>
             <td>${escapeHtml(it.description || "")}</td>
             <td>${escapeHtml(it.qty)}</td>
-            <td>${fmtMoney(it.price, currency)}</td>
-            <td class="right">${fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0), currency)}</td>
+            <td>${fmtMoney(it.price)}</td>
+            <td>${fmtMoney((Number(it.qty) || 0) * (Number(it.price) || 0))}</td>
           </tr>
         `).join("");
-        const usmStatus = {
-          pending: { label: L.statusPending, className: "waiting" },
-          waiting: { label: L.statusPending, className: "waiting" },
-          paid:    { label: L.statusPaid,    className: "paid" },
-          confirmed:{ label: L.statusPaid,   className: "paid" },
-          overdue: { label: L.statusOverdue, className: "overdue" },
-          cancelled:{ label: L.statusCancelled, className: "cancelled" },
-        };
-        const instCardsHtml = (inv.installments || []).map((inst) => {
-          const s = usmStatus[(inst.status || "pending").toLowerCase()] || usmStatus.pending;
+        const paymentsHtml = (inv.installments || []).map((inst, i) => {
+          const s = statusFor(inst.status);
+          if (editMode) {
+            return `
+              <div class="payment-card is-edit" data-inst-i="${i}">
+                <div><span class="meta-label">Нэр</span><input class="invoice-edit-input" data-field="description" value="${escapeHtml(inst.description || "")}" /></div>
+                <div><span class="meta-label">Нэхэмжилсэн огноо</span><input class="invoice-edit-input" data-field="issueDate" type="date" value="${escapeHtml(inst.issueDate || "")}" /></div>
+                <div><span class="meta-label">Эцсийн хугацаа</span><input class="invoice-edit-input" data-field="dueDate" type="date" value="${escapeHtml(inst.dueDate || "")}" /></div>
+                <div><span class="meta-label">Төлөв</span>
+                  <select class="invoice-edit-input" data-field="status">
+                    <option value="pending" ${(inst.status||"pending")==="pending"?"selected":""}>Хүлээгдэж буй</option>
+                    <option value="paid" ${inst.status==="paid"?"selected":""}>Төлөгдсөн</option>
+                    <option value="overdue" ${inst.status==="overdue"?"selected":""}>Хугацаа хэтэрсэн</option>
+                  </select>
+                </div>
+                <div><span class="meta-label">Дүн</span><input class="invoice-edit-input" data-field="amount" type="number" min="0" value="${escapeHtml(inst.amount || 0)}" /></div>
+              </div>
+            `;
+          }
           return `
-            <div class="usm-inst-card">
-              <div class="usm-inst-desc">${escapeHtml(inst.description || "Payment")}</div>
-              <div class="usm-inst-cell">
-                <span class="label">${escapeHtml(L.issueDate)}</span>
-                <span>${escapeHtml(inst.issueDate || "-")}</span>
+            <div class="payment-card">
+              <div class="payment-main">${escapeHtml(inst.description || "")}</div>
+              <div class="payment-meta">
+                <span class="meta-label">Нэхэмжилсэн огноо</span>
+                <span class="meta-value">${escapeHtml(inst.issueDate || "-")}</span>
               </div>
-              <div class="usm-inst-cell">
-                <span class="label">${escapeHtml(L.dueDate)}</span>
-                <span>${escapeHtml(inst.dueDate || "-")}</span>
+              <div class="payment-meta">
+                <span class="meta-label">Эцсийн хугацаа</span>
+                <span class="meta-value">${escapeHtml(inst.dueDate || "-")}</span>
               </div>
-              <div class="usm-inst-status">
-                <span class="label">${escapeHtml(L.status)}</span>
-                <span class="usm-pill ${s.className}">${s.label}</span>
+              <div class="payment-meta">
+                <span class="meta-label">Төлөв</span>
+                <span class="payment-status ${s.className}">${s.label}</span>
               </div>
-              <div class="usm-inst-amount">${fmtMoney(inst.amount, currency)}</div>
+              <div class="payment-amount">${fmtMoney(inst.amount)}</div>
             </div>
           `;
-        }).join("") || '<p class="muted">No installments.</p>';
+        }).join("") || '<p class="empty">No installments.</p>';
         page.innerHTML = `
-          <h1 class="usm-title">${escapeHtml(L.title)} #${escapeHtml(inv.serial)}</h1>
-          <div class="row usm-header">
-            <div class="usm-company-block">
-              <img class="usm-logo" src="/assets/dtx-logo-blue-yellow.png" alt="Дэлхий Трэвел Икс" onerror="this.style.display='none'" />
-              <div><span class="usm-company-name">Дэлхий Трэвел Икс ХХК (6925073)</span></div>
-              <div>Улаанбаатар хот, ХУД, 17-р хороо</div>
-              <div>Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</div>
-              <div>info@travelx.mn</div>
-              <div>+976 72007722</div>
+          <p class="invoice-number">Нэхэмжлэх #${escapeHtml(inv.serial)}</p>
+          <div class="header-grid">
+            <div class="company-block">
+              <img class="invoice-logo" src="/assets/dtx-logo-blue-yellow.png" alt="Дэлхий Трэвел" onerror="this.style.display='none'" />
+              <p class="company-name">Дэлхий Трэвел Икс ХХК (6925073)</p>
+              <p>Улаанбаатар хот, ХУД, 17-р хороо</p>
+              <p>Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</p>
+              <p>info@travelx.mn</p>
+              <p>+976 72007722</p>
             </div>
-            <div class="usm-billto-block">
-              <div>
-                <div class="usm-billto-label">${escapeHtml(L.billTo)}</div>
-                <div class="usm-billto-value">${escapeHtml(customerName)}</div>
+            <div>
+              <p class="meta-note">Сангийн сайдын 2017 оны 12 дугаар сарын 05</p>
+              <p class="meta-note">өдрийн 347 тоот тушаалын хавсралт</p>
+              <div class="customer-block">
+                <span class="label">Төлөгч</span>
+                <p><strong>${escapeHtml(customerName)}</strong></p>
               </div>
-              ${billingAddress ? `<div>
-                <div class="usm-billto-label">${escapeHtml(L.billingAddress)}</div>
-                <div>${escapeHtml(billingAddress)}</div>
-              </div>` : ""}
             </div>
           </div>
-          <h2 class="usm-section-title">${escapeHtml(L.priceDetail)}</h2>
-          <div class="usm-table-wrap" style="margin-bottom:24px;">
-            <table class="usm-table">
-              <thead><tr>
-                <th>${escapeHtml(L.colN)}</th><th>${escapeHtml(L.colDesc)}</th>
-                <th>${escapeHtml(L.colAmount)}</th><th>${escapeHtml(L.colUnitPrice)}</th>
-                <th class="right">${escapeHtml(L.colTotal)}</th>
-              </tr></thead>
-              <tbody>
-                ${itemRowsHtml}
-                <tr class="total-row"><td colspan="5">
-                  <div class="usm-total-line">
-                    <span>${escapeHtml(L.rowTotal)}</span>
-                    <span>${fmtMoney(grandTotal, currency)}</span>
-                  </div>
-                </td></tr>
-              </tbody>
-            </table>
-          </div>
-          <h2 class="usm-section-title">${escapeHtml(L.installments)}</h2>
-          <div class="usm-installments">${instCardsHtml}</div>
-          <div class="usm-bank-row">
-            <div class="muted">${escapeHtml(L.benNameAddr)}</div>
-            <div class="value">
-              <div><span class="sub">${escapeHtml(L.name)}:</span> Дэлхий Трэвел Икс ХХК</div>
-              <div><span class="sub">${escapeHtml(L.address)}:</span> Улаанбаатар хот, ХУД, 17-р хороо, Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</div>
+          <p class="section-title">Үнийн мэдээлэл</p>
+          <table class="invoice-items-table">
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Утга</th>
+                <th>Тоо ширхэг</th>
+                <th>Нэгжийн үнэ</th>
+                <th>Нийт үнэ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr class="total-row">
+                <td colspan="4">Нийт үнэ</td>
+                <td>${fmtMoney(grandTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="section-title">Төлбөрийн хуваарь</p>
+          <div class="payment-stack">${paymentsHtml}</div>
+          <div class="bank-section">
+            <p class="section-title">Дансны мэдээлэл</p>
+            <div class="bank-grid">
+              <div>Дэлхий Трэвел Икс</div>
+              <div class="bank-line">
+                <span>Төрийн Банк</span>
+                <span class="bank-prefix">MN030034</span>
+                <strong class="bank-account-number">3432 7777 9999</strong>
+              </div>
             </div>
           </div>
-          <div class="usm-bank-row bordered">
-            <div class="muted">${escapeHtml(L.benAccountNo)}</div>
-            <div class="value">
-              <div><span class="sub">Төрийн Банк:</span> MN030034 3432 7777 9999</div>
-            </div>
-          </div>
-          <div class="signature-grid" style="margin-top:64px;border-top:1px solid #e5e7eb;padding-top:48px;">
+          <div class="signature-grid">
             <div class="signature-card">
               <div class="signature-label">Дэлхий Трэвел Икс ХХК</div>
               <div class="signature-line"></div>
               <img class="accountant-stamp" src="/assets/invoice-finance-stamp.png" alt="" onerror="this.style.display='none'" />
               <img class="accountant-signature" src="/assets/invoice-finance-signature.png" alt="" onerror="this.style.display='none'" />
-              <div class="signature-name">${escapeHtml(L.accountant)}</div>
+              <div class="signature-name">Нягтлан</div>
               <div class="signature-role">Г.Басгалаан</div>
             </div>
             <div class="signature-card">
-              <div class="signature-label">${escapeHtml(L.billTo)}</div>
+              <div class="signature-label">Төлөгч</div>
               <div class="signature-line"></div>
               <div class="signature-name">${escapeHtml(customerName)}</div>
             </div>
           </div>
         `;
-        document.title = `${escapeHtml(L.title)} #${inv.serial}`;
+        document.title = `Нэхэмжлэх #${inv.serial}`;
       }
       function openPdf() {
         if (!currentInvoice) return;

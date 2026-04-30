@@ -6288,172 +6288,146 @@ def build_standalone_invoice_html_usm(invoice):
 
 
 def build_standalone_invoice_html(invoice):
-    """DTX-branded invoice. Reuses the USM PDF layout (header / table /
-    payment-cards / bank-grid / signature-grid) so DTX and USM print
-    identically; only branding (logo, company name, bank, stamp,
-    signer) differs. DTX is always Mongolian regardless of currency."""
+    """Render the new-model invoice as Mongolian printable HTML for WeasyPrint.
+    CSS mirrors the working contract-invoice template (build_invoice_html).
+    """
     serial = html.escape(str(invoice.get("serial") or invoice.get("id") or ""))
-    customer = html.escape(str((invoice.get("payerName") or "CLIENT")).strip() or "CLIENT")
-    billing_address = html.escape(str(invoice.get("payerAddress") or "").strip())
-    currency = (invoice.get("currency") or "MNT").upper()
-    L = _USM_LABELS["mn"]
-    status_map = INVOICE_STATUS_LABELS  # already Mongolian
+    customer = html.escape(str((invoice.get("payerName") or "CLIENT")).upper())
     items = invoice.get("items") or []
     grand = sum((float(it.get("qty") or 0) * float(it.get("price") or 0)) for it in items)
-
     def _fmt_qty(q):
         try:
             f = float(q or 0)
         except (TypeError, ValueError):
             return html.escape(str(q or 0))
         return str(int(f)) if f.is_integer() else str(f)
-
     items_rows = "".join(
         f"<tr><td>{i+1}</td>"
         f"<td>{html.escape(str(it.get('description') or ''))}</td>"
         f"<td>{_fmt_qty(it.get('qty'))}</td>"
-        f"<td>{_fmt_money_ccy(it.get('price'), currency)}</td>"
-        f"<td>{_fmt_money_ccy(float(it.get('qty') or 0) * float(it.get('price') or 0), currency)}</td></tr>"
+        f"<td>{_fmt_money(it.get('price'))}</td>"
+        f"<td>{_fmt_money(float(it.get('qty') or 0) * float(it.get('price') or 0))}</td></tr>"
         for i, it in enumerate(items)
     )
     payments_html = ""
     for inst in (invoice.get("installments") or []):
         status_key = (inst.get("status") or "pending").lower()
-        label, klass = status_map.get(status_key, status_map["pending"])
+        label, klass = INVOICE_STATUS_LABELS.get(status_key, INVOICE_STATUS_LABELS["pending"])
         payments_html += f"""
         <div class="payment-card">
           <div class="payment-main">{html.escape(str(inst.get('description') or ''))}</div>
-          <div class="payment-meta"><span class="meta-label">{html.escape(L['issue_date'])}</span><span class="meta-value">{html.escape(str(inst.get('issueDate') or '-'))}</span></div>
-          <div class="payment-meta"><span class="meta-label">{html.escape(L['due_date'])}</span><span class="meta-value">{html.escape(str(inst.get('dueDate') or '-'))}</span></div>
-          <div class="payment-meta"><span class="meta-label">{html.escape(L['status'])}</span><span class="payment-status {klass}">{label}</span></div>
-          <div class="payment-amount">{_fmt_money_ccy(inst.get('amount'), currency)}</div>
+          <div class="payment-meta"><span class="meta-label">Нэхэмжилсэн огноо</span><span class="meta-value">{html.escape(str(inst.get('issueDate') or '-'))}</span></div>
+          <div class="payment-meta"><span class="meta-label">Эцсийн хугацаа</span><span class="meta-value">{html.escape(str(inst.get('dueDate') or '-'))}</span></div>
+          <div class="payment-meta"><span class="meta-label">Төлөв</span><span class="payment-status {klass}">{label}</span></div>
+          <div class="payment-amount">{_fmt_money(inst.get('amount'))}</div>
         </div>
         """
-
+    # Use Path.as_uri() so WeasyPrint loads the local files reliably (handles spaces).
     def _asset(name):
         p = (BASE_DIR / "public" / "assets" / name)
         return p.resolve().as_uri() if p.exists() else ""
     logo_src = _asset("dtx-logo-blue-yellow.png")
     stamp_src = _asset("invoice-finance-stamp.png")
     sig_src = _asset("invoice-finance-signature.png")
-
-    # CSS is the same as USM, copied verbatim so the two PDFs render
-    # identically; any future tweak should be made in both builders.
     css = """
       @page { size: A4; margin: 16mm 14mm; }
       * { box-sizing: border-box; }
       body { margin: 0; background: #fff; color: #27272a;
-        font-family: 'Nunito', Arial, sans-serif; font-size: 12px; }
+        font-family: 'Nunito', Arial, sans-serif; font-size: 13px; }
       .page { padding: 0; }
-      .invoice-number { margin: 0 0 14px; font-size: 18px; font-weight: 500; color: #27272a; }
+      .invoice-number { margin: 0 0 18px; color: #27272a; font-size: 18px;
+        line-height: 1.15; font-weight: 500; }
       .header-grid { display: grid; grid-template-columns: 1.05fr 0.95fr;
-        gap: 28px; align-items: start; margin-bottom: 24px; }
-      .invoice-logo { width: 175px; max-width: 100%; display: block; margin-bottom: 12px; }
-      .company-name { margin: 0 0 10px; font-size: 13px; font-weight: 700; }
-      .company-block p, .customer-block p { margin: 0; font-size: 12px; line-height: 1.45; }
-      .customer-block { padding-top: 96px; }
+        gap: 20px; align-items: start; margin-bottom: 28px; }
+      .invoice-logo { width: 154px; max-width: 100%; display: block; margin-bottom: 10px; }
+      .company-name { margin: 0 0 12px; font-size: 14px; line-height: 1.25;
+        font-weight: 700; color: #27272a; }
+      .company-block p, .customer-block p, .meta-note {
+        margin: 0; font-size: 13px; line-height: 1.38; }
+      .meta-note { text-align: right; color: #27272a; white-space: nowrap; }
+      .customer-block { padding-top: 80px; }
       .customer-block .label { display: block; margin-bottom: 4px; color: #64748b;
-        font-size: 12px; font-weight: 600; }
-      .customer-block strong { font-size: 13px; }
-      .section-title { margin: 18px 0 8px; color: #5d6b87; font-size: 12px; font-weight: 600; }
+        font-size: 13px; font-weight: 600; }
+      .section-title { margin: 0 0 10px; color: #64748b; font-size: 13px; font-weight: 600; }
       .invoice-items-table { width: 100%; border-collapse: separate; border-spacing: 0;
-        border-radius: 10px; border: 1px solid #cfd8e6; overflow: hidden; margin-bottom: 16px; }
-      th, td { padding: 9px 12px; border-bottom: 1px solid #cfd8e6;
-        text-align: left; font-size: 12px; line-height: 1.3; }
-      th { background: #fbfcfe; font-weight: 700; }
-      th:first-child, td:first-child { width: 36px; }
-      td:nth-child(3), th:nth-child(3) { text-align: center; }
+        border-radius: 12px; border: 1px solid #cfd8e6; overflow: hidden; margin-bottom: 28px; }
+      th, td { padding: 10px 12px; border-bottom: 1px solid #cfd8e6;
+        text-align: left; font-size: 13px; line-height: 1.25; }
+      th { background: #fbfcfe; color: #27272a; font-weight: 700; }
+      th:first-child, td:first-child { width: 46px; }
       td:last-child, th:last-child, td:nth-last-child(2), th:nth-last-child(2) { text-align: right; }
       .total-row td { font-weight: 700; background: #fff; border-bottom: 0; }
-      .payment-stack { display: grid; gap: 12px; margin-bottom: 16px; }
+      .payment-stack { display: grid; gap: 16px; margin-bottom: 28px; }
       .payment-card { display: grid;
-        grid-template-columns: 1.3fr 1fr 1fr 0.85fr 0.95fr;
-        gap: 10px; align-items: center; min-height: 64px; padding: 12px 14px;
-        border: 1px solid #cfd8e6; border-radius: 10px; }
-      .payment-main, .payment-amount { font-size: 12px; font-weight: 600; }
+        grid-template-columns: 1.35fr 1.08fr 1.08fr 0.9fr 0.92fr;
+        gap: 10px; align-items: center; min-height: 74px; padding: 16px 18px;
+        border: 1px solid #cfd8e6; border-radius: 12px; background: #fff; }
+      .payment-main, .payment-amount { min-width: 0; font-size: 13px; font-weight: 600; color: #27272a; }
       .payment-amount { text-align: right; white-space: nowrap; }
-      .payment-meta { display: grid; gap: 3px; }
-      .meta-value { font-size: 12px; font-weight: 600; }
-      .meta-label { color: #5d6b87; font-size: 11px; font-weight: 600; }
+      .payment-meta { display: grid; gap: 4px; min-width: 0; }
+      .meta-value { font-size: 13px; font-weight: 600; color: #27272a; }
+      .meta-label { color: #64748b; font-size: 13px; font-weight: 600; white-space: nowrap; }
       .payment-status { display: inline-flex; align-items: center; justify-content: center;
-        min-width: 70px; padding: 4px 10px; border-radius: 999px;
-        font-size: 11px; font-weight: 700; }
+        min-width: 82px; min-height: 30px; padding: 5px 11px; border-radius: 999px;
+        font-size: 12px; font-weight: 700; }
       .payment-status.paid { background: #dcf4e3; color: #1f8550; }
       .payment-status.overdue { background: #f8dede; color: #c44747; }
       .payment-status.waiting { background: #fff5bd; color: #8a4b12; }
-      .payment-status.cancelled { background: #f1f5f9; color: #64748b; }
-      .bank-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 14px 18px;
-        margin-bottom: 12px; }
-      .bank-grid > .label { color: #5d6b87; font-size: 11px; font-weight: 700; padding-top: 2px; }
-      .bank-grid > .value { font-size: 12px; line-height: 1.45; }
-      .bank-grid > .value p { margin: 0 0 4px; }
-      .bank-grid > .value strong { color: #1f2937; }
+      .bank-section { margin-top: 0; padding-bottom: 28px; border-bottom: 1px solid #d9e0ea; }
+      .bank-grid { display: grid; gap: 4px; font-size: 13px; line-height: 1.35; color: #27272a; }
+      .bank-line { display: flex; flex-wrap: wrap; gap: 18px; align-items: baseline; }
+      .bank-prefix { color: #64748b; }
+      .bank-account-number { font-weight: 800; }
       .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
-        margin-top: 60px; align-items: start; }
+        margin-top: 24px; align-items: start; }
       .signature-card { position: relative; min-height: 218px; padding-top: 0; }
-      .signature-label { position: relative; z-index: 3; min-height: 18px;
-        margin-bottom: 112px; color: #64748b; font-size: 13px;
-        font-weight: 600; background: #fff; }
+      .signature-label { position: relative; z-index: 3; min-height: 18px; margin-bottom: 112px;
+        color: #64748b; font-size: 13px; font-weight: 600; background: #fff; }
       .signature-line { border-bottom: 1px dashed #d5ddec; }
-      .accountant-stamp { position: absolute; left: 2px; bottom: 36px;
-        width: 218px; z-index: 1; opacity: 0.98; }
-      .accountant-signature { position: absolute; left: 64px; bottom: -34px;
-        width: 290px; z-index: 2; }
-      .signature-name { position: relative; z-index: 4; margin-top: 14px;
-        font-size: 13px; font-weight: 700; color: #27272a; }
-      .signature-role { position: relative; z-index: 4; color: #27272a;
-        font-size: 13px; }
+      .accountant-stamp { position: absolute; left: 2px; bottom: 36px; width: 218px;
+        z-index: 1; opacity: 0.98; }
+      .accountant-signature { position: absolute; left: 64px; bottom: -34px; width: 290px; z-index: 2; }
+      .signature-name { position: relative; z-index: 4; margin-top: 14px; font-size: 13px;
+        font-weight: 700; color: #27272a; }
+      .signature-role { position: relative; z-index: 4; color: #27272a; font-size: 13px; }
     """
-
     return f"""<!DOCTYPE html>
-<html lang="mn"><head><meta charset="UTF-8"><title>{html.escape(L['title'])} #{serial}</title>
+<html lang="mn"><head><meta charset="UTF-8"><title>Нэхэмжлэх #{serial}</title>
 <style>{css}</style></head><body><div class="page">
-  <p class="invoice-number">{html.escape(L['title'])} #{serial}</p>
+  <p class="invoice-number">Нэхэмжлэх #{serial}</p>
   <div class="header-grid">
     <div class="company-block">
       {f'<img class="invoice-logo" src="{logo_src}" alt="">' if logo_src else ''}
       <p class="company-name">Дэлхий Трэвел Икс ХХК (6925073)</p>
       <p>Улаанбаатар хот, ХУД, 17-р хороо</p>
       <p>Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</p>
-      <p>info@travelx.mn</p>
-      <p>+976 72007722</p>
+      <p>info@travelx.mn</p><p>+976 72007722</p>
     </div>
-    <div class="customer-block">
-      <span class="label">{html.escape(L['bill_to'])}</span>
-      <p><strong>{customer}</strong></p>
-      {f'<span class="label" style="margin-top:8px;">' + html.escape(L['billing_address']) + '</span><p>' + billing_address + '</p>' if billing_address else ''}
+    <div>
+      <p class="meta-note">Сангийн сайдын 2017 оны 12 дугаар сарын 05</p>
+      <p class="meta-note">өдрийн 347 тоот тушаалын хавсралт</p>
+      <div class="customer-block"><span class="label">Төлөгч</span><p><strong>{customer}</strong></p></div>
     </div>
   </div>
-  <p class="section-title">{html.escape(L['price_detail'])}</p>
+  <p class="section-title">Үнийн мэдээлэл</p>
   <table class="invoice-items-table">
-    <thead><tr><th>{html.escape(L['col_n'])}</th><th>{html.escape(L['col_description'])}</th><th>{html.escape(L['col_amount'])}</th><th>{html.escape(L['col_unit_price'])}</th><th>{html.escape(L['col_total'])}</th></tr></thead>
-    <tbody>{items_rows}<tr class="total-row"><td colspan="4">{html.escape(L['row_total'])}</td><td>{_fmt_money_ccy(grand, currency)}</td></tr></tbody>
+    <thead><tr><th>№</th><th>Утга</th><th>Аялагч</th><th>Нэгжийн үнэ</th><th>Нийт үнэ</th></tr></thead>
+    <tbody>{items_rows}<tr class="total-row"><td colspan="4">Нийт үнэ</td><td>{_fmt_money(grand)}</td></tr></tbody>
   </table>
-  <p class="section-title">{html.escape(L['installments'])}</p>
+  <p class="section-title">Төлбөрийн хуваарь</p>
   <div class="payment-stack">{payments_html}</div>
-  <div class="bank-grid">
-    <div class="label">{html.escape(L['ben_name_addr'])}</div>
-    <div class="value">
-      <p>{html.escape(L['name'])}: <strong>Дэлхий Трэвел Икс ХХК</strong></p>
-      <p>{html.escape(L['address'])}: <strong>Улаанбаатар хот, ХУД, 17-р хороо, Их Монгол Улс гудамж, Кинг Тауэр, 121 байр, 102 тоот</strong></p>
-    </div>
-    <div class="label">{html.escape(L['ben_account_no'])}</div>
-    <div class="value">
-      <p>Төрийн Банк: <strong>MN030034 3432 7777 9999</strong></p>
+  <div class="bank-section"><p class="section-title">Дансны мэдээлэл</p>
+    <div class="bank-grid"><div>Дэлхий Трэвел Икс</div>
+      <div class="bank-line"><span>Төрийн Банк</span><span class="bank-prefix">MN030034</span><strong class="bank-account-number">3432 7777 9999</strong></div>
     </div>
   </div>
   <div class="signature-grid">
-    <div class="signature-card">
-      <div class="signature-label">Дэлхий Трэвел Икс ХХК</div>
-      <div class="signature-line"></div>
+    <div class="signature-card"><div class="signature-label">Дэлхий Трэвел Икс ХХК</div><div class="signature-line"></div>
       {f'<img class="accountant-stamp" src="{stamp_src}" alt="">' if stamp_src else ''}
       {f'<img class="accountant-signature" src="{sig_src}" alt="">' if sig_src else ''}
-      <div class="signature-name">{html.escape(L['accountant'])}</div>
-      <div class="signature-role">Г.Басгалаан</div>
+      <div class="signature-name">Нягтлан</div><div class="signature-role">Г.Басгалаан</div>
     </div>
-    <div class="signature-card">
-      <div class="signature-label">{html.escape(L['bill_to'])}</div>
-      <div class="signature-line"></div>
+    <div class="signature-card"><div class="signature-label">Төлөгч</div><div class="signature-line"></div>
       <div class="signature-name">{customer}</div>
     </div>
   </div>
