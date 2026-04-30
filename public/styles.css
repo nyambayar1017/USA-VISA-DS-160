@@ -2288,6 +2288,32 @@ td {
 }
 .inv-installment-balance.is-short { background: #fee2e2; color: #991b1b; }
 .inv-installment-balance.is-over  { background: #fef3c7; color: #92400e; }
+.inv-side-summary {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-top: 1px solid #e5e9f3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.88rem;
+}
+.inv-side-summary-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 3px 0;
+}
+.inv-side-summary-row strong { font-weight: 700; }
+.inv-side-summary-row.is-paid    { color: #14532d; }
+.inv-side-summary-row.is-unpaid  { color: #b45309; }
+.inv-side-summary-row.is-warning { color: #991b1b; }
+.inv-side-summary-row.is-info    { color: #92400e; }
+.inv-side-summary-row.is-total {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed #e5e9f3;
+  color: #20356f;
+  font-size: 1rem;
+}
+.inv-side-summary-row.is-total strong { font-size: 1.05rem; }
 .inv-side-register-icon {
   width: 16px; height: 16px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.25);
