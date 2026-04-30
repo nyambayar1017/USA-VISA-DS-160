@@ -1090,6 +1090,7 @@ function buildPaymentApproveModal() {
         <p class="status" data-approve-status></p>
         <button type="button" class="button-secondary" data-action="reject-approve">Reject</button>
         <button type="button" class="button-secondary" data-action="close-approve">Cancel</button>
+        <button type="button" class="button-secondary" data-action="approve-no-doc" title="Register the payment without uploading a receipt — useful when in a hurry; you can attach the receipt later.">Register without document</button>
         <button type="button" class="primary-pill" data-action="confirm-approve">Approve &amp; register</button>
       </footer>
     </div>
@@ -1099,6 +1100,7 @@ function buildPaymentApproveModal() {
     const a = e.target.closest("[data-action]")?.dataset?.action;
     if (a === "close-approve") closePaymentRequestApproveModal();
     if (a === "confirm-approve") submitPaymentApprove();
+    if (a === "approve-no-doc") submitPaymentApproveNoDoc();
     if (a === "reject-approve") submitPaymentReject();
   });
   return modal;
@@ -1137,11 +1139,16 @@ async function openPaymentRequestApproveModal(requestId) {
       <div><dt>Requested by</dt><dd>${escapeHtml((r.requestedBy && (r.requestedBy.name || r.requestedBy.email)) || "-")}</dd></div>
     </dl>
     ${canApprove ? `
-      <label class="payment-approve-file-label">
-        Receipt / proof <span class="inv-required" style="color:#c44747">*</span>
-        <input type="file" id="payment-approve-file" accept=".pdf,.png,.jpg,.jpeg,.gif" />
-        <small class="form-hint">PDF or image, max 10 MB. Auto-attached to the trip's "Paid documents".</small>
-      </label>
+      <div class="payment-approve-file-label">
+        Receipt / proof
+        <div class="payment-approve-drop" data-approve-drop>
+          <input type="file" id="payment-approve-file" accept=".pdf,.png,.jpg,.jpeg,.gif" hidden />
+          <p class="payment-approve-drop-msg" data-approve-drop-msg>
+            <strong>Drag the receipt here</strong> or <button type="button" class="link-btn" data-action="approve-pick-file">click to pick a file</button>.
+          </p>
+          <small class="form-hint">PDF or image, max 10 MB. Auto-attached to the trip's "Paid documents".</small>
+        </div>
+      </div>
       <label class="payment-approve-file-label" style="margin-top:14px;">
         Note (optional)
         <textarea id="payment-approve-note" rows="2" placeholder="e.g. Bank fee deducted, partial payment, etc."></textarea>
@@ -1153,8 +1160,72 @@ async function openPaymentRequestApproveModal(requestId) {
   // Hide approve / reject buttons for users who can't act on the request.
   const approveBtn = document.querySelector('#payment-approve-modal [data-action="confirm-approve"]');
   const rejectBtn = document.querySelector('#payment-approve-modal [data-action="reject-approve"]');
+  const skipBtn = document.querySelector('#payment-approve-modal [data-action="approve-no-doc"]');
   if (approveBtn) approveBtn.style.display = canApprove ? "" : "none";
   if (rejectBtn) rejectBtn.style.display = canApprove ? "" : "none";
+  if (skipBtn) skipBtn.style.display = canApprove ? "" : "none";
+
+  // Drag/drop + click-to-pick wiring (only when canApprove).
+  if (canApprove) wireApproveFileDropzone();
+}
+
+function wireApproveFileDropzone() {
+  const drop = document.querySelector("#payment-approve-modal [data-approve-drop]");
+  const input = document.querySelector("#payment-approve-modal #payment-approve-file");
+  const msg = document.querySelector("#payment-approve-modal [data-approve-drop-msg]");
+  if (!drop || !input || !msg) return;
+  const showFile = (file) => {
+    if (!file) return;
+    const dot = file.name.lastIndexOf(".");
+    const stem = dot >= 0 ? file.name.slice(0, dot) : file.name;
+    const ext  = dot >= 0 ? file.name.slice(dot) : "";
+    msg.innerHTML = `
+      <span class="payment-approve-file-row">
+        <span>📎</span>
+        <input type="text" class="payment-approve-file-name" data-approve-rename value="${escapeHtml(stem)}" />
+        <span class="muted">${escapeHtml(ext)}</span>
+        <button type="button" class="link-btn" data-action="approve-pick-file">change</button>
+      </span>
+      <small class="form-hint">Rename the file inline before approving — the new name is what saves to the trip's Paid documents.</small>
+    `;
+  };
+  drop.addEventListener("click", (e) => {
+    if (e.target.dataset?.action === "approve-pick-file") {
+      input.click();
+    }
+  });
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-drag"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("is-drag");
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    showFile(file);
+  });
+  input.addEventListener("change", () => showFile(input.files?.[0]));
+}
+
+// Read the user's renamed filename (if any) and return a File with
+// that name + the original extension. Browsers don't let you mutate
+// a File's name, so we wrap it in a fresh File using the same blob.
+function getApproveFileWithName(originalFile) {
+  if (!originalFile) return null;
+  const renameInput = document.querySelector("#payment-approve-modal [data-approve-rename]");
+  const newStem = (renameInput?.value || "").trim();
+  if (!newStem) return originalFile;
+  const dot = originalFile.name.lastIndexOf(".");
+  const ext = dot >= 0 ? originalFile.name.slice(dot) : "";
+  const finalName = newStem.endsWith(ext) ? newStem : newStem + ext;
+  if (finalName === originalFile.name) return originalFile;
+  try {
+    return new File([originalFile], finalName, { type: originalFile.type });
+  } catch {
+    return originalFile;
+  }
 }
 
 function closePaymentRequestApproveModal() {
@@ -1174,16 +1245,17 @@ async function submitPaymentApprove() {
   const status = modal.querySelector("[data-approve-status]");
   const fileInput = modal.querySelector("#payment-approve-file");
   const noteInput = modal.querySelector("#payment-approve-note");
-  const file = fileInput?.files?.[0];
-  if (!file) {
-    status.textContent = "Pick the receipt file first.";
+  const rawFile = fileInput?.files?.[0];
+  if (!rawFile) {
+    status.textContent = "Pick the receipt file first, or use Register without document.";
     status.style.color = "#c44747";
     return;
   }
+  const file = getApproveFileWithName(rawFile);
   status.style.color = "";
   status.textContent = "Uploading and registering payment…";
   const fd = new FormData();
-  fd.append("file", file);
+  fd.append("file", file, file.name);
   fd.append("paidAmount", String(approveCurrentRequest.paidAmount || ""));
   fd.append("paidDate", approveCurrentRequest.paidDate || "");
   fd.append("bankAccountId", approveCurrentRequest.bankAccountId || "");
@@ -1204,6 +1276,39 @@ async function submitPaymentApprove() {
   } catch (err) {
     status.textContent = err.message || "Approve failed";
     status.style.color = "#c44747";
+  }
+}
+
+async function submitPaymentApproveNoDoc() {
+  if (!approveCurrentRequest) return;
+  const ok = window.UI?.confirm
+    ? await window.UI.confirm("Register this payment without a receipt? You can attach the document later from the Accountant page.", { dangerous: false, confirmLabel: "Register without document" })
+    : window.confirm("Register this payment without a receipt?");
+  if (!ok) return;
+  const modal = document.getElementById("payment-approve-modal");
+  const status = modal?.querySelector("[data-approve-status]");
+  const noteInput = modal?.querySelector("#payment-approve-note");
+  if (status) { status.style.color = ""; status.textContent = "Registering payment…"; }
+  try {
+    const r = await fetch(`/api/payment-requests/${encodeURIComponent(approveCurrentRequest.id)}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        skipDocument: true,
+        paidAmount: approveCurrentRequest.paidAmount || 0,
+        paidDate: approveCurrentRequest.paidDate || "",
+        bankAccountId: approveCurrentRequest.bankAccountId || "",
+        note: noteInput?.value || "",
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Could not register");
+    closePaymentRequestApproveModal();
+    window.UI?.toast?.("Payment registered. Receipt can be uploaded later.", "ok");
+    fetchPaymentRequests();
+    window.dispatchEvent(new CustomEvent("payment-request:resolved", { detail: { id: approveCurrentRequest?.id, action: "approved" } }));
+  } catch (err) {
+    if (status) { status.textContent = err.message || "Could not register"; status.style.color = "#c44747"; }
   }
 }
 

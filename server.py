@@ -9165,8 +9165,12 @@ def handle_approve_payment_request(environ, start_response, request_id):
             # Store the office-doc metadata on the request so the
             # Accountant page can render a link without a trip lookup.
             target["paidDocumentMeta"] = attached
-    if not paid_document_id:
-        return json_response(start_response, "400 Bad Request", {"error": "Upload the paid receipt before approving."})
+    # Skip-document path: accountant in a hurry, can attach the
+    # receipt later via the Accountant page. Approval still flips the
+    # invoice to paid and writes the audit trail.
+    skip_document = bool(payload.get("skipDocument") in (True, "true", "1", 1))
+    if not paid_document_id and not skip_document:
+        return json_response(start_response, "400 Bad Request", {"error": "Upload the paid receipt before approving, or use Register without document."})
 
     if not is_outgoing:
         ok, err = _apply_payment_to_invoice(invoice, target, actor, paid_amount, paid_date, bank_account_id, note)

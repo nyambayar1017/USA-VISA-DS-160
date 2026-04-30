@@ -2266,10 +2266,11 @@ td {
 }
 .inv-installment-note {
   margin: 4px 0 8px 28px;
-  padding: 6px 10px; border-radius: 6px;
-  background: #fef3c7; color: #78350f;
+  padding: 6px 0;
+  color: #475569;
   font-size: 12px; line-height: 1.4;
   display: inline-block;
+  border-top: 1px dashed transparent;
 }
 .inv-pay-balance {
   font-weight: 600;
@@ -17776,6 +17777,47 @@ body.lightbox-open { overflow: hidden; }
   display: block;
   margin: 6px 0 4px;
   font: inherit;
+}
+.payment-approve-drop {
+  margin-top: 6px;
+  padding: 22px 16px;
+  border: 2px dashed #c5d1e7;
+  border-radius: 12px;
+  background: #fafbff;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.payment-approve-drop.is-drag {
+  background: #eef2ff;
+  border-color: #7385c2;
+}
+.payment-approve-drop-msg {
+  margin: 0 0 6px;
+  color: #475569;
+  font-size: 14px;
+}
+.payment-approve-drop-msg .link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #253a77;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.payment-approve-file-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+.payment-approve-file-name {
+  padding: 4px 8px;
+  border: 1px solid #d0d7e8;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  min-width: 200px;
 }
 .payment-approve-dialog footer {
   display: flex;
