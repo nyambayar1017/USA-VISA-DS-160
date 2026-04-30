@@ -9020,13 +9020,19 @@ def scan_task_reminders():
             and delta > timedelta(seconds=0)
             and delta <= horizon
         ):
+            # Real hours remaining at send time, rounded to whole hours
+            # (1-6). The user's reference text says "6 цаг үлдлээ" but the
+            # number should match reality so the manager isn't confused
+            # if the cron fires slightly later.
+            hours_left = max(1, int(round(delta.total_seconds() / 3600)))
             for owner_name in owner_names or [""]:
                 user = _find_user_by_name(owner_name) if owner_name else None
                 owner_email = normalize_text(user.get("email")) if user else ""
                 body_html = (
                     f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
-                    f"<p>Танд <strong>{html.escape(title)}</strong> гэсэн ажил <strong>{html.escape(due_label)}</strong>-д дуусах хугацаатай байна. "
-                    "Энэ цагаас өмнө гүйцэтгэхээ мартахгүй байгаарай.</p>"
+                    f"<p>Таны <strong>{html.escape(title)}</strong> ажлын хугацаа дуусахад <strong>{hours_left} цаг</strong> үлдлээ.</p>"
+                    f"<p>Дуусах хугацаа: <strong>{html.escape(due_label)}</strong></p>"
+                    "<p>Та цагтаа ажлаа дуусгахаа бүү мартаарай.</p>"
                     f"{note_html}"
                 )
                 if owner_email:
@@ -9066,9 +9072,8 @@ def scan_task_reminders():
                 owner_email = normalize_text(user.get("email")) if user else ""
                 body_html = (
                     f"<p>Сайн байна уу{', ' + html.escape(owner_name) if owner_name else ''}.</p>"
-                    f"<p><strong>{html.escape(title)}</strong> ажлын дуусах хугацаа "
-                    f"<strong>{html.escape(due_label)}</strong>-аар хэтэрсэн байна. "
-                    "Аль болох хурдан гүйцэтгэж, төлөвийг 'Done' болгоно уу.</p>"
+                    f"<p>Таны <strong>{html.escape(title)}</strong> ажлын дуусах хугацаа хэтэрсэн байна. "
+                    "Аль болох түргэн гүйцэтгэж дуусгана уу.</p>"
                     f"{note_html}"
                 )
                 if owner_email:
