@@ -563,28 +563,36 @@
     }
     registeringIdx = idx;
     const allBanks = await loadBankAccounts();
-    // Filter by the trip's company AND the invoice currency. DTX trips
-    // only see DTX + shared accounts; USM trips only see USM + shared.
-    // The currency filter narrows further: a USD invoice should only
-    // surface USD bank accounts so the manager can't accidentally pick
-    // an MNT account that the customer is not paying into.
-    const tripCompany = (trip?.company || "").toUpperCase();
+    // Resolve the trip's company strictly: prefer trip.company, but fall
+    // back to the trip-serial prefix (T- = DTX, S- = USM) since the client
+    // may not have company hydrated even though the serial encodes it.
+    function companyFromSerial(serial) {
+      const s = String(serial || "");
+      if (s.startsWith("T-")) return "DTX";
+      if (s.startsWith("S-")) return "USM";
+      return "";
+    }
+    const tripCompany = (
+      trip?.company
+      || companyFromSerial(trip?.serial)
+      || companyFromSerial(sidePanelInvoice.serial)
+    ).toUpperCase();
     const invCurrency = (sidePanelInvoice.currency || "").toUpperCase();
+    // Strict company match: an untagged ("") bank doesn't pass the filter
+    // any more — the user explicitly wants only the matching company's
+    // accounts to appear. Untagged banks should be tagged in Settings.
     const matchesCompany = (b) => {
       const c = (b.company || "").toUpperCase();
-      if (!c) return true; // shared
-      if (!tripCompany) return true; // unknown company → show all
+      if (!tripCompany) return true; // truly unknown trip company → show all
       return c === tripCompany;
     };
     const matchesCurrency = (b) => {
       const bc = (b.currency || "").toUpperCase();
-      return !invCurrency || !bc || bc === invCurrency;
+      return !invCurrency || bc === invCurrency;
     };
     let banks = allBanks.filter((b) => matchesCompany(b) && matchesCurrency(b));
-    // If the strict filter (company + currency) leaves nothing but there
-    // ARE company-matched banks, fall back to the company-only set so the
-    // user isn't stuck — they can still pick an account and we hint about
-    // the currency mismatch in the help text below.
+    // Fallback: if the strict company+currency filter is empty but the
+    // company has accounts in other currencies, show those with a hint.
     let fallbackUsed = false;
     if (!banks.length) {
       const companyOnly = allBanks.filter(matchesCompany);
