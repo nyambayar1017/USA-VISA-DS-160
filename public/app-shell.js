@@ -575,9 +575,11 @@ function renderMailUnreadList() {
               data-uid="${escapeHtml(String(m.uid))}"
               title="Mark as read">Read</button>
             <button type="button" class="mail-pop-action mail-pop-action--dismiss"
-              data-mail-action="dismiss"
+              data-mail-action="delete"
               data-key="${escapeHtml(key)}"
-              title="Remove from this notification (keeps the email)">Delete</button>
+              data-account="${escapeHtml(m.accountId)}"
+              data-uid="${escapeHtml(String(m.uid))}"
+              title="Move this email to trash">Delete</button>
           </div>
         </div>
       `;
@@ -591,15 +593,29 @@ async function handleMailItemAction(event) {
   event.preventDefault();
   event.stopPropagation();
   const action = btn.dataset.mailAction;
-  if (action === "dismiss") {
+  if (action === "delete") {
     const key = btn.dataset.key;
-    const dismissed = readDismissedMail();
-    dismissed.add(key);
-    writeDismissedMail(dismissed);
-    // Drop from cache so the unread badge updates too.
-    mailUnreadCache = mailUnreadCache.filter((m) => mailKey(m) !== key);
-    updateMailCount(mailUnreadCache.length);
-    renderMailUnreadList();
+    const accountId = btn.dataset.account;
+    const uid = btn.dataset.uid;
+    btn.disabled = true;
+    try {
+      const res = await fetch(
+        `/api/mail/messages/${encodeURIComponent(accountId)}/${encodeURIComponent(uid)}?folder=inbox`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error("delete failed");
+      // Also remember the dismissal locally so a stale poll doesn't pop
+      // it back into the dropdown before the next refresh.
+      const dismissed = readDismissedMail();
+      dismissed.add(key);
+      writeDismissedMail(dismissed);
+      mailUnreadCache = mailUnreadCache.filter((m) => mailKey(m) !== key);
+      updateMailCount(mailUnreadCache.length);
+      renderMailUnreadList();
+    } catch (_) {
+      btn.disabled = false;
+      window.UI?.toast?.("Could not delete email.", "error");
+    }
     return;
   }
   if (action === "read") {
