@@ -6138,9 +6138,10 @@ def build_standalone_invoice_html_usm(invoice):
       /* Signature block — same proven layout the DTX template uses, just
          with usm-stamp.png. The label gets pushed up by margin-bottom,
          the line sits below it, and the stamp + handwritten signature
-         are positioned absolute over both. */
+         are positioned absolute over both. Extra margin-top so the
+         stamp doesn't bleed into the SUGGESTION block above. */
       .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
-        margin-top: 24px; align-items: start; }
+        margin-top: 60px; align-items: start; }
       .signature-card { position: relative; min-height: 218px; padding-top: 0; }
       .signature-label { position: relative; z-index: 3; min-height: 18px;
         margin-bottom: 112px; color: #64748b; font-size: 13px;
@@ -9108,6 +9109,14 @@ def scan_task_reminders():
             f"<strong>Note:</strong><br>{html.escape(note_raw).replace(chr(10), '<br>')}"
             f"</div>"
         ) if note_raw else ""
+        # Reference image, embedded inline as base64 so it shows in the
+        # email without needing the recipient to be logged in to fetch it.
+        image_data_url = _task_image_data_url(task.get("id"))
+        image_html = (
+            f"<div style=\"margin-top:14px;\">"
+            f"<img src=\"{image_data_url}\" alt=\"\" style=\"max-width:520px;width:100%;height:auto;border-radius:8px;border:1px solid #e5e7eb;\" />"
+            f"</div>"
+        ) if image_data_url else ""
 
         # Stage 1: 6 hours before due — "approaching" reminder.
         if (
@@ -9129,6 +9138,7 @@ def scan_task_reminders():
                     f"<p>Дуусах хугацаа: <strong>{html.escape(due_label)}</strong></p>"
                     "<p>Та цагтаа ажлаа дуусгахаа бүү мартаарай.</p>"
                     f"{note_html}"
+                    f"{image_html}"
                 )
                 if owner_email:
                     try:
@@ -9170,6 +9180,7 @@ def scan_task_reminders():
                     f"<p>Таны <strong>{html.escape(title)}</strong> ажлын дуусах хугацаа хэтэрсэн байна. "
                     "Аль болох түргэн гүйцэтгэж дуусгана уу.</p>"
                     f"{note_html}"
+                    f"{image_html}"
                 )
                 if owner_email:
                     try:
@@ -9994,6 +10005,10 @@ def handle_manager_item_delete(environ, start_response, key, item_id):
     if len(store[key]) == before:
         return json_response(start_response, "404 Not Found", {"error": "Record not found"})
     write_manager_dashboard(store)
+    # Cascade: a deleted task drops its reference image too. The user
+    # explicitly wanted these throwaway, so don't keep orphan files.
+    if key == "tasks":
+        _delete_task_image(item_id)
     return json_response(
         start_response,
         "200 OK",
@@ -17508,7 +17523,20 @@ def _dispatch(environ, start_response):
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/manager-dashboard/tasks/"):
-        item_id = path.replace("/api/manager-dashboard/tasks/", "", 1).strip("/")
+        rest = path.replace("/api/manager-dashboard/tasks/", "", 1).strip("/")
+        # /tasks/<id>/image — single throwaway reference image per task.
+        if rest.endswith("/image"):
+            item_id = rest[:-len("/image")].strip("/")
+            if not item_id:
+                return json_response(start_response, "400 Bad Request", {"error": "id required"})
+            if method == "POST":
+                return handle_task_image_upload(environ, start_response, item_id)
+            if method == "GET":
+                return handle_task_image_serve(environ, start_response, item_id)
+            if method == "DELETE":
+                return handle_task_image_delete(environ, start_response, item_id)
+            return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+        item_id = rest
         if method == "POST" and item_id:
             return handle_manager_item_update(environ, start_response, "tasks", item_id, build_manager_task, validate_manager_task, "task")
         if method == "DELETE" and item_id:

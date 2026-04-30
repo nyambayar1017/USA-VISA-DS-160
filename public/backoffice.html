@@ -116,6 +116,15 @@
                 Note
                 <textarea name="note" rows="2"></textarea>
               </label>
+              <label class="full-span">
+                Reference image (optional)
+                <input id="task-image-input" name="image" type="file" accept="image/*" />
+                <small class="task-image-hint">Attached to this task only — appears on the card and in the reminder email. Removed when the task is deleted.</small>
+                <div id="task-image-preview" class="task-image-preview" hidden>
+                  <img id="task-image-preview-img" alt="" />
+                  <button id="task-image-remove" type="button" class="button-secondary">Remove image</button>
+                </div>
+              </label>
               <div class="actions">
                 <button id="task-submit-button" type="submit">Add task</button>
                 <button id="task-cancel-button" type="button" class="button-secondary">Cancel</button>

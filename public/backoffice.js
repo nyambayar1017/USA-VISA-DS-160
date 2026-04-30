@@ -59,6 +59,8 @@ const state = {
   editingTaskId: "",
   editingContactId: "",
   activeStatus: "all",
+  taskImageDirty: false,   // a new file has been picked but not yet uploaded
+  taskImageRemoved: false, // user clicked "Remove image" while editing
 };
 
 // Tasks used to store a single `owner` string. Newer ones use `owners` (list).
@@ -224,10 +226,44 @@ function resetTaskForm() {
   taskForm.reset();
   taskForm.elements.id.value = "";
   state.editingTaskId = "";
+  state.taskImageDirty = false;
+  state.taskImageRemoved = false;
   setTaskManagerSelection([]);
+  hideTaskImagePreview();
   taskSubmitButton.textContent = "Add task";
   clearStatus(taskStatusNode);
 }
+
+const taskImageInput = document.getElementById("task-image-input");
+const taskImagePreview = document.getElementById("task-image-preview");
+const taskImagePreviewImg = document.getElementById("task-image-preview-img");
+const taskImageRemoveBtn = document.getElementById("task-image-remove");
+
+function showTaskImagePreview(src) {
+  if (!taskImagePreview || !taskImagePreviewImg) return;
+  taskImagePreviewImg.src = src;
+  taskImagePreview.hidden = false;
+}
+function hideTaskImagePreview() {
+  if (!taskImagePreview || !taskImagePreviewImg) return;
+  taskImagePreviewImg.removeAttribute("src");
+  taskImagePreview.hidden = true;
+  if (taskImageInput) taskImageInput.value = "";
+}
+taskImageInput?.addEventListener("change", () => {
+  const file = taskImageInput.files?.[0];
+  if (!file) return;
+  state.taskImageDirty = true;
+  state.taskImageRemoved = false;
+  const reader = new FileReader();
+  reader.onload = () => showTaskImagePreview(reader.result);
+  reader.readAsDataURL(file);
+});
+taskImageRemoveBtn?.addEventListener("click", () => {
+  hideTaskImagePreview();
+  state.taskImageDirty = false;
+  state.taskImageRemoved = true;
+});
 
 function resetContactForm() {
   contactForm.reset();
@@ -269,6 +305,8 @@ function startTaskEdit(taskId) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
   state.editingTaskId = taskId;
+  state.taskImageDirty = false;
+  state.taskImageRemoved = false;
   taskForm.elements.id.value = task.id;
   taskForm.elements.title.value = task.title || "";
   setTaskManagerSelection(taskOwnerList(task));
@@ -277,6 +315,13 @@ function startTaskEdit(taskId) {
   taskForm.elements.dueDate.value = task.dueDate || "";
   taskForm.elements.dueTime.value = task.dueTime || "";
   taskForm.elements.note.value = task.note || "";
+  // Show the existing reference image if any. Cache-bust so the user
+  // sees their last upload after replacing.
+  if (task.imageExt) {
+    showTaskImagePreview(`/api/manager-dashboard/tasks/${task.id}/image?ts=${Date.now()}`);
+  } else {
+    hideTaskImagePreview();
+  }
   taskSubmitButton.textContent = "Update task";
   setStatus(taskStatusNode, "Editing task.");
   openPanel(taskFormPanel);
@@ -397,10 +442,15 @@ function renderTaskRow(task, idx) {
     ? owners.map((o) => `<span class="todo-owner-chip">${escapeHtml(o)}</span>`).join(" ")
     : "—";
   const createdLabel = task.createdAt ? formatDate(task.createdAt) : "—";
+  const imgThumb = task.imageExt
+    ? `<a class="todo-img-thumb" href="/api/manager-dashboard/tasks/${escapeHtml(task.id)}/image" target="_blank" rel="noreferrer" title="Open reference image">
+         <img src="/api/manager-dashboard/tasks/${escapeHtml(task.id)}/image" alt="" />
+       </a>`
+    : "";
   return `
     <tr class="todo-tr todo-tr--task">
       <td>${idx + 1}</td>
-      <td class="todo-cell-title"><strong>${escapeHtml(task.title)}</strong></td>
+      <td class="todo-cell-title"><strong>${escapeHtml(task.title)}</strong>${imgThumb}</td>
       <td class="todo-cell-assigner">${escapeHtml(task.createdBy?.name || task.createdBy?.email || "—")}</td>
       <td class="todo-cell-owner">${ownerCell}</td>
       <td><span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span></td>
@@ -579,12 +629,31 @@ taskForm.addEventListener("submit", async (event) => {
   const payload = Object.fromEntries(formData.entries());
   payload.owners = owners;
   delete payload.owner;
+  // The reference image goes via a separate multipart endpoint after the
+  // task itself is saved — drop it from the JSON payload (FormData turns
+  // an empty file input into "" anyway, which would clobber imageExt).
+  delete payload.image;
   try {
-    await fetchJson(url, {
+    const result = await fetchJson(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    const savedId = taskId || result?.task?.id;
+    // Image follow-ups: upload a new file, or delete if user clicked Remove.
+    if (savedId) {
+      const file = taskImageInput?.files?.[0];
+      if (file && state.taskImageDirty) {
+        const fd = new FormData();
+        fd.append("file", file);
+        await fetch(`/api/manager-dashboard/tasks/${savedId}/image`, {
+          method: "POST",
+          body: fd,
+        });
+      } else if (state.taskImageRemoved) {
+        await fetch(`/api/manager-dashboard/tasks/${savedId}/image`, { method: "DELETE" });
+      }
+    }
     resetTaskForm();
     setStatus(taskStatusNode, "Saved.");
     await loadDashboard();
