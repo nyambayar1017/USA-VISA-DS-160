@@ -98,6 +98,8 @@ function renderUsers(users) {
             <button type="button" data-status="approved" data-id="${user.id}">Approve</button>
             <button type="button" data-status="rejected" data-id="${user.id}">Reject</button>
             <button type="button" data-role="admin" data-id="${user.id}">Make Admin</button>
+            <button type="button" data-role="accountant" data-id="${user.id}">Make Accountant</button>
+            <button type="button" data-role="staff" data-id="${user.id}">Make Manager</button>
             <button type="button" data-reset-password="true" data-id="${user.id}">Set Password</button>
             <button type="button" data-delete-user="true" data-id="${user.id}">Delete</button>
           </div>
