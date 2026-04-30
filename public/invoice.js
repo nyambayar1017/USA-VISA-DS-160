@@ -537,11 +537,8 @@
     const installments = inv.installments || [];
     if (!installments.length) return "";
     const ccy = inv.currency;
-    const totalInvoice = installments.reduce((a, x) => a + (Number(x.amount) || 0), 0);
     let totalPaid = 0;
     let totalUnpaid = 0;
-    let totalOwed = 0;
-    let totalOver = 0;
     installments.forEach((ins) => {
       const expected = Number(ins.amount) || 0;
       const status = (ins.status || "pending").toLowerCase();
@@ -550,38 +547,16 @@
         const paid = ins.paidAmount != null ? Number(ins.paidAmount) : expected;
         totalPaid += paid;
         const diff = expected - paid;
-        if (diff > 0.01) {
-          totalOwed += diff;
-          totalUnpaid += diff;
-        } else if (diff < -0.01) {
-          totalOver += -diff;
-        }
+        if (diff > 0.01) totalUnpaid += diff; // short-paid balance is still owed
       } else if (status !== "cancelled") {
         totalUnpaid += expected;
       }
     });
-    const owedRow = totalOwed > 0.01
-      ? `<div class="inv-side-summary-row is-warning"><span>Owed (short paid)</span><strong>${escapeHtml(fmtMoney(totalOwed, ccy))}</strong></div>`
-      : "";
-    const overRow = totalOver > 0.01
-      ? `<div class="inv-side-summary-row is-info"><span>Overpaid</span><strong>${escapeHtml(fmtMoney(totalOver, ccy))}</strong></div>`
-      : "";
     return `
       <div class="inv-side-summary">
-        <div class="inv-side-summary-row is-paid">
-          <span>Total paid</span>
-          <strong>${escapeHtml(fmtMoney(totalPaid, ccy))}</strong>
-        </div>
-        <div class="inv-side-summary-row is-unpaid">
-          <span>Total unpaid</span>
-          <strong>${escapeHtml(fmtMoney(totalUnpaid, ccy))}</strong>
-        </div>
-        ${owedRow}
-        ${overRow}
-        <div class="inv-side-summary-row is-total">
-          <span>Invoice total</span>
-          <strong>${escapeHtml(fmtMoney(totalInvoice, ccy))}</strong>
-        </div>
+        <span class="inv-side-summary-paid">Total paid: <strong>${escapeHtml(fmtMoney(totalPaid, ccy))}</strong></span>
+        <span class="inv-side-summary-sep">·</span>
+        <span class="inv-side-summary-balance${totalUnpaid > 0.01 ? " is-due" : ""}">Balance: <strong>${escapeHtml(fmtMoney(totalUnpaid, ccy))}</strong></span>
       </div>
     `;
   }
