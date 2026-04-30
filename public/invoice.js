@@ -234,6 +234,9 @@
       const installmentRows = (inv.installments || []).map((ins) => {
         const status = (ins.status || "pending").toLowerCase();
         const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+        const noteLine = ins.note
+          ? `<div class="inv-installment-note">📝 ${escapeHtml(ins.note)}</div>`
+          : "";
         return `
           <div class="inv-installment-line">
             <span class="inv-inst-desc">${escapeHtml(ins.description || "-")}</span>
@@ -241,6 +244,7 @@
             <span class="inv-inst-status"><span class="payment-status payment-status-${status}">${statusLabel}</span></span>
             <span class="inv-inst-due">${escapeHtml(fmtDateShort(ins.dueDate))}</span>
           </div>
+          ${noteLine}
         `;
       }).join("") || '<div class="inv-installment-line"><span class="inv-inst-desc muted">No installments</span></div>';
       return `
@@ -403,6 +407,29 @@
       const status = (ins.status || "pending").toLowerCase();
       const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
       const isPaid = status === "paid" || status === "confirmed";
+      const userIsAdmin = (window.currentUser?.role || "") === "admin";
+      const bank = ins.bankAccount || {};
+      const bankLabel = bank.label || (bank.bankName ? `${bank.bankName} · ${bank.accountNumber || ""}` : "");
+      const paidDetails = isPaid ? `
+        <div class="inv-side-paid-meta">
+          ${ins.paidDate ? `<span><strong>Paid:</strong> ${escapeHtml(fmtDateOnly(ins.paidDate))}</span>` : ""}
+          ${bankLabel ? `<span><strong>Bank:</strong> ${escapeHtml(bankLabel)}</span>` : ""}
+          ${ins.paidBy?.name ? `<span><strong>By:</strong> ${escapeHtml(ins.paidBy.name)}</span>` : ""}
+        </div>
+      ` : "";
+      const noteRow = ins.note ? `
+        <div class="inv-side-inst-note">
+          <span class="inv-side-inst-note-label">Note</span>
+          <span>${escapeHtml(ins.note)}</span>
+        </div>
+      ` : "";
+      const action = isPaid
+        ? (userIsAdmin
+            ? `<button type="button" class="inv-side-register is-edit" data-inv-action="register-payment" data-idx="${idx}" title="Edit registered payment (admin)">✎ Edit payment</button>`
+            : `<span class="inv-side-paid-locked" title="Paid — ask an admin to edit">🔒 Locked</span>`)
+        : `<button type="button" class="inv-side-register" data-inv-action="register-payment" data-idx="${idx}">
+            <span class="inv-side-register-icon">+</span> Register payment
+          </button>`;
       return `
         <div class="inv-side-installment">
           <div class="inv-side-inst-grid">
@@ -420,10 +447,10 @@
               <div><span class="payment-status payment-status-${status}">${statusLabel}</span></div>
             </div>
             <div class="inv-side-inst-amount">${fmtMoney(ins.amount, inv.currency)}</div>
-            ${isPaid ? "" : `<button type="button" class="inv-side-register" data-inv-action="register-payment" data-idx="${idx}">
-              <span class="inv-side-register-icon">+</span> Register payment
-            </button>`}
+            ${action}
           </div>
+          ${paidDetails}
+          ${noteRow}
         </div>
       `;
     }).join("") || '<p class="empty">No installments yet.</p>';
@@ -505,27 +532,96 @@
       await loadAll();
     } catch (err) { alert(err.message || "Delete failed"); }
   }
-  async function registerPayment(idx) {
+  // Cache of bank accounts loaded once per session.
+  let bankAccountsCache = null;
+  async function loadBankAccounts() {
+    if (bankAccountsCache) return bankAccountsCache;
+    try {
+      const res = await fetch("/api/settings");
+      const data = await res.json();
+      bankAccountsCache = Array.isArray(data?.bankAccounts) ? data.bankAccounts : [];
+    } catch {
+      bankAccountsCache = [];
+    }
+    return bankAccountsCache;
+  }
+  function isAdmin() {
+    return (window.currentUser?.role || "") === "admin";
+  }
+  let registeringIdx = -1; // installment index currently being registered/edited
+  async function openRegisterPaymentModal(idx) {
     if (!sidePanelInvoice) return;
-    const dt = await UI.prompt("Paid date (YYYY-MM-DD):", { defaultValue: new Date().toISOString().slice(0, 10) });
-    if (!dt) return;
-    // Optional free-text note so the manager can record context ("paid only
-    // for his father, not his mother", etc). User cancellation / empty
-    // string both leave the note unset.
-    const note = await UI.prompt("Note (optional — context for this payment):", { defaultValue: "" });
-    const body = { installmentIndex: idx, status: "paid", paidDate: dt };
-    if (note != null) body.note = note;
+    const inst = sidePanelInvoice.installments?.[idx];
+    if (!inst) return;
+    const status = (inst.status || "pending").toLowerCase();
+    const isPaid = status === "paid" || status === "confirmed";
+    if (isPaid && !isAdmin()) {
+      alert("This payment is already registered. Ask an admin to edit it.");
+      return;
+    }
+    registeringIdx = idx;
+    const banks = await loadBankAccounts();
+    openEditModal(
+      "register-payment",
+      isPaid ? "Edit registered payment" : "Register payment",
+      isPaid
+        ? "Admins can correct a registered payment. The change is logged."
+        : `Record a payment for ${inst.description || "this installment"}.`,
+    );
+    const body = document.getElementById("inv-edit-body");
+    const bankOpts = banks.map((b) => {
+      const sel = (inst.bankAccountId || "") === b.id ? "selected" : "";
+      const label = b.label || `${b.bankName || ""} · ${b.accountNumber || ""}`;
+      return `<option value="${escapeHtml(b.id)}" ${sel}>${escapeHtml(label)}</option>`;
+    }).join("");
+    body.innerHTML = `
+      <label class="inv-edit-field">
+        <span>Paid date <span class="inv-required">*</span></span>
+        <input id="inv-pay-date" type="date" value="${escapeHtml(inst.paidDate || new Date().toISOString().slice(0, 10))}" />
+      </label>
+      <label class="inv-edit-field">
+        <span>Received bank account <span class="inv-required">*</span></span>
+        <select id="inv-pay-bank">
+          <option value="">— Pick the bank that received the payment —</option>
+          ${bankOpts}
+        </select>
+        ${banks.length ? "" : '<small class="form-hint">No bank accounts configured. Add them in Settings → Bank accounts.</small>'}
+      </label>
+      <label class="inv-edit-field">
+        <span>Note (context, partial-payment notes, etc.)</span>
+        <textarea id="inv-pay-note" rows="3" placeholder="e.g. Paid only for his father, not his mother">${escapeHtml(inst.note || "")}</textarea>
+      </label>
+    `;
+  }
+  async function submitRegisterPayment() {
+    if (!sidePanelInvoice || registeringIdx < 0) return;
+    const body = document.getElementById("inv-edit-body");
+    const dt = body.querySelector("#inv-pay-date")?.value || "";
+    const bankId = body.querySelector("#inv-pay-bank")?.value || "";
+    const note = body.querySelector("#inv-pay-note")?.value || "";
+    if (!dt) return alert("Paid date is required.");
+    if (!bankId) return alert("Pick the bank account that received the payment.");
     try {
       await fetchJson(`/api/invoices/${sidePanelInvoice.id}/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          installmentIndex: registeringIdx,
+          status: "paid",
+          paidDate: dt,
+          bankAccountId: bankId,
+          note,
+        }),
       });
+      registeringIdx = -1;
+      closeEditModal();
       await loadAll();
       const updated = invoices.find((x) => x.id === sidePanelInvoice.id);
       if (updated) openSidePanel(updated);
     } catch (err) { alert(err.message || "Payment failed"); }
   }
+  // Legacy entrypoint kept for the per-row click handler in openSidePanel().
+  async function registerPayment(idx) { await openRegisterPaymentModal(idx); }
 
   // ── Edit modals (#70 #71 #72) ──
   function ensureEditModal() {
@@ -819,6 +915,10 @@
 
   async function saveEditModal() {
     if (!sidePanelInvoice) return;
+    if (editKind === "register-payment") {
+      await submitRegisterPayment();
+      return;
+    }
     const body = document.getElementById("inv-edit-body");
     const payload = {};
     if (editKind === "payer") {

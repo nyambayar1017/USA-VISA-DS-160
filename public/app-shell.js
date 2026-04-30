@@ -1415,6 +1415,9 @@ async function loadProfile() {
     if (!response.ok || !data.user) {
       throw new Error();
     }
+    // Expose for pages that need to check role (e.g. invoice edit-paid
+    // permissions). Read-only — page code must not mutate.
+    window.currentUser = data.user;
     renderProfile(data.user);
     renderSidebar(data.user);
     fetchNotifications();

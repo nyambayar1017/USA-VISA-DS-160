@@ -8046,6 +8046,8 @@ def handle_invoice_payment(environ, start_response, invoice_id):
     new_status = normalize_text(payload.get("status")) or "paid"
     paid_date = normalize_text(payload.get("paidDate"))
     note = normalize_text(payload.get("note"))
+    bank_account_id = normalize_text(payload.get("bankAccountId"))
+    is_admin = (actor or {}).get("role") == "admin"
     records = read_invoices()
     for index, record in enumerate(records):
         if record.get("id") != invoice_id:
@@ -8053,13 +8055,38 @@ def handle_invoice_payment(environ, start_response, invoice_id):
         installments = record.get("installments") or []
         if inst_index < 0 or inst_index >= len(installments):
             return json_response(start_response, "400 Bad Request", {"error": "installment out of range"})
-        installments[inst_index]["status"] = new_status
+        target = installments[inst_index]
+        # Lock once paid: only admins can edit a registered payment.
+        # Non-admins clicking "Register payment" on something already paid
+        # is a UI bug (the button hides when paid), so reject loudly.
+        was_paid = (target.get("status") or "").lower() in ("paid", "confirmed")
+        if was_paid and not is_admin:
+            return json_response(
+                start_response,
+                "403 Forbidden",
+                {"error": "This payment is already registered. Ask an admin to edit it."},
+            )
+        target["status"] = new_status
         if paid_date:
-            installments[inst_index]["paidDate"] = paid_date
-        # Free-text per-installment note: lets the manager record context
-        # like "Only paid for his father, not his mother".
+            target["paidDate"] = paid_date
         if "note" in payload:
-            installments[inst_index]["note"] = note
+            target["note"] = note
+        if "bankAccountId" in payload:
+            target["bankAccountId"] = bank_account_id
+            # Snapshot the bank info at time of payment so the record stays
+            # correct even if the bank account is renamed/deleted later.
+            bank_snapshot = None
+            if bank_account_id:
+                for b in read_settings().get("bankAccounts") or []:
+                    if b.get("id") == bank_account_id:
+                        bank_snapshot = b
+                        break
+            target["bankAccount"] = bank_snapshot or payload.get("bankAccount") or {}
+        # Track who registered/edited and when, so the audit trail makes the
+        # admin-edit policy meaningful.
+        target["paidBy"] = actor_snapshot(actor)
+        target["paidAt"] = now_mongolia().isoformat()
+        installments[inst_index] = target
         record["installments"] = installments
         record["updatedAt"] = now_mongolia().isoformat()
         record["updatedBy"] = actor_snapshot(actor)
