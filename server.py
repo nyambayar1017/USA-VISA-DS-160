@@ -6000,11 +6000,57 @@ _USM_LABELS = {
         "company_label":      "Unlock Steppe Mongolia LLC",
         "accountant":         "Comptable",
     },
+    "mn": {
+        "title":              "Нэхэмжлэх",
+        "bill_to":            "Төлөгч",
+        "billing_address":    "Хаяг",
+        "price_detail":       "Үнийн мэдээлэл",
+        "col_n":              "№",
+        "col_description":    "Утга",
+        "col_amount":         "Тоо ширхэг",
+        "col_unit_price":     "Нэгжийн үнэ",
+        "col_total":          "Нийт",
+        "row_total":          "Нийт",
+        "installments":       "Төлбөрийн хуваарь",
+        "issue_date":         "Нэхэмжилсэн огноо",
+        "due_date":           "Эцсийн хугацаа",
+        "status":             "Төлөв",
+        "ben_name_addr":      "ХҮЛЭЭН АВАГЧИЙН НЭР, ХАЯГ:",
+        "ben_account_no":     "ХҮЛЭЭН АВАГЧИЙН ДАНСНЫ ДУГААР:",
+        "ben_bank":           "ХҮЛЭЭН АВАГЧ БАНК:",
+        "ben_intermediary":   "ЗУУЧЛАГЧ БАНК:",
+        "name":               "Нэр",
+        "address":            "Хаяг",
+        "account_for":        "Дансны дугаар / {ccy}",
+        "iban_number":        "IBAN дугаар",
+        "suggestion":         "АНХААРУУЛГА",
+        "suggestion_intro":   "«Хүлээн авагчийн мэдээлэл» бөглөхдөө дараах зүйлд анхаарна уу:",
+        "suggestion_li_name": "Хүлээн авагчийн нэрийг латин үсгээр бүтнээр бичнэ үү.",
+        "suggestion_li_acct": "9 оронтой TDB-ийн дансны дугаарыг бичнэ үү.",
+        "suggestion_outro":   "Төлбөрийн зорилгыг тодорхой, бүрэн бичээгүй тохиолдолд банк гүйлгээг түр зогсоох эсвэл буцаах магадлалтай.",
+        "company_label":      "Unlock Steppe Mongolia LLC",
+        "accountant":         "Нягтлан",
+    },
 }
 
 
 def _usm_lang_for_currency(currency):
     return "fr" if (currency or "").upper() == "EUR" else "en"
+
+
+# Trip language → invoice language. DTX is always Mongolian regardless,
+# so this only matters for USM (S-) invoices.
+def _usm_lang_for_trip(trip_language, currency):
+    name = (trip_language or "").strip().lower()
+    if name == "french" or name == "français":
+        return "fr"
+    if name == "english":
+        return "en"
+    if name == "mongolian" or name == "монгол":
+        return "mn"
+    # Unknown / "Other" — fall back to currency-based heuristic so the
+    # invoice still renders sensibly.
+    return _usm_lang_for_currency(currency)
 
 
 def build_standalone_invoice_html_usm(invoice):
@@ -6015,9 +6061,22 @@ def build_standalone_invoice_html_usm(invoice):
     customer = html.escape(str((invoice.get("payerName") or "CLIENT")).strip() or "CLIENT")
     billing_address = html.escape(str(invoice.get("payerAddress") or "").strip())
     currency = (invoice.get("currency") or "USD").upper()
-    lang = _usm_lang_for_currency(currency)
+    # Use the parent trip's language when available; otherwise fall back to
+    # the currency-based heuristic.
+    trip_id = invoice.get("tripId")
+    trip_lang_field = ""
+    if trip_id:
+        trip_obj = next((t for t in read_camp_trips() if t.get("id") == trip_id), None)
+        if trip_obj:
+            trip_lang_field = trip_obj.get("language") or ""
+    lang = _usm_lang_for_trip(trip_lang_field, currency)
     L = _USM_LABELS[lang]
-    status_map = _USM_STATUS_LABELS_FR if lang == "fr" else _USM_STATUS_LABELS
+    if lang == "fr":
+        status_map = _USM_STATUS_LABELS_FR
+    elif lang == "mn":
+        status_map = INVOICE_STATUS_LABELS  # the Mongolian dict already in scope
+    else:
+        status_map = _USM_STATUS_LABELS
     items = invoice.get("items") or []
     grand = sum((float(it.get("qty") or 0) * float(it.get("price") or 0)) for it in items)
 
@@ -6092,7 +6151,9 @@ def build_standalone_invoice_html_usm(invoice):
       .invoice-logo { width: 175px; max-width: 100%; display: block; margin-bottom: 12px; }
       .company-name { margin: 0 0 10px; font-size: 13px; font-weight: 700; }
       .company-block p, .customer-block p { margin: 0; font-size: 12px; line-height: 1.45; }
-      .customer-block { padding-top: 8px; }
+      /* Pad-top so "Bill to" lines up with the company name in the left
+         column rather than the top of the logo. */
+      .customer-block { padding-top: 96px; }
       .customer-block .label { display: block; margin-bottom: 4px; color: #64748b;
         font-size: 12px; font-weight: 600; }
       .customer-block strong { font-size: 13px; }
@@ -8355,7 +8416,16 @@ def handle_list_invoices(environ, start_response):
         ws_trip_ids = {t["id"] for t in read_camp_trips() if normalize_company(t.get("company")) == workspace}
         records = [r for r in records if r.get("tripId") in ws_trip_ids]
     records.sort(key=lambda r: r.get("createdAt") or "", reverse=True)
-    return json_response(start_response, "200 OK", {"entries": records})
+    # Enrich each invoice with the parent trip's language so the
+    # invoice-view page can render labels in the right language without
+    # an extra round-trip.
+    trip_lang_by_id = {t.get("id"): normalize_text(t.get("language")) for t in read_camp_trips()}
+    enriched = []
+    for r in records:
+        copy = dict(r)
+        copy["tripLanguage"] = trip_lang_by_id.get(r.get("tripId"), "") or ""
+        enriched.append(copy)
+    return json_response(start_response, "200 OK", {"entries": enriched})
 
 
 def _invoice_notification_detail(record):

@@ -47,6 +47,17 @@
   function currencyMeta(code) {
     return CURRENCIES.find((c) => c.code === code) || CURRENCIES[0];
   }
+  // Pick a sensible default currency based on the trip's language.
+  function defaultCurrencyForTrip(trip) {
+    const lang = String(trip?.language || "").trim().toLowerCase();
+    if (lang === "english") return "USD";
+    if (lang === "french" || lang === "français") return "EUR";
+    if (lang === "korean" || lang === "한국어") return "KRW";
+    if (lang === "japanese" || lang === "日本語") return "JPY";
+    if (lang === "chinese" || lang === "中文") return "CNY";
+    if (lang === "russian" || lang === "русский") return "RUB";
+    return "MNT";
+  }
   function fmtMoney(n, code) {
     const num = Number(String(n || 0).replace(/[^0-9.-]/g, "")) || 0;
     const ccy = code || (typeof draft === "object" && draft?.currency) || "MNT";
@@ -1144,7 +1155,10 @@
           participantIds: [],
           items: [{ description: "", qty: 1, price: 0 }],
           installments: [],
-          currency: "MNT",
+          // Default currency from the trip's language: English/Mongolian
+          // trips → USD, French → EUR, fall back to MNT for everything
+          // else (including DTX which has no language).
+          currency: defaultCurrencyForTrip(trip),
         };
     wizardStep = 1;
     const overlay = buildOverlay();

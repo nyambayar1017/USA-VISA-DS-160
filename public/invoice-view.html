@@ -22,24 +22,22 @@
         top: 0;
         z-index: 10;
         display: flex;
-        justify-content: center;
-        gap: 14px;
-        padding: 18px 16px;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 10px 20px;
         background: rgba(255, 255, 255, 0.96);
         border-bottom: 1px solid #eef1f7;
         backdrop-filter: blur(10px);
       }
       .toolbar a,
       .toolbar-button {
-        min-width: 86px;
-        min-height: 46px;
-        padding: 11px 18px;
+        padding: 6px 14px;
         border: none;
         border-radius: 999px;
         background: #253776;
         color: #fff;
         text-decoration: none;
-        font: 800 16px/1.2 "Nunito", Arial, sans-serif;
+        font: 700 13px/1.2 "Nunito", Arial, sans-serif;
         cursor: pointer;
       }
       .toolbar-button.secondary {
@@ -350,7 +348,12 @@
       }
       .usm-view .usm-company-name { font-weight: 700; }
       .usm-view .usm-company-block { display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
-      .usm-view .usm-billto-block { display: flex; flex-direction: column; gap: 8px; }
+      /* Pad-top so "Bill to" aligns with "Unlock Steppe Mongolia LLC"
+         in the left column (which sits below the 80px logo). */
+      .usm-view .usm-billto-block {
+        display: flex; flex-direction: column; gap: 8px;
+        padding-top: 92px;
+      }
       .usm-view .usm-billto-label { color: #71717a; font-size: 13px; }
       .usm-view .usm-billto-value { font-weight: 500; }
       .usm-view .usm-section-title { color: #71717a; margin: 0 0 8px; font-size: 14px; }
@@ -516,9 +519,44 @@
           statusOverdue: "En retard", statusCancelled: "Annulé",
           editDescription: "Description", editAmount: "Montant",
         },
+        mn: {
+          title: "Нэхэмжлэх", billTo: "Төлөгч", billingAddress: "Хаяг",
+          priceDetail: "Үнийн мэдээлэл",
+          colN: "№", colDesc: "Утга", colAmount: "Тоо ширхэг",
+          colUnitPrice: "Нэгжийн үнэ", colTotal: "Нийт", rowTotal: "Нийт",
+          installments: "Төлбөрийн хуваарь",
+          issueDate: "Нэхэмжилсэн огноо", dueDate: "Эцсийн хугацаа", status: "Төлөв",
+          benNameAddr: "ХҮЛЭЭН АВАГЧИЙН НЭР, ХАЯГ:",
+          benAccountNo: "ХҮЛЭЭН АВАГЧИЙН ДАНСНЫ ДУГААР:",
+          benBank: "ХҮЛЭЭН АВАГЧ БАНК:",
+          benIntermediary: "ЗУУЧЛАГЧ БАНК:",
+          name: "Нэр", address: "Хаяг",
+          accountFor: "Дансны дугаар / {ccy}", iban: "IBAN дугаар",
+          accountant: "Нягтлан", companyLabel: "Unlock Steppe Mongolia LLC",
+          statusPending: "Хүлээгдэж буй", statusPaid: "Төлөгдсөн",
+          statusOverdue: "Хугацаа хэтэрсэн", statusCancelled: "Цуцалсан",
+          editDescription: "Утга", editAmount: "Дүн",
+        },
       };
       function usmLangForCurrency(ccy) {
         return (ccy || "").toUpperCase() === "EUR" ? "fr" : "en";
+      }
+      // Trip language → invoice language (USM only). DTX always renders
+      // in Mongolian regardless of trip language.
+      function usmLangForTrip(tripLanguage, ccy) {
+        const name = String(tripLanguage || "").trim().toLowerCase();
+        if (name === "french" || name === "français") return "fr";
+        if (name === "english") return "en";
+        if (name === "mongolian" || name === "монгол") return "mn";
+        return usmLangForCurrency(ccy);
+      }
+      // Localised "Download PDF" label for the toolbar.
+      function pdfButtonLabel(inv) {
+        if (companyFromSerial(inv?.serial) !== "USM") return "PDF Татах";
+        const lang = usmLangForTrip(inv?.tripLanguage, inv?.currency);
+        if (lang === "fr") return "Télécharger PDF";
+        if (lang === "mn") return "PDF Татах";
+        return "Download PDF";
       }
 
       // Bank info by currency for USM. Mirrors the server-side PDF builder.
@@ -573,7 +611,9 @@
         } else {
           renderDtx(inv);
         }
-        document.title = `Invoice #${inv.serial}`;
+        document.title = `${pdfButtonLabel(inv).replace("Download ", "").replace("Télécharger ", "").replace("PDF Татах", "Нэхэмжлэх")} #${inv.serial}`;
+        const btnPdf = document.getElementById("btn-pdf");
+        if (btnPdf) btnPdf.textContent = pdfButtonLabel(inv);
       }
       function renderUsm(inv) {
         const page = document.getElementById("invoice-page");
@@ -582,7 +622,7 @@
         const billingAddress = (inv.payerAddress || "").trim();
         const items = inv.items || [];
         const currency = (inv.currency || "USD").toUpperCase();
-        const lang = usmLangForCurrency(currency);
+        const lang = usmLangForTrip(inv.tripLanguage, currency);
         const L = USM_LABELS[lang];
         const grandTotal = items.reduce((a, it) => a + (Number(it.qty) || 0) * (Number(it.price) || 0), 0) || (Number(inv.total) || 0);
         const itemsHtml = items.map((it, i) => editMode ? `
