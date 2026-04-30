@@ -532,6 +532,29 @@
   const reviewSaveBtn = document.getElementById("gal-review-save");
   const reviewStatus = document.getElementById("gal-review-status");
   const reviewTranslateAllBtn = document.getElementById("gal-review-translate-all");
+  const reviewSourceLangSelect = document.getElementById("gal-review-source-lang");
+
+  // Source-language picker for the review screen. Default to whichever
+  // workspace the user is in (DTX → mn, USM → en) so they don't have to
+  // change it on every upload.
+  if (reviewSourceLangSelect) {
+    reviewSourceLangSelect.innerHTML = ALT_LANGS
+      .map((l) => `<option value="${l.code}">${escapeHtml(l.label)}</option>`)
+      .join("");
+    const wsShort = (window.WORKSPACE_SHORT || "").toUpperCase();
+    reviewSourceLangSelect.value = wsShort === "DTX" ? "mn" : "en";
+    reviewSourceLangSelect.addEventListener("change", () => {
+      // Re-render so the alt label + translation table reflect the new source.
+      renderReviewList();
+    });
+  }
+  function reviewSourceLang() {
+    return reviewSourceLangSelect?.value || "en";
+  }
+  function reviewSourceLabel() {
+    const code = reviewSourceLang();
+    return ALT_LANGS.find((l) => l.code === code)?.label || code.toUpperCase();
+  }
 
   // Holds the entries currently being reviewed so the Save handler can
   // PATCH each one. We keep alt as an object on the row data so we don't
@@ -551,25 +574,51 @@
 
   function renderReviewList() {
     if (!reviewList) return;
+    const srcCode = reviewSourceLang();
+    const srcLabel = reviewSourceLabel();
     reviewList.innerHTML = reviewEntries
       .map((e, idx) => {
         const altObj = (e.alt && typeof e.alt === "object") ? e.alt : { en: e.alt || "" };
-        const altEn = altObj.en || "";
+        const altSrc = altObj[srcCode] || "";
         const thumb = `/api/gallery/${encodeURIComponent(e.id)}/file?size=thumb`;
+        const translatedRows = ALT_LANGS
+          .filter((l) => l.code !== srcCode)
+          .map((l) => {
+            const v = altObj[l.code] || "";
+            const cls = v ? "" : " is-empty";
+            return `
+              <div class="gal-review-tr-row${cls}">
+                <span class="gal-review-tr-lang">${escapeHtml(l.label)}</span>
+                <input type="text" class="gal-review-tr-input"
+                  data-review-tr="${l.code}"
+                  value="${escapeHtml(v)}"
+                  placeholder="${escapeHtml(l.label)} translation" />
+              </div>
+            `;
+          }).join("");
+        const hasTranslations = ALT_LANGS.some((l) => l.code !== srcCode && (altObj[l.code] || "").trim());
         return `
           <div class="gal-review-row" data-row-idx="${idx}">
-            <img class="gal-review-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" />
-            <div class="gal-review-fields">
-              <label>
-                Name
-                <input type="text" data-review="name" value="${escapeHtml(e.originalName || "")}" />
-              </label>
-              <label>
-                Alt text (English)
-                <input type="text" data-review="alt" value="${escapeHtml(altEn)}" placeholder="Describe the photo" />
-              </label>
+            <div class="gal-review-row-main">
+              <img class="gal-review-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" />
+              <div class="gal-review-fields">
+                <label>
+                  Name
+                  <input type="text" data-review="name" value="${escapeHtml(e.originalName || "")}" />
+                </label>
+                <label>
+                  Alt text (${escapeHtml(srcLabel)})
+                  <input type="text" data-review="alt" value="${escapeHtml(altSrc)}" placeholder="Describe the photo in ${escapeHtml(srcLabel)}" />
+                </label>
+              </div>
+              <button type="button" class="gal-review-translate" data-review-action="translate" title="Auto-translate this photo's alt to other 8 languages">🌐</button>
             </div>
-            <button type="button" class="gal-review-translate" data-review-action="translate" title="Auto-translate this photo's alt to other 8 languages">🌐</button>
+            <details class="gal-review-translations" ${hasTranslations ? "open" : ""}>
+              <summary>${hasTranslations ? "Translations" : "Show translations"}</summary>
+              <div class="gal-review-tr-grid">
+                ${translatedRows}
+              </div>
+            </details>
           </div>
         `;
       })
@@ -580,8 +629,14 @@
     const row = reviewList?.querySelector(`[data-row-idx="${idx}"]`);
     if (!row) return null;
     const name = row.querySelector('[data-review="name"]')?.value?.trim() || "";
-    const altEn = row.querySelector('[data-review="alt"]')?.value?.trim() || "";
-    return { name, altEn };
+    const altSrc = row.querySelector('[data-review="alt"]')?.value?.trim() || "";
+    // Read every translation input back out so manual edits in the
+    // expandable panel are preserved on Save.
+    const translations = {};
+    row.querySelectorAll("[data-review-tr]").forEach((inp) => {
+      translations[inp.dataset.reviewTr] = inp.value.trim();
+    });
+    return { name, altSrc, translations };
   }
 
   reviewList?.addEventListener("click", async (event) => {
@@ -590,22 +645,23 @@
     const row = btn.closest("[data-row-idx]");
     const idx = Number(row?.dataset.rowIdx);
     if (!Number.isInteger(idx)) return;
-    const { altEn } = readReviewRow(idx) || {};
-    if (!altEn) {
-      if (reviewStatus) reviewStatus.textContent = "Type the English alt first, then click 🌐.";
+    const { altSrc, translations } = readReviewRow(idx) || {};
+    if (!altSrc) {
+      if (reviewStatus) reviewStatus.textContent = `Type the ${reviewSourceLabel()} alt first, then click 🌐.`;
       return;
     }
+    const sourceLang = reviewSourceLang();
     btn.disabled = true;
     btn.textContent = "…";
     try {
-      const existing = (reviewEntries[idx].alt && typeof reviewEntries[idx].alt === "object")
-        ? reviewEntries[idx].alt
-        : { en: altEn };
-      existing.en = altEn;
-      const { alt: translated } = await autoTranslateAlt(existing, "en");
+      const seed = { ...(reviewEntries[idx].alt || {}), ...translations, [sourceLang]: altSrc };
+      const { alt: translated } = await autoTranslateAlt(seed, sourceLang);
       reviewEntries[idx] = { ...reviewEntries[idx], alt: translated };
-      btn.textContent = "✓";
-      setTimeout(() => { btn.textContent = "🌐"; btn.disabled = false; }, 1200);
+      // Re-render this row inline so the translated values appear right away
+      // in the expandable panel — without a full list re-render that would
+      // collapse other rows the user is mid-edit on.
+      const updatedRowHtml = renderReviewSingleRow(idx);
+      row.outerHTML = updatedRowHtml;
     } catch (err) {
       btn.textContent = "🌐";
       btn.disabled = false;
@@ -613,21 +669,57 @@
     }
   });
 
+  function renderReviewSingleRow(idx) {
+    // Render just one row by leveraging renderReviewList's logic. Simplest:
+    // call renderReviewList and then return the matching row's outerHTML.
+    // But that would clobber unsaved edits in other rows — instead extract
+    // a minimal helper.
+    const tmp = document.createElement("div");
+    const e = reviewEntries[idx];
+    const srcCode = reviewSourceLang();
+    const srcLabel = reviewSourceLabel();
+    const altObj = (e.alt && typeof e.alt === "object") ? e.alt : { en: e.alt || "" };
+    const altSrc = altObj[srcCode] || "";
+    const thumb = `/api/gallery/${encodeURIComponent(e.id)}/file?size=thumb`;
+    const translatedRows = ALT_LANGS
+      .filter((l) => l.code !== srcCode)
+      .map((l) => {
+        const v = altObj[l.code] || "";
+        const cls = v ? "" : " is-empty";
+        return `<div class="gal-review-tr-row${cls}"><span class="gal-review-tr-lang">${escapeHtml(l.label)}</span><input type="text" class="gal-review-tr-input" data-review-tr="${l.code}" value="${escapeHtml(v)}" placeholder="${escapeHtml(l.label)} translation" /></div>`;
+      }).join("");
+    const hasTranslations = ALT_LANGS.some((l) => l.code !== srcCode && (altObj[l.code] || "").trim());
+    return `
+      <div class="gal-review-row" data-row-idx="${idx}">
+        <div class="gal-review-row-main">
+          <img class="gal-review-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" />
+          <div class="gal-review-fields">
+            <label>Name<input type="text" data-review="name" value="${escapeHtml(e.originalName || "")}" /></label>
+            <label>Alt text (${escapeHtml(srcLabel)})<input type="text" data-review="alt" value="${escapeHtml(altSrc)}" placeholder="Describe the photo in ${escapeHtml(srcLabel)}" /></label>
+          </div>
+          <button type="button" class="gal-review-translate" data-review-action="translate" title="Auto-translate this photo's alt to other 8 languages">🌐</button>
+        </div>
+        <details class="gal-review-translations" ${hasTranslations ? "open" : ""}>
+          <summary>${hasTranslations ? "Translations" : "Show translations"}</summary>
+          <div class="gal-review-tr-grid">${translatedRows}</div>
+        </details>
+      </div>
+    `;
+  }
+
   reviewTranslateAllBtn?.addEventListener("click", async () => {
     if (!reviewEntries.length) return;
     reviewTranslateAllBtn.disabled = true;
     if (reviewStatus) reviewStatus.textContent = "Translating all photos…";
+    const sourceLang = reviewSourceLang();
     let done = 0;
     let totalFailed = 0;
     for (let i = 0; i < reviewEntries.length; i++) {
-      const { altEn } = readReviewRow(i) || {};
-      if (!altEn) continue;
+      const { altSrc, translations } = readReviewRow(i) || {};
+      if (!altSrc) continue;
       try {
-        const seed = (reviewEntries[i].alt && typeof reviewEntries[i].alt === "object")
-          ? reviewEntries[i].alt
-          : { en: altEn };
-        seed.en = altEn;
-        const { alt, failed } = await autoTranslateAlt(seed, "en");
+        const seed = { ...(reviewEntries[i].alt || {}), ...translations, [sourceLang]: altSrc };
+        const { alt, failed } = await autoTranslateAlt(seed, sourceLang);
         reviewEntries[i] = { ...reviewEntries[i], alt };
         totalFailed += failed;
         done++;
@@ -637,6 +729,7 @@
       }
     }
     reviewTranslateAllBtn.disabled = false;
+    renderReviewList();
     if (reviewStatus) {
       reviewStatus.textContent = totalFailed
         ? `Done — ${totalFailed} translation(s) failed, edit those manually.`
@@ -650,14 +743,14 @@
     if (reviewStatus) reviewStatus.textContent = "Saving…";
     let saved = 0;
     let failed = 0;
+    const sourceLang = reviewSourceLang();
     for (let i = 0; i < reviewEntries.length; i++) {
       const entry = reviewEntries[i];
-      const { name, altEn } = readReviewRow(i) || {};
-      // Merge English from the input on top of any translations done
-      // through the 🌐 buttons so we always send the latest text.
-      const altObj = (entry.alt && typeof entry.alt === "object")
-        ? { ...entry.alt, en: altEn }
-        : { en: altEn };
+      const { name, altSrc, translations } = readReviewRow(i) || {};
+      // Merge: existing alt translations < auto-generated translations <
+      // manual edits in the per-row panel < source-language input.
+      const base = (entry.alt && typeof entry.alt === "object") ? entry.alt : {};
+      const altObj = { ...base, ...(translations || {}), [sourceLang]: altSrc };
       const payload = {};
       if (name && name !== entry.originalName) payload.originalName = name;
       payload.alt = altObj;

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-330" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-339" />
   </head>
   <body class="app-body" data-page="gallery">
     <div class="workspace-shell">
@@ -150,9 +150,16 @@
           <div class="gal-review-head">
             <div>
               <h3>Review uploaded photos</h3>
-              <p class="form-hint">Update the name and alt text for each photo. Click 🌐 to auto-translate alt to the other 8 languages.</p>
+              <p class="form-hint">Update the name and alt text for each photo. Click 🌐 to auto-translate alt into the other 8 languages.</p>
             </div>
             <button type="button" class="header-action-btn" id="gal-review-translate-all">🌐 Auto-translate all</button>
+          </div>
+          <div class="gal-review-source-row">
+            <label>
+              Source language
+              <select id="gal-review-source-lang"></select>
+            </label>
+            <small class="form-hint">Auto-translate uses this language as the source. Pick the language you actually wrote in.</small>
           </div>
           <div class="gal-review-list" id="gal-review-list"></div>
           <div class="actions">
@@ -242,7 +249,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-124"></script>
-    <script src="/gallery.js?v=workspace-11"></script>
+    <script src="/gallery.js?v=workspace-12"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
