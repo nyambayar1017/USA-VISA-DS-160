@@ -5807,6 +5807,328 @@ def _fmt_money(value):
     return f"{int(round(n)):,} ₮".replace(",", ",")
 
 
+# Currency symbols + formatting for the USM invoice template (matches the
+# user's reference PDFs: "2,723 $", "12,000 €" — symbol AFTER the number).
+_CURRENCY_SYMBOLS = {
+    "USD": "$",
+    "EUR": "€",
+    "GBP": "£",
+    "JPY": "¥",
+    "CNY": "¥",
+    "KRW": "₩",
+    "RUB": "₽",
+    "AUD": "A$",
+    "MNT": "₮",
+}
+
+
+def _fmt_money_ccy(value, currency):
+    try:
+        n = float(value or 0)
+    except Exception:
+        n = 0
+    sym = _CURRENCY_SYMBOLS.get((currency or "MNT").upper(), (currency or "").upper() or "")
+    return f"{int(round(n)):,} {sym}".rstrip()
+
+
+# ── USM (Unlock Steppe Mongolia) invoice template ──
+# Per the legal-separation rule (DTX vs USM are two licensed companies),
+# USM invoices use a distinct layout that mirrors the printable PDFs the
+# user supplied. Currency-aware: switches the bank account number,
+# IBAN, and intermediary banks based on invoice.currency.
+
+USM_COMPANY = {
+    "name": "Unlock Steppe Mongolia LLC (8415315)",
+    "address_lines": [
+        "Khan-Uul district, 17 Khoroo, Ikh Mongol Uls Street,",
+        "King Tower, Apt 121, Door 102, Ulaanbaatar, 17012,",
+        "Mongolia",
+    ],
+    "email": "info@steppe-mongolia.com",
+    "phone": "+976 77044040",
+    "logo": "usm-logo-horizontal.png",
+    "stamp": "usm-stamp.png",
+    "signature": "invoice-finance-signature.png",
+    "accountant": "G.Bayasgalan",
+}
+
+USM_BENEFICIARY_NAME = "UNLOCK STEPPE MONGOLIA"
+USM_BENEFICIARY_ADDRESS = (
+    "Khan-Uul district, 17 Khoroo, Ikh Mongol Uls Street, "
+    "King Tower, Apt 121, Door 102, Ulaanbaatar, 17012, Mongolia"
+)
+USM_BENEFICIARY_BANK = {
+    "swift": "TDBMMNUB",
+    "name": "TRADE AND DEVELOPMENT BANK JSC,",
+    "address": "14210 Peace avenue 19, Sukhbaatar district, 1st khoroo, Ulaanbaatar, Mongolia, Tel: 1800-1977",
+}
+
+USM_BANK_BY_CURRENCY = {
+    "USD": {
+        "account": "436044172",
+        "iban": "MN53 0004000 436044172",
+        "intermediaries": [
+            {"swift": "IRVTUS3N", "name": "THE BANK OF NEW YORK MELLON",
+             "address": "240 GREENWICH STREET NEWYORK NY 10286, US"},
+            {"swift": "OCBCSGSG", "chips": "010275",
+             "name": "OVERSEA-CHINESE BANKING CORPORATION LIMITED",
+             "address": "OCBC CENTRE FLOOR 10 63 CHULIA STREET SINGAPORE"},
+            {"swift": "KASITHBK", "chips": "008942",
+             "name": "KASIKORNBANK PUBLIC COMPANY LIMITED",
+             "address": "27/1 RATBURANA RD. 1 SOI RATBURANA BANGKOK, THAILAND"},
+        ],
+    },
+    "EUR": {
+        "account": "436044173",
+        "iban": "MN26 0004000 436044173",
+        "intermediaries": [
+            {"swift": "COBADEFF", "name": "COMMERZBANK AG",
+             "address": "FRANKFURT AM MAIN, GERMANY"},
+            {"swift": "BYLADEMM", "name": "BAYERISCHE LANDESBANK, MUENCHEN",
+             "address": "MUENCHEN DE"},
+            {"swift": "GIBAATWG", "name": "ERSTE GROUP BANK AG",
+             "address": "VIENNA AUSTRIA"},
+            {"swift": "SOLADEST", "name": "LANDESBANK BADEN-WUERTTEMBERG",
+             "address": "STUTTGART, GERMANY"},
+        ],
+    },
+}
+
+
+def _company_from_invoice(invoice):
+    """Infer the issuing company from the invoice serial prefix (T- = DTX,
+    S- = USM). Falls back to the trip's company if the serial is not
+    prefixed (shouldn't happen for new invoices)."""
+    serial = str(invoice.get("serial") or "").upper()
+    if serial.startswith("T-"):
+        return "DTX"
+    if serial.startswith("S-"):
+        return "USM"
+    trip_id = invoice.get("tripId")
+    if trip_id:
+        trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None)
+        if trip:
+            return normalize_company(trip.get("company") or "") or "DTX"
+    return "DTX"
+
+
+_USM_STATUS_LABELS = {
+    "pending":  ("Pending",  "waiting"),
+    "waiting":  ("Pending",  "waiting"),
+    "paid":     ("Paid",     "paid"),
+    "confirmed":("Paid",     "paid"),
+    "overdue":  ("Overdue",  "overdue"),
+    "cancelled":("Cancelled","cancelled"),
+}
+
+
+def build_standalone_invoice_html_usm(invoice):
+    """USM-branded English invoice mirroring the user's reference PDFs.
+    Bank account section switches by invoice currency (USD vs EUR vs other)."""
+    serial = html.escape(str(invoice.get("serial") or invoice.get("id") or ""))
+    customer = html.escape(str((invoice.get("payerName") or "CLIENT")).strip() or "CLIENT")
+    billing_address = html.escape(str(invoice.get("payerAddress") or "").strip())
+    currency = (invoice.get("currency") or "USD").upper()
+    items = invoice.get("items") or []
+    grand = sum((float(it.get("qty") or 0) * float(it.get("price") or 0)) for it in items)
+
+    def _fmt_qty(q):
+        try:
+            f = float(q or 0)
+        except (TypeError, ValueError):
+            return html.escape(str(q or 0))
+        return str(int(f)) if f.is_integer() else str(f)
+
+    items_rows = "".join(
+        f"<tr><td>{i+1}</td>"
+        f"<td>{html.escape(str(it.get('description') or ''))}</td>"
+        f"<td>{_fmt_qty(it.get('qty'))}</td>"
+        f"<td>{_fmt_money_ccy(it.get('price'), currency)}</td>"
+        f"<td>{_fmt_money_ccy(float(it.get('qty') or 0) * float(it.get('price') or 0), currency)}</td></tr>"
+        for i, it in enumerate(items)
+    )
+    payments_html = ""
+    for inst in (invoice.get("installments") or []):
+        status_key = (inst.get("status") or "pending").lower()
+        label, klass = _USM_STATUS_LABELS.get(status_key, _USM_STATUS_LABELS["pending"])
+        payments_html += f"""
+        <div class="payment-card">
+          <div class="payment-main">{html.escape(str(inst.get('description') or ''))}</div>
+          <div class="payment-meta"><span class="meta-label">Issue date</span><span class="meta-value">{html.escape(str(inst.get('issueDate') or '-'))}</span></div>
+          <div class="payment-meta"><span class="meta-label">Due date</span><span class="meta-value">{html.escape(str(inst.get('dueDate') or '-'))}</span></div>
+          <div class="payment-meta"><span class="meta-label">Status</span><span class="payment-status {klass}">{label}</span></div>
+          <div class="payment-amount">{_fmt_money_ccy(inst.get('amount'), currency)}</div>
+        </div>
+        """
+
+    def _asset(name):
+        p = (BASE_DIR / "public" / "assets" / name)
+        return p.resolve().as_uri() if p.exists() else ""
+    logo_src = _asset(USM_COMPANY["logo"])
+    stamp_src = _asset(USM_COMPANY["stamp"])
+    sig_src = _asset(USM_COMPANY["signature"])
+
+    bank_meta = USM_BANK_BY_CURRENCY.get(currency)
+    if bank_meta:
+        account_html = f"""<p>Account number / {currency}: <strong>{html.escape(bank_meta['account'])}</strong></p>
+            <p>IBAN number: <strong>{html.escape(bank_meta['iban'])}</strong></p>"""
+        intermediaries_html = "".join(
+            f"""<div class="bank-block">
+                <p><strong>*SWIFT/BIC: {html.escape(b['swift'])}</strong>{(" CHIPS UID: " + html.escape(b['chips'])) if b.get('chips') else ''}</p>
+                <p>{html.escape(b['name'])}</p>
+                <p>{html.escape(b['address'])}</p>
+            </div>"""
+            for b in bank_meta["intermediaries"]
+        )
+    else:
+        # Currency that's not USD/EUR — fall back to the invoice's selected
+        # bankAccount snapshot (if any) so the PDF still has bank details.
+        snap = invoice.get("bankAccount") or {}
+        account_html = (
+            f"""<p>Account name: <strong>{html.escape(snap.get('accountName') or USM_BENEFICIARY_NAME)}</strong></p>
+            <p>Account number: <strong>{html.escape(snap.get('accountNumber') or '-')}</strong></p>"""
+            if snap else "<p><em>Bank account not configured for this currency.</em></p>"
+        )
+        intermediaries_html = "<p><em>No intermediary banks configured for this currency.</em></p>"
+
+    company_address = "".join(f"<p>{html.escape(line)}</p>" for line in USM_COMPANY["address_lines"])
+    css = """
+      @page { size: A4; margin: 16mm 14mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #fff; color: #27272a;
+        font-family: 'Nunito', Arial, sans-serif; font-size: 12px; }
+      .page { padding: 0; }
+      .invoice-number { margin: 0 0 14px; font-size: 18px; font-weight: 500; color: #27272a; }
+      .header-grid { display: grid; grid-template-columns: 1.05fr 0.95fr;
+        gap: 28px; align-items: start; margin-bottom: 24px; }
+      .invoice-logo { width: 175px; max-width: 100%; display: block; margin-bottom: 12px; }
+      .company-name { margin: 0 0 10px; font-size: 13px; font-weight: 700; }
+      .company-block p, .customer-block p { margin: 0; font-size: 12px; line-height: 1.45; }
+      .customer-block { padding-top: 8px; }
+      .customer-block .label { display: block; margin-bottom: 4px; color: #64748b;
+        font-size: 12px; font-weight: 600; }
+      .customer-block strong { font-size: 13px; }
+      .section-title { margin: 18px 0 8px; color: #5d6b87; font-size: 12px; font-weight: 600; }
+      .invoice-items-table { width: 100%; border-collapse: separate; border-spacing: 0;
+        border-radius: 10px; border: 1px solid #cfd8e6; overflow: hidden; margin-bottom: 16px; }
+      th, td { padding: 9px 12px; border-bottom: 1px solid #cfd8e6;
+        text-align: left; font-size: 12px; line-height: 1.3; }
+      th { background: #fbfcfe; font-weight: 700; }
+      th:first-child, td:first-child { width: 36px; }
+      td:nth-child(3), th:nth-child(3) { text-align: center; }
+      td:last-child, th:last-child, td:nth-last-child(2), th:nth-last-child(2) { text-align: right; }
+      .total-row td { font-weight: 700; background: #fff; border-bottom: 0; }
+      .payment-stack { display: grid; gap: 12px; margin-bottom: 16px; }
+      .payment-card { display: grid;
+        grid-template-columns: 1.3fr 1fr 1fr 0.85fr 0.95fr;
+        gap: 10px; align-items: center; min-height: 64px; padding: 12px 14px;
+        border: 1px solid #cfd8e6; border-radius: 10px; }
+      .payment-main, .payment-amount { font-size: 12px; font-weight: 600; }
+      .payment-amount { text-align: right; white-space: nowrap; }
+      .payment-meta { display: grid; gap: 3px; }
+      .meta-value { font-size: 12px; font-weight: 600; }
+      .meta-label { color: #5d6b87; font-size: 11px; font-weight: 600; }
+      .payment-status { display: inline-flex; align-items: center; justify-content: center;
+        min-width: 70px; padding: 4px 10px; border-radius: 999px;
+        font-size: 11px; font-weight: 700; }
+      .payment-status.paid { background: #dcf4e3; color: #1f8550; }
+      .payment-status.overdue { background: #f8dede; color: #c44747; }
+      .payment-status.waiting { background: #fff5bd; color: #8a4b12; }
+      .payment-status.cancelled { background: #f1f5f9; color: #64748b; }
+      .bank-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 14px 18px;
+        margin-bottom: 12px; }
+      .bank-grid > .label { color: #5d6b87; font-size: 11px; font-weight: 700; padding-top: 2px; }
+      .bank-grid > .value { font-size: 12px; line-height: 1.45; }
+      .bank-grid > .value p { margin: 0 0 4px; }
+      .bank-grid > .value strong { color: #1f2937; }
+      .bank-block { margin-bottom: 8px; }
+      .suggestion-block { margin: 18px 0 8px; }
+      .suggestion-title { color: #5d6b87; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+      .suggestion-block p, .suggestion-block li {
+        margin: 0 0 4px; font-size: 11px; line-height: 1.45; color: #27272a; }
+      .suggestion-block ul { margin: 0 0 6px 18px; padding: 0; }
+      .suggestion-block .accent { color: #c44747; font-weight: 700; }
+      .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
+        margin-top: 24px; padding-top: 14px; border-top: 1px solid #d9e0ea;
+        align-items: start; }
+      .signature-card { position: relative; min-height: 110px; }
+      .signature-label { font-size: 12px; color: #5d6b87; font-weight: 600; margin-bottom: 6px; }
+      .signature-line { border-bottom: 1px dashed #d5ddec; margin: 28px 0 6px; }
+      .accountant-stamp { position: absolute; left: 0; top: 18px; width: 110px;
+        z-index: 1; opacity: 0.95; }
+      .accountant-signature { position: absolute; left: 90px; top: 30px; width: 150px; z-index: 2; }
+      .signature-name, .signature-role {
+        position: relative; z-index: 3; font-size: 12px; font-weight: 700; color: #27272a; }
+    """
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Invoice #{serial}</title>
+<style>{css}</style></head><body><div class="page">
+  <p class="invoice-number">Invoice #{serial}</p>
+  <div class="header-grid">
+    <div class="company-block">
+      {f'<img class="invoice-logo" src="{logo_src}" alt="">' if logo_src else ''}
+      <p class="company-name">{html.escape(USM_COMPANY['name'])}</p>
+      {company_address}
+      <p>{html.escape(USM_COMPANY['email'])}</p>
+      <p>{html.escape(USM_COMPANY['phone'])}</p>
+    </div>
+    <div class="customer-block">
+      <span class="label">Bill to</span>
+      <p><strong>{customer}</strong></p>
+      {f'<span class="label" style="margin-top:8px;">Billing address</span><p>{billing_address}</p>' if billing_address else ''}
+    </div>
+  </div>
+  <p class="section-title">Price detail</p>
+  <table class="invoice-items-table">
+    <thead><tr><th>№</th><th>Description</th><th>Amount</th><th>Unit price</th><th>Total</th></tr></thead>
+    <tbody>{items_rows}<tr class="total-row"><td colspan="4">Total</td><td>{_fmt_money_ccy(grand, currency)}</td></tr></tbody>
+  </table>
+  <p class="section-title">Installments</p>
+  <div class="payment-stack">{payments_html}</div>
+  <div class="bank-grid">
+    <div class="label">BENEFICIARY'S ACCOUNT NAME, ADDRESS:</div>
+    <div class="value">
+      <p>Name: <strong>{html.escape(USM_BENEFICIARY_NAME)}</strong></p>
+      <p>Address: <strong>{html.escape(USM_BENEFICIARY_ADDRESS)}</strong></p>
+    </div>
+    <div class="label">BENEFICIARY'S ACCOUNT NUMBER:</div>
+    <div class="value">{account_html}</div>
+    <div class="label">BENEFICIARY BANK:</div>
+    <div class="value">
+      <p>SWIFT/BIC: <strong>{html.escape(USM_BENEFICIARY_BANK['swift'])}</strong></p>
+      <p>{html.escape(USM_BENEFICIARY_BANK['name'])}</p>
+      <p>Address: <strong>{html.escape(USM_BENEFICIARY_BANK['address'])}</strong></p>
+    </div>
+    <div class="label">INTERMEDIARY BANK:</div>
+    <div class="value">{intermediaries_html}</div>
+  </div>
+  <div class="suggestion-block">
+    <p class="suggestion-title">SUGGESTION</p>
+    <p><span class="accent">*</span> Please pay attention to the following suggestions when filling out "Beneficiary's information":</p>
+    <ul>
+      <li>Please write full beneficiary's account name in Roman alphabet.</li>
+      <li>Please write 9 digit TDB account number.</li>
+    </ul>
+    <p><span class="accent">**</span> Please keep in mind to give a correct, completed and clear payment purpose as in case of unclear payment purpose the payment will be stopped or rejected by our bank.</p>
+  </div>
+  <div class="signature-grid">
+    <div class="signature-card">
+      <div class="signature-label">Unlock Steppe Mongolia LLC</div>
+      <div class="signature-line"></div>
+      {f'<img class="accountant-stamp" src="{stamp_src}" alt="">' if stamp_src else ''}
+      {f'<img class="accountant-signature" src="{sig_src}" alt="">' if sig_src else ''}
+      <div class="signature-name">Accountant</div>
+      <div class="signature-role">{html.escape(USM_COMPANY['accountant'])}</div>
+    </div>
+    <div class="signature-card">
+      <div class="signature-label">Bill to</div>
+      <div class="signature-line"></div>
+      <div class="signature-name">{customer}</div>
+    </div>
+  </div>
+</div></body></html>"""
+
+
 def build_standalone_invoice_html(invoice):
     """Render the new-model invoice as Mongolian printable HTML for WeasyPrint.
     CSS mirrors the working contract-invoice template (build_invoice_html).
@@ -5962,7 +6284,14 @@ def save_standalone_invoice_pdf(invoice):
         from weasyprint import HTML
     except Exception as exc:
         raise RuntimeError(f"WeasyPrint not available: {exc}") from exc
-    html_string = build_standalone_invoice_html(invoice)
+    # Pick the template by issuing company. USM (S- serial) gets the
+    # English steppe-mongolia template with currency-aware bank info.
+    # DTX (T- serial) keeps the existing Mongolian template.
+    company = _company_from_invoice(invoice)
+    if company == "USM":
+        html_string = build_standalone_invoice_html_usm(invoice)
+    else:
+        html_string = build_standalone_invoice_html(invoice)
     try:
         HTML(string=html_string, base_url=str(BASE_DIR), media_type="screen").write_pdf(str(pdf_path))
     except Exception as exc:
