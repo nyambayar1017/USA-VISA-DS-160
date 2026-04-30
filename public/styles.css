@@ -17542,6 +17542,16 @@ body.lightbox-open { overflow: hidden; }
 .trip-pl-card dd.is-positive { color: #1f8550; }
 .trip-pl-card dd.is-negative { color: #c44747; }
 .trip-pl-adhoc td { background: rgba(255, 245, 189, 0.18); }
+.trip-finance-heading {
+  margin: 18px 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5d6b87;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 6px;
+}
 
 /* Trip costing template list + editor */
 .tpl-trip-list { display: grid; gap: 12px; }

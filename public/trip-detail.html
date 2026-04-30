@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-354" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-355" />
   </head>
   <body class="app-body" data-page="home">
     <script>
@@ -265,17 +265,23 @@
           <div id="group-list" class="submission-list"></div>
         </section>
 
-        <section class="card" id="trip-pnl-section" hidden>
+        <section class="card" id="trip-pnl-section">
           <div class="section-head">
             <div>
-              <h2>Profit &amp; Loss</h2>
-              <p class="muted">Planned vs actual paid vs income on this trip. Daily breakdown reads from the costing template, actuals come from the Accountant ledger, income from the trip's invoices.</p>
+              <h2>Trip finance</h2>
+              <p class="muted">Income from this trip's invoices on top, planned vs actual expenses below. The "+ Pay" buttons start an outgoing request — manager uploads the vendor's invoice, accountant attaches the bank-transfer receipt when paid.</p>
             </div>
             <div class="camp-toolbar">
+              <button type="button" id="invoice-create-btn" class="header-action-btn">+ Add invoice</button>
               <button type="button" class="header-action-btn" id="trip-pl-add-line">+ Pay an expense</button>
             </div>
           </div>
           <div id="trip-pl-summary" class="trip-pl-summary"></div>
+
+          <h3 class="trip-finance-heading">Income — invoices</h3>
+          <div id="trip-invoices-list" class="submission-list"></div>
+
+          <h3 class="trip-finance-heading">Expenses — planned vs actual</h3>
           <div class="camp-table-wrap">
             <table class="camp-table" id="trip-pl-table">
               <thead>
@@ -285,11 +291,12 @@
                   <th>Payee</th>
                   <th>Planned</th>
                   <th>Actual paid</th>
+                  <th>Vendor invoice</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
               </thead>
-              <tbody id="trip-pl-tbody"><tr><td colspan="7" class="empty">No expense lines planned for this trip yet.</td></tr></tbody>
+              <tbody id="trip-pl-tbody"><tr><td colspan="8" class="empty">No expense lines planned for this trip yet.</td></tr></tbody>
             </table>
           </div>
         </section>
@@ -466,18 +473,6 @@
           <div id="trip-contracts-list" class="submission-list"></div>
         </section>
 
-        <section class="card" id="invoices-section">
-          <div class="section-head">
-            <div>
-              <h2>Invoices</h2>
-              <p>Invoices and installment plans for this trip.</p>
-            </div>
-            <div class="camp-toolbar">
-              <button type="button" id="invoice-create-btn" class="header-action-btn">+ Add invoice</button>
-            </div>
-          </div>
-          <div id="trip-invoices-list" class="submission-list"></div>
-        </section>
 
         <section class="card" id="documents-section">
           <div class="section-head">
@@ -1216,7 +1211,7 @@
     <div id="trip-notes-backdrop" class="trip-notes-backdrop" hidden></div>
 
     <script src="/compress-upload.js?v=workspace-1"></script>
-    <script src="/app-shell.js?v=workspace-133"></script>
+    <script src="/app-shell.js?v=workspace-134"></script>
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
@@ -1230,6 +1225,6 @@
     <script src="/trip-notes.js?v=workspace-11"></script>
     <script src="/contracts.js?v=workspace-7"></script>
     <script src="/invoice.js?v=workspace-36"></script>
-    <script src="/trip-pl.js?v=workspace-1"></script>
+    <script src="/trip-pl.js?v=workspace-2"></script>
   </body>
 </html>

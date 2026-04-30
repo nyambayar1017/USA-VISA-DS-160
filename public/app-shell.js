@@ -860,7 +860,12 @@ function buildExpenseModal() {
         <h2>Request expense payment</h2>
         <p class="payment-approve-sub">Ask the accountant to pay this from one of our bank accounts. They will attach the bank-transfer receipt when they pay.</p>
       </header>
-      <form class="expense-form" data-expense-form>
+      <form class="expense-form" data-expense-form enctype="multipart/form-data">
+        <label class="payment-approve-file-label">
+          Vendor invoice / quote
+          <input type="file" name="vendorInvoice" accept=".pdf,.png,.jpg,.jpeg,.gif" />
+          <small class="form-hint">Upload the bill / quote / contract from the vendor. The accountant will pay it and attach the bank receipt at approval time.</small>
+        </label>
         <label class="payment-approve-file-label">
           Scope
           <select name="scope">
@@ -1011,7 +1016,7 @@ async function submitExpenseRequest(event) {
     category = (fd.get("categoryOther") || "").trim();
     if (!category) { status.style.color = "#c44747"; status.textContent = "Type the new category name."; return; }
   }
-  const body = {
+  const fields = {
     direction: "outgoing",
     scope: fd.get("scope") || "office",
     category,
@@ -1023,14 +1028,28 @@ async function submitExpenseRequest(event) {
     dueDate: fd.get("dueDate") || "",
     note: fd.get("note") || "",
   };
-  if (!body.payeeName) { status.style.color = "#c44747"; status.textContent = "Payee is required."; return; }
-  if (!(body.paidAmount > 0)) { status.style.color = "#c44747"; status.textContent = "Amount must be greater than zero."; return; }
+  if (!fields.payeeName) { status.style.color = "#c44747"; status.textContent = "Payee is required."; return; }
+  if (!(fields.paidAmount > 0)) { status.style.color = "#c44747"; status.textContent = "Amount must be greater than zero."; return; }
+  // If the manager attached the vendor invoice, send multipart so the
+  // server can store the file alongside the request. Otherwise stay
+  // with the existing JSON path.
+  const vendorFile = fd.get("vendorInvoice");
+  const hasFile = vendorFile && vendorFile.size && vendorFile.name;
+  let req;
   try {
-    const r = await fetch("/api/payment-requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    if (hasFile) {
+      const out = new FormData();
+      Object.entries(fields).forEach(([k, v]) => out.append(k, v == null ? "" : String(v)));
+      out.append("vendorInvoice", vendorFile, vendorFile.name);
+      req = fetch("/api/payment-requests", { method: "POST", body: out });
+    } else {
+      req = fetch("/api/payment-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+    }
+    const r = await req;
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Could not send request");
     closeExpenseRequestModal();

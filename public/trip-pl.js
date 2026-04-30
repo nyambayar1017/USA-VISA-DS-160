@@ -50,10 +50,7 @@
 
   async function load() {
     const tripId = getTripId();
-    if (!tripId) {
-      section.setAttribute("hidden", "");
-      return;
-    }
+    if (!tripId) return;
     const [tripsResp, invoicesResp, paymentsResp] = await Promise.all([
       fetchJson("/api/camp-trips", { entries: [] }),
       fetchJson("/api/invoices", { entries: [] }),
@@ -61,9 +58,8 @@
     ]);
     const trips = tripsResp.entries || tripsResp || [];
     const trip = trips.find((t) => t.id === tripId);
-    if (!trip) { section.setAttribute("hidden", "");  return; }
+    if (!trip) return;
     cachedTrip = trip;
-    section.removeAttribute("hidden");
 
     const expenseLines = trip.expenseLines || [];
     const rates = trip.exchangeRates || {};
@@ -119,8 +115,14 @@
 
     // Render rows.
     if (!expenseLines.length && !outgoingPaid.length && !outgoingPending.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="empty">No expense plan for this trip. Edit the trip and pick a costing template, or add lines manually.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="empty">No expense plan for this trip. Edit the trip and pick a costing template, or add lines manually.</td></tr>`;
     } else {
+      const vendorCell = (req) => {
+        const meta = req?.vendorInvoiceMeta;
+        if (!meta || !meta.storedName) return `<span class="muted">—</span>`;
+        const url = `/trip-uploads/_vendor/${encodeURIComponent(meta.storedName)}`;
+        return `<a href="${url}" target="_blank" rel="noreferrer">${escapeHtml(meta.originalName || "View")}</a>`;
+      };
       const lineRows = expenseLines.map((line) => {
         const paid = findMatchedPaid(line);
         const pending = !paid ? findMatchedPending(line) : null;
@@ -144,6 +146,7 @@
             <td>${escapeHtml(line.payeeName || "—")}</td>
             <td>${escapeHtml(line.currency || "MNT")} ${Number(line.amount || 0).toLocaleString()}</td>
             <td>${actualText}</td>
+            <td>${vendorCell(paid || pending)}</td>
             <td>${status}</td>
             <td>${actionBtn}</td>
           </tr>
@@ -165,6 +168,7 @@
             <td>${escapeHtml(r.payeeName || "—")}</td>
             <td class="muted">—</td>
             <td>${escapeHtml(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}</td>
+            <td>${vendorCell(r)}</td>
             <td>${status}</td>
             <td></td>
           </tr>

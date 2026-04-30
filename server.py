@@ -8742,11 +8742,53 @@ def _can_approve_payment_request(user):
     return role in ("admin", "accountant")
 
 
+def _attach_vendor_invoice(upload, actor):
+    """Store the manager-uploaded vendor invoice (or quote/contract)
+    under data/trip-uploads/_vendor/. Returned metadata is stashed on
+    the payment_request so the Accountant + trip P&L pages can link
+    to it. Returns None when no file or invalid extension."""
+    if not upload:
+        return None
+    original_name = upload.get("filename") or "vendor-invoice"
+    ext = Path(original_name).suffix.lower()
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        return None
+    data = upload.get("data") or b""
+    if not data:
+        return None
+    if len(data) > MAX_UPLOAD_BYTES:
+        return None
+    ensure_data_store()
+    doc_id = str(uuid4())
+    out_dir = TRIP_UPLOADS_DIR / "_vendor"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = doc_id + ext
+    (out_dir / stored_name).write_bytes(data)
+    return {
+        "id": doc_id,
+        "storedName": stored_name,
+        "originalName": original_name,
+        "mimeType": upload.get("content_type") or "application/octet-stream",
+        "size": len(data),
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+
+
 def handle_create_payment_request(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
         return []
-    payload = collect_json(environ) or {}
+    # The expense modal sends multipart when a vendor invoice is
+    # attached; the legacy invoice "Request payment" flow stays JSON.
+    content_type = environ.get("CONTENT_TYPE", "")
+    if "multipart/form-data" in content_type:
+        fields, files = parse_multipart(environ)
+        payload = {k: v for k, v in fields.items()}
+        vendor_upload = files.get("vendorInvoice")
+    else:
+        payload = collect_json(environ) or {}
+        vendor_upload = None
     direction = (normalize_text(payload.get("direction")) or "incoming").lower()
     if direction not in ("incoming", "outgoing"):
         direction = "incoming"
@@ -8845,6 +8887,7 @@ def handle_create_payment_request(environ, start_response):
                     write_settings({**settings, "expensePayees": payees})
         except Exception:
             pass
+        vendor_meta = _attach_vendor_invoice(vendor_upload, actor) if vendor_upload else None
         request = {
             "id": uuid4().hex,
             "direction": "outgoing",
@@ -8864,7 +8907,8 @@ def handle_create_payment_request(environ, start_response):
             "note": normalize_text(payload.get("note")),
             "payerName": "",
             "payeeName": payee,
-            "referenceDocId": normalize_text(payload.get("referenceDocId")),
+            "referenceDocId": (vendor_meta or {}).get("id", "") or normalize_text(payload.get("referenceDocId")),
+            "vendorInvoiceMeta": vendor_meta,
             "workspace": workspace_field,
             "status": "pending",
             "requestedBy": actor_snapshot(actor),
@@ -9331,6 +9375,7 @@ def handle_list_accountant_paid(environ, start_response):
             "paidDocumentName": (paid_doc or {}).get("originalName") or "",
             "paidDocumentMime": (paid_doc or {}).get("mimeType") or "",
             "paidDocumentUrl": paid_doc_url,
+            "vendorInvoiceMeta": r.get("vendorInvoiceMeta") or None,
             "workspace": r.get("workspace") or "",
         })
     # Backfill: any paid installment on an existing invoice that has no
