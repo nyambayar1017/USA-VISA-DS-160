@@ -57,7 +57,11 @@
     }
     populateFilters();
     render();
-    renderStats();
+    if (isAdminOrAccountant()) {
+      renderStats();
+    } else if (statsBlock) {
+      statsBlock.setAttribute("hidden", "");
+    }
   }
 
   function statsRange() {
