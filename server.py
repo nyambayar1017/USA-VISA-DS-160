@@ -779,6 +779,7 @@ def build_invoice(payload, actor=None):
         "groupId": group_id,
         "payerId": normalize_text(payload.get("payerId")),
         "payerName": normalize_text(payload.get("payerName")),
+        "payerAddress": normalize_text(payload.get("payerAddress")),
         "participantIds": [normalize_text(x) for x in (payload.get("participantIds") or []) if x],
         "items": items,
         "total": total,

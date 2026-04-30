@@ -486,6 +486,11 @@
           <button type="button" class="inv-side-edit" data-inv-edit="payer" aria-label="Edit payer">${pencilSvg()}</button>
         </div>
         <div class="inv-side-row">
+          <div class="inv-side-row-label">Billing address</div>
+          <div class="inv-side-row-value">${escapeHtml(inv.payerAddress || "-")}</div>
+          <button type="button" class="inv-side-edit" data-inv-edit="payer" aria-label="Edit billing address">${pencilSvg()}</button>
+        </div>
+        <div class="inv-side-row">
           <div class="inv-side-row-label">Participants</div>
           <div class="inv-side-row-value">${escapeHtml(participantNames)}</div>
           <button type="button" class="inv-side-edit" data-inv-edit="payer" aria-label="Edit participants">${pencilSvg()}</button>
@@ -1072,6 +1077,7 @@
     payload.tripId = tripId;
     payload.groupId = sidePanelInvoice.groupId;
     payload.payerName = payload.payerName ?? sidePanelInvoice.payerName;
+    payload.payerAddress = payload.payerAddress ?? sidePanelInvoice.payerAddress;
     payload.payerId = sidePanelInvoice.payerId || "";
     payload.participantIds = payload.participantIds ?? sidePanelInvoice.participantIds;
     payload.items = payload.items ?? sidePanelInvoice.items;

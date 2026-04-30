@@ -447,9 +447,6 @@
   </head>
   <body>
     <div class="toolbar" id="invoice-toolbar">
-      <button type="button" class="toolbar-button secondary" id="btn-view">View</button>
-      <button type="button" class="toolbar-button" id="btn-edit">Edit</button>
-      <button type="button" class="toolbar-button toolbar-save" id="btn-save" hidden>Save</button>
       <button type="button" class="toolbar-button" id="btn-pdf">PDF Татах</button>
     </div>
     <div id="invoice-page" class="page"><p class="empty">Loading…</p></div>
@@ -565,7 +562,10 @@
         }
       }
       let currentInvoice = null;
-      let editMode = false;
+      // The Open page is now read-only — editing happens in the side panel.
+      // Keep the variable as a const so all `editMode ? ... : ...` ternaries
+      // throughout this file always pick the view branch.
+      const editMode = false;
       function render(inv) {
         currentInvoice = inv;
         if (companyFromSerial(inv.serial) === "USM") {
@@ -574,14 +574,6 @@
           renderDtx(inv);
         }
         document.title = `Invoice #${inv.serial}`;
-        const btnSave = document.getElementById("btn-save");
-        const btnEdit = document.getElementById("btn-edit");
-        const btnView = document.getElementById("btn-view");
-        if (btnSave && btnEdit && btnView) {
-          btnSave.hidden = !editMode;
-          btnEdit.classList.toggle("secondary", editMode);
-          btnView.classList.toggle("secondary", !editMode);
-        }
       }
       function renderUsm(inv) {
         const page = document.getElementById("invoice-page");
@@ -948,68 +940,6 @@
           </div>
         `;
         document.title = `Нэхэмжлэх #${inv.serial}`;
-        const btnSave = document.getElementById("btn-save");
-        const btnEdit = document.getElementById("btn-edit");
-        const btnView = document.getElementById("btn-view");
-        if (btnSave && btnEdit && btnView) {
-          btnSave.hidden = !editMode;
-          btnEdit.classList.toggle("secondary", editMode);
-          btnView.classList.toggle("secondary", !editMode);
-        }
-      }
-      function switchMode(mode) {
-        editMode = mode === "edit";
-        if (currentInvoice) render(currentInvoice);
-      }
-      async function saveInvoice() {
-        if (!currentInvoice) return;
-        const page = document.getElementById("invoice-page");
-        const items = Array.from(page.querySelectorAll("[data-item-i]")).map((row) => {
-          const obj = { description: "", qty: 0, price: 0 };
-          row.querySelectorAll("[data-field]").forEach((el) => {
-            const f = el.dataset.field;
-            obj[f] = (f === "qty" || f === "price") ? Number(el.value) || 0 : el.value;
-          });
-          return obj;
-        }).filter((it) => (it.description || "").trim());
-        const installments = Array.from(page.querySelectorAll("[data-inst-i]")).map((row) => {
-          const obj = { description: "", issueDate: "", dueDate: "", status: "pending", amount: 0 };
-          row.querySelectorAll("[data-field]").forEach((el) => {
-            const f = el.dataset.field;
-            obj[f] = f === "amount" ? Number(el.value) || 0 : el.value;
-          });
-          return obj;
-        });
-        const payload = {
-          tripId: currentInvoice.tripId,
-          groupId: currentInvoice.groupId,
-          payerId: currentInvoice.payerId || "",
-          payerName: currentInvoice.payerName,
-          participantIds: currentInvoice.participantIds || [],
-          items,
-          installments,
-          currency: currentInvoice.currency || "MNT",
-        };
-        const btnSave = document.getElementById("btn-save");
-        const orig = btnSave.textContent;
-        btnSave.textContent = "Saving…";
-        btnSave.disabled = true;
-        try {
-          const res = await fetch(`/api/invoices/${currentInvoice.id}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (!res.ok) throw new Error((await res.json()).error || "Save failed");
-          editMode = false;
-          await load();
-          btnSave.textContent = "Saved";
-          setTimeout(() => { btnSave.textContent = orig; btnSave.disabled = false; }, 1200);
-        } catch (err) {
-          alert(err.message || "Could not save invoice.");
-          btnSave.textContent = orig;
-          btnSave.disabled = false;
-        }
       }
       function openPdf() {
         if (!currentInvoice) return;
@@ -1017,9 +947,6 @@
         const title = encodeURIComponent(`Нэхэмжлэх ${currentInvoice.serial || ""}`);
         window.open(`/pdf-viewer?src=${src}&title=${title}`, "_blank", "noreferrer");
       }
-      document.getElementById("btn-view").addEventListener("click", () => switchMode("view"));
-      document.getElementById("btn-edit").addEventListener("click", () => switchMode("edit"));
-      document.getElementById("btn-save").addEventListener("click", saveInvoice);
       document.getElementById("btn-pdf").addEventListener("click", openPdf);
       load();
     </script>
