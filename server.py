@@ -1134,7 +1134,9 @@ def default_settings():
 
 def _normalize_bank_accounts(value):
     """Each bank account is {id, label, bankName, accountName, accountNumber,
-    currency, swift, notes}. Tolerates missing fields."""
+    currency, swift, notes, company}. company is "DTX" / "USM" / "" — empty
+    means the account shows in both companies' bank dropdowns. Tolerates
+    missing fields."""
     if not isinstance(value, list):
         return []
     out = []
@@ -1145,6 +1147,9 @@ def _normalize_bank_accounts(value):
         bank = normalize_text(item.get("bankName"))
         if not label and not bank:
             continue
+        company = normalize_text(item.get("company")).upper()
+        if company not in ("DTX", "USM"):
+            company = ""
         out.append({
             "id": normalize_text(item.get("id")) or uuid4().hex,
             "label": label or bank,
@@ -1154,6 +1159,7 @@ def _normalize_bank_accounts(value):
             "currency": (normalize_text(item.get("currency")) or "MNT").upper(),
             "swift": normalize_text(item.get("swift")),
             "notes": normalize_text(item.get("notes")),
+            "company": company,
         })
     return out
 

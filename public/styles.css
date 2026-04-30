@@ -10596,6 +10596,18 @@ body.announcement-modal-open {
   gap: 8px;
   margin-bottom: 18px;
 }
+.bank-company-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-right: 6px;
+}
+.bank-company-dtx { background: rgba(32, 53, 111, 0.12); color: #20356f; }
+.bank-company-usm { background: rgba(196, 106, 44, 0.14); color: #8b4513; }
+.bank-company-shared { background: #e5e7eb; color: #475569; }
 .settings-camp-card {
   border: 1px solid #e2e6ee;
   border-radius: 8px;

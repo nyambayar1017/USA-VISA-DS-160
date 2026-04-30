@@ -560,7 +560,18 @@
       return;
     }
     registeringIdx = idx;
-    const banks = await loadBankAccounts();
+    const allBanks = await loadBankAccounts();
+    // Filter by the trip's company. DTX trips only see DTX + shared
+    // accounts; USM trips only see USM + shared. Shared (no company set)
+    // appears in both. This enforces the "USM = Steppe accounts, DTX =
+    // DTX accounts" rule per company licence.
+    const tripCompany = (trip?.company || "").toUpperCase();
+    const banks = allBanks.filter((b) => {
+      const c = (b.company || "").toUpperCase();
+      if (!c) return true; // shared
+      if (!tripCompany) return true; // unknown company → show all
+      return c === tripCompany;
+    });
     openEditModal(
       "register-payment",
       isPaid ? "Edit registered payment" : "Register payment",
@@ -585,7 +596,9 @@
           <option value="">— Pick the bank that received the payment —</option>
           ${bankOpts}
         </select>
-        ${banks.length ? "" : '<small class="form-hint">No bank accounts configured. Add them in Settings → Bank accounts.</small>'}
+        ${banks.length
+          ? (tripCompany ? `<small class="form-hint">Showing ${escapeHtml(tripCompany)} + shared accounts only.</small>` : "")
+          : `<small class="form-hint">No ${escapeHtml(tripCompany || "")} bank accounts configured. Add them in Settings → Bank accounts (and tag them ${escapeHtml(tripCompany || "DTX/USM")}).</small>`}
       </label>
       <label class="inv-edit-field">
         <span>Note (context, partial-payment notes, etc.)</span>

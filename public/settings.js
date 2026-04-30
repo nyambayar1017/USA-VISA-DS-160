@@ -583,11 +583,17 @@ function renderBankAccounts() {
     bankList.innerHTML = '<p class="empty">No bank accounts yet. Add one to use it on the invoice email step.</p>';
     return;
   }
-  bankList.innerHTML = bankAccounts.map((b) => `
+  bankList.innerHTML = bankAccounts.map((b) => {
+    const companyTag = b.company === "DTX"
+      ? '<span class="bank-company-tag bank-company-dtx">DTX</span>'
+      : b.company === "USM"
+      ? '<span class="bank-company-tag bank-company-usm">USM</span>'
+      : '<span class="bank-company-tag bank-company-shared">Shared</span>';
+    return `
     <div class="settings-camp-card">
       <div class="settings-camp-card-head">
         <strong>${escapeHtml(b.label || b.bankName || "(unnamed)")}</strong>
-        <span class="settings-camp-location">${escapeHtml(b.currency || "MNT")}</span>
+        <span class="settings-camp-location">${companyTag} ${escapeHtml(b.currency || "MNT")}</span>
       </div>
       <div class="settings-camp-card-body">
         <p><strong>${escapeHtml(b.bankName || "")}</strong>${b.accountName ? " · " + escapeHtml(b.accountName) : ""}</p>
@@ -600,7 +606,8 @@ function renderBankAccounts() {
         <button type="button" data-bank-delete="${escapeHtml(b.id)}" class="button-secondary">Delete</button>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function openBankForm(account) {
@@ -612,6 +619,7 @@ function openBankForm(account) {
   bankForm.elements.accountName.value = account?.accountName || "";
   bankForm.elements.accountNumber.value = account?.accountNumber || "";
   bankForm.elements.currency.value = account?.currency || "MNT";
+  if (bankForm.elements.company) bankForm.elements.company.value = account?.company || "";
   bankForm.elements.swift.value = account?.swift || "";
   bankForm.elements.notes.value = account?.notes || "";
   if (bankFormTitle) bankFormTitle.textContent = account ? "Edit bank account" : "Add bank account";
@@ -664,6 +672,7 @@ bankForm?.addEventListener("submit", async (e) => {
     accountName: f.accountName.value.trim(),
     accountNumber: f.accountNumber.value.trim(),
     currency: f.currency.value,
+    company: (f.company?.value || "").toUpperCase(),
     swift: f.swift.value.trim(),
     notes: f.notes.value.trim(),
   };
