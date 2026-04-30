@@ -1386,9 +1386,17 @@
     }
     const total = totalPrice();
     const sumInst = insts.reduce((a, x) => a + (Number(x.amount) || 0), 0);
-    // Allow a 1-unit rounding difference (e.g. 30/70 split of an odd total).
-    if (Math.abs(total - sumInst) > 1) {
-      return alert(`Installment total (${fmtMoney(sumInst)}) does not match invoice total (${fmtMoney(total)}). Adjust the amounts before saving.`);
+    // Strict match: installment total must equal the invoice total. The
+    // built-in split presets always produce an exact sum (deposit + balance =
+    // total), so any difference here means the user typed wrong amounts.
+    // Tolerance limited to 0.01 for floating-point noise on currencies that
+    // use cents.
+    if (Math.abs(total - sumInst) > 0.01) {
+      const diff = total - sumInst;
+      const direction = diff > 0
+        ? `Installments are ${fmtMoney(Math.abs(diff))} short of the invoice total.`
+        : `Installments exceed the invoice total by ${fmtMoney(Math.abs(diff))}.`;
+      return alert(`Amounts don't match. ${direction}\n\nInstallments: ${fmtMoney(sumInst)}\nInvoice total: ${fmtMoney(total)}\n\nFix the amounts and try again.`);
     }
     try {
       const payload = {
