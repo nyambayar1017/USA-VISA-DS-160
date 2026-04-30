@@ -283,20 +283,25 @@ function renderSummary() {
     summaryNode.innerHTML = '<p class="empty">Group not found.</p>';
     return;
   }
-  // When there are real participants, count them. Otherwise the manager
-  // has just declared a headcount on the group ("5 pax NED vs JPN")
-  // without entering names yet — treat that headcount as the booked
-  // count so reservations/stats reflect reality.
+  // Group headcount is what the manager DECLARED ("5 pax NED vs JPN").
+  // That number is the source of truth — it stays as the count even if
+  // only some of the 5 names are filled in yet. The trips list rolls up
+  // the same way (sum of confirmed groups' headcount).
   const headcountNum = Number(group.headcount) || 0;
-  const usePlanned = tourists.length === 0 && headcountNum > 0;
-  const adults = usePlanned
-    ? headcountNum
-    : tourists.filter((t) => {
-        const a = ageFromDob(t.dob);
-        return a === "" || a >= 18;
-      }).length;
-  const children = usePlanned ? 0 : (tourists.length - adults);
-  const headcountActual = usePlanned ? headcountNum : tourists.length;
+  const realAdults = tourists.filter((t) => {
+    const a = ageFromDob(t.dob);
+    return a === "" || a >= 18;
+  }).length;
+  const realChildren = tourists.length - realAdults;
+  // Display: headcount when set, else fall back to participants count.
+  const headcountActual = headcountNum || tourists.length;
+  // Adults / Children: when the manager has typed the headcount but
+  // hasn't entered names, default to "all adults". Once participants
+  // exist, those classifications win.
+  const adults = tourists.length > 0
+    ? realAdults
+    : headcountNum;
+  const children = tourists.length > 0 ? realChildren : 0;
   const rooming = buildRoomingSummary(tourists) || "Not set";
   const outbound = getOutboundFlight();
   const ret = flights.length > 1 ? getReturnFlight() : null;
@@ -330,7 +335,7 @@ function renderSummary() {
         ${flightInfo}
       </div>
       <div class="group-summary-stats">
-        <div><span class="group-stat-label">Headcount</span><strong>${headcountActual}${headcountNum ? ` / ${headcountNum}` : ""}</strong></div>
+        <div><span class="group-stat-label">Headcount</span><strong>${headcountActual}</strong></div>
         <div><span class="group-stat-label">Adults</span><strong>${adults}</strong></div>
         <div><span class="group-stat-label">Children</span><strong>${children}</strong></div>
         <div><span class="group-stat-label">Rooming</span><strong>${escapeHtml(rooming)}</strong></div>

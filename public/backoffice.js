@@ -226,43 +226,93 @@ function resetTaskForm() {
   taskForm.reset();
   taskForm.elements.id.value = "";
   state.editingTaskId = "";
-  state.taskImageDirty = false;
-  state.taskImageRemoved = false;
   setTaskManagerSelection([]);
-  hideTaskImagePreview();
+  resetTaskImagesUiState();
   taskSubmitButton.textContent = "Add task";
   clearStatus(taskStatusNode);
 }
 
 const taskImageInput = document.getElementById("task-image-input");
 const taskImagePreview = document.getElementById("task-image-preview");
-const taskImagePreviewImg = document.getElementById("task-image-preview-img");
-const taskImageRemoveBtn = document.getElementById("task-image-remove");
 
-function showTaskImagePreview(src) {
-  if (!taskImagePreview || !taskImagePreviewImg) return;
-  taskImagePreviewImg.src = src;
+// Per-edit-session state:
+// - newFiles: File[] picked but not yet uploaded
+// - existing: [{id, ext}] images already on the task (loaded from server)
+// - removedIds: image ids the user has clicked × on (will be DELETEd on save)
+state.taskImagesNew = [];
+state.taskImagesExisting = [];
+state.taskImagesRemoved = new Set();
+
+function renderTaskImagePreview() {
+  if (!taskImagePreview) return;
+  const existingHtml = (state.taskImagesExisting || [])
+    .filter((img) => !state.taskImagesRemoved.has(img.id))
+    .map((img) => {
+      const editingId = state.editingTaskId;
+      const url = `/api/manager-dashboard/tasks/${encodeURIComponent(editingId)}/image/${encodeURIComponent(img.id)}?ts=${Date.now()}`;
+      return `
+        <div class="task-image-preview-tile" data-img-id="${escapeHtml(img.id)}">
+          <img src="${url}" alt="" />
+          <button type="button" class="task-image-preview-remove" data-task-img-remove="${escapeHtml(img.id)}" aria-label="Remove">×</button>
+        </div>
+      `;
+    }).join("");
+  const newHtml = (state.taskImagesNew || []).map((entry) => `
+    <div class="task-image-preview-tile is-pending" data-img-pending="${entry.uid}">
+      <img src="${entry.dataUrl}" alt="" />
+      <button type="button" class="task-image-preview-remove" data-task-img-remove-new="${entry.uid}" aria-label="Remove">×</button>
+    </div>
+  `).join("");
+  const html = existingHtml + newHtml;
+  if (!html) {
+    taskImagePreview.hidden = true;
+    taskImagePreview.innerHTML = "";
+    return;
+  }
   taskImagePreview.hidden = false;
+  taskImagePreview.innerHTML = html;
 }
-function hideTaskImagePreview() {
-  if (!taskImagePreview || !taskImagePreviewImg) return;
-  taskImagePreviewImg.removeAttribute("src");
-  taskImagePreview.hidden = true;
+
+function resetTaskImagesUiState() {
+  state.taskImagesNew = [];
+  state.taskImagesExisting = [];
+  state.taskImagesRemoved = new Set();
   if (taskImageInput) taskImageInput.value = "";
+  if (taskImagePreview) {
+    taskImagePreview.hidden = true;
+    taskImagePreview.innerHTML = "";
+  }
 }
+
 taskImageInput?.addEventListener("change", () => {
-  const file = taskImageInput.files?.[0];
-  if (!file) return;
-  state.taskImageDirty = true;
-  state.taskImageRemoved = false;
-  const reader = new FileReader();
-  reader.onload = () => showTaskImagePreview(reader.result);
-  reader.readAsDataURL(file);
+  const files = Array.from(taskImageInput.files || []);
+  if (!files.length) return;
+  files.forEach((file) => {
+    const reader = new FileReader();
+    const uid = "n_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+    reader.onload = () => {
+      state.taskImagesNew.push({ uid, file, dataUrl: reader.result });
+      renderTaskImagePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  // Reset the input so the same file can be re-picked later if needed.
+  taskImageInput.value = "";
 });
-taskImageRemoveBtn?.addEventListener("click", () => {
-  hideTaskImagePreview();
-  state.taskImageDirty = false;
-  state.taskImageRemoved = true;
+
+taskImagePreview?.addEventListener("click", (event) => {
+  const removeExisting = event.target.closest("[data-task-img-remove]");
+  if (removeExisting) {
+    state.taskImagesRemoved.add(removeExisting.dataset.taskImgRemove);
+    renderTaskImagePreview();
+    return;
+  }
+  const removeNew = event.target.closest("[data-task-img-remove-new]");
+  if (removeNew) {
+    const uid = removeNew.dataset.taskImgRemoveNew;
+    state.taskImagesNew = state.taskImagesNew.filter((e) => e.uid !== uid);
+    renderTaskImagePreview();
+  }
 });
 
 function resetContactForm() {
@@ -305,8 +355,7 @@ function startTaskEdit(taskId) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
   state.editingTaskId = taskId;
-  state.taskImageDirty = false;
-  state.taskImageRemoved = false;
+  resetTaskImagesUiState();
   taskForm.elements.id.value = task.id;
   taskForm.elements.title.value = task.title || "";
   setTaskManagerSelection(taskOwnerList(task));
@@ -315,13 +364,16 @@ function startTaskEdit(taskId) {
   taskForm.elements.dueDate.value = task.dueDate || "";
   taskForm.elements.dueTime.value = task.dueTime || "";
   taskForm.elements.note.value = task.note || "";
-  // Show the existing reference image if any. Cache-bust so the user
-  // sees their last upload after replacing.
-  if (task.imageExt) {
-    showTaskImagePreview(`/api/manager-dashboard/tasks/${task.id}/image?ts=${Date.now()}`);
+  // Load existing reference images. Old single-image tasks (imageExt)
+  // are migrated transparently using id="legacy".
+  if (Array.isArray(task.images) && task.images.length) {
+    state.taskImagesExisting = task.images.slice();
+  } else if (task.imageExt) {
+    state.taskImagesExisting = [{ id: "legacy", ext: task.imageExt }];
   } else {
-    hideTaskImagePreview();
+    state.taskImagesExisting = [];
   }
+  renderTaskImagePreview();
   taskSubmitButton.textContent = "Update task";
   setStatus(taskStatusNode, "Editing task.");
   openPanel(taskFormPanel);
@@ -442,9 +494,14 @@ function renderTaskRow(task, idx) {
     ? owners.map((o) => `<span class="todo-owner-chip">${escapeHtml(o)}</span>`).join(" ")
     : "—";
   const createdLabel = task.createdAt ? formatDate(task.createdAt) : "—";
-  const imgThumb = task.imageExt
-    ? `<a class="todo-img-thumb" href="/api/manager-dashboard/tasks/${escapeHtml(task.id)}/image" target="_blank" rel="noreferrer" title="Open reference image">
-         <img src="/api/manager-dashboard/tasks/${escapeHtml(task.id)}/image" alt="" />
+  const taskImages = Array.isArray(task.images) && task.images.length
+    ? task.images
+    : (task.imageExt ? [{ id: "legacy", ext: task.imageExt }] : []);
+  const firstImg = taskImages[0];
+  const imgThumb = firstImg
+    ? `<a class="todo-img-thumb" href="/api/manager-dashboard/tasks/${escapeHtml(task.id)}/image/${encodeURIComponent(firstImg.id)}" target="_blank" rel="noreferrer" title="Open reference image">
+         <img src="/api/manager-dashboard/tasks/${escapeHtml(task.id)}/image/${encodeURIComponent(firstImg.id)}" alt="" />
+         ${taskImages.length > 1 ? `<span class="todo-img-thumb-count">+${taskImages.length - 1}</span>` : ""}
        </a>`
     : "";
   return `
@@ -458,7 +515,7 @@ function renderTaskRow(task, idx) {
       <td><span class="todo-due todo-due--${due.tone}">${escapeHtml(due.label)}${task.dueTime ? ` ${escapeHtml(task.dueTime)}` : ""}</span></td>
       <td class="todo-cell-created">${escapeHtml(createdLabel)}</td>
       <td class="todo-cell-dests">${dests.length ? dests.map((d) => `<span class="tourist-tag-chip">${escapeHtml(d)}</span>`).join(" ") : "—"}</td>
-      <td>${(hasNote || task.imageExt) ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">${task.imageExt ? "See note + image" : "See note"}</button>` : "—"}</td>
+      <td>${(hasNote || taskImages.length) ? `<button type="button" class="todo-note-btn" data-note-view="${escapeHtml(task.id)}" data-note-kind="task">${taskImages.length ? `See note + image${taskImages.length > 1 ? "s" : ""}` : "See note"}</button>` : "—"}</td>
       <td class="todo-cell-actions">
         <details class="row-menu">
           <summary class="row-menu-trigger" aria-label="Task actions">⋯</summary>
@@ -640,18 +697,20 @@ taskForm.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload),
     });
     const savedId = taskId || result?.task?.id;
-    // Image follow-ups: upload a new file, or delete if user clicked Remove.
     if (savedId) {
-      const file = taskImageInput?.files?.[0];
-      if (file && state.taskImageDirty) {
+      // Delete the images the user clicked × on.
+      for (const imgId of Array.from(state.taskImagesRemoved)) {
+        try {
+          await fetch(`/api/manager-dashboard/tasks/${savedId}/image/${encodeURIComponent(imgId)}`, { method: "DELETE" });
+        } catch (_) { /* keep going */ }
+      }
+      // Upload every new file in order.
+      for (const entry of state.taskImagesNew) {
         const fd = new FormData();
-        fd.append("file", file);
-        await fetch(`/api/manager-dashboard/tasks/${savedId}/image`, {
-          method: "POST",
-          body: fd,
-        });
-      } else if (state.taskImageRemoved) {
-        await fetch(`/api/manager-dashboard/tasks/${savedId}/image`, { method: "DELETE" });
+        fd.append("file", entry.file);
+        try {
+          await fetch(`/api/manager-dashboard/tasks/${savedId}/image`, { method: "POST", body: fd });
+        } catch (_) { /* keep going */ }
       }
     }
     resetTaskForm();
@@ -671,7 +730,7 @@ contactForm.addEventListener("submit", async (event) => {
   if (saved) closePanel(contactFormPanel);
 });
 
-function showNoteModal(title, body, imageUrl) {
+function showNoteModal(title, body, imageUrls) {
   const modal = document.getElementById("note-view-modal");
   if (!modal) return;
   modal.querySelector("[data-note-modal-title]").textContent = title;
@@ -679,13 +738,15 @@ function showNoteModal(title, body, imageUrl) {
   bodyEl.textContent = body || "";
   bodyEl.style.display = body ? "" : "none";
   const imageWrap = modal.querySelector("[data-note-modal-image]");
-  const imageEl = modal.querySelector("[data-note-modal-image-img]");
-  if (imageUrl && imageWrap && imageEl) {
-    imageEl.src = imageUrl;
-    imageWrap.hidden = false;
-  } else if (imageWrap) {
-    imageWrap.hidden = true;
-    if (imageEl) imageEl.removeAttribute("src");
+  const urls = Array.isArray(imageUrls) ? imageUrls : (imageUrls ? [imageUrls] : []);
+  if (imageWrap) {
+    if (urls.length) {
+      imageWrap.hidden = false;
+      imageWrap.innerHTML = urls.map((u) => `<img src="${escapeHtml(u)}" alt="" />`).join("");
+    } else {
+      imageWrap.hidden = true;
+      imageWrap.innerHTML = "";
+    }
   }
   modal.classList.remove("is-hidden");
   modal.removeAttribute("hidden");
@@ -716,10 +777,16 @@ todoList.addEventListener("click", async (event) => {
       ? state.tasks.find((t) => t.id === id)
       : state.contacts.find((c) => c.id === id);
     if (!item) return;
-    const imgUrl = (kind === "task" && item.imageExt)
-      ? `/api/manager-dashboard/tasks/${encodeURIComponent(item.id)}/image`
-      : "";
-    showNoteModal(item.title || item.name || "Note", item.note || "", imgUrl);
+    let imgUrls = [];
+    if (kind === "task") {
+      const imgs = Array.isArray(item.images) && item.images.length
+        ? item.images
+        : (item.imageExt ? [{ id: "legacy", ext: item.imageExt }] : []);
+      imgUrls = imgs.map((img) =>
+        `/api/manager-dashboard/tasks/${encodeURIComponent(item.id)}/image/${encodeURIComponent(img.id)}`
+      );
+    }
+    showNoteModal(item.title || item.name || "Note", item.note || "", imgUrls);
     return;
   }
   const taskEdit = target.closest("[data-task-edit]");

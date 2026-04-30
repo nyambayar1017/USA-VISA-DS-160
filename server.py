@@ -9180,38 +9180,48 @@ def scan_task_reminders():
             f"<strong>Note:</strong><br>{html.escape(note_raw).replace(chr(10), '<br>')}"
             f"</div>"
         ) if note_raw else ""
-        # Reference image: attach as a real email attachment + reference
-        # it inline via cid so the recipient sees it in-body in clients
-        # that support content-id (Gmail, Apple Mail, Outlook). If a
-        # client strips inline images, the attachment is still visible.
-        image_path = _task_image_path(task.get("id"))
+        # Reference images: attach all as real email attachments + reference
+        # each inline via cid so the recipient sees them in-body in clients
+        # that support content-id (Gmail, Apple Mail, Outlook). If a client
+        # strips inline images, the attachments are still visible.
         image_attachments = []
         image_html = ""
-        if image_path and image_path.exists():
-            try:
-                image_bytes = image_path.read_bytes()
-                ext = image_path.suffix.lower().lstrip(".") or "jpg"
+        images = _task_images_list(task)
+        if images:
+            tile_html = []
+            for idx, img in enumerate(images, start=1):
+                p = _task_image_path(task.get("id"), img["id"], img["ext"])
+                if not p or not p.exists():
+                    continue
+                try:
+                    image_bytes = p.read_bytes()
+                except OSError:
+                    continue
+                ext = (img["ext"] or ".jpg").lstrip(".").lower() or "jpg"
                 mime = {
                     "jpg": "image/jpeg", "jpeg": "image/jpeg",
                     "png": "image/png", "gif": "image/gif",
                     "webp": "image/webp", "heic": "image/heic", "heif": "image/heif",
                 }.get(ext, "application/octet-stream")
-                fn = f"task-reference.{ext}"
-                content_id = f"task-image-{task.get('id')}"
+                fn = f"task-reference-{idx}.{ext}"
+                content_id = f"task-image-{task.get('id')}-{img['id']}"
                 image_attachments.append({
                     "filename": fn,
                     "content": base64.b64encode(image_bytes).decode("ascii"),
                     "content_id": content_id,
                     "type": mime,
                 })
+                tile_html.append(
+                    f"<img src=\"cid:{content_id}\" alt=\"task reference {idx}\" "
+                    f"style=\"max-width:280px;width:100%;height:auto;border-radius:8px;border:1px solid #e5e7eb;margin:0 8px 8px 0;\" />"
+                )
+            if tile_html:
                 image_html = (
                     f"<div style=\"margin-top:14px;\">"
-                    f"<p style=\"color:#475569;\">📎 Хавсаргасан зураг:</p>"
-                    f"<img src=\"cid:{content_id}\" alt=\"task reference\" style=\"max-width:520px;width:100%;height:auto;border-radius:8px;border:1px solid #e5e7eb;\" />"
+                    f"<p style=\"color:#475569;\">📎 Хавсаргасан зураг ({len(tile_html)}):</p>"
+                    + "".join(tile_html) +
                     f"</div>"
                 )
-            except OSError:
-                pass
 
         # Stage 1: 6 hours before due — "approaching" reminder.
         if (
@@ -9373,11 +9383,20 @@ def build_manager_task(payload):
         "createdAt": now_mongolia().isoformat(),
         "updatedAt": now_mongolia().isoformat(),
     }
-    # Preserve the image extension across updates — the actual image is
+    # Preserve image attachments across updates — the actual files are
     # uploaded via a separate endpoint, not part of this JSON payload.
-    image_ext = normalize_text(payload.get("imageExt"))
-    if image_ext:
-        record["imageExt"] = image_ext
+    images = payload.get("images")
+    if isinstance(images, list) and images:
+        clean = []
+        for entry in images:
+            if isinstance(entry, dict) and entry.get("id") and entry.get("ext"):
+                clean.append({"id": str(entry["id"]), "ext": str(entry["ext"])})
+        if clean:
+            record["images"] = clean
+    elif normalize_text(payload.get("imageExt")):
+        # Legacy single-image field — preserve as-is until the next upload
+        # converts it into the array shape.
+        record["imageExt"] = normalize_text(payload.get("imageExt"))
     return record
 
 
@@ -9396,26 +9415,38 @@ def validate_manager_task(task):
     return None
 
 
-# ── Task reference image (single attachment per task, throwaway) ──────
-# Stored at TASK_ATTACHMENTS_DIR/<task_id>.<ext>. Not in the gallery —
-# these are quick context images (screenshots, photos) that get
-# deleted with the task.
+# ── Task reference images (multiple attachments per task, throwaway) ──
+# Stored at TASK_ATTACHMENTS_DIR/<task_id>__<img_id>.<ext>. Not in the
+# gallery — these are quick context images (screenshots, photos) that
+# get deleted with the task.
 
-def _task_image_path(task_id, ext=None):
-    """Resolve the on-disk path for a task's image. If ext is given,
-    use it directly; otherwise glob for any matching file."""
-    if not task_id:
+def _task_images_list(task):
+    """Return the task's images as a list of {id, ext}, migrating the
+    legacy single-image `imageExt` field on the fly."""
+    images = task.get("images")
+    if isinstance(images, list) and images:
+        out = []
+        for entry in images:
+            if isinstance(entry, dict) and entry.get("id") and entry.get("ext"):
+                out.append({"id": str(entry["id"]), "ext": str(entry["ext"])})
+        return out
+    legacy_ext = task.get("imageExt")
+    if legacy_ext:
+        return [{"id": "legacy", "ext": str(legacy_ext)}]
+    return []
+
+
+def _task_image_path(task_id, image_id, ext):
+    """Resolve the on-disk path for a specific task image."""
+    if not task_id or not image_id or not ext:
         return None
-    if ext:
+    if image_id == "legacy":
         return TASK_ATTACHMENTS_DIR / f"{task_id}{ext}"
-    for candidate in TASK_ATTACHMENTS_DIR.glob(f"{task_id}.*"):
-        if candidate.is_file():
-            return candidate
-    return None
+    return TASK_ATTACHMENTS_DIR / f"{task_id}__{image_id}{ext}"
 
 
-def _delete_task_image(task_id):
-    p = _task_image_path(task_id)
+def _delete_task_image_file(task_id, image_id, ext):
+    p = _task_image_path(task_id, image_id, ext)
     if p and p.exists():
         try:
             p.unlink()
@@ -9423,23 +9454,23 @@ def _delete_task_image(task_id):
             pass
 
 
-def _task_image_data_url(task_id):
-    """Return a data: URL for the task image, suitable for embedding
-    inline in HTML emails. Returns "" if no image."""
-    p = _task_image_path(task_id)
-    if not p or not p.exists():
-        return ""
-    ext = p.suffix.lower().lstrip(".")
-    mime = {
-        "jpg": "image/jpeg", "jpeg": "image/jpeg",
-        "png": "image/png", "gif": "image/gif",
-        "webp": "image/webp", "heic": "image/heic", "heif": "image/heif",
-    }.get(ext, "application/octet-stream")
-    try:
-        data = p.read_bytes()
-    except OSError:
-        return ""
-    return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+def _delete_all_task_images(task_id):
+    """Cascade-delete every file belonging to this task — covers both
+    the legacy single-file naming and the new __<imgId> naming."""
+    if not task_id:
+        return
+    for candidate in TASK_ATTACHMENTS_DIR.glob(f"{task_id}.*"):
+        if candidate.is_file():
+            try:
+                candidate.unlink()
+            except OSError:
+                pass
+    for candidate in TASK_ATTACHMENTS_DIR.glob(f"{task_id}__*"):
+        if candidate.is_file():
+            try:
+                candidate.unlink()
+            except OSError:
+                pass
 
 
 def handle_task_image_upload(environ, start_response, task_id):
@@ -9462,39 +9493,74 @@ def handle_task_image_upload(environ, start_response, task_id):
     if len(data) > MAX_UPLOAD_BYTES:
         return json_response(start_response, "400 Bad Request", {"error": "Image too large (max 10 MB)"})
     ensure_data_store()
-    # Replace any existing image (we only keep one per task — keeps it simple
-    # and matches the user's "throwaway" intent).
-    _delete_task_image(task_id)
-    target = TASK_ATTACHMENTS_DIR / f"{task_id}{ext}"
+    image_id = uuid4().hex[:12]
+    target = TASK_ATTACHMENTS_DIR / f"{task_id}__{image_id}{ext}"
     target.write_bytes(data)
-    task["imageExt"] = ext
+    images = _task_images_list(task)
+    images.append({"id": image_id, "ext": ext})
+    task["images"] = images
+    if "imageExt" in task:
+        # Promote the legacy single image into the list once a second is
+        # added, so we don't keep the dual representation around.
+        del task["imageExt"]
     task["updatedAt"] = now_mongolia().isoformat()
     write_manager_dashboard(store)
-    return json_response(start_response, "200 OK", {"ok": True, "imageExt": ext})
+    return json_response(start_response, "200 OK", {"ok": True, "image": {"id": image_id, "ext": ext}, "images": images})
 
 
-def handle_task_image_serve(environ, start_response, task_id):
-    if not require_login(environ, start_response):
-        return []
-    p = _task_image_path(task_id)
-    if not p or not p.exists():
-        return json_response(start_response, "404 Not Found", {"error": "No image"})
-    return file_response(start_response, p)
-
-
-def handle_task_image_delete(environ, start_response, task_id):
+def handle_task_image_serve(environ, start_response, task_id, image_id=None):
     if not require_login(environ, start_response):
         return []
     store = read_manager_dashboard()
     task = next((t for t in store.get("tasks", []) if t.get("id") == task_id), None)
     if not task:
         return json_response(start_response, "404 Not Found", {"error": "Task not found"})
-    _delete_task_image(task_id)
+    images = _task_images_list(task)
+    if not images:
+        return json_response(start_response, "404 Not Found", {"error": "No image"})
+    target = None
+    if image_id:
+        match = next((img for img in images if img["id"] == image_id), None)
+        if match:
+            target = _task_image_path(task_id, match["id"], match["ext"])
+    else:
+        # Back-compat: serve the first image when no id is given.
+        target = _task_image_path(task_id, images[0]["id"], images[0]["ext"])
+    if not target or not target.exists():
+        return json_response(start_response, "404 Not Found", {"error": "Image file missing"})
+    return file_response(start_response, target)
+
+
+def handle_task_image_delete(environ, start_response, task_id, image_id=None):
+    if not require_login(environ, start_response):
+        return []
+    store = read_manager_dashboard()
+    task = next((t for t in store.get("tasks", []) if t.get("id") == task_id), None)
+    if not task:
+        return json_response(start_response, "404 Not Found", {"error": "Task not found"})
+    images = _task_images_list(task)
+    if not images:
+        return json_response(start_response, "200 OK", {"ok": True})
+    if image_id:
+        keep = []
+        removed = False
+        for img in images:
+            if img["id"] == image_id and not removed:
+                _delete_task_image_file(task_id, img["id"], img["ext"])
+                removed = True
+                continue
+            keep.append(img)
+        task["images"] = keep
+    else:
+        # No id — delete every image (legacy behaviour).
+        for img in images:
+            _delete_task_image_file(task_id, img["id"], img["ext"])
+        task["images"] = []
     if "imageExt" in task:
         del task["imageExt"]
-        task["updatedAt"] = now_mongolia().isoformat()
+    task["updatedAt"] = now_mongolia().isoformat()
     write_manager_dashboard(store)
-    return json_response(start_response, "200 OK", {"ok": True})
+    return json_response(start_response, "200 OK", {"ok": True, "images": task["images"]})
 
 
 def build_manager_reminder(payload):
@@ -10102,10 +10168,10 @@ def handle_manager_item_delete(environ, start_response, key, item_id):
     if len(store[key]) == before:
         return json_response(start_response, "404 Not Found", {"error": "Record not found"})
     write_manager_dashboard(store)
-    # Cascade: a deleted task drops its reference image too. The user
+    # Cascade: a deleted task drops its reference images too. The user
     # explicitly wanted these throwaway, so don't keep orphan files.
     if key == "tasks":
-        _delete_task_image(item_id)
+        _delete_all_task_images(item_id)
     return json_response(
         start_response,
         "200 OK",
@@ -10651,22 +10717,30 @@ def handle_delete_fifa_sale(environ, start_response, sale_id):
 def handle_list_camp_trips(environ, start_response):
     trips = filter_by_company(read_camp_trips(), environ)
     # Enrich each trip with the live tourist count so the GIT pax tile can
-    # render "actual / planned". A tourist only counts toward the trip's
-    # actual pax when their group is confirmed — pending/cancelled groups
-    # don't add to the booked headcount on the trips list.
-    confirmed_group_ids = {
-        g.get("id")
-        for g in read_tourist_groups()
-        if (g.get("status") or "").lower() in ("confirmed", "")
-    }
+    # render "actual / planned". For GIT trips the booked headcount uses
+    # each confirmed group's declared headcount (the manager types "5
+    # NED vs JPN" before all 5 names are entered — that's the source of
+    # truth). Pending/cancelled groups don't add to the count. Tourists
+    # without a group fall back to the per-tourist count.
+    all_groups = read_tourist_groups()
+    confirmed_groups_by_trip = {}
+    for g in all_groups:
+        status = (g.get("status") or "").lower()
+        if status not in ("confirmed", ""):
+            continue
+        confirmed_groups_by_trip.setdefault(g.get("tripId"), []).append(g)
+    confirmed_group_ids = {g.get("id") for groups in confirmed_groups_by_trip.values() for g in groups}
+    # Per-trip pax, summed from confirmed groups' declared headcount.
     counts_by_trip = {}
+    for tid, groups in confirmed_groups_by_trip.items():
+        counts_by_trip[tid] = sum(int(g.get("headcount") or 0) for g in groups)
+    # Tourists outside any group (legacy data that pre-dates groups) still
+    # count, since their participation isn't otherwise represented.
     for t in read_tourists():
         tid = t.get("tripId")
         if not tid:
             continue
-        # Tourists without a group still count (treat as confirmed) so old
-        # data that pre-dates the group.status field doesn't disappear.
-        if t.get("groupId") and t.get("groupId") not in confirmed_group_ids:
+        if t.get("groupId"):
             continue
         counts_by_trip[tid] = counts_by_trip.get(tid, 0) + 1
     enriched = []
@@ -17635,17 +17709,19 @@ def _dispatch(environ, start_response):
 
     if path.startswith("/api/manager-dashboard/tasks/"):
         rest = path.replace("/api/manager-dashboard/tasks/", "", 1).strip("/")
-        # /tasks/<id>/image — single throwaway reference image per task.
-        if rest.endswith("/image"):
-            item_id = rest[:-len("/image")].strip("/")
+        # /tasks/<id>/image[/imgId] — multiple throwaway reference images per task.
+        if "/image" in rest:
+            head, _, tail = rest.partition("/image")
+            item_id = head.strip("/")
+            image_id = tail.strip("/") or None
             if not item_id:
                 return json_response(start_response, "400 Bad Request", {"error": "id required"})
             if method == "POST":
                 return handle_task_image_upload(environ, start_response, item_id)
             if method == "GET":
-                return handle_task_image_serve(environ, start_response, item_id)
+                return handle_task_image_serve(environ, start_response, item_id, image_id)
             if method == "DELETE":
-                return handle_task_image_delete(environ, start_response, item_id)
+                return handle_task_image_delete(environ, start_response, item_id, image_id)
             return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
         item_id = rest
         if method == "POST" and item_id:
