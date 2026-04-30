@@ -728,20 +728,32 @@ function closePaymentRequestPopover() {
 }
 
 function applyPaymentIconVisibility(user) {
-  if (!paymentIconNode) return;
   const role = (user?.role || "").toLowerCase();
-  if (role === "admin" || role === "accountant") {
-    paymentIconNode.removeAttribute("hidden");
-  } else {
-    paymentIconNode.setAttribute("hidden", "");
+  const visible = role === "admin" || role === "accountant";
+  if (paymentIconNode) {
+    if (visible) paymentIconNode.removeAttribute("hidden");
+    else paymentIconNode.setAttribute("hidden", "");
+  }
+  const mobileBtn = mobileBar?.querySelector('[data-action="toggle-payment-requests-mobile"]');
+  if (mobileBtn) {
+    if (visible) mobileBtn.removeAttribute("hidden");
+    else mobileBtn.setAttribute("hidden", "");
   }
 }
 
 function updatePaymentRequestCount(count) {
-  if (!paymentCountNode) return;
-  paymentCountNode.textContent = String(count || 0);
-  if (count > 0) paymentCountNode.removeAttribute("hidden");
-  else paymentCountNode.setAttribute("hidden", "");
+  const display = String(count || 0);
+  if (paymentCountNode) {
+    paymentCountNode.textContent = display;
+    if (count > 0) paymentCountNode.removeAttribute("hidden");
+    else paymentCountNode.setAttribute("hidden", "");
+  }
+  const mobileCount = mobileBar?.querySelector("[data-payment-request-count-mobile]");
+  if (mobileCount) {
+    mobileCount.textContent = display;
+    if (count > 0) mobileCount.removeAttribute("hidden");
+    else mobileCount.setAttribute("hidden", "");
+  }
 }
 
 function renderPaymentRequestList() {
@@ -753,24 +765,182 @@ function renderPaymentRequestList() {
     return;
   }
   list.innerHTML = paymentRequestsCache.map((r) => {
-    const url = `/accountant?status=pending&open=${encodeURIComponent(r.id)}`;
     const amount = `${(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}`;
     const requester = (r.requestedBy && (r.requestedBy.name || r.requestedBy.email)) || "Unknown";
     return `
-      <a class="notifications-item mail-pop-item" href="${escapeHtml(url)}">
+      <button type="button" class="notifications-item mail-pop-item" data-payment-request-open="${escapeHtml(r.id)}">
         <span class="notification-avatar notification-avatar-icon">₮</span>
         <div class="notifications-item-body">
           <p><strong>${escapeHtml(r.invoiceSerial || "Invoice")}</strong> · ${escapeHtml(r.installmentDescription || "Installment")}</p>
           <p class="mail-pop-snippet">${escapeHtml(r.payerName || "")} — ${escapeHtml(amount)}</p>
           <time>${escapeHtml(formatRelativeTime(r.requestedAt))} · by ${escapeHtml(requester)}</time>
         </div>
-      </a>
+      </button>
     `;
   }).join("");
+  list.querySelectorAll("[data-payment-request-open]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      openPaymentRequestApproveModal(btn.dataset.paymentRequestOpen);
+    });
+  });
+}
+
+// ── Approval modal ──────────────────────────────────────────────────
+// Accountant clicks a pending request → modal shows the request details
+// and asks for the proof file. Submit POSTs multipart to /approve which
+// (a) attaches the file to the trip's Documents under "Paid documents"
+// (b) flips the installment to paid, and (c) marks the request approved.
+function escapeAttr(s) { return escapeHtml(s); }
+
+function buildPaymentApproveModal() {
+  let modal = document.getElementById("payment-approve-modal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "payment-approve-modal";
+  modal.className = "payment-approve-modal is-hidden";
+  modal.innerHTML = `
+    <div class="payment-approve-backdrop" data-action="close-approve"></div>
+    <div class="payment-approve-dialog">
+      <button type="button" class="payment-approve-close" data-action="close-approve" aria-label="Close">×</button>
+      <header>
+        <h2>Approve payment request</h2>
+        <p class="payment-approve-sub">Upload the receipt — it auto-saves to the trip's Paid documents and the Accountant page.</p>
+      </header>
+      <div class="payment-approve-body" data-approve-body>
+        <p class="notifications-empty">Loading…</p>
+      </div>
+      <footer>
+        <p class="status" data-approve-status></p>
+        <button type="button" class="button-secondary" data-action="reject-approve">Reject</button>
+        <button type="button" class="button-secondary" data-action="close-approve">Cancel</button>
+        <button type="button" class="primary-pill" data-action="confirm-approve">Approve &amp; register</button>
+      </footer>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-action]")?.dataset?.action;
+    if (a === "close-approve") closePaymentRequestApproveModal();
+    if (a === "confirm-approve") submitPaymentApprove();
+    if (a === "reject-approve") submitPaymentReject();
+  });
+  return modal;
+}
+
+let approveCurrentRequest = null;
+
+async function openPaymentRequestApproveModal(requestId) {
+  closePaymentRequestPopover();
+  const modal = buildPaymentApproveModal();
+  modal.classList.remove("is-hidden");
+  document.body.classList.add("modal-open");
+  const body = modal.querySelector("[data-approve-body]");
+  body.innerHTML = `<p class="notifications-empty">Loading…</p>`;
+  approveCurrentRequest = paymentRequestsCache.find((r) => r.id === requestId) || null;
+  if (!approveCurrentRequest) {
+    // Cache miss — refetch and try again.
+    await fetchPaymentRequests();
+    approveCurrentRequest = paymentRequestsCache.find((r) => r.id === requestId) || null;
+  }
+  if (!approveCurrentRequest) {
+    body.innerHTML = `<p class="notifications-empty">This request is no longer available.</p>`;
+    return;
+  }
+  const r = approveCurrentRequest;
+  const amount = `${(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}`;
+  body.innerHTML = `
+    <dl class="payment-approve-details">
+      <div><dt>Invoice</dt><dd>${escapeHtml(r.invoiceSerial || "-")}</dd></div>
+      <div><dt>Installment</dt><dd>${escapeHtml(r.installmentDescription || "-")}</dd></div>
+      <div><dt>Payer</dt><dd>${escapeHtml(r.payerName || "-")}</dd></div>
+      <div><dt>Amount</dt><dd>${escapeHtml(amount)}</dd></div>
+      <div><dt>Paid date</dt><dd>${escapeHtml(r.paidDate || "-")}</dd></div>
+      <div><dt>Bank</dt><dd>${escapeHtml(r.bankAccountId || "-")}</dd></div>
+      <div><dt>Requested by</dt><dd>${escapeHtml((r.requestedBy && (r.requestedBy.name || r.requestedBy.email)) || "-")}</dd></div>
+      ${r.note ? `<div class="payment-approve-note"><dt>Note</dt><dd>${escapeHtml(r.note)}</dd></div>` : ""}
+    </dl>
+    <label class="payment-approve-file-label">
+      Receipt / proof <span class="inv-required" style="color:#c44747">*</span>
+      <input type="file" id="payment-approve-file" accept=".pdf,.png,.jpg,.jpeg,.webp" />
+      <small class="form-hint">PDF or image, max 10 MB. Auto-attached to the trip's "Paid documents".</small>
+    </label>
+  `;
+}
+
+function closePaymentRequestApproveModal() {
+  const modal = document.getElementById("payment-approve-modal");
+  if (!modal) return;
+  modal.classList.add("is-hidden");
+  document.body.classList.remove("modal-open");
+  approveCurrentRequest = null;
+  const status = modal.querySelector("[data-approve-status]");
+  if (status) status.textContent = "";
+}
+
+async function submitPaymentApprove() {
+  if (!approveCurrentRequest) return;
+  const modal = document.getElementById("payment-approve-modal");
+  if (!modal) return;
+  const status = modal.querySelector("[data-approve-status]");
+  const fileInput = modal.querySelector("#payment-approve-file");
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    status.textContent = "Pick the receipt file first.";
+    status.style.color = "#c44747";
+    return;
+  }
+  status.style.color = "";
+  status.textContent = "Uploading and registering payment…";
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("paidAmount", String(approveCurrentRequest.paidAmount || ""));
+  fd.append("paidDate", approveCurrentRequest.paidDate || "");
+  fd.append("bankAccountId", approveCurrentRequest.bankAccountId || "");
+  fd.append("note", approveCurrentRequest.note || "");
+  try {
+    const r = await fetch(`/api/payment-requests/${encodeURIComponent(approveCurrentRequest.id)}/approve`, {
+      method: "POST",
+      body: fd,
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Approve failed");
+    closePaymentRequestApproveModal();
+    window.UI?.toast?.("Payment registered and receipt attached to the trip.", "ok");
+    fetchPaymentRequests();
+  } catch (err) {
+    status.textContent = err.message || "Approve failed";
+    status.style.color = "#c44747";
+  }
+}
+
+async function submitPaymentReject() {
+  if (!approveCurrentRequest) return;
+  const reason = window.prompt("Reason for rejection (optional)?", "");
+  if (reason === null) return;
+  try {
+    const r = await fetch(`/api/payment-requests/${encodeURIComponent(approveCurrentRequest.id)}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Reject failed");
+    closePaymentRequestApproveModal();
+    window.UI?.toast?.("Payment request rejected.", "ok");
+    fetchPaymentRequests();
+  } catch (err) {
+    alert(err.message || "Reject failed");
+  }
 }
 
 async function fetchPaymentRequests() {
-  if (!paymentIconNode || paymentIconNode.hasAttribute("hidden")) return;
+  // Skip the request when neither the desktop nor the mobile ₮ button
+  // is visible (i.e. the user isn't admin/accountant). Either side
+  // toggling visible is enough to keep polling.
+  const desktopVisible = paymentIconNode && !paymentIconNode.hasAttribute("hidden");
+  const mobileBtn = mobileBar?.querySelector('[data-action="toggle-payment-requests-mobile"]');
+  const mobileVisible = mobileBtn && !mobileBtn.hasAttribute("hidden");
+  if (!desktopVisible && !mobileVisible) return;
   try {
     const ws = readWorkspace();
     const qs = `?status=pending${ws ? `&workspace=${encodeURIComponent(ws)}` : ""}`;
@@ -1405,6 +1575,10 @@ function ensureMobileBar() {
       </svg>
       <span class="workspace-bell-count" data-notif-count-mobile hidden>0</span>
     </button>
+    <button type="button" class="workspace-bell workspace-bell-mobile workspace-payment-icon" data-action="toggle-payment-requests-mobile" aria-label="Payment requests" hidden>
+      <span class="workspace-bell-tugrik" aria-hidden="true">₮</span>
+      <span class="workspace-bell-count" data-payment-request-count-mobile hidden>0</span>
+    </button>
     <button type="button" class="workspace-mobile-avatar-btn" data-action="toggle-profile-menu-mobile" aria-label="Profile">
       <span class="workspace-profile-avatar" data-mobile-avatar>
         <span class="workspace-profile-avatar-fallback">?</span>
@@ -1430,6 +1604,10 @@ function ensureMobileBar() {
   bar.querySelector('[data-action="toggle-reminders-mobile"]').addEventListener("click", (event) => {
     event.stopPropagation();
     toggleReminderPopover();
+  });
+  bar.querySelector('[data-action="toggle-payment-requests-mobile"]')?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    togglePaymentRequestPopover();
   });
   bar.querySelector('[data-action="toggle-profile-menu-mobile"]').addEventListener("click", (event) => {
     event.stopPropagation();

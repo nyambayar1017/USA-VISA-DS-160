@@ -8784,13 +8784,68 @@ def _apply_payment_to_invoice(invoice, request, actor, paid_amount, paid_date, b
     return True, ""
 
 
+def _attach_paid_document_to_trip(trip_id, upload, actor):
+    """When the accountant uploads the proof file, attach it to the
+    trip's documents under category "Paid documents" and return the
+    new document id. Same shape handle_upload_trip_document writes —
+    so the file shows up in the trip's Documents list and the future
+    Accountant page (which queries paid-category docs across trips)."""
+    if not trip_id or not upload:
+        return None
+    trips = read_camp_trips()
+    trip_index = next((i for i, t in enumerate(trips) if t.get("id") == trip_id), None)
+    if trip_index is None:
+        return None
+    original_name = upload.get("filename") or "paid-document"
+    ext = Path(original_name).suffix.lower()
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        return None
+    data = upload.get("data") or b""
+    if len(data) > MAX_UPLOAD_BYTES:
+        return None
+    ensure_data_store()
+    doc_id = str(uuid4())
+    trip_upload_dir = TRIP_UPLOADS_DIR / trip_id
+    trip_upload_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = doc_id + ext
+    (trip_upload_dir / stored_name).write_bytes(data)
+    doc = {
+        "id": doc_id,
+        "originalName": original_name,
+        "storedName": stored_name,
+        "mimeType": upload.get("content_type") or "application/octet-stream",
+        "size": len(data),
+        "category": "Paid documents",
+        "touristId": "",
+        "touristName": "",
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+    trip = trips[trip_index]
+    documents = list(trip.get("documents") or [])
+    documents.append(doc)
+    trips[trip_index] = {**trip, "documents": documents}
+    write_camp_trips(trips)
+    return doc_id
+
+
 def handle_approve_payment_request(environ, start_response, request_id):
     actor = require_login(environ, start_response)
     if not actor:
         return []
     if not _can_approve_payment_request(actor):
         return json_response(start_response, "403 Forbidden", {"error": "Only admins / accountants can approve payment requests."})
-    payload = collect_json(environ) or {}
+
+    # Accept either JSON (no file) or multipart (with the proof file).
+    content_type = environ.get("CONTENT_TYPE", "")
+    if "multipart/form-data" in content_type:
+        fields, files = parse_multipart(environ)
+        payload = {k: v for k, v in fields.items()}
+        upload = files.get("file")
+    else:
+        payload = collect_json(environ) or {}
+        upload = None
+
     records = read_payment_requests()
     target = next((r for r in records if r.get("id") == request_id), None)
     if not target:
@@ -8810,6 +8865,17 @@ def handle_approve_payment_request(environ, start_response, request_id):
     bank_account_id = normalize_text(payload.get("bankAccountId")) or target.get("bankAccountId") or ""
     note = normalize_text(payload.get("note")) or target.get("note") or ""
     paid_document_id = normalize_text(payload.get("paidDocumentId"))
+
+    # Auto-attach the uploaded proof to the trip's Documents under
+    # "Paid documents". Required: an approval without the receipt
+    # leaves no audit trail, so reject if neither a file nor an
+    # already-linked doc is provided.
+    if upload and target.get("tripId"):
+        attached_id = _attach_paid_document_to_trip(target["tripId"], upload, actor)
+        if attached_id:
+            paid_document_id = attached_id
+    if not paid_document_id:
+        return json_response(start_response, "400 Bad Request", {"error": "Upload the paid receipt before approving."})
 
     ok, err = _apply_payment_to_invoice(invoice, target, actor, paid_amount, paid_date, bank_account_id, note)
     if not ok:
