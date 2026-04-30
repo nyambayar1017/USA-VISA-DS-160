@@ -8077,6 +8077,14 @@ def handle_invoice_payment(environ, start_response, invoice_id):
             target["paidDate"] = paid_date
         if "note" in payload:
             target["note"] = note
+        # paidAmount is what the client actually transferred. Defaults to
+        # the expected installment amount; gets recorded as-typed if the
+        # customer sent a different number (over- or under-paid).
+        if "paidAmount" in payload:
+            try:
+                target["paidAmount"] = float(payload["paidAmount"])
+            except (TypeError, ValueError):
+                target["paidAmount"] = float(target.get("amount") or 0)
         if "bankAccountId" in payload:
             target["bankAccountId"] = bank_account_id
             # Snapshot the bank info at time of payment so the record stays

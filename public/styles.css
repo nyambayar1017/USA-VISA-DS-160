@@ -2244,6 +2244,28 @@ td {
   font-size: 12px; line-height: 1.4;
   display: inline-block;
 }
+.inv-pay-balance {
+  font-weight: 600;
+  margin-left: 4px;
+}
+.inv-pay-balance.is-short { color: #b42318; }
+.inv-pay-balance.is-over  { color: #92400e; }
+.inv-side-balance {
+  display: inline-flex; align-items: center;
+  padding: 2px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+}
+.inv-side-balance.is-short { background: #fee2e2; color: #991b1b; }
+.inv-side-balance.is-over  { background: #fef3c7; color: #92400e; }
+.inv-installment-balance {
+  margin: 2px 0 6px 28px;
+  padding: 5px 10px; border-radius: 6px;
+  font-size: 12px; line-height: 1.4;
+  display: inline-block;
+  font-weight: 600;
+}
+.inv-installment-balance.is-short { background: #fee2e2; color: #991b1b; }
+.inv-installment-balance.is-over  { background: #fef3c7; color: #92400e; }
 .inv-side-register-icon {
   width: 16px; height: 16px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.25);

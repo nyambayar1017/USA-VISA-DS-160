@@ -237,6 +237,15 @@
         const noteLine = ins.note
           ? `<div class="inv-installment-note">📝 ${escapeHtml(ins.note)}</div>`
           : "";
+        const isPaid = status === "paid" || status === "confirmed";
+        const expectedAmt = Number(ins.amount) || 0;
+        const paidAmt = ins.paidAmount != null ? Number(ins.paidAmount) : (isPaid ? expectedAmt : 0);
+        const diff = expectedAmt - paidAmt;
+        const balanceLine = isPaid && Math.abs(diff) > 0.01
+          ? (diff > 0
+              ? `<div class="inv-installment-balance is-short">⚠ Paid ${escapeHtml(fmtMoney(paidAmt, inv.currency))} — owed ${escapeHtml(fmtMoney(diff, inv.currency))}</div>`
+              : `<div class="inv-installment-balance is-over">Paid ${escapeHtml(fmtMoney(paidAmt, inv.currency))} — overpaid ${escapeHtml(fmtMoney(-diff, inv.currency))}</div>`)
+          : "";
         return `
           <div class="inv-installment-line">
             <span class="inv-inst-desc">${escapeHtml(ins.description || "-")}</span>
@@ -244,6 +253,7 @@
             <span class="inv-inst-status"><span class="payment-status payment-status-${status}">${statusLabel}</span></span>
             <span class="inv-inst-due">${escapeHtml(fmtDateShort(ins.dueDate))}</span>
           </div>
+          ${balanceLine}
           ${noteLine}
         `;
       }).join("") || '<div class="inv-installment-line"><span class="inv-inst-desc muted">No installments</span></div>';
@@ -410,9 +420,19 @@
       const userIsAdmin = (window.currentUser?.role || "") === "admin";
       const bank = ins.bankAccount || {};
       const bankLabel = bank.label || (bank.bankName ? `${bank.bankName} · ${bank.accountNumber || ""}` : "");
+      const expectedAmt = Number(ins.amount) || 0;
+      const paidAmt = ins.paidAmount != null ? Number(ins.paidAmount) : (isPaid ? expectedAmt : 0);
+      const balanceDiff = expectedAmt - paidAmt;
+      const balanceChip = isPaid && Math.abs(balanceDiff) > 0.01
+        ? (balanceDiff > 0
+            ? `<span class="inv-side-balance is-short">Owed ${escapeHtml(fmtMoney(balanceDiff, inv.currency))}</span>`
+            : `<span class="inv-side-balance is-over">Overpaid ${escapeHtml(fmtMoney(-balanceDiff, inv.currency))}</span>`)
+        : "";
       const paidDetails = isPaid ? `
         <div class="inv-side-paid-meta">
           ${ins.paidDate ? `<span><strong>Paid:</strong> ${escapeHtml(fmtDateOnly(ins.paidDate))}</span>` : ""}
+          ${ins.paidAmount != null ? `<span><strong>Amount:</strong> ${escapeHtml(fmtMoney(paidAmt, inv.currency))}</span>` : ""}
+          ${balanceChip}
           ${bankLabel ? `<span><strong>Bank:</strong> ${escapeHtml(bankLabel)}</span>` : ""}
           ${ins.paidBy?.name ? `<span><strong>By:</strong> ${escapeHtml(ins.paidBy.name)}</span>` : ""}
         </div>
@@ -614,10 +634,20 @@
       const label = b.label || `${b.bankName || ""} · ${b.accountNumber || ""}`;
       return `<option value="${escapeHtml(b.id)}" ${sel}>${escapeHtml(label)}</option>`;
     }).join("");
+    const expected = Number(inst.amount) || 0;
+    const initialPaid = inst.paidAmount != null ? Number(inst.paidAmount) : expected;
     body.innerHTML = `
       <label class="inv-edit-field">
         <span>Paid date <span class="inv-required">*</span></span>
         <input id="inv-pay-date" type="date" value="${escapeHtml(inst.paidDate || new Date().toISOString().slice(0, 10))}" />
+      </label>
+      <label class="inv-edit-field">
+        <span>Amount paid <span class="inv-required">*</span></span>
+        <input id="inv-pay-amount" type="number" step="0.01" min="0" value="${escapeHtml(initialPaid)}" />
+        <small class="form-hint">
+          Expected: <strong>${fmtMoney(expected, sidePanelInvoice.currency)}</strong>
+          <span id="inv-pay-balance" class="inv-pay-balance"></span>
+        </small>
       </label>
       <label class="inv-edit-field">
         <span>Received bank account <span class="inv-required">*</span></span>
@@ -644,6 +674,28 @@
         <textarea id="inv-pay-note" rows="3" placeholder="e.g. Paid only for his father, not his mother">${escapeHtml(inst.note || "")}</textarea>
       </label>
     `;
+    // Live balance: update the hint as the user types so they see
+    // immediately if the amount is short or over.
+    const amountInput = body.querySelector("#inv-pay-amount");
+    const balanceNode = body.querySelector("#inv-pay-balance");
+    function refreshBalance() {
+      const paid = Number(amountInput.value) || 0;
+      const diff = paid - expected;
+      if (Math.abs(diff) < 0.01) {
+        balanceNode.textContent = "";
+        balanceNode.className = "inv-pay-balance";
+        return;
+      }
+      if (diff < 0) {
+        balanceNode.textContent = ` · Owed ${fmtMoney(-diff, sidePanelInvoice.currency)}`;
+        balanceNode.className = "inv-pay-balance is-short";
+      } else {
+        balanceNode.textContent = ` · Overpaid ${fmtMoney(diff, sidePanelInvoice.currency)}`;
+        balanceNode.className = "inv-pay-balance is-over";
+      }
+    }
+    amountInput?.addEventListener("input", refreshBalance);
+    refreshBalance();
   }
   async function submitRegisterPayment() {
     if (!sidePanelInvoice || registeringIdx < 0) return;
@@ -651,8 +703,13 @@
     const dt = body.querySelector("#inv-pay-date")?.value || "";
     const bankId = body.querySelector("#inv-pay-bank")?.value || "";
     const note = body.querySelector("#inv-pay-note")?.value || "";
+    const paidAmountRaw = body.querySelector("#inv-pay-amount")?.value || "";
+    const paidAmount = Number(paidAmountRaw);
     if (!dt) return alert("Paid date is required.");
     if (!bankId) return alert("Pick the bank account that received the payment.");
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+      return alert("Amount paid must be greater than zero.");
+    }
     try {
       await fetchJson(`/api/invoices/${sidePanelInvoice.id}/payment`, {
         method: "POST",
@@ -662,6 +719,7 @@
           status: "paid",
           paidDate: dt,
           bankAccountId: bankId,
+          paidAmount,
           note,
         }),
       });
