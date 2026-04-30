@@ -370,6 +370,50 @@
         if (s.startsWith("S-")) return "USM";
         return "DTX";
       }
+      // Label sets for USM template. EUR invoices render in French
+       // (the user's reference Origins Voyages PDF), everything else in English.
+      const USM_LABELS = {
+        en: {
+          title: "Invoice", billTo: "Bill to", billingAddress: "Billing address",
+          priceDetail: "Price detail",
+          colN: "№", colDesc: "Description", colAmount: "Amount",
+          colUnitPrice: "Unit price", colTotal: "Total", rowTotal: "Total",
+          installments: "Installments",
+          issueDate: "Issue date", dueDate: "Due date", status: "Status",
+          benNameAddr: "BENEFICIARY'S ACCOUNT NAME, ADDRESS:",
+          benAccountNo: "BENEFICIARY'S ACCOUNT NUMBER:",
+          benBank: "BENEFICIARY BANK:",
+          benIntermediary: "INTERMEDIARY BANK:",
+          name: "Name", address: "Address",
+          accountFor: "Account number / {ccy}", iban: "IBAN number",
+          accountant: "Accountant", companyLabel: "Unlock Steppe Mongolia LLC",
+          statusPending: "Pending", statusPaid: "Paid",
+          statusOverdue: "Overdue", statusCancelled: "Cancelled",
+          editDescription: "Description", editAmount: "Amount",
+        },
+        fr: {
+          title: "Facture", billTo: "Facturé à", billingAddress: "Adresse de facturation",
+          priceDetail: "Détail du tarif",
+          colN: "№", colDesc: "Description", colAmount: "Montant",
+          colUnitPrice: "Prix unitaire", colTotal: "Total", rowTotal: "Total",
+          installments: "Versements",
+          issueDate: "En date du", dueDate: "À régler avant le", status: "Statut",
+          benNameAddr: "BÉNÉFICIAIRE — NOM ET ADRESSE :",
+          benAccountNo: "NUMÉRO DE COMPTE BÉNÉFICIAIRE :",
+          benBank: "BANQUE BÉNÉFICIAIRE :",
+          benIntermediary: "BANQUE INTERMÉDIAIRE :",
+          name: "Nom", address: "Adresse",
+          accountFor: "Numéro de compte / {ccy}", iban: "Numéro IBAN",
+          accountant: "Comptable", companyLabel: "Unlock Steppe Mongolia LLC",
+          statusPending: "En attente", statusPaid: "Payé",
+          statusOverdue: "En retard", statusCancelled: "Annulé",
+          editDescription: "Description", editAmount: "Montant",
+        },
+      };
+      function usmLangForCurrency(ccy) {
+        return (ccy || "").toUpperCase() === "EUR" ? "fr" : "en";
+      }
+
       // Bank info by currency for USM. Mirrors the server-side PDF builder.
       const USM_BANK = {
         USD: { account: "436044172", iban: "MN53 0004000 436044172",
@@ -435,6 +479,8 @@
         const billingAddress = (inv.payerAddress || "").trim();
         const items = inv.items || [];
         const currency = (inv.currency || "USD").toUpperCase();
+        const lang = usmLangForCurrency(currency);
+        const L = USM_LABELS[lang];
         const grandTotal = items.reduce((a, it) => a + (Number(it.qty) || 0) * (Number(it.price) || 0), 0) || (Number(inv.total) || 0);
         const itemsHtml = items.map((it, i) => editMode ? `
           <tr data-item-i="${i}">
@@ -454,47 +500,48 @@
           </tr>
         `).join("");
         const usmStatus = {
-          pending: { label: "Pending", className: "waiting" },
-          waiting: { label: "Pending", className: "waiting" },
-          paid:    { label: "Paid",    className: "paid" },
-          confirmed:{ label:"Paid",    className: "paid" },
-          overdue: { label: "Overdue", className: "overdue" },
-          cancelled:{ label:"Cancelled", className: "cancelled" },
+          pending: { label: L.statusPending, className: "waiting" },
+          waiting: { label: L.statusPending, className: "waiting" },
+          paid:    { label: L.statusPaid,    className: "paid" },
+          confirmed:{ label: L.statusPaid,   className: "paid" },
+          overdue: { label: L.statusOverdue, className: "overdue" },
+          cancelled:{ label: L.statusCancelled, className: "cancelled" },
         };
         const paymentsHtml = (inv.installments || []).map((inst, i) => {
           const s = usmStatus[(inst.status || "pending").toLowerCase()] || usmStatus.pending;
           if (editMode) {
             return `
               <div class="payment-card is-edit" data-inst-i="${i}">
-                <div><span class="meta-label">Description</span><input class="invoice-edit-input" data-field="description" value="${escapeHtml(inst.description || "")}" /></div>
-                <div><span class="meta-label">Issue date</span><input class="invoice-edit-input" data-field="issueDate" type="date" value="${escapeHtml(inst.issueDate || "")}" /></div>
-                <div><span class="meta-label">Due date</span><input class="invoice-edit-input" data-field="dueDate" type="date" value="${escapeHtml(inst.dueDate || "")}" /></div>
-                <div><span class="meta-label">Status</span>
+                <div><span class="meta-label">${escapeHtml(L.editDescription)}</span><input class="invoice-edit-input" data-field="description" value="${escapeHtml(inst.description || "")}" /></div>
+                <div><span class="meta-label">${escapeHtml(L.issueDate)}</span><input class="invoice-edit-input" data-field="issueDate" type="date" value="${escapeHtml(inst.issueDate || "")}" /></div>
+                <div><span class="meta-label">${escapeHtml(L.dueDate)}</span><input class="invoice-edit-input" data-field="dueDate" type="date" value="${escapeHtml(inst.dueDate || "")}" /></div>
+                <div><span class="meta-label">${escapeHtml(L.status)}</span>
                   <select class="invoice-edit-input" data-field="status">
-                    <option value="pending" ${(inst.status||"pending")==="pending"?"selected":""}>Pending</option>
-                    <option value="paid" ${inst.status==="paid"?"selected":""}>Paid</option>
-                    <option value="overdue" ${inst.status==="overdue"?"selected":""}>Overdue</option>
+                    <option value="pending" ${(inst.status||"pending")==="pending"?"selected":""}>${escapeHtml(L.statusPending)}</option>
+                    <option value="paid" ${inst.status==="paid"?"selected":""}>${escapeHtml(L.statusPaid)}</option>
+                    <option value="overdue" ${inst.status==="overdue"?"selected":""}>${escapeHtml(L.statusOverdue)}</option>
                   </select>
                 </div>
-                <div><span class="meta-label">Amount</span><input class="invoice-edit-input" data-field="amount" type="number" min="0" value="${escapeHtml(inst.amount || 0)}" /></div>
+                <div><span class="meta-label">${escapeHtml(L.editAmount)}</span><input class="invoice-edit-input" data-field="amount" type="number" min="0" value="${escapeHtml(inst.amount || 0)}" /></div>
               </div>
             `;
           }
           return `
             <div class="payment-card">
               <div class="payment-main">${escapeHtml(inst.description || "")}</div>
-              <div class="payment-meta"><span class="meta-label">Issue date</span><span class="meta-value">${escapeHtml(inst.issueDate || "-")}</span></div>
-              <div class="payment-meta"><span class="meta-label">Due date</span><span class="meta-value">${escapeHtml(inst.dueDate || "-")}</span></div>
-              <div class="payment-meta"><span class="meta-label">Status</span><span class="payment-status ${s.className}">${s.label}</span></div>
+              <div class="payment-meta"><span class="meta-label">${escapeHtml(L.issueDate)}</span><span class="meta-value">${escapeHtml(inst.issueDate || "-")}</span></div>
+              <div class="payment-meta"><span class="meta-label">${escapeHtml(L.dueDate)}</span><span class="meta-value">${escapeHtml(inst.dueDate || "-")}</span></div>
+              <div class="payment-meta"><span class="meta-label">${escapeHtml(L.status)}</span><span class="payment-status ${s.className}">${s.label}</span></div>
               <div class="payment-amount">${fmtMoney(inst.amount, currency)}</div>
             </div>
           `;
         }).join("") || '<p class="empty">No installments.</p>';
         const bank = USM_BANK[currency];
+        const accountForLabel = L.accountFor.replace("{ccy}", currency);
         const accountHtml = bank
-          ? `<p>Account number / ${currency}: <strong>${escapeHtml(bank.account)}</strong></p>
-             <p>IBAN number: <strong>${escapeHtml(bank.iban)}</strong></p>`
-          : `<p><em>Bank account not configured for ${escapeHtml(currency)}.</em></p>`;
+          ? `<p>${escapeHtml(accountForLabel)}: <strong>${escapeHtml(bank.account)}</strong></p>
+             <p>${escapeHtml(L.iban)}: <strong>${escapeHtml(bank.iban)}</strong></p>`
+          : `<p><em>—</em></p>`;
         const intermediariesHtml = bank
           ? bank.intermediaries.map((b) => `
               <div class="bank-block">
@@ -505,7 +552,7 @@
             `).join("")
           : "";
         page.innerHTML = `
-          <p class="invoice-number">Invoice #${escapeHtml(inv.serial)}</p>
+          <p class="invoice-number">${escapeHtml(L.title)} #${escapeHtml(inv.serial)}</p>
           <div class="header-grid">
             <div class="company-block">
               <img class="invoice-logo" src="/assets/usm-logo-horizontal.png" alt="Steppe Mongolia" onerror="this.style.display='none'" />
@@ -518,44 +565,45 @@
             </div>
             <div>
               <div class="customer-block">
-                <span class="label">Bill to</span>
+                <span class="label">${escapeHtml(L.billTo)}</span>
                 <p><strong>${escapeHtml(customerName)}</strong></p>
-                ${billingAddress ? `<span class="label" style="margin-top:8px;">Billing address</span><p>${escapeHtml(billingAddress)}</p>` : ""}
+                ${billingAddress ? `<span class="label" style="margin-top:8px;">${escapeHtml(L.billingAddress)}</span><p>${escapeHtml(billingAddress)}</p>` : ""}
               </div>
             </div>
           </div>
-          <p class="section-title">Price detail</p>
+          <p class="section-title">${escapeHtml(L.priceDetail)}</p>
           <table class="invoice-items-table">
-            <thead><tr><th>№</th><th>Description</th><th>Amount</th><th>Unit price</th><th>Total</th></tr></thead>
-            <tbody>${itemsHtml}<tr class="total-row"><td colspan="4">Total</td><td>${fmtMoney(grandTotal, currency)}</td></tr></tbody>
+            <thead><tr><th>${escapeHtml(L.colN)}</th><th>${escapeHtml(L.colDesc)}</th><th>${escapeHtml(L.colAmount)}</th><th>${escapeHtml(L.colUnitPrice)}</th><th>${escapeHtml(L.colTotal)}</th></tr></thead>
+            <tbody>${itemsHtml}<tr class="total-row"><td colspan="4">${escapeHtml(L.rowTotal)}</td><td>${fmtMoney(grandTotal, currency)}</td></tr></tbody>
           </table>
-          <p class="section-title">Installments</p>
+          <p class="section-title">${escapeHtml(L.installments)}</p>
           <div class="payment-stack">${paymentsHtml}</div>
           <div class="bank-section">
-            <p class="section-title">BENEFICIARY'S ACCOUNT</p>
             <div class="bank-grid"><div>
-              <p><strong>Name:</strong> UNLOCK STEPPE MONGOLIA</p>
-              <p><strong>Address:</strong> Khan-Uul district, 17 Khoroo, Ikh Mongol Uls Street, King Tower, Apt 121, Door 102, Ulaanbaatar, 17012, Mongolia</p>
+              <p><strong>${escapeHtml(L.benNameAddr)}</strong></p>
+              <p>${escapeHtml(L.name)}: <strong>UNLOCK STEPPE MONGOLIA</strong></p>
+              <p>${escapeHtml(L.address)}: Khan-Uul district, 17 Khoroo, Ikh Mongol Uls Street, King Tower, Apt 121, Door 102, Ulaanbaatar, 17012, Mongolia</p>
+              <p style="margin-top:8px;"><strong>${escapeHtml(L.benAccountNo)}</strong></p>
               ${accountHtml}
-              <p style="margin-top:8px;"><strong>BENEFICIARY BANK:</strong></p>
+              <p style="margin-top:8px;"><strong>${escapeHtml(L.benBank)}</strong></p>
               <p>SWIFT/BIC: <strong>TDBMMNUB</strong></p>
               <p>TRADE AND DEVELOPMENT BANK JSC,</p>
-              <p>Address: 14210 Peace avenue 19, Sukhbaatar district, 1st khoroo, Ulaanbaatar, Mongolia, Tel: 1800-1977</p>
-              <p style="margin-top:8px;"><strong>INTERMEDIARY BANK:</strong></p>
+              <p>${escapeHtml(L.address)}: 14210 Peace avenue 19, Sukhbaatar district, 1st khoroo, Ulaanbaatar, Mongolia, Tel: 1800-1977</p>
+              <p style="margin-top:8px;"><strong>${escapeHtml(L.benIntermediary)}</strong></p>
               ${intermediariesHtml}
             </div></div>
           </div>
           <div class="signature-grid">
             <div class="signature-card">
-              <div class="signature-label">Unlock Steppe Mongolia LLC</div>
+              <div class="signature-label">${escapeHtml(L.companyLabel)}</div>
               <div class="signature-line"></div>
               <img class="accountant-stamp" src="/assets/usm-stamp.png" alt="" onerror="this.style.display='none'" />
               <img class="accountant-signature" src="/assets/invoice-finance-signature.png" alt="" onerror="this.style.display='none'" />
-              <div class="signature-name">Accountant</div>
+              <div class="signature-name">${escapeHtml(L.accountant)}</div>
               <div class="signature-role">G.Bayasgalan</div>
             </div>
             <div class="signature-card">
-              <div class="signature-label">Bill to</div>
+              <div class="signature-label">${escapeHtml(L.billTo)}</div>
               <div class="signature-line"></div>
               <div class="signature-name">${escapeHtml(customerName)}</div>
             </div>

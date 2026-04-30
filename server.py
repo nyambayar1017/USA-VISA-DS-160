@@ -5921,14 +5921,99 @@ _USM_STATUS_LABELS = {
     "cancelled":("Cancelled","cancelled"),
 }
 
+_USM_STATUS_LABELS_FR = {
+    "pending":  ("En attente", "waiting"),
+    "waiting":  ("En attente", "waiting"),
+    "paid":     ("Payé",       "paid"),
+    "confirmed":("Payé",       "paid"),
+    "overdue":  ("En retard",  "overdue"),
+    "cancelled":("Annulé",     "cancelled"),
+}
+
+# Full label set for the USM template, indexed by language. EUR invoices
+# go out to French-speaking customers (the user's reference PDF was the
+# Origins Voyages/French version), so EUR → fr, everything else → en.
+_USM_LABELS = {
+    "en": {
+        "title":              "Invoice",
+        "bill_to":            "Bill to",
+        "billing_address":    "Billing address",
+        "price_detail":       "Price detail",
+        "col_n":              "№",
+        "col_description":    "Description",
+        "col_amount":         "Amount",
+        "col_unit_price":     "Unit price",
+        "col_total":          "Total",
+        "row_total":          "Total",
+        "installments":       "Installments",
+        "issue_date":         "Issue date",
+        "due_date":           "Due date",
+        "status":             "Status",
+        "ben_name_addr":      "BENEFICIARY'S ACCOUNT NAME, ADDRESS:",
+        "ben_account_no":     "BENEFICIARY'S ACCOUNT NUMBER:",
+        "ben_bank":           "BENEFICIARY BANK:",
+        "ben_intermediary":   "INTERMEDIARY BANK:",
+        "name":               "Name",
+        "address":            "Address",
+        "account_for":        "Account number / {ccy}",
+        "iban_number":        "IBAN number",
+        "suggestion":         "SUGGESTION",
+        "suggestion_intro":   'Please pay attention to the following suggestions when filling out "Beneficiary\'s information":',
+        "suggestion_li_name": "Please write full beneficiary's account name in Roman alphabet.",
+        "suggestion_li_acct": "Please write 9 digit TDB account number.",
+        "suggestion_outro":   "Please keep in mind to give a correct, completed and clear payment purpose as in case of unclear payment purpose the payment will be stopped or rejected by our bank.",
+        "company_label":      "Unlock Steppe Mongolia LLC",
+        "accountant":         "Accountant",
+    },
+    "fr": {
+        "title":              "Facture",
+        "bill_to":            "Facturé à",
+        "billing_address":    "Adresse de facturation",
+        "price_detail":       "Détail du tarif",
+        "col_n":              "№",
+        "col_description":    "Description",
+        "col_amount":         "Montant",
+        "col_unit_price":     "Prix unitaire",
+        "col_total":          "Total",
+        "row_total":          "Total",
+        "installments":       "Versements",
+        "issue_date":         "En date du",
+        "due_date":           "À régler avant le",
+        "status":             "Statut",
+        "ben_name_addr":      "BÉNÉFICIAIRE — NOM ET ADRESSE :",
+        "ben_account_no":     "NUMÉRO DE COMPTE BÉNÉFICIAIRE :",
+        "ben_bank":           "BANQUE BÉNÉFICIAIRE :",
+        "ben_intermediary":   "BANQUE INTERMÉDIAIRE :",
+        "name":               "Nom",
+        "address":            "Adresse",
+        "account_for":        "Numéro de compte / {ccy}",
+        "iban_number":        "Numéro IBAN",
+        "suggestion":         "REMARQUE",
+        "suggestion_intro":   "Veuillez prêter attention aux suggestions suivantes lors de la saisie des « informations du bénéficiaire » :",
+        "suggestion_li_name": "Veuillez indiquer le nom complet du bénéficiaire en alphabet latin.",
+        "suggestion_li_acct": "Veuillez indiquer le numéro de compte TDB à 9 chiffres.",
+        "suggestion_outro":   "Veuillez fournir un motif de paiement correct, complet et clair, faute de quoi notre banque pourra suspendre ou refuser le paiement.",
+        "company_label":      "Unlock Steppe Mongolia LLC",
+        "accountant":         "Comptable",
+    },
+}
+
+
+def _usm_lang_for_currency(currency):
+    return "fr" if (currency or "").upper() == "EUR" else "en"
+
 
 def build_standalone_invoice_html_usm(invoice):
-    """USM-branded English invoice mirroring the user's reference PDFs.
-    Bank account section switches by invoice currency (USD vs EUR vs other)."""
+    """USM-branded invoice. Language follows currency: EUR → French (the
+    Origins Voyages reference); everything else → English. Bank account
+    section also swaps by currency."""
     serial = html.escape(str(invoice.get("serial") or invoice.get("id") or ""))
     customer = html.escape(str((invoice.get("payerName") or "CLIENT")).strip() or "CLIENT")
     billing_address = html.escape(str(invoice.get("payerAddress") or "").strip())
     currency = (invoice.get("currency") or "USD").upper()
+    lang = _usm_lang_for_currency(currency)
+    L = _USM_LABELS[lang]
+    status_map = _USM_STATUS_LABELS_FR if lang == "fr" else _USM_STATUS_LABELS
     items = invoice.get("items") or []
     grand = sum((float(it.get("qty") or 0) * float(it.get("price") or 0)) for it in items)
 
@@ -5950,13 +6035,13 @@ def build_standalone_invoice_html_usm(invoice):
     payments_html = ""
     for inst in (invoice.get("installments") or []):
         status_key = (inst.get("status") or "pending").lower()
-        label, klass = _USM_STATUS_LABELS.get(status_key, _USM_STATUS_LABELS["pending"])
+        label, klass = status_map.get(status_key, status_map["pending"])
         payments_html += f"""
         <div class="payment-card">
           <div class="payment-main">{html.escape(str(inst.get('description') or ''))}</div>
-          <div class="payment-meta"><span class="meta-label">Issue date</span><span class="meta-value">{html.escape(str(inst.get('issueDate') or '-'))}</span></div>
-          <div class="payment-meta"><span class="meta-label">Due date</span><span class="meta-value">{html.escape(str(inst.get('dueDate') or '-'))}</span></div>
-          <div class="payment-meta"><span class="meta-label">Status</span><span class="payment-status {klass}">{label}</span></div>
+          <div class="payment-meta"><span class="meta-label">{html.escape(L['issue_date'])}</span><span class="meta-value">{html.escape(str(inst.get('issueDate') or '-'))}</span></div>
+          <div class="payment-meta"><span class="meta-label">{html.escape(L['due_date'])}</span><span class="meta-value">{html.escape(str(inst.get('dueDate') or '-'))}</span></div>
+          <div class="payment-meta"><span class="meta-label">{html.escape(L['status'])}</span><span class="payment-status {klass}">{label}</span></div>
           <div class="payment-amount">{_fmt_money_ccy(inst.get('amount'), currency)}</div>
         </div>
         """
@@ -5970,8 +6055,9 @@ def build_standalone_invoice_html_usm(invoice):
 
     bank_meta = USM_BANK_BY_CURRENCY.get(currency)
     if bank_meta:
-        account_html = f"""<p>Account number / {currency}: <strong>{html.escape(bank_meta['account'])}</strong></p>
-            <p>IBAN number: <strong>{html.escape(bank_meta['iban'])}</strong></p>"""
+        account_label = L["account_for"].format(ccy=currency)
+        account_html = f"""<p>{html.escape(account_label)}: <strong>{html.escape(bank_meta['account'])}</strong></p>
+            <p>{html.escape(L['iban_number'])}: <strong>{html.escape(bank_meta['iban'])}</strong></p>"""
         intermediaries_html = "".join(
             f"""<div class="bank-block">
                 <p><strong>*SWIFT/BIC: {html.escape(b['swift'])}</strong>{(" CHIPS UID: " + html.escape(b['chips'])) if b.get('chips') else ''}</p>
@@ -5981,15 +6067,13 @@ def build_standalone_invoice_html_usm(invoice):
             for b in bank_meta["intermediaries"]
         )
     else:
-        # Currency that's not USD/EUR — fall back to the invoice's selected
-        # bankAccount snapshot (if any) so the PDF still has bank details.
         snap = invoice.get("bankAccount") or {}
         account_html = (
-            f"""<p>Account name: <strong>{html.escape(snap.get('accountName') or USM_BENEFICIARY_NAME)}</strong></p>
-            <p>Account number: <strong>{html.escape(snap.get('accountNumber') or '-')}</strong></p>"""
-            if snap else "<p><em>Bank account not configured for this currency.</em></p>"
+            f"""<p>{html.escape(L['name'])}: <strong>{html.escape(snap.get('accountName') or USM_BENEFICIARY_NAME)}</strong></p>
+            <p>{html.escape(L['col_n'] if False else 'Account number')}: <strong>{html.escape(snap.get('accountNumber') or '-')}</strong></p>"""
+            if snap else "<p><em>—</em></p>"
         )
-        intermediaries_html = "<p><em>No intermediary banks configured for this currency.</em></p>"
+        intermediaries_html = "<p><em>—</em></p>"
 
     company_address = "".join(f"<p>{html.escape(line)}</p>" for line in USM_COMPANY["address_lines"])
     css = """
@@ -6066,9 +6150,9 @@ def build_standalone_invoice_html_usm(invoice):
         position: relative; z-index: 3; font-size: 12px; font-weight: 700; color: #27272a; }
     """
     return f"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><title>Invoice #{serial}</title>
+<html lang="{lang}"><head><meta charset="UTF-8"><title>{html.escape(L['title'])} #{serial}</title>
 <style>{css}</style></head><body><div class="page">
-  <p class="invoice-number">Invoice #{serial}</p>
+  <p class="invoice-number">{html.escape(L['title'])} #{serial}</p>
   <div class="header-grid">
     <div class="company-block">
       {f'<img class="invoice-logo" src="{logo_src}" alt="">' if logo_src else ''}
@@ -6078,55 +6162,55 @@ def build_standalone_invoice_html_usm(invoice):
       <p>{html.escape(USM_COMPANY['phone'])}</p>
     </div>
     <div class="customer-block">
-      <span class="label">Bill to</span>
+      <span class="label">{html.escape(L['bill_to'])}</span>
       <p><strong>{customer}</strong></p>
-      {f'<span class="label" style="margin-top:8px;">Billing address</span><p>{billing_address}</p>' if billing_address else ''}
+      {f'<span class="label" style="margin-top:8px;">' + html.escape(L['billing_address']) + '</span><p>' + billing_address + '</p>' if billing_address else ''}
     </div>
   </div>
-  <p class="section-title">Price detail</p>
+  <p class="section-title">{html.escape(L['price_detail'])}</p>
   <table class="invoice-items-table">
-    <thead><tr><th>№</th><th>Description</th><th>Amount</th><th>Unit price</th><th>Total</th></tr></thead>
-    <tbody>{items_rows}<tr class="total-row"><td colspan="4">Total</td><td>{_fmt_money_ccy(grand, currency)}</td></tr></tbody>
+    <thead><tr><th>{html.escape(L['col_n'])}</th><th>{html.escape(L['col_description'])}</th><th>{html.escape(L['col_amount'])}</th><th>{html.escape(L['col_unit_price'])}</th><th>{html.escape(L['col_total'])}</th></tr></thead>
+    <tbody>{items_rows}<tr class="total-row"><td colspan="4">{html.escape(L['row_total'])}</td><td>{_fmt_money_ccy(grand, currency)}</td></tr></tbody>
   </table>
-  <p class="section-title">Installments</p>
+  <p class="section-title">{html.escape(L['installments'])}</p>
   <div class="payment-stack">{payments_html}</div>
   <div class="bank-grid">
-    <div class="label">BENEFICIARY'S ACCOUNT NAME, ADDRESS:</div>
+    <div class="label">{html.escape(L['ben_name_addr'])}</div>
     <div class="value">
-      <p>Name: <strong>{html.escape(USM_BENEFICIARY_NAME)}</strong></p>
-      <p>Address: <strong>{html.escape(USM_BENEFICIARY_ADDRESS)}</strong></p>
+      <p>{html.escape(L['name'])}: <strong>{html.escape(USM_BENEFICIARY_NAME)}</strong></p>
+      <p>{html.escape(L['address'])}: <strong>{html.escape(USM_BENEFICIARY_ADDRESS)}</strong></p>
     </div>
-    <div class="label">BENEFICIARY'S ACCOUNT NUMBER:</div>
+    <div class="label">{html.escape(L['ben_account_no'])}</div>
     <div class="value">{account_html}</div>
-    <div class="label">BENEFICIARY BANK:</div>
+    <div class="label">{html.escape(L['ben_bank'])}</div>
     <div class="value">
       <p>SWIFT/BIC: <strong>{html.escape(USM_BENEFICIARY_BANK['swift'])}</strong></p>
       <p>{html.escape(USM_BENEFICIARY_BANK['name'])}</p>
-      <p>Address: <strong>{html.escape(USM_BENEFICIARY_BANK['address'])}</strong></p>
+      <p>{html.escape(L['address'])}: <strong>{html.escape(USM_BENEFICIARY_BANK['address'])}</strong></p>
     </div>
-    <div class="label">INTERMEDIARY BANK:</div>
+    <div class="label">{html.escape(L['ben_intermediary'])}</div>
     <div class="value">{intermediaries_html}</div>
   </div>
   <div class="suggestion-block">
-    <p class="suggestion-title">SUGGESTION</p>
-    <p><span class="accent">*</span> Please pay attention to the following suggestions when filling out "Beneficiary's information":</p>
+    <p class="suggestion-title">{html.escape(L['suggestion'])}</p>
+    <p><span class="accent">*</span> {html.escape(L['suggestion_intro'])}</p>
     <ul>
-      <li>Please write full beneficiary's account name in Roman alphabet.</li>
-      <li>Please write 9 digit TDB account number.</li>
+      <li>{html.escape(L['suggestion_li_name'])}</li>
+      <li>{html.escape(L['suggestion_li_acct'])}</li>
     </ul>
-    <p><span class="accent">**</span> Please keep in mind to give a correct, completed and clear payment purpose as in case of unclear payment purpose the payment will be stopped or rejected by our bank.</p>
+    <p><span class="accent">**</span> {html.escape(L['suggestion_outro'])}</p>
   </div>
   <div class="signature-grid">
     <div class="signature-card">
-      <div class="signature-label">Unlock Steppe Mongolia LLC</div>
+      <div class="signature-label">{html.escape(L['company_label'])}</div>
       <div class="signature-line"></div>
       {f'<img class="accountant-stamp" src="{stamp_src}" alt="">' if stamp_src else ''}
       {f'<img class="accountant-signature" src="{sig_src}" alt="">' if sig_src else ''}
-      <div class="signature-name">Accountant</div>
+      <div class="signature-name">{html.escape(L['accountant'])}</div>
       <div class="signature-role">{html.escape(USM_COMPANY['accountant'])}</div>
     </div>
     <div class="signature-card">
-      <div class="signature-label">Bill to</div>
+      <div class="signature-label">{html.escape(L['bill_to'])}</div>
       <div class="signature-line"></div>
       <div class="signature-name">{customer}</div>
     </div>
