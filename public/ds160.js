@@ -29,28 +29,114 @@ const TEAM_COMPANY = "Дэлхий Трэвел Икс";
 const TEAM_WEBSITE = "www.travelx.mn";
 const PAGE_SIZE = 20;
 
+// Mirrors public/ds160-client.html section-by-section. `lists` names a
+// REPEAT_LIST_CONFIG key whose rows belong inside that section so the
+// see-answers view and PDF read top-to-bottom in form-fill order.
 const ANSWER_SECTIONS = [
   {
-    title: "1. Хувийн үндсэн мэдээлэл",
+    title: "1. Хувийн мэдээлэл",
     fields: [
       ["Овог", "surname"],
       ["Нэр", "givenName"],
       ["Төрсөн хэлээрх бүтэн нэр", "nativeFullName"],
-      ["Хүйс", "sex"],
-      ["Гэр бүлийн байдал", "maritalStatus"],
-      ["Төрсөн өдөр", "dateOfBirth"],
-      ["Төрсөн хот / сум / дүүрэг", "birthCity"],
-      ["Төрсөн аймаг / муж", "birthProvince"],
-      ["Төрсөн улс", "birthCountry"],
-      ["Иргэншил", "nationality"],
       ["Бусад нэр хэрэглэж байсан эсэх", "usedOtherNames"],
-      ["Өмнө хэрэглэж байсан нэрс", "otherNamesDetails"],
-      ["Теле кодтой эсэх", "hasTelecode"],
-      ["Теле код", "telecode"],
+      ["Нэрийг илэрхийлэх ханз байгаа эсэх", "hasTelecode"],
+      ["Овгийн ханз", "telecodeSurname"],
+      ["Нэрийн ханз", "telecodeGivenName"],
+      ["Хүйс", "sex"],
+      ["Гэрлэлтийн байдал", "maritalStatus"],
+      ["Гэрлэлтийн байдлын тайлбар", "maritalStatusOther"],
+      ["Төрсөн өдөр", "dateOfBirth"],
+      ["Төрсөн хот / аймаг", "birthCity"],
+      ["Төрсөн дүүрэг / сум", "birthProvince"],
+      ["Төрсөн улс", "birthCountry"],
+    ],
+    lists: ["otherNameList"],
+  },
+  {
+    title: "2. Хувийн мэдээлэл",
+    fields: [
+      ["Одоогийн иргэншил", "nationality"],
+      ["Өөр улсын иргэншил эзэмшиж байсан эсэх", "hadOtherNationality"],
+      ["Өөр улсад байнгын оршин суудаг эсэх", "permanentResidentOther"],
+      ["Байнга оршин суудаг улс", "permanentResidentCountry"],
+      ["Регистрийн дугаар", "registerNumber"],
+      ["АНУ-ын SSN дугаартай эсэх", "hasUsSsn"],
+      ["АНУ-ын SSN дугаар", "usSsn"],
+      ["АНУ-ын ITIN дугаартай эсэх", "hasUsTaxId"],
+      ["АНУ-ын ITIN дугаар", "usTaxId"],
+    ],
+    lists: ["otherNatList"],
+  },
+  {
+    title: "3. Аяллын мэдээлэл",
+    fields: [
+      ["Аяллын зорилго", "tripPurposeCategory"],
+      ["Дэлгэрэнгүй төрөл", "tripPurposeDetail"],
+      ["Тодорхой маршрут гаргасан эсэх", "hasSpecificTravelPlans"],
+      ["АНУ-д очих огноо", "intendedArrivalDate"],
+      ["АНУ-аас гарах огноо", "intendedDepartureDate"],
+      ["Ирэх нислэг", "arrivalFlight"],
+      ["Ирэх хот", "arrivalCity"],
+      ["Гарах нислэг", "departureFlight"],
+      ["Гарах хот", "departureCity"],
+      ["АНУ-д очих газрууд", "usLocations"],
+      ["Байх хугацаа", "intendedStayLength"],
+      ["Хугацааны нэгж", "intendedStayUnit"],
+      ["АНУ-д байрлах хаяг 1-р мөр", "usStayAddressLine1"],
+      ["АНУ-д байрлах хаяг 2-р мөр", "usStayAddressLine2"],
+      ["АНУ-д байрлах хот", "usStayCity"],
+      ["АНУ-д байрлах муж", "usStayState"],
+      ["АНУ-д байрлах ZIP", "usStayZip"],
+      ["Зардал төлөгч", "tripPayer"],
+      ["Зардал төлөгчийн овог", "tripPayerSurname"],
+      ["Зардал төлөгчийн нэр", "tripPayerGivenName"],
+      ["Зардал төлөгчийн утас", "tripPayerPhone"],
+      ["Зардал төлөгчийн имэйл", "tripPayerEmail"],
+      ["Зардал төлөгчийн хамаарал", "tripPayerRelationship"],
+      ["Зардал төлөгчийн хаяг ижил эсэх", "tripPayerSameAddress"],
+      ["Зардал төлөгчийн хаяг", "tripPayerAddress"],
+      ["Зардал төлөгч байгууллагын нэр", "tripPayerOrgName"],
+      ["Зардал төлөгч байгууллагын утас", "tripPayerOrgPhone"],
+      ["Зардал төлөгч байгууллагын хамаарал", "tripPayerOrgRelationship"],
+      ["Зардал төлөгч байгууллагын хаяг", "tripPayerOrgAddress"],
     ],
   },
   {
-    title: "2. Хаяг болон холбоо барих мэдээлэл",
+    title: "4. Хамт явах хүмүүс",
+    fields: [
+      ["Хамт хүнтэй явах эсэх", "travelingWithOthers"],
+      ["Бүлгээр явах эсэх", "travelingAsGroup"],
+      ["Бүлгийн нэр", "travelGroupName"],
+    ],
+    lists: ["companionList"],
+  },
+  {
+    title: "5. Өмнөх АНУ-ын аялал",
+    fields: [
+      ["АНУ-д очиж байсан эсэх", "beenInUs"],
+    ],
+    lists: ["prevVisitList"],
+    fieldsAfter: [
+      ["АНУ-ын жолооны үнэмлэхтэй эсэх", "hasUsDriverLicense"],
+      ["АНУ-ын жолооны үнэмлэх дугаар", "usDriverLicenseNumber"],
+      ["АНУ-ын жолооны үнэмлэх олгосон муж", "usDriverLicenseState"],
+      ["АНУ-ын виз авч байсан эсэх", "hadUsVisa"],
+      ["Сүүлийн виз олгосон огноо", "lastVisaIssuedDate"],
+      ["Сүүлийн визний дугаар", "lastVisaNumber"],
+      ["Ижил төрлийн виз эсэх", "sameVisaType"],
+      ["Ижил улс / газар эсэх", "sameCountryLocation"],
+      ["10 хурууны хээ авсан эсэх", "tenPrinted"],
+      ["Виз үрэгдсэн / хулгайлагдсан эсэх", "visaLostStolen"],
+      ["Виз цуцалсан эсэх", "visaCancelled"],
+      ["Визээс татгалзаж байсан эсэх", "visaRefused"],
+      ["Татгалзсан тайлбар", "visaRefusedExplain"],
+      ["Цагаачлалын өргөдөл гаргасан эсэх", "immigrantPetitionFiled"],
+      ["Цагаачлалын тайлбар", "immigrantPetitionExplain"],
+    ],
+  },
+  {
+    title: "6. Хаяг ба утас",
     fields: [
       ["Гэрийн хаяг 1-р мөр", "homeAddressLine1"],
       ["Гэрийн хаяг 2-р мөр", "homeAddressLine2"],
@@ -58,164 +144,222 @@ const ANSWER_SECTIONS = [
       ["Аймаг / муж", "homeProvince"],
       ["Шуудангийн код", "homePostalCode"],
       ["Улс", "homeCountry"],
-      ["Шуудангийн хаяг ижил эсэх", "mailingSameAsHome"],
-      ["Шуудангийн хаяг", "mailingAddress"],
+      ["Шуудангийн хаяг гэртэйгээ ижил эсэх", "mailingSameAsHome"],
+      ["Шуудангийн хаяг 1-р мөр", "mailingAddressLine1"],
+      ["Шуудангийн хаяг 2-р мөр", "mailingAddressLine2"],
+      ["Шуудангийн хот", "mailingCity"],
+      ["Шуудангийн муж", "mailingProvince"],
+      ["Шуудангийн код", "mailingPostalCode"],
+      ["Шуудангийн улс", "mailingCountry"],
       ["Үндсэн утас", "primaryPhone"],
       ["Нэмэлт утас", "secondaryPhone"],
       ["Ажлын утас", "workPhone"],
       ["Өөр утас хэрэглэж байсан эсэх", "usedOtherPhones"],
-      ["Өөр утаснууд", "otherPhoneDetails"],
+    ],
+    lists: ["otherPhoneList"],
+    fieldsAfter: [
       ["Имэйл", "email"],
       ["Өөр имэйл хэрэглэж байсан эсэх", "usedOtherEmails"],
-      ["Өөр имэйлүүд", "otherEmailDetails"],
     ],
+    listsAfter: ["otherEmailList"],
+    extras: [
+      ["Сошиал медиа ашигладаг эсэх", "usesSocialMedia"],
+    ],
+    extrasLists: ["socialList"],
+    extras2: [
+      ["Бусад вэб / апп идэвхтэй эсэх", "hasOtherWebPresence"],
+    ],
+    extras2Lists: ["otherWebList"],
   },
   {
-    title: "3. Паспортын мэдээлэл",
+    title: "7. Паспорт",
     fields: [
       ["Паспортын төрөл", "passportType"],
+      ["Паспортын төрлийн тайлбар", "passportTypeOther"],
       ["Паспортын дугаар", "passportNumber"],
-      ["Паспортын дэвтрийн дугаар байхгүй эсэх", "passportBookNumberNotApplicable"],
-      ["Паспортын дэвтрийн дугаар", "passportBookNumber"],
       ["Паспорт олгосон улс / байгууллага", "passportIssuingCountry"],
       ["Паспорт олгосон хот", "passportIssueCity"],
-      ["Паспорт олгосон аймаг / муж", "passportIssueProvince"],
       ["Паспорт олгосон улс", "passportIssueCountry"],
-      ["Паспорт олгосон өдөр", "passportIssueDate"],
+      ["Паспорт олгосон огноо", "passportIssueDate"],
       ["Паспортын хүчинтэй хугацаа", "passportExpiryDate"],
-      ["Паспорт үрэгдүүлсэн эсэх", "lostPassport"],
-      ["Тайлбар", "lostPassportDetails"],
+      ["Паспорт үрэгдсэн / хулгайлагдсан эсэх", "lostPassport"],
     ],
+    lists: ["lostPassportList"],
   },
   {
-    title: "4. Аяллын мэдээлэл",
+    title: "8. АНУ дахь холбоо барих хүн / байгууллага",
     fields: [
-      ["Аяллын зорилго", "tripPurposeCategory"],
-      ["Дэлгэрэнгүй төрөл", "tripPurposeDetail"],
-      ["Тодорхой төлөвлөгөөтэй эсэх", "hasSpecificTravelPlans"],
-      ["АНУ-д очих өдөр", "intendedArrivalDate"],
-      ["Байх хугацаа", "lengthOfStayValue"],
-      ["Хугацааны нэгж", "lengthOfStayUnit"],
-      ["АНУ-д байрлах хаяг", "usStayAddress"],
-      ["Зардал төлөгч", "tripPayer"],
-      ["Очих муж / хот", "arrivalCity"],
-    ],
-  },
-  {
-    title: "5. Хамт явах хүмүүс",
-    fields: [
-      ["Хамт хүн явах эсэх", "travelingWithOthers"],
-      ["Баг / байгууллагаар явах эсэх", "travelingWithGroup"],
-      ["Хамт явах хүмүүсийн мэдээлэл", "travelCompanions"],
-    ],
-  },
-  {
-    title: "6. Өмнөх АНУ аялал ба виз",
-    fields: [
-      ["АНУ-д очиж байсан эсэх", "beenInUs"],
-      ["АНУ-ын виз авч байсан эсэх", "hadUsVisa"],
-      ["Визээс татгалзаж байсан эсэх", "visaRefused"],
-      ["Цагаачлалын өргөдөл гаргаж байсан эсэх", "immigrantPetitionFiled"],
-      ["Тайлбар", "previousUsTravelDetails"],
-    ],
-  },
-  {
-    title: "7. АНУ дахь холбоо барих хүн / байгууллага",
-    fields: [
-      ["Овог", "usContactSurname"],
-      ["Нэр", "usContactGivenName"],
+      ["Холбоо барих хүн байгаа эсэх", "hasUsContactPerson"],
+      ["Холбоо барих хүний овог", "usContactSurname"],
+      ["Холбоо барих хүний нэр", "usContactGivenName"],
+      ["Холбоо барих байгууллага байгаа эсэх", "hasUsContactOrg"],
       ["Байгууллагын нэр", "usOrganizationName"],
       ["Хамаарал", "usContactRelationship"],
+      ["Хот", "usContactCity"],
+      ["Муж", "usContactState"],
+      ["ZIP", "usContactZip"],
       ["Утас", "usContactPhone"],
-      ["Хаяг", "usContactAddress"],
       ["Имэйл", "usContactEmail"],
     ],
   },
   {
-    title: "8. Гэр бүлийн мэдээлэл",
+    title: "9. Гэр бүлийн мэдээлэл",
     fields: [
+      ["Эцгийн мэдээлэл мэдэх эсэх", "knowsFatherInfo"],
       ["Эцгийн овог", "fatherSurname"],
       ["Эцгийн нэр", "fatherGivenName"],
-      ["Эцгийн төрсөн өдөр", "fatherDateOfBirth"],
+      ["Эцгийн төрсөн огноо", "fatherDateOfBirth"],
       ["Эцэг АНУ-д байгаа эсэх", "fatherInUs"],
+      ["Эцгийн АНУ дахь статус", "fatherStatus"],
+      ["Эхийн мэдээлэл мэдэх эсэх", "knowsMotherInfo"],
       ["Эхийн овог", "motherSurname"],
       ["Эхийн нэр", "motherGivenName"],
-      ["Эхийн төрсөн өдөр", "motherDateOfBirth"],
+      ["Эхийн төрсөн огноо", "motherDateOfBirth"],
       ["Эх АНУ-д байгаа эсэх", "motherInUs"],
-      ["Ойрын хамаатан байгаа эсэх", "hasImmediateRelativesInUs"],
-      ["Бусад хамаатан байгаа эсэх", "hasOtherRelativesInUs"],
-      ["АНУ дахь төрөл садангийн тайлбар", "relativesInUsDetails"],
+      ["Эхийн АНУ дахь статус", "motherStatus"],
+      ["АНУ-д ойрын төрөл садан байгаа эсэх", "hasImmediateRelativesInUs"],
+    ],
+    lists: ["immRelativeList"],
+  },
+  {
+    title: "10. Эхнэр / Нөхрийн мэдээлэл",
+    fields: [
       ["Эхнэр / нөхрийн овог", "spouseSurname"],
       ["Эхнэр / нөхрийн нэр", "spouseGivenName"],
-      ["Эхнэр / нөхрийн төрсөн өдөр", "spouseDateOfBirth"],
+      ["Эхнэр / нөхрийн төрсөн огноо", "spouseDateOfBirth"],
       ["Иргэншил", "spouseNationality"],
       ["Төрсөн хот", "spouseBirthCity"],
       ["Төрсөн улс", "spouseBirthCountry"],
-      ["Хаяг", "spouseAddress"],
+      ["Гэрлэсэн огноо", "spouseMarriageDate"],
+      ["Салсан / нас барсан огноо", "spouseMarriageEndDate"],
+      ["Хаягийн төрөл", "spouseAddressType"],
+      ["Хаяг — хот", "spouseAddressCity"],
+      ["Хаяг — муж", "spouseAddressProvince"],
+      ["Шуудангийн код", "spouseAddressPostalCode"],
+      ["Хаяг — улс", "spouseAddressCountry"],
     ],
   },
   {
-    title: "9. Ажил, боловсрол, орлого",
+    title: "11. Одоогийн ажил / боловсрол",
     fields: [
       ["Үндсэн ажил мэргэжил", "primaryOccupation"],
+      ["Мэргэжлийн тайлбар", "primaryOccupationOther"],
       ["Байгууллага / сургуулийн нэр", "presentEmployerOrSchool"],
-      ["Хаяг", "presentEmployerAddress"],
-      ["Эхэлсэн өдөр", "presentEmploymentStartDate"],
+      ["Хот", "presentEmployerCity"],
+      ["Аймаг / муж", "presentEmployerProvince"],
+      ["Шуудангийн код", "presentEmployerPostalCode"],
+      ["Улс", "presentEmployerCountry"],
+      ["Утас", "presentEmployerPhone"],
+      ["Эхэлсэн огноо", "presentEmploymentStartDate"],
       ["Сарын орлого", "monthlyIncome"],
-      ["Ажлын утас", "presentEmployerPhone"],
-      ["Албан тушаал", "jobTitle"],
-      ["Удирдлагын овог", "supervisorSurname"],
-      ["Удирдлагын нэр", "supervisorGivenName"],
       ["Ажил үүрэг", "jobDuties"],
-      ["Дээд боловсрол эзэмшсэн эсэх", "attendedHigherEducation"],
-      ["Өмнөх ажил / сургуулийн мэдээлэл", "previousEmploymentOrEducation"],
     ],
   },
   {
-    title: "10. Нийгмийн сүлжээ, хэл, нэмэлт мэдээлэл",
+    title: "12. Өмнөх ажил",
     fields: [
-      ["Сошиал хаягууд", "socialMediaAccounts"],
-      ["Бусад вэб / апп идэвхтэй эсэх", "hasOtherWebPresence"],
-      ["Бусад вэб / апп мэдээлэл", "otherWebPresenceDetails"],
-      ["Овог, аймаг, ястангийн харьяалал", "belongsToClan"],
-      ["Харьяаллын тайлбар", "clanDetails"],
-      ["Ярьдаг хэлнүүд", "languagesSpoken"],
+      ["Өмнө ажиллаж байсан эсэх", "wasPreviouslyEmployed"],
+    ],
+    lists: ["prevEmpList"],
+  },
+  {
+    title: "13. Боловсрол",
+    fields: [
+      ["Дээд боловсрол эзэмшсэн эсэх", "attendedHigherEducation"],
+    ],
+    lists: ["educationList"],
+  },
+  {
+    title: "14. Нэмэлт мэдээлэл",
+    fields: [
+      ["Овог, аймаг, ястанд харьяалагддаг эсэх", "belongsToClan"],
+      ["Овог / аймаг / омогийн нэр", "clanName"],
+    ],
+    lists: ["languageList"],
+    fieldsAfter: [
       ["Сүүлийн 5 жилд гадаад зорчсон эсэх", "traveledOtherCountriesLastFiveYears"],
-      ["Зорчсон улсууд", "countriesVisitedDetails"],
+    ],
+    listsAfter: ["countryList"],
+    extras: [
       ["Байгууллагад харьяалагддаг эсэх", "belongsToOrganizations"],
-      ["Байгууллагын мэдээлэл", "organizationDetails"],
+    ],
+    extrasLists: ["orgList"],
+    extras2: [
       ["Тусгай ур чадвартай эсэх", "hasSpecialSkills"],
       ["Тусгай ур чадварын тайлбар", "specialSkillsDetails"],
-      ["Цэргийн алба хаасан эсэх", "servedMilitary"],
-      ["Цэргийн анги / нэгж", "militaryUnitName"],
+      ["Цэрэгт алба хааж байсан эсэх", "servedMilitary"],
+    ],
+    extras2Lists: ["militaryList"],
+    extras3: [
       ["Зэвсэгт бүлэгтэй холбоотой эсэх", "involvedWithParamilitary"],
-      ["Цэрэг / аюулгүй байдлын тайлбар", "militaryOrSecurityDetails"],
+      ["Тайлбар", "paramilitaryExplain"],
     ],
   },
   {
-    title: "11. Аюулгүй байдал ба суурь шалгалт",
+    title: "15. Аюулгүй байдал — Эрүүл мэнд",
     fields: [
       ["Халдварт өвчтэй эсэх", "securityCommunicableDisease"],
+      ["Тайлбар", "securityCommunicableDiseaseExplain"],
       ["Сэтгэцийн / биеийн эмгэгтэй эсэх", "securityMentalDisorder"],
+      ["Тайлбар", "securityMentalDisorderExplain"],
       ["Хар тамхи хэрэглэдэг эсэх", "securityDrugAbuse"],
+      ["Тайлбар", "securityDrugAbuseExplain"],
+    ],
+  },
+  {
+    title: "16. Аюулгүй байдал — Эрүүгийн асуудал",
+    fields: [
       ["Баривчлагдаж байсан эсэх", "securityArrested"],
       ["Хар тамхитай холбоотой зөрчил", "securityControlledSubstances"],
       ["Биеэ үнэлэлттэй холбоотой эсэх", "securityProstitution"],
       ["Мөнгө угаах ажиллагаанд оролцсон эсэх", "securityMoneyLaundering"],
       ["Хүн худалдаалах гэмт хэрэг", "securityHumanTrafficking"],
-      ["Терроризмтай холбоотой эсэх", "securityTerrorism"],
-      ["Хүчирхийлэл / геноцидтай холбоотой эсэх", "securityViolence"],
-      ["Хүний эрхийн ноцтой зөрчилтэй холбоотой эсэх", "securityHumanRights"],
-      ["Визний залилан", "securityVisaFraud"],
-      ["АНУ-с албадан гаргуулж байсан эсэх", "securityDeported"],
-      ["Хүүхдийн асрамжийн маргаан", "securityChildCustody"],
-      ["Хууль бусаар санал өгсөн эсэх", "securityIllegalVoting"],
-      ["АНУ-ын иргэншлээс татгалзсан эсэх", "securityRenouncedCitizenship"],
-      ["Нэмэлт тайлбар", "securityBackgroundDetails"],
+      ["Хүн худалдаалахад туслалцаа", "securityHumanTraffickingAid"],
+      ["Хүн худалдаанаас ашиг хүртсэн эсэх", "securityTraffickingBenefit"],
+      ["Эрүүгийн тайлбар", "securityCriminalExplain"],
     ],
   },
   {
-    title: "12. Нэмэлт тайлбар",
+    title: "17. Аюулгүй байдал — Терроризм ба хүний эрх",
+    fields: [
+      ["Тагнуултай холбоотой эсэх", "securityEspionage"],
+      ["Терроризмтай холбоотой эсэх", "securityTerrorism"],
+      ["Терроризмыг дэмжсэн эсэх", "securityTerrorismSupport"],
+      ["Террор бүлгийн гишүүн эсэх", "securityTerrorismMember"],
+      ["Гэр бүлийн гишүүн террор бүлэгтэй эсэх", "securityTerrorismFamily"],
+      ["Хүчирхийлэл / геноцидтай холбоотой эсэх", "securityViolence"],
+      ["Хүний эрхийн ноцтой зөрчил", "securityHumanRights"],
+    ],
+  },
+  {
+    title: "18. Аюулгүй байдал — Цагаачлалын хууль зөрчил",
+    fields: [
+      ["Визний залилан хийсэн эсэх", "securityVisaFraudSelf"],
+      ["Визний залиланд туслалцаа", "securityVisaFraudAid"],
+      ["Хуурамч баримт ашигласан эсэх", "securityFakeDocuments"],
+      ["Визний залилангийн тайлбар", "securityVisaFraudExplain"],
+      ["АНУ-аас албадан гаргуулсан эсэх", "securityDeported"],
+      ["Виз зөрчиж албадан гаргуулсан эсэх", "securityVisaViolationDeported"],
+      ["Албадан гаргуулсан тайлбар", "securityDeportedExplain"],
+    ],
+  },
+  {
+    title: "19. Аюулгүй байдал — Бусад",
+    fields: [
+      ["Хүүхдийн асрамжийн маргаан", "securityChildCustody"],
+      ["Тайлбар", "securityChildCustodyExplain"],
+      ["Хууль бусаар санал өгсөн эсэх", "securityIllegalVoting"],
+      ["Тайлбар", "securityIllegalVotingExplain"],
+      ["АНУ-ын иргэншлээс татгалзсан эсэх", "securityRenouncedCitizenship"],
+      ["Тайлбар", "securityRenouncedCitizenshipExplain"],
+    ],
+  },
+  {
+    title: "20. Зураг ба паспорт",
+    fields: [],
+  },
+  {
+    title: "21. Нэмэлт тэмдэглэл",
     fields: [["Нэмэлт тэмдэглэл", "notes"]],
   },
 ];
@@ -594,23 +738,56 @@ function repeatListRowsFor(entry, cfg) {
     .filter(({ summary }) => (summary.primary || "").trim() || (summary.secondary || "").trim());
 }
 
-function renderAnswerListSectionsHtml(entry) {
-  // Modal-styled rendering of every repeat group from the client form
-  // (otherNameList, companionList, …, militaryList). Skips empty groups.
-  return REPEAT_LIST_CONFIG.map((cfg) => {
-    const rows = repeatListRowsFor(entry, cfg);
-    if (!rows.length) return "";
-    const items = rows.map(({ summary }, i) => `
-      <div class="ds160-answer-item" style="grid-column: 1 / -1;">
-        <span>${i + 1}. ${escapeHtml(summary.primary || "-")}</span>
-        <strong>${escapeHtml(summary.secondary || "")}</strong>
-      </div>
-    `).join("");
-    return `<section class="ds160-answer-section">
-      <h4>${escapeHtml(cfg.title)}</h4>
-      <div class="ds160-answer-grid">${items}</div>
-    </section>`;
-  }).join("");
+function getRepeatConfig(listKey) {
+  return REPEAT_LIST_CONFIG.find((c) => c.key === listKey);
+}
+
+function renderModalListGroup(entry, listKey) {
+  const cfg = getRepeatConfig(listKey);
+  if (!cfg) return "";
+  const rows = repeatListRowsFor(entry, cfg);
+  if (!rows.length) return "";
+  const items = rows.map(({ summary }, i) => `
+    <div class="ds160-answer-item" style="grid-column: 1 / -1; padding-left: 12px;">
+      <span>${i + 1}. ${escapeHtml(summary.primary || "-")}</span>
+      <strong>${escapeHtml(summary.secondary || "")}</strong>
+    </div>
+  `).join("");
+  return `
+    <div class="ds160-answer-item" style="grid-column: 1 / -1; font-weight:600; color:#253a77;">
+      <span>${escapeHtml(cfg.title)}</span>
+      <strong></strong>
+    </div>
+    ${items}
+  `;
+}
+
+function renderModalFieldRows(entry, fields) {
+  return (fields || []).map(([label, key]) => `
+    <div class="ds160-answer-item">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(entry[key] || "-")}</strong>
+    </div>
+  `).join("");
+}
+
+function renderModalSection(entry, section) {
+  const blocks = [];
+  blocks.push(renderModalFieldRows(entry, section.fields));
+  (section.lists || []).forEach((k) => blocks.push(renderModalListGroup(entry, k)));
+  blocks.push(renderModalFieldRows(entry, section.fieldsAfter));
+  (section.listsAfter || []).forEach((k) => blocks.push(renderModalListGroup(entry, k)));
+  blocks.push(renderModalFieldRows(entry, section.extras));
+  (section.extrasLists || []).forEach((k) => blocks.push(renderModalListGroup(entry, k)));
+  blocks.push(renderModalFieldRows(entry, section.extras2));
+  (section.extras2Lists || []).forEach((k) => blocks.push(renderModalListGroup(entry, k)));
+  blocks.push(renderModalFieldRows(entry, section.extras3));
+  const inner = blocks.filter((b) => (b || "").trim()).join("");
+  if (!inner) return "";
+  return `<section class="ds160-answer-section">
+    <h4>${escapeHtml(section.title)}</h4>
+    <div class="ds160-answer-grid">${inner}</div>
+  </section>`;
 }
 
 function renderAnswers(entry) {
@@ -647,26 +824,7 @@ function renderAnswers(entry) {
     </div>
     <div class="ds160-answer-sections">
       ${photoHtml}
-      ${ANSWER_SECTIONS.map(
-        (section) => `
-          <section class="ds160-answer-section">
-            <h4>${escapeHtml(section.title)}</h4>
-            <div class="ds160-answer-grid">
-              ${section.fields
-                .map(
-                  ([label, key]) => `
-                    <div class="ds160-answer-item">
-                      <span>${escapeHtml(label)}</span>
-                      <strong>${escapeHtml(entry[key] || "-")}</strong>
-                    </div>
-                  `
-                )
-                .join("")}
-            </div>
-          </section>
-        `
-      ).join("")}
-      ${renderAnswerListSectionsHtml(entry)}
+      ${ANSWER_SECTIONS.map((section) => renderModalSection(entry, section)).join("")}
     </div>
   `;
   openAnswersModal();
@@ -694,39 +852,62 @@ function pickList(entry, key) {
   return [];
 }
 
-function renderListSectionsHtml(entry) {
-  // Print-styled rendering of every repeat group. Each group becomes a
-  // mini table with #, primary value, secondary value (or just #/value
-  // when the row is single-field). Skips empty groups.
-  return REPEAT_LIST_CONFIG.map((cfg) => {
-    const rows = repeatListRowsFor(entry, cfg);
-    if (!rows.length) return "";
-    const hasSecondary = rows.some(({ summary }) => (summary.secondary || "").trim());
-    const headerCells = hasSecondary
-      ? `<th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th>
-         <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Үндсэн</th>
-         <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Дэлгэрэнгүй</th>`
-      : `<th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th>
-         <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Утга</th>`;
-    const body = rows.map(({ summary }, i) => hasSecondary
-      ? `<tr>
-          <td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td>
-          <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.primary || "-")}</td>
-          <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.secondary || "-")}</td>
-        </tr>`
-      : `<tr>
-          <td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td>
-          <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.primary || "-")}</td>
-        </tr>`
-    ).join("");
-    return `<section style="margin-bottom:18px;page-break-inside:avoid;">
-      <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">${escapeHtml(cfg.title)}</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr>${headerCells}</tr></thead>
-        <tbody>${body}</tbody>
-      </table>
-    </section>`;
-  }).join("");
+function renderPrintListGroup(entry, listKey) {
+  const cfg = getRepeatConfig(listKey);
+  if (!cfg) return "";
+  const rows = repeatListRowsFor(entry, cfg);
+  if (!rows.length) return "";
+  const hasSecondary = rows.some(({ summary }) => (summary.secondary || "").trim());
+  const headerCells = hasSecondary
+    ? `<th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th>
+       <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Үндсэн</th>
+       <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Дэлгэрэнгүй</th>`
+    : `<th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">#</th>
+       <th style="padding:6px 10px;background:#f1f5f9;border:1px solid #e5e7eb;text-align:left;">Утга</th>`;
+  const body = rows.map(({ summary }, i) => hasSecondary
+    ? `<tr>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.primary || "-")}</td>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.secondary || "-")}</td>
+      </tr>`
+    : `<tr>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;width:40px;color:#475569;">${i + 1}</td>
+        <td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(summary.primary || "-")}</td>
+      </tr>`
+  ).join("");
+  return `<div style="margin:10px 0 14px;">
+    <h4 style="font-size:13px;color:#253a77;margin:0 0 6px;">${escapeHtml(cfg.title)}</h4>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr>${headerCells}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderPrintFieldRows(entry, fields) {
+  return (fields || [])
+    .map(([label, key]) => `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;width:40%;color:#475569;">${escapeHtml(label)}</td><td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(entry[key] || "-")}</td></tr>`)
+    .join("");
+}
+
+function renderPrintSection(entry, section) {
+  const fieldsTable = (rows) => rows ? `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">${rows}</table>` : "";
+  const blocks = [];
+  blocks.push(fieldsTable(renderPrintFieldRows(entry, section.fields)));
+  (section.lists || []).forEach((k) => blocks.push(renderPrintListGroup(entry, k)));
+  blocks.push(fieldsTable(renderPrintFieldRows(entry, section.fieldsAfter)));
+  (section.listsAfter || []).forEach((k) => blocks.push(renderPrintListGroup(entry, k)));
+  blocks.push(fieldsTable(renderPrintFieldRows(entry, section.extras)));
+  (section.extrasLists || []).forEach((k) => blocks.push(renderPrintListGroup(entry, k)));
+  blocks.push(fieldsTable(renderPrintFieldRows(entry, section.extras2)));
+  (section.extras2Lists || []).forEach((k) => blocks.push(renderPrintListGroup(entry, k)));
+  blocks.push(fieldsTable(renderPrintFieldRows(entry, section.extras3)));
+  const inner = blocks.filter((b) => (b || "").trim()).join("");
+  if (!inner) return "";
+  return `<section style="margin-bottom:18px;page-break-inside:avoid;">
+    <h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">${escapeHtml(section.title)}</h3>
+    ${inner}
+  </section>`;
 }
 
 function openPrintWindow(entry) {
@@ -736,14 +917,8 @@ function openPrintWindow(entry) {
   const photoImg = typeof photo === "string" && photo.startsWith("data:image/")
     ? `<img src="${photo}" alt="Photo" style="max-width: 200px; border: 1px solid #d0d7e8; border-radius: 6px;" />` : "";
   const sections = ANSWER_SECTIONS
-    .map((section) => {
-      const rows = section.fields
-        .map(([label, key]) => `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;width:40%;color:#475569;">${escapeHtml(label)}</td><td style="padding:6px 10px;border:1px solid #e5e7eb;">${escapeHtml(entry[key] || "-")}</td></tr>`)
-        .join("");
-      return `<section style="margin-bottom:18px;page-break-inside:avoid;"><h3 style="font-size:14px;color:#253a77;border-bottom:2px solid #253a77;padding-bottom:4px;margin:0 0 8px;">${escapeHtml(section.title)}</h3><table style="width:100%;border-collapse:collapse;font-size:12px;">${rows}</table></section>`;
-    })
+    .map((section) => renderPrintSection(entry, section))
     .join("");
-  const listSections = renderListSectionsHtml(entry);
   const html = `
     <!DOCTYPE html>
     <html><head><meta charset="UTF-8"><title>DS-160 — ${escapeHtml(fullName)}</title>
@@ -762,7 +937,6 @@ function openPrintWindow(entry) {
         </div>
       </div>
       ${sections}
-      ${listSections}
       <script>window.onload = function() { setTimeout(function(){ window.print(); }, 400); };<\/script>
     </body></html>
   `;
