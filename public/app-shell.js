@@ -494,6 +494,17 @@ function buildProfileChrome() {
     event.stopPropagation();
     togglePaymentRequestPopover();
   });
+  // Generic close-on-outside-click for every <details> popover on the
+  // page (view dropdowns, kebab menus, filter pills, etc). Browsers
+  // don't auto-close <details>; this matches the workspace bell /
+  // mail / reminder behavior we already have.
+  document.addEventListener("click", (event) => {
+    document.querySelectorAll("details[open]").forEach((d) => {
+      // Skip the trip-card menus that have their own close-on-outside
+      // handler (they reposition before close).
+      if (!d.contains(event.target)) d.removeAttribute("open");
+    });
+  });
   profileCard.querySelector('[data-action="close-payment-requests"]')?.addEventListener("click", () => {
     closePaymentRequestPopover();
   });

@@ -4950,6 +4950,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   font-size: 0.8rem;
   text-transform: capitalize;
 }
+.status-pill.is-paid { background: #dcf4e3; color: #1f8550; }
+.status-pill.is-pending { background: #fff5bd; color: #8a4b12; }
 
 .trip-select-link {
   width: 100%;

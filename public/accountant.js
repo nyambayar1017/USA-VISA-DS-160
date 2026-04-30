@@ -283,14 +283,16 @@
             ? `<span class="acct-pending-doc">— awaiting receipt —</span>`
             : `<span class="muted">—</span>`);
       const tripCell = r.tripId
-        ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" class="trip-name-link">${escapeHtml(r.tripName || r.tripSerial || r.tripId)}</a>`
+        // Fall back to a dash when we have a tripId but no human-friendly
+        // name / serial — better than rendering the raw UUID.
+        ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" class="trip-name-link">${escapeHtml(r.tripName || r.tripSerial || "—")}</a>`
         : (isOutgoing ? `<span class="muted">Office / overhead</span>` : `<span class="muted">—</span>`);
       const numCell = r.paidDocumentUrl
         ? `<a href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">${i + 1}</a>`
         : (i + 1);
       const statusCell = isPending
-        ? `<span class="payment-status waiting">Pending</span>`
-        : `<span class="payment-status paid">Paid</span>`;
+        ? `<span class="status-pill is-pending">● Pending</span>`
+        : `<span class="status-pill is-paid">● Paid</span>`;
       const dirCell = isOutgoing
         ? `<span class="acct-direction is-outgoing" title="We pay">↙ Outgoing</span>`
         : `<span class="acct-direction is-incoming" title="Client pays us">↗ Incoming</span>`;
@@ -332,7 +334,7 @@
           <td>${numCell}</td>
           <td>${dirCell}</td>
           <td data-col="category">${escapeHtml(r.category || "—")}</td>
-          <td>${escapeHtml(r.paidDate || "—")}</td>
+          <td>${escapeHtml(String(r.paidDate || "—").slice(0, 10) || "—")}</td>
           <td data-col="trip">${tripCell}</td>
           <td data-col="invoice">${escapeHtml(r.invoiceSerial || (isOutgoing ? "—" : "—"))}</td>
           <td data-col="payer">${escapeHtml(counterParty)}</td>
@@ -447,12 +449,21 @@
         ? await window.UI.confirm(`Remove the payment request for "${serial}" from the ledger? This does not unmark the invoice as paid — it only deletes the request record.`, { dangerous: true })
         : window.confirm(`Remove the payment request for "${serial}"?`);
       if (!confirmed) return;
+      // Optimistic UI: drop the row from the local cache + DOM
+      // immediately so the user sees feedback now; fire the request
+      // in the background and roll back if it fails.
+      const idx = rows.findIndex((x) => x.id === id);
+      const removedRow = idx >= 0 ? rows.splice(idx, 1)[0] : null;
+      const tr = deleteRequestBtn.closest("tr");
+      if (tr) tr.remove();
       try {
         const r = await fetch(`/api/payment-requests/${encodeURIComponent(id)}`, { method: "DELETE" });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || "Delete failed");
         load();
       } catch (err) {
+        if (removedRow) rows.splice(idx, 0, removedRow);
+        render();
         window.UI?.alert ? window.UI.alert(err.message || "Delete failed") : alert(err.message || "Delete failed");
       }
       return;
