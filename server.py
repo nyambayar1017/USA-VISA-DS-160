@@ -56,6 +56,8 @@ NOTES_FILE = DATA_DIR / "notes.json"
 FIFA2026_FILE = DATA_DIR / "fifa2026.json"
 FIFA2026_RESET_MARKER_FILE = DATA_DIR / "fifa2026_manual_reset_v3.txt"
 MANAGER_DASHBOARD_FILE = DATA_DIR / "manager_dashboard.json"
+TASK_ATTACHMENTS_DIR = DATA_DIR / "task_attachments"
+TASK_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".heif"}
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
 NOTIFICATIONS_FILE = DATA_DIR / "notifications.json"
@@ -133,6 +135,7 @@ def ensure_data_store():
     TOURIST_PASSPORT_TEMP_DIR.mkdir(parents=True, exist_ok=True)
     MAIL_MESSAGES_DIR.mkdir(parents=True, exist_ok=True)
     MAIL_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    TASK_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
     for file_path in [
         CONTRACTS_FILE,
         DS160_FILE,
@@ -6132,34 +6135,25 @@ def build_standalone_invoice_html_usm(invoice):
         margin: 0 0 4px; font-size: 11px; line-height: 1.45; color: #27272a; }
       .suggestion-block ul { margin: 0 0 6px 18px; padding: 0; }
       .suggestion-block .accent { color: #c44747; font-weight: 700; }
-      .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
-        margin-top: 24px; padding-top: 18px; border-top: 1px solid #e5e7eb;
-        align-items: start; }
-      /* Tall card so the big stamp can overlap label + signature row from
-         a single absolute position. */
-      .signature-card { position: relative; min-height: 260px; }
-      .signature-label { position: relative; z-index: 3;
-        font-size: 12px; color: #5d6b87; font-weight: 600; margin-bottom: 6px; }
-      /* Stamp covers the company label, the signature, and the accountant
-         name (matching the reference invoice). Big and slightly translucent
-         so the text is still readable underneath. */
-      .accountant-stamp { position: absolute; left: 16px; top: 12px;
-        width: 240px; z-index: 1; opacity: 0.92; }
-      .signature-row {
-        position: absolute; left: 0; right: 0; bottom: 0;
-        display: flex; align-items: flex-end; gap: 8px;
-      }
-      .signature-name {
-        position: relative; z-index: 3;
-        font-size: 13px; font-weight: 700; color: #27272a;
-        white-space: nowrap;
-      }
-      .signature-line {
-        position: relative; flex: 1; height: 56px; margin-bottom: 4px;
-        border-bottom: 2px dotted #cbd5e1;
-      }
-      .accountant-signature { position: absolute; left: 0; bottom: 4px;
-        height: 90px; width: auto; z-index: 4; }
+      /* Signature block — same proven layout the DTX template uses, just
+         with usm-stamp.png. The label gets pushed up by margin-bottom,
+         the line sits below it, and the stamp + handwritten signature
+         are positioned absolute over both. */
+      .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
+        margin-top: 24px; align-items: start; }
+      .signature-card { position: relative; min-height: 218px; padding-top: 0; }
+      .signature-label { position: relative; z-index: 3; min-height: 18px;
+        margin-bottom: 112px; color: #64748b; font-size: 13px;
+        font-weight: 600; background: #fff; }
+      .signature-line { border-bottom: 1px dashed #d5ddec; }
+      .accountant-stamp { position: absolute; left: 2px; bottom: 36px;
+        width: 218px; z-index: 1; opacity: 0.98; }
+      .accountant-signature { position: absolute; left: 64px; bottom: -34px;
+        width: 290px; z-index: 2; }
+      .signature-name { position: relative; z-index: 4; margin-top: 14px;
+        font-size: 13px; font-weight: 700; color: #27272a; }
+      .signature-role { position: relative; z-index: 4; color: #27272a;
+        font-size: 13px; }
     """
     return f"""<!DOCTYPE html>
 <html lang="{lang}"><head><meta charset="UTF-8"><title>{html.escape(L['title'])} #{serial}</title>
@@ -6215,20 +6209,16 @@ def build_standalone_invoice_html_usm(invoice):
   <div class="signature-grid">
     <div class="signature-card">
       <div class="signature-label">{html.escape(L['company_label'])}</div>
+      <div class="signature-line"></div>
       {f'<img class="accountant-stamp" src="{stamp_src}" alt="">' if stamp_src else ''}
-      <div class="signature-row">
-        <div class="signature-name">{html.escape(L['accountant'])} {html.escape(USM_COMPANY['accountant'])}</div>
-        <div class="signature-line">
-          {f'<img class="accountant-signature" src="{sig_src}" alt="">' if sig_src else ''}
-        </div>
-      </div>
+      {f'<img class="accountant-signature" src="{sig_src}" alt="">' if sig_src else ''}
+      <div class="signature-name">{html.escape(L['accountant'])}</div>
+      <div class="signature-role">{html.escape(USM_COMPANY['accountant'])}</div>
     </div>
     <div class="signature-card">
       <div class="signature-label">{html.escape(L['bill_to'])}</div>
-      <div class="signature-row">
-        <div class="signature-name">{customer}</div>
-        <div class="signature-line"></div>
-      </div>
+      <div class="signature-line"></div>
+      <div class="signature-name">{customer}</div>
     </div>
   </div>
 </div></body></html>"""
@@ -9259,7 +9249,7 @@ def _normalize_owner_list(payload):
 
 def build_manager_task(payload):
     owners, primary = _normalize_owner_list(payload)
-    return {
+    record = {
         "id": str(uuid4()),
         "title": normalize_text(payload.get("title")),
         "owners": owners,
@@ -9275,6 +9265,12 @@ def build_manager_task(payload):
         "createdAt": now_mongolia().isoformat(),
         "updatedAt": now_mongolia().isoformat(),
     }
+    # Preserve the image extension across updates — the actual image is
+    # uploaded via a separate endpoint, not part of this JSON payload.
+    image_ext = normalize_text(payload.get("imageExt"))
+    if image_ext:
+        record["imageExt"] = image_ext
+    return record
 
 
 def validate_manager_task(task):
@@ -9290,6 +9286,107 @@ def validate_manager_task(task):
     if due_time and not re.fullmatch(r"\d{2}:\d{2}", due_time):
         return "Task due time must be HH:MM"
     return None
+
+
+# ── Task reference image (single attachment per task, throwaway) ──────
+# Stored at TASK_ATTACHMENTS_DIR/<task_id>.<ext>. Not in the gallery —
+# these are quick context images (screenshots, photos) that get
+# deleted with the task.
+
+def _task_image_path(task_id, ext=None):
+    """Resolve the on-disk path for a task's image. If ext is given,
+    use it directly; otherwise glob for any matching file."""
+    if not task_id:
+        return None
+    if ext:
+        return TASK_ATTACHMENTS_DIR / f"{task_id}{ext}"
+    for candidate in TASK_ATTACHMENTS_DIR.glob(f"{task_id}.*"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _delete_task_image(task_id):
+    p = _task_image_path(task_id)
+    if p and p.exists():
+        try:
+            p.unlink()
+        except OSError:
+            pass
+
+
+def _task_image_data_url(task_id):
+    """Return a data: URL for the task image, suitable for embedding
+    inline in HTML emails. Returns "" if no image."""
+    p = _task_image_path(task_id)
+    if not p or not p.exists():
+        return ""
+    ext = p.suffix.lower().lstrip(".")
+    mime = {
+        "jpg": "image/jpeg", "jpeg": "image/jpeg",
+        "png": "image/png", "gif": "image/gif",
+        "webp": "image/webp", "heic": "image/heic", "heif": "image/heif",
+    }.get(ext, "application/octet-stream")
+    try:
+        data = p.read_bytes()
+    except OSError:
+        return ""
+    return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+
+
+def handle_task_image_upload(environ, start_response, task_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    store = read_manager_dashboard()
+    task = next((t for t in store.get("tasks", []) if t.get("id") == task_id), None)
+    if not task:
+        return json_response(start_response, "404 Not Found", {"error": "Task not found"})
+    fields, files = parse_multipart(environ)
+    upload = files.get("file")
+    if not upload or not upload.get("data"):
+        return json_response(start_response, "400 Bad Request", {"error": "No file provided"})
+    original_name = upload.get("filename") or "image"
+    ext = Path(original_name).suffix.lower()
+    if ext not in TASK_IMAGE_EXTS:
+        return json_response(start_response, "400 Bad Request", {"error": f"Image type {ext} not allowed"})
+    data = upload["data"]
+    if len(data) > MAX_UPLOAD_BYTES:
+        return json_response(start_response, "400 Bad Request", {"error": "Image too large (max 10 MB)"})
+    ensure_data_store()
+    # Replace any existing image (we only keep one per task — keeps it simple
+    # and matches the user's "throwaway" intent).
+    _delete_task_image(task_id)
+    target = TASK_ATTACHMENTS_DIR / f"{task_id}{ext}"
+    target.write_bytes(data)
+    task["imageExt"] = ext
+    task["updatedAt"] = now_mongolia().isoformat()
+    write_manager_dashboard(store)
+    return json_response(start_response, "200 OK", {"ok": True, "imageExt": ext})
+
+
+def handle_task_image_serve(environ, start_response, task_id):
+    if not require_login(environ, start_response):
+        return []
+    p = _task_image_path(task_id)
+    if not p or not p.exists():
+        return json_response(start_response, "404 Not Found", {"error": "No image"})
+    return file_response(start_response, p)
+
+
+def handle_task_image_delete(environ, start_response, task_id):
+    if not require_login(environ, start_response):
+        return []
+    store = read_manager_dashboard()
+    task = next((t for t in store.get("tasks", []) if t.get("id") == task_id), None)
+    if not task:
+        return json_response(start_response, "404 Not Found", {"error": "Task not found"})
+    _delete_task_image(task_id)
+    if "imageExt" in task:
+        del task["imageExt"]
+        task["updatedAt"] = now_mongolia().isoformat()
+    write_manager_dashboard(store)
+    return json_response(start_response, "200 OK", {"ok": True})
 
 
 def build_manager_reminder(payload):

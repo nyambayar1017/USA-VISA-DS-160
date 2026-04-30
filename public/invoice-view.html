@@ -342,7 +342,12 @@
       .usm-view .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
       .usm-view h1.usm-title { margin: 0 0 16px; font-size: 20px; font-weight: 400; line-height: 1.2; }
       .usm-view .usm-header { margin-bottom: 24px; }
-      .usm-view .usm-logo { height: 60px; width: auto; object-fit: contain; display: block; }
+      /* Logo: pinned left, bigger to match the public reference. align-self:
+         flex-start so flex-column gap doesn't centre it. */
+      .usm-view .usm-logo {
+        height: 80px; width: auto; object-fit: contain;
+        display: block; align-self: flex-start; margin-left: 0;
+      }
       .usm-view .usm-company-name { font-weight: 700; }
       .usm-view .usm-company-block { display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
       .usm-view .usm-billto-block { display: flex; flex-direction: column; gap: 8px; }
@@ -795,23 +800,19 @@
             </div>
             <div><span class="accent">**</span> Please keep in mind to give a correct, completed and clear payment purpose as in case of unclear payment purpose the payment will be stopped or rejected by our bank.</div>
           </div>
-          <div class="usm-footer-grid">
-            <div class="usm-foot">
-              <div class="usm-foot-label">${escapeHtml(L.companyLabel)}</div>
-              <div class="usm-foot-stamp"><img src="/assets/usm-stamp.png" alt="" onerror="this.style.display='none'" /></div>
-              <div class="usm-foot-row">
-                <div class="usm-foot-name">${escapeHtml(L.accountant)} G.Bayasgalan</div>
-                <div class="usm-foot-line">
-                  <img src="/assets/invoice-finance-signature.png" alt="" onerror="this.style.display='none'" />
-                </div>
-              </div>
+          <div class="signature-grid" style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:24px;">
+            <div class="signature-card">
+              <div class="signature-label">${escapeHtml(L.companyLabel)}</div>
+              <div class="signature-line"></div>
+              <img class="accountant-stamp" src="/assets/usm-stamp.png" alt="" onerror="this.style.display='none'" />
+              <img class="accountant-signature" src="/assets/invoice-finance-signature.png" alt="" onerror="this.style.display='none'" />
+              <div class="signature-name">${escapeHtml(L.accountant)}</div>
+              <div class="signature-role">G.Bayasgalan</div>
             </div>
-            <div class="usm-foot">
-              <div class="usm-foot-label">${escapeHtml(L.billTo)}</div>
-              <div class="usm-foot-row">
-                <div class="usm-foot-name" style="white-space:nowrap;">${escapeHtml(customerName)}</div>
-                <div class="usm-foot-line"></div>
-              </div>
+            <div class="signature-card">
+              <div class="signature-label">${escapeHtml(L.billTo)}</div>
+              <div class="signature-line"></div>
+              <div class="signature-name">${escapeHtml(customerName)}</div>
             </div>
           </div>
         `;
