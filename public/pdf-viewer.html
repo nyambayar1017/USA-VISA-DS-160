@@ -229,10 +229,18 @@
         const page = await pdfDoc.getPage(pageNum);
         const viewport = page.getViewport({ scale: renderScale });
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(viewport.width);
-        canvas.height = Math.round(viewport.height);
+        // High-DPI rendering: paint at devicePixelRatio so the bitmap has
+        // enough pixels for retina screens, and downscale via CSS so the
+        // layout stays the same. Without this, the browser stretches a
+        // 1× canvas to 2× CSS pixels and the result looks blurry.
+        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        canvas.width = Math.round(viewport.width * dpr);
+        canvas.height = Math.round(viewport.height * dpr);
+        canvas.style.width = Math.round(viewport.width) + "px";
+        canvas.style.height = Math.round(viewport.height) + "px";
         const ctx = canvas.getContext("2d");
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null;
+        await page.render({ canvasContext: ctx, viewport, transform }).promise;
         container.innerHTML = "";
         container.appendChild(canvas);
       }
