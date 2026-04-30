@@ -656,9 +656,13 @@ def write_trip_creators(store):
 
 
 def next_invoice_serial(company=None):
-    """Invoice serials are workspace-scoped: USM uses S-NNNNNN, DTX uses
-    T-NNNNNN. Counters are shared across both prefixes (and legacy plain-digit
-    serials) so we never clash with what's already in storage."""
+    """Legacy fallback used when an invoice has no group context. Invoice
+    serials are workspace-scoped: USM uses S-NNNNNN, DTX uses T-NNNNNN.
+    Counters are shared across both prefixes (and legacy plain-digit
+    serials) so we never clash with what's already in storage.
+
+    Normal flow uses next_invoice_serial_from_group() instead so the
+    serial matches the group it bills."""
     company = normalize_company(company) if company else ""
     prefix = "S-" if company == "USM" else ("T-" if company == "DTX" else "")
     existing = read_invoices()
@@ -673,6 +677,35 @@ def next_invoice_serial(company=None):
         if core.isdigit():
             max_seq = max(max_seq, int(core))
     return f"{prefix}{(max_seq + 1):06d}"
+
+
+def next_invoice_serial_from_group(group_serial, fallback_company=None):
+    """Invoice serial = group serial (e.g. 'T-0001-G1'). If that serial
+    is already taken by another invoice (revisions, accidental duplicate
+    invoice for the same group), append -2 / -3 / ... until free.
+
+    Falls back to the legacy company counter when no group serial is
+    available so old code paths still work."""
+    base = (group_serial or "").strip()
+    if not base:
+        return next_invoice_serial(fallback_company)
+    used = {str(r.get("serial") or "") for r in read_invoices()}
+    if base not in used:
+        return base
+    n = 2
+    while f"{base}-{n}" in used:
+        n += 1
+    return f"{base}-{n}"
+
+
+def find_tourist_group_serial(group_id):
+    """Look up a group's serial by id. Returns "" if not found."""
+    if not group_id:
+        return ""
+    for g in read_tourist_groups():
+        if g.get("id") == group_id:
+            return str(g.get("serial") or "")
+    return ""
 
 
 def _trip_company_for_invoice(payload):
@@ -732,11 +765,15 @@ def build_invoice(payload, actor=None):
                 break
     if not bank_snapshot and payload.get("bankAccount"):
         bank_snapshot = payload.get("bankAccount")
+    group_id = normalize_text(payload.get("groupId"))
     return {
         "id": str(uuid4()),
-        "serial": next_invoice_serial(_trip_company_for_invoice(payload)),
+        "serial": next_invoice_serial_from_group(
+            find_tourist_group_serial(group_id),
+            _trip_company_for_invoice(payload),
+        ),
         "tripId": normalize_text(payload.get("tripId")),
-        "groupId": normalize_text(payload.get("groupId")),
+        "groupId": group_id,
         "payerId": normalize_text(payload.get("payerId")),
         "payerName": normalize_text(payload.get("payerName")),
         "participantIds": [normalize_text(x) for x in (payload.get("participantIds") or []) if x],
@@ -13880,7 +13917,10 @@ def build_invoice_from_contract(contract, actor):
                 break
     return {
         "id": str(uuid4()),
-        "serial": next_invoice_serial((trip_for_serial or {}).get("company")),
+        "serial": next_invoice_serial_from_group(
+            find_tourist_group_serial(group_id),
+            (trip_for_serial or {}).get("company"),
+        ),
         "tripId": trip_id,
         "groupId": group_id,
         "payerId": "",
