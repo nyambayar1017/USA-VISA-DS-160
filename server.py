@@ -6051,12 +6051,17 @@ def build_standalone_invoice_html_usm(invoice):
       .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
         margin-top: 24px; padding-top: 14px; border-top: 1px solid #d9e0ea;
         align-items: start; }
-      .signature-card { position: relative; min-height: 110px; }
-      .signature-label { font-size: 12px; color: #5d6b87; font-weight: 600; margin-bottom: 6px; }
-      .signature-line { border-bottom: 1px dashed #d5ddec; margin: 28px 0 6px; }
-      .accountant-stamp { position: absolute; left: 0; top: 18px; width: 110px;
+      .signature-card { position: relative; min-height: 180px; }
+      .signature-label { position: relative; z-index: 3;
+        font-size: 12px; color: #5d6b87; font-weight: 600; margin-bottom: 6px; }
+      .signature-line { border-bottom: 1px dashed #d5ddec; margin: 110px 0 6px; }
+      /* Stamp + signature sized to match the user's reference PDFs:
+         stamp ~175px wide overlapping the label and signature line, the
+         hand-written signature crossing diagonally over the stamp. */
+      .accountant-stamp { position: absolute; left: 0; top: 12px; width: 175px;
         z-index: 1; opacity: 0.95; }
-      .accountant-signature { position: absolute; left: 90px; top: 30px; width: 150px; z-index: 2; }
+      .accountant-signature { position: absolute; left: 110px; top: 60px; width: 215px;
+        z-index: 2; }
       .signature-name, .signature-role {
         position: relative; z-index: 3; font-size: 12px; font-weight: 700; color: #27272a; }
     """
