@@ -549,7 +549,7 @@
               <th>Type</th>
               <th>Date</th>
               <th>Pickup time</th>
-              <th>Type time</th>
+              <th>Flight / Train time</th>
               <th>Driver</th>
               <th>Vehicle</th>
               <th>Plate Number</th>
