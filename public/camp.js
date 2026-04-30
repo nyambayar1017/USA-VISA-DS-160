@@ -3766,7 +3766,7 @@ function renderDocItem(doc, tripId, num) {
       '<div class="doc-num">' + num + '</div>' +
       '<div class="doc-icon">' + icon + '</div>' +
       '<div class="doc-meta">' +
-        '<div class="doc-name" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</div>' +
+        '<a class="doc-name doc-name-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</a>' +
         '<div class="doc-info">' + escapeHtml(size) + (uploadedAt ? ' · ' + uploadedAt : '') + (uploader ? ' · ' + escapeHtml(uploader) : '') + '</div>' +
         '<div class="doc-tourist-row">' +
           '<span class="doc-tourist-label">Tourist:</span> ' +

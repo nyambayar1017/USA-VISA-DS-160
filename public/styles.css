@@ -9015,6 +9015,16 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.doc-name-link {
+  display: block;
+  color: var(--brand, #253a77);
+  text-decoration: none;
+  cursor: pointer;
+}
+.doc-name-link:hover,
+.doc-name-link:focus-visible {
+  text-decoration: underline;
+}
 .doc-info {
   font-size: 12px;
   color: #6b7280;
