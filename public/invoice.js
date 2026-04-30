@@ -259,15 +259,6 @@
               <button type="button" class="inv-row-action-btn" data-inv-action="open" data-id="${escapeHtml(inv.id)}" title="Edit" aria-label="Edit">✎</button>
               <button type="button" class="inv-row-action-btn is-danger" data-inv-action="delete" data-id="${escapeHtml(inv.id)}" title="Delete" aria-label="Delete">✕</button>
             </span>
-            <details class="inv-row-menu">
-              <summary aria-label="Actions">⋯</summary>
-              <div class="inv-row-menu-popover">
-                <button type="button" data-inv-action="open" data-id="${escapeHtml(inv.id)}">Edit</button>
-                <button type="button" data-inv-action="open-view" data-id="${escapeHtml(inv.id)}">View</button>
-                <button type="button" data-inv-action="copy-row" data-id="${escapeHtml(inv.id)}">Copy link</button>
-                <button type="button" class="is-danger" data-inv-action="delete" data-id="${escapeHtml(inv.id)}">Delete</button>
-              </div>
-            </details>
           </div>
           <div class="inv-row-installments">
             ${installmentRows}
@@ -1298,40 +1289,16 @@
     }
     if (action === "open" && invoice) {
       e.preventDefault();
-      btn.closest("details.inv-row-menu")?.removeAttribute("open");
       openSidePanel(invoice);
       return;
     }
-    if (action === "open-view") {
-      e.preventDefault();
-      btn.closest("details.inv-row-menu")?.removeAttribute("open");
-      window.open(`/invoice-view?id=${id}`, "_blank");
-      return;
-    }
-    if (action === "copy-row") {
-      btn.closest("details.inv-row-menu")?.removeAttribute("open");
-      try {
-        await navigator.clipboard.writeText(`${window.location.origin}/invoice-view?id=${id}`);
-        const t = btn.textContent;
-        btn.textContent = "Copied";
-        setTimeout(() => { btn.textContent = t; }, 1200);
-      } catch { alert("Could not copy."); }
-      return;
-    }
     if (action === "delete" && invoice) {
-      btn.closest("details.inv-row-menu")?.removeAttribute("open");
       if (!(await UI.confirm(`Delete invoice #${invoice.serial || invoice.id}?`, { dangerous: true }))) return;
       try {
         await fetchJson(`/api/invoices/${id}`, { method: "DELETE" });
         await loadAll();
       } catch (err) { alert(err.message || "Could not delete."); }
     }
-  });
-  // Auto-close any open row-menu on outside click
-  document.addEventListener("click", (e) => {
-    invoicesListNode.querySelectorAll("details.inv-row-menu[open]").forEach((det) => {
-      if (!det.contains(e.target)) det.removeAttribute("open");
-    });
   });
 
   contractsListNode.addEventListener("click", async (e) => {
