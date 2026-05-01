@@ -32,26 +32,6 @@
   const langBar = document.getElementById("ct-lang-bar");
   const rtEditor = document.getElementById("ct-rt-editor");
   const rtToolbar = document.getElementById("ct-rt-toolbar");
-  const translateAllBtn = document.getElementById("ct-translate-all");
-  const translateStatus = document.getElementById("ct-translate-status");
-  const translatePickNode = document.getElementById("ct-translate-pick");
-
-  // Per-user selection of which languages to auto-translate. Default
-  // reflects the user's actual preference: English-derived European
-  // languages (fr/it/es) translate well; Mongolian they author by
-  // hand; CJK + Russian go untranslated unless the user opts in.
-  const TRANSLATE_PICK_KEY = "ct_translate_pick";
-  const DEFAULT_PICK = ["fr", "it", "es"];
-  function readTranslatePick() {
-    try {
-      const raw = localStorage.getItem(TRANSLATE_PICK_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return DEFAULT_PICK.slice();
-  }
-  function writeTranslatePick(codes) {
-    try { localStorage.setItem(TRANSLATE_PICK_KEY, JSON.stringify(codes)); } catch {}
-  }
 
   // Languages mirror gallery.js ALT_LANGS so a content entry's
   // translations match the alt-text language set on its photos.
@@ -103,29 +83,6 @@
     });
   }
 
-  // Per-language auto-translate checkboxes. English is excluded — it's
-  // the source. Saved selection lives in localStorage; defaults are the
-  // languages where machine translation is reliable (fr/it/es).
-  function renderTranslatePick() {
-    if (!translatePickNode) return;
-    const picked = new Set(readTranslatePick());
-    translatePickNode.innerHTML = LANGS
-      .filter((l) => l.code !== "en")
-      .map((l) => `
-        <label class="ct-translate-pick-item">
-          <input type="checkbox" data-translate-pick="${l.code}" ${picked.has(l.code) ? "checked" : ""} />
-          <span>${escapeHtml(l.label)}</span>
-        </label>
-      `).join("");
-  }
-  translatePickNode?.addEventListener("change", (e) => {
-    const cb = e.target.closest('[data-translate-pick]');
-    if (!cb) return;
-    const codes = Array.from(translatePickNode.querySelectorAll('[data-translate-pick]:checked'))
-      .map((n) => n.dataset.translatePick);
-    writeTranslatePick(codes);
-  });
-
   // Persist whatever the user has typed in the form for the currently
   // active language, then swap inputs to show the next language.
   function captureActive() {
@@ -163,174 +120,6 @@
       arg = url;
     }
     document.execCommand(cmd, false, arg);
-  });
-
-  // Server-side translation via /api/translate, which uses the
-  // Anthropic API (Claude). Quality is dramatically better than the
-  // old MyMemory fallback, and there's no 500-char limit, so full
-  // descriptions go through in one call. The html flag tells the
-  // server to preserve <p>/<h2>/<ul>/etc. so headings + lists
-  // survive into every language version.
-  async function translateText(text, targetLang, isHtml) {
-    if (!text || targetLang === "en") return text;
-    const res = await fetch("/api/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, from: "en", to: targetLang, html: !!isHtml }),
-    });
-    // The proxy can return an HTML error page (Render 502 / 504) when
-    // a request runs too long. Parsing that as JSON throws "Unexpected
-    // token '<'..." — read text once and decide based on content-type.
-    const ct = res.headers.get("content-type") || "";
-    if (ct.includes("application/json")) {
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Translation failed (${res.status})`);
-      return data.text || "";
-    }
-    const body = await res.text();
-    if (res.status === 502 || res.status === 504 || /timeout/i.test(body)) {
-      throw new Error("Server timed out — try fewer languages at once or shorter sections.");
-    }
-    throw new Error(`Translation failed (${res.status})`);
-  }
-
-  // Throttle concurrent requests so the WSGI server isn't slammed
-  // with 16 long-running Anthropic calls at once (which causes the
-  // proxy to time out and return HTML instead of JSON). 4 in flight
-  // is roughly the sweet spot — fast enough that wall time is ≈ 2x
-  // a single call, slow enough that the server keeps up.
-  async function poolMap(items, limit, fn) {
-    const results = new Array(items.length);
-    let cursor = 0;
-    async function worker() {
-      while (true) {
-        const i = cursor++;
-        if (i >= items.length) return;
-        try { results[i] = await fn(items[i], i); }
-        catch (err) { results[i] = { __error: err }; }
-      }
-    }
-    const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
-    await Promise.all(workers);
-    return results;
-  }
-
-  // Translate the English title + summary into every other language
-  // that's currently empty. Fills the in-memory map and re-renders the
-  // tabs. Skips any language the user already filled in by hand.
-  translateAllBtn?.addEventListener("click", async () => {
-    captureActive();
-    const sourceTitle = (i18n.title.en || "").trim();
-    const sourceSummary = (i18n.summary.en || "").trim();
-    if (!sourceTitle && !sourceSummary) {
-      translateStatus.textContent = "Write the English title + description first.";
-      translateStatus.style.color = "#b91c1c";
-      return;
-    }
-    translateAllBtn.disabled = true;
-    translateStatus.textContent = "Translating…";
-    translateStatus.style.color = "#5d6b87";
-    // Treat MyMemory's known error strings as empty so the next
-    // pass overwrites them — they got stored as actual translations
-    // before the Claude switchover.
-    const isJunk = (s) => /QUERY LENGTH LIMIT EXCEEDED|MAX ALLOWED QUERY|YOU USED ALL AVAILABLE FREE TRANSLATIONS/i.test(s || "");
-    LANGS.forEach((l) => {
-      if (l.code === "en") return;
-      if (isJunk(i18n.title[l.code]))   i18n.title[l.code]   = "";
-      if (isJunk(i18n.summary[l.code])) i18n.summary[l.code] = "";
-    });
-    // Title is short (~50 chars × 8 ≈ 800 chars output) so the batch
-    // call is well under the proxy timeout. Description is long, and
-    // 8 languages × full HTML body = 30K+ output chars which exceeds
-    // Render's ~120s idle limit on a single response. So we batch
-    // titles in one call but translate descriptions ONE LANGUAGE AT
-    // A TIME — each per-language request is short (~15-25s) and the
-    // proxy never has reason to drop the connection.
-    // Only translate languages the user has ticked in the picker —
-    // they can manually fill the rest (Mongolian native authoring,
-    // CJK/Russian where machine translation is unreliable, etc.).
-    const picked = new Set(readTranslatePick());
-    if (!picked.size) {
-      translateAllBtn.disabled = false;
-      translateStatus.textContent = "Pick at least one language to translate to.";
-      translateStatus.style.color = "#b91c1c";
-      return;
-    }
-    const titleTargets = LANGS.filter((l) => l.code !== "en" && picked.has(l.code) && !(i18n.title[l.code] || "").trim()).map((l) => l.code);
-    const summaryTargets = LANGS.filter((l) => l.code !== "en" && picked.has(l.code) && !(i18n.summary[l.code] || "").trim()).map((l) => l.code);
-    if (!titleTargets.length && !summaryTargets.length) {
-      translateAllBtn.disabled = false;
-      translateStatus.textContent = "Selected languages are already filled.";
-      translateStatus.style.color = "#16a34a";
-      return;
-    }
-    async function callBatch(text, html, targets) {
-      if (!text || !targets.length) return {};
-      const res = await fetch("/api/translate-batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, from: "en", html, targets }),
-      });
-      const ct = res.headers.get("content-type") || "";
-      if (!ct.includes("application/json")) {
-        if (res.status === 502 || res.status === 504) throw new Error("Server timed out — try shorter sections.");
-        throw new Error(`Translation failed (${res.status})`);
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Translation failed (${res.status})`);
-      return data.translations || {};
-    }
-    const totalSteps = (sourceTitle && titleTargets.length ? 1 : 0) + (summaryTargets.length || 0);
-    let step = 0;
-    let firstError = "";
-    let succeeded = 0;
-    try {
-      // 1) All titles in one batch.
-      if (sourceTitle && titleTargets.length) {
-        step += 1;
-        translateStatus.textContent = `Translating titles (${step}/${totalSteps})…`;
-        const out = await callBatch(sourceTitle, false, titleTargets);
-        Object.entries(out).forEach(([code, val]) => {
-          if (val && !(i18n.title[code] || "").trim()) i18n.title[code] = val;
-        });
-        renderLangBar();
-        succeeded += 1;
-      }
-      // 2) Description: one language at a time. Each call is short, so
-      // the proxy never times out. Wall time is ~2-3 min for 8 langs.
-      if (sourceSummary && summaryTargets.length) {
-        for (const code of summaryTargets) {
-          step += 1;
-          const langLabel = (LANGS.find((l) => l.code === code) || {}).label || code;
-          translateStatus.textContent = `Translating description → ${langLabel} (${step}/${totalSteps})…`;
-          try {
-            const t = await translateText(sourceSummary, code, true);
-            if (t) i18n.summary[code] = t;
-            renderLangBar();
-            succeeded += 1;
-          } catch (err) {
-            // One language failing shouldn't kill the whole run.
-            if (!firstError) firstError = err?.message || String(err);
-          }
-        }
-      }
-    } catch (err) {
-      if (!firstError) firstError = err?.message || String(err);
-    }
-    translateAllBtn.disabled = false;
-    if (firstError && succeeded === 0) {
-      translateStatus.textContent = "Translation failed: " + firstError;
-      translateStatus.style.color = "#b91c1c";
-    } else if (firstError) {
-      translateStatus.textContent = `✓ Done with errors — ${firstError}`;
-      translateStatus.style.color = "#b91c1c";
-    } else {
-      const filledCount = Math.max(titleTargets.length, summaryTargets.length);
-      translateStatus.textContent = `✓ All ${filledCount} language${filledCount === 1 ? "" : "s"} translated. Switch tabs to review.`;
-      translateStatus.style.color = "#16a34a";
-    }
-    renderLangBar();
-    loadActive();
   });
 
   // ── List ─────────────────────────────────────────────────────────
@@ -461,9 +250,7 @@
     const ws = (typeof window.readWorkspace === "function" ? window.readWorkspace() : "") || "";
     activeLang = (ws === "DTX") ? "mn" : "en";
     renderLangBar();
-    renderTranslatePick();
     loadActive();
-    if (translateStatus) translateStatus.textContent = "";
     renderGroups((rec && rec.bulletGroups) || []);
     setImageIds((rec && rec.imageIds) || []);
     deleteBtn.hidden = !state.editingId;

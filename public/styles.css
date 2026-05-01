@@ -18203,14 +18203,6 @@ input[type="checkbox"]:disabled {
 .ct-rt-editor p { margin: 6px 0; }
 .ct-rt-editor ul, .ct-rt-editor ol { margin: 6px 0 6px 22px; }
 .ct-rt-editor a { color: #2563eb; text-decoration: underline; }
-.ct-translate-section {
-  background: #f0f7ff;
-  border: 1px solid #c7d8f5;
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin: 14px 0;
-}
-
 .content-lang-switcher {
   display: flex;
   flex-wrap: wrap;
@@ -18322,37 +18314,3 @@ input[type="checkbox"]:disabled {
 }
 .ct-video-remove:hover { background: #fecaca; }
 .trip-popup-video video { width: 100%; max-height: 480px; border-radius: 12px; background: #000; }
-
-/* Per-language pick checkboxes inside the Translations section. */
-.ct-translate-pick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0 6px;
-}
-.ct-translate-pick-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #fff;
-  border: 1px solid #d8dde9;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #5d6b87;
-  cursor: pointer;
-}
-.ct-translate-pick-item:has(input:checked) {
-  background: #e0ecff;
-  border-color: #18336c;
-  color: #18336c;
-}
-.ct-translate-pick-item input[type="checkbox"] {
-  width: 14px !important;
-  height: 14px !important;
-  min-width: 14px !important;
-  min-height: 14px !important;
-  max-width: 14px !important;
-  max-height: 14px !important;
-}
