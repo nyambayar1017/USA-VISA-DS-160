@@ -8953,6 +8953,47 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   flex-direction: column;
   gap: 8px;
 }
+.doc-list.doc-view-icons,
+.doc-list.doc-view-compact {
+  display: grid;
+  gap: 12px;
+}
+.doc-list.doc-view-icons   { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.doc-list.doc-view-compact { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.doc-list.doc-view-icons .doc-item,
+.doc-list.doc-view-compact .doc-item {
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 6px;
+  padding: 10px;
+  position: relative;
+}
+.doc-list.doc-view-icons .doc-item .doc-icon,
+.doc-list.doc-view-compact .doc-item .doc-icon {
+  font-size: 36px;
+  text-align: center;
+  padding: 8px 0;
+}
+.doc-list.doc-view-compact .doc-item .doc-icon { font-size: 26px; padding: 4px 0; }
+.doc-list.doc-view-icons .doc-item .doc-num,
+.doc-list.doc-view-compact .doc-item .doc-num { position: absolute; top: 4px; right: 8px; font-size: 11px; color: #98a3b6; }
+.doc-list.doc-view-compact .doc-item .doc-name { font-size: 12px; }
+.doc-list.doc-view-compact .doc-item .doc-info,
+.doc-list.doc-view-compact .doc-item .doc-tourist-row { display: none; }
+.doc-list.doc-view-icons .doc-item .doc-tourist-row { font-size: 11px; }
+/* Group sections still stack under the toolbar regardless of view, but the
+   inner list inside each group respects the chosen view. */
+.doc-list.doc-view-icons .doc-group,
+.doc-list.doc-view-compact .doc-group {
+  grid-column: 1 / -1;
+}
+.doc-list.doc-view-icons .doc-group-header,
+.doc-list.doc-view-compact .doc-group-header { padding: 6px 0 4px; }
+.doc-list.doc-view-icons .doc-group > .doc-item ~ .doc-item,
+.doc-list.doc-view-compact .doc-group > .doc-item ~ .doc-item {
+  /* Items inside a group also lay out in a sub-grid */
+}
 .doc-item {
   display: flex;
   align-items: center;

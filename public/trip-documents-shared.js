@@ -67,9 +67,38 @@
             <p class="status" data-td="upload-status"></p>
           </div>
         </div>
-        <nav class="doc-filter-tabs" data-td="filter-tabs">
-          ${FILTER_KEYS.map((k, i) => `<button class="doc-filter-tab${i === 0 ? " is-active" : ""}" data-filter="${escapeHtml(k)}">${k === "all" ? "All" : escapeHtml(k)}</button>`).join("")}
-        </nav>
+        <div class="invoices-filter-bar">
+          <input type="search" data-td="search" placeholder="Search by name or tourist" autocomplete="off" />
+          <select class="trip-filter-input" data-td="kind">
+            <option value="">All kinds</option>
+            <option value="image">Images</option>
+            <option value="pdf">PDFs</option>
+            <option value="doc">Word docs</option>
+            <option value="sheet">Spreadsheets</option>
+            <option value="other">Other</option>
+          </select>
+          <select class="trip-filter-input" data-td="category-filter">
+            <option value="all">All categories</option>
+            ${CATEGORY_OPTIONS.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="gallery-view-bar">
+          <div class="gallery-view-toggle" role="radiogroup" aria-label="View mode">
+            <button type="button" data-td="view-btn" data-view="icons" class="is-active" title="Big icons">▦ Icons</button>
+            <button type="button" data-td="view-btn" data-view="compact" title="More documents per row">▤ Compact</button>
+            <button type="button" data-td="view-btn" data-view="list" title="One row per document">▥ List</button>
+          </div>
+          <label class="gallery-view-select">
+            <span>Sort</span>
+            <select data-td="sort">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="name-asc">Name A→Z</option>
+              <option value="name-desc">Name Z→A</option>
+              <option value="size-desc">Largest first</option>
+            </select>
+          </label>
+        </div>
         <label class="doc-select-all">
           <input type="checkbox" data-td="select-all" />
           <span>Select all</span>
@@ -98,6 +127,10 @@
       tripId,
       groupId: opts.groupId || "",
       activeFilter: "all",
+      search: "",
+      kind: "",
+      view: localStorage.getItem("td_view") || "icons",
+      sort: localStorage.getItem("td_sort") || "newest",
       selected: new Set(),
       tourists: [],
       docs: [],
@@ -177,17 +210,63 @@
       else                                     { sa.checked = false; sa.indeterminate = true;  }
     }
 
+    function docKind(d) {
+      const m = (d.mimeType || "").toLowerCase();
+      const n = (d.originalName || "").toLowerCase();
+      if (m.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/.test(n)) return "image";
+      if (m.includes("pdf") || n.endsWith(".pdf")) return "pdf";
+      if (n.endsWith(".doc") || n.endsWith(".docx") || m.includes("msword") || m.includes("officedocument.wordprocessing")) return "doc";
+      if (n.endsWith(".xls") || n.endsWith(".xlsx") || m.includes("spreadsheet")) return "sheet";
+      return "other";
+    }
+
+    function applyToolbarFiltersAndSort(visible) {
+      let out = visible.slice();
+      if (state.activeFilter && state.activeFilter !== "all") {
+        out = out.filter((d) => (d.category || "Other") === state.activeFilter);
+      }
+      if (state.kind) {
+        out = out.filter((d) => docKind(d) === state.kind);
+      }
+      if (state.search) {
+        const q = state.search.toLowerCase();
+        out = out.filter((d) => {
+          const hay = (d.originalName || "") + " " + (d.touristName || "") + " " + (d.category || "");
+          return hay.toLowerCase().includes(q);
+        });
+      }
+      const cmp = {
+        "newest":    (a, b) => String(b.uploadedAt || "").localeCompare(String(a.uploadedAt || "")),
+        "oldest":    (a, b) => String(a.uploadedAt || "").localeCompare(String(b.uploadedAt || "")),
+        "name-asc":  (a, b) => (a.originalName || "").localeCompare(b.originalName || ""),
+        "name-desc": (a, b) => (b.originalName || "").localeCompare(a.originalName || ""),
+        "size-desc": (a, b) => (b.size || 0) - (a.size || 0),
+      }[state.sort] || ((a, b) => 0);
+      out.sort(cmp);
+      return out;
+    }
+
+    function applyViewClass() {
+      const list = $("list");
+      list.classList.remove("doc-view-icons", "doc-view-compact", "doc-view-list");
+      list.classList.add("doc-view-" + state.view);
+      container.querySelectorAll("[data-td='view-btn']").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.dataset.view === state.view);
+      });
+    }
+
     function renderList() {
+      applyViewClass();
       const visible = (state.docs || []).filter((d) => !d.touristRemovedAt);
-      renderFilterCounts(visible);
-      const filtered = state.activeFilter === "all"
-        ? visible
-        : visible.filter((d) => (d.category || "Other") === state.activeFilter);
+      const filtered = applyToolbarFiltersAndSort(visible);
       if (!filtered.length) {
-        $("list").innerHTML = `<p class="muted" style="padding:8px 0">${state.activeFilter === "all" ? "No documents uploaded yet." : `No documents in "${escapeHtml(state.activeFilter)}".`}</p>`;
+        $("list").innerHTML = `<p class="muted" style="padding:8px 0">${visible.length ? "No documents match these filters." : "No documents uploaded yet."}</p>`;
         return;
       }
-      if (state.activeFilter !== "all") {
+      // When a category filter is active OR we're not in default sort by upload-date,
+      // render flat. Otherwise group by category for browsability.
+      const flat = state.activeFilter !== "all" || state.search || state.kind || state.sort !== "newest";
+      if (flat) {
         $("list").innerHTML = filtered.map((d, i) => renderItem(d, i + 1)).join("");
         syncSelectAll();
         return;
@@ -288,11 +367,17 @@
       if ($("file").files.length) uploadFiles(Array.from($("file").files));
       $("file").value = "";
     });
-    $("filter-tabs").addEventListener("click", (e) => {
-      const tab = e.target.closest(".doc-filter-tab");
-      if (!tab) return;
-      state.activeFilter = tab.dataset.filter;
-      renderList();
+    $("search").addEventListener("input", () => { state.search = $("search").value || ""; renderList(); });
+    $("kind").addEventListener("change", () => { state.kind = $("kind").value || ""; renderList(); });
+    $("category-filter").addEventListener("change", () => { state.activeFilter = $("category-filter").value || "all"; renderList(); });
+    $("sort").addEventListener("change", () => { state.sort = $("sort").value || "newest"; localStorage.setItem("td_sort", state.sort); renderList(); });
+    $("sort").value = state.sort;
+    container.querySelectorAll("[data-td='view-btn']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.view = btn.dataset.view || "icons";
+        localStorage.setItem("td_view", state.view);
+        renderList();
+      });
     });
     $("select-all").addEventListener("change", () => {
       const want = $("select-all").checked;

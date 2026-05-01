@@ -152,21 +152,71 @@
     bulkCount.textContent = `${state.selected.size} selected`;
   }
 
+  // Build a flat list of every folder path that exists, including virtual
+  // intermediate paths. e.g. ["Asia/Mongolia", "Europe"] → ["Asia",
+  // "Asia/Mongolia", "Europe"]. Used so that a folder card shows up at root
+  // even if there are no images directly in "Asia".
+  function allFolderPaths() {
+    const set = new Set();
+    state.folders.forEach((f) => {
+      const parts = String(f.name || "").split("/").filter(Boolean);
+      for (let i = 0; i < parts.length; i++) set.add(parts.slice(0, i + 1).join("/"));
+    });
+    return Array.from(set);
+  }
+
+  function directChildrenOf(parentPath, paths) {
+    const prefix = parentPath ? parentPath + "/" : "";
+    const children = [];
+    paths.forEach((p) => {
+      if (parentPath ? !p.startsWith(prefix) : p.includes("/")) return;
+      const rest = parentPath ? p.slice(prefix.length) : p;
+      if (rest && !rest.includes("/")) children.push(p);
+    });
+    return children.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }
+
+  function countAtPath(folderPath) {
+    return state.entries.filter((e) => (e.folder || "") === folderPath).length;
+  }
+
   function refreshFolderBar() {
     if (!folderBar) return;
     const total = state.totalCount;
     const noneCount = state.noFolderCount;
-    const chips = [
-      `<button type="button" class="gallery-folder-chip${state.activeFolder === "" ? " is-active" : ""}" data-folder=""><span>All</span><em>${total}</em></button>`,
-      `<button type="button" class="gallery-folder-chip${state.activeFolder === "__none__" ? " is-active" : ""}" data-folder="__none__"><span>No folder</span><em>${noneCount}</em></button>`,
-    ];
-    state.folders.forEach((f) => {
-      const isActive = state.activeFolder.toLowerCase() === f.name.toLowerCase();
+    const here = state.activeFolder;
+    const isRoot = here === "" || here === "__none__";
+
+    // Breadcrumb when drilled in.
+    const crumbs = [];
+    if (!isRoot && here) {
+      const parts = here.split("/");
+      crumbs.push(`<button type="button" class="gallery-folder-chip" data-folder=""><span>← All</span></button>`);
+      for (let i = 0; i < parts.length; i++) {
+        const path = parts.slice(0, i + 1).join("/");
+        const isLast = i === parts.length - 1;
+        crumbs.push(`<button type="button" class="gallery-folder-chip${isLast ? " is-active" : ""}" data-folder="${escapeHtml(path)}"><span>📁 ${escapeHtml(parts[i])}</span></button>`);
+      }
+    }
+
+    const chips = isRoot
+      ? [
+          `<button type="button" class="gallery-folder-chip${here === "" ? " is-active" : ""}" data-folder=""><span>All</span><em>${total}</em></button>`,
+          `<button type="button" class="gallery-folder-chip${here === "__none__" ? " is-active" : ""}" data-folder="__none__"><span>No folder</span><em>${noneCount}</em></button>`,
+        ]
+      : crumbs;
+
+    // Only show the children at the current level, not every folder in the tree.
+    const allPaths = allFolderPaths();
+    const childPaths = isRoot ? directChildrenOf("", allPaths) : directChildrenOf(here, allPaths);
+    childPaths.forEach((p) => {
+      const leaf = p.split("/").pop();
+      const isActive = state.activeFolder.toLowerCase() === p.toLowerCase();
       chips.push(`
-        <button type="button" class="gallery-folder-chip${isActive ? " is-active" : ""}" data-folder="${escapeHtml(f.name)}">
-          <span>📁 ${escapeHtml(f.name)}</span>
-          <em>${f.count}</em>
-          <span class="gallery-folder-menu" data-folder-menu="${escapeHtml(f.name)}" title="Rename / delete">⋯</span>
+        <button type="button" class="gallery-folder-chip${isActive ? " is-active" : ""}" data-folder="${escapeHtml(p)}">
+          <span>📁 ${escapeHtml(leaf)}</span>
+          <em>${countAtPath(p)}</em>
+          <span class="gallery-folder-menu" data-folder-menu="${escapeHtml(p)}" title="Rename / delete">⋯</span>
         </button>
       `);
     });
@@ -222,10 +272,20 @@
     const tag = (tagInput.value || "").trim().toLowerCase();
     const kind = kindSelect.value;
     const folderFilter = state.activeFolder;
+    const hasFilter = !!(q || tag || kind);
     return state.entries.filter((e) => {
       if (kind && e.kind !== kind) return false;
-      if (folderFilter === "__none__" && (e.folder || "").trim()) return false;
-      else if (folderFilter && folderFilter !== "__none__" && (e.folder || "").toLowerCase() !== folderFilter.toLowerCase()) return false;
+      const f = (e.folder || "").trim();
+      if (folderFilter === "__none__" && f) return false;
+      else if (folderFilter === "" && !hasFilter) {
+        // Root view with no active filter: hide items that live inside any
+        // folder — they're reachable by drilling into the folder card.
+        if (f) return false;
+      } else if (folderFilter && folderFilter !== "__none__") {
+        // Strict match on the active folder path. Sub-folder items only
+        // appear when the user drills into the sub-folder.
+        if (f.toLowerCase() !== folderFilter.toLowerCase()) return false;
+      }
       if (tag && !(e.tags || []).some((t) => t.toLowerCase() === tag)) return false;
       if (q) {
         const hay = `${e.originalName} ${(e.tags || []).join(" ")} ${e.folder || ""}`.toLowerCase();
@@ -353,25 +413,26 @@
     // Folder cards appear inline with media — but only on the "All" view
     // (no folder selected, no grouping, no search/tag/kind filter) and
     // only in icon mode where the visual cards make sense.
-    const showFolderCards = folderFilter === "" && !q && !tag && !kind && state.group === "none" && state.view === "icons";
-    const folderCardsHtml = showFolderCards
-      ? state.folders.map((f) => {
-          // Always show a clean folder visual — no sample photo. The
-          // user explicitly asked for folders to be visually distinct
-          // from regular image cards.
-          return `
-            <article class="gallery-card gallery-folder-card" data-folder-target="${escapeHtml(f.name)}">
-              <div class="gallery-thumb gallery-folder-cover">
-                <div class="gallery-folder-cover-empty">📁</div>
-              </div>
-              <div class="gallery-card-body">
-                <p class="gallery-card-title" title="${escapeHtml(f.name)}">📁 ${escapeHtml(f.name)}</p>
-                <p class="gallery-card-meta">${f.count} item${f.count === 1 ? "" : "s"}</p>
-              </div>
-            </article>
-          `;
-        }).join("")
-      : "";
+    // Show folder cards in any folder view (root or drilled-in) when no
+    // search/tag/kind filter is active. Only shows direct children, not
+    // every folder in the tree.
+    const showFolderCards = folderFilter !== "__none__" && !q && !tag && !kind && state.group === "none" && state.view === "icons";
+    const childPaths = showFolderCards ? directChildrenOf(folderFilter || "", allFolderPaths()) : [];
+    const folderCardsHtml = childPaths.map((p) => {
+      const leaf = p.split("/").pop();
+      const subCount = countAtPath(p);
+      return `
+        <article class="gallery-card gallery-folder-card" data-folder-target="${escapeHtml(p)}">
+          <div class="gallery-thumb gallery-folder-cover">
+            <div class="gallery-folder-cover-empty">📁</div>
+          </div>
+          <div class="gallery-card-body">
+            <p class="gallery-card-title" title="${escapeHtml(p)}">📁 ${escapeHtml(leaf)}</p>
+            <p class="gallery-card-meta">${subCount} item${subCount === 1 ? "" : "s"}</p>
+          </div>
+        </article>
+      `;
+    }).join("");
 
     count.textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}`;
     if (!filtered.length && !folderCardsHtml) {

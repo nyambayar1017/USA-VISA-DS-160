@@ -511,16 +511,44 @@
             </div>
           </div>
 
-          <nav class="doc-filter-tabs" id="doc-filter-tabs">
-            <button class="doc-filter-tab is-active" data-filter="all">All</button>
-            <button class="doc-filter-tab" data-filter="Invoices">Invoices</button>
-            <button class="doc-filter-tab" data-filter="Flight Tickets">Flight Tickets</button>
-            <button class="doc-filter-tab" data-filter="Passports &amp; Visas">Passports &amp; Visas</button>
-            <button class="doc-filter-tab" data-filter="Insurance">Insurance</button>
-            <button class="doc-filter-tab" data-filter="Contracts">Contracts</button>
-            <button class="doc-filter-tab" data-filter="Paid documents">Paid documents</button>
-            <button class="doc-filter-tab" data-filter="Other">Other</button>
-          </nav>
+          <div class="invoices-filter-bar">
+            <input id="doc-search" type="search" placeholder="Search by name or tourist" autocomplete="off" />
+            <select id="doc-kind" class="trip-filter-input">
+              <option value="">All kinds</option>
+              <option value="image">Images</option>
+              <option value="pdf">PDFs</option>
+              <option value="doc">Word docs</option>
+              <option value="sheet">Spreadsheets</option>
+              <option value="other">Other</option>
+            </select>
+            <select id="doc-category-filter" class="trip-filter-input">
+              <option value="all">All categories</option>
+              <option value="Invoices">Invoices</option>
+              <option value="Flight Tickets">Flight Tickets</option>
+              <option value="Passports &amp; Visas">Passports &amp; Visas</option>
+              <option value="Insurance">Insurance</option>
+              <option value="Contracts">Contracts</option>
+              <option value="Paid documents">Paid documents</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="gallery-view-bar">
+            <div class="gallery-view-toggle" role="radiogroup" aria-label="View mode">
+              <button type="button" data-doc-view-btn data-view="icons" class="is-active" title="Big icons">▦ Icons</button>
+              <button type="button" data-doc-view-btn data-view="compact" title="More documents per row">▤ Compact</button>
+              <button type="button" data-doc-view-btn data-view="list" title="One row per document">▥ List</button>
+            </div>
+            <label class="gallery-view-select">
+              <span>Sort</span>
+              <select id="doc-sort">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="name-asc">Name A→Z</option>
+                <option value="name-desc">Name Z→A</option>
+                <option value="size-desc">Largest first</option>
+              </select>
+            </label>
+          </div>
 
           <label class="doc-select-all">
             <input type="checkbox" id="doc-select-all" />
@@ -1215,7 +1243,7 @@
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-160"></script>
+    <script src="/camp.js?v=workspace-161"></script>
     <script src="/reservations-addon.js?v=workspace-27"></script>
     <script src="/participant-chooser.js?v=workspace-1"></script>
     <script src="/nationality-select.js?v=workspace-1"></script>

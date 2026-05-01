@@ -3956,19 +3956,72 @@ function renderDocItem(doc, tripId, num) {
   );
 }
 
+function docKindOf(d) {
+  const m = (d.mimeType || "").toLowerCase();
+  const n = (d.originalName || "").toLowerCase();
+  if (m.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/.test(n)) return "image";
+  if (m.includes("pdf") || n.endsWith(".pdf")) return "pdf";
+  if (n.endsWith(".doc") || n.endsWith(".docx") || m.includes("msword") || m.includes("officedocument.wordprocessing")) return "doc";
+  if (n.endsWith(".xls") || n.endsWith(".xlsx") || m.includes("spreadsheet")) return "sheet";
+  return "other";
+}
+
+let docToolbarSearch = "";
+let docToolbarKind = "";
+let docToolbarSort = localStorage.getItem("td_sort") || "newest";
+let docToolbarView = localStorage.getItem("td_view") || "icons";
+
+function applyDocToolbarSortFilter(visible) {
+  let out = visible.slice();
+  if (activeDocFilter && activeDocFilter !== "all") {
+    out = out.filter(function (d) { return (d.category || "Other") === activeDocFilter; });
+  }
+  if (docToolbarKind) {
+    out = out.filter(function (d) { return docKindOf(d) === docToolbarKind; });
+  }
+  if (docToolbarSearch) {
+    const q = docToolbarSearch.toLowerCase();
+    out = out.filter(function (d) {
+      const hay = (d.originalName || "") + " " + (d.touristName || "") + " " + (d.category || "");
+      return hay.toLowerCase().includes(q);
+    });
+  }
+  const cmps = {
+    "newest":    function (a, b) { return String(b.uploadedAt || "").localeCompare(String(a.uploadedAt || "")); },
+    "oldest":    function (a, b) { return String(a.uploadedAt || "").localeCompare(String(b.uploadedAt || "")); },
+    "name-asc":  function (a, b) { return (a.originalName || "").localeCompare(b.originalName || ""); },
+    "name-desc": function (a, b) { return (b.originalName || "").localeCompare(a.originalName || ""); },
+    "size-desc": function (a, b) { return (b.size || 0) - (a.size || 0); },
+  };
+  out.sort(cmps[docToolbarSort] || cmps["newest"]);
+  return out;
+}
+
+function applyDocViewClass() {
+  if (!docList) return;
+  docList.classList.remove("doc-view-icons", "doc-view-compact", "doc-view-list");
+  docList.classList.add("doc-view-" + docToolbarView);
+  document.querySelectorAll("[data-doc-view-btn]").forEach(function (btn) {
+    btn.classList.toggle("is-active", btn.dataset.view === docToolbarView);
+  });
+}
+
 function renderTripDocuments(docs, tripId) {
   if (!docList) return;
   // Hide docs whose tourist was deleted — they live on the global Documents
   // page with a "Removed from <trip>" pill, but the trip-detail view should
   // only show docs tied to current participants.
   const visible = (docs || []).filter(function(d) { return !d.touristRemovedAt; });
-  renderDocFilterCounts(visible);
-  const filtered = activeDocFilter === "all" ? visible : visible.filter(function(d) { return (d.category || "Other") === activeDocFilter; });
+  applyDocViewClass();
+  const filtered = applyDocToolbarSortFilter(visible);
   if (!filtered.length) {
-    docList.innerHTML = '<p class="muted" style="padding:8px 0">' + (activeDocFilter === "all" ? "No documents uploaded yet." : 'No documents in "' + escapeHtml(activeDocFilter) + '".') + '</p>';
+    docList.innerHTML = '<p class="muted" style="padding:8px 0">' + (visible.length ? "No documents match these filters." : "No documents uploaded yet.") + '</p>';
     return;
   }
-  if (activeDocFilter !== "all") {
+  // When any filter is set OR the user picked a non-default sort, render flat.
+  // Default view (no filter, sort by upload date) keeps category groupings.
+  const flat = activeDocFilter !== "all" || docToolbarSearch || docToolbarKind || docToolbarSort !== "newest";
+  if (flat) {
     docList.innerHTML = filtered.map(function(doc, i) { return renderDocItem(doc, tripId, i + 1); }).join("");
     syncSelectAllCheckbox();
     return;
@@ -4208,12 +4261,30 @@ if (tripTabBar && isTripDetailPage()) {
   });
 }
 
-if (docFilterTabsEl && isTripDetailPage()) {
-  docFilterTabsEl.addEventListener("click", function(e) {
-    const tab = e.target.closest(".doc-filter-tab");
-    if (!tab) return;
-    activeDocFilter = tab.dataset.filter;
-    if (activeTripId) loadTripDocuments(activeTripId);
+if (isTripDetailPage()) {
+  const docSearchEl   = document.getElementById("doc-search");
+  const docKindEl     = document.getElementById("doc-kind");
+  const docCatFilter  = document.getElementById("doc-category-filter");
+  const docSortEl     = document.getElementById("doc-sort");
+  const docViewBtns   = document.querySelectorAll("[data-doc-view-btn]");
+  function rerender() { if (activeTripId) loadTripDocuments(activeTripId); }
+  if (docSearchEl)  docSearchEl.addEventListener("input",  function () { docToolbarSearch = docSearchEl.value || ""; rerender(); });
+  if (docKindEl)    docKindEl.addEventListener("change",   function () { docToolbarKind   = docKindEl.value   || ""; rerender(); });
+  if (docCatFilter) docCatFilter.addEventListener("change", function () { activeDocFilter = docCatFilter.value || "all"; rerender(); });
+  if (docSortEl) {
+    docSortEl.value = docToolbarSort;
+    docSortEl.addEventListener("change", function () {
+      docToolbarSort = docSortEl.value || "newest";
+      localStorage.setItem("td_sort", docToolbarSort);
+      rerender();
+    });
+  }
+  docViewBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      docToolbarView = btn.dataset.view || "icons";
+      localStorage.setItem("td_view", docToolbarView);
+      applyDocViewClass();
+    });
   });
 }
 
