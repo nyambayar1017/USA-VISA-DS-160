@@ -8957,93 +8957,149 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   flex-direction: column;
   gap: 8px;
 }
-/* Icons / Compact: doc-items become photo-card style. When inside a group
-   header, the group expands and lays its items out in a sub-grid. */
-.doc-list.doc-view-icons,
-.doc-list.doc-view-compact { display: flex; flex-direction: column; gap: 14px; }
-.doc-list.doc-view-icons > .doc-item,
-.doc-list.doc-view-compact > .doc-item {
-  /* Direct children of doc-list when there is no group wrapper */
+/* ─── List mode ────────────────────────────────────────────────────
+   Default and explicit doc-view-list. Flat horizontal rows on a soft
+   bluish-grey band, no per-item border or rounded card. Thin slate
+   separator between rows so a column of 30 entries scans in one
+   glance instead of looking like 30 floating cards. */
+.doc-list.doc-view-list { display: flex; flex-direction: column; gap: 0; }
+.doc-list.doc-view-list .doc-group-inner,
+.doc-list.doc-view-list:not(:has(.doc-group)) { background: #f6f8fc; border: 1px solid #e2e7f1; border-radius: 8px; overflow: hidden; }
+.doc-list.doc-view-list .doc-group-inner { display: flex; flex-direction: column; }
+.doc-list.doc-view-list .doc-item {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #e2e7f1;
+  border-radius: 0;
+  padding: 10px 14px;
+  gap: 14px;
+  align-items: flex-start;
 }
-.doc-list.doc-view-icons > .doc-group,
-.doc-list.doc-view-compact > .doc-group { display: flex; flex-direction: column; gap: 8px; }
-.doc-list.doc-view-icons .doc-group-inner,
-.doc-list.doc-view-compact .doc-group-inner {
-  display: grid;
-  gap: 12px;
+.doc-list.doc-view-list .doc-item:last-child { border-bottom: 0; }
+.doc-list.doc-view-list .doc-item .doc-thumb {
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; aspect-ratio: auto;
+  margin-top: 2px;
 }
-.doc-list.doc-view-icons .doc-group-inner   { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-.doc-list.doc-view-compact .doc-group-inner { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-/* When there is no group wrapper (flat view), apply the grid directly. */
-.doc-list.doc-view-icons:not(:has(.doc-group)),
-.doc-list.doc-view-compact:not(:has(.doc-group)) { display: grid; }
-.doc-list.doc-view-icons:not(:has(.doc-group))   { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-.doc-list.doc-view-compact:not(:has(.doc-group)) { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.doc-list.doc-view-list .doc-item .doc-thumb-img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+.doc-list.doc-view-list .doc-item .doc-thumb-fallback { font-size: 22px; height: auto; }
+.doc-list.doc-view-list .doc-item .doc-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto; padding: 0; }
+.doc-list.doc-view-list .doc-item .doc-name { color: #18336c; font-weight: 700; font-size: 14px; }
+.doc-list.doc-view-list .doc-item .doc-info { color: #6c7a93; font-size: 12px; }
+.doc-list.doc-view-list .doc-item .doc-tourist-row { font-size: 12px; display: flex; align-items: center; gap: 8px; }
+.doc-list.doc-view-list .doc-item .doc-tourist-select { max-width: 260px; }
 
-.doc-list.doc-view-icons .doc-item,
+/* ─── Icons mode ──────────────────────────────────────────────────
+   Photo-grid like the Gallery. Wider cards (240px) so the filename
+   gets two full lines and the tourist row + actions don't overlap
+   the thumbnail. Checkbox + number tucked into rounded badges with
+   white backing so they don't disappear into a passport scan. */
+.doc-list.doc-view-icons { display: flex; flex-direction: column; gap: 14px; }
+.doc-list.doc-view-icons > .doc-group { display: flex; flex-direction: column; gap: 8px; }
+.doc-list.doc-view-icons .doc-group-inner   { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.doc-list.doc-view-icons:not(:has(.doc-group)) { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.doc-list.doc-view-icons .doc-item {
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 0;
+  padding: 0;
+  position: relative;
+  background: #fff;
+  border: 1px solid #d8dde9;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04);
+}
+.doc-list.doc-view-icons .doc-item .doc-thumb {
+  display: block; aspect-ratio: 4 / 3; background: #eef2f7;
+  text-align: center; text-decoration: none; color: inherit;
+}
+.doc-list.doc-view-icons .doc-item .doc-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.doc-list.doc-view-icons .doc-item .doc-thumb-fallback {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; font-size: 42px;
+}
+.doc-list.doc-view-icons .doc-item .doc-meta {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px 12px; min-width: 0;
+}
+.doc-list.doc-view-icons .doc-item .doc-name {
+  font-size: 13px; font-weight: 600; color: #18336c;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  white-space: normal; overflow: hidden; line-height: 1.3;
+  word-break: break-word;
+}
+.doc-list.doc-view-icons .doc-item .doc-info { font-size: 11px; color: #6c7a93; }
+.doc-list.doc-view-icons .doc-item .doc-tourist-row {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+  margin-top: 4px;
+}
+.doc-list.doc-view-icons .doc-item .doc-tourist-select { flex: 1 1 auto; min-width: 0; font-size: 11px; }
+.doc-list.doc-view-icons .doc-item .doc-num {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 11px; color: #fff;
+  background: rgba(15,23,42,.65); padding: 2px 8px; border-radius: 999px;
+  z-index: 3; line-height: 1.3;
+}
+.doc-list.doc-view-icons .doc-item .doc-select {
+  position: absolute; top: 6px; left: 6px;
+  background: rgba(255,255,255,.92); border-radius: 5px; padding: 2px;
+  z-index: 3; box-shadow: 0 1px 2px rgba(15,23,42,.18);
+}
+.doc-list.doc-view-icons .doc-item .doc-select input[type="checkbox"] { width: 14px; height: 14px; }
+/* Move the actions menu inline with the meta (under the filename), not
+   floating over the thumbnail — that was hiding the tourist name on
+   tight cards. */
+.doc-list.doc-view-icons .doc-item .doc-menu { position: static; align-self: flex-end; margin-top: -2px; }
+
+/* ─── Compact mode ────────────────────────────────────────────────
+   Smaller card for high-density browsing — thumbnail still visible
+   but tourist row and meta line are dropped. Filename truncates to
+   one line; hover shows full name via the title attribute. */
+.doc-list.doc-view-compact { display: flex; flex-direction: column; gap: 10px; }
+.doc-list.doc-view-compact > .doc-group { display: flex; flex-direction: column; gap: 6px; }
+.doc-list.doc-view-compact .doc-group-inner   { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.doc-list.doc-view-compact:not(:has(.doc-group)) { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 .doc-list.doc-view-compact .doc-item {
   flex-direction: column;
   align-items: stretch;
   text-align: left;
-  gap: 6px;
   padding: 0;
   position: relative;
   background: #fff;
-  border: 1px solid var(--border, #d0d7e8);
+  border: 1px solid #d8dde9;
   border-radius: 10px;
   overflow: hidden;
+  gap: 0;
 }
-.doc-list.doc-view-icons .doc-item .doc-thumb,
-.doc-list.doc-view-compact .doc-item .doc-thumb {
-  display: block;
-  aspect-ratio: 4 / 3;
-  background: #f0f3f8;
-  text-align: center;
-  text-decoration: none;
-  color: inherit;
+.doc-list.doc-view-compact .doc-item .doc-thumb { display: block; aspect-ratio: 16 / 9; background: #eef2f7; text-align: center; }
+.doc-list.doc-view-compact .doc-item .doc-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.doc-list.doc-view-compact .doc-item .doc-thumb-fallback { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 26px; }
+.doc-list.doc-view-compact .doc-item .doc-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; padding: 6px 10px 8px; min-width: 0;
 }
-.doc-list.doc-view-icons .doc-item .doc-thumb-img,
-.doc-list.doc-view-compact .doc-item .doc-thumb-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.doc-list.doc-view-compact .doc-item .doc-name {
+  font-size: 12px; font-weight: 600; color: #18336c;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto;
 }
-.doc-list.doc-view-icons .doc-item .doc-thumb-fallback,
-.doc-list.doc-view-compact .doc-item .doc-thumb-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-size: 38px;
-}
-.doc-list.doc-view-compact .doc-item .doc-thumb-fallback { font-size: 26px; }
-.doc-list.doc-view-icons .doc-item .doc-meta,
-.doc-list.doc-view-compact .doc-item .doc-meta { padding: 8px 10px 10px; min-width: 0; }
-.doc-list.doc-view-icons .doc-item .doc-name,
-.doc-list.doc-view-compact .doc-item .doc-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.doc-list.doc-view-compact .doc-item .doc-name { font-size: 12px; }
 .doc-list.doc-view-compact .doc-item .doc-info,
 .doc-list.doc-view-compact .doc-item .doc-tourist-row { display: none; }
-.doc-list.doc-view-icons .doc-item .doc-tourist-row { font-size: 11px; }
-.doc-list.doc-view-icons .doc-item .doc-num,
 .doc-list.doc-view-compact .doc-item .doc-num {
-  position: absolute; top: 6px; right: 8px;
-  font-size: 11px; color: #fff;
-  background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 999px;
-  z-index: 2;
+  position: absolute; top: 6px; right: 6px;
+  font-size: 10px; color: #fff;
+  background: rgba(15,23,42,.65); padding: 1px 6px; border-radius: 999px; z-index: 3;
 }
-.doc-list.doc-view-icons .doc-item .doc-select,
 .doc-list.doc-view-compact .doc-item .doc-select {
-  position: absolute; top: 6px; left: 6px;
-  background: rgba(255,255,255,.95); border-radius: 4px; padding: 2px;
-  z-index: 2;
+  position: absolute; top: 4px; left: 4px;
+  background: rgba(255,255,255,.92); border-radius: 4px; padding: 2px; z-index: 3;
+  box-shadow: 0 1px 2px rgba(15,23,42,.18);
 }
-.doc-list.doc-view-icons .doc-item .doc-menu,
-.doc-list.doc-view-compact .doc-item .doc-menu {
-  position: absolute; bottom: 6px; right: 6px;
-  z-index: 2;
-}
+.doc-list.doc-view-compact .doc-item .doc-select input[type="checkbox"] { width: 12px; height: 12px; }
+.doc-list.doc-view-compact .doc-item .doc-menu { position: static; flex: 0 0 auto; }
 .doc-item {
   display: flex;
   align-items: center;
