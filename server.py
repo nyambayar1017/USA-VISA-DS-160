@@ -19402,6 +19402,8 @@ def _dispatch(environ, start_response):
                         "company": (t.get("company") or "").upper(),
                         "tripName": t.get("tripName") or "",
                         "serial": t.get("serial") or "",
+                        "startDate": t.get("startDate") or "",
+                        "tripType": t.get("tripType") or "",
                     })
             return json_response(start_response, "404 Not Found", {"error": "Trip not found"})
         # /api/camp-trips/{id}/documents  — upload

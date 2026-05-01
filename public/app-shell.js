@@ -1195,6 +1195,22 @@ async function openPaymentRequestApproveModal(requestId) {
     return;
   }
   const r = approveCurrentRequest;
+  // Enrich the request with trip serial + name + start date so the
+  // modal's Trip cell can show "T-0043 · Turkiye · 2026-05-24" instead
+  // of the generic "Open trip" label. Cached on the request object so
+  // re-opens don't refetch.
+  if (r.tripId && !r._tripInfoFetched) {
+    try {
+      const resp = await fetch(`/api/camp-trips/${encodeURIComponent(r.tripId)}/info`);
+      if (resp.ok) {
+        const info = await resp.json();
+        r.tripSerial = info.serial || r.tripSerial || "";
+        r.tripName   = info.tripName || r.tripName || "";
+        r.tripStartDate = info.startDate || r.tripStartDate || "";
+      }
+    } catch {}
+    r._tripInfoFetched = true;
+  }
   const amount = `${(r.currency || "MNT")} ${Number(r.paidAmount || 0).toLocaleString()}`;
   const canApprove = isAccountantOrAdmin();
   const isOutgoing = (r.direction || "incoming") === "outgoing";
@@ -1236,8 +1252,13 @@ async function openPaymentRequestApproveModal(requestId) {
   // "Open the trip" link so the accountant can verify the request
   // against the trip's details before approving. Hidden when the
   // request isn't tied to a trip (office expenses).
+  const tripParts = [];
+  if (r.tripSerial) tripParts.push(escapeHtml(r.tripSerial));
+  if (r.tripName)   tripParts.push(escapeHtml(r.tripName));
+  if (r.tripStartDate) tripParts.push(escapeHtml(String(r.tripStartDate).slice(0, 10)));
+  const tripLabel = tripParts.length ? tripParts.join(" · ") : "Open trip ↗";
   const tripCell = r.tripId
-    ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" target="_blank" rel="noreferrer" class="trip-name-link">${escapeHtml(r.tripName || r.tripSerial || "Open trip ↗")}</a>`
+    ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" target="_blank" rel="noreferrer" class="trip-name-link">${tripLabel}</a>`
     : `<span class="muted">—</span>`;
   body.innerHTML = `
     <dl class="payment-approve-details">

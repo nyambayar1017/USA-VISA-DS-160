@@ -1245,6 +1245,7 @@ function renderTransfers() {
 }
 
 function renderRooming() {
+  if (!roomingList) return; // section was removed from /group; rooming lives in the Participants table now.
   if (!tourists.length) {
     roomingList.innerHTML = '<p class="empty">Add participants first, then assign rooms.</p>';
     return;
@@ -1724,7 +1725,7 @@ participantsList.addEventListener("click", async (e) => {
   }
 });
 
-suggestBtn.addEventListener("click", async () => {
+suggestBtn?.addEventListener("click", async () => {
   // Suggest room codes for tourists with roomType but missing roomCode
   const updates = [];
   const used = new Set(tourists.map((t) => t.roomCode).filter(Boolean));
