@@ -807,23 +807,25 @@
     // directly. The accountant uploads the proof document and clicks
     // approve, which flips the installment to paid and attaches the
     // doc to the trip's "Paid documents" category.
+    const idxAtSubmit = registeringIdx;
     try {
       const response = await fetchJson("/api/payment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           invoiceId: sidePanelInvoice.id,
-          installmentIndex: registeringIdx,
+          installmentIndex: idxAtSubmit,
           paidDate: dt,
           bankAccountId: bankId,
           paidAmount,
         }),
       });
-      // Lock the button immediately — don't wait for the next fetch
-      // round-trip. Even if the workspace fetch is filtered out for
-      // some reason, the local cache prevents a double-submit.
-      const created = response?.entry || { id: "local-" + Date.now(), installmentIndex: registeringIdx };
-      pendingRequestsByIdx[registeringIdx] = created;
+      // Only lock the button if the server actually created a request.
+      // A synthetic local id would un-stick on the next fetch and leave
+      // the user staring at a flickering REQUEST SENT pill.
+      if (response && response.entry && response.entry.id) {
+        pendingRequestsByIdx[idxAtSubmit] = response.entry;
+      }
       registeringIdx = -1;
       closeEditModal();
       window.UI?.toast?.("Payment request sent. The accountant will register the payment and upload the receipt.", "ok");
@@ -831,7 +833,13 @@
       await loadAll();
       const updated = invoices.find((x) => x.id === sidePanelInvoice.id);
       if (updated) openSidePanel(updated);
-    } catch (err) { alert(err.message || "Could not submit request"); }
+    } catch (err) {
+      // Server rejected (e.g. duplicate, already paid, validation). Reset
+      // the in-flight idx so the user can pick another row, and surface
+      // the message — don't keep the modal open with stale state.
+      registeringIdx = -1;
+      alert(err.message || "Could not submit request");
+    }
   }
   // Legacy entrypoint kept for the per-row click handler in openSidePanel().
   async function registerPayment(idx) { await openRegisterPaymentModal(idx); }
