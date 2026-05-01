@@ -83,10 +83,6 @@
           </select>
         </div>
         <div class="gallery-view-bar">
-          <div class="gallery-view-toggle" role="radiogroup" aria-label="View mode">
-            <button type="button" data-td="view-btn" data-view="icons" class="is-active" title="Big icons">▦ Icons</button>
-            <button type="button" data-td="view-btn" data-view="list" title="One row per document">▥ List</button>
-          </div>
           <label class="gallery-view-select">
             <span>Sort</span>
             <select data-td="sort">
@@ -128,10 +124,7 @@
       activeFilter: "all",
       search: "",
       kind: "",
-      view: (function () {
-        const v = localStorage.getItem("td_view") || "icons";
-        return (v === "icons" || v === "list") ? v : "icons";
-      })(),
+      view: "list",
       sort: localStorage.getItem("td_sort") || "newest",
       selected: new Set(),
       tourists: [],
