@@ -377,6 +377,14 @@
 
   addBtn.addEventListener("click", () => { refreshCountryOptions(); openModal(null); });
   list.addEventListener("click", async (event) => {
+    // Close any open row-menu <details> as soon as the user picks an
+    // action — otherwise the popover sticks around floating over the
+    // page after the modal opens.
+    const actionBtn = event.target.closest('[data-action]');
+    if (actionBtn) {
+      const det = actionBtn.closest("details.row-menu");
+      if (det) det.removeAttribute("open");
+    }
     const editBtn = event.target.closest('[data-action="edit"]');
     if (editBtn) {
       const id = editBtn.dataset.id;

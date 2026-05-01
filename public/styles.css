@@ -14704,28 +14704,12 @@ body.gallery-dragging .gallery-card[draggable="true"] { opacity: 0.85; }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
-  align-items: end;
 }
 .ct-form-grid .full-span { grid-column: 1 / -1; }
 .ct-form-grid > label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-/* Inputs in the same row stretch to the row height so the boxes
-   align even when one column has an extra hint line under it. */
-.ct-form-grid > label > input,
-.ct-form-grid > label > select,
-.ct-form-grid > label > textarea {
-  margin-top: auto;
-}
-.ct-field-hint {
-  display: block;
-  margin-top: 4px;
-  color: #6b7793;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1.4;
 }
 .ct-section { margin-top: 16px; }
 .ct-section-head {
