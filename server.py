@@ -8808,13 +8808,6 @@ def handle_create_payment_request(environ, start_response):
         invoice = next((r for r in invoices if r.get("id") == invoice_id), None)
         if not invoice:
             return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
-        # Workspace guard — manager in DTX must not register payment on an
-        # USM invoice (or vice versa). Admins/accountants pass through both.
-        invoice_ws = (_payment_request_workspace(invoice) or "").upper()
-        active_ws = (active_workspace(environ) or "").upper()
-        actor_role = (actor.get("role") or "").lower()
-        if invoice_ws and active_ws and invoice_ws != active_ws and actor_role not in ("admin", "accountant"):
-            return json_response(start_response, "403 Forbidden", {"error": f"This invoice belongs to {invoice_ws}. Switch workspace to register its payment."})
         installments = invoice.get("installments") or []
         if inst_index < 0 or inst_index >= len(installments):
             return json_response(start_response, "400 Bad Request", {"error": "installment out of range"})
