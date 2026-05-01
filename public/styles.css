@@ -1965,9 +1965,13 @@ td {
   display: grid;
   grid-template-columns: minmax(360px, 1.05fr) minmax(440px, 1.5fr);
   align-items: stretch;
-  border-top: 1px solid #eef1f7;
+  border: 1px solid #d8dde9;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: #fff;
 }
-.inv-row:first-child { border-top: 0; }
+.inv-row:first-child { border-top: 1px solid #d8dde9; }
+.inv-row-header { border: 1px solid #cbd2e0; }
 .inv-row-header {
   background: #f6f8fc;
   color: #5d6b87;
@@ -8953,46 +8957,92 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   flex-direction: column;
   gap: 8px;
 }
+/* Icons / Compact: doc-items become photo-card style. When inside a group
+   header, the group expands and lays its items out in a sub-grid. */
 .doc-list.doc-view-icons,
-.doc-list.doc-view-compact {
+.doc-list.doc-view-compact { display: flex; flex-direction: column; gap: 14px; }
+.doc-list.doc-view-icons > .doc-item,
+.doc-list.doc-view-compact > .doc-item {
+  /* Direct children of doc-list when there is no group wrapper */
+}
+.doc-list.doc-view-icons > .doc-group,
+.doc-list.doc-view-compact > .doc-group { display: flex; flex-direction: column; gap: 8px; }
+.doc-list.doc-view-icons .doc-group-inner,
+.doc-list.doc-view-compact .doc-group-inner {
   display: grid;
   gap: 12px;
 }
-.doc-list.doc-view-icons   { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-.doc-list.doc-view-compact { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.doc-list.doc-view-icons .doc-group-inner   { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.doc-list.doc-view-compact .doc-group-inner { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+/* When there is no group wrapper (flat view), apply the grid directly. */
+.doc-list.doc-view-icons:not(:has(.doc-group)),
+.doc-list.doc-view-compact:not(:has(.doc-group)) { display: grid; }
+.doc-list.doc-view-icons:not(:has(.doc-group))   { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.doc-list.doc-view-compact:not(:has(.doc-group)) { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
 .doc-list.doc-view-icons .doc-item,
 .doc-list.doc-view-compact .doc-item {
   flex-direction: column;
   align-items: stretch;
   text-align: left;
   gap: 6px;
-  padding: 10px;
+  padding: 0;
   position: relative;
+  background: #fff;
+  border: 1px solid var(--border, #d0d7e8);
+  border-radius: 10px;
+  overflow: hidden;
 }
-.doc-list.doc-view-icons .doc-item .doc-icon,
-.doc-list.doc-view-compact .doc-item .doc-icon {
-  font-size: 36px;
+.doc-list.doc-view-icons .doc-item .doc-thumb,
+.doc-list.doc-view-compact .doc-item .doc-thumb {
+  display: block;
+  aspect-ratio: 4 / 3;
+  background: #f0f3f8;
   text-align: center;
-  padding: 8px 0;
+  text-decoration: none;
+  color: inherit;
 }
-.doc-list.doc-view-compact .doc-item .doc-icon { font-size: 26px; padding: 4px 0; }
-.doc-list.doc-view-icons .doc-item .doc-num,
-.doc-list.doc-view-compact .doc-item .doc-num { position: absolute; top: 4px; right: 8px; font-size: 11px; color: #98a3b6; }
+.doc-list.doc-view-icons .doc-item .doc-thumb-img,
+.doc-list.doc-view-compact .doc-item .doc-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.doc-list.doc-view-icons .doc-item .doc-thumb-fallback,
+.doc-list.doc-view-compact .doc-item .doc-thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 38px;
+}
+.doc-list.doc-view-compact .doc-item .doc-thumb-fallback { font-size: 26px; }
+.doc-list.doc-view-icons .doc-item .doc-meta,
+.doc-list.doc-view-compact .doc-item .doc-meta { padding: 8px 10px 10px; min-width: 0; }
+.doc-list.doc-view-icons .doc-item .doc-name,
+.doc-list.doc-view-compact .doc-item .doc-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .doc-list.doc-view-compact .doc-item .doc-name { font-size: 12px; }
 .doc-list.doc-view-compact .doc-item .doc-info,
 .doc-list.doc-view-compact .doc-item .doc-tourist-row { display: none; }
 .doc-list.doc-view-icons .doc-item .doc-tourist-row { font-size: 11px; }
-/* Group sections still stack under the toolbar regardless of view, but the
-   inner list inside each group respects the chosen view. */
-.doc-list.doc-view-icons .doc-group,
-.doc-list.doc-view-compact .doc-group {
-  grid-column: 1 / -1;
+.doc-list.doc-view-icons .doc-item .doc-num,
+.doc-list.doc-view-compact .doc-item .doc-num {
+  position: absolute; top: 6px; right: 8px;
+  font-size: 11px; color: #fff;
+  background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 999px;
+  z-index: 2;
 }
-.doc-list.doc-view-icons .doc-group-header,
-.doc-list.doc-view-compact .doc-group-header { padding: 6px 0 4px; }
-.doc-list.doc-view-icons .doc-group > .doc-item ~ .doc-item,
-.doc-list.doc-view-compact .doc-group > .doc-item ~ .doc-item {
-  /* Items inside a group also lay out in a sub-grid */
+.doc-list.doc-view-icons .doc-item .doc-select,
+.doc-list.doc-view-compact .doc-item .doc-select {
+  position: absolute; top: 6px; left: 6px;
+  background: rgba(255,255,255,.95); border-radius: 4px; padding: 2px;
+  z-index: 2;
+}
+.doc-list.doc-view-icons .doc-item .doc-menu,
+.doc-list.doc-view-compact .doc-item .doc-menu {
+  position: absolute; bottom: 6px; right: 6px;
+  z-index: 2;
 }
 .doc-item {
   display: flex;

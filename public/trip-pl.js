@@ -184,7 +184,6 @@
     summary.innerHTML = `
       <div class="trip-pl-card"><dt>Income (paid)</dt><dd class="is-positive">MNT ${incomeMnt.toLocaleString()}</dd></div>
       ${incomePending ? `<div class="trip-pl-card"><dt>Income (pending)</dt><dd class="muted">MNT ${incomePending.toLocaleString()}</dd></div>` : ""}
-      <div class="trip-pl-card"><dt>Planned expense</dt><dd>MNT ${plannedMnt.toLocaleString()}</dd></div>
       <div class="trip-pl-card"><dt>Actual paid</dt><dd class="is-negative">MNT ${actualMnt.toLocaleString()}</dd></div>
       <div class="trip-pl-card"><dt>Net (income − paid)</dt><dd class="${net >= 0 ? "is-positive" : "is-negative"}">MNT ${net.toLocaleString()}</dd></div>
       ${margin ? `<div class="trip-pl-card"><dt>Quote price (margin ${marginPct}%)</dt><dd>MNT ${margin.toLocaleString()}</dd></div>` : ""}

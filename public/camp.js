@@ -3925,13 +3925,17 @@ function renderDocItem(doc, tripId, num) {
   const downloadUrl = "/trip-uploads/" + tripId + "/" + doc.storedName + "?download=1";
   const checked = selectedDocIds.has(doc.id) ? " checked" : "";
   const touristLabel = doc.touristName ? doc.touristName : "";
+  const isImg = (doc.mimeType || "").startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.originalName || "");
+  const thumbHtml = isImg
+    ? '<img class="doc-thumb-img" src="/trip-uploads/' + escapeHtml(tripId) + '/' + escapeHtml(doc.storedName) + '" alt="' + escapeHtml(doc.originalName) + '" loading="lazy" />'
+    : '<div class="doc-thumb-fallback">' + icon + '</div>';
   return (
     '<div class="doc-item">' +
       '<label class="doc-select" aria-label="Select for email">' +
         '<input type="checkbox" data-doc-select="' + escapeHtml(doc.id) + '"' + checked + ' />' +
       '</label>' +
       '<div class="doc-num">' + num + '</div>' +
-      '<div class="doc-icon">' + icon + '</div>' +
+      '<a class="doc-icon doc-thumb" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer">' + thumbHtml + '</a>' +
       '<div class="doc-meta">' +
         '<a class="doc-name doc-name-link" href="' + escapeHtml(viewUrl) + '" target="_blank" rel="noreferrer" title="' + escapeHtml(doc.originalName) + '">' + escapeHtml(doc.originalName) + '</a>' +
         '<div class="doc-info">' + escapeHtml(size) + (uploadedAt ? ' · ' + uploadedAt : '') + (uploader ? ' · ' + escapeHtml(uploader) : '') + '</div>' +
@@ -4040,8 +4044,9 @@ function renderTripDocuments(docs, tripId) {
     if (!group || !group.length) return;
     html += '<div class="doc-group">';
     html += '<div class="doc-group-header">' + escapeHtml(cat) + ' <span class="doc-group-count">(' + group.length + ')</span></div>';
+    html += '<div class="doc-group-inner">';
     group.forEach(function(doc) { html += renderDocItem(doc, tripId, globalNum++); });
-    html += '</div>';
+    html += '</div></div>';
   });
   docList.innerHTML = html;
   syncSelectAllCheckbox();

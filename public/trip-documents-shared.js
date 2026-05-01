@@ -171,13 +171,17 @@
       const url = viewUrl(doc, state.tripId);
       const dl  = "/trip-uploads/" + state.tripId + "/" + doc.storedName + "?download=1";
       const ck  = state.selected.has(doc.id) ? " checked" : "";
+      const isImg = (doc.mimeType || "").startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.originalName || "");
+      const thumbHtml = isImg
+        ? `<img class="doc-thumb-img" src="/trip-uploads/${escapeHtml(state.tripId)}/${escapeHtml(doc.storedName)}" alt="${escapeHtml(doc.originalName)}" loading="lazy" />`
+        : `<div class="doc-thumb-fallback">${icon}</div>`;
       return `
         <div class="doc-item">
           <label class="doc-select" aria-label="Select for email">
             <input type="checkbox" data-doc-select="${escapeHtml(doc.id)}"${ck} />
           </label>
           <div class="doc-num">${num}</div>
-          <div class="doc-icon">${icon}</div>
+          <a class="doc-icon doc-thumb" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${thumbHtml}</a>
           <div class="doc-meta">
             <div class="doc-name" title="${escapeHtml(doc.originalName)}">${escapeHtml(doc.originalName)}</div>
             <div class="doc-info">${escapeHtml(size)}${at ? " · " + at : ""}${uploader ? " · " + escapeHtml(uploader) : ""}</div>
@@ -282,9 +286,9 @@
       order.forEach((cat) => {
         const list = groups[cat];
         if (!list || !list.length) return;
-        html += `<div class="doc-group"><div class="doc-group-header">${escapeHtml(cat)} <span class="doc-group-count">(${list.length})</span></div>`;
+        html += `<div class="doc-group"><div class="doc-group-header">${escapeHtml(cat)} <span class="doc-group-count">(${list.length})</span></div><div class="doc-group-inner">`;
         list.forEach((d) => { html += renderItem(d, n++); });
-        html += `</div>`;
+        html += `</div></div>`;
       });
       $("list").innerHTML = html;
       syncSelectAll();
