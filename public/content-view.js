@@ -35,8 +35,64 @@
     return `https://maps.google.com/maps?q=${encodeURIComponent(v)}&output=embed`;
   }
 
-  function render(content) {
+  function applySeoTags(content) {
     document.title = content.title ? `${content.title} · TravelX` : "TravelX";
+    const lang = content.lang || "en";
+    document.documentElement.setAttribute("lang", lang);
+    // Inject hreflang <link> tags so Google maps each language version
+    // to its audience. x-default points at the canonical English URL.
+    const head = document.head;
+    head.querySelectorAll('link[rel="alternate"][hreflang]').forEach((n) => n.remove());
+    const origin = window.location.origin;
+    (content.hreflangs || []).forEach((h) => {
+      const link = document.createElement("link");
+      link.rel = "alternate";
+      link.setAttribute("hreflang", h.lang);
+      link.href = origin + h.href;
+      head.appendChild(link);
+    });
+    // Default to English as x-default for crawlers without lang prefs.
+    const xDefault = (content.hreflangs || []).find((h) => h.lang === "en");
+    if (xDefault) {
+      const link = document.createElement("link");
+      link.rel = "alternate";
+      link.setAttribute("hreflang", "x-default");
+      link.href = origin + xDefault.href;
+      head.appendChild(link);
+    }
+    // Meta description — the first paragraph of the summary stripped of HTML.
+    const desc = String(content.summary || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+    if (desc) {
+      let meta = head.querySelector('meta[name="description"]');
+      if (!meta) { meta = document.createElement("meta"); meta.name = "description"; head.appendChild(meta); }
+      meta.content = desc;
+    }
+  }
+
+  function langSwitcherHtml(content) {
+    const list = content.hreflangs || [];
+    if (list.length <= 1) return "";
+    const labels = {
+      en: "EN", mn: "MN", fr: "FR", it: "IT", es: "ES",
+      ko: "KO", zh: "ZH", ja: "JA", ru: "RU",
+    };
+    const active = content.lang || "en";
+    return `
+      <div class="content-lang-switcher" role="navigation" aria-label="Language">
+        ${list.map((h) => {
+          const cls = h.lang === active ? "is-active" : "";
+          return `<a class="${cls}" hreflang="${h.lang}" href="${escapeHtml(h.href)}">${labels[h.lang] || h.lang.toUpperCase()}</a>`;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function render(content) {
+    applySeoTags(content);
     const images = (content.images || []).map((img) => img.url).filter(Boolean);
     // Lightbox always opens the full-resolution version; grid tiles use
     // smaller variants (medium for the 2x2 hero, thumb for the side tiles)
@@ -92,13 +148,23 @@
       `
       : "";
 
+    // Summary is now authored as rich-text HTML in the content
+     // editor. Detect HTML by looking for tag markers; legacy plain-
+     // text summaries still pass through nl2br for line breaks.
+    const summaryIsHtml = /<\/?(p|h[1-6]|ul|ol|li|br|strong|em|a)\b/i.test(content.summary || "");
+    const summaryHtml = content.summary
+      ? (summaryIsHtml
+          ? `<div class="trip-popup-summary content-rich">${content.summary}</div>`
+          : `<p class="trip-popup-summary">${nl2br(content.summary)}</p>`)
+      : "";
     root.innerHTML = `
+      ${langSwitcherHtml(content)}
       <div class="trip-popup-dialog content-view-dialog">
         ${galleryHtml}
         <div class="trip-popup-body">
           <p class="trip-public-kicker">${escapeHtml(content.type || "")}${content.country ? ` · ${escapeHtml(content.country)}` : ""}</p>
           <h2>${escapeHtml(content.title || content.slug || "")}</h2>
-          ${content.summary ? `<p class="trip-popup-summary">${nl2br(content.summary)}</p>` : ""}
+          ${summaryHtml}
           ${groups}
           ${video}
           ${map}

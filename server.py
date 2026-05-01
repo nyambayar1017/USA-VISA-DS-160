@@ -2783,30 +2783,80 @@ def handle_delete_content(environ, start_response, item_id):
     return json_response(start_response, "200 OK", {"ok": True})
 
 
-def build_public_content_view(slug):
+CONTENT_LANGS = ["en", "mn", "fr", "it", "es", "ko", "zh", "ja", "ru"]
+
+
+def _pick_content_lang(environ, lang_hint=None):
+    """Pick a language code for the public popup. Order:
+    1. Explicit ?lang= query parameter (overrides everything).
+    2. Accept-Language header — first 2-letter code we support.
+    3. Fallback to the source language ('en')."""
+    if lang_hint:
+        code = str(lang_hint).strip().lower()[:2]
+        if code in CONTENT_LANGS:
+            return code
+    qs = parse_qs(environ.get("QUERY_STRING", ""))
+    q_lang = (qs.get("lang", [""])[0] or "").strip().lower()[:2]
+    if q_lang in CONTENT_LANGS:
+        return q_lang
+    accept = (environ.get("HTTP_ACCEPT_LANGUAGE") or "").lower()
+    for piece in accept.split(","):
+        code = piece.split(";")[0].strip()[:2]
+        if code in CONTENT_LANGS:
+            return code
+    return "en"
+
+
+def build_public_content_view(slug, environ=None, lang=None):
     rec = next((r for r in read_content() if r.get("slug") == slug), None)
     if not rec or rec.get("publishStatus") == "draft":
         return None
+    chosen_lang = _pick_content_lang(environ or {}, lang_hint=lang)
+    # Resolve title/summary from the chosen language; fall back to the
+    # English source if that language is empty (and finally to whatever
+    # is on the record).
+    translations = rec.get("translations") or {}
+    if chosen_lang == "en":
+        loc_title = rec.get("title") or ""
+        loc_summary = rec.get("summary") or ""
+    else:
+        slot = translations.get(chosen_lang) or {}
+        loc_title = slot.get("title") or rec.get("title") or ""
+        loc_summary = slot.get("summary") or rec.get("summary") or ""
     images = [
         {"id": img_id, "url": f"/api/gallery/{img_id}/file"}
         for img_id in (rec.get("imageIds") or [])
     ]
+    # SEO hreflang siblings — every language version of this page.
+    # Public consumers (search engines and language switcher) use this
+    # to find the right URL per locale.
+    base_path = f"/c/{rec.get('slug')}"
+    hreflangs = []
+    for code in CONTENT_LANGS:
+        if code == "en":
+            hreflangs.append({"lang": "en", "href": base_path, "label": "English"})
+        else:
+            slot = translations.get(code) or {}
+            if slot.get("title") or slot.get("summary"):
+                hreflangs.append({"lang": code, "href": f"{base_path}?lang={code}", "label": code})
     return {
         "slug": rec.get("slug"),
         "type": rec.get("type"),
         "country": rec.get("country"),
-        "title": rec.get("title"),
-        "summary": rec.get("summary"),
+        "title": loc_title,
+        "summary": loc_summary,
+        "lang": chosen_lang,
         "videoUrl": rec.get("videoUrl"),
         "location": rec.get("location") or "",
         "images": images,
         "bulletGroups": rec.get("bulletGroups") or [],
+        "hreflangs": hreflangs,
     }
 
 
 def handle_get_public_content(environ, start_response, slug):
     """No auth — clients hit this through trip brochures."""
-    public = build_public_content_view(slug)
+    public = build_public_content_view(slug, environ=environ)
     if not public:
         return json_response(start_response, "404 Not Found", {"error": "Content not found"})
     return json_response(start_response, "200 OK", public)
@@ -19821,7 +19871,7 @@ def _dispatch(environ, start_response):
     # /c/<slug> — standalone public view of one content item. Same trick.
     if path.startswith("/c/"):
         slug = path.replace("/c/", "", 1).strip("/")
-        public = build_public_content_view(slug) if slug else None
+        public = build_public_content_view(slug, environ=environ) if slug else None
         return _serve_html_with_inline_data(start_response, PUBLIC_DIR / "content-view.html", public)
 
     if path == "/tourist":

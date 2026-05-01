@@ -268,6 +268,9 @@
     lastAutoSlug = rec ? rec.slug || "" : "";
     form.elements.type.value = rec ? rec.type || "attraction" : "attraction";
     form.elements.country.value = rec ? rec.country || "" : "";
+    // Notify the country picker so its trigger label updates
+    // when the modal opens with an existing record.
+    form.elements.country.dispatchEvent(new Event("country-picker:set"));
     form.elements.publishStatus.value = rec ? rec.publishStatus || "published" : "published";
     form.elements.videoUrl.value = rec ? rec.videoUrl || "" : "";
     form.elements.location.value = rec ? rec.location || "" : "";
@@ -335,27 +338,30 @@
     }
   });
 
-  // Populate the country datalist from existing entries so the user
-  // gets quick auto-complete instead of typing free text. Refreshed
-  // each time the modal opens.
+  // Feed existing-entry countries into the searchable popup as
+  // additional options. The picker has its own built-in fallback
+  // list of common countries; this just adds whatever shows up in
+  // the saved entries (e.g. niche destinations the user added).
   function refreshCountryOptions() {
-    const options = new Set(
+    const extra = Array.from(new Set(
       (state.entries || []).map((e) => (e.country || "").trim()).filter(Boolean)
-    );
-    // Add a base list of common destinations so a brand-new install
-    // still has suggestions.
-    [
-      "Mongolia", "China", "Japan", "South Korea", "Singapore", "Malaysia",
-      "Thailand", "Indonesia", "Vietnam", "Philippines", "India", "UAE",
-      "Turkey", "Russia", "USA", "France", "Italy", "Spain", "Germany",
-    ].forEach((c) => options.add(c));
-    const datalist = document.getElementById("ct-country-options");
-    if (datalist) {
-      datalist.innerHTML = Array.from(options)
-        .sort((a, b) => a.localeCompare(b))
-        .map((c) => `<option value="${escapeHtml(c)}"></option>`)
-        .join("");
+    ));
+    const input = form?.elements?.country;
+    if (input) {
+      input.dataset.options = JSON.stringify(extra);
+      // Re-attach so the picker rebuilds its option list with the new
+      // extras. attachOne is idempotent via the dataset flag, so we
+      // bump the flag first to force a fresh attach.
+      delete input.dataset.countryAttached;
+      window.CountryPicker?.attachOne(input);
     }
+  }
+  // Initial attach happens on first load (before the modal opens).
+  document.addEventListener("DOMContentLoaded", () => {
+    window.CountryPicker?.attachAll(document);
+  });
+  if (document.readyState !== "loading") {
+    window.CountryPicker?.attachAll(document);
   }
 
   addBtn.addEventListener("click", () => { refreshCountryOptions(); openModal(null); });
