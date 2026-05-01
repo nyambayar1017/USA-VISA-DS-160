@@ -180,7 +180,11 @@
 
     // Summary cards.
     const net = incomeMnt - actualMnt;
-    const margin = plannedMnt > 0 ? Math.round((1 + marginPct / 100) * plannedMnt) : 0;
+    // Gross margin: profit as % of selling price → quote = cost / (1 - margin%).
+    // Matches the client-facing quote panel; 20% on 100k = 125k.
+    const margin = (plannedMnt > 0 && marginPct < 100)
+      ? Math.round(plannedMnt / (1 - marginPct / 100))
+      : 0;
     summary.innerHTML = `
       <div class="trip-pl-card"><dt>Income (paid)</dt><dd class="is-positive">MNT ${incomeMnt.toLocaleString()}</dd></div>
       ${incomePending ? `<div class="trip-pl-card"><dt>Income (pending)</dt><dd class="muted">MNT ${incomePending.toLocaleString()}</dd></div>` : ""}

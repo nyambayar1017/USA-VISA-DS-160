@@ -2979,7 +2979,9 @@ function refreshTripCostingTotals(linesArg) {
   const summary = Object.entries(byCcy)
     .map(([c, a]) => `${c} ${a.toLocaleString()}`)
     .join(" + ");
-  const quoted = mntTotal * (1 + margin / 100);
+  // Gross margin: profit as % of selling price → quote = cost / (1 - margin%).
+  // Matches the client-facing quote panel; 20% on 100k = 125k.
+  const quoted = (margin >= 100) ? 0 : mntTotal / (1 - margin / 100);
   node.innerHTML = `
     <span>Cost: <strong>${escapeHtml(summary || "—")}</strong></span>
     ${(usd || eur)
