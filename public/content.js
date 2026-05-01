@@ -171,41 +171,65 @@
       if (isJunk(i18n.title[l.code]))   i18n.title[l.code]   = "";
       if (isJunk(i18n.summary[l.code])) i18n.summary[l.code] = "";
     });
-    let filled = 0;
+    // Parallel-fire all 8 target languages so the wall-time is the
+    // duration of the slowest call, not the sum of all of them.
+    // Sequential was 8× longer (Claude takes 10-30s per long
+    // description) and made the user think the page had hung.
+    const targets = LANGS.filter((l) => l.code !== "en").filter((l) => {
+      const t = (i18n.title[l.code] || "").trim();
+      const s = (i18n.summary[l.code] || "").trim();
+      return !(t && s);
+    });
+    if (!targets.length) {
+      translateAllBtn.disabled = false;
+      translateStatus.textContent = "All languages already filled.";
+      translateStatus.style.color = "#16a34a";
+      return;
+    }
+    let done = 0;
+    const total = targets.length;
+    translateStatus.textContent = `Translating… 0 / ${total}`;
     let firstError = "";
-    for (const lang of LANGS) {
-      if (lang.code === "en") continue;
+    const tick = () => {
+      done += 1;
+      translateStatus.textContent = `Translating… ${done} / ${total}`;
+      // Live-update the tab bar's filled-language ✓ checks as each
+      // completes so the user sees real-time progress.
+      renderLangBar();
+    };
+    const tasks = targets.map(async (lang) => {
       const haveTitle = (i18n.title[lang.code] || "").trim();
       const haveSummary = (i18n.summary[lang.code] || "").trim();
-      if (haveTitle && haveSummary) continue;
       try {
-        if (!haveTitle && sourceTitle) {
-          // Title is plain text, no markup to preserve.
-          i18n.title[lang.code] = await translateText(sourceTitle, lang.code, false);
-        }
-        if (!haveSummary && sourceSummary) {
-          // Summary is rich-text HTML — pass html:true so Claude keeps
-          // headings, lists, links intact in the translated output.
-          i18n.summary[lang.code] = await translateText(sourceSummary, lang.code, true);
-        }
-        translateStatus.textContent = `Translating… (${lang.label})`;
-        filled += 1;
+        const [t, s] = await Promise.all([
+          (!haveTitle && sourceTitle)
+            ? translateText(sourceTitle, lang.code, false)
+            : Promise.resolve(i18n.title[lang.code] || ""),
+          (!haveSummary && sourceSummary)
+            ? translateText(sourceSummary, lang.code, true)
+            : Promise.resolve(i18n.summary[lang.code] || ""),
+        ]);
+        if (!haveTitle) i18n.title[lang.code] = t;
+        if (!haveSummary) i18n.summary[lang.code] = s;
       } catch (err) {
         if (!firstError) firstError = err?.message || String(err);
+      } finally {
+        tick();
       }
-    }
+    });
+    await Promise.all(tasks);
     translateAllBtn.disabled = false;
-    if (firstError && filled === 0) {
+    if (firstError && done === 0) {
       translateStatus.textContent = "Translation failed: " + firstError;
       translateStatus.style.color = "#b91c1c";
       renderLangBar();
       loadActive();
       return;
     }
-    translateStatus.textContent = filled
-      ? `✓ Filled ${filled} language${filled === 1 ? "" : "s"}. Switch tabs to review.`
-      : "All languages already filled.";
-    translateStatus.style.color = "#16a34a";
+    translateStatus.textContent = firstError
+      ? `✓ Done with errors — ${firstError}`
+      : `✓ All ${total} language${total === 1 ? "" : "s"} translated. Switch tabs to review.`;
+    translateStatus.style.color = firstError ? "#b91c1c" : "#16a34a";
     renderLangBar();
     loadActive();
   });
