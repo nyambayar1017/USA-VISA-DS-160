@@ -89,12 +89,14 @@
     `;
   }
 
-  function mount(tripId, container) {
+  function mount(tripId, container, options) {
     if (!tripId || !container) return;
+    const opts = options || {};
     container.innerHTML = buildShellHtml();
     // Internal state for this mounted instance.
     const state = {
       tripId,
+      groupId: opts.groupId || "",
       activeFilter: "all",
       selected: new Set(),
       tourists: [],
@@ -217,8 +219,21 @@
         ]);
         const trips = tripsRes.entries || tripsRes;
         const trip = (trips || []).find((t) => t.id === state.tripId);
-        state.tourists = (touristsRes.entries || []).filter((t) => t.tripId === state.tripId);
-        state.docs = trip ? (trip.documents || []) : [];
+        const allTourists = (touristsRes.entries || []).filter((t) => t.tripId === state.tripId);
+        let tourists = allTourists;
+        let docs = trip ? (trip.documents || []) : [];
+        if (state.groupId) {
+          // Older docs uploaded before per-group tagging may have a touristId
+          // but no groupId — fall back to that tourist's groupId so existing
+          // passport scans still land in the right group.
+          const touristGroup = {};
+          allTourists.forEach((t) => { if (t.id) touristGroup[t.id] = t.groupId || ""; });
+          const groupOf = (d) => d.groupId || (d.touristId ? (touristGroup[d.touristId] || "") : "");
+          tourists = allTourists.filter((t) => t.groupId === state.groupId);
+          docs = docs.filter((d) => groupOf(d) === state.groupId);
+        }
+        state.tourists = tourists;
+        state.docs = docs;
         $("tourist").innerHTML = touristOptions("");
         renderList();
       } catch (_) {
@@ -239,6 +254,7 @@
         fd.append("file", file);
         fd.append("category", cat);
         if (tid) fd.append("touristId", tid);
+        if (state.groupId) fd.append("groupId", state.groupId);
         try {
           const resp = await fetch("/api/camp-trips/" + state.tripId + "/documents", { method: "POST", body: fd });
           const data = await resp.json();

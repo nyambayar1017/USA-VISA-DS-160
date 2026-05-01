@@ -216,7 +216,7 @@ function loadDocuments() {
   if (!mountEl || !tripId) return;
   if (documentsMounted) return;
   if (!window.TripDocuments || typeof window.TripDocuments.mount !== "function") return;
-  window.TripDocuments.mount(tripId, mountEl);
+  window.TripDocuments.mount(tripId, mountEl, { groupId });
   documentsMounted = true;
 }
 

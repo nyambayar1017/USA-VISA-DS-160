@@ -15035,6 +15035,7 @@ def handle_upload_trip_document(environ, start_response, trip_id):
         return json_response(start_response, "400 Bad Request", {"error": "File too large (max 10 MB)"})
     category = fields.get("category", "Other") or "Other"
     tourist_id = (fields.get("touristId") or "").strip()
+    group_id = (fields.get("groupId") or "").strip()
     tourist_name = ""
     if tourist_id:
         t = next((x for x in read_tourists() if x.get("id") == tourist_id), None)
@@ -15042,6 +15043,10 @@ def handle_upload_trip_document(environ, start_response, trip_id):
             tourist_name = (
                 (t.get("lastName") or "") + " " + (t.get("firstName") or "")
             ).strip()
+            # If uploading from /group, the manager already chose the group;
+            # otherwise, fall back to the tourist's own group.
+            if not group_id and t.get("groupId"):
+                group_id = t["groupId"]
     ensure_data_store()
     doc_id = str(uuid4())
     trip_upload_dir = TRIP_UPLOADS_DIR / trip_id
@@ -15058,6 +15063,7 @@ def handle_upload_trip_document(environ, start_response, trip_id):
         "category": category,
         "touristId": tourist_id,
         "touristName": tourist_name,
+        "groupId": group_id,
         "uploadedAt": now_mongolia().isoformat(),
         "uploadedBy": actor_snapshot(actor),
     }
