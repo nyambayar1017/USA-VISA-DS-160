@@ -18002,3 +18002,61 @@ body.lightbox-open { overflow: hidden; }
   text-transform: uppercase;
   margin-right: 4px;
 }
+
+/* ── Cross-platform checkbox normalisation ──────────────────────────
+   iOS Safari draws <input type="checkbox"> as a rounded pill at
+   the larger row sizes used by the tourist + trip list, which
+   made them look like radio buttons. Forcing -webkit-appearance:
+   none with a custom square + check mark gives a consistent
+   affordance on iOS, Android Chrome, desktop Safari/Chrome/Firefox. */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 1.5px solid #c4cad6;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  vertical-align: middle;
+  position: relative;
+  box-sizing: border-box;
+}
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid #c64d3a;
+  outline-offset: 1px;
+}
+input[type="checkbox"]:checked {
+  background: #c64d3a;
+  border-color: #c64d3a;
+}
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 4px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+input[type="checkbox"]:indeterminate {
+  background: #c64d3a;
+  border-color: #c64d3a;
+}
+input[type="checkbox"]:indeterminate::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 7px;
+  height: 2px;
+  background: #fff;
+}
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
