@@ -3344,48 +3344,103 @@ function syncRoomingSelectAllCheckbox() {
   all.checked = visible.length > 0 && visible.every((cb) => cb.checked);
 }
 
-document.getElementById("trip-rooming-email")?.addEventListener("click", async () => {
+function openRoomingEmailModal(tripIds) {
+  // Single-modal form so the user fills email, name, and optional
+  // message in one place instead of 3 sequential prompts. Built and
+  // mounted on first use, then reused; backdrop / × close + Esc.
+  let modal = document.getElementById("rooming-email-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "rooming-email-modal";
+    modal.className = "camp-modal workspace-form-modal is-hidden";
+    modal.hidden = true;
+    modal.innerHTML = `
+      <div class="camp-modal-backdrop" data-action="close"></div>
+      <div class="camp-modal-dialog workspace-form-modal-dialog" style="max-width:520px;">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Email rooming list</h2>
+            <p class="camp-modal-copy">Send the selected trip's rooming spreadsheet to a client or partner.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close" aria-label="Close">×</button>
+        </div>
+        <form id="rooming-email-form" class="field-grid" autocomplete="off">
+          <label class="full-span">
+            Recipient email <span class="invoice-required">*</span>
+            <input name="to" type="email" required placeholder="client@example.com" autocomplete="email" />
+          </label>
+          <label class="full-span">
+            Recipient's name <span class="muted" style="font-weight:400;">(optional, used in the greeting)</span>
+            <input name="recipientName" type="text" placeholder="Sukhbat" autocomplete="off" />
+          </label>
+          <label class="full-span">
+            Extra message <span class="muted" style="font-weight:400;">(optional)</span>
+            <textarea name="message" rows="3" placeholder="Any note you want to add to the email — leave blank to skip."></textarea>
+          </label>
+          <div class="actions full-span" style="display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="secondary-button" data-action="close">Cancel</button>
+            <button type="submit" id="rooming-email-send">Send email</button>
+            <p id="rooming-email-status" class="status" style="margin-left:auto"></p>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const close = () => {
+      modal.classList.add("is-hidden");
+      modal.hidden = true;
+    };
+    modal.addEventListener("click", (e) => {
+      if (e.target?.dataset?.action === "close") close();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !modal.hidden) close();
+    });
+    modal.querySelector("#rooming-email-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const ids = Array.from(modal._tripIds || []);
+      if (!ids.length) { close(); return; }
+      const to = (form.elements.to.value || "").trim();
+      if (!to.includes("@")) { alert("That doesn't look like a valid email."); return; }
+      const name = (form.elements.recipientName.value || "").trim();
+      const message = (form.elements.message.value || "").trim();
+      const sendBtn = modal.querySelector("#rooming-email-send");
+      const statusEl = modal.querySelector("#rooming-email-status");
+      sendBtn.disabled = true;
+      statusEl.textContent = "Sending…";
+      try {
+        const res = await fetch("/api/tourists/email-rooming", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tripIds: ids, to, recipientName: name, message }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { statusEl.textContent = data.error || "Could not send."; statusEl.style.color = "#b91c1c"; return; }
+        statusEl.textContent = `Sent to ${to} ✓`;
+        statusEl.style.color = "#1f8550";
+        window.UI?.toast?.(`Rooming list sent to ${to}.`, "ok");
+        setTimeout(close, 800);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+  }
+  // Reset state for each open
+  modal._tripIds = tripIds.slice();
+  const form = modal.querySelector("#rooming-email-form");
+  form.reset();
+  modal.querySelector("#rooming-email-status").textContent = "";
+  modal.classList.remove("is-hidden");
+  modal.hidden = false;
+  setTimeout(() => form.elements.to.focus(), 50);
+}
+
+document.getElementById("trip-rooming-email")?.addEventListener("click", () => {
   const ids = Array.from(selectedTripIds);
   if (!ids.length) return;
-  const recipient = (window.UI?.prompt
-    ? await window.UI.prompt("Send the rooming list to which email?", { defaultValue: "", confirmLabel: "Next" })
-    : window.prompt("Send the rooming list to which email?", "")) || "";
-  const recipientEmail = String(recipient || "").trim();
-  if (!recipientEmail || !recipientEmail.includes("@")) {
-    if (recipientEmail) alert("That doesn't look like a valid email.");
-    return;
-  }
-  const recipientName = (window.UI?.prompt
-    ? await window.UI.prompt("Recipient's name (optional, for the greeting)", { defaultValue: "" })
-    : window.prompt("Recipient's name (optional)", "")) || "";
-  const message = (window.UI?.prompt
-    ? await window.UI.prompt("Optional extra message (leave blank to skip)", { defaultValue: "" })
-    : window.prompt("Optional extra message (leave blank)", "")) || "";
-  const btn = document.getElementById("trip-rooming-email");
-  const oldLabel = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Sending…";
-  try {
-    const res = await fetch("/api/tourists/email-rooming", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tripIds: ids,
-        to: recipientEmail,
-        recipientName: recipientName.trim(),
-        message: message.trim(),
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      alert(data.error || "Could not send.");
-      return;
-    }
-    window.UI?.toast?.(`Rooming list sent to ${recipientEmail}.`, "ok");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = oldLabel;
-  }
+  openRoomingEmailModal(ids);
 });
 
 document.getElementById("trip-rooming-download")?.addEventListener("click", async () => {
