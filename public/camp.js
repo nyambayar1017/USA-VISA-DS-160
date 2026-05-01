@@ -3325,10 +3325,16 @@ tripList.addEventListener("change", (event) => {
 
 function refreshRoomingDownloadButton() {
   const btn = document.getElementById("trip-rooming-download");
-  if (!btn) return;
+  const emailBtn = document.getElementById("trip-rooming-email");
   const n = selectedTripIds.size;
-  btn.hidden = n === 0;
-  btn.textContent = `Download rooming (${n})`;
+  if (btn) {
+    btn.hidden = n === 0;
+    btn.textContent = `Download rooming (${n})`;
+  }
+  if (emailBtn) {
+    emailBtn.hidden = n === 0;
+    emailBtn.textContent = `Email rooming (${n})`;
+  }
 }
 
 function syncRoomingSelectAllCheckbox() {
@@ -3337,6 +3343,50 @@ function syncRoomingSelectAllCheckbox() {
   const visible = Array.from(tripList.querySelectorAll(".trip-rooming-select"));
   all.checked = visible.length > 0 && visible.every((cb) => cb.checked);
 }
+
+document.getElementById("trip-rooming-email")?.addEventListener("click", async () => {
+  const ids = Array.from(selectedTripIds);
+  if (!ids.length) return;
+  const recipient = (window.UI?.prompt
+    ? await window.UI.prompt("Send the rooming list to which email?", { defaultValue: "", confirmLabel: "Next" })
+    : window.prompt("Send the rooming list to which email?", "")) || "";
+  const recipientEmail = String(recipient || "").trim();
+  if (!recipientEmail || !recipientEmail.includes("@")) {
+    if (recipientEmail) alert("That doesn't look like a valid email.");
+    return;
+  }
+  const recipientName = (window.UI?.prompt
+    ? await window.UI.prompt("Recipient's name (optional, for the greeting)", { defaultValue: "" })
+    : window.prompt("Recipient's name (optional)", "")) || "";
+  const message = (window.UI?.prompt
+    ? await window.UI.prompt("Optional extra message (leave blank to skip)", { defaultValue: "" })
+    : window.prompt("Optional extra message (leave blank)", "")) || "";
+  const btn = document.getElementById("trip-rooming-email");
+  const oldLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  try {
+    const res = await fetch("/api/tourists/email-rooming", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tripIds: ids,
+        to: recipientEmail,
+        recipientName: recipientName.trim(),
+        message: message.trim(),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error || "Could not send.");
+      return;
+    }
+    window.UI?.toast?.(`Rooming list sent to ${recipientEmail}.`, "ok");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+  }
+});
 
 document.getElementById("trip-rooming-download")?.addEventListener("click", async () => {
   const ids = Array.from(selectedTripIds);

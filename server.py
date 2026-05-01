@@ -10230,6 +10230,114 @@ def handle_export_tourists(environ, start_response):
     return [body]
 
 
+def handle_email_rooming(environ, start_response):
+    """POST /api/tourists/email-rooming — same xlsx the Download
+    rooming button generates, sent to a recipient via Resend with a
+    friendly English body. Reuses handle_export_tourists internally
+    via a captured-response shim so the rooming layout stays in sync
+    with the download path."""
+    import io
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    recipient = (payload.get("to") or payload.get("recipientEmail") or "").strip()
+    if not recipient or "@" not in recipient:
+        return json_response(start_response, "400 Bad Request", {"error": "Recipient email is required."})
+    recipient_name = (payload.get("recipientName") or "").strip()
+    extra_message = (payload.get("message") or "").strip()
+
+    # Capture the xlsx body from handle_export_tourists by feeding it a
+    # shim start_response and reusing the same input payload.
+    captured = {"status": "", "headers": [], "body": b""}
+    def shim_start_response(status, headers):
+        captured["status"] = status
+        captured["headers"] = headers
+        return lambda data: None
+    # Re-pack the trip ids into a fresh environ-like input. Easier to
+    # just pass the JSON body forward by re-injecting via a local wsgi
+    # input. handle_export_tourists reads collect_json(environ), so we
+    # duplicate the environ with a fresh stream.
+    body_json = json.dumps({
+        "tripIds": payload.get("tripIds") or ([] if not payload.get("tripId") else [payload.get("tripId")]),
+        "ids": payload.get("ids") or [],
+        "tripId": payload.get("tripId") or "",
+    }).encode("utf-8")
+    fake_environ = dict(environ)
+    fake_environ["wsgi.input"] = io.BytesIO(body_json)
+    fake_environ["CONTENT_LENGTH"] = str(len(body_json))
+    fake_environ["REQUEST_METHOD"] = "POST"
+    chunks = handle_export_tourists(fake_environ, shim_start_response)
+    if not captured["status"].startswith("200"):
+        # Surface the export error verbatim.
+        try:
+            err_text = b"".join(chunks).decode("utf-8", "replace")
+        except Exception:
+            err_text = "Export failed."
+        return json_response(start_response, "400 Bad Request", {"error": err_text})
+    body = b"".join(chunks)
+    filename = "rooming.xlsx"
+    for k, v in captured["headers"]:
+        if k.lower() == "content-disposition":
+            m = re.search(r'filename="([^"]+)"', v)
+            if m:
+                filename = m.group(1)
+            break
+
+    # Friendly English body. Trip serials referenced so the recipient
+    # can match the file to the booking immediately.
+    trip_ids = payload.get("tripIds") or ([] if not payload.get("tripId") else [payload.get("tripId")])
+    trips_by_id = {t["id"]: t for t in read_camp_trips()}
+    trip_lines = []
+    for tid in trip_ids:
+        t = trips_by_id.get(tid)
+        if not t:
+            continue
+        serial = t.get("serial") or ""
+        name = t.get("tripName") or ""
+        start = (t.get("startDate") or "")[:10]
+        end = (t.get("endDate") or "")[:10]
+        date_part = f" — {start}" + (f" → {end}" if end else "") if start else ""
+        trip_lines.append(f"  • {serial} · {name}{date_part}")
+
+    greeting = f"Dear {recipient_name},\n\n" if recipient_name else "Hello,\n\n"
+    body_text_parts = [greeting + "Please find the rooming list attached for the trip" + ("s" if len(trip_lines) > 1 else "") + " below:\n"]
+    if trip_lines:
+        body_text_parts.append("\n".join(trip_lines) + "\n")
+    if extra_message:
+        body_text_parts.append("\n" + extra_message + "\n")
+    body_text_parts.append(
+        "\nThe attached spreadsheet contains the full participant list with passport details, "
+        "room assignments and contact information. Let us know if any change is needed.\n\n"
+        "Best regards,"
+    )
+    email_body = "".join(body_text_parts)
+
+    workspace = (active_workspace(environ) or "DTX").upper()
+    company_name = "Unlock Steppe Mongolia" if workspace == "USM" else "Дэлхий Трэвел Икс"
+
+    subject = "Rooming list — " + (
+        f"{len(trip_lines)} trip{'s' if len(trip_lines) != 1 else ''}"
+        if trip_lines else "TravelX"
+    )
+
+    result = _tool_send_email({
+        "to": recipient,
+        "subject": subject,
+        "body": email_body,
+        "attachments": [{
+            "filename": filename,
+            "content": base64.b64encode(body).decode("ascii"),
+            "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }],
+        "_company_name": company_name,
+        "_skip_footer": True,
+    }, actor)
+    if result.get("error"):
+        return json_response(start_response, "500 Internal Server Error", {"error": result["error"]})
+    return json_response(start_response, "200 OK", {"ok": True, "to": recipient, "filename": filename})
+
+
 def ensure_checkout_from_nights(check_in, nights, check_out):
     return normalize_stay_fields(check_in, nights, check_out)[2]
 
@@ -18819,6 +18927,10 @@ def _dispatch(environ, start_response):
             return handle_create_tourist(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
+    if path == "/api/tourists/email-rooming":
+        if method == "POST":
+            return handle_email_rooming(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
     if path == "/api/tourists/export":
         if method == "POST":
             return handle_export_tourists(environ, start_response)
