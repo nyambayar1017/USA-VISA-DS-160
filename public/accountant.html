@@ -80,6 +80,7 @@
                 </summary>
                 <div class="trip-saved-filter-popover">
                   <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="trip" checked /><span>Trip</span></label>
+                  <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="group" checked /><span>Group</span></label>
                   <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="invoice" checked /><span>Invoice</span></label>
                   <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="payer" checked /><span>Payer</span></label>
                   <label class="trip-filter-checkbox"><input type="checkbox" data-view-col="manager" checked /><span>Manager</span></label>
@@ -117,23 +118,24 @@
                   <th>#</th>
                   <th>Type</th>
                   <th data-col="category">Category</th>
-                  <th>Date paid</th>
                   <th data-col="trip">Trip</th>
+                  <th data-col="group">Group</th>
                   <th data-col="invoice">Invoice</th>
                   <th data-col="payer">Payer / Payee</th>
                   <th>Amount</th>
                   <th>Currency</th>
                   <th data-col="bank">Bank</th>
-                  <th data-col="manager">Manager</th>
                   <th>Status</th>
+                  <th>Paid date</th>
                   <th data-col="pending">Pending for</th>
+                  <th data-col="manager">Manager</th>
                   <th>Paid document</th>
                   <th data-col="note">Note</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="acct-tbody">
-                <tr><td colspan="17" class="empty">Loading…</td></tr>
+                <tr><td colspan="18" class="empty">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -143,7 +145,7 @@
     </div>
 
     <script src="/app-shell.js?v=workspace-144"></script>
-    <script src="/accountant.js?v=workspace-8"></script>
+    <script src="/accountant.js?v=workspace-9"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

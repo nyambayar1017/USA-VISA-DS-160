@@ -52,7 +52,7 @@
       if (!res.ok) throw new Error(data.error || "Could not load");
       rows = data.entries || [];
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="12" class="empty">${escapeHtml(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="18" class="empty">${escapeHtml(err.message)}</td></tr>`;
       return;
     }
     populateFilters();
@@ -265,7 +265,7 @@
   function render() {
     const list = filtered();
     if (!list.length) {
-      tbody.innerHTML = `<tr><td colspan="14" class="empty">No payments match these filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="18" class="empty">No payments match these filters.</td></tr>`;
       countNode.textContent = "0 of 0";
       bulkBtn.disabled = true;
       return;
@@ -282,11 +282,20 @@
         : (isPending
             ? `<span class="acct-pending-doc">— awaiting receipt —</span>`
             : `<span class="muted">—</span>`);
+      // Trip cell: name + start date stacked. Falls back to "—" when
+      // we have a tripId but no human-friendly fields.
+      const tripParts = [];
+      if (r.tripName || r.tripSerial) tripParts.push(escapeHtml(r.tripName || r.tripSerial));
+      if (r.tripStartDate) tripParts.push(`<span class="muted" style="font-size:11px">${escapeHtml(String(r.tripStartDate).slice(0, 10))}</span>`);
+      const tripLabelHtml = tripParts.length ? tripParts.join("<br>") : "—";
       const tripCell = r.tripId
-        // Fall back to a dash when we have a tripId but no human-friendly
-        // name / serial — better than rendering the raw UUID.
-        ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" class="trip-name-link">${escapeHtml(r.tripName || r.tripSerial || "—")}</a>`
+        ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" class="trip-name-link">${tripLabelHtml}</a>`
         : (isOutgoing ? `<span class="muted">Office / overhead</span>` : `<span class="muted">—</span>`);
+      // Group cell — link to /group when known, dash otherwise (FIT trips
+      // and outgoing office expenses).
+      const groupCell = (r.groupId && r.groupName)
+        ? `<a href="/group?groupId=${encodeURIComponent(r.groupId)}&tripId=${encodeURIComponent(r.tripId || "")}" class="trip-name-link">${escapeHtml(r.groupName)}</a>`
+        : (r.groupName ? escapeHtml(r.groupName) : `<span class="muted">—</span>`);
       const numCell = r.paidDocumentUrl
         ? `<a href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">${i + 1}</a>`
         : (i + 1);
@@ -333,22 +342,24 @@
            </details>`
         : `<span class="muted">—</span>`;
 
+      const paidDateCell = escapeHtml(String(r.paidDate || "—").slice(0, 10) || "—");
       return `
         <tr class="${isPending ? "is-pending-row" : ""}">
           <td><input type="checkbox" data-acct-select="${escapeHtml(r.id)}" data-acct-url="${escapeHtml(downloadUrl)}" data-acct-name="${escapeHtml(r.paidDocumentName || "")}" ${isSel ? "checked" : ""} ${r.paidDocumentUrl ? "" : "disabled"}/></td>
           <td>${numCell}</td>
           <td>${dirCell}</td>
           <td data-col="category">${escapeHtml(r.category || "—")}</td>
-          <td>${escapeHtml(String(r.paidDate || "—").slice(0, 10) || "—")}</td>
           <td data-col="trip">${tripCell}</td>
-          <td data-col="invoice">${escapeHtml(r.invoiceSerial || (isOutgoing ? "—" : "—"))}</td>
+          <td data-col="group">${groupCell}</td>
+          <td data-col="invoice">${escapeHtml(r.invoiceSerial || "—")}</td>
           <td data-col="payer">${escapeHtml(counterParty)}</td>
           <td>${escapeHtml(fmtAmount(r.amount))}</td>
           <td>${escapeHtml(r.currency || "—")}</td>
           <td data-col="bank">${escapeHtml(r.bankLabel || "—")}</td>
-          <td data-col="manager">${escapeHtml(r.manager || "—")}</td>
           <td>${statusCell}</td>
+          <td>${paidDateCell}</td>
           <td data-col="pending">${pendingForCell}</td>
+          <td data-col="manager">${escapeHtml(r.manager || "—")}</td>
           <td>${docCell}</td>
           <td data-col="note">${escapeHtml(r.note || "")}</td>
           <td class="acct-actions-cell">${actionsCell}</td>

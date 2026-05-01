@@ -9519,6 +9519,13 @@ def handle_list_accountant_paid(environ, start_response):
     invoices_by_id = {r.get("id"): r for r in invoices_all}
     trips_by_id = {t.get("id"): t for t in read_camp_trips()}
     banks_by_id = {b.get("id"): b for b in (read_settings().get("bankAccounts") or [])}
+    # Resolve groupId → groupName once so legacy payment_requests that
+    # never had groupName denormalised still render the group column.
+    try:
+        _groups_raw = json.loads(GROUPS_FILE.read_text("utf-8")) if GROUPS_FILE.exists() else []
+    except Exception:
+        _groups_raw = []
+    groups_by_id = {g.get("id"): g for g in _groups_raw}
     # Track which (invoiceId, installmentIndex) pairs are already
     # represented by a payment_request so we don't double-count them
     # when we also surface paid installments below.
@@ -9575,6 +9582,12 @@ def handle_list_accountant_paid(environ, start_response):
             "tripId": r.get("tripId") or "",
             "tripName": trip.get("tripName") or r.get("tripName") or "",
             "tripSerial": trip.get("serial") or "",
+            "tripStartDate": trip.get("startDate") or "",
+            "groupId": r.get("groupId") or invoice.get("groupId") or "",
+            "groupName": (r.get("groupName")
+                          or (groups_by_id.get(r.get("groupId") or invoice.get("groupId") or "") or {}).get("name")
+                          or (groups_by_id.get(r.get("groupId") or invoice.get("groupId") or "") or {}).get("groupName")
+                          or ""),
             "invoiceId": r.get("invoiceId") or "",
             "invoiceSerial": r.get("invoiceSerial") or invoice.get("serial") or "",
             "installmentDescription": r.get("installmentDescription") or "",
@@ -9632,6 +9645,11 @@ def handle_list_accountant_paid(environ, start_response):
                 "tripId": invoice.get("tripId") or "",
                 "tripName": trip.get("tripName") or "",
                 "tripSerial": trip.get("serial") or "",
+                "tripStartDate": trip.get("startDate") or "",
+                "groupId": invoice.get("groupId") or "",
+                "groupName": (groups_by_id.get(invoice.get("groupId") or "") or {}).get("name")
+                              or (groups_by_id.get(invoice.get("groupId") or "") or {}).get("groupName")
+                              or "",
                 "invoiceId": invoice.get("id") or "",
                 "invoiceSerial": invoice.get("serial") or "",
                 "installmentDescription": inst.get("description") or "",
