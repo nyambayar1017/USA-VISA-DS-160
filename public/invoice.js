@@ -394,6 +394,8 @@
       if (editAction === "installments") openEditInstallmentsModal();
       const regBtn = e.target.closest("[data-inv-action='register-payment']");
       if (regBtn) registerPayment(Number(regBtn.dataset.idx));
+      const upBtn = e.target.closest("[data-inv-action='upload-receipt']");
+      if (upBtn) startInvoiceReceiptUpload(Number(upBtn.dataset.idx));
     });
     return panel;
   }
@@ -403,16 +405,23 @@
   // from offering a "Register payment" button for an installment whose
   // request is still waiting on the accountant.
   let pendingRequestsByIdx = {};
+  let paidRequestsByIdx = {};
   async function refreshPendingRequestsForInvoice(invoiceId) {
     pendingRequestsByIdx = {};
+    paidRequestsByIdx = {};
     if (!invoiceId) return;
     try {
-      const res = await fetch(`/api/payment-requests?status=pending&invoiceId=${encodeURIComponent(invoiceId)}`);
+      // Pull all requests for this invoice (any status) so the side
+      // panel can both lock pending lines and surface the paid
+      // receipt link / upload action.
+      const res = await fetch(`/api/payment-requests?invoiceId=${encodeURIComponent(invoiceId)}`);
       if (!res.ok) return;
       const data = await res.json();
       (data.entries || []).forEach((r) => {
         if (r.installmentIndex == null) return;
-        pendingRequestsByIdx[r.installmentIndex] = r;
+        const status = (r.status || "").toLowerCase();
+        if (status === "pending") pendingRequestsByIdx[r.installmentIndex] = r;
+        else if (status === "approved") paidRequestsByIdx[r.installmentIndex] = r;
       });
     } catch {}
   }
@@ -482,9 +491,22 @@
         </div>
       ` : "";
       const pending = pendingRequestsByIdx[idx];
+      // Look up the matching paid payment_request (by invoiceId +
+      // installmentIndex) so we can either link to its receipt or
+      // offer to upload one. paidRequestsByIdx is populated alongside
+      // the pending one by refreshPendingRequestsForInvoice.
+      const paidReq = paidRequestsByIdx[idx];
+      const hasReceipt = !!(paidReq && (paidReq.paidDocumentId || paidReq.paidDocumentMeta));
+      let attachAction = "";
+      if (isPaid && userIsAdmin && !hasReceipt) {
+        attachAction = `<button type="button" class="inv-side-register is-edit" data-inv-action="upload-receipt" data-idx="${idx}" title="Upload the bank-transfer receipt for this paid installment">📎 Upload receipt</button>`;
+      } else if (isPaid && hasReceipt && paidReq?.paidDocumentMeta?.storedName) {
+        const url = `/trip-uploads/_office/${encodeURIComponent(paidReq.paidDocumentMeta.storedName)}`;
+        attachAction = `<a class="inv-side-register is-edit" href="${escapeHtml(url)}" target="_blank" rel="noreferrer" title="Open the receipt">📎 View receipt</a>`;
+      }
       const action = isPaid
         ? (userIsAdmin
-            ? `<button type="button" class="inv-side-register is-edit" data-inv-action="register-payment" data-idx="${idx}" title="Edit registered payment (admin)">✎ Edit payment</button>`
+            ? `<button type="button" class="inv-side-register is-edit" data-inv-action="register-payment" data-idx="${idx}" title="Edit registered payment (admin)">✎ Edit payment</button> ${attachAction}`
             : `<span class="inv-side-paid-locked" title="Paid — ask an admin to edit">🔒 Locked</span>`)
         : pending
           ? `<span class="inv-side-request-sent" title="Request sent to accountant on ${escapeHtml(fmtDateOnly(pending.requestedAt) || "")}">REQUEST SENT</span>`
@@ -813,6 +835,39 @@
   }
   // Legacy entrypoint kept for the per-row click handler in openSidePanel().
   async function registerPayment(idx) { await openRegisterPaymentModal(idx); }
+
+  // Backfill the bank-transfer receipt onto a paid installment that
+  // has no document yet. Picks a file, posts to the dedicated invoice
+  // route — the server attaches it to the trip's "Paid documents" and
+  // links it to the matching payment_request (or creates one if the
+  // installment was paid via the legacy direct flow).
+  function startInvoiceReceiptUpload(idx) {
+    if (!sidePanelInvoice || !Number.isFinite(idx)) return;
+    const picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = ".pdf,.png,.jpg,.jpeg,.gif";
+    picker.addEventListener("change", async () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      try {
+        const r = await fetch(`/api/invoices/${encodeURIComponent(sidePanelInvoice.id)}/installments/${idx}/document`, {
+          method: "POST",
+          body: fd,
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Upload failed");
+        window.UI?.toast?.("Receipt attached to the trip's Paid documents.", "ok");
+        await loadAll();
+        const updated = invoices.find((x) => x.id === sidePanelInvoice.id);
+        if (updated) openSidePanel(updated);
+      } catch (err) {
+        alert(err.message || "Upload failed");
+      }
+    });
+    picker.click();
+  }
 
   // ── Edit modals (#70 #71 #72) ──
   function ensureEditModal() {

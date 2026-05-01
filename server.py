@@ -9263,6 +9263,105 @@ def handle_attach_payment_document(environ, start_response, request_id):
     return json_response(start_response, "200 OK", {"ok": True, "entry": target})
 
 
+def handle_attach_invoice_receipt(environ, start_response, invoice_id, inst_index):
+    """Backfill a bank-transfer receipt onto a paid installment from
+    the invoice side panel. Saves the file under the trip's "Paid
+    documents", and either:
+      • links it to the existing approved payment_request (if one
+        was created via the new flow), OR
+      • creates a synthetic approved payment_request that mirrors the
+        installment's snapshot, so the file shows up on the
+        Accountant ledger like every other paid row."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    if not _can_approve_payment_request(actor):
+        return json_response(start_response, "403 Forbidden", {"error": "Only admin / accountant can attach receipts."})
+    content_type = environ.get("CONTENT_TYPE", "")
+    if "multipart/form-data" not in content_type:
+        return json_response(start_response, "400 Bad Request", {"error": "Multipart upload required."})
+    fields, files = parse_multipart(environ)
+    upload = files.get("file")
+    if not upload:
+        return json_response(start_response, "400 Bad Request", {"error": "No file uploaded."})
+
+    invoices = read_invoices()
+    invoice = next((r for r in invoices if r.get("id") == invoice_id), None)
+    if not invoice:
+        return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+    installments = invoice.get("installments") or []
+    if inst_index < 0 or inst_index >= len(installments):
+        return json_response(start_response, "400 Bad Request", {"error": "Installment out of range"})
+    inst = installments[inst_index]
+
+    # Save the file. Trip-attached when the invoice has a tripId,
+    # _office bucket otherwise.
+    paid_doc_id = ""
+    paid_doc_meta = None
+    trip_id = invoice.get("tripId") or ""
+    if trip_id:
+        paid_doc_id = _attach_paid_document_to_trip(trip_id, upload, actor) or ""
+    if not paid_doc_id:
+        attached = _attach_orphan_paid_document(upload, actor)
+        if attached:
+            paid_doc_id = attached["id"]
+            paid_doc_meta = attached
+    if not paid_doc_id:
+        return json_response(start_response, "400 Bad Request", {"error": "Could not save the file."})
+
+    # Link the receipt to a payment_request — either an existing
+    # approved one for this installment, or a freshly synthesized
+    # record so the Accountant page reflects the new file.
+    records = read_payment_requests()
+    target = next(
+        (r for r in records
+         if r.get("invoiceId") == invoice_id and r.get("installmentIndex") == inst_index
+         and (r.get("status") or "").lower() == "approved"),
+        None,
+    )
+    if target:
+        target["paidDocumentId"] = paid_doc_id
+        if paid_doc_meta:
+            target["paidDocumentMeta"] = paid_doc_meta
+        for i, r in enumerate(records):
+            if r.get("id") == target.get("id"):
+                records[i] = target
+                break
+    else:
+        synth = {
+            "id": uuid4().hex,
+            "direction": "incoming",
+            "scope": "trip" if trip_id else "other",
+            "category": "Invoice",
+            "invoiceId": invoice_id,
+            "invoiceSerial": invoice.get("serial") or "",
+            "tripId": trip_id,
+            "installmentIndex": inst_index,
+            "installmentDescription": inst.get("description") or "",
+            "paidDate": inst.get("paidDate") or "",
+            "paidAmount": float(inst.get("paidAmount") or inst.get("amount") or 0),
+            "currency": (invoice.get("currency") or "MNT").upper(),
+            "bankAccountId": inst.get("bankAccountId") or "",
+            "note": inst.get("note") or "",
+            "payerName": invoice.get("payerName") or "",
+            "payeeName": "",
+            "workspace": _payment_request_workspace(invoice),
+            "status": "approved",
+            "requestedBy": inst.get("paidBy") or actor_snapshot(actor),
+            "requestedAt": inst.get("paidAt") or now_mongolia().isoformat(),
+            "approvedBy": actor_snapshot(actor),
+            "approvedAt": now_mongolia().isoformat(),
+            "rejectedBy": None,
+            "rejectedAt": "",
+            "rejectReason": "",
+            "paidDocumentId": paid_doc_id,
+            "paidDocumentMeta": paid_doc_meta,
+        }
+        records.insert(0, synth)
+    write_payment_requests(records)
+    return json_response(start_response, "200 OK", {"ok": True, "paidDocumentId": paid_doc_id})
+
+
 def handle_reject_payment_request(environ, start_response, request_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -18687,6 +18786,19 @@ def _dispatch(environ, start_response):
         request_id = path.replace("/api/payment-requests/", "", 1).replace("/document", "", 1).strip("/")
         if method == "POST" and request_id:
             return handle_attach_payment_document(environ, start_response, request_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    # /api/invoices/<id>/installments/<idx>/document — backfill a
+    # receipt onto a paid installment from the invoice side panel.
+    if "/installments/" in path and path.endswith("/document") and path.startswith("/api/invoices/"):
+        rest = path.replace("/api/invoices/", "", 1).replace("/document", "", 1).strip("/")
+        try:
+            invoice_id, _, idx_str = rest.partition("/installments/")
+            inst_index = int(idx_str)
+        except (ValueError, AttributeError):
+            return json_response(start_response, "400 Bad Request", {"error": "Bad path"})
+        if method == "POST" and invoice_id:
+            return handle_attach_invoice_receipt(environ, start_response, invoice_id, inst_index)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/payment-requests/") and path.endswith("/reject"):

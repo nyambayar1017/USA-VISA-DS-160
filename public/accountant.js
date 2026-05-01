@@ -23,7 +23,7 @@
   const statsFromInput = document.getElementById("acct-stats-from");
   const statsToInput = document.getElementById("acct-stats-to");
 
-  let statsPeriod = "month";
+  let statsPeriod = "quarter";
 
   let rows = [];
   const selected = new Set();
