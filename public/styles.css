@@ -508,10 +508,10 @@ td {
   gap: 6px;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   .trip-summary-section-head .trip-summary-actions {
     width: auto;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     margin-left: auto;
   }
   .trip-summary-section-head .trip-notes-fab,
@@ -1805,6 +1805,16 @@ td {
   align-items: center;
   padding: 14px 26px;
   border-top: 1px solid rgba(32, 53, 111, 0.08);
+  background: #fff;
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+}
+@media (max-width: 720px) {
+  /* On phones the inner 60vh + the modal's own scroll fight, pushing
+     Next/Back below the fold. Drop the cap so the modal owns the
+     scroll and the sticky footer above keeps the actions reachable. */
+  .invoice-wizard-section { max-height: none; }
 }
 .invoice-wizard-actions { display: flex; gap: 8px; }
 .invoice-step-dots { display: flex; gap: 6px; }
@@ -8964,8 +8974,8 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
    pack into 2-3 columns on a desktop, falling back to 1 on narrow. */
 .doc-list.doc-view-list { display: flex; flex-direction: column; gap: 14px; }
 .doc-list.doc-view-list > .doc-group { display: flex; flex-direction: column; gap: 8px; }
-.doc-list.doc-view-list .doc-group-inner   { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
-.doc-list.doc-view-list:not(:has(.doc-group)) { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; }
+.doc-list.doc-view-list .doc-group-inner   { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+.doc-list.doc-view-list:not(:has(.doc-group)) { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; }
 .doc-list.doc-view-list .doc-item {
   background: #f6f8fc;
   border: 1px solid #e2e7f1;
@@ -9218,13 +9228,13 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   padding: 4px;
   z-index: 30;
   display: flex;
+  flex-direction: column;
 }
 /* When the row is near the viewport bottom, the menu would overflow into
    the chat bubble or below the page. Flip up instead. */
 .doc-menu.is-up .doc-menu-popover {
   top: auto;
   bottom: calc(100% + 4px);
-  flex-direction: column;
 }
 .doc-menu-item {
   display: block;
@@ -18064,4 +18074,31 @@ input[type="checkbox"]:indeterminate::after {
 input[type="checkbox"]:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── Mobile-only fixes (≤720px) ──────────────────────────────────────
+   Bumps row 3-dots triggers to a comfortable touch target, and sticks
+   the leftmost column on every wide table so finger-scrolling
+   horizontally doesn't lose row context. */
+@media (max-width: 720px) {
+  .row-menu-trigger {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+  /* Sticky first cell — the # / serial column — on the main wide
+     tables. Sits above the wrap's overflow scroll so the column
+     anchor stays visible while the rest of the row pans. */
+  .camp-table-wrap { overflow-x: auto; }
+  .camp-table thead th:first-child,
+  .camp-table tbody td:first-child {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 2;
+    box-shadow: 1px 0 0 rgba(15, 23, 42, 0.06);
+  }
+  .camp-table thead th:first-child {
+    background: #f6f8fc;
+  }
 }

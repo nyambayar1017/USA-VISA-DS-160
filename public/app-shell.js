@@ -539,13 +539,28 @@ function closeProfileMenu() {
   toggleProfileMenu(false);
 }
 
+// Single source of truth for "close every other workspace topbar
+// popover when one opens". Each toggle*Popover only needs to call
+// this with its own node — no growing list of explicit closeX() calls.
+function closeOtherWorkspacePopovers(exceptNode) {
+  const all = [
+    notificationPopoverNode,
+    mailPopoverNode,
+    document.querySelector("[data-payment-request-popover]"),
+    document.querySelector("[data-reminder-popover]"),
+  ];
+  all.forEach((n) => {
+    if (n && n !== exceptNode) n.setAttribute("hidden", "");
+  });
+  closeProfileMenu();
+}
+
 function toggleNotifications(forceState) {
   if (!notificationPopoverNode) return;
   const isOpen = typeof forceState === "boolean" ? forceState : notificationPopoverNode.hasAttribute("hidden");
   if (isOpen) {
+    closeOtherWorkspacePopovers(notificationPopoverNode);
     notificationPopoverNode.removeAttribute("hidden");
-    closeProfileMenu();
-    closeMailPopover();
     markNotificationsRead();
   } else {
     notificationPopoverNode.setAttribute("hidden", "");
@@ -560,9 +575,8 @@ function toggleMailPopover(forceState) {
   if (!mailPopoverNode) return;
   const isOpen = typeof forceState === "boolean" ? forceState : mailPopoverNode.hasAttribute("hidden");
   if (isOpen) {
+    closeOtherWorkspacePopovers(mailPopoverNode);
     mailPopoverNode.removeAttribute("hidden");
-    closeProfileMenu();
-    closeNotifications();
     fetchMailUnread();
   } else {
     mailPopoverNode.setAttribute("hidden", "");
@@ -730,11 +744,8 @@ function togglePaymentRequestPopover(forceState) {
   if (!paymentPopoverNode) return;
   const isOpen = typeof forceState === "boolean" ? forceState : paymentPopoverNode.hasAttribute("hidden");
   if (isOpen) {
+    closeOtherWorkspacePopovers(paymentPopoverNode);
     paymentPopoverNode.removeAttribute("hidden");
-    closeProfileMenu();
-    closeNotifications();
-    closeMailPopover();
-    closeReminderPopover();
     fetchPaymentRequests();
   } else {
     paymentPopoverNode.setAttribute("hidden", "");
@@ -1266,7 +1277,11 @@ async function openPaymentRequestApproveModal(requestId) {
   const groupCell = (r.groupId && r.groupName)
     ? `<a href="/group?groupId=${encodeURIComponent(r.groupId)}&tripId=${encodeURIComponent(r.tripId || "")}" target="_blank" rel="noreferrer" class="trip-name-link">${escapeHtml(r.groupName)}</a>`
     : (r.groupName ? escapeHtml(r.groupName) : `<span class="muted">—</span>`);
-  const showGroupRow = !isOutgoing && (r.groupId || r.groupName);
+  // Hide the Group cell on FIT — the implicit single-party group is
+  // named after the trip, so it would just duplicate the Trip cell.
+  const isFitTrip = (r.tripType || "").toLowerCase() === "fit"
+    || (r.tripName && r.groupName && r.tripName.trim() === r.groupName.trim());
+  const showGroupRow = !isOutgoing && !isFitTrip && (r.groupId || r.groupName);
   body.innerHTML = `
     <dl class="payment-approve-details">
       <div><dt>${isOutgoing ? "Payee" : "Invoice"}</dt><dd>${escapeHtml(isOutgoing ? (r.payeeName || "-") : (r.invoiceSerial || "-"))}</dd></div>
@@ -1560,10 +1575,8 @@ function toggleReminderPopover(forceState) {
   if (!reminderPopoverNode) return;
   const isOpen = typeof forceState === "boolean" ? forceState : reminderPopoverNode.hasAttribute("hidden");
   if (isOpen) {
+    closeOtherWorkspacePopovers(reminderPopoverNode);
     reminderPopoverNode.removeAttribute("hidden");
-    closeProfileMenu();
-    closeNotifications();
-    if (mailPopoverNode) mailPopoverNode.setAttribute("hidden", "");
     fetchReminders().then(() => {
       // Mark as read on the server so the badge clears on the next poll
       // and stays cleared across reloads (until a new mention arrives).

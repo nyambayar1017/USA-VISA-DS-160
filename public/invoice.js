@@ -496,13 +496,16 @@
       // offer to upload one. paidRequestsByIdx is populated alongside
       // the pending one by refreshPendingRequestsForInvoice.
       const paidReq = paidRequestsByIdx[idx];
+      const receiptUrl = paidReq?.paidDocumentUrl || "";
       const hasReceipt = !!(paidReq && (paidReq.paidDocumentId || paidReq.paidDocumentMeta));
       let attachAction = "";
       if (isPaid && userIsAdmin && !hasReceipt) {
         attachAction = `<button type="button" class="inv-side-register is-edit" data-inv-action="upload-receipt" data-idx="${idx}" title="Upload the bank-transfer receipt for this paid installment">📎 Upload receipt</button>`;
-      } else if (isPaid && hasReceipt && paidReq?.paidDocumentMeta?.storedName) {
-        const url = `/trip-uploads/_office/${encodeURIComponent(paidReq.paidDocumentMeta.storedName)}`;
-        attachAction = `<a class="inv-side-register is-edit" href="${escapeHtml(url)}" target="_blank" rel="noreferrer" title="Open the receipt">📎 View receipt</a>`;
+      } else if (isPaid && hasReceipt && receiptUrl) {
+        // Server denormalises paidDocumentUrl onto every payment_request
+        // (office bucket → /_office/, trip-bound → /<tripId>/<storedName>)
+        // so this branch covers both cases now.
+        attachAction = `<a class="inv-side-register is-edit" href="${escapeHtml(receiptUrl)}" target="_blank" rel="noreferrer" title="Open the receipt">📎 View receipt</a>`;
       }
       const action = isPaid
         ? (userIsAdmin
@@ -834,10 +837,10 @@
       const updated = invoices.find((x) => x.id === sidePanelInvoice.id);
       if (updated) openSidePanel(updated);
     } catch (err) {
-      // Server rejected (e.g. duplicate, already paid, validation). Reset
-      // the in-flight idx so the user can pick another row, and surface
-      // the message — don't keep the modal open with stale state.
-      registeringIdx = -1;
+      // Server rejected (e.g. duplicate, already paid, validation). Keep
+      // registeringIdx so the user can retry with corrected values — the
+      // modal stays open. Resetting to -1 made the next submit a no-op
+      // because the guard at the top bails on registeringIdx < 0.
       alert(err.message || "Could not submit request");
     }
   }
@@ -1655,7 +1658,21 @@
     if (groups.length) return;
     try { await loadAll(); } catch {}
     if (groups.length) return;
-    throw new Error("Please add a group on the trip first, then create the invoice.");
+    // FIT trip with no group yet → auto-create the implicit "single
+    // party" group named after the trip, mirroring trip-extras.js.
+    // GIT trips need an explicit group from the user.
+    const tripType = String(trip?.tripType || "").toLowerCase();
+    if (tripType !== "fit") {
+      throw new Error("Please add a group on the trip first, then create the invoice.");
+    }
+    const name = (trip?.tripName || "Main").trim().slice(0, 80);
+    const created = await fetchJson("/api/tourist-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tripId, name, headcount: trip?.participantCount || 1 }),
+    });
+    const g = created.entry || created;
+    groups.push(g);
   }
 
   // ── Wire ──

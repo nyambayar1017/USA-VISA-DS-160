@@ -318,15 +318,28 @@
       if (r.paidDocumentUrl) {
         items.push(`<a class="row-action-item" href="${escapeHtml(downloadUrl)}" download>Download</a>`);
         items.push(`<a class="row-action-item" href="${escapeHtml(r.paidDocumentUrl)}" target="_blank" rel="noreferrer">Open</a>`);
-        items.push(`<button type="button" class="row-action-item" data-acct-rename data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Rename</button>`);
+        // Rename only works for trip-bound docs (the rename endpoint
+        // lives under /api/camp-trips/<tripId>/documents/<docId>).
+        // Office expenses skip rename to avoid 404s.
+        if (r.tripId) {
+          items.push(`<button type="button" class="row-action-item" data-acct-rename data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Rename</button>`);
+        }
         if (canDelete) {
-          items.push(`<button type="button" class="row-action-item is-danger" data-acct-delete data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Delete</button>`);
+          // Trip-bound: hit the trip-document DELETE (cascade clears the
+          // payment_request's paidDocumentId server-side). Office expenses
+          // route through the payment-request document DELETE so they're
+          // actually removable from the ledger.
+          if (r.tripId) {
+            items.push(`<button type="button" class="row-action-item is-danger" data-acct-delete data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Delete</button>`);
+          } else {
+            items.push(`<button type="button" class="row-action-item is-danger" data-acct-delete-office data-id="${escapeHtml(r.id)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Delete</button>`);
+          }
         }
       } else if (!isPending && canApprove) {
         // Approved row with no receipt yet (registered without
         // document, or a legacy paid invoice). Offer an Upload action
         // so the accountant can attach the bank receipt later.
-        items.push(`<button type="button" class="row-action-item" data-acct-upload-doc data-id="${escapeHtml(r.id)}">⬆ Upload receipt</button>`);
+        items.push(`<button type="button" class="row-action-item" data-acct-upload-doc data-id="${escapeHtml(r.id)}" data-invoice="${escapeHtml(r.invoiceId || "")}" data-inst="${escapeHtml(String(r.installmentIndex ?? ""))}">⬆ Upload receipt</button>`);
       }
       // Always offer "Delete request" for admin/accountant so orphan
       // records (e.g. approvals from before the auto-attach landed,
@@ -436,6 +449,9 @@
     if (uploadBtn) {
       e.preventDefault();
       const id = uploadBtn.dataset.id;
+      const invoiceId = uploadBtn.dataset.invoice || "";
+      const instIdx = uploadBtn.dataset.inst;
+      const isLegacy = id.startsWith("legacy-");
       const picker = document.createElement("input");
       picker.type = "file";
       picker.accept = ".pdf,.png,.jpg,.jpeg,.gif";
@@ -444,11 +460,14 @@
         if (!file) return;
         const fd = new FormData();
         fd.append("file", file, file.name);
+        // Legacy synthetic rows don't have a payment_request record on
+        // the server. Route those uploads through the invoice-installment
+        // endpoint, which creates / matches a request internally.
+        const url = (isLegacy && invoiceId && instIdx !== "")
+          ? `/api/invoices/${encodeURIComponent(invoiceId)}/installments/${encodeURIComponent(instIdx)}/document`
+          : `/api/payment-requests/${encodeURIComponent(id)}/document`;
         try {
-          const r = await fetch(`/api/payment-requests/${encodeURIComponent(id)}/document`, {
-            method: "POST",
-            body: fd,
-          });
+          const r = await fetch(url, { method: "POST", body: fd });
           const data = await r.json();
           if (!r.ok) throw new Error(data.error || "Upload failed");
           window.UI?.toast?.("Receipt uploaded.", "ok");
@@ -467,7 +486,7 @@
       const doc = renameBtn.dataset.doc;
       const current = renameBtn.dataset.name;
       const next = window.UI?.prompt
-        ? await window.UI.prompt("Rename document", { initialValue: current, confirmLabel: "Save" })
+        ? await window.UI.prompt("Rename document", { defaultValue: current, confirmLabel: "Save" })
         : window.prompt("Rename document", current);
       if (!next || next.trim() === current) return;
       try {
@@ -524,6 +543,27 @@
       if (!confirmed) return;
       try {
         const r = await fetch(`/api/camp-trips/${encodeURIComponent(trip)}/documents/${encodeURIComponent(doc)}`, {
+          method: "DELETE",
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Delete failed");
+        load();
+      } catch (err) {
+        window.UI?.alert ? window.UI.alert(err.message || "Delete failed") : alert(err.message || "Delete failed");
+      }
+      return;
+    }
+    const deleteOfficeBtn = e.target.closest("[data-acct-delete-office]");
+    if (deleteOfficeBtn) {
+      e.preventDefault();
+      const id = deleteOfficeBtn.dataset.id;
+      const name = deleteOfficeBtn.dataset.name || "this receipt";
+      const confirmed = window.UI?.confirm
+        ? await window.UI.confirm(`Delete office receipt "${name}"?`, { dangerous: true })
+        : window.confirm(`Delete office receipt "${name}"?`);
+      if (!confirmed) return;
+      try {
+        const r = await fetch(`/api/payment-requests/${encodeURIComponent(id)}/document`, {
           method: "DELETE",
         });
         const data = await r.json();

@@ -9005,6 +9005,10 @@ def handle_list_payment_requests(environ, start_response):
     records = read_payment_requests()
     filtered = []
     actor_id = (actor or {}).get("id") or ""
+    # Build a tripId → documents lookup once so each row's
+    # paidDocumentUrl can be resolved without reading every trip's
+    # documents inline. Skipped when there are no trip-bound requests.
+    trips_by_id = None
     for r in records:
         if status_filter and (r.get("status") or "").lower() != status_filter:
             continue
@@ -9014,7 +9018,30 @@ def handle_list_payment_requests(environ, start_response):
             continue
         if mine_only and ((r.get("requestedBy") or {}).get("id") or "") != actor_id:
             continue
-        filtered.append(r)
+        # Denormalise paidDocumentUrl + paidDocumentName so every UI
+        # surface (invoice side panel, accountant ledger, ₮ popover)
+        # reads receipt links from one field instead of building them
+        # ad-hoc with broken fallbacks.
+        out = dict(r)
+        url = ""
+        name = ""
+        meta = r.get("paidDocumentMeta") or {}
+        doc_id = r.get("paidDocumentId") or ""
+        if meta.get("storedName"):
+            url = f"/trip-uploads/_office/{meta['storedName']}"
+            name = meta.get("originalName") or ""
+        elif doc_id and r.get("tripId"):
+            if trips_by_id is None:
+                trips_by_id = {t.get("id"): t for t in read_camp_trips()}
+            trip = trips_by_id.get(r.get("tripId")) or {}
+            for d in (trip.get("documents") or []):
+                if d.get("id") == doc_id:
+                    url = f"/trip-uploads/{r['tripId']}/{d.get('storedName')}"
+                    name = d.get("originalName") or ""
+                    break
+        out["paidDocumentUrl"] = url
+        out["paidDocumentName"] = name
+        filtered.append(out)
     return json_response(start_response, "200 OK", {"entries": filtered})
 
 
@@ -9297,6 +9324,41 @@ def handle_attach_payment_document(environ, start_response, request_id):
             break
     write_payment_requests(records)
     return json_response(start_response, "200 OK", {"ok": True, "entry": target})
+
+
+def handle_delete_payment_document(environ, start_response, request_id):
+    """Remove the receipt attached to a payment_request. Office-bucket
+    receipts (no tripId) live under data/trip-uploads/_office/ and are
+    deleted directly here. Trip-bound receipts go through
+    handle_delete_trip_document, which already cascades the
+    paidDocumentId clear back onto the request."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    if not _can_approve_payment_request(actor):
+        return json_response(start_response, "403 Forbidden", {"error": "Only admin / accountant can delete receipts."})
+    records = read_payment_requests()
+    target = next((r for r in records if r.get("id") == request_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Request not found"})
+    meta = target.get("paidDocumentMeta") or {}
+    stored_name = meta.get("storedName") or ""
+    if stored_name:
+        office_dir = (TRIP_UPLOADS_DIR / "_office").resolve()
+        file_path = (office_dir / stored_name).resolve()
+        if str(file_path).startswith(str(office_dir)) and file_path.exists():
+            try:
+                file_path.unlink()
+            except Exception:
+                pass
+    target["paidDocumentMeta"] = None
+    target["paidDocumentId"] = ""
+    for i, r in enumerate(records):
+        if r.get("id") == request_id:
+            records[i] = target
+            break
+    write_payment_requests(records)
+    return json_response(start_response, "200 OK", {"ok": True})
 
 
 def handle_attach_invoice_receipt(environ, start_response, invoice_id, inst_index):
@@ -15153,6 +15215,17 @@ def handle_delete_trip_document(environ, start_response, trip_id, doc_id):
         file_path.unlink()
     trips[trip_index] = {**trip, "documents": [d for d in documents if d["id"] != doc_id]}
     write_camp_trips(trips)
+    # Cascade: any payment_request that pointed at this doc now has a
+    # dangling paidDocumentId. Blank it so the kebab on /accountant
+    # stops offering Open/Download/Rename links that 404.
+    requests_data = read_payment_requests()
+    requests_changed = False
+    for r in requests_data:
+        if r.get("paidDocumentId") == doc_id:
+            r["paidDocumentId"] = ""
+            requests_changed = True
+    if requests_changed:
+        write_payment_requests(requests_data)
     return json_response(start_response, "200 OK", {"ok": True, "deletedId": doc_id})
 
 
@@ -18846,6 +18919,8 @@ def _dispatch(environ, start_response):
         request_id = path.replace("/api/payment-requests/", "", 1).replace("/document", "", 1).strip("/")
         if method == "POST" and request_id:
             return handle_attach_payment_document(environ, start_response, request_id)
+        if method == "DELETE" and request_id:
+            return handle_delete_payment_document(environ, start_response, request_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     # /api/invoices/<id>/installments/<idx>/document — backfill a
