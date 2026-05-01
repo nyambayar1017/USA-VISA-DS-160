@@ -1682,7 +1682,13 @@ function notificationTargetUrl(entry) {
   const meta = entry?.meta || {};
   const tripId = meta.tripId || (kind.startsWith("trip") ? meta.id : "");
   if (kind === "tourist.created") {
-    if (meta.groupId && tripId) return `/group?groupId=${encodeURIComponent(meta.groupId)}&tripId=${encodeURIComponent(tripId)}`;
+    // Open the tourist's editor on the group page so the user lands
+    // directly on the row they were notified about, not the group shell.
+    const tid = meta.id || meta.touristId || "";
+    if (meta.groupId && tripId) {
+      const base = `/group?groupId=${encodeURIComponent(meta.groupId)}&tripId=${encodeURIComponent(tripId)}`;
+      return tid ? `${base}&editTouristId=${encodeURIComponent(tid)}` : base;
+    }
     if (tripId) return `/trip-detail?tripId=${encodeURIComponent(tripId)}`;
   }
   if (kind === "group.created") {

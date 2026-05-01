@@ -205,9 +205,24 @@ async function loadAll() {
     renderRooming();
     renderParticipants();
     loadDocuments();
+    autoOpenTouristFromUrl();
   } catch (err) {
     summaryNode.innerHTML = `<p class="empty">Could not load group: ${escapeHtml(err.message)}</p>`;
   }
+}
+
+let autoOpenedFromUrl = false;
+function autoOpenTouristFromUrl() {
+  if (autoOpenedFromUrl) return;
+  const wantId = new URLSearchParams(location.search).get("editTouristId");
+  if (!wantId) return;
+  // Click the row's edit action — reuses the existing handler so the
+  // form fields, passport block and serial title all populate the same
+  // way as a manual click.
+  const editBtn = participantsList.querySelector(`[data-action="edit"][data-id="${CSS.escape(wantId)}"]`);
+  if (!editBtn) return;
+  autoOpenedFromUrl = true;
+  editBtn.click();
 }
 
 let documentsMounted = false;
