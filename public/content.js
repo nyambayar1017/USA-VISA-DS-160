@@ -34,6 +34,24 @@
   const rtToolbar = document.getElementById("ct-rt-toolbar");
   const translateAllBtn = document.getElementById("ct-translate-all");
   const translateStatus = document.getElementById("ct-translate-status");
+  const translatePickNode = document.getElementById("ct-translate-pick");
+
+  // Per-user selection of which languages to auto-translate. Default
+  // reflects the user's actual preference: English-derived European
+  // languages (fr/it/es) translate well; Mongolian they author by
+  // hand; CJK + Russian go untranslated unless the user opts in.
+  const TRANSLATE_PICK_KEY = "ct_translate_pick";
+  const DEFAULT_PICK = ["fr", "it", "es"];
+  function readTranslatePick() {
+    try {
+      const raw = localStorage.getItem(TRANSLATE_PICK_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return DEFAULT_PICK.slice();
+  }
+  function writeTranslatePick(codes) {
+    try { localStorage.setItem(TRANSLATE_PICK_KEY, JSON.stringify(codes)); } catch {}
+  }
 
   // Languages mirror gallery.js ALT_LANGS so a content entry's
   // translations match the alt-text language set on its photos.
@@ -84,6 +102,29 @@
       el.textContent = `(${label})`;
     });
   }
+
+  // Per-language auto-translate checkboxes. English is excluded — it's
+  // the source. Saved selection lives in localStorage; defaults are the
+  // languages where machine translation is reliable (fr/it/es).
+  function renderTranslatePick() {
+    if (!translatePickNode) return;
+    const picked = new Set(readTranslatePick());
+    translatePickNode.innerHTML = LANGS
+      .filter((l) => l.code !== "en")
+      .map((l) => `
+        <label class="ct-translate-pick-item">
+          <input type="checkbox" data-translate-pick="${l.code}" ${picked.has(l.code) ? "checked" : ""} />
+          <span>${escapeHtml(l.label)}</span>
+        </label>
+      `).join("");
+  }
+  translatePickNode?.addEventListener("change", (e) => {
+    const cb = e.target.closest('[data-translate-pick]');
+    if (!cb) return;
+    const codes = Array.from(translatePickNode.querySelectorAll('[data-translate-pick]:checked'))
+      .map((n) => n.dataset.translatePick);
+    writeTranslatePick(codes);
+  });
 
   // Persist whatever the user has typed in the form for the currently
   // active language, then swap inputs to show the next language.
@@ -205,11 +246,21 @@
     // titles in one call but translate descriptions ONE LANGUAGE AT
     // A TIME — each per-language request is short (~15-25s) and the
     // proxy never has reason to drop the connection.
-    const titleTargets = LANGS.filter((l) => l.code !== "en" && !(i18n.title[l.code] || "").trim()).map((l) => l.code);
-    const summaryTargets = LANGS.filter((l) => l.code !== "en" && !(i18n.summary[l.code] || "").trim()).map((l) => l.code);
+    // Only translate languages the user has ticked in the picker —
+    // they can manually fill the rest (Mongolian native authoring,
+    // CJK/Russian where machine translation is unreliable, etc.).
+    const picked = new Set(readTranslatePick());
+    if (!picked.size) {
+      translateAllBtn.disabled = false;
+      translateStatus.textContent = "Pick at least one language to translate to.";
+      translateStatus.style.color = "#b91c1c";
+      return;
+    }
+    const titleTargets = LANGS.filter((l) => l.code !== "en" && picked.has(l.code) && !(i18n.title[l.code] || "").trim()).map((l) => l.code);
+    const summaryTargets = LANGS.filter((l) => l.code !== "en" && picked.has(l.code) && !(i18n.summary[l.code] || "").trim()).map((l) => l.code);
     if (!titleTargets.length && !summaryTargets.length) {
       translateAllBtn.disabled = false;
-      translateStatus.textContent = "All languages already filled.";
+      translateStatus.textContent = "Selected languages are already filled.";
       translateStatus.style.color = "#16a34a";
       return;
     }
@@ -410,6 +461,7 @@
     const ws = (typeof window.readWorkspace === "function" ? window.readWorkspace() : "") || "";
     activeLang = (ws === "DTX") ? "mn" : "en";
     renderLangBar();
+    renderTranslatePick();
     loadActive();
     if (translateStatus) translateStatus.textContent = "";
     renderGroups((rec && rec.bulletGroups) || []);
