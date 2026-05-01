@@ -18525,9 +18525,14 @@ def handle_translate_text(environ, start_response):
             f"travel website. Do not add commentary, do not wrap your reply in quotation marks. "
             f"Return only the translation."
         )
+    # 16K output tokens — comfortably covers a multi-section travel
+    # description (a 4000-word page is ~5K tokens). Anything bigger
+    # will trigger a "stop_reason == max_tokens" guard below; we
+    # surface that as an error so the user knows the result is
+    # truncated rather than silently shipping a half-translation.
     body = {
         "model": AGENT_MODEL,
-        "max_tokens": 4096,
+        "max_tokens": 16384,
         "system": instruction,
         "messages": [{"role": "user", "content": text}],
     }
@@ -18541,7 +18546,7 @@ def handle_translate_text(environ, start_response):
         "content-type": "application/json",
     })
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=180) as resp:
             result = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         try:
@@ -18557,6 +18562,15 @@ def handle_translate_text(environ, start_response):
         if block.get("type") == "text":
             out_parts.append(block.get("text") or "")
     out = "".join(out_parts).strip()
+    stop_reason = result.get("stop_reason") or ""
+    if stop_reason == "max_tokens":
+        # Truncated mid-sentence. Tell the caller so the UI can warn
+        # the user and offer to translate section-by-section instead
+        # of silently storing half a description.
+        return json_response(start_response, "502 Bad Gateway", {
+            "error": "Translation hit the response-length limit. Try splitting the description into smaller sections and translating each one.",
+            "partial": out,
+        })
     return json_response(start_response, "200 OK", {"text": out})
 
 
