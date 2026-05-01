@@ -85,7 +85,6 @@
         <div class="gallery-view-bar">
           <div class="gallery-view-toggle" role="radiogroup" aria-label="View mode">
             <button type="button" data-td="view-btn" data-view="icons" class="is-active" title="Big icons">▦ Icons</button>
-            <button type="button" data-td="view-btn" data-view="compact" title="More documents per row">▤ Compact</button>
             <button type="button" data-td="view-btn" data-view="list" title="One row per document">▥ List</button>
           </div>
           <label class="gallery-view-select">
@@ -129,7 +128,10 @@
       activeFilter: "all",
       search: "",
       kind: "",
-      view: localStorage.getItem("td_view") || "icons",
+      view: (function () {
+        const v = localStorage.getItem("td_view") || "icons";
+        return (v === "icons" || v === "list") ? v : "icons";
+      })(),
       sort: localStorage.getItem("td_sort") || "newest",
       selected: new Set(),
       tourists: [],

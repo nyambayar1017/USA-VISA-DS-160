@@ -3973,7 +3973,10 @@ function docKindOf(d) {
 let docToolbarSearch = "";
 let docToolbarKind = "";
 let docToolbarSort = localStorage.getItem("td_sort") || "newest";
-let docToolbarView = localStorage.getItem("td_view") || "icons";
+let docToolbarView = (function () {
+  const v = localStorage.getItem("td_view") || "icons";
+  return (v === "icons" || v === "list") ? v : "icons";
+})();
 
 function applyDocToolbarSortFilter(visible) {
   let out = visible.slice();
