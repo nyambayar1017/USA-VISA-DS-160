@@ -198,10 +198,13 @@
       if (isJunk(i18n.title[l.code]))   i18n.title[l.code]   = "";
       if (isJunk(i18n.summary[l.code])) i18n.summary[l.code] = "";
     });
-    // Two batch calls (title, then description), each asks Claude to
-    // return all empty target languages in one shot. Replaces the
-    // previous 8 concurrent N-way fan-out which over-saturated the
-    // synchronous WSGI server and tripped Render's proxy timeout.
+    // Title is short (~50 chars × 8 ≈ 800 chars output) so the batch
+    // call is well under the proxy timeout. Description is long, and
+    // 8 languages × full HTML body = 30K+ output chars which exceeds
+    // Render's ~120s idle limit on a single response. So we batch
+    // titles in one call but translate descriptions ONE LANGUAGE AT
+    // A TIME — each per-language request is short (~15-25s) and the
+    // proxy never has reason to drop the connection.
     const titleTargets = LANGS.filter((l) => l.code !== "en" && !(i18n.title[l.code] || "").trim()).map((l) => l.code);
     const summaryTargets = LANGS.filter((l) => l.code !== "en" && !(i18n.summary[l.code] || "").trim()).map((l) => l.code);
     if (!titleTargets.length && !summaryTargets.length) {
@@ -226,30 +229,49 @@
       if (!res.ok) throw new Error(data.error || `Translation failed (${res.status})`);
       return data.translations || {};
     }
+    const totalSteps = (sourceTitle && titleTargets.length ? 1 : 0) + (summaryTargets.length || 0);
+    let step = 0;
     let firstError = "";
+    let succeeded = 0;
     try {
-      translateStatus.textContent = "Translating title (1 / 2)…";
+      // 1) All titles in one batch.
       if (sourceTitle && titleTargets.length) {
+        step += 1;
+        translateStatus.textContent = `Translating titles (${step}/${totalSteps})…`;
         const out = await callBatch(sourceTitle, false, titleTargets);
         Object.entries(out).forEach(([code, val]) => {
           if (val && !(i18n.title[code] || "").trim()) i18n.title[code] = val;
         });
         renderLangBar();
+        succeeded += 1;
       }
-      translateStatus.textContent = "Translating description (2 / 2)…";
+      // 2) Description: one language at a time. Each call is short, so
+      // the proxy never times out. Wall time is ~2-3 min for 8 langs.
       if (sourceSummary && summaryTargets.length) {
-        const out = await callBatch(sourceSummary, true, summaryTargets);
-        Object.entries(out).forEach(([code, val]) => {
-          if (val && !(i18n.summary[code] || "").trim()) i18n.summary[code] = val;
-        });
-        renderLangBar();
+        for (const code of summaryTargets) {
+          step += 1;
+          const langLabel = (LANGS.find((l) => l.code === code) || {}).label || code;
+          translateStatus.textContent = `Translating description → ${langLabel} (${step}/${totalSteps})…`;
+          try {
+            const t = await translateText(sourceSummary, code, true);
+            if (t) i18n.summary[code] = t;
+            renderLangBar();
+            succeeded += 1;
+          } catch (err) {
+            // One language failing shouldn't kill the whole run.
+            if (!firstError) firstError = err?.message || String(err);
+          }
+        }
       }
     } catch (err) {
-      firstError = err?.message || String(err);
+      if (!firstError) firstError = err?.message || String(err);
     }
     translateAllBtn.disabled = false;
-    if (firstError) {
+    if (firstError && succeeded === 0) {
       translateStatus.textContent = "Translation failed: " + firstError;
+      translateStatus.style.color = "#b91c1c";
+    } else if (firstError) {
+      translateStatus.textContent = `✓ Done with errors — ${firstError}`;
       translateStatus.style.color = "#b91c1c";
     } else {
       const filledCount = Math.max(titleTargets.length, summaryTargets.length);

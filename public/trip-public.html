@@ -186,6 +186,8 @@ const TRIP = mapServerToDesign(RAW_TRIP) || {
   inc: [], notInc: [], days_data: [],
 };
 
+/* helper: slug from text (matches the back-office's underscore convention) */
+const slug = s => String(s || '').toLowerCase().replace(/'/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
 
 function renderInline(html, openContent) {
   const parts = html.split(/<m>|<\/m>/);
