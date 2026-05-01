@@ -786,7 +786,7 @@
     // approve, which flips the installment to paid and attaches the
     // doc to the trip's "Paid documents" category.
     try {
-      await fetchJson("/api/payment-requests", {
+      const response = await fetchJson("/api/payment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -797,9 +797,15 @@
           paidAmount,
         }),
       });
+      // Lock the button immediately — don't wait for the next fetch
+      // round-trip. Even if the workspace fetch is filtered out for
+      // some reason, the local cache prevents a double-submit.
+      const created = response?.entry || { id: "local-" + Date.now(), installmentIndex: registeringIdx };
+      pendingRequestsByIdx[registeringIdx] = created;
       registeringIdx = -1;
       closeEditModal();
       window.UI?.toast?.("Payment request sent. The accountant will register the payment and upload the receipt.", "ok");
+      renderSidePanel();          // immediate re-render with the new lock
       await loadAll();
       const updated = invoices.find((x) => x.id === sidePanelInvoice.id);
       if (updated) openSidePanel(updated);
