@@ -2401,7 +2401,12 @@ let tripsController = null;
 
 function applyTripsPayload(payload) {
   currentTrips = (payload && payload.entries) || [];
-  if (activeTripId && !getTripById(activeTripId)) {
+  // On /trip-detail keep activeTripId even if the trip isn't in the
+  // workspace-scoped list — renderActiveTrip's verifyTripExistsCrossWorkspace
+  // handles cross-workspace lookup + auto-switch. Clearing it here defeats
+  // that fallback and leaves the header empty when a notification or modal
+  // link points at a trip in the other workspace.
+  if (activeTripId && !getTripById(activeTripId) && !isTripDetailPage()) {
     activeTripId = "";
   }
   renderSettingsOptions();

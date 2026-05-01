@@ -1260,11 +1260,19 @@ async function openPaymentRequestApproveModal(requestId) {
   const tripCell = r.tripId
     ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" target="_blank" rel="noreferrer" class="trip-name-link">${tripLabel}</a>`
     : `<span class="muted">—</span>`;
+  // Group cell — link to /group when the invoice belongs to one. Lets
+  // the accountant jump straight to the booking party's page (Trip
+  // finance scoped to that group, participants, etc.).
+  const groupCell = (r.groupId && r.groupName)
+    ? `<a href="/group?groupId=${encodeURIComponent(r.groupId)}&tripId=${encodeURIComponent(r.tripId || "")}" target="_blank" rel="noreferrer" class="trip-name-link">${escapeHtml(r.groupName)}</a>`
+    : (r.groupName ? escapeHtml(r.groupName) : `<span class="muted">—</span>`);
+  const showGroupRow = !isOutgoing && (r.groupId || r.groupName);
   body.innerHTML = `
     <dl class="payment-approve-details">
       <div><dt>${isOutgoing ? "Payee" : "Invoice"}</dt><dd>${escapeHtml(isOutgoing ? (r.payeeName || "-") : (r.invoiceSerial || "-"))}</dd></div>
       <div><dt>${isOutgoing ? "Category" : "Installment"}</dt><dd>${escapeHtml(isOutgoing ? (r.category || "-") : (r.installmentDescription || "-"))}</dd></div>
       <div><dt>Trip</dt><dd>${tripCell}</dd></div>
+      ${showGroupRow ? `<div><dt>Group</dt><dd>${groupCell}</dd></div>` : ""}
       ${isOutgoing ? "" : `<div><dt>Payer</dt><dd>${escapeHtml(r.payerName || "-")}</dd></div>`}
       <div><dt>Amount</dt><dd>${escapeHtml(amount)}</dd></div>
       ${isOutgoing

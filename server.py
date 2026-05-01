@@ -8837,6 +8837,19 @@ def handle_create_payment_request(environ, start_response):
             paid_amount = float(installments[inst_index].get("amount") or 0)
         if paid_amount <= 0:
             return json_response(start_response, "400 Bad Request", {"error": "paidAmount must be greater than zero."})
+        # Look up the group name so the accountant's approve modal can
+        # show "Trip · Group · Date" without an extra round-trip. Falls
+        # back to "" if the invoice has no group attached.
+        invoice_group_id = invoice.get("groupId") or ""
+        invoice_group_name = ""
+        if invoice_group_id:
+            try:
+                groups_data = json.loads(GROUPS_FILE.read_text("utf-8")) if GROUPS_FILE.exists() else []
+                grp = next((g for g in groups_data if g.get("id") == invoice_group_id), None)
+                if grp:
+                    invoice_group_name = grp.get("name") or grp.get("groupName") or ""
+            except Exception:
+                pass
         request = {
             "id": uuid4().hex,
             "direction": "incoming",
@@ -8845,6 +8858,8 @@ def handle_create_payment_request(environ, start_response):
             "invoiceId": invoice_id,
             "invoiceSerial": invoice.get("serial") or "",
             "tripId": invoice.get("tripId") or "",
+            "groupId": invoice_group_id,
+            "groupName": invoice_group_name,
             "installmentIndex": inst_index,
             "installmentDescription": installments[inst_index].get("description") or "",
             "paidDate": normalize_text(payload.get("paidDate")),
