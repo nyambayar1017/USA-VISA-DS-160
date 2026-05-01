@@ -29,6 +29,31 @@
     viewLink.setAttribute("aria-disabled", (!enabled || !slug) ? "true" : "false");
   }
   const modalTitle = document.getElementById("ct-modal-title");
+  const langBar = document.getElementById("ct-lang-bar");
+  const rtEditor = document.getElementById("ct-rt-editor");
+  const rtToolbar = document.getElementById("ct-rt-toolbar");
+  const translateAllBtn = document.getElementById("ct-translate-all");
+  const translateStatus = document.getElementById("ct-translate-status");
+
+  // Languages mirror gallery.js ALT_LANGS so a content entry's
+  // translations match the alt-text language set on its photos.
+  const LANGS = [
+    { code: "en", label: "English" },
+    { code: "mn", label: "Монгол" },
+    { code: "fr", label: "Français" },
+    { code: "it", label: "Italiano" },
+    { code: "es", label: "Español" },
+    { code: "ko", label: "한국어" },
+    { code: "zh", label: "中文" },
+    { code: "ja", label: "日本語" },
+    { code: "ru", label: "Русский" },
+  ];
+
+  // In-memory map of all 9 language versions for the current edit
+  // session. activeLang controls which one the form inputs are bound
+  // to right now.
+  const i18n = { title: {}, summary: {} };
+  let activeLang = "en";
 
   const state = { entries: [], editingId: "" };
 
@@ -45,6 +70,118 @@
     statusNode.textContent = message || "";
     statusNode.dataset.tone = tone || "";
   }
+
+  // ── Translation + rich text plumbing ───────────────────────────────
+  function renderLangBar() {
+    if (!langBar) return;
+    langBar.innerHTML = LANGS.map((l) => {
+      const filled = (i18n.title[l.code] || "").trim() || (i18n.summary[l.code] || "").trim();
+      const cls = `ct-lang-tab${l.code === activeLang ? " is-active" : ""} ${filled ? "is-filled" : "is-empty"}`;
+      return `<button type="button" class="${cls}" data-lang="${l.code}">${escapeHtml(l.label)}</button>`;
+    }).join("");
+    document.querySelectorAll("[data-active-lang-label]").forEach((el) => {
+      const label = (LANGS.find((l) => l.code === activeLang) || {}).label || "";
+      el.textContent = `(${label})`;
+    });
+  }
+
+  // Persist whatever the user has typed in the form for the currently
+  // active language, then swap inputs to show the next language.
+  function captureActive() {
+    i18n.title[activeLang] = (form.elements.title.value || "").trim();
+    i18n.summary[activeLang] = rtEditor ? rtEditor.innerHTML.trim() : "";
+  }
+  function loadActive() {
+    form.elements.title.value = i18n.title[activeLang] || "";
+    if (rtEditor) rtEditor.innerHTML = i18n.summary[activeLang] || "";
+  }
+  function switchLang(code) {
+    if (code === activeLang) return;
+    captureActive();
+    activeLang = code;
+    loadActive();
+    renderLangBar();
+  }
+  langBar?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".ct-lang-tab");
+    if (btn) switchLang(btn.dataset.lang);
+  });
+
+  // Rich text editor: thin wrapper over execCommand. Keeps storage as
+  // HTML so the public popup renders the same markup the manager sees.
+  rtToolbar?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-rt-cmd]");
+    if (!btn) return;
+    e.preventDefault();
+    rtEditor.focus();
+    const cmd = btn.dataset.rtCmd;
+    let arg = btn.dataset.rtArg || null;
+    if (cmd === "createLink") {
+      const url = window.prompt("Enter URL (https://…)");
+      if (!url) return;
+      arg = url;
+    }
+    document.execCommand(cmd, false, arg);
+  });
+
+  // MyMemory free public translation API. Same one gallery.js uses for
+  // alt-text auto-translate. Source is always the English version.
+  async function translateText(text, targetLang) {
+    if (!text || targetLang === "en") return text;
+    try {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${encodeURIComponent(targetLang)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data?.responseData?.translatedText || "";
+    } catch {
+      return "";
+    }
+  }
+
+  // Translate the English title + summary into every other language
+  // that's currently empty. Fills the in-memory map and re-renders the
+  // tabs. Skips any language the user already filled in by hand.
+  translateAllBtn?.addEventListener("click", async () => {
+    captureActive();
+    const sourceTitle = (i18n.title.en || "").trim();
+    const sourceSummary = (i18n.summary.en || "").trim();
+    if (!sourceTitle && !sourceSummary) {
+      translateStatus.textContent = "Write the English title + description first.";
+      translateStatus.style.color = "#b91c1c";
+      return;
+    }
+    translateAllBtn.disabled = true;
+    translateStatus.textContent = "Translating…";
+    translateStatus.style.color = "#5d6b87";
+    let filled = 0;
+    for (const lang of LANGS) {
+      if (lang.code === "en") continue;
+      const haveTitle = (i18n.title[lang.code] || "").trim();
+      const haveSummary = (i18n.summary[lang.code] || "").trim();
+      if (haveTitle && haveSummary) continue;
+      // Translate plain text for the title; for the summary we strip
+      // HTML before sending and re-wrap as <p> tags after — the free
+      // API doesn't preserve markup. Headings/lists in the source will
+      // come back as plain paragraphs in translations; the manager can
+      // re-add markup per language afterwards.
+      if (!haveTitle && sourceTitle) {
+        i18n.title[lang.code] = await translateText(sourceTitle, lang.code);
+      }
+      if (!haveSummary && sourceSummary) {
+        const plain = sourceSummary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        const out = await translateText(plain, lang.code);
+        i18n.summary[lang.code] = out ? `<p>${escapeHtml(out)}</p>` : "";
+      }
+      filled += 1;
+    }
+    translateAllBtn.disabled = false;
+    translateStatus.textContent = filled
+      ? `✓ Filled ${filled} language${filled === 1 ? "" : "s"}. Switch tabs to review.`
+      : "All languages already filled.";
+    translateStatus.style.color = "#16a34a";
+    renderLangBar();
+    loadActive();
+  });
 
   // ── List ─────────────────────────────────────────────────────────
   function render() {
@@ -134,8 +271,28 @@
     form.elements.publishStatus.value = rec ? rec.publishStatus || "published" : "published";
     form.elements.videoUrl.value = rec ? rec.videoUrl || "" : "";
     form.elements.location.value = rec ? rec.location || "" : "";
-    form.elements.summary.value = rec ? rec.summary || "" : "";
-    renderGroups((rec && rec.bulletGroups) || [{ heading: "", items: [""] }]);
+    // Seed the per-language map. The record's source title/summary
+    // become the English version; rec.translations holds the rest.
+    // Legacy records that authored in Mongolian get their text
+    // exposed under whichever lang slot they originally lived in.
+    LANGS.forEach((l) => { i18n.title[l.code] = ""; i18n.summary[l.code] = ""; });
+    if (rec) {
+      i18n.title.en = rec.title || "";
+      i18n.summary.en = rec.summary || "";
+      const tr = rec.translations || {};
+      LANGS.forEach((l) => {
+        if (l.code === "en") return;
+        if (tr[l.code]) {
+          i18n.title[l.code] = tr[l.code].title || "";
+          i18n.summary[l.code] = tr[l.code].summary || "";
+        }
+      });
+    }
+    activeLang = "en";
+    renderLangBar();
+    loadActive();
+    if (translateStatus) translateStatus.textContent = "";
+    renderGroups((rec && rec.bulletGroups) || []);
     setImageIds((rec && rec.imageIds) || []);
     deleteBtn.hidden = !state.editingId;
     setViewLink(rec ? rec.slug : "", !!state.editingId);
@@ -349,16 +506,27 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     setStatus("Saving…");
+    captureActive(); // commit whatever's in the form to the active lang slot
     const id = state.editingId;
+    // Source title/summary = the English entry. Other languages live
+    // under translations: { mn: {title, summary}, fr: {...}, ... }.
+    const translations = {};
+    LANGS.forEach((l) => {
+      if (l.code === "en") return;
+      const t = (i18n.title[l.code] || "").trim();
+      const s = (i18n.summary[l.code] || "").trim();
+      if (t || s) translations[l.code] = { title: t, summary: s };
+    });
     const payload = {
-      title: form.elements.title.value.trim(),
+      title: (i18n.title.en || "").trim(),
       slug: form.elements.slug.value.trim(),
       type: form.elements.type.value,
       country: form.elements.country.value.trim(),
       publishStatus: form.elements.publishStatus.value,
       videoUrl: form.elements.videoUrl.value.trim(),
       location: form.elements.location.value.trim(),
-      summary: form.elements.summary.value,
+      summary: i18n.summary.en || "",
+      translations,
       bulletGroups: readGroups(),
       imageIds: getImageIds(),
     };

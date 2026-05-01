@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-367" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-368" />
   </head>
   <body class="app-body" data-page="content">
     <div class="workspace-shell">
@@ -78,9 +78,10 @@
 
         <form id="ct-form" class="ct-form">
           <input type="hidden" name="id" />
+          <div class="ct-lang-bar full-span" id="ct-lang-bar"></div>
           <div class="ct-form-grid">
             <label class="full-span">
-              Title
+              Title <span class="muted" data-active-lang-label></span>
               <input name="title" required placeholder="Kuala Lumpur — KL Tower" autocomplete="off" />
             </label>
             <label>
@@ -119,19 +120,35 @@
               <input name="location" type="text" placeholder="Burj Khalifa, Dubai · or 25.197,55.274 · or paste a Google Maps share link" />
             </label>
             <label class="full-span">
-              Summary / intro paragraph
-              <textarea name="summary" rows="4" placeholder="Short description shown at the top of the popup."></textarea>
+              Description <span class="muted" data-active-lang-label></span>
+              <div class="ct-rt-toolbar" id="ct-rt-toolbar" role="toolbar" aria-label="Formatting">
+                <button type="button" data-rt-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                <button type="button" data-rt-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+                <button type="button" data-rt-cmd="formatBlock" data-rt-arg="H2" title="Section heading">H2</button>
+                <button type="button" data-rt-cmd="formatBlock" data-rt-arg="H3" title="Sub-heading">H3</button>
+                <button type="button" data-rt-cmd="formatBlock" data-rt-arg="P" title="Paragraph">¶</button>
+                <button type="button" data-rt-cmd="insertUnorderedList" title="Bulleted list">• List</button>
+                <button type="button" data-rt-cmd="insertOrderedList" title="Numbered list">1. List</button>
+                <button type="button" data-rt-cmd="createLink" title="Insert link">🔗</button>
+                <button type="button" data-rt-cmd="removeFormat" title="Clear formatting">✕</button>
+              </div>
+              <div class="ct-rt-editor" id="ct-rt-editor" contenteditable="true" data-placeholder="Write the description here. Use the toolbar for headings, bold, lists, links — same SEO-friendly HTML the public popup will render."></div>
+              <input type="hidden" name="summary" />
             </label>
           </div>
 
-          <div class="ct-section">
+          <div class="ct-section ct-translate-section">
             <div class="ct-section-head">
-              <h3>Bullet groups</h3>
-              <button type="button" class="header-action-btn" data-action="add-group">+ Add group</button>
+              <h3>Translations</h3>
+              <button type="button" class="header-action-btn" id="ct-translate-all" title="Auto-translate the English title + description to the other 8 languages">🌐 Auto-translate all</button>
             </div>
-            <p class="ct-hint">Mongolian example: a "Ерөнхий мэдээлэл" group with bullets, then "Аяллын зөвлөмж", etc.</p>
-            <div id="ct-groups" class="ct-groups"></div>
+            <p class="ct-hint">Author the title and description in <strong>English</strong>, then click "Auto-translate all" to fill the other 8 languages. Switch tabs above to review or fine-tune any translation. Each language version is what Google will show to that audience.</p>
+            <p id="ct-translate-status" class="status"></p>
           </div>
+
+          <!-- Legacy bullet groups kept hidden so old data isn't lost on save.
+               New entries use the rich-text editor exclusively. -->
+          <div id="ct-groups" class="ct-groups" hidden></div>
 
           <div class="ct-section">
             <div class="ct-section-head">
@@ -158,6 +175,6 @@
     <script src="/ui-dialog.js?v=workspace-1"></script>
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/image-picker.js?v=workspace-2"></script>
-    <script src="/content.js?v=workspace-5"></script>
+    <script src="/content.js?v=workspace-6"></script>
   </body>
 </html>

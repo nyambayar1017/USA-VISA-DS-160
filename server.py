@@ -2663,6 +2663,25 @@ def _content_normalize(payload, existing=None):
         out["bulletGroups"] = groups
     elif "bulletGroups" not in out:
         out["bulletGroups"] = []
+    # Per-language translations of the title and summary. English is
+    # the source (lives directly on title/summary). Other 8 languages
+    # under translations: { mn: {title, summary}, fr: {...}, ... }.
+    # Filter to known language codes so the JSON file doesn't grow
+    # arbitrarily.
+    if isinstance(payload.get("translations"), dict):
+        valid_codes = {"mn", "fr", "it", "es", "ko", "zh", "ja", "ru"}
+        cleaned = {}
+        for code, val in payload["translations"].items():
+            code = str(code or "").lower().strip()
+            if code not in valid_codes or not isinstance(val, dict):
+                continue
+            title = str(val.get("title") or "").strip()
+            summary = str(val.get("summary") or "").strip()
+            if title or summary:
+                cleaned[code] = {"title": title, "summary": summary}
+        out["translations"] = cleaned
+    elif "translations" not in out:
+        out["translations"] = {}
     return out
 
 
