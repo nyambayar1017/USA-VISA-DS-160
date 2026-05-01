@@ -25,7 +25,7 @@
   }
 
   function getTripId() {
-    return new URLSearchParams(window.location.search).get("tripId") || "";
+    return window.__tripIdOverride || new URLSearchParams(window.location.search).get("tripId") || "";
   }
 
   function toMnt(amount, currency, rates) {
@@ -218,5 +218,6 @@
 
   // Refresh after the user approves a request elsewhere on the page.
   window.addEventListener("payment-request:resolved", load);
+  window.__tripPlLoad = load;
   load();
 })();
