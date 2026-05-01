@@ -517,12 +517,18 @@ function renderInvoices() {
     const installmentRows = (inv.installments || []).map((ins) => {
       const status = (ins.status || "pending").toLowerCase();
       const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+      const isPaid = status === "paid" || status === "confirmed";
+      const paidDate = String(ins.paidDate || "").slice(0, 10);
+      const dueCellHtml = isPaid && paidDate
+        ? `<span class="inv-inst-paid-date">Paid ${escapeHtml(fmtDateShort(paidDate))}</span>`
+        : escapeHtml(fmtDateShort(ins.dueDate));
+      const pillClass = isPaid ? "is-paid" : (status === "overdue" ? "is-overdue" : "is-pending");
       return `
         <div class="inv-installment-line">
           <span class="inv-inst-desc">${escapeHtml(ins.description || "-")}</span>
           <span class="inv-inst-amount">${fmtMoney(ins.amount)}</span>
-          <span class="inv-inst-status"><span class="payment-status payment-status-${status}">${statusLabel}</span></span>
-          <span class="inv-inst-due">${escapeHtml(fmtDateShort(ins.dueDate))}</span>
+          <span class="inv-inst-status"><span class="status-pill ${pillClass}">${statusLabel}</span></span>
+          <span class="inv-inst-due">${dueCellHtml}</span>
         </div>
       `;
     }).join("") || '<div class="inv-installment-line"><span class="inv-inst-desc muted">No installments</span></div>';
@@ -570,7 +576,7 @@ function renderInvoices() {
           <span class="inv-inst-desc">Description</span>
           <span class="inv-inst-amount">Amount</span>
           <span class="inv-inst-status">Status</span>
-          <span class="inv-inst-due">Due Date</span>
+          <span class="inv-inst-due">Due / Paid</span>
         </div>
       </div>
       ${rows}
