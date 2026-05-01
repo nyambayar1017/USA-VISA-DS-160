@@ -273,6 +273,19 @@
     form.elements.country.dispatchEvent(new Event("country-picker:set"));
     form.elements.publishStatus.value = rec ? rec.publishStatus || "published" : "published";
     form.elements.videoUrl.value = rec ? rec.videoUrl || "" : "";
+    // Reset the optional uploaded-video file picker each time the
+    // modal opens. If the record already has an uploaded videoFile,
+    // surface its filename + a Remove button so the manager can swap
+    // or clear it.
+    const videoFileInput = document.getElementById("ct-video-file");
+    const videoCurrent = document.getElementById("ct-video-current");
+    if (videoFileInput) videoFileInput.value = "";
+    if (videoCurrent) {
+      const vf = rec && rec.videoFile;
+      videoCurrent.innerHTML = vf
+        ? `<span class="ct-video-current-row">📹 <a href="/content-videos/${escapeHtml(vf)}" target="_blank" rel="noopener">${escapeHtml(vf)}</a> <button type="button" class="ct-video-remove" data-action="remove-video">Remove</button></span>`
+        : "";
+    }
     form.elements.location.value = rec ? rec.location || "" : "";
     // Seed the per-language map. The record's source title/summary
     // become the English version; rec.translations holds the rest.
@@ -291,7 +304,12 @@
         }
       });
     }
-    activeLang = "en";
+    // Default tab = workspace's primary language. DTX is a Mongolian
+    // outbound brand → default to Mongolian. USM (Unlock Steppe
+    // Mongolia) targets foreigners → default to English. The user
+    // can still switch tabs.
+    const ws = (typeof window.readWorkspace === "function" ? window.readWorkspace() : "") || "";
+    activeLang = (ws === "DTX") ? "mn" : "en";
     renderLangBar();
     loadActive();
     if (translateStatus) translateStatus.textContent = "";
@@ -339,22 +357,15 @@
   });
 
   // Feed existing-entry countries into the searchable popup as
-  // additional options. The picker has its own built-in fallback
-  // list of common countries; this just adds whatever shows up in
-  // the saved entries (e.g. niche destinations the user added).
+  // additional options. The picker reads dataset.options on each
+  // open (no re-attach needed), so we just update the JSON and the
+  // next click sees the fresh list.
   function refreshCountryOptions() {
     const extra = Array.from(new Set(
       (state.entries || []).map((e) => (e.country || "").trim()).filter(Boolean)
     ));
     const input = form?.elements?.country;
-    if (input) {
-      input.dataset.options = JSON.stringify(extra);
-      // Re-attach so the picker rebuilds its option list with the new
-      // extras. attachOne is idempotent via the dataset flag, so we
-      // bump the flag first to force a fresh attach.
-      delete input.dataset.countryAttached;
-      window.CountryPicker?.attachOne(input);
-    }
+    if (input) input.dataset.options = JSON.stringify(extra);
   }
   // Initial attach happens on first load (before the modal opens).
   document.addEventListener("DOMContentLoaded", () => {
@@ -491,6 +502,26 @@
     setImageIds(getImageIds().filter((id) => id !== target.dataset.id));
   });
 
+  // Remove uploaded video file (server-side delete + UI clear).
+  document.getElementById("ct-video-current")?.addEventListener("click", async (event) => {
+    const btn = event.target.closest('[data-action="remove-video"]');
+    if (!btn) return;
+    const id = state.editingId;
+    if (!id) return;
+    if (!window.confirm("Remove the uploaded video?")) return;
+    try {
+      const res = await fetch(`/api/content/${encodeURIComponent(id)}/video`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Delete failed");
+      }
+      const cur = document.getElementById("ct-video-current");
+      if (cur) cur.innerHTML = "";
+    } catch (err) {
+      alert(err.message || "Delete failed");
+    }
+  });
+
   viewLink?.addEventListener("click", (event) => {
     if (viewLink.classList.contains("is-disabled")) {
       event.preventDefault();
@@ -545,11 +576,26 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Save failed");
+      const savedId = data.entry?.id || state.editingId;
+      // If the user picked a video file in this session, upload it
+      // now that we have an id. The upload endpoint stores it under
+      // /content-videos/<id>.<ext> and patches the record's
+      // videoFile field so the public popup picks it up.
+      const videoFileInput = document.getElementById("ct-video-file");
+      const file = videoFileInput?.files?.[0];
+      if (file && savedId) {
+        setStatus("Uploading video…", "");
+        const fd = new FormData();
+        fd.append("file", file);
+        const vr = await fetch(`/api/content/${encodeURIComponent(savedId)}/video`, { method: "POST", body: fd });
+        const vd = await vr.json().catch(() => ({}));
+        if (!vr.ok) throw new Error(vd.error || "Video upload failed");
+      }
       setStatus("Saved.", "ok");
       // Activate View link with the saved slug (slug may have been auto-
       // generated from the title or de-duped server-side).
       if (data.entry && data.entry.slug) {
-        state.editingId = data.entry.id || state.editingId;
+        state.editingId = savedId;
         setViewLink(data.entry.slug, true);
       }
       closeModal();

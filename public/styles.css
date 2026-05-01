@@ -18300,3 +18300,12 @@ input[type="checkbox"]:disabled {
 .country-picker-item.is-selected { background: #18336c; color: #fff; }
 .country-picker-item.is-custom { color: #c64d3a; font-style: italic; }
 .country-picker-empty { padding: 10px; color: #98a3b6; font-size: 13px; text-align: center; }
+
+.ct-video-current { margin-top: 8px; font-size: 13px; }
+.ct-video-current-row { display: inline-flex; align-items: center; gap: 8px; }
+.ct-video-remove {
+  background: #fee2e2; color: #991b1b; border: 0;
+  border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer;
+}
+.ct-video-remove:hover { background: #fecaca; }
+.trip-popup-video video { width: 100%; max-height: 480px; border-radius: 12px; background: #000; }

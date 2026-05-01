@@ -36,14 +36,22 @@
   }
 
   function applySeoTags(content) {
-    document.title = content.title ? `${content.title} · TravelX` : "TravelX";
+    const title = content.title || content.slug || "TravelX";
+    document.title = `${title} · TravelX`;
     const lang = content.lang || "en";
     document.documentElement.setAttribute("lang", lang);
-    // Inject hreflang <link> tags so Google maps each language version
-    // to its audience. x-default points at the canonical English URL.
     const head = document.head;
+    // Wipe any tags we own so re-renders don't double-up.
     head.querySelectorAll('link[rel="alternate"][hreflang]').forEach((n) => n.remove());
+    head.querySelectorAll('meta[data-seo="content-view"]').forEach((n) => n.remove());
+    head.querySelectorAll('link[rel="canonical"][data-seo="content-view"]').forEach((n) => n.remove());
+    head.querySelectorAll('script[type="application/ld+json"][data-seo="content-view"]').forEach((n) => n.remove());
+
     const origin = window.location.origin;
+    const canonicalHref = origin + (window.location.pathname + (lang === "en" ? "" : `?lang=${lang}`));
+
+    // hreflang siblings — Google uses these to serve the right language
+    // version to each user. x-default → English fallback.
     (content.hreflangs || []).forEach((h) => {
       const link = document.createElement("link");
       link.rel = "alternate";
@@ -51,7 +59,6 @@
       link.href = origin + h.href;
       head.appendChild(link);
     });
-    // Default to English as x-default for crawlers without lang prefs.
     const xDefault = (content.hreflangs || []).find((h) => h.lang === "en");
     if (xDefault) {
       const link = document.createElement("link");
@@ -60,17 +67,66 @@
       link.href = origin + xDefault.href;
       head.appendChild(link);
     }
-    // Meta description — the first paragraph of the summary stripped of HTML.
+
+    // Canonical URL for this language version.
+    const canonical = document.createElement("link");
+    canonical.rel = "canonical";
+    canonical.dataset.seo = "content-view";
+    canonical.href = canonicalHref;
+    head.appendChild(canonical);
+
+    // Meta description — strip HTML, cap at 160 chars (safe for SERP).
     const desc = String(content.summary || "")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 160);
-    if (desc) {
-      let meta = head.querySelector('meta[name="description"]');
-      if (!meta) { meta = document.createElement("meta"); meta.name = "description"; head.appendChild(meta); }
-      meta.content = desc;
+    function metaTag(name, value, attr) {
+      if (!value) return;
+      const m = document.createElement("meta");
+      m.dataset.seo = "content-view";
+      if (attr === "property") m.setAttribute("property", name);
+      else m.name = name;
+      m.content = value;
+      head.appendChild(m);
     }
+    if (desc) metaTag("description", desc);
+
+    // OpenGraph + Twitter card so Facebook / WhatsApp / Twitter
+    // previews show the right title, description, and lead image.
+    const firstImage = (content.images || [])[0]?.url || "";
+    const absImage = firstImage ? (firstImage.startsWith("http") ? firstImage : origin + firstImage) : "";
+    metaTag("og:title", title, "property");
+    metaTag("og:description", desc, "property");
+    metaTag("og:type", "article", "property");
+    metaTag("og:url", canonicalHref, "property");
+    metaTag("og:locale", lang === "en" ? "en_US" : (lang === "mn" ? "mn_MN" : `${lang}_${lang.toUpperCase()}`), "property");
+    metaTag("og:site_name", "TravelX", "property");
+    if (absImage) metaTag("og:image", absImage, "property");
+    metaTag("twitter:card", absImage ? "summary_large_image" : "summary");
+    metaTag("twitter:title", title);
+    metaTag("twitter:description", desc);
+    if (absImage) metaTag("twitter:image", absImage);
+
+    // Schema.org JSON-LD — TouristAttraction is the most common content
+    // type here; falls back to generic Place for others. Helps Google
+    // build rich-result cards (knowledge panels, image carousels).
+    const schemaType = (content.type || "").toLowerCase() === "accommodation" ? "LodgingBusiness"
+      : ((content.type || "").toLowerCase() === "activity" ? "TouristTrip" : "TouristAttraction");
+    const ld = {
+      "@context": "https://schema.org",
+      "@type": schemaType,
+      "name": title,
+      "description": desc || undefined,
+      "url": canonicalHref,
+      "image": absImage || undefined,
+      "address": content.country ? { "@type": "PostalAddress", "addressCountry": content.country } : undefined,
+    };
+    const ldScript = document.createElement("script");
+    ldScript.type = "application/ld+json";
+    ldScript.dataset.seo = "content-view";
+    ldScript.textContent = JSON.stringify(ld, (_, v) => v === undefined ? undefined : v);
+    head.appendChild(ldScript);
   }
 
   function langSwitcherHtml(content) {
@@ -121,12 +177,19 @@
         </div>
       `)
       .join("");
-    const embed = youtubeEmbedUrl(content.videoUrl);
-    const video = embed
-      ? `<div class="trip-popup-video"><iframe src="${escapeHtml(embed)}" loading="lazy" allowfullscreen></iframe></div>`
-      : (content.videoUrl
-        ? `<div class="trip-popup-video-link"><a href="${escapeHtml(content.videoUrl)}" target="_blank" rel="noopener">▶ Watch video</a></div>`
-        : "");
+    // Prefer a manager-uploaded MP4/WebM video over the YouTube URL
+    // when both are set, so the user sees their own footage first.
+    let video = "";
+    if (content.videoFile) {
+      video = `<div class="trip-popup-video"><video src="${escapeHtml(content.videoFile)}" controls preload="metadata" playsinline></video></div>`;
+    } else {
+      const embed = youtubeEmbedUrl(content.videoUrl);
+      video = embed
+        ? `<div class="trip-popup-video"><iframe src="${escapeHtml(embed)}" loading="lazy" allowfullscreen></iframe></div>`
+        : (content.videoUrl
+          ? `<div class="trip-popup-video-link"><a href="${escapeHtml(content.videoUrl)}" target="_blank" rel="noopener">▶ Watch video</a></div>`
+          : "");
+    }
     const mapSrc = mapEmbedUrl(content.location);
     const mapOpenUrl = content.location
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(content.location)}`

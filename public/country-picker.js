@@ -39,11 +39,17 @@
     hiddenInput.dataset.countryAttached = "1";
     hiddenInput.type = "hidden";
 
-    const extra = hiddenInput.dataset.options
-      ? (() => { try { return JSON.parse(hiddenInput.dataset.options); } catch { return []; } })()
-      : [];
-    const allOptions = Array.from(new Set([...FALLBACK_COUNTRIES, ...extra]))
-      .sort((a, b) => a.localeCompare(b));
+    // Options are read fresh on every open so the caller can update
+    // dataset.options at runtime (e.g. after fetching the latest
+    // distinct-country list from the server) without re-attaching.
+    function readOptions() {
+      const extra = hiddenInput.dataset.options
+        ? (() => { try { return JSON.parse(hiddenInput.dataset.options); } catch { return []; } })()
+        : [];
+      return Array.from(new Set([...FALLBACK_COUNTRIES, ...extra]))
+        .sort((a, b) => a.localeCompare(b));
+    }
+    let allOptions = readOptions();
 
     const wrap = document.createElement("div");
     wrap.className = "country-picker";
@@ -97,6 +103,7 @@
       e.preventDefault();
       const isOpen = wrap.classList.toggle("is-open");
       if (isOpen) {
+        allOptions = readOptions();
         searchInput.value = "";
         renderList("");
         setTimeout(() => searchInput.focus(), 30);

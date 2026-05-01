@@ -2783,6 +2783,67 @@ def handle_delete_content(environ, start_response, item_id):
     return json_response(start_response, "200 OK", {"ok": True})
 
 
+CONTENT_VIDEO_DIR = DATA_DIR / "content-videos"
+ALLOWED_VIDEO_EXT = {".mp4", ".webm", ".mov", ".m4v"}
+MAX_VIDEO_BYTES = 50 * 1024 * 1024  # 50 MB — keep storage tame on Render
+
+def handle_upload_content_video(environ, start_response, item_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_content()
+    idx = next((i for i, r in enumerate(records) if r.get("id") == item_id), None)
+    if idx is None:
+        return json_response(start_response, "404 Not Found", {"error": "Content not found"})
+    fields, files = parse_multipart(environ)
+    upload = files.get("file")
+    if not upload:
+        return json_response(start_response, "400 Bad Request", {"error": "No file uploaded"})
+    original = upload.get("filename") or "video"
+    ext = Path(original).suffix.lower()
+    if ext not in ALLOWED_VIDEO_EXT:
+        return json_response(start_response, "400 Bad Request", {"error": f"Video type {ext} not supported. Use MP4, WebM, or MOV."})
+    data = upload.get("data") or b""
+    if len(data) > MAX_VIDEO_BYTES:
+        return json_response(start_response, "400 Bad Request", {"error": "Video too large (max 50 MB)."})
+    CONTENT_VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+    # Replace any existing video file for this content (different ext OK).
+    for existing in CONTENT_VIDEO_DIR.glob(f"{item_id}.*"):
+        try: existing.unlink()
+        except Exception: pass
+    stored_name = f"{item_id}{ext}"
+    (CONTENT_VIDEO_DIR / stored_name).write_bytes(data)
+    rec = dict(records[idx])
+    rec["videoFile"] = stored_name
+    rec["updatedAt"] = now_mongolia().isoformat()
+    rec["updatedBy"] = actor_snapshot(actor)
+    records[idx] = rec
+    write_content(records)
+    return json_response(start_response, "200 OK", {"ok": True, "videoFile": stored_name})
+
+
+def handle_delete_content_video(environ, start_response, item_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_content()
+    idx = next((i for i, r in enumerate(records) if r.get("id") == item_id), None)
+    if idx is None:
+        return json_response(start_response, "404 Not Found", {"error": "Content not found"})
+    rec = dict(records[idx])
+    stored = rec.get("videoFile") or ""
+    if stored:
+        path = CONTENT_VIDEO_DIR / stored
+        if path.exists():
+            try: path.unlink()
+            except Exception: pass
+    rec["videoFile"] = ""
+    rec["updatedAt"] = now_mongolia().isoformat()
+    records[idx] = rec
+    write_content(records)
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
 CONTENT_LANGS = ["en", "mn", "fr", "it", "es", "ko", "zh", "ja", "ru"]
 
 
@@ -2839,6 +2900,7 @@ def build_public_content_view(slug, environ=None, lang=None):
             slot = translations.get(code) or {}
             if slot.get("title") or slot.get("summary"):
                 hreflangs.append({"lang": code, "href": f"{base_path}?lang={code}", "label": code})
+    video_file = rec.get("videoFile") or ""
     return {
         "slug": rec.get("slug"),
         "type": rec.get("type"),
@@ -2847,6 +2909,9 @@ def build_public_content_view(slug, environ=None, lang=None):
         "summary": loc_summary,
         "lang": chosen_lang,
         "videoUrl": rec.get("videoUrl"),
+        # Manager-uploaded video file. Public popup prefers this over
+        # videoUrl when both are set.
+        "videoFile": (f"/content-videos/{video_file}" if video_file else ""),
         "location": rec.get("location") or "",
         "images": images,
         "bulletGroups": rec.get("bulletGroups") or [],
@@ -18913,6 +18978,15 @@ def _dispatch(environ, start_response):
         if method == "POST":
             return handle_create_content(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+    if path.startswith("/api/content/") and path.endswith("/video"):
+        item_id = path.replace("/api/content/", "", 1).replace("/video", "", 1).strip("/")
+        if not item_id:
+            return json_response(start_response, "400 Bad Request", {"error": "id required"})
+        if method == "POST":
+            return handle_upload_content_video(environ, start_response, item_id)
+        if method == "DELETE":
+            return handle_delete_content_video(environ, start_response, item_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
     if path.startswith("/api/content/"):
         item_id = path.replace("/api/content/", "", 1).strip("/")
         if not item_id:
@@ -19946,6 +20020,15 @@ def _dispatch(environ, start_response):
         params = parse_qs(environ.get("QUERY_STRING", ""))
         extra_headers = generated_download_headers(safe_path) if params.get("download", ["0"])[0] == "1" else None
         return file_response(start_response, safe_path, extra_headers=extra_headers)
+
+    # Public content videos — no login gate, since public popups
+    # need to play them. Pathname is /content-videos/<id>.<ext>.
+    if path.startswith("/content-videos/"):
+        rel = unquote(path.replace("/content-videos/", "", 1))
+        safe_path = (CONTENT_VIDEO_DIR / rel).resolve()
+        if not str(safe_path).startswith(str(CONTENT_VIDEO_DIR.resolve())) or not safe_path.exists():
+            return json_response(start_response, "404 Not Found", {"error": "Not found"})
+        return file_response(start_response, safe_path)
 
     if path.startswith("/camp-contracts/"):
         if not current_user(environ):
