@@ -4593,7 +4593,7 @@ body.is-trip-scoped [data-trip-scope-hide] { display: none !important; }
   line-height: 1.28;
 }
 
-.camp-table td input,
+.camp-table td input:not([type="checkbox"]):not([type="radio"]),
 .camp-table td select,
 .camp-table td textarea {
   width: 100%;
@@ -18010,24 +18010,24 @@ body.lightbox-open { overflow: hidden; }
    none with a custom square + check mark gives a consistent
    affordance on iOS, Android Chrome, desktop Safari/Chrome/Firefox. */
 input[type="checkbox"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  min-width: 18px;
-  min-height: 18px;
-  max-width: 18px;
-  max-height: 18px;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
   flex-shrink: 0;
   margin: 0;
-  padding: 0;
+  padding: 0 !important;
   border: 1.5px solid #c4cad6;
   border-radius: 4px;
   background: #fff;
   cursor: pointer;
   vertical-align: middle;
   position: relative;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
 }
 input[type="checkbox"]:focus-visible {
   outline: 2px solid #c64d3a;
