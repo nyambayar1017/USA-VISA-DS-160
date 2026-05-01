@@ -124,17 +124,26 @@
     document.execCommand(cmd, false, arg);
   });
 
-  // MyMemory free public translation API. Same one gallery.js uses for
-  // alt-text auto-translate. Source is always the English version.
-  async function translateText(text, targetLang) {
+  // Server-side translation via /api/translate, which uses the
+  // Anthropic API (Claude). Quality is dramatically better than the
+  // old MyMemory fallback, and there's no 500-char limit, so full
+  // descriptions go through in one call. The html flag tells the
+  // server to preserve <p>/<h2>/<ul>/etc. so headings + lists
+  // survive into every language version.
+  async function translateText(text, targetLang, isHtml) {
     if (!text || targetLang === "en") return text;
     try {
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${encodeURIComponent(targetLang)}`;
-      const res = await fetch(url);
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, from: "en", to: targetLang, html: !!isHtml }),
+      });
       const data = await res.json();
-      return data?.responseData?.translatedText || "";
-    } catch {
-      return "";
+      if (!res.ok) throw new Error(data.error || "Translation failed");
+      return data.text || "";
+    } catch (err) {
+      console.warn("translate", targetLang, err);
+      throw err;
     }
   }
 
@@ -153,28 +162,46 @@
     translateAllBtn.disabled = true;
     translateStatus.textContent = "Translating…";
     translateStatus.style.color = "#5d6b87";
+    // Treat MyMemory's known error strings as empty so the next
+    // pass overwrites them — they got stored as actual translations
+    // before the Claude switchover.
+    const isJunk = (s) => /QUERY LENGTH LIMIT EXCEEDED|MAX ALLOWED QUERY|YOU USED ALL AVAILABLE FREE TRANSLATIONS/i.test(s || "");
+    LANGS.forEach((l) => {
+      if (l.code === "en") return;
+      if (isJunk(i18n.title[l.code]))   i18n.title[l.code]   = "";
+      if (isJunk(i18n.summary[l.code])) i18n.summary[l.code] = "";
+    });
     let filled = 0;
+    let firstError = "";
     for (const lang of LANGS) {
       if (lang.code === "en") continue;
       const haveTitle = (i18n.title[lang.code] || "").trim();
       const haveSummary = (i18n.summary[lang.code] || "").trim();
       if (haveTitle && haveSummary) continue;
-      // Translate plain text for the title; for the summary we strip
-      // HTML before sending and re-wrap as <p> tags after — the free
-      // API doesn't preserve markup. Headings/lists in the source will
-      // come back as plain paragraphs in translations; the manager can
-      // re-add markup per language afterwards.
-      if (!haveTitle && sourceTitle) {
-        i18n.title[lang.code] = await translateText(sourceTitle, lang.code);
+      try {
+        if (!haveTitle && sourceTitle) {
+          // Title is plain text, no markup to preserve.
+          i18n.title[lang.code] = await translateText(sourceTitle, lang.code, false);
+        }
+        if (!haveSummary && sourceSummary) {
+          // Summary is rich-text HTML — pass html:true so Claude keeps
+          // headings, lists, links intact in the translated output.
+          i18n.summary[lang.code] = await translateText(sourceSummary, lang.code, true);
+        }
+        translateStatus.textContent = `Translating… (${lang.label})`;
+        filled += 1;
+      } catch (err) {
+        if (!firstError) firstError = err?.message || String(err);
       }
-      if (!haveSummary && sourceSummary) {
-        const plain = sourceSummary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-        const out = await translateText(plain, lang.code);
-        i18n.summary[lang.code] = out ? `<p>${escapeHtml(out)}</p>` : "";
-      }
-      filled += 1;
     }
     translateAllBtn.disabled = false;
+    if (firstError && filled === 0) {
+      translateStatus.textContent = "Translation failed: " + firstError;
+      translateStatus.style.color = "#b91c1c";
+      renderLangBar();
+      loadActive();
+      return;
+    }
     translateStatus.textContent = filled
       ? `✓ Filled ${filled} language${filled === 1 ? "" : "s"}. Switch tabs to review.`
       : "All languages already filled.";

@@ -18471,6 +18471,95 @@ Workspace separation:
 """
 
 
+_TRANSLATE_LANG_NAMES = {
+    "en": "English",
+    "mn": "Mongolian (Cyrillic, Khalkha)",
+    "fr": "French",
+    "it": "Italian",
+    "es": "Spanish",
+    "ko": "Korean",
+    "zh": "Chinese (Simplified)",
+    "ja": "Japanese",
+    "ru": "Russian",
+}
+
+
+def handle_translate_text(environ, start_response):
+    """POST /api/translate — body: { text, from, to, html: bool }.
+    Uses the Anthropic API (same key as the agent). Handles long
+    descriptions (the free MyMemory endpoint is capped at 500 chars
+    and returns a literal "QUERY LENGTH LIMIT EXCEEDED" string for
+    anything bigger). Preserves rich-text HTML markup when html=true
+    so headings and lists survive the translation."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    text = str(payload.get("text") or "").strip()
+    src = str(payload.get("from") or "en").lower()[:2]
+    dst = str(payload.get("to") or "").lower()[:2]
+    is_html = bool(payload.get("html"))
+    if not text:
+        return json_response(start_response, "200 OK", {"text": ""})
+    if dst not in _TRANSLATE_LANG_NAMES:
+        return json_response(start_response, "400 Bad Request", {"error": f"Unsupported target language: {dst}"})
+    if src == dst:
+        return json_response(start_response, "200 OK", {"text": text})
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return json_response(start_response, "500 Internal Server Error", {"error": "Translation engine not configured. Set ANTHROPIC_API_KEY in Render → Environment."})
+    src_name = _TRANSLATE_LANG_NAMES.get(src, src)
+    dst_name = _TRANSLATE_LANG_NAMES.get(dst, dst)
+    if is_html:
+        instruction = (
+            f"You are a professional travel-content translator. Translate the following HTML "
+            f"from {src_name} into {dst_name}. Preserve all HTML tags exactly as they appear "
+            f"(p, h2, h3, ul, ol, li, strong, em, a, br) — only translate the human-readable text "
+            f"between tags. Do not add commentary, do not wrap your reply in code fences, do not "
+            f"add quotation marks. Return only the translated HTML."
+        )
+    else:
+        instruction = (
+            f"You are a professional travel-content translator. Translate the following text "
+            f"from {src_name} into {dst_name}. Use natural, idiomatic phrasing appropriate for a "
+            f"travel website. Do not add commentary, do not wrap your reply in quotation marks. "
+            f"Return only the translation."
+        )
+    body = {
+        "model": AGENT_MODEL,
+        "max_tokens": 4096,
+        "system": instruction,
+        "messages": [{"role": "user", "content": text}],
+    }
+    try:
+        data = json.dumps(body).encode("utf-8")
+    except Exception as e:
+        return json_response(start_response, "500 Internal Server Error", {"error": f"Serialization failed: {e}"})
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=data, method="POST", headers={
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8")
+        except Exception:
+            err_body = str(e)
+        return json_response(start_response, "502 Bad Gateway", {"error": f"Anthropic API error {e.code}: {err_body[:300]}"})
+    except Exception as e:
+        return json_response(start_response, "502 Bad Gateway", {"error": f"{type(e).__name__}: {e}"})
+    # Pull the assistant's text content out of the message blocks.
+    out_parts = []
+    for block in result.get("content") or []:
+        if block.get("type") == "text":
+            out_parts.append(block.get("text") or "")
+    out = "".join(out_parts).strip()
+    return json_response(start_response, "200 OK", {"text": out})
+
+
 def _agent_call_anthropic(system, messages, tools):
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
@@ -19046,6 +19135,11 @@ def _dispatch(environ, start_response):
     if path == "/api/agent/chat":
         if method in ("GET", "POST", "DELETE"):
             return handle_agent_chat(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/translate":
+        if method == "POST":
+            return handle_translate_text(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/tourist-groups":
