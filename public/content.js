@@ -60,12 +60,11 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>Slug</th>
               <th>Title</th>
               <th>Type</th>
               <th>Country</th>
-              <th>Status</th>
               <th>Photos</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -73,18 +72,26 @@
             ${state.entries.map((e, idx) => `
               <tr>
                 <td>${idx + 1}</td>
-                <td><code>${escapeHtml(e.slug)}</code></td>
-                <td>${escapeHtml(e.title)}</td>
+                <td>
+                  <strong>${escapeHtml(e.title)}</strong>
+                  <div class="muted" style="font-size:11px;"><code>${escapeHtml(e.slug)}</code></div>
+                </td>
                 <td>${escapeHtml(e.type)}</td>
                 <td>${escapeHtml(e.country || "-")}</td>
+                <td>${(e.imageIds || []).length}</td>
                 <td>
                   ${e.publishStatus === "published"
                     ? `<span class="ct-pill ct-pill-pub">Published</span>`
                     : `<span class="ct-pill ct-pill-draft">Draft</span>`}
                 </td>
-                <td>${(e.imageIds || []).length}</td>
                 <td>
-                  <button type="button" class="row-menu-item" data-action="edit" data-id="${escapeHtml(e.id)}">Edit</button>
+                  <details class="row-menu">
+                    <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>
+                    <div class="row-menu-popover">
+                      <button type="button" class="row-menu-item" data-action="edit" data-id="${escapeHtml(e.id)}">Edit</button>
+                      <button type="button" class="row-menu-item is-danger" data-action="delete" data-id="${escapeHtml(e.id)}" data-title="${escapeHtml(e.title)}">Delete</button>
+                    </div>
+                  </details>
                 </td>
               </tr>
             `).join("")}
@@ -118,6 +125,10 @@
     form.elements.id.value = state.editingId;
     form.elements.title.value = rec ? rec.title || "" : "";
     form.elements.slug.value = rec ? rec.slug || "" : "";
+    // After load, treat the existing slug as "auto" so a follow-up
+    // title edit still updates it. If the user manually retypes the
+    // slug, it diverges from lastAutoSlug and stays sticky.
+    lastAutoSlug = rec ? rec.slug || "" : "";
     form.elements.type.value = rec ? rec.type || "attraction" : "attraction";
     form.elements.country.value = rec ? rec.country || "" : "";
     form.elements.publishStatus.value = rec ? rec.publishStatus || "published" : "published";
@@ -145,18 +156,85 @@
     if (event.target.dataset.action === "close-modal") closeModal();
   });
 
-  addBtn.addEventListener("click", () => openModal(null));
+  // Auto-generate slug from the title — only when slug is empty or
+  // still equal to the previous auto-generated value, so a manually
+  // edited slug is preserved.
+  function slugify(text) {
+    return String(text || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 80);
+  }
+  let lastAutoSlug = "";
+  form.elements.title.addEventListener("input", () => {
+    const slugInput = form.elements.slug;
+    if (!slugInput.value || slugInput.value === lastAutoSlug) {
+      const next = slugify(form.elements.title.value);
+      slugInput.value = next;
+      lastAutoSlug = next;
+    }
+  });
+
+  // Populate the country datalist from existing entries so the user
+  // gets quick auto-complete instead of typing free text. Refreshed
+  // each time the modal opens.
+  function refreshCountryOptions() {
+    const options = new Set(
+      (state.entries || []).map((e) => (e.country || "").trim()).filter(Boolean)
+    );
+    // Add a base list of common destinations so a brand-new install
+    // still has suggestions.
+    [
+      "Mongolia", "China", "Japan", "South Korea", "Singapore", "Malaysia",
+      "Thailand", "Indonesia", "Vietnam", "Philippines", "India", "UAE",
+      "Turkey", "Russia", "USA", "France", "Italy", "Spain", "Germany",
+    ].forEach((c) => options.add(c));
+    const datalist = document.getElementById("ct-country-options");
+    if (datalist) {
+      datalist.innerHTML = Array.from(options)
+        .sort((a, b) => a.localeCompare(b))
+        .map((c) => `<option value="${escapeHtml(c)}"></option>`)
+        .join("");
+    }
+  }
+
+  addBtn.addEventListener("click", () => { refreshCountryOptions(); openModal(null); });
   list.addEventListener("click", async (event) => {
     const editBtn = event.target.closest('[data-action="edit"]');
-    if (!editBtn) return;
-    const id = editBtn.dataset.id;
-    try {
-      const res = await fetch(`/api/content/${encodeURIComponent(id)}`);
-      const rec = await res.json();
-      if (!res.ok) throw new Error(rec.error || "Could not load");
-      openModal(rec);
-    } catch (err) {
-      alert(err.message || "Could not load");
+    if (editBtn) {
+      const id = editBtn.dataset.id;
+      try {
+        const res = await fetch(`/api/content/${encodeURIComponent(id)}`);
+        const rec = await res.json();
+        if (!res.ok) throw new Error(rec.error || "Could not load");
+        refreshCountryOptions();
+        openModal(rec);
+      } catch (err) {
+        alert(err.message || "Could not load");
+      }
+      return;
+    }
+    const deleteBtn = event.target.closest('[data-action="delete"]');
+    if (deleteBtn) {
+      const id = deleteBtn.dataset.id;
+      const title = deleteBtn.dataset.title || "this content";
+      const ok = window.UI?.confirm
+        ? await window.UI.confirm(`Delete "${title}"? This removes the popup and unlinks it from any trip programs that referenced its slug.`, { dangerous: true })
+        : window.confirm(`Delete "${title}"?`);
+      if (!ok) return;
+      try {
+        const res = await fetch(`/api/content/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Could not delete");
+        }
+        await load();
+      } catch (err) {
+        alert(err.message || "Could not delete");
+      }
     }
   });
 

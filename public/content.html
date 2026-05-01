@@ -81,11 +81,7 @@
           <div class="ct-form-grid">
             <label class="full-span">
               Title
-              <input name="title" required placeholder="e.g. Малайз, Куала Лумпур – КЛ цамхаг" />
-            </label>
-            <label>
-              Slug
-              <input name="slug" placeholder="kl_tower_kuala_lumpur" />
+              <input name="title" required placeholder="Kuala Lumpur — KL Tower" autocomplete="off" />
             </label>
             <label>
               Type
@@ -100,7 +96,12 @@
             </label>
             <label>
               Country
-              <input name="country" placeholder="Malaysia" />
+              <input name="country" placeholder="Search country…" autocomplete="off" data-country-picker list="ct-country-options" />
+              <datalist id="ct-country-options"></datalist>
+            </label>
+            <label>
+              Slug <span class="muted" style="font-weight:400;">(auto-generated from title — edit only if you must)</span>
+              <input name="slug" placeholder="kuala_lumpur_kl_tower" autocomplete="off" />
             </label>
             <label>
               Publish status
@@ -157,6 +158,6 @@
     <script src="/ui-dialog.js?v=workspace-1"></script>
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/image-picker.js?v=workspace-2"></script>
-    <script src="/content.js?v=workspace-4"></script>
+    <script src="/content.js?v=workspace-5"></script>
   </body>
 </html>
