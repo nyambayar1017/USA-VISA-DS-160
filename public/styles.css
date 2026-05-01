@@ -14695,9 +14695,17 @@ body.gallery-dragging .gallery-card[draggable="true"] { opacity: 0.85; }
 
 /* ── Content library ─────────────────────────────────────────────── */
 .ct-modal-dialog {
-  width: min(720px, calc(100vw - 32px));
-  max-height: 90vh;
+  /* Landscape — gives the rich-text editor breathing room and lets
+     the form-grid lay 4-5 columns wide on a typical desktop, matching
+     the public content popup's wide format. */
+  width: min(1180px, calc(100vw - 48px));
+  max-height: 92vh;
   overflow-y: auto;
+}
+@media (max-width: 720px) {
+  .ct-modal-dialog {
+    width: calc(100vw - 16px);
+  }
 }
 .ct-form { padding: 0 4px 4px; }
 .ct-form-grid {

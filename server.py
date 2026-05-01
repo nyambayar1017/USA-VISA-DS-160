@@ -18574,6 +18574,112 @@ def handle_translate_text(environ, start_response):
     return json_response(start_response, "200 OK", {"text": out})
 
 
+def handle_translate_batch(environ, start_response):
+    """POST /api/translate-batch — body: {text, html, from, targets:[...]}.
+    Asks Claude in one round-trip to return a JSON map of translations
+    for every target language. Trades 8 concurrent 60s requests
+    (which over-saturated the WSGI server and tripped Render's
+    proxy timeout) for one ~60-90s request that the client awaits
+    once. Same single-trip approach the OpenAI batch APIs use."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    import io as _io
+    payload = collect_json(environ) or {}
+    text = str(payload.get("text") or "").strip()
+    src = str(payload.get("from") or "en").lower()[:2]
+    is_html = bool(payload.get("html"))
+    raw_targets = payload.get("targets") or []
+    if not isinstance(raw_targets, list):
+        return json_response(start_response, "400 Bad Request", {"error": "targets must be a list of language codes"})
+    targets = [str(t).lower()[:2] for t in raw_targets if str(t).lower()[:2] in _TRANSLATE_LANG_NAMES and str(t).lower()[:2] != src]
+    if not text:
+        return json_response(start_response, "200 OK", {"translations": {}})
+    if not targets:
+        return json_response(start_response, "200 OK", {"translations": {}})
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return json_response(start_response, "500 Internal Server Error", {"error": "Translation engine not configured."})
+    src_name = _TRANSLATE_LANG_NAMES.get(src, src)
+    target_lines = "\n".join(f"  - {code}: {_TRANSLATE_LANG_NAMES.get(code, code)}" for code in targets)
+    if is_html:
+        instruction = (
+            f"You are a professional travel-content translator. Translate the source HTML "
+            f"from {src_name} into each of these target languages:\n{target_lines}\n\n"
+            f"Preserve all HTML tags exactly (p, h2, h3, ul, ol, li, strong, em, a, br) — "
+            f"only translate the human-readable text between tags. Return ONLY a JSON object "
+            f"of the shape {{\"<code>\": \"<translated html>\"}} with one key per target "
+            f"language code. No markdown fences, no commentary, no preamble."
+        )
+    else:
+        instruction = (
+            f"You are a professional travel-content translator. Translate the source text "
+            f"from {src_name} into each of these target languages:\n{target_lines}\n\n"
+            f"Use natural, idiomatic phrasing appropriate for a travel website. Return ONLY "
+            f"a JSON object of the shape {{\"<code>\": \"<translated text>\"}} with one key "
+            f"per target language code. No markdown fences, no commentary, no preamble."
+        )
+    body = {
+        "model": AGENT_MODEL,
+        # Big budget — 8 languages × long description × translation expansion
+        # can hit 30K output tokens for a substantial source.
+        "max_tokens": 32768,
+        "system": instruction,
+        "messages": [{"role": "user", "content": text}],
+    }
+    try:
+        data = json.dumps(body).encode("utf-8")
+    except Exception as e:
+        return json_response(start_response, "500 Internal Server Error", {"error": f"Serialization failed: {e}"})
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=data, method="POST", headers={
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8")
+        except Exception:
+            err_body = str(e)
+        return json_response(start_response, "502 Bad Gateway", {"error": f"Anthropic API error {e.code}: {err_body[:300]}"})
+    except Exception as e:
+        return json_response(start_response, "502 Bad Gateway", {"error": f"{type(e).__name__}: {e}"})
+    out_parts = []
+    for block in result.get("content") or []:
+        if block.get("type") == "text":
+            out_parts.append(block.get("text") or "")
+    raw = "".join(out_parts).strip()
+    if result.get("stop_reason") == "max_tokens":
+        return json_response(start_response, "502 Bad Gateway", {
+            "error": "Description too long for one batch — split into shorter sections.",
+        })
+    # Strip any accidental markdown fence Claude sometimes adds despite the
+    # instruction, then parse the JSON map.
+    cleaned = raw
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.MULTILINE).strip()
+    try:
+        translations = json.loads(cleaned)
+    except Exception:
+        # Fall back: try to extract the first {...} block.
+        m = re.search(r"\{[\s\S]*\}", cleaned)
+        if not m:
+            return json_response(start_response, "502 Bad Gateway", {"error": "Could not parse translations from model output."})
+        try:
+            translations = json.loads(m.group(0))
+        except Exception:
+            return json_response(start_response, "502 Bad Gateway", {"error": "Could not parse translations from model output."})
+    if not isinstance(translations, dict):
+        return json_response(start_response, "502 Bad Gateway", {"error": "Translation output had unexpected shape."})
+    # Filter to known codes only.
+    safe = {code: str(val) for code, val in translations.items()
+            if code in _TRANSLATE_LANG_NAMES and isinstance(val, str)}
+    return json_response(start_response, "200 OK", {"translations": safe})
+
+
 def _agent_call_anthropic(system, messages, tools):
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
@@ -19154,6 +19260,11 @@ def _dispatch(environ, start_response):
     if path == "/api/translate":
         if method == "POST":
             return handle_translate_text(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/translate-batch":
+        if method == "POST":
+            return handle_translate_batch(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/tourist-groups":
