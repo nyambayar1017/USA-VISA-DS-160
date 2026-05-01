@@ -1201,11 +1201,36 @@ async function openPaymentRequestApproveModal(requestId) {
   // Outgoing payments need the accountant to record which OF OUR
   // bank accounts paid the bill. Incoming requests already carried
   // the receiving-bank choice from the manager's request modal.
-  // Pre-load the bank list once per modal open.
-  const bankOpts = (expenseSettings.bankAccounts || []).map((b) => {
+  // Filter the workspace bank list by the request's currency +
+  // workspace (DTX/USM) — same rule the invoice "Register payment"
+  // modal uses, so a MNT request only shows MNT bank accounts.
+  const requestCurrency = (r.currency || "").toUpperCase();
+  const requestWorkspace = (r.workspace || "").toUpperCase();
+  const allBanks = expenseSettings.bankAccounts || [];
+  const matchesCurrency = (b) => !requestCurrency || (b.currency || "").toUpperCase() === requestCurrency;
+  const matchesCompany = (b) => !requestWorkspace || (b.company || "").toUpperCase() === requestWorkspace;
+  let filteredBanks = allBanks.filter((b) => matchesCurrency(b) && matchesCompany(b));
+  // Fallback chain so the picker doesn't strand the user: try
+  // currency-only, then workspace-only, then everything. Each
+  // fallback flips a flag the picker hint reads.
+  let bankFallback = "";
+  if (!filteredBanks.length) {
+    filteredBanks = allBanks.filter(matchesCurrency);
+    if (filteredBanks.length) bankFallback = `No ${requestWorkspace} ${requestCurrency} accounts — showing every ${requestCurrency} account.`;
+  }
+  if (!filteredBanks.length) {
+    filteredBanks = allBanks.filter(matchesCompany);
+    if (filteredBanks.length) bankFallback = `No ${requestCurrency} accounts for ${requestWorkspace} — showing every ${requestWorkspace} account.`;
+  }
+  if (!filteredBanks.length) {
+    filteredBanks = allBanks;
+    if (allBanks.length) bankFallback = "Showing every saved bank account — none match this request's currency / workspace.";
+  }
+  const bankOpts = filteredBanks.map((b) => {
     const sel = (r.bankAccountId || "") === b.id ? "selected" : "";
     const label = b.label || `${b.bankName || ""} · ${b.accountNumber || ""}`;
-    return `<option value="${escapeHtml(b.id)}" ${sel}>${escapeHtml(label)}</option>`;
+    const ccyTag = b.currency ? ` (${b.currency.toUpperCase()})` : "";
+    return `<option value="${escapeHtml(b.id)}" ${sel}>${escapeHtml(label + ccyTag)}</option>`;
   }).join("");
 
   body.innerHTML = `
@@ -1226,6 +1251,7 @@ async function openPaymentRequestApproveModal(requestId) {
           <option value="">— Pick the bank ${isOutgoing ? "we paid from" : "that received the payment"} —</option>
           ${bankOpts}
         </select>
+        <small class="form-hint">${escapeHtml(bankFallback || `Showing ${requestWorkspace} ${requestCurrency} accounts.`)}</small>
       </label>
       ${isOutgoing ? `
         <label class="payment-approve-file-label" style="margin-top:14px;">
