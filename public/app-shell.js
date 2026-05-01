@@ -854,7 +854,11 @@ async function loadExpenseSettings() {
       fetch("/api/settings").then((r) => r.ok ? r.json() : null),
       fetch("/api/camp-trips").then((r) => r.ok ? r.json() : { entries: [] }),
     ]);
-    expenseSettings = settingsRes || expenseSettings;
+    // /api/settings wraps the payload in `{ entry: { ... } }` —
+    // accept either shape so this keeps working if the endpoint
+    // is ever flattened.
+    const s = settingsRes?.entry || settingsRes;
+    if (s && typeof s === "object") expenseSettings = s;
     expenseTrips = (tripsRes?.entries || []).map((t) => ({ id: t.id, name: t.tripName || t.serial || t.id, serial: t.serial || "" }));
   } catch {}
 }

@@ -313,6 +313,11 @@
         if (canDelete) {
           items.push(`<button type="button" class="row-action-item is-danger" data-acct-delete data-trip="${escapeHtml(r.tripId)}" data-doc="${escapeHtml(r.paidDocumentId)}" data-name="${escapeHtml(r.paidDocumentName || "")}">Delete</button>`);
         }
+      } else if (!isPending && canApprove) {
+        // Approved row with no receipt yet (registered without
+        // document, or a legacy paid invoice). Offer an Upload action
+        // so the accountant can attach the bank receipt later.
+        items.push(`<button type="button" class="row-action-item" data-acct-upload-doc data-id="${escapeHtml(r.id)}">⬆ Upload receipt</button>`);
       }
       // Always offer "Delete request" for admin/accountant so orphan
       // records (e.g. approvals from before the auto-attach landed,
@@ -414,6 +419,34 @@
       if (typeof window.openPaymentRequestApproveModal === "function") {
         window.openPaymentRequestApproveModal(registerBtn.dataset.id);
       }
+      return;
+    }
+    const uploadBtn = e.target.closest("[data-acct-upload-doc]");
+    if (uploadBtn) {
+      e.preventDefault();
+      const id = uploadBtn.dataset.id;
+      const picker = document.createElement("input");
+      picker.type = "file";
+      picker.accept = ".pdf,.png,.jpg,.jpeg,.gif";
+      picker.addEventListener("change", async () => {
+        const file = picker.files?.[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append("file", file, file.name);
+        try {
+          const r = await fetch(`/api/payment-requests/${encodeURIComponent(id)}/document`, {
+            method: "POST",
+            body: fd,
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || "Upload failed");
+          window.UI?.toast?.("Receipt uploaded.", "ok");
+          load();
+        } catch (err) {
+          window.UI?.alert ? window.UI.alert(err.message || "Upload failed") : alert(err.message || "Upload failed");
+        }
+      });
+      picker.click();
       return;
     }
     const renameBtn = e.target.closest("[data-acct-rename]");

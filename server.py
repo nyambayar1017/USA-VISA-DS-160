@@ -9218,6 +9218,51 @@ def handle_approve_payment_request(environ, start_response, request_id):
     return json_response(start_response, "200 OK", {"ok": True, "entry": target, "invoice": invoice})
 
 
+def handle_attach_payment_document(environ, start_response, request_id):
+    """Late-attach a receipt to an already-approved payment-request.
+    Used by the Accountant page when an entry was either approved
+    via "Register without document" or backfilled from a legacy
+    paid invoice. Same storage paths the regular approve flow uses,
+    so the file shows up under the trip's Paid documents (or the
+    _office bucket when there's no trip)."""
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    if not _can_approve_payment_request(actor):
+        return json_response(start_response, "403 Forbidden", {"error": "Only admin / accountant can attach receipts."})
+    content_type = environ.get("CONTENT_TYPE", "")
+    if "multipart/form-data" not in content_type:
+        return json_response(start_response, "400 Bad Request", {"error": "Multipart upload required."})
+    fields, files = parse_multipart(environ)
+    upload = files.get("file")
+    if not upload:
+        return json_response(start_response, "400 Bad Request", {"error": "No file uploaded."})
+
+    records = read_payment_requests()
+    target = next((r for r in records if r.get("id") == request_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Request not found"})
+
+    paid_doc_id = ""
+    if target.get("tripId"):
+        paid_doc_id = _attach_paid_document_to_trip(target["tripId"], upload, actor) or ""
+    if not paid_doc_id:
+        attached = _attach_orphan_paid_document(upload, actor)
+        if attached:
+            paid_doc_id = attached["id"]
+            target["paidDocumentMeta"] = attached
+    if not paid_doc_id:
+        return json_response(start_response, "400 Bad Request", {"error": "Could not save the file (unsupported type or too large)."})
+
+    target["paidDocumentId"] = paid_doc_id
+    for i, r in enumerate(records):
+        if r.get("id") == request_id:
+            records[i] = target
+            break
+    write_payment_requests(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": target})
+
+
 def handle_reject_payment_request(environ, start_response, request_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -18600,6 +18645,12 @@ def _dispatch(environ, start_response):
         request_id = path.replace("/api/payment-requests/", "", 1).replace("/approve", "", 1).strip("/")
         if method == "POST" and request_id:
             return handle_approve_payment_request(environ, start_response, request_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/payment-requests/") and path.endswith("/document"):
+        request_id = path.replace("/api/payment-requests/", "", 1).replace("/document", "", 1).strip("/")
+        if method == "POST" and request_id:
+            return handle_attach_payment_document(environ, start_response, request_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path.startswith("/api/payment-requests/") and path.endswith("/reject"):
