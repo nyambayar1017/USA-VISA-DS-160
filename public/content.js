@@ -132,19 +132,46 @@
   // survive into every language version.
   async function translateText(text, targetLang, isHtml) {
     if (!text || targetLang === "en") return text;
-    try {
-      const res = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, from: "en", to: targetLang, html: !!isHtml }),
-      });
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, from: "en", to: targetLang, html: !!isHtml }),
+    });
+    // The proxy can return an HTML error page (Render 502 / 504) when
+    // a request runs too long. Parsing that as JSON throws "Unexpected
+    // token '<'..." — read text once and decide based on content-type.
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Translation failed");
+      if (!res.ok) throw new Error(data.error || `Translation failed (${res.status})`);
       return data.text || "";
-    } catch (err) {
-      console.warn("translate", targetLang, err);
-      throw err;
     }
+    const body = await res.text();
+    if (res.status === 502 || res.status === 504 || /timeout/i.test(body)) {
+      throw new Error("Server timed out — try fewer languages at once or shorter sections.");
+    }
+    throw new Error(`Translation failed (${res.status})`);
+  }
+
+  // Throttle concurrent requests so the WSGI server isn't slammed
+  // with 16 long-running Anthropic calls at once (which causes the
+  // proxy to time out and return HTML instead of JSON). 4 in flight
+  // is roughly the sweet spot — fast enough that wall time is ≈ 2x
+  // a single call, slow enough that the server keeps up.
+  async function poolMap(items, limit, fn) {
+    const results = new Array(items.length);
+    let cursor = 0;
+    async function worker() {
+      while (true) {
+        const i = cursor++;
+        if (i >= items.length) return;
+        try { results[i] = await fn(items[i], i); }
+        catch (err) { results[i] = { __error: err }; }
+      }
+    }
+    const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+    await Promise.all(workers);
+    return results;
   }
 
   // Translate the English title + summary into every other language
@@ -197,7 +224,10 @@
       // completes so the user sees real-time progress.
       renderLangBar();
     };
-    const tasks = targets.map(async (lang) => {
+    // Throttle to 4 concurrent languages (each fires title + summary
+    // in parallel internally). Server stays responsive, proxy doesn't
+    // time out, the JSON-parse "Unexpected token '<'" stops happening.
+    await poolMap(targets, 4, async (lang) => {
       const haveTitle = (i18n.title[lang.code] || "").trim();
       const haveSummary = (i18n.summary[lang.code] || "").trim();
       try {
@@ -217,7 +247,6 @@
         tick();
       }
     });
-    await Promise.all(tasks);
     translateAllBtn.disabled = false;
     if (firstError && done === 0) {
       translateStatus.textContent = "Translation failed: " + firstError;
