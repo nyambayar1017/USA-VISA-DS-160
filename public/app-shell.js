@@ -1233,10 +1233,17 @@ async function openPaymentRequestApproveModal(requestId) {
     return `<option value="${escapeHtml(b.id)}" ${sel}>${escapeHtml(label + ccyTag)}</option>`;
   }).join("");
 
+  // "Open the trip" link so the accountant can verify the request
+  // against the trip's details before approving. Hidden when the
+  // request isn't tied to a trip (office expenses).
+  const tripCell = r.tripId
+    ? `<a href="/trip-detail?tripId=${encodeURIComponent(r.tripId)}" target="_blank" rel="noreferrer" class="trip-name-link">${escapeHtml(r.tripName || r.tripSerial || "Open trip ↗")}</a>`
+    : `<span class="muted">—</span>`;
   body.innerHTML = `
     <dl class="payment-approve-details">
       <div><dt>${isOutgoing ? "Payee" : "Invoice"}</dt><dd>${escapeHtml(isOutgoing ? (r.payeeName || "-") : (r.invoiceSerial || "-"))}</dd></div>
       <div><dt>${isOutgoing ? "Category" : "Installment"}</dt><dd>${escapeHtml(isOutgoing ? (r.category || "-") : (r.installmentDescription || "-"))}</dd></div>
+      <div><dt>Trip</dt><dd>${tripCell}</dd></div>
       ${isOutgoing ? "" : `<div><dt>Payer</dt><dd>${escapeHtml(r.payerName || "-")}</dd></div>`}
       <div><dt>Amount</dt><dd>${escapeHtml(amount)}</dd></div>
       ${isOutgoing
