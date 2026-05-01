@@ -9315,12 +9315,48 @@ def handle_delete_payment_request(environ, start_response, request_id):
     actor = require_login(environ, start_response)
     if not actor:
         return []
+
+    # Legacy ledger rows are synthetic — they're paid-invoice
+    # installments surfaced into the Accountant page that have no real
+    # payment_request record. Their id is "legacy-<invoiceId>-<idx>".
+    # Deleting one means: unmark that invoice installment as paid.
+    if request_id.startswith("legacy-"):
+        if not _can_approve_payment_request(actor):
+            return json_response(start_response, "403 Forbidden", {"error": "Only admin / accountant can unmark paid invoices."})
+        # Strip the "legacy-" prefix and split off the trailing -<idx>.
+        rest = request_id[len("legacy-"):]
+        try:
+            invoice_id, idx_str = rest.rsplit("-", 1)
+            inst_index = int(idx_str)
+        except (ValueError, AttributeError):
+            return json_response(start_response, "404 Not Found", {"error": "Bad legacy id"})
+        invoices = read_invoices()
+        for i, inv in enumerate(invoices):
+            if inv.get("id") != invoice_id:
+                continue
+            installments = list(inv.get("installments") or [])
+            if inst_index < 0 or inst_index >= len(installments):
+                return json_response(start_response, "400 Bad Request", {"error": "Installment out of range"})
+            inst = installments[inst_index]
+            inst["status"] = "pending"
+            for k in ("paidDate", "paidAmount", "bankAccountId", "bankAccount", "paidBy", "paidAt"):
+                if k in inst:
+                    inst[k] = "" if k != "paidAmount" else 0
+            installments[inst_index] = inst
+            invoices[i] = {**inv, "installments": installments,
+                           "updatedAt": now_mongolia().isoformat(),
+                           "updatedBy": actor_snapshot(actor)}
+            write_invoices(invoices)
+            return json_response(start_response, "200 OK", {"ok": True, "legacy": True})
+        return json_response(start_response, "404 Not Found", {"error": "Invoice not found"})
+
     records = read_payment_requests()
     target = next((r for r in records if r.get("id") == request_id), None)
     if not target:
         return json_response(start_response, "404 Not Found", {"error": "Request not found"})
     # Requesters can cancel their own pending request; admins/accountants
-    # can delete anything.
+    # can delete anything (including approved, which keeps the invoice
+    # paid status — the row just disappears from the ledger).
     can_delete = (
         _can_approve_payment_request(actor)
         or ((target.get("requestedBy") or {}).get("id") == actor.get("id")
