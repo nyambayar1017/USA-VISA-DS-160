@@ -14658,9 +14658,9 @@ body.trip-notes-drawer-open { overflow: hidden; }
 /* ── Public client-facing trip brochure (/trip/<id>) ──────────────── */
 .trip-public-body {
   margin: 0;
-  font-family: "Montserrat", system-ui, sans-serif;
-  background: #f4f6fb;
-  color: #1f2937;
+  font-family: "Plus Jakarta Sans", "Montserrat", system-ui, sans-serif;
+  background: #faf6ef;
+  color: #1f1b16;
 }
 .trip-public {
   max-width: 880px;
@@ -17770,18 +17770,18 @@ body.trip-popup-open { overflow: hidden; }
 }
 
 /* ── Content gallery (replaces hero + side thumbs) ───────────────── */
-/* Content-view image mosaic — matches the trip-public ContentModal:
-   featured tile on the left spans both rows, two thumbs stack on
-   the top right, bottom right spans both right cols. With more
-   than 4 images, the bottom-right tile shows a "+N more" badge. */
+/* Content-view image mosaic — circular tiles per the original
+   public-trip design the manager referenced: featured oval on
+   the left, two small circles on the top right, and a wide pill
+   on the bottom right with "+N more" overlay when there are
+   extra photos. */
 .content-gallery {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  grid-template-rows: 200px 200px;
-  gap: 4px;
-  padding: 4px;
-  background: #f1f5f9;
-  border-radius: 12px;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  grid-template-rows: 220px 220px;
+  gap: 14px;
+  padding: 0;
+  background: transparent;
 }
 .content-gallery.is-single {
   grid-template-columns: 1fr;
@@ -17792,8 +17792,8 @@ body.trip-popup-open { overflow: hidden; }
   grid-template-rows: 320px;
 }
 .content-gallery.is-triple {
-  grid-template-columns: 2fr 1fr;
-  grid-template-rows: 200px 200px;
+  grid-template-columns: 1.4fr 1fr;
+  grid-template-rows: 220px 220px;
 }
 .content-gallery-tile {
   position: relative;
@@ -17802,35 +17802,49 @@ body.trip-popup-open { overflow: hidden; }
   background: #e2e8f0;
   overflow: hidden;
   cursor: zoom-in;
+  border-radius: 50%;  /* default: circle for the small thumbs */
 }
 .content-gallery-tile img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 200ms ease;
+  transition: transform 250ms ease;
 }
 .content-gallery-tile:hover img { transform: scale(1.04); }
-/* Featured (first) tile spans both rows on the left; default
-   layout (4+ images) lays out as 2fr | 1fr | 1fr. */
+
+/* Featured (first) tile spans both rows on the left, rendered as
+   an oval that fills the column (heavy border-radius gives it
+   the soft round-ended look from the reference design). */
 .content-gallery:not(.is-single):not(.is-pair) .content-gallery-tile.is-featured {
   grid-row: 1 / 3;
-  border-top-left-radius: 10px;
-  border-bottom-left-radius: 10px;
+  border-radius: 50% / 40%;
 }
-.content-gallery:not(.is-single) .content-gallery-tile:nth-child(3) { border-top-right-radius: 10px; }
-.content-gallery:not(.is-single) .content-gallery-tile:nth-child(4) {
+
+/* 4+ images: bottom-right pill spans the right two cols. */
+.content-gallery:not(.is-single):not(.is-pair):not(.is-triple) .content-gallery-tile:nth-child(4) {
   grid-column: 2 / 4;
-  border-bottom-right-radius: 10px;
+  border-radius: 999px;
 }
-.content-gallery.is-triple .content-gallery-tile:nth-child(2) { border-top-right-radius: 10px; }
+
+/* 3 images: featured + two thumbs stacked on the right. */
+.content-gallery.is-triple .content-gallery-tile.is-featured {
+  grid-row: 1 / 3;
+  border-radius: 50% / 40%;
+}
+.content-gallery.is-triple .content-gallery-tile:nth-child(2),
 .content-gallery.is-triple .content-gallery-tile:nth-child(3) {
-  grid-column: 2 / 3;
-  border-bottom-right-radius: 10px;
+  border-radius: 50%;
 }
-.content-gallery.is-pair .content-gallery-tile:nth-child(1) { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
-.content-gallery.is-pair .content-gallery-tile:nth-child(2) { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
-.content-gallery.is-single .content-gallery-tile { border-radius: 10px; }
+
+/* 2 images: side-by-side ovals. */
+.content-gallery.is-pair .content-gallery-tile { border-radius: 50% / 40%; }
+
+/* 1 image: a single big oval/pill. */
+.content-gallery.is-single .content-gallery-tile { border-radius: 50% / 38%; }
+
+/* "+N more" badge on the last visible tile when there are more
+   photos in the lightbox. */
 .content-gallery-more {
   position: absolute;
   inset: 0;
@@ -17843,20 +17857,25 @@ body.trip-popup-open { overflow: hidden; }
   font-size: 14px;
   font-weight: 600;
   pointer-events: none;
+  border-radius: inherit;
 }
+
 @media (max-width: 720px) {
   .content-gallery,
   .content-gallery.is-triple {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 160px 160px;
+    grid-template-rows: 180px 180px;
+    gap: 10px;
   }
   .content-gallery:not(.is-single):not(.is-pair) .content-gallery-tile.is-featured {
     grid-row: 1 / 2;
     grid-column: 1 / 3;
-    height: 220px;
+    height: 240px;
+    border-radius: 50% / 35%;
   }
-  .content-gallery:not(.is-single) .content-gallery-tile:nth-child(4) {
+  .content-gallery:not(.is-single):not(.is-pair):not(.is-triple) .content-gallery-tile:nth-child(4) {
     grid-column: auto;
+    border-radius: 50%;
   }
 }
 
