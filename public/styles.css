@@ -15287,14 +15287,20 @@ body.gallery-file-drag .gallery-folder-card.is-drop-hover {
     gap: 10px;
     padding: 8px 10px;
     grid-template-columns: none;
+    min-height: 80px;
   }
-  .gallery-grid--list .gallery-select { flex: 0 0 auto; }
+  .gallery-grid--list .gallery-select { flex: 0 0 auto; position: static !important; }
   .gallery-grid--list .gallery-thumb {
     flex: 0 0 64px;
     width: 64px;
     height: 64px;
     min-height: 64px;
     aspect-ratio: 1;
+  }
+  .gallery-grid--list .gallery-thumb img {
+    width: 64px !important;
+    height: 64px !important;
+    object-fit: cover;
   }
   .gallery-grid--list .gallery-card-body {
     display: flex !important;
@@ -15318,13 +15324,24 @@ body.gallery-file-drag .gallery-folder-card.is-drop-hover {
   .gallery-grid--compact {
     grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important;
   }
+  .gallery-grid--compact .gallery-card {
+    min-height: 110px;
+  }
   .gallery-grid--compact .gallery-thumb {
     aspect-ratio: 1;
     min-height: 90px;
+    height: 90px;
+  }
+  .gallery-grid--compact .gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    min-height: 90px;
+    object-fit: cover;
   }
 
   /* Icon view safety net for the same browsers. */
   .gallery-grid--icons .gallery-thumb { min-height: 120px; }
+  .gallery-grid--icons .gallery-thumb img { min-height: 120px; }
 }
 
 /* Group-by headers shown when state.group !== "none" */
