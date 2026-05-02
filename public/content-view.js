@@ -155,29 +155,33 @@
     // so the page paints fast.
     const urlsAttr = escapeHtml(JSON.stringify(images));
     const sizedThumb = (url, size) => url + (url.includes("?") ? "&" : "?") + "size=" + size;
-    // Mosaic that mirrors the trip-public ContentModal: featured
-    // big tile on the left, 2 thumbs stacked on the right top row,
-    // bottom row spans the right 2/3 width with a "+N more" badge
-    // when there are more photos than the 4 tiles we show. Click
-    // any tile (or the +N) to open the lightbox over all images.
-    const showCount = Math.min(images.length, 4);
-    const moreCount = Math.max(0, images.length - showCount);
+    // Mosaic that's literally the trip-public ContentModal layout:
+    // 4 fixed tile slots (featured + 2 small right + bottom-right
+    // span) at 2fr / 1fr / 1fr × 200px × 200px. The 4th slot
+    // carries the "+N more" overlay when there are more photos
+    // than the 4 visible tiles.
+    const moreCount = Math.max(0, images.length - 4);
+    function tileImage(idx) {
+      return images[idx] || images[1] || images[0] || "";
+    }
     const galleryHtml = images.length
       ? `
-        <div class="content-gallery${images.length === 1 ? " is-single" : (showCount === 2 ? " is-pair" : (showCount === 3 ? " is-triple" : ""))}">
-          ${images.slice(0, showCount).map((url, i) => {
-            const variant = (i === 0 && images.length > 1) ? "medium" : "thumb";
-            const isLast = i === showCount - 1;
-            const badge = (isLast && moreCount > 0)
-              ? `<span class="content-gallery-more">🖼 +${moreCount} more</span>`
-              : "";
-            return `
-              <button type="button" class="content-gallery-tile${i === 0 ? " is-featured" : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${i}">
-                <img src="${escapeHtml(sizedThumb(url, variant))}" alt="" loading="lazy" />
-                ${badge}
-              </button>
-            `;
-          }).join("")}
+        <div class="content-gallery${images.length === 1 ? " is-single" : ""}">
+          <button type="button" class="content-gallery-tile is-featured" data-lightbox-urls="${urlsAttr}" data-lightbox-index="0">
+            <img src="${escapeHtml(sizedThumb(images[0], "medium"))}" alt="" loading="lazy" />
+          </button>
+          ${images.length > 1 ? `
+            <button type="button" class="content-gallery-tile" data-lightbox-urls="${urlsAttr}" data-lightbox-index="1">
+              <img src="${escapeHtml(sizedThumb(tileImage(1), "thumb"))}" alt="" loading="lazy" />
+            </button>
+            <button type="button" class="content-gallery-tile" data-lightbox-urls="${urlsAttr}" data-lightbox-index="2">
+              <img src="${escapeHtml(sizedThumb(tileImage(2), "thumb"))}" alt="" loading="lazy" />
+            </button>
+            <button type="button" class="content-gallery-tile is-bottom" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${moreCount > 0 ? 3 : 1}">
+              <img src="${escapeHtml(sizedThumb(tileImage(3), "thumb"))}" alt="" loading="lazy" />
+              ${moreCount > 0 ? `<span class="content-gallery-more"><span class="content-gallery-more-icon">🖼</span> +${moreCount} more</span>` : ""}
+            </button>
+          ` : ""}
         </div>
       `
       : "";
