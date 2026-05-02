@@ -201,6 +201,13 @@
     renderProgram(current);
   });
 
+  document.getElementById("tc-clear-days").addEventListener("click", () => {
+    const current = readProgram();
+    if (!current.length) return;
+    if (!confirm(`Remove all ${current.length} day(s) from this trip's program? You can rebuild with + Add day.`)) return;
+    renderProgram([]);
+  });
+
   // Location picker: filling a day's location auto-fills the title in
   // the trip's language and pushes the location's first photo into the
   // day if no photo is set yet. The user can override afterwards — we
