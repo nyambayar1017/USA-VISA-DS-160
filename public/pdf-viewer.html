@@ -183,6 +183,22 @@
         font-size: 14px;
         margin-top: 40px;
       }
+
+      /* ── Mobile: hide sidebar, fit page to viewport, collapse
+            decorative padding so the contract / invoice fills the
+            screen instead of being cropped at the right edge. ── */
+      @media (max-width: 720px) {
+        .toolbar { gap: 8px; padding: 0 8px; }
+        .toolbar-title { font-size: 12px; }
+        .toolbar-nav { gap: 2px; font-size: 12px; }
+        #page-info { min-width: 44px; font-size: 12px; }
+        #zoom-pct { display: none; }
+        .zoom-group { gap: 0; }
+        .tb-btn { padding: 4px 6px; font-size: 14px; }
+        .tb-download { padding: 4px 8px; font-size: 11px; }
+        .sidebar { display: none; }
+        .main { padding: 8px 4px; gap: 10px; }
+      }
     </style>
   </head>
   <body>
@@ -297,12 +313,34 @@
         return best;
       }
 
+      async function fitWidthScale() {
+        // Pick a scale so the rendered page exactly fills the
+        // available main-pane width (minus a 12px breathing room
+        // each side). On phones this means the contract/invoice
+        // is no longer cropped at the right edge.
+        try {
+          const page = await pdfDoc.getPage(1);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const mainStyles = getComputedStyle(mainEl);
+          const padX = parseFloat(mainStyles.paddingLeft || "0") + parseFloat(mainStyles.paddingRight || "0");
+          const available = Math.max(mainEl.clientWidth - padX - 4, 200);
+          return Math.max(0.5, Math.min(3.0, available / baseViewport.width));
+        } catch (_) { return scale; }
+      }
+
       async function loadPDF() {
         try {
           pdfDoc = await pdfjsLib.getDocument(src).promise;
         } catch (e) {
           document.getElementById("status").textContent = "Could not load PDF.";
           return;
+        }
+
+        // Mobile / narrow viewport: start at fit-width scale so the
+        // page is fully visible without horizontal scrolling.
+        if (window.innerWidth <= 720) {
+          scale = await fitWidthScale();
+          updateZoomDisplay();
         }
 
         document.getElementById("status")?.remove();
@@ -390,6 +428,20 @@
       } else {
         document.getElementById("status").textContent = "No PDF source provided.";
       }
+
+      // Re-fit on rotation / resize so a phone landscape ↔ portrait
+      // flip rescales the page instead of leaving it cropped.
+      let resizeTimer = null;
+      window.addEventListener("resize", () => {
+        if (!pdfDoc) return;
+        if (window.innerWidth > 720) return;
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(async () => {
+          scale = await fitWidthScale();
+          updateZoomDisplay();
+          reRenderMain();
+        }, 200);
+      });
     </script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
