@@ -4097,6 +4097,50 @@ time {
   border-color: #d6dae3;
   box-shadow: none;
 }
+/* @-mention popover for inserting {{tokens}} */
+.contract-token-popover {
+  background: #fff;
+  border: 1px solid #d6dae3;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(23, 39, 83, 0.15);
+  min-width: 300px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  font-size: 13px;
+}
+.contract-token-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.contract-token-option strong {
+  color: #c44747;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.contract-token-option span {
+  color: #5b6470;
+  font-size: 12px;
+}
+.contract-token-option:hover,
+.contract-token-option.is-active {
+  background: rgba(47, 96, 200, 0.10);
+}
+.contract-token-empty {
+  padding: 10px 12px;
+  color: #5b6470;
+  font-size: 13px;
+}
 /* The red highlight that surrounds every {{token}} placeholder so
    managers can see at a glance which words will be replaced when
    the template is used to render a real contract. */

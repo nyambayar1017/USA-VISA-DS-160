@@ -1170,6 +1170,225 @@ const initContractForm = () => {
     }
   });
 
+  // ── @-autocomplete for {{tokens}} inside template paragraphs ──
+  // Manager types @ → a small popover shows the full token list,
+  // typing more letters filters, Enter / click inserts the chosen
+  // {{tokenName}} (already wrapped in the red contract-var span).
+  const TOKEN_OPTIONS = [
+    { token: "contractSerial",         label: "Contract serial" },
+    { token: "contractDate",           label: "Contract date" },
+    { token: "tripStartDate",          label: "Trip start date" },
+    { token: "tripEndDate",            label: "Trip end date" },
+    { token: "tripDuration",           label: "Trip duration (e.g. 8 өдөр 7 шөнө)" },
+    { token: "destination",            label: "Destination / direction" },
+    { token: "managerLastName",        label: "Manager last name" },
+    { token: "managerFirstName",       label: "Manager first name" },
+    { token: "managerFormalName",      label: "Manager formal name" },
+    { token: "managerEmail",           label: "Manager email" },
+    { token: "managerPhone",           label: "Manager phone" },
+    { token: "touristLastName",        label: "Tourist last name" },
+    { token: "touristFirstName",       label: "Tourist first name" },
+    { token: "touristRegister",        label: "Tourist register (РД)" },
+    { token: "travelerCount",          label: "Total traveler count" },
+    { token: "adultCount",             label: "Adult count" },
+    { token: "childCount",             label: "Child count" },
+    { token: "infantCount",            label: "Infant count" },
+    { token: "totalPrice",             label: "Total price" },
+    { token: "adultPrice",             label: "Adult price" },
+    { token: "childPrice",             label: "Child price" },
+    { token: "infantPrice",            label: "Infant price" },
+    { token: "depositAmount",          label: "Deposit amount" },
+    { token: "balanceAmount",          label: "Balance amount" },
+    { token: "depositDueDate",         label: "Deposit due date" },
+    { token: "balanceDueDate",         label: "Balance due date" },
+    { token: "bankPhrase",             label: "Bank — chosen on contract form" },
+    { token: "clientPhone",            label: "Client phone" },
+    { token: "emergencyContactName",   label: "Emergency contact name" },
+    { token: "emergencyContactPhone",  label: "Emergency contact phone" },
+    { token: "emergencyContactRelation", label: "Emergency contact relation" },
+    { token: "paymentParagraph",       label: "Payment paragraph (computed)" },
+    { token: "depositParagraph",       label: "Deposit paragraph (computed)" },
+    { token: "balanceParagraph",       label: "Balance paragraph (computed)" },
+  ];
+
+  let tokenPopover = null;
+  let tokenPopoverState = null;  // {anchor, queryStart, query, items, selected}
+
+  function ensureTokenPopover() {
+    if (tokenPopover) return tokenPopover;
+    tokenPopover = document.createElement("div");
+    tokenPopover.className = "contract-token-popover";
+    tokenPopover.style.position = "fixed";
+    tokenPopover.style.zIndex = "10000";
+    tokenPopover.style.display = "none";
+    document.body.appendChild(tokenPopover);
+    return tokenPopover;
+  }
+
+  function closeTokenPopover() {
+    if (!tokenPopoverState) return;
+    if (tokenPopover) tokenPopover.style.display = "none";
+    tokenPopoverState = null;
+  }
+
+  function renderTokenPopover() {
+    if (!tokenPopoverState) return;
+    const items = tokenPopoverState.items;
+    if (!items.length) {
+      tokenPopover.innerHTML = `<div class="contract-token-empty">No matching token</div>`;
+      return;
+    }
+    tokenPopover.innerHTML = items.map((opt, i) => `
+      <button type="button" class="contract-token-option${i === tokenPopoverState.selected ? " is-active" : ""}" data-token-pick="${opt.token}">
+        <strong>{{${opt.token}}}</strong>
+        <span>${escText(opt.label)}</span>
+      </button>
+    `).join("");
+  }
+
+  function positionTokenPopover(rect) {
+    if (!tokenPopover) return;
+    const top = rect.bottom + 4;
+    const left = rect.left;
+    tokenPopover.style.top = `${top}px`;
+    tokenPopover.style.left = `${left}px`;
+  }
+
+  function filterTokens(query) {
+    const q = String(query || "").toLowerCase();
+    if (!q) return TOKEN_OPTIONS.slice(0, 12);
+    return TOKEN_OPTIONS.filter((opt) =>
+      opt.token.toLowerCase().includes(q) || opt.label.toLowerCase().includes(q)
+    ).slice(0, 12);
+  }
+
+  function selectionRange() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    return sel.getRangeAt(0);
+  }
+
+  function findAtTrigger(node, offset) {
+    // Look back from cursor inside a single text node to find an @
+    // that is at the start or preceded by whitespace. Returns
+    // {atOffset, query} or null.
+    if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+    const text = node.textContent || "";
+    let i = offset;
+    while (i > 0) {
+      const ch = text[i - 1];
+      if (ch === "@") {
+        const before = i - 2 >= 0 ? text[i - 2] : "";
+        if (i - 1 === 0 || /\s/.test(before)) {
+          return { node, atOffset: i - 1, query: text.slice(i, offset) };
+        }
+        return null;
+      }
+      if (/\s/.test(ch)) return null;
+      i -= 1;
+    }
+    return null;
+  }
+
+  function tryOpenTokenPopover() {
+    const range = selectionRange();
+    if (!range || !range.collapsed) return closeTokenPopover();
+    const node = range.startContainer;
+    const host = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    if (!host || !host.closest("[data-paragraph], [data-intro-paragraph]")) return closeTokenPopover();
+    const trigger = findAtTrigger(node, range.startOffset);
+    if (!trigger) return closeTokenPopover();
+    const items = filterTokens(trigger.query);
+    ensureTokenPopover();
+    tokenPopoverState = {
+      paragraphNode: host.closest("[data-paragraph], [data-intro-paragraph]"),
+      textNode: trigger.node,
+      atOffset: trigger.atOffset,
+      query: trigger.query,
+      items,
+      selected: 0,
+    };
+    renderTokenPopover();
+    tokenPopover.style.display = "block";
+    // Position popover at the @ character.
+    const r = document.createRange();
+    r.setStart(trigger.node, trigger.atOffset);
+    r.setEnd(trigger.node, trigger.atOffset + 1);
+    positionTokenPopover(r.getBoundingClientRect());
+  }
+
+  function insertChosenToken(tokenName) {
+    if (!tokenPopoverState) return;
+    const { textNode, atOffset, query } = tokenPopoverState;
+    // Replace "@<query>" in the text node with a contract-var span.
+    const range = document.createRange();
+    range.setStart(textNode, atOffset);
+    range.setEnd(textNode, atOffset + 1 + query.length);
+    range.deleteContents();
+    const span = document.createElement("span");
+    span.className = "contract-var";
+    span.textContent = `{{${tokenName}}}`;
+    range.insertNode(span);
+    // Move cursor after the inserted span and add a trailing space.
+    const space = document.createTextNode(" ");
+    span.parentNode.insertBefore(space, span.nextSibling);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    const after = document.createRange();
+    after.setStartAfter(space);
+    after.collapse(true);
+    sel.addRange(after);
+    closeTokenPopover();
+  }
+
+  // Open / update the popover on every keystroke inside a paragraph.
+  tplSectionsHost?.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!target || !target.matches || !target.matches("[data-paragraph], [data-intro-paragraph]")) return;
+    tryOpenTokenPopover();
+  });
+
+  // Keyboard navigation inside the popover.
+  tplSectionsHost?.addEventListener("keydown", (event) => {
+    if (!tokenPopoverState) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeTokenPopover();
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      tokenPopoverState.selected = Math.min(tokenPopoverState.items.length - 1, tokenPopoverState.selected + 1);
+      renderTokenPopover();
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      tokenPopoverState.selected = Math.max(0, tokenPopoverState.selected - 1);
+      renderTokenPopover();
+      return;
+    }
+    if (event.key === "Enter" || event.key === "Tab") {
+      const opt = tokenPopoverState.items[tokenPopoverState.selected];
+      if (opt) {
+        event.preventDefault();
+        insertChosenToken(opt.token);
+      }
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!tokenPopoverState) return;
+    const pickBtn = event.target.closest("[data-token-pick]");
+    if (pickBtn) {
+      event.preventDefault();
+      insertChosenToken(pickBtn.dataset.tokenPick);
+      return;
+    }
+    // Click outside the popover closes it.
+    if (tokenPopover && !tokenPopover.contains(event.target)) closeTokenPopover();
+  });
+
   // Strip formatting when manager pastes from Word: drop the HTML
   // payload, keep the plain text, and collapse non-breaking spaces
   // / runs of whitespace so justified-text padding from Word doesn't
