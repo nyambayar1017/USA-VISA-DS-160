@@ -111,9 +111,18 @@ const RAW_TRIP = (() => {
 
 // Match the rest of the back-office: tab title shows the trip name +
 // "TravelX" instead of the hard-coded "Family Mongolia Adventure".
+// Favicon swaps to the USM square logo when the trip belongs to the
+// USM workspace; defaults to the DTX favicon already in the <head>.
 try {
   const tripName = (RAW_TRIP && (RAW_TRIP.title || (RAW_TRIP.trip && RAW_TRIP.trip.tripName))) || "";
   document.title = tripName ? `${tripName} · TravelX` : "TravelX Trip";
+  const company = String(((RAW_TRIP && RAW_TRIP.trip && RAW_TRIP.trip.company) || "")).toUpperCase();
+  if (company === "USM") {
+    let icon = document.querySelector('link[rel="icon"]');
+    if (!icon) { icon = document.createElement("link"); icon.rel = "icon"; document.head.appendChild(icon); }
+    icon.type = "image/png";
+    icon.href = "/assets/usm-logo-square.png";
+  }
 } catch (e) {}
 
 /* ── Adapter: server shape → design shape ── */
