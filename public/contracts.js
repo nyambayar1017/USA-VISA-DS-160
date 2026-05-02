@@ -1006,14 +1006,22 @@ const initContractForm = () => {
   templatePicker?.addEventListener("change", async () => {
     const file = templatePicker.files && templatePicker.files[0];
     if (!file) return;
-    const name = window.prompt("Template name (e.g. JEJU, Default, Korea-FIT):", file.name.replace(/\.docx$/i, ""));
-    if (!name) { templatePicker.value = ""; return; }
-    const notes = window.prompt("Notes (optional, e.g. when to use this template):", "") || "";
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("name", name);
-    if (notes) fd.append("notes", notes);
     try {
+      const name = await window.UI.prompt("Template name (e.g. JEJU, Default, Korea-FIT):", {
+        title: "New contract template",
+        defaultValue: file.name.replace(/\.docx$/i, ""),
+        confirmLabel: "Next",
+      });
+      if (!name) { templatePicker.value = ""; return; }
+      const notes = (await window.UI.prompt("Notes (optional — when to use this template):", {
+        title: "Template notes",
+        defaultValue: "",
+        confirmLabel: "Upload",
+      })) || "";
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", name);
+      if (notes) fd.append("notes", notes);
       const r = await fetch("/api/contract-templates", { method: "POST", body: fd });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
@@ -1021,7 +1029,7 @@ const initContractForm = () => {
       }
       await loadContractTemplates();
     } catch (err) {
-      alert(err.message || "Could not upload template.");
+      if (err) alert(err.message || "Could not upload template.");
     } finally {
       templatePicker.value = "";
     }
@@ -1056,9 +1064,13 @@ const initContractForm = () => {
     if (action === "rename") {
       const row = btn.closest("tr");
       const currentName = row?.querySelector("strong")?.textContent || "";
-      const next = window.prompt("Rename template:", currentName);
-      if (!next || next === currentName) return;
       try {
+        const next = await window.UI.prompt("New name:", {
+          title: "Rename contract template",
+          defaultValue: currentName,
+          confirmLabel: "Save",
+        });
+        if (!next || next === currentName) return;
         const r = await fetch(`/api/contract-templates/${encodeURIComponent(id)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1070,14 +1082,18 @@ const initContractForm = () => {
         }
         await loadContractTemplates();
       } catch (err) {
-        alert(err.message || "Could not rename template.");
+        if (err) alert(err.message || "Could not rename template.");
       }
     } else if (action === "replace") {
       pendingReplaceId = id;
       templateReplacePicker?.click();
     } else if (action === "delete") {
-      if (!window.confirm("Delete this template? Existing contracts that used it will fall back to the default template on re-render.")) return;
       try {
+        const ok = await window.UI.confirm(
+          "Delete this template? Existing contracts that used it will fall back to the default template on re-render.",
+          { title: "Delete template", dangerous: true, confirmLabel: "Delete" }
+        );
+        if (!ok) return;
         const r = await fetch(`/api/contract-templates/${encodeURIComponent(id)}`, { method: "DELETE" });
         if (!r.ok) {
           const data = await r.json().catch(() => ({}));
@@ -1085,7 +1101,7 @@ const initContractForm = () => {
         }
         await loadContractTemplates();
       } catch (err) {
-        alert(err.message || "Could not delete template.");
+        if (err) alert(err.message || "Could not delete template.");
       }
     }
   });
