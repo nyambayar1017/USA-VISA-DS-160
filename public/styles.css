@@ -16390,9 +16390,13 @@ body[data-page="trip-creator"] .workspace-main {
   line-height: 1.6;
   color: #3d3a36;
   font-family: inherit;
-  resize: vertical;
+  resize: none;
   padding: 6px 0;
-  min-height: 88px;
+  min-height: 60px;
+  field-sizing: content;
+  overflow: hidden;
+  display: block;
+  width: 100%;
 }
 .tc-hero-intro:focus { outline: 1px dashed rgba(31, 27, 22, 0.3); outline-offset: 4px; }
 
@@ -16518,58 +16522,87 @@ body[data-page="trip-creator"] .tc-program-card.no-hero { grid-template-columns:
   z-index: 2;
 }
 .tc-program-delete:hover { background: rgba(182,58,58,0.12); color: #9b2f2f; }
-.tc-program-card-meta {
+.tc-program-card-datelong { color: #5c5448; font-weight: 500; font-size: 0.88rem; }
+.tc-program-card-side {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.88rem;
-  color: #5c5448;
-  margin-top: -2px;
+  flex-direction: column;
+  gap: 10px;
 }
-.tc-program-card-meta input.tc-program-card-date {
-  padding: 4px 8px;
-  border: 1px solid rgba(31, 27, 22, 0.18);
-  border-radius: 6px;
-  font-size: 0.82rem;
-  font-family: inherit;
-  width: 150px;
-}
-.tc-program-card-datelong { color: #5c5448; font-weight: 500; }
 .tc-program-card-locrow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 8px;
 }
 .tc-program-card-loclabel {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 1rem;
   color: #c5613f;
-  white-space: nowrap;
 }
 .tc-program-card-locrow input.tc-program-location-name {
   flex: 1;
   padding: 6px 10px;
   border: 1px solid rgba(31, 27, 22, 0.18);
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-family: inherit;
+  font-weight: 600;
+  color: #1f1b16;
   background: #fff;
 }
 .tc-program-card-locrow input.tc-program-location-name:focus { outline: 0; border-color: #c5613f; }
-body[data-page="trip-creator"] .tc-program-card-body .tc-program-body {
+.tc-program-paragraphs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.tc-paragraph {
+  position: relative;
+}
+body[data-page="trip-creator"] .tc-program-paragraph {
+  width: 100%;
   border: 1px solid rgba(31, 27, 22, 0.12);
   border-radius: 8px;
   background: #fff;
-  padding: 12px 14px;
+  padding: 12px 38px 12px 14px;
   font-size: 0.95rem;
   line-height: 1.6;
   font-family: inherit;
-  min-height: 110px;
+  min-height: 70px;
   resize: vertical;
-  margin-top: 6px;
+  field-sizing: content;
 }
-body[data-page="trip-creator"] .tc-program-card-body .tc-program-body:focus { outline: 0; border-color: #c5613f; }
+body[data-page="trip-creator"] .tc-program-paragraph:focus { outline: 0; border-color: #c5613f; }
+.tc-paragraph-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  background: rgba(31, 27, 22, 0.06);
+  border-radius: 50%;
+  font-size: 11px;
+  color: #5c5448;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tc-paragraph:hover .tc-paragraph-remove,
+.tc-paragraph:focus-within .tc-paragraph-remove { opacity: 1; }
+.tc-paragraph-remove:hover { background: rgba(182,58,58,0.14); color: #9b2f2f; }
+.tc-paragraph-add {
+  align-self: flex-start;
+  border: 1px dashed rgba(31, 27, 22, 0.2);
+  background: transparent;
+  color: #5c5448;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.tc-paragraph-add:hover { border-color: #c5613f; color: #c5613f; }
 @media (max-width: 880px) {
   body[data-page="trip-creator"] .tc-program-card,
   body[data-page="trip-creator"] .tc-program-card.no-hero { grid-template-columns: 1fr !important; }

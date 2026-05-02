@@ -66,7 +66,7 @@
         ? "✓ Published — share the link with clients"
         : "Draft — click Publish to share with clients";
     }
-    if (previewLink) previewLink.classList.toggle("is-disabled", !isPublished);
+    // Preview is no longer gated — clicking it publishes first.
     if (copyBtn) copyBtn.disabled = !isPublished;
   }
 
@@ -159,6 +159,19 @@
   }
   // No-op stub — datalist was replaced by a popover that's wired below.
   function refreshLocationDatalist() {}
+  // Auto-grow a textarea to fit its content (Safari + Firefox lack
+  // field-sizing: content). Bound to input + on initial render.
+  function autoGrow(node) {
+    if (!node) return;
+    node.style.height = "auto";
+    node.style.height = Math.max(node.scrollHeight, 60) + "px";
+  }
+  function autoGrowAll(root) {
+    (root || document).querySelectorAll(".tc-hero-intro, .tc-program-paragraph").forEach(autoGrow);
+  }
+  document.addEventListener("input", (e) => {
+    if (e.target.matches(".tc-hero-intro, .tc-program-paragraph")) autoGrow(e.target);
+  });
   // Day N's default date = trip.startDate + N-1 days (so Day 1 lands
   // on the trip's start). Manager can still override; we only compute
   // when the row's own date is blank.
@@ -177,6 +190,7 @@
   function renderProgram(rows) {
     refreshLocationDatalist();
     const lang = getActiveLanguage();
+    setTimeout(() => autoGrowAll(programList), 0);
     programList.innerHTML = (rows || [])
       .map((row, idx) => {
         const ids = Array.isArray(row.imageIds) ? row.imageIds : [];
@@ -190,12 +204,34 @@
         const dateLong = formatLongDate(effectiveDate, lang);
         const titleVal = row.title || locLabel || "";
         const dayBadge = dayBadgeFor(idx, lang);
+        // Body is split into paragraphs at blank lines so each becomes
+        // its own block-style input. + Add text appends a new block;
+        // each block has a remove ✕. Stored format keeps the simple
+        // double-newline-joined string so existing trips round-trip.
+        const paragraphs = (row.body || "")
+          .split(/\n\s*\n/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const paraInputs = paragraphs.length
+          ? paragraphs.map((p, pi) => `
+              <div class="tc-paragraph">
+                <textarea class="tc-program-paragraph" rows="3" placeholder="Type a paragraph — type @ to drop in a Content reference.">${escapeHtml(p)}</textarea>
+                <button type="button" class="tc-paragraph-remove" data-action="remove-paragraph" data-idx="${idx}" data-pi="${pi}" aria-label="Remove paragraph">✕</button>
+              </div>
+            `).join("")
+          : `
+              <div class="tc-paragraph">
+                <textarea class="tc-program-paragraph" rows="3" placeholder="Type a paragraph — type @ to drop in a Content reference."></textarea>
+                <button type="button" class="tc-paragraph-remove" data-action="remove-paragraph" data-idx="${idx}" data-pi="0" aria-label="Remove paragraph">✕</button>
+              </div>
+            `;
         return `
           <div class="tc-program-card ${hasHero ? "has-hero" : "no-hero"}" data-idx="${idx}" data-day-id="${escapeHtml(row.id || "")}">
             <input type="hidden" class="tc-program-id" value="${escapeHtml(row.id || "")}" />
             <input type="hidden" class="tc-program-template-id" value="${escapeHtml(row.templateId || "")}" />
             <input type="hidden" class="tc-program-location-id" value="${escapeHtml(row.locationId || "")}" />
             <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
+            <input type="hidden" class="tc-program-date" value="${escapeHtml(effectiveDate)}" />
             <input type="hidden" class="tc-program-from" value="${escapeHtml(row.fromName || "")}" />
             <input type="hidden" class="tc-program-to" value="${escapeHtml(row.toName || "")}" />
             <input type="hidden" class="tc-program-distance" value="${escapeHtml(row.distance || "")}" />
@@ -204,10 +240,15 @@
             <input type="hidden" class="tc-program-meal-b" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" />
             <input type="hidden" class="tc-program-meal-l" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" />
             <input type="hidden" class="tc-program-meal-d" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" />
-            <div class="tc-program-card-photo" style="${heroBg}">
-              <span class="tc-program-card-daybadge">${escapeHtml(dayBadge.toUpperCase())}</span>
-              ${hasHero ? "" : `<span class="tc-program-card-photohint">Pick a location to fill the photo</span>`}
-              ${locLabel ? `<span class="tc-program-card-loctag">📍 ${escapeHtml(locLabel)}</span>` : ""}
+            <div class="tc-program-card-side">
+              <div class="tc-program-card-photo" style="${heroBg}">
+                <span class="tc-program-card-daybadge">${escapeHtml(dayBadge.toUpperCase())}</span>
+                ${hasHero ? "" : `<span class="tc-program-card-photohint">Pick a location to fill the photo</span>`}
+              </div>
+              <div class="tc-program-card-locrow">
+                <span class="tc-program-card-loclabel">📍</span>
+                <input type="text" class="tc-program-location-name" data-idx="${idx}" autocomplete="off" value="${escapeHtml(locLabel)}" placeholder="Search locations…" />
+              </div>
             </div>
             <div class="tc-program-card-body">
               <button type="button" class="tc-program-delete" data-action="delete-day" data-idx="${idx}" aria-label="Remove day">✕</button>
@@ -216,15 +257,11 @@
                 <input type="text" class="tc-program-title" placeholder="Day title — e.g. Welcome to Mongolia" value="${escapeHtml(titleVal)}" />
               </div>
               <input type="hidden" class="tc-program-day" value="${escapeHtml(row.day || dayBadge)}" />
-              <div class="tc-program-card-meta">
-                <input type="date" class="tc-program-date tc-program-card-date" value="${escapeHtml(effectiveDate)}" />
-                <span class="tc-program-card-datelong">${escapeHtml(dateLong)}</span>
+              <div class="tc-program-card-datelong">${escapeHtml(dateLong)}</div>
+              <div class="tc-program-paragraphs">
+                ${paraInputs}
               </div>
-              <div class="tc-program-card-locrow">
-                <span class="tc-program-card-loclabel">📍 Location</span>
-                <input type="text" class="tc-program-location-name" data-idx="${idx}" autocomplete="off" value="${escapeHtml(locLabel)}" placeholder="Search locations…" />
-              </div>
-              <textarea class="tc-program-body" rows="5" placeholder="Day narrative — what the travelers will do today. Type @ to insert a Content reference (turns into an orange link on the public page).">${escapeHtml(row.body || "")}</textarea>
+              <button type="button" class="tc-paragraph-add" data-action="add-paragraph" data-idx="${idx}">+ Add text</button>
             </div>
           </div>
         `;
@@ -370,6 +407,44 @@
       renderProgram(current);
       return;
     }
+    const addPara = event.target.closest('[data-action="add-paragraph"]');
+    if (addPara) {
+      const idx = Number(addPara.dataset.idx);
+      const current = readProgram();
+      const day = current[idx];
+      if (day) {
+        day.body = (day.body || "") + (day.body ? "\n\n" : "") + " ";
+        renderProgram(current);
+        // Focus the last paragraph after re-render so the manager can
+        // start typing immediately.
+        const card = programList.querySelector(`.tc-program-card[data-idx="${idx}"]`);
+        const paras = card?.querySelectorAll(".tc-program-paragraph");
+        if (paras && paras.length) {
+          const last = paras[paras.length - 1];
+          last.focus();
+          last.value = "";
+        }
+      }
+      return;
+    }
+    const removePara = event.target.closest('[data-action="remove-paragraph"]');
+    if (removePara) {
+      const idx = Number(removePara.dataset.idx);
+      const pi = Number(removePara.dataset.pi);
+      const current = readProgram();
+      const day = current[idx];
+      if (day) {
+        const parts = (day.body || "").split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+        if (parts.length > 1) {
+          parts.splice(pi, 1);
+          day.body = parts.join("\n\n");
+        } else {
+          day.body = "";
+        }
+        renderProgram(current);
+      }
+      return;
+    }
     const removeImg = event.target.closest('[data-action="remove-day-image"]');
     if (removeImg) {
       const idx = Number(removeImg.dataset.idx);
@@ -443,7 +518,12 @@
           lunch: row.querySelector(".tc-program-meal-l")?.value || "",
           dinner: row.querySelector(".tc-program-meal-d")?.value || "",
         },
-        body: row.querySelector(".tc-program-body")?.value || "",
+        // Body is stored as paragraphs joined by blank lines so the
+        // public renderer can split them back into <p> elements.
+        body: Array.from(row.querySelectorAll(".tc-program-paragraph"))
+          .map((p) => (p.value || "").trim())
+          .filter(Boolean)
+          .join("\n\n"),
         imageIds: idsRaw.split(",").map((s) => s.trim()).filter(Boolean),
       };
     });
@@ -662,6 +742,7 @@
         $("tc-international-flight").value = doc.internationalFlight || "included";
         $("tc-themes").value = (doc.themes || []).join(", ");
         $("tc-intro").value = doc.intro || "";
+        setTimeout(() => autoGrow($("tc-intro")), 0);
         ["rate", "comfort", "difficulty"].forEach((key) => {
           $(`tc-${key}`).value = String(doc[key] || 0);
           $(`tc-${key}-out`).textContent = `${doc[key] || 0}/5`;
@@ -788,13 +869,25 @@
   const publicUrl = `${window.location.origin}/trip/${encodeURIComponent(tripId)}`;
   if (previewLink) {
     previewLink.href = publicUrl;
-    previewLink.addEventListener("click", (event) => {
-      if (!isPublished) {
-        event.preventDefault();
-        setStatus("Click Publish first so the page exists.", "error");
-        setTimeout(() => setStatus(""), 2400);
+    // Preview now publishes first, then opens the public page in a
+    // new tab. So the manager just clicks 👁 Preview and gets the
+    // live URL with whatever they currently have on screen.
+    previewLink.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const win = window.open("about:blank", "_blank");
+      try {
+        await save();
+      } catch (_) {}
+      try {
+        if (win && !win.closed) win.location.href = publicUrl;
+        else window.open(publicUrl, "_blank");
+      } catch (_) {
+        window.open(publicUrl, "_blank");
       }
     });
+    // Always interactive; preview is gated only by save success now.
+    previewLink.classList.remove("is-disabled");
+    previewLink.removeAttribute("aria-disabled");
   }
   if (copyBtn) {
     copyBtn.addEventListener("click", async () => {
