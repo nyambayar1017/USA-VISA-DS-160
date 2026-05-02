@@ -2124,6 +2124,36 @@ def handle_get_trip_creator(environ, start_response, trip_id):
     return json_response(start_response, "200 OK", {"trip_id": trip_id, "doc": merged})
 
 
+def _auto_highlights_from_program(program, lang):
+    """Mirror day titles into the public Trip Highlights bullet list,
+    prefixed with "Day N: " in the trip's language so the bullets
+    read as "Day 1: Welcome to Ulaanbaatar" instead of just the
+    title. Days with no title are skipped."""
+    prefix_map = {
+        "en": "Day", "mn": "Өдөр", "ru": "День", "fr": "Jour",
+        "it": "Giorno", "es": "Día", "ko": "일차", "zh": "第",
+        "ja": "日目",
+    }
+    prefix = prefix_map.get(lang, "Day")
+    out = []
+    for i, row in enumerate(program):
+        if not isinstance(row, dict):
+            continue
+        title = (row.get("title") or "").strip()
+        if not title:
+            continue
+        if lang == "ko":
+            label = f"{i + 1}{prefix}: {title}"
+        elif lang == "zh":
+            label = f"{prefix}{i + 1}天: {title}"
+        elif lang == "ja":
+            label = f"{i + 1}{prefix}: {title}"
+        else:
+            label = f"{prefix} {i + 1}: {title}"
+        out.append(label)
+    return out
+
+
 def build_public_trip_view(trip_id):
     """Reusable build of the public trip-creator brochure shape. Returns
     the dict (or None if the trip isn't published). Used both by the API
@@ -2207,11 +2237,10 @@ def build_public_trip_view(trip_id):
         "program": doc.get("program") or [],
         "highlights": (
             doc.get("highlights")
-            or [
-                (r.get("title") or "").strip()
-                for r in (doc.get("program") or [])
-                if isinstance(r, dict) and (r.get("title") or "").strip()
-            ]
+            or _auto_highlights_from_program(
+                doc.get("program") or [],
+                (doc.get("language") or "mn").lower(),
+            )
         ),
         "accommSummary": doc.get("accommSummary") or [],
         "included": doc.get("included") or [],
