@@ -1617,6 +1617,27 @@ function renderActiveTripCampPayments() {
     group.reservations += 1;
     if (entry.checkIn) group.checkIns.push(entry.checkIn);
     if (entry.checkOut) group.checkOuts.push(entry.checkOut);
+    // Trip-day numbers — start day of each reservation + its end
+    // day given nights. Used to render "Day 11-18 · 2026-07-07 →
+    // 2026-07-14" so the row matches the reservations table.
+    if (!group.tripStartDate) {
+      const trip = getTripById(entry.tripId);
+      if (trip?.startDate) group.tripStartDate = trip.startDate;
+    }
+    if (group.tripStartDate && entry.checkIn) {
+      const start = new Date(`${group.tripStartDate}T00:00:00`);
+      const checkIn = new Date(`${entry.checkIn}T00:00:00`);
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(checkIn.getTime())) {
+        const startDay = Math.round((checkIn - start) / (1000 * 60 * 60 * 24)) + 1;
+        if (startDay > 0) {
+          const stayCount = Math.max(Number(entry.nights || 1), 1);
+          group.dayStarts = group.dayStarts || [];
+          group.dayEnds = group.dayEnds || [];
+          group.dayStarts.push(startDay);
+          group.dayEnds.push(startDay + stayCount - 1);
+        }
+      }
+    }
     grouped.set(key, group);
   });
 
@@ -1711,7 +1732,7 @@ function renderActiveTripCampPayments() {
           <tr>
             <th>#</th>
             <th>Camp</th>
-            <th>Res.</th>
+            <th>Reservations</th>
             <th>Deposit</th>
             <th>Balance</th>
             ${anyThird ? "<th>3rd</th>" : ""}
@@ -1727,8 +1748,15 @@ function renderActiveTripCampPayments() {
             .map((row, index) => {
               const stayFrom = row.checkIns.length ? [...row.checkIns].sort()[0] : "";
               const stayTo = row.checkOuts.length ? [...row.checkOuts].sort().slice(-1)[0] : "";
-              const stayLine = stayFrom || stayTo
-                ? `<div class="camp-row-meta">${formatDate(stayFrom) || "?"} → ${formatDate(stayTo) || "?"}</div>`
+              const dayStarts = row.dayStarts || [];
+              const dayEnds = row.dayEnds || [];
+              const minDay = dayStarts.length ? Math.min(...dayStarts) : 0;
+              const maxDay = dayEnds.length ? Math.max(...dayEnds) : 0;
+              const dayLabel = minDay
+                ? (minDay === maxDay ? `Day ${minDay}` : `Day ${minDay}-${maxDay}`)
+                : "";
+              const stayLine = (dayLabel || stayFrom || stayTo)
+                ? `<div class="camp-row-meta">${dayLabel ? `<strong>${dayLabel}</strong> · ` : ""}${formatDate(stayFrom) || "?"} → ${formatDate(stayTo) || "?"}</div>`
                 : "";
               return `
                 <tr>
