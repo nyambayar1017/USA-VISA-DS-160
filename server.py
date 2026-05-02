@@ -4633,6 +4633,15 @@ def _extract_contract_blocks_raw():
         normalized = normalize_contract_heading(text)
         if normalized in {"ГЭРЭЭГ БАЙГУУЛСАН:", "ГЭРЭЭГ БАЙГУУЛСАН"}:
             break
+        # Locked header lines (page title, contract number, date/city
+        # row) — the renderer always emits these so they don't belong
+        # in the editable body.
+        if text == "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ":
+            continue
+        if text.startswith("Дугаар:"):
+            continue
+        if "Улаанбаатар хот" in text and any(ch.isdigit() for ch in text):
+            continue
         if normalized in section_heading_map:
             current_section = section_heading_map[normalized].split(".", 1)[0]
             blocks.append({"type": "heading", "text": section_heading_map[normalized]})
@@ -4647,27 +4656,35 @@ def _extract_contract_blocks_raw():
             # substitute the live contract data later.
             cleaned = _apply_template_tokens(cleaned)
             blocks.append({"type": "numbered-paragraph", "text": cleaned})
+        else:
+            # Free-form paragraph that lives BEFORE the first section
+            # heading — the legal preamble that introduces both
+            # parties. Tokenised the same way so the editor can red-
+            # highlight names / counts.
+            blocks.append({"type": "paragraph", "text": _apply_template_tokens(text)})
     return blocks
 
 
-def get_default_template_sections():
-    """Read the built-in DOCX once and return the structural section
-    list (`[{title, paragraphs: [text, ...]}, ...]`) used to pre-fill
-    the contract template editor when the manager creates a new
-    template. Re-parses on each call so any future edit to the
+def get_default_template_payload():
+    """Read the built-in DOCX and return both the legal preamble
+    paragraphs (intro, before Section 1) and the structural
+    section list. Re-parses on each call so any future edit to the
     canonical DOCX flows through.
     """
     blocks = _extract_contract_blocks_raw()
+    intro = []
     sections = []
     current = None
     for block in blocks:
-        if block["type"] == "heading":
+        if block["type"] == "paragraph":
+            intro.append(block["text"])
+        elif block["type"] == "heading":
             current = {"title": block["text"], "paragraphs": []}
             sections.append(current)
         elif block["type"] == "numbered-paragraph":
             if current is not None:
                 current["paragraphs"].append(block["text"])
-    return sections
+    return {"intro": intro, "sections": sections}
 
 
 def render_template_body_html(template, data):
@@ -4701,6 +4718,13 @@ def render_template_body_html(template, data):
         return highlighted.replace("\n", "<br />")
 
     parts = []
+    intro = (template or {}).get("intro") or []
+    for para in intro:
+        if not (para or "").strip():
+            continue
+        # Use the same opening-paragraph class the DOCX flow uses so
+        # spacing / indentation matches Section 1's neighbour.
+        parts.append(f"<p class=\"contract-opening-paragraph\">{html_text(para)}</p>")
     for section_index, section in enumerate(sections, start=1):
         title = format_text(section.get("title") or "").strip()
         if title:
@@ -16945,13 +16969,19 @@ def handle_get_default_contract_template(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
         return []
-    return json_response(start_response, "200 OK", {"sections": get_default_template_sections()})
+    return json_response(start_response, "200 OK", get_default_template_payload())
 
 
 def _normalize_contract_template_payload(payload):
-    """Coerce the editor payload into clean storage shape: every
-    section has a string title + a list of string paragraphs. Drops
-    sections whose title AND paragraphs are all blank."""
+    """Coerce the editor payload into clean storage shape:
+    {intro: [text…], sections: [{title, paragraphs:[text…]}]}.
+    Drops empty entries.
+    """
+    intro = []
+    for p in ((payload or {}).get("intro") or []):
+        text = (p or "").strip() if isinstance(p, str) else ""
+        if text:
+            intro.append(text)
     sections = []
     raw_sections = (payload or {}).get("sections") or []
     if not isinstance(raw_sections, list):
@@ -16967,7 +16997,7 @@ def _normalize_contract_template_payload(payload):
                 paragraphs.append(text)
         if title or paragraphs:
             sections.append({"title": title, "paragraphs": paragraphs})
-    return sections
+    return {"intro": intro, "sections": sections}
 
 
 def handle_create_contract_template(environ, start_response):
@@ -16978,10 +17008,12 @@ def handle_create_contract_template(environ, start_response):
     name = (normalize_text(payload.get("name")) or "").strip()
     if not name:
         return json_response(start_response, "400 Bad Request", {"error": "Template name is required."})
+    body = _normalize_contract_template_payload(payload)
     record = {
         "id": uuid4().hex,
         "name": name,
-        "sections": _normalize_contract_template_payload(payload),
+        "intro": body["intro"],
+        "sections": body["sections"],
         "createdAt": now_mongolia().isoformat(),
         "createdBy": actor_snapshot(actor),
         "updatedAt": now_mongolia().isoformat(),
@@ -17017,8 +17049,10 @@ def handle_update_contract_template(environ, start_response, template_id):
         if not name:
             return json_response(start_response, "400 Bad Request", {"error": "Template name is required."})
         target["name"] = name
-    if "sections" in payload:
-        target["sections"] = _normalize_contract_template_payload(payload)
+    if "sections" in payload or "intro" in payload:
+        body = _normalize_contract_template_payload(payload)
+        target["intro"] = body["intro"]
+        target["sections"] = body["sections"]
     target["updatedAt"] = now_mongolia().isoformat()
     target["updatedBy"] = actor_snapshot(actor)
     for i, r in enumerate(records):

@@ -500,7 +500,7 @@ function renderTaskRow(task, idx) {
   return `
     <tr class="todo-tr todo-tr--task">
       <td>${idx + 1}</td>
-      <td class="todo-cell-title"><strong>${escapeHtml(task.title)}</strong></td>
+      <td class="todo-cell-title" title="${escapeHtml(task.title || "")}"><strong>${escapeHtml(task.title)}</strong></td>
       <td class="todo-cell-assigner">${escapeHtml(task.createdBy?.name || task.createdBy?.email || "—")}</td>
       <td class="todo-cell-owner">${ownerCell}</td>
       <td><span class="todo-badge priority-${escapeHtml(task.priority || "medium")}">${escapeHtml(task.priority || "medium")}</span></td>
@@ -532,7 +532,7 @@ function renderContactRow(contact, idx) {
   return `
     <tr class="todo-tr todo-tr--contact">
       <td>${idx + 1}</td>
-      <td class="todo-cell-title"><strong>${escapeHtml(contact.name)}</strong></td>
+      <td class="todo-cell-title" title="${escapeHtml(contact.name || "")}"><strong>${escapeHtml(contact.name)}</strong></td>
       <td class="todo-cell-assigner">${escapeHtml(contact.createdBy?.name || contact.createdBy?.email || "—")}</td>
       <td class="todo-cell-owner"><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></td>
       <td><span class="todo-badge contact-${escapeHtml(contact.type || "client")}">${escapeHtml(contact.type || "client")}</span></td>

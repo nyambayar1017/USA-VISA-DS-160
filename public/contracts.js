@@ -963,6 +963,7 @@ const initContractForm = () => {
   let editorMode = "create";          // "create" | "edit"
   let editorEditingId = "";
   let editorName = "";
+  let editorIntro = [];               // ["preamble paragraph", …]
   let editorSections = [];            // [{title, paragraphs:[text,…]}]
   const escAttr = (v) => String(v || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
   const escText = (v) => String(v || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -1023,7 +1024,24 @@ const initContractForm = () => {
 
   function renderEditorSections() {
     if (!tplSectionsHost) return;
-    tplSectionsHost.innerHTML = editorSections.map((sec, sIdx) => `
+    const introBlock = `
+      <fieldset class="contract-template-section contract-template-intro" data-intro-block>
+        <legend>Intro (preamble — appears above Section 1)</legend>
+        <div class="contract-template-paragraphs">
+          ${editorIntro.map((p, iIdx) => `
+            <div class="contract-template-paragraph-row">
+              <span class="contract-template-paragraph-number">¶</span>
+              <div data-intro-paragraph data-paragraph-index="${iIdx}" contenteditable="true" class="contract-template-textarea">${paragraphInnerHtml(p || "")}</div>
+              <button type="button" class="header-action-btn button-danger" data-intro-remove data-paragraph-index="${iIdx}" title="Remove paragraph">×</button>
+            </div>
+          `).join("")}
+        </div>
+        <div class="contract-template-section-actions">
+          <button type="button" class="secondary-button" data-intro-add>+ Add intro paragraph</button>
+        </div>
+      </fieldset>
+    `;
+    tplSectionsHost.innerHTML = introBlock + editorSections.map((sec, sIdx) => `
       <fieldset class="contract-template-section" data-section-index="${sIdx}">
         <legend>Section ${sIdx + 1}</legend>
         <label class="contract-template-title-label">
@@ -1048,6 +1066,10 @@ const initContractForm = () => {
     `).join("");
   }
 
+  function readEditorIntro() {
+    return Array.from(tplSectionsHost.querySelectorAll("[data-intro-paragraph]"))
+      .map((t) => (t.innerText || "").replace(/\n+$/, ""));
+  }
   function readEditorSections() {
     const fieldsets = tplSectionsHost.querySelectorAll("[data-section-index]");
     return Array.from(fieldsets).map((node) => {
@@ -1086,9 +1108,11 @@ const initContractForm = () => {
       });
     } catch { return; }
     if (!name) return;
+    let intro = [];
     let sections = [];
     try {
       const data = await apiRequest("/api/contract-templates/default");
+      intro = Array.isArray(data?.intro) ? data.intro : [];
       sections = Array.isArray(data?.sections) ? data.sections : [];
     } catch (err) {
       alert(err.message || "Could not load default template.");
@@ -1097,6 +1121,7 @@ const initContractForm = () => {
     editorMode = "create";
     editorEditingId = "";
     editorName = name;
+    editorIntro = intro;
     editorSections = sections;
     if (tplEditorTitle) tplEditorTitle.textContent = `New template — ${name}`;
     openEditor();
@@ -1129,7 +1154,7 @@ const initContractForm = () => {
         );
         if (!ok) return;
         await apiRequest(`/api/contract-templates/${encodeURIComponent(id)}`, { method: "DELETE" });
-        await loadTemplateList();
+        await loadTemplatesIntoSelect();
       } catch (err) {
         if (err) alert(err.message || "Could not delete.");
       }
@@ -1137,11 +1162,25 @@ const initContractForm = () => {
   });
 
   tplSectionsHost?.addEventListener("click", (event) => {
+    // Sync both intro + sections from current DOM before mutating.
+    editorIntro = readEditorIntro();
+    editorSections = readEditorSections();
+
+    if (event.target.matches("[data-intro-add]")) {
+      editorIntro.push("");
+      renderEditorSections();
+      return;
+    }
+    if (event.target.matches("[data-intro-remove]")) {
+      const iIdx = Number(event.target.dataset.paragraphIndex);
+      editorIntro.splice(iIdx, 1);
+      renderEditorSections();
+      return;
+    }
+
     const sectionNode = event.target.closest("[data-section-index]");
     if (!sectionNode) return;
     const sIdx = Number(sectionNode.dataset.sectionIndex);
-    // Sync current edits into model before mutating.
-    editorSections = readEditorSections();
     if (event.target.matches("[data-paragraph-add]")) {
       editorSections[sIdx].paragraphs.push("");
       renderEditorSections();
@@ -1156,12 +1195,14 @@ const initContractForm = () => {
   });
 
   tplAddSectionBtn?.addEventListener("click", () => {
+    editorIntro = readEditorIntro();
     editorSections = readEditorSections();
     editorSections.push({ title: "", paragraphs: [""] });
     renderEditorSections();
   });
 
   tplSaveBtn?.addEventListener("click", async () => {
+    const intro = readEditorIntro();
     const sections = readEditorSections();
     if (tplStatus) tplStatus.textContent = "Saving…";
     try {
@@ -1170,10 +1211,10 @@ const initContractForm = () => {
         : "/api/contract-templates";
       await apiRequest(url, {
         method: "POST",
-        body: JSON.stringify({ name: editorName, sections }),
+        body: JSON.stringify({ name: editorName, intro, sections }),
       });
       closeEditor();
-      await loadTemplateList();
+      await loadTemplatesIntoSelect();
     } catch (err) {
       if (tplStatus) tplStatus.textContent = err.message || "Could not save.";
     }
@@ -1183,7 +1224,7 @@ const initContractForm = () => {
     if (event.target.matches('[data-action="close-template-editor"]')) closeEditor();
   });
 
-  loadTemplateList();
+  loadTemplatesIntoSelect();
 
   const filterInputs = [
     qs("#contract-filter-manager"),

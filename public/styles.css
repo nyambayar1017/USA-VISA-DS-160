@@ -10775,19 +10775,24 @@ body.announcement-modal-open {
 .todo-table tbody tr.todo-tr--contact { background: #f6faff; }
 .todo-table tbody tr.todo-tr--contact:hover { background: #ecf2fb; }
 .todo-table .todo-cell-title {
+  /* Cap the title cell so long titles don't push the rest of the
+     row off-screen (the kebab menu was vanishing). Single-line
+     truncation with ellipsis; full title is on the cell's title=
+     attribute so hover reveals it. */
   max-width: 260px;
-  /* "send an email about Flight information & passport…" was bleeding
-     into neighbouring cells because `strong` is inline and doesn't
-     wrap unless its parent enforces it. overflow-wrap + min-width:0
-     forces the long text to wrap inside the cell. */
-  overflow-wrap: anywhere;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .todo-table .todo-cell-title strong {
   display: inline-block;
   font-size: 13px;
-  word-break: break-word;
   max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .todo-table .todo-cell-owner { font-size: 12px; color: #4b5563; }
 .todo-table .todo-cell-owner .todo-owner-chip {

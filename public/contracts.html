@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-390" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-391" />
   </head>
   <body class="app-body" data-page="contracts">
     <div class="workspace-shell">
@@ -32,6 +32,7 @@
           <div class="section-head">
             <h2>New contract</h2>
             <div class="camp-toolbar">
+              <button type="button" id="contract-template-add-btn" class="secondary-button">+ Add contract template</button>
               <button type="button" id="contract-toggle-form">Create Contract</button>
             </div>
           </div>
@@ -286,19 +287,6 @@
           <div id="contract-list" class="submission-list"></div>
           <div id="contract-pagination" class="contract-pagination"></div>
         </section>
-
-        <section class="card">
-          <div class="section-head">
-            <div>
-              <h2>Contract templates</h2>
-              <p class="muted">Wording variations (e.g. JEJU, China visa-free). Header, footer, signature blocks and margins stay locked across every template.</p>
-            </div>
-            <div class="camp-toolbar">
-              <button type="button" id="contract-template-add-btn">+ Add contract template</button>
-            </div>
-          </div>
-          <div id="contract-template-list" class="submission-list"></div>
-        </section>
       </main>
     </div>
 
@@ -325,7 +313,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-147"></script>
-    <script src="/contracts.js?v=workspace-9"></script>
+    <script src="/contracts.js?v=workspace-10"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
