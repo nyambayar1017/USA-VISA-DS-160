@@ -333,16 +333,22 @@
       tbody.innerHTML = lineRows.join("");
     }
 
-    // Footer totals on the Expenses table — total income, total
-    // expense (actual paid across all sources), net. Mirrors the
-    // tile values but keeps the bottom of the table readable as a
-    // self-contained statement.
+    // Totals strip rendered above the Expenses table, right-aligned —
+    // user explicitly asked for "place it to the right" instead of a
+    // table footer. Mirrors the summary tile values but anchored to
+    // the section so the table stays clean.
     if (tfoot) {
       const totalsNet = incomeMnt - actualMnt;
       tfoot.innerHTML = `
-        <tr class="trip-pl-total"><td colspan="3" class="table-right"><strong>Total income</strong></td><td colspan="5"><strong class="is-positive">MNT ${incomeMnt.toLocaleString()}</strong></td></tr>
-        <tr class="trip-pl-total"><td colspan="3" class="table-right"><strong>Total expense (actual paid)</strong></td><td colspan="5"><strong class="is-negative">MNT ${actualMnt.toLocaleString()}</strong></td></tr>
-        <tr class="trip-pl-total"><td colspan="3" class="table-right"><strong>Net (income − expense)</strong></td><td colspan="5"><strong class="${totalsNet >= 0 ? "is-positive" : "is-negative"}">MNT ${totalsNet.toLocaleString()}</strong></td></tr>
+        <tr class="trip-pl-total">
+          <td colspan="8">
+            <div class="trip-pl-totals-strip">
+              <div><span>Total income</span><strong class="is-positive">MNT ${incomeMnt.toLocaleString()}</strong></div>
+              <div><span>Total expense</span><strong class="is-negative">MNT ${actualMnt.toLocaleString()}</strong></div>
+              <div><span>Net</span><strong class="${totalsNet >= 0 ? "is-positive" : "is-negative"}">MNT ${totalsNet.toLocaleString()}</strong></div>
+            </div>
+          </td>
+        </tr>
       `;
     }
 

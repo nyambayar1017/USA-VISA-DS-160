@@ -10038,6 +10038,21 @@ def handle_list_accountant_paid(environ, start_response):
         for r in requests_all
         if r.get("invoiceId") and r.get("installmentIndex") is not None
     }
+    # Same trust-the-trip rule used in handle_list_payment_requests:
+    # legacy rows have a stale `workspace` field stamped by the old
+    # serial-prefix heuristic. Derive workspace from the linked
+    # invoice's trip whenever possible.
+    def _ws_of(record):
+        invoice = invoices_by_id.get(record.get("invoiceId")) or {}
+        if invoice.get("tripId"):
+            trip = trips_by_id.get(invoice.get("tripId"))
+            if trip:
+                return (normalize_company(trip.get("company")) or "DTX").upper()
+        if record.get("tripId"):
+            trip = trips_by_id.get(record.get("tripId"))
+            if trip:
+                return (normalize_company(trip.get("company")) or "DTX").upper()
+        return (record.get("workspace") or "").upper()
     rows = []
     for r in requests_all:
         status = (r.get("status") or "").lower()
@@ -10045,7 +10060,7 @@ def handle_list_accountant_paid(environ, start_response):
         # in the Accountant ledger view.
         if status not in ("pending", "approved"):
             continue
-        if workspace_filter and (r.get("workspace") or "").upper() != workspace_filter:
+        if workspace_filter and _ws_of(r) != workspace_filter:
             continue
         invoice = invoices_by_id.get(r.get("invoiceId")) or {}
         trip = trips_by_id.get(r.get("tripId")) or {}
