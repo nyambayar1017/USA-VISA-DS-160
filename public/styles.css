@@ -1767,6 +1767,14 @@ td {
   font-size: 0.95rem;
   color: var(--brand);
 }
+.tpl-svc-desc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tpl-svc-desc-head h3 { margin: 0; }
 .tpl-svc-lang-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -1844,7 +1852,7 @@ td {
 .tpl-svc-content-popover .tpl-svc-empty { padding: 8px 12px; color: #94a3b8; font-size: 0.85rem; }
 .tpl-svc-list-row {
   display: grid;
-  grid-template-columns: 1fr auto auto auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 12px;
   align-items: center;
   padding: 10px 14px;

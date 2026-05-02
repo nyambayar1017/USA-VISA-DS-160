@@ -1155,12 +1155,57 @@
     if (!Number(n)) return "—";
     return `${ccy || "MNT"} ${Number(n).toLocaleString()}`;
   }
+  function readServiceFilters() {
+    return {
+      q: (document.getElementById("tpl-svc-search")?.value || "").trim().toLowerCase(),
+      currency: (document.getElementById("tpl-svc-currency-filter")?.value || "").toUpperCase(),
+      priced: document.getElementById("tpl-svc-priced-filter")?.value || "",
+      sort: document.getElementById("tpl-svc-sort")?.value || "name-asc",
+    };
+  }
+  function applyServiceFilters(rows) {
+    const f = readServiceFilters();
+    let out = rows.slice();
+    if (f.q) {
+      out = out.filter((t) => {
+        if ((t.name || "").toLowerCase().includes(f.q)) return true;
+        const desc = t.descriptions || {};
+        return Object.values(desc).some((v) => (v || "").toLowerCase().includes(f.q));
+      });
+    }
+    if (f.currency) out = out.filter((t) => (t.currency || "MNT").toUpperCase() === f.currency);
+    if (f.priced) {
+      if (f.priced === "any") {
+        out = out.filter((t) => SVC_PAX_KEYS.some((k) => Number((t.prices || {})[k]) > 0));
+      } else if (f.priced === "none") {
+        out = out.filter((t) => !SVC_PAX_KEYS.some((k) => Number((t.prices || {})[k]) > 0));
+      } else {
+        out = out.filter((t) => Number((t.prices || {})[f.priced]) > 0);
+      }
+    }
+    out.sort((a, b) => {
+      if (f.sort === "name-desc") return (b.name || "").localeCompare(a.name || "");
+      if (f.sort === "newest") return (b.createdAt || "").localeCompare(a.createdAt || "");
+      if (f.sort === "oldest") return (a.createdAt || "").localeCompare(b.createdAt || "");
+      return (a.name || "").localeCompare(b.name || "");
+    });
+    return out;
+  }
   function renderServiceList() {
+    const filtered = applyServiceFilters(svcTemplates);
+    const countEl = document.getElementById("tpl-svc-count");
+    if (countEl) countEl.textContent = svcTemplates.length
+      ? `${filtered.length} of ${svcTemplates.length}`
+      : "";
     if (!svcTemplates.length) {
       svcListNode.innerHTML = `<p class="tpl-empty">No service templates yet. Click + New service template to start.</p>`;
       return;
     }
-    svcListNode.innerHTML = svcTemplates.map((t) => {
+    if (!filtered.length) {
+      svcListNode.innerHTML = `<p class="tpl-empty">No templates match these filters.</p>`;
+      return;
+    }
+    svcListNode.innerHTML = filtered.map((t) => {
       const prices = t.prices || {};
       const pricedKeys = SVC_PAX_KEYS.filter((k) => Number(prices[k]) > 0);
       const sample = pricedKeys.slice(0, 3).map((k) => `${k}: ${Number(prices[k]).toLocaleString()}`).join(" · ");
@@ -1171,7 +1216,6 @@
             <div class="tpl-svc-name">${escapeHtml(t.name || "(unnamed)")}</div>
             <div class="tpl-svc-meta">${escapeHtml(t.currency || "MNT")} · ${pricedKeys.length} priced · ${escapeHtml(sample || "no prices")}</div>
           </div>
-          <span class="tpl-svc-meta">${escapeHtml(t.workspace || "DTX")}</span>
           <span class="tpl-svc-meta">${escapeHtml(made)}</span>
           <button type="button" class="header-action-btn" data-svc-edit="${escapeHtml(t.id)}">Edit</button>
           <button type="button" class="button-secondary" data-svc-delete="${escapeHtml(t.id)}" style="color:#9b2f2f;border-color:rgba(182,58,58,0.2);">Delete</button>
@@ -1186,7 +1230,6 @@
     if (rec) {
       svcForm.elements.id.value = rec.id;
       svcForm.elements.name.value = rec.name || "";
-      svcForm.elements.workspace.value = rec.workspace || "DTX";
       svcForm.elements.currency.value = rec.currency || "MNT";
       const prices = rec.prices || {};
       SVC_PAX_KEYS.forEach((k) => {
@@ -1198,7 +1241,6 @@
     } else {
       svcForm.reset();
       svcForm.elements.id.value = "";
-      svcForm.elements.workspace.value = "DTX";
       svcForm.elements.currency.value = "MNT";
       SVC_PAX_KEYS.forEach((k) => {
         const inp = svcForm.querySelector(`[data-svc-price="${k}"]`);
@@ -1222,6 +1264,12 @@
     svcHideContentPopover();
   }
   document.getElementById("tpl-svc-add")?.addEventListener("click", () => openServiceModal(null));
+  ["tpl-svc-search","tpl-svc-currency-filter","tpl-svc-priced-filter","tpl-svc-sort"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const evt = el.tagName === "SELECT" ? "change" : "input";
+    el.addEventListener(evt, renderServiceList);
+  });
   svcListNode?.addEventListener("click", async (e) => {
     const editId = e.target.closest("[data-svc-edit]")?.dataset?.svcEdit;
     if (editId) {
@@ -1249,6 +1297,70 @@
     svcCommitCurrentEditor();
     svcLoadEditorForLang(tab.dataset.svcLang);
   });
+  // Auto-translate the active language's prose into every empty target,
+  // via Claude on the server (NOT Google Translate). Preserves
+  // [[content:slug|label]] markers — only the label gets translated.
+  const svcTranslateBtn = document.getElementById("tpl-svc-translate-btn");
+  const svcTranslateStatus = document.getElementById("tpl-svc-translate-status");
+  svcTranslateBtn?.addEventListener("click", async () => {
+    svcCommitCurrentEditor();
+    // Source = active tab if filled, else English, else Mongolian, else
+    // any non-empty language.
+    let sourceLang = "";
+    let sourceText = "";
+    const candidates = [svcCurrentLang, "en", "mn", ...SVC_LANGS.map((l) => l.code)];
+    for (const c of candidates) {
+      if (!c || sourceLang) break;
+      const t = (svcDescriptions[c] || "").trim();
+      if (t) { sourceLang = c; sourceText = t; }
+    }
+    if (!sourceText) {
+      svcTranslateStatus.textContent = "Type the description in any language first, then click Translate.";
+      svcTranslateStatus.style.color = "#9b2f2f";
+      return;
+    }
+    const targets = SVC_LANGS
+      .map((l) => l.code)
+      .filter((c) => c !== sourceLang && !(svcDescriptions[c] || "").trim());
+    if (!targets.length) {
+      svcTranslateStatus.textContent = "Every language already has text. Clear one first if you want to retranslate.";
+      svcTranslateStatus.style.color = "#475569";
+      return;
+    }
+    svcTranslateBtn.disabled = true;
+    svcTranslateStatus.textContent = `Translating ${sourceLang.toUpperCase()} → ${targets.length} language(s) with Claude…`;
+    svcTranslateStatus.style.color = "#475569";
+    try {
+      const r = await fetch("/api/translate-prose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: sourceText, sourceLang, targetLangs: targets }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      const translations = d.translations || {};
+      let filled = 0;
+      Object.entries(translations).forEach(([code, text]) => {
+        if (text && !(svcDescriptions[code] || "").trim()) {
+          svcDescriptions[code] = text;
+          filled += 1;
+        }
+      });
+      // Re-render the current pane in case its content changed (it shouldn't,
+      // since we only touch empty langs, but the filled-tab indicators need
+      // refreshing).
+      svcLoadEditorForLang(svcCurrentLang);
+      svcRefreshLangTabFilledStates();
+      svcTranslateStatus.textContent = `Done — translated into ${filled} language(s).`;
+      svcTranslateStatus.style.color = "#1f7a3a";
+    } catch (err) {
+      svcTranslateStatus.textContent = err.message || "Translation failed.";
+      svcTranslateStatus.style.color = "#9b2f2f";
+    } finally {
+      svcTranslateBtn.disabled = false;
+    }
+  });
+
   svcForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     svcCommitCurrentEditor();
@@ -1260,7 +1372,6 @@
     });
     const body = {
       name: (svcForm.elements.name.value || "").trim(),
-      workspace: svcForm.elements.workspace.value || "DTX",
       currency: svcForm.elements.currency.value || "MNT",
       prices,
       descriptions: { ...svcDescriptions },

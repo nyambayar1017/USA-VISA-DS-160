@@ -10790,10 +10790,10 @@ def _normalize_service_descriptions(raw):
     return out
 
 
-def _build_service_template(payload, actor):
+def _build_service_template(payload, actor, workspace):
     name = normalize_text(payload.get("name"))
-    workspace = (normalize_text(payload.get("workspace")) or "DTX").upper()
-    if workspace not in ("DTX", "USM", "BOTH"):
+    workspace = (workspace or "DTX").upper()
+    if workspace not in ("DTX", "USM"):
         workspace = "DTX"
     currency = (normalize_text(payload.get("currency")) or "MNT").upper()
     if currency not in _SERVICE_CURRENCIES:
@@ -10833,7 +10833,10 @@ def handle_create_service_template(environ, start_response):
     payload = collect_json(environ) or {}
     if not normalize_text(payload.get("name")):
         return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
-    record = _build_service_template(payload, actor)
+    # Workspace is locked to the active session — a service created on USM
+    # only ever shows up on USM. Never accept a client-supplied value here.
+    workspace = (active_workspace(environ) or "DTX").upper()
+    record = _build_service_template(payload, actor, workspace)
     records = read_service_templates()
     records.insert(0, record)
     write_service_templates(records)
@@ -10851,10 +10854,7 @@ def handle_update_service_template(environ, start_response, template_id):
         return json_response(start_response, "404 Not Found", {"error": "Template not found"})
     if "name" in payload:
         target["name"] = normalize_text(payload.get("name")) or target.get("name")
-    if "workspace" in payload:
-        ws = (normalize_text(payload.get("workspace")) or "").upper()
-        if ws in ("DTX", "USM", "BOTH"):
-            target["workspace"] = ws
+    # Workspace is locked at create time and never changes via update — keep it.
     if "currency" in payload:
         ccy = (normalize_text(payload.get("currency")) or "").upper()
         if ccy in _SERVICE_CURRENCIES:
@@ -10883,6 +10883,121 @@ def handle_delete_service_template(environ, start_response, template_id):
     records = [r for r in records if r.get("id") != template_id]
     write_service_templates(records)
     return json_response(start_response, "200 OK", {"ok": True})
+
+
+# ── Claude-backed prose translation ────────────────────────────
+# Used by Service templates (and reusable for other multilingual prose).
+# Preserves [[content:slug|label]] markers verbatim — slug stays identical,
+# label is translated to match the target language.
+
+_LANG_LABELS = {
+    "mn": "Mongolian",
+    "en": "English",
+    "fr": "French",
+    "it": "Italian",
+    "es": "Spanish",
+    "ko": "Korean",
+    "zh": "Chinese (Simplified)",
+    "ja": "Japanese",
+    "ru": "Russian",
+}
+
+
+def _call_claude_for_translation(text, source_code, target_codes):
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY is not set on the server."}
+    source_label = _LANG_LABELS.get(source_code, source_code)
+    target_lines = "\n".join(
+        f"- {code}: {_LANG_LABELS.get(code, code)}"
+        for code in target_codes
+    )
+    system = (
+        "You are a professional travel-industry translator. "
+        "You translate short tour-itinerary prose between languages while preserving "
+        "every [[content:slug|label]] marker EXACTLY. The slug (after 'content:') and the "
+        "brackets must stay identical; the label after the pipe must be translated to "
+        "natural wording in the target language. Output strict JSON only — no markdown, "
+        "no commentary, no code fences."
+    )
+    user = (
+        f"Translate this prose from {source_label} ({source_code}) into the listed target "
+        f"languages. Return a single JSON object whose keys are the target language codes "
+        f"and whose values are the translated strings. Do not include the source language "
+        f"in the output. Keep punctuation, line breaks, and [[content:...]] markers intact.\n\n"
+        f"Source ({source_label}):\n{text}\n\n"
+        f"Target languages:\n{target_lines}\n"
+    )
+    body = {
+        "model": os.environ.get("AGENT_MODEL", "claude-sonnet-4-5-20250929"),
+        "max_tokens": 2000,
+        "system": system,
+        "messages": [{"role": "user", "content": user}],
+    }
+    try:
+        data = json.dumps(body).encode("utf-8")
+    except Exception as e:
+        return {"error": f"Could not serialize request: {e}"}
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=data, method="POST",
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try: msg = e.read().decode("utf-8")[:500]
+        except Exception: msg = str(e)
+        return {"error": f"Anthropic API error {e.code}: {msg}"}
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+    # Extract the text content block.
+    out_text = ""
+    for block in payload.get("content", []):
+        if isinstance(block, dict) and block.get("type") == "text":
+            out_text += block.get("text", "")
+    out_text = out_text.strip()
+    # Strip occasional ```json fences just in case.
+    if out_text.startswith("```"):
+        out_text = re.sub(r"^```(?:json)?\s*", "", out_text)
+        out_text = re.sub(r"\s*```$", "", out_text)
+    try:
+        translations = json.loads(out_text)
+    except Exception as e:
+        return {"error": f"Claude response was not valid JSON: {e}", "raw": out_text[:500]}
+    if not isinstance(translations, dict):
+        return {"error": "Claude response was not a JSON object."}
+    # Keep only requested target codes.
+    cleaned = {code: str(translations.get(code) or "") for code in target_codes}
+    return {"translations": cleaned}
+
+
+def handle_translate_prose(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    text = (payload.get("text") or "").strip()
+    source_code = (payload.get("sourceLang") or "en").strip().lower()
+    raw_targets = payload.get("targetLangs") or []
+    if not isinstance(raw_targets, list):
+        return json_response(start_response, "400 Bad Request", {"error": "targetLangs must be a list."})
+    target_codes = [c for c in (str(t).strip().lower() for t in raw_targets) if c and c != source_code and c in _LANG_LABELS]
+    if not text:
+        return json_response(start_response, "400 Bad Request", {"error": "Source text is empty."})
+    if source_code not in _LANG_LABELS:
+        return json_response(start_response, "400 Bad Request", {"error": f"Unsupported source language: {source_code}"})
+    if not target_codes:
+        return json_response(start_response, "200 OK", {"translations": {}})
+    result = _call_claude_for_translation(text, source_code, target_codes)
+    if "error" in result:
+        return json_response(start_response, "502 Bad Gateway", result)
+    return json_response(start_response, "200 OK", result)
 
 
 def handle_accountant_download_zip(environ, start_response):
@@ -20337,6 +20452,11 @@ def _dispatch(environ, start_response):
             return handle_update_service_template(environ, start_response, template_id)
         if method == "DELETE" and template_id:
             return handle_delete_service_template(environ, start_response, template_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/translate-prose":
+        if method == "POST":
+            return handle_translate_prose(environ, start_response)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/accountant/paid":
