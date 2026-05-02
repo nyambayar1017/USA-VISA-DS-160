@@ -3,8 +3,9 @@
 // Why client-side: Render disk is 1 GB and Bataa frequently uploads phone
 // photos/passport scans. Resizing to max 1600px and re-encoding as JPEG q=0.82
 // typically shrinks 4-8 MB phone photos to ~150-400 KB without visible quality
-// loss. PDFs/DOC are passed through unchanged (would need ghostscript/qpdf to
-// shrink, not worth the dependency).
+// loss. Single-page PDFs (passports / receipts / IDs) are rasterized to JPEG
+// via pdf.js — a 4 MB scan becomes ~150 KB. Multi-page PDFs are passed through
+// unchanged (we'd lose pages). DOC is also passed through.
 //
 // Usage:
 //   const compressed = await window.CompressUpload.image(file);
@@ -77,17 +78,94 @@
     return compressed.length < dataUrl.length ? compressed : dataUrl;
   }
 
+  // ── PDF → JPEG rasterizer ──
+  // Single-page PDFs (passports, receipts, IDs) get rendered to a
+  // canvas at ≤ MAX_DIMENSION px and encoded as JPEG so the rest of
+  // the compress flow can take over. Multi-page PDFs return null
+  // (we don't want to silently lose pages on contracts etc).
+  let pdfJsPromise = null;
+  function ensurePdfJs() {
+    if (window.pdfjsLib && window.pdfjsLib.getDocument) return Promise.resolve(window.pdfjsLib);
+    if (!pdfJsPromise) {
+      pdfJsPromise = new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+        s.onload = () => {
+          try {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+              "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          } catch (_) {}
+          resolve(window.pdfjsLib);
+        };
+        s.onerror = () => { pdfJsPromise = null; reject(new Error("pdf.js load failed")); };
+        document.head.appendChild(s);
+      });
+    }
+    return pdfJsPromise;
+  }
+
+  async function rasterizePdfFirstPage(file) {
+    if (!file || file.type !== "application/pdf") return null;
+    let lib;
+    try { lib = await ensurePdfJs(); } catch { return null; }
+    let pdf;
+    try {
+      const arrayBuf = await file.arrayBuffer();
+      pdf = await lib.getDocument({ data: arrayBuf, disableWorker: false }).promise;
+    } catch { return null; }
+    // Multi-page PDF → keep original (we don't want to lose pages).
+    if (pdf.numPages !== 1) return null;
+    let blob;
+    try {
+      const page = await pdf.getPage(1);
+      const base = page.getViewport({ scale: 1 });
+      // Render at enough resolution to keep the longer side ≤ MAX_DIMENSION
+      // but never below the page's native size — small docs stay sharp.
+      const longSide = Math.max(base.width, base.height);
+      const scale = Math.max(1, Math.min(MAX_DIMENSION / longSide * 1.5, 2.5));
+      const vp = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(vp.width);
+      canvas.height = Math.round(vp.height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      // toBlob → Promise wrapper.
+      blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
+    } catch { return null; }
+    if (!blob || blob.size >= file.size) return null;
+    const newName = (file.name || "scan.pdf").replace(/\.pdf$/i, "") + ".jpg";
+    return new File([blob], newName, { type: "image/jpeg", lastModified: Date.now() });
+  }
+
   async function compressFile(file) {
     if (!file) return null;
+    if (file.type === "application/pdf") {
+      const jpg = await rasterizePdfFirstPage(file);
+      if (jpg) return readFileAsDataUrl(jpg);
+    }
     const dataUrl = await readFileAsDataUrl(file);
     if (!file.type || !file.type.startsWith("image/")) return dataUrl;
     return compressDataUrl(dataUrl);
   }
 
   // Returns a Blob/File for FormData upload paths. Non-images and small images
-  // are passed through unchanged.
+  // are passed through unchanged. Single-page PDFs are rasterized to JPEG
+  // first, then run through the regular image-compress path so they end up
+  // identical in shape to a normal JPEG upload.
   async function compressToFile(file) {
     if (!file) return file;
+    if (file.type === "application/pdf") {
+      const jpg = await rasterizePdfFirstPage(file);
+      if (jpg) {
+        // Recurse on the JPEG so the standard 1600px resize + JPEG quality
+        // re-encode applies. Returns the smaller of the two.
+        return await compressToFile(jpg);
+      }
+      return file;
+    }
     if (!file.type || !file.type.startsWith("image/")) return file;
     if (file.type === "image/gif") return file;
     if (file.size < SKIP_IF_UNDER_BYTES) return file;
