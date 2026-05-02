@@ -201,14 +201,7 @@
     renderProgram(current);
   });
 
-  document.getElementById("tc-clear-days").addEventListener("click", () => {
-    const current = readProgram();
-    if (!current.length) return;
-    if (!confirm(`Remove all ${current.length} day(s) from this trip's program? You can rebuild with + Add day.`)) return;
-    renderProgram([]);
-  });
-
-  // Location picker: filling a day's location auto-fills the title in
+// Location picker: filling a day's location auto-fills the title in
   // the trip's language and pushes the location's first photo into the
   // day if no photo is set yet. The user can override afterwards — we
   // only seed empty fields, never overwrite their typing.
@@ -572,7 +565,12 @@
           $(`tc-${key}`).value = String(doc[key] || 0);
           $(`tc-${key}-out`).textContent = `${doc[key] || 0}/5`;
         });
-        renderProgram(doc.program && doc.program.length ? doc.program : seedProgramFromTrip(trip));
+        // The editor always opens with no day rows — the manager builds
+        // the program from scratch each time, "+ Add day" by "+ Add day"
+        // (eventually drag-and-drop from day templates). Saved program
+        // data on the trip-creator doc is preserved on the server and
+        // only gets overwritten if the manager hits Publish/Save.
+        renderProgram([]);
         setCoverIds(Array.isArray(doc.coverIds) ? doc.coverIds : []);
         renderQuote((doc.quotation && doc.quotation.rows) || []);
         $("tc-quote-note").value = (doc.quotation && doc.quotation.note) || "";
