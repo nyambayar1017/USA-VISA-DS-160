@@ -286,5 +286,13 @@
     });
   }
 
-  window.ImagePicker = { open };
+  // Look up loaded gallery entries by id. Used by callers (location editor,
+  // trip creator) to inherit fields like alt text from the gallery instead of
+  // re-asking the user. Returns null if the picker hasn't been opened yet.
+  function getEntry(id) {
+    if (!id) return null;
+    return (STATE.entries || []).find((e) => e && e.id === id) || null;
+  }
+
+  window.ImagePicker = { open, getEntry };
 })();

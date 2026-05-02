@@ -504,11 +504,74 @@
       if (enInput && !enInput.value.trim() && r.display_name) {
         enInput.value = r.display_name.split(",")[0].trim();
       }
+      // OSM rarely has all 9 languages — fan-out a translate pass to fill
+      // anything still empty so the manager doesn't have to click twice.
+      try { await translateLocNamesToAll(); } catch (_) {}
     } catch (err) {
       alert(`Lookup failed: ${err.message}`);
     }
   }
   document.getElementById("tpl-loc-autofill").addEventListener("click", autofillFromNominatim);
+
+  // Translate the location name into every empty language slot. Source =
+  // English if filled, else Mongolian, else the first non-empty value, else
+  // the main "name" field. Uses the same MyMemory endpoint as gallery alt-text
+  // translation — free, no key, CORS-enabled.
+  async function translateLocNamesToAll() {
+    const inputs = {};
+    LOC_LANGS.forEach((l) => {
+      const el = locLangGrid.querySelector(`[data-loc-lang="${l.code}"]`);
+      if (el) inputs[l.code] = el;
+    });
+    let sourceLang = "en";
+    let sourceText = (inputs.en?.value || "").trim();
+    if (!sourceText) {
+      sourceLang = "mn";
+      sourceText = (inputs.mn?.value || "").trim();
+    }
+    if (!sourceText) {
+      const found = LOC_LANGS.find((l) => (inputs[l.code]?.value || "").trim());
+      if (found) {
+        sourceLang = found.code;
+        sourceText = inputs[found.code].value.trim();
+      }
+    }
+    if (!sourceText) {
+      sourceText = (locNameField.value || "").trim();
+      sourceLang = "en";
+    }
+    if (!sourceText) {
+      alert("Type a name in any language first, then press Translate.");
+      return;
+    }
+    const status = document.getElementById("tpl-loc-translate-status");
+    const btn = document.getElementById("tpl-loc-translate");
+    btn.disabled = true;
+    if (status) {
+      status.hidden = false;
+      status.textContent = "Translating…";
+    }
+    const targets = LOC_LANGS.filter((l) => l.code !== sourceLang && !(inputs[l.code]?.value || "").trim());
+    let failed = 0;
+    await Promise.all(targets.map(async (l) => {
+      try {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(sourceText)}&langpair=${encodeURIComponent(sourceLang)}|${encodeURIComponent(l.code)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const text = (data?.responseData?.translatedText || "").trim();
+        if (text && inputs[l.code]) inputs[l.code].value = text;
+      } catch {
+        failed += 1;
+      }
+    }));
+    btn.disabled = false;
+    if (status) {
+      if (failed) status.textContent = `Done — ${failed} language(s) failed, edit manually.`;
+      else status.textContent = `Translated from ${sourceLang.toUpperCase()} into ${targets.length} language(s).`;
+    }
+  }
+  document.getElementById("tpl-loc-translate").addEventListener("click", translateLocNamesToAll);
 
   document.getElementById("tpl-loc-add").addEventListener("click", () => openLocModal(null));
 
@@ -592,10 +655,24 @@
       title: "Choose location photos",
     });
     if (!Array.isArray(picked)) return;
-    // Preserve alt text for previously-picked images; add empty alt
-    // for newly-selected ones in the picker's order.
+    // Preserve alt text for previously-picked images. For newly-added
+    // ones, inherit the alt that was already saved on the gallery entry
+    // (prefer English, fall back to Mongolian, then any non-empty value)
+    // so the manager doesn't have to retype what they already wrote.
     const altByIdBefore = new Map(locImagesState.map((i) => [i.id, i.alt || ""]));
-    locImagesState = picked.map((id) => ({ id, alt: altByIdBefore.get(id) || "" }));
+    locImagesState = picked.map((id) => {
+      const prior = altByIdBefore.get(id);
+      if (prior) return { id, alt: prior };
+      let inherited = "";
+      const entry = window.ImagePicker?.getEntry?.(id);
+      const altObj = entry && entry.alt;
+      if (altObj && typeof altObj === "object") {
+        inherited = (altObj.en || altObj.mn || Object.values(altObj).find((v) => (v || "").trim()) || "").trim();
+      } else if (typeof altObj === "string") {
+        inherited = altObj.trim();
+      }
+      return { id, alt: inherited };
+    });
     locImageIdsField.value = locImagesState.map((i) => i.id).join(",");
     renderLocImages();
   });

@@ -16598,6 +16598,16 @@ body[data-page="trip-creator"] .tc-publish-state[data-state="draft"] {
   color: #64748b;
   margin: 0;
 }
+.tpl-loc-lang-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.tpl-loc-lang-header .tpl-loc-hint { flex: 1; min-width: 0; }
+#tpl-loc-translate-status { margin-top: 8px; }
 .tpl-loc-map {
   width: 100%;
   height: 320px;
