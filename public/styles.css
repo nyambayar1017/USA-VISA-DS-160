@@ -736,7 +736,14 @@ td {
 .row-menu-trigger:hover { background: rgba(22, 44, 84, 0.12); }
 .row-menu[open] .row-menu-trigger { background: rgba(22, 44, 84, 0.12); }
 .row-menu-popover {
-  position: fixed;
+  /* Anchored to the .row-menu (position: relative) so it lands below
+     the trigger without needing JS positioning. position: fixed left
+     it floating in some weird spot on /content rows because the
+     trip-menu toggle listener only fires for .trip-menu, not
+     .row-menu. */
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
   background: #fff;
   border: 1px solid rgba(32, 53, 111, 0.12);
   border-radius: 18px;
@@ -3958,6 +3965,14 @@ time {
   padding: 32px 24px 40px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 720px) {
+  /* On mobile a short modal pinned to flex-start with 32px top padding
+     ends up clipped above when the user has scrolled the page. Reduce
+     top padding so the title is reachable, and force overflow scroll
+     on the modal itself (iOS sometimes loses inner scroll). */
+  .camp-modal { padding: 12px 8px 24px; }
 }
 
 .camp-modal.is-hidden {
@@ -10600,8 +10615,21 @@ body.announcement-modal-open {
 .todo-table tbody td { padding: 8px 10px !important; vertical-align: middle !important; }
 .todo-table tbody tr.todo-tr--contact { background: #f6faff; }
 .todo-table tbody tr.todo-tr--contact:hover { background: #ecf2fb; }
-.todo-table .todo-cell-title { max-width: 260px; }
-.todo-table .todo-cell-title strong { font-size: 13px; word-break: break-word; }
+.todo-table .todo-cell-title {
+  max-width: 260px;
+  /* "send an email about Flight information & passport…" was bleeding
+     into neighbouring cells because `strong` is inline and doesn't
+     wrap unless its parent enforces it. overflow-wrap + min-width:0
+     forces the long text to wrap inside the cell. */
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.todo-table .todo-cell-title strong {
+  display: inline-block;
+  font-size: 13px;
+  word-break: break-word;
+  max-width: 100%;
+}
 .todo-table .todo-cell-owner { font-size: 12px; color: #4b5563; }
 .todo-table .todo-cell-owner .todo-owner-chip {
   display: inline-block;
@@ -14208,9 +14236,20 @@ body.trip-notes-drawer-open { overflow: hidden; }
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
   border-bottom: 1px solid rgba(32, 53, 111, 0.12);
   margin-bottom: 18px;
   padding-bottom: 10px;
+}
+@media (max-width: 720px) {
+  /* On phones the tab strip + Copy link / Preview / Publish actions
+     don't fit on one line. Wrap and right-align so the actions land
+     under the tabs instead of being cut off. */
+  .tc-tab-strip { gap: 6px; }
+  .tc-tab-strip .header-action-btn,
+  .tc-tab-strip .tc-publish-state,
+  .tc-tab-strip .tc-save-status { font-size: 12px; padding: 7px 10px; }
+  .tc-tab-strip .header-action-publish { margin-left: auto; }
 }
 .tc-tab {
   padding: 8px 14px;
@@ -15164,6 +15203,31 @@ body.gallery-file-drag .gallery-folder-card.is-drop-hover {
   /* Folder cards are hidden in list mode (see render()), but if any
      slip through, keep them visually consistent. */
   grid-template-columns: 32px 56px 1fr;
+}
+
+@media (max-width: 720px) {
+  /* Mobile list view: 5-column grid (32+56+160+120+auto) overflowed
+     iPhone 375-430px viewports, pushing the thumbnail off-screen.
+     Drop to checkbox + thumb + everything-stacked, with actions on
+     a second visual row via flex-wrap. */
+  .gallery-grid--list .gallery-card {
+    grid-template-columns: 32px 64px 1fr;
+    gap: 8px;
+    align-items: start;
+    padding: 8px 10px;
+  }
+  .gallery-grid--list .gallery-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .gallery-grid--list .gallery-card-title { white-space: normal; }
+  .gallery-grid--list .gallery-card-meta { white-space: normal; }
+  .gallery-grid--list .gallery-actions { grid-column: 1 / -1; flex-wrap: wrap; padding-top: 4px; }
+  /* Compact view: tighter min-column on phones so 3 thumbs fit per row. */
+  .gallery-grid--compact { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important; }
+  /* Safety: explicit min-height on gallery-thumb for older WebKit
+     where aspect-ratio sometimes collapses to 0. */
+  .gallery-thumb { min-height: 80px; }
+  .gallery-grid--compact .gallery-thumb,
+  .gallery-grid--list .gallery-thumb { min-height: 0; }
+  .gallery-grid--list .gallery-thumb { width: 64px; height: 64px; }
 }
 
 /* Group-by headers shown when state.group !== "none" */

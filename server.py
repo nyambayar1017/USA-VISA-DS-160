@@ -8876,6 +8876,32 @@ def _can_approve_payment_request(user):
     return role in ("admin", "accountant")
 
 
+# "Paid" variants used across camp / flight / transfer reservations.
+# Only admin / accountant can flip to one of these — managers raise
+# a request and the accountant confirms (mirrors the invoice flow).
+PAID_PAYMENT_STATUSES = {"paid", "paid_100", "paid_deposit"}
+
+
+def _check_payment_status_guard(actor, payload, existing=None):
+    """Return an error-response tuple (status, body) if the payload
+    is asking to set paymentStatus to a paid variant and the actor is
+    not an admin/accountant. Returns None when the change is allowed
+    (either the actor is admin/accountant, or the status isn't a paid
+    variant, or the status didn't actually change)."""
+    incoming = (payload.get("paymentStatus") or "").strip().lower() if isinstance(payload, dict) else ""
+    if not incoming or incoming not in PAID_PAYMENT_STATUSES:
+        return None
+    prior = ((existing or {}).get("paymentStatus") or "").strip().lower()
+    if incoming == prior:
+        return None  # no change — leave it alone
+    if _can_approve_payment_request(actor):
+        return None
+    return (
+        "403 Forbidden",
+        {"error": "Only admin or accountant can mark a payment as paid. Ask your accountant to confirm."},
+    )
+
+
 def _attach_vendor_invoice(upload, actor):
     """Store the manager-uploaded vendor invoice (or quote/contract)
     under data/trip-uploads/_vendor/. Returned metadata is stashed on
@@ -15607,6 +15633,9 @@ def handle_create_camp_reservation(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    guard = _check_payment_status_guard(actor, payload)
+    if guard:
+        return json_response(start_response, guard[0], guard[1])
 
     payload["company"] = active_workspace(environ) or DEFAULT_COMPANY
     record = build_camp_reservation(payload, actor)
@@ -15655,6 +15684,9 @@ def handle_create_flight_reservation(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    guard = _check_payment_status_guard(actor, payload)
+    if guard:
+        return json_response(start_response, guard[0], guard[1])
 
     payload["company"] = active_workspace(environ) or DEFAULT_COMPANY
     record = build_flight_reservation(payload, actor)
@@ -15689,6 +15721,9 @@ def handle_create_transfer_reservation(environ, start_response):
     payload = collect_json(environ)
     if payload is None:
         return json_response(start_response, "400 Bad Request", {"error": "Invalid payload"})
+    guard = _check_payment_status_guard(actor, payload)
+    if guard:
+        return json_response(start_response, guard[0], guard[1])
 
     payload["company"] = active_workspace(environ) or DEFAULT_COMPANY
     record = build_transfer_reservation(payload, actor)
@@ -15846,6 +15881,9 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
     for index, record in enumerate(records):
         if record["id"] != reservation_id:
             continue
+        guard = _check_payment_status_guard(actor, payload, existing=record)
+        if guard:
+            return json_response(start_response, guard[0], guard[1])
 
         merged = {**record}
         for key in [
@@ -15932,6 +15970,9 @@ def handle_update_flight_reservation(environ, start_response, reservation_id):
     for index, record in enumerate(records):
         if record["id"] != reservation_id:
             continue
+        guard = _check_payment_status_guard(actor, payload, existing=record)
+        if guard:
+            return json_response(start_response, guard[0], guard[1])
         merged = {**record}
         for key in [
             "tripId",
@@ -16002,6 +16043,9 @@ def handle_update_transfer_reservation(environ, start_response, reservation_id):
     for index, record in enumerate(records):
         if record["id"] != reservation_id:
             continue
+        guard = _check_payment_status_guard(actor, payload, existing=record)
+        if guard:
+            return json_response(start_response, guard[0], guard[1])
         merged = {**record}
         for key in [
             "tripId",
