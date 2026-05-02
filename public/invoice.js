@@ -214,15 +214,21 @@
                   <td>${escapeHtml(fmtDateOnly(c.createdAt))}</td>
                   <td>
                     <div class="contract-actions">
-                      <a class="secondary-button" href="/api/contracts/${encodeURIComponent(c.id)}/document?mode=view" target="_blank" rel="noreferrer">View</a>
-                      <button class="secondary-button" data-contract-action="edit" data-id="${escapeHtml(c.id)}" ${signed ? "disabled" : ""}>Edit</button>
-                      <a class="secondary-button" href="${escapeHtml(c.docxPath || "#")}" download>Word</a>
                       ${pdfReady
                         ? `<a class="secondary-button ${signed ? "success-button" : ""}" href="/pdf-viewer?src=${encodeURIComponent("/api/contracts/" + c.id + "/document?mode=download")}&title=${encodeURIComponent(data.contractSerial || "Contract")}" target="_blank" rel="noreferrer">${signed ? "Signed PDF" : "PDF"}</a>`
                         : '<span class="muted">PDF pending</span>'}
                       <a class="secondary-button" href="/api/contracts/${encodeURIComponent(c.id)}/invoice?mode=view" target="_blank" rel="noreferrer">Invoice</a>
-                      <button class="secondary-button" data-contract-action="copy" data-link="${escapeHtml(shareLink)}">Copy link</button>
-                      <button class="secondary-button danger-button" data-contract-action="delete" data-id="${escapeHtml(c.id)}">Delete</button>
+                      <details class="trip-menu trip-page-menu">
+                        <summary class="trip-menu-trigger" aria-label="Contract actions">⋯</summary>
+                        <div class="trip-menu-popover">
+                          <a class="trip-menu-item" href="/api/contracts/${encodeURIComponent(c.id)}/document?mode=view" target="_blank" rel="noreferrer">View</a>
+                          <button type="button" class="trip-menu-item" data-contract-action="edit" data-id="${escapeHtml(c.id)}" ${signed ? "disabled" : ""}>Edit</button>
+                          <a class="trip-menu-item" href="${escapeHtml(c.docxPath || "#")}" download>Word</a>
+                          <button type="button" class="trip-menu-item" data-contract-action="copy" data-link="${escapeHtml(shareLink)}">Copy link</button>
+                          <button type="button" class="trip-menu-item" data-contract-action="send" data-id="${escapeHtml(c.id)}">Send to client</button>
+                          <button type="button" class="trip-menu-item is-danger" data-contract-action="delete" data-id="${escapeHtml(c.id)}">Delete</button>
+                        </div>
+                      </details>
                     </div>
                   </td>
                 </tr>
@@ -1760,6 +1766,23 @@
       } catch (err) { alert(err.message || "Could not delete contract."); }
     } else if (action === "edit") {
       window.open(`/contracts?editId=${encodeURIComponent(id)}#${encodeURIComponent(id)}`, "_blank", "noreferrer");
+    } else if (action === "send") {
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Sending…";
+      try {
+        const r = await fetch(`/api/contracts/${encodeURIComponent(id)}/invite`, { method: "POST" });
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          throw new Error(data.error || "Could not send.");
+        }
+        btn.textContent = "Sent";
+        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
+      } catch (err) {
+        btn.textContent = original;
+        btn.disabled = false;
+        alert(err.message || "Could not send.");
+      }
     }
   });
 

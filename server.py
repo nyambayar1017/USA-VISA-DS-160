@@ -17419,6 +17419,59 @@ def handle_sign_contract(environ, start_response, contract_id):
     return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
 
 
+def _send_contract_invitation_email(contract):
+    """Send the friendly "please sign" invitation to the client when
+    a manager creates a contract. Includes the signing link + the
+    manager's signature line. Failures bubble up so the caller can
+    surface the reason (Resend not configured, missing email, etc).
+    """
+    data = contract.get("data") or {}
+    client_email = (data.get("clientEmail") or "").strip()
+    if not client_email:
+        return {"ok": False, "error": "Үйлчлүүлэгчийн имэйл хаяг байхгүй байна."}
+    serial = data.get("contractSerial") or contract.get("id")
+    signing_link = f"https://www.backoffice.travelx.mn/contract/{contract.get('id')}"
+    manager_full = " ".join(filter(None, [data.get("managerLastName"), data.get("managerFirstName")])).strip() or "Дэлхий Трэвел Икс"
+    manager_email = (data.get("managerEmail") or "").strip()
+    manager_phone = (data.get("managerPhone") or "").strip()
+    body_lines = [
+        "Сайн байна уу,",
+        "",
+        f"Дэлхий Трэвел Икс ХХК танд аяллын гэрээ {('№ ' + serial) if serial else ''} илгээлээ.".strip(),
+        "Та доорх холбоосоор орж гэрээгээ бөглөж, гарын үсгээр баталгаажуулна уу:",
+        "",
+        signing_link,
+        "",
+        "Хүндэтгэсэн,",
+        manager_full,
+    ]
+    if manager_phone:
+        body_lines.append(f"Утас: {manager_phone}")
+    if manager_email:
+        body_lines.append(f"И-мэйл: {manager_email}")
+    args = {
+        "to": [client_email],
+        "subject": f"Travelx — Аяллын гэрээ{(' ' + serial) if serial else ''}",
+        "body": "\n".join(body_lines),
+        "attachments": [{"kind": "contract", "id": contract.get("id")}] if contract.get("pdfPath") else [],
+    }
+    return _tool_send_email(args, None)
+
+
+def handle_send_contract_invitation(environ, start_response, contract_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_contracts()
+    target = next((r for r in records if r.get("id") == contract_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
+    result = _send_contract_invitation_email(target)
+    if result.get("ok"):
+        return json_response(start_response, "200 OK", {"ok": True})
+    return json_response(start_response, "400 Bad Request", {"error": result.get("error") or "Could not send."})
+
+
 def _send_signed_contract_email(contract):
     """Auto-send after a client signs. Two separate emails:
       1. Friendly confirmation to the client (with auto-disclaimer footer).
@@ -20386,6 +20439,11 @@ def _dispatch(environ, start_response):
             contract_id = tail.replace("/sign", "", 1).strip("/")
             if method == "POST":
                 return handle_sign_contract(environ, start_response, contract_id)
+            return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+        if tail.endswith("/invite"):
+            contract_id = tail.replace("/invite", "", 1).strip("/")
+            if method == "POST":
+                return handle_send_contract_invitation(environ, start_response, contract_id)
             return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
         if tail.endswith("/document"):
             contract_id = tail.replace("/document", "", 1).strip("/")

@@ -263,6 +263,7 @@ const renderContractsTable = (contracts) => {
                           <button type="button" class="trip-menu-item" data-edit-id="${entry.id}" ${signed ? "disabled" : ""}>Edit</button>
                           <a class="trip-menu-item" href="${entry.docxPath}" download>Word</a>
                           <button type="button" class="trip-menu-item" data-copy-link="${shareLink}">Copy link</button>
+                          <button type="button" class="trip-menu-item" data-send-id="${entry.id}">Send to client</button>
                           <button type="button" class="trip-menu-item is-danger" data-delete-id="${entry.id}">Delete</button>
                         </div>
                       </details>
@@ -298,6 +299,28 @@ const renderContractsTable = (contracts) => {
       const contract = allContracts.find((entry) => entry.id === button.dataset.editId);
       if (!contract || contract.status === "signed") return;
       window.openContractEditor?.(contract);
+    });
+  });
+
+  qsa("[data-send-id]", container).forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.sendId;
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = "Sending…";
+      try {
+        const r = await fetch(`/api/contracts/${encodeURIComponent(id)}/invite`, { method: "POST" });
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          throw new Error(data.error || "Could not send.");
+        }
+        button.textContent = "Sent";
+        setTimeout(() => { button.textContent = original; button.disabled = false; }, 2000);
+      } catch (err) {
+        button.textContent = original;
+        button.disabled = false;
+        alert(err.message || "Could not send.");
+      }
     });
   });
 };
