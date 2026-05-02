@@ -966,6 +966,7 @@ const initContractForm = () => {
   let editorMode = "create";          // "create" | "edit" | "view"
   let editorEditingId = "";
   let editorName = "";
+  let editorBigTitle = "";            // Big H1 above the Intro
   let editorIntro = [];               // ["preamble paragraph", …]
   let editorSections = [];            // [{title, paragraphs:[text,…]}]
   const isReadOnly = () => editorMode === "view";
@@ -1086,6 +1087,12 @@ const initContractForm = () => {
   function renderEditorSections() {
     if (!tplSectionsHost) return;
     const ro = isReadOnly();
+    const bigTitleBlock = `
+      <fieldset class="contract-template-section contract-template-big-title">
+        <legend>Big title (large heading at the top of the page)</legend>
+        <input type="text" data-big-title value="${escAttr(editorBigTitle || "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ")}" ${ro ? "readonly" : ""} />
+      </fieldset>
+    `;
     const introBlock = `
       <fieldset class="contract-template-section contract-template-intro" data-intro-block>
         <legend>Intro (preamble — appears above Section 1)</legend>
@@ -1103,7 +1110,7 @@ const initContractForm = () => {
         </div>`}
       </fieldset>
     `;
-    tplSectionsHost.innerHTML = introBlock + editorSections.map((sec, sIdx) => `
+    tplSectionsHost.innerHTML = bigTitleBlock + introBlock + editorSections.map((sec, sIdx) => `
       <fieldset class="contract-template-section" data-section-index="${sIdx}">
         <legend>Section ${sIdx + 1}</legend>
         <label class="contract-template-title-label">
@@ -1131,6 +1138,10 @@ const initContractForm = () => {
     if (tplAddSectionBtn) tplAddSectionBtn.style.display = ro ? "none" : "";
   }
 
+  function readEditorBigTitle() {
+    const node = tplSectionsHost.querySelector("[data-big-title]");
+    return (node?.value || "").trim();
+  }
   function readEditorIntro() {
     return Array.from(tplSectionsHost.querySelectorAll("[data-intro-paragraph]"))
       .map((t) => paragraphHtmlForStorage(t));
@@ -1173,10 +1184,12 @@ const initContractForm = () => {
       });
     } catch { return; }
     if (!name) return;
+    let bigTitle = "";
     let intro = [];
     let sections = [];
     try {
       const data = await apiRequest("/api/contract-templates/default");
+      bigTitle = data?.bigTitle || "";
       intro = Array.isArray(data?.intro) ? data.intro : [];
       sections = Array.isArray(data?.sections) ? data.sections : [];
     } catch (err) {
@@ -1186,6 +1199,7 @@ const initContractForm = () => {
     editorMode = "create";
     editorEditingId = "";
     editorName = name;
+    editorBigTitle = bigTitle;
     editorIntro = intro;
     editorSections = sections;
     if (tplEditorTitle) tplEditorTitle.textContent = `New template — ${name}`;
@@ -1541,6 +1555,7 @@ const initContractForm = () => {
   });
 
   tplSaveBtn?.addEventListener("click", async () => {
+    const bigTitle = readEditorBigTitle();
     const intro = readEditorIntro();
     const sections = readEditorSections();
     if (tplStatus) tplStatus.textContent = "Saving…";
@@ -1550,7 +1565,7 @@ const initContractForm = () => {
         : "/api/contract-templates";
       await apiRequest(url, {
         method: "POST",
-        body: JSON.stringify({ name: editorName, intro, sections }),
+        body: JSON.stringify({ name: editorName, bigTitle, intro, sections }),
       });
       closeEditor();
       await loadTemplatesIntoSelect();
@@ -1631,20 +1646,20 @@ const initContractForm = () => {
     if (id === "__default__" && (action === "view" || action === "clone")) {
       try {
         const data = await apiRequest("/api/contract-templates/default");
+        const bigTitle = data?.bigTitle || "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ";
         const intro = Array.isArray(data?.intro) ? data.intro : [];
         const sections = Array.isArray(data?.sections) ? data.sections : [];
         if (action === "view") {
           editorMode = "view";
           editorEditingId = "";
           editorName = "Анхдагч (Default)";
+          editorBigTitle = bigTitle;
           editorIntro = intro;
           editorSections = sections;
           if (tplEditorTitle) tplEditorTitle.textContent = `View template — ${editorName}`;
           closeTemplateListModal();
           openEditor();
         } else {
-          // "Clone & edit": prompt for a new name, then open the
-          // editor in create mode pre-filled with the default body.
           let name;
           try {
             name = await window.UI.prompt("New template name (e.g. JEJU, Korea-FIT):", {
@@ -1657,6 +1672,7 @@ const initContractForm = () => {
           editorMode = "create";
           editorEditingId = "";
           editorName = name;
+          editorBigTitle = bigTitle;
           editorIntro = intro;
           editorSections = sections;
           if (tplEditorTitle) tplEditorTitle.textContent = `New template — ${name}`;
@@ -1676,6 +1692,7 @@ const initContractForm = () => {
         editorMode = action;
         editorEditingId = id;
         editorName = entry.name || "";
+        editorBigTitle = entry.bigTitle || "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ";
         editorIntro = Array.isArray(entry.intro) ? entry.intro : [];
         editorSections = Array.isArray(entry.sections) ? entry.sections : [];
         if (tplEditorTitle) tplEditorTitle.textContent = `${action === "view" ? "View" : "Edit"} template — ${editorName}`;

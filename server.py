@@ -4706,7 +4706,7 @@ def get_default_template_payload():
         elif block["type"] == "numbered-paragraph":
             if current is not None:
                 current["paragraphs"].append(block["text"])
-    return {"intro": intro, "sections": sections}
+    return {"bigTitle": "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ", "intro": intro, "sections": sections}
 
 
 _TEMPLATE_ALLOWED_TAGS = {"strong", "b", "em", "i", "u", "ul", "ol", "li", "br", "p"}
@@ -4860,6 +4860,21 @@ def build_contract_body_html(data):
 
 def build_contract_html(data, signature_path=None, asset_mode="web", contract_id=None):
     content = build_contract_body_html(data)
+    # Big page title — manager-built templates can override the
+    # default "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ" wording (e.g. memos use
+    # "ХАРИЛЦАН ОЙЛГОЛЦЛЫН САНАМЖ БИЧИГ"). Falls back to default
+    # when the chosen template has no bigTitle or no template
+    # is selected.
+    big_title_raw = "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ"
+    template_id = (data or {}).get("templateId") or ""
+    if template_id:
+        for tpl in read_contract_templates():
+            if tpl.get("id") == template_id:
+                tpl_title = (tpl.get("bigTitle") or "").strip()
+                if tpl_title:
+                    big_title_raw = tpl_title
+                break
+    big_title = html.escape(big_title_raw)
     organizer_name = html.escape(get_manager_display_name(data))
     customer_name = html.escape(data.get("touristSignature") or "")
     manager_display_name = html.escape(get_manager_signature_name(data))
@@ -5242,7 +5257,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
       <div class="doc-logo">
         <img src="{asset_src('logo.png')}" alt="Дэлхий Трэвел Икс" class="doc-logo-image" />
       </div>
-      <h1>АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ</h1>
+      <h1>{big_title}</h1>
       <p class="contract-number-line"><span class="contract-number-label">Дугаар:</span> {contract_serial}</p>
       <div class="contract-date-row">
         <span>{contract_date}</span>
@@ -17026,6 +17041,13 @@ def handle_get_default_contract_template(environ, start_response):
     return json_response(start_response, "200 OK", get_default_template_payload())
 
 
+def _normalize_contract_template_big_title(payload):
+    raw = (payload or {}).get("bigTitle")
+    if raw is None:
+        return None
+    return (str(raw) or "").strip()
+
+
 def _normalize_contract_template_payload(payload):
     """Coerce the editor payload into clean storage shape:
     {intro: [html…], sections: [{title, paragraphs:[html…]}]}.
@@ -17065,9 +17087,11 @@ def handle_create_contract_template(environ, start_response):
     if not name:
         return json_response(start_response, "400 Bad Request", {"error": "Template name is required."})
     body = _normalize_contract_template_payload(payload)
+    big_title = _normalize_contract_template_big_title(payload) or ""
     record = {
         "id": uuid4().hex,
         "name": name,
+        "bigTitle": big_title,
         "intro": body["intro"],
         "sections": body["sections"],
         "createdAt": now_mongolia().isoformat(),
@@ -17109,6 +17133,8 @@ def handle_update_contract_template(environ, start_response, template_id):
         body = _normalize_contract_template_payload(payload)
         target["intro"] = body["intro"]
         target["sections"] = body["sections"]
+    if "bigTitle" in payload:
+        target["bigTitle"] = _normalize_contract_template_big_title(payload) or ""
     target["updatedAt"] = now_mongolia().isoformat()
     target["updatedBy"] = actor_snapshot(actor)
     for i, r in enumerate(records):
