@@ -9,7 +9,11 @@
   const params = new URLSearchParams(window.location.search);
   const tripId = (params.get("tripId") || "").trim();
   const saveStatus = document.getElementById("tc-save-status");
-  const saveBtn = document.getElementById("tc-save-btn");
+  // The Publish button was removed — Preview now publishes first then
+  // opens the public URL. saveBtn is a polyfill stub so the rest of
+  // this file (which still calls saveBtn.disabled around the save
+  // network call) keeps working without churn.
+  const saveBtn = document.getElementById("tc-save-btn") || { disabled: false };
   const titleNode = document.getElementById("tc-page-title");
   const metaNode = document.getElementById("tc-trip-meta");
 
@@ -17,7 +21,6 @@
 
   if (!tripId) {
     metaNode.textContent = "Missing tripId. Open this page from a trip.";
-    saveBtn.disabled = true;
     return;
   }
   // Show the "← Back to trip details" link in place of the generic
@@ -205,26 +208,19 @@
         const titleVal = row.title || locLabel || "";
         const dayBadge = dayBadgeFor(idx, lang);
         // Body is split into paragraphs at blank lines so each becomes
-        // its own block-style input. + Add text appends a new block;
-        // each block has a remove ✕. Stored format keeps the simple
-        // double-newline-joined string so existing trips round-trip.
-        const paragraphs = (row.body || "")
-          .split(/\n\s*\n/)
-          .map((s) => s.trim())
-          .filter(Boolean);
-        const paraInputs = paragraphs.length
-          ? paragraphs.map((p, pi) => `
-              <div class="tc-paragraph">
-                <textarea class="tc-program-paragraph" rows="3" placeholder="Type a paragraph — type @ to drop in a Content reference.">${escapeHtml(p)}</textarea>
-                <button type="button" class="tc-paragraph-remove" data-action="remove-paragraph" data-idx="${idx}" data-pi="${pi}" aria-label="Remove paragraph">✕</button>
-              </div>
-            `).join("")
-          : `
-              <div class="tc-paragraph">
-                <textarea class="tc-program-paragraph" rows="3" placeholder="Type a paragraph — type @ to drop in a Content reference."></textarea>
-                <button type="button" class="tc-paragraph-remove" data-action="remove-paragraph" data-idx="${idx}" data-pi="0" aria-label="Remove paragraph">✕</button>
-              </div>
-            `;
+        // its own block-style textarea. We DON'T filter empty entries —
+        // an empty body still renders one block, and "+ Add text" can
+        // append blocks the user hasn't typed into yet. Stored format
+        // is the same double-newline-joined string the public renderer
+        // already understands.
+        let paragraphs = (row.body || "").split(/\n\s*\n/);
+        if (!paragraphs.length) paragraphs = [""];
+        const paraInputs = paragraphs.map((p, pi) => `
+          <div class="tc-paragraph">
+            <textarea class="tc-program-paragraph" rows="3" placeholder="Type a paragraph — type @ to drop in a Content reference.">${escapeHtml(p)}</textarea>
+            <button type="button" class="tc-paragraph-remove" data-action="remove-paragraph" data-idx="${idx}" data-pi="${pi}" aria-label="Remove paragraph">✕</button>
+          </div>
+        `).join("");
         return `
           <div class="tc-program-card ${hasHero ? "has-hero" : "no-hero"}" data-idx="${idx}" data-day-id="${escapeHtml(row.id || "")}">
             <input type="hidden" class="tc-program-id" value="${escapeHtml(row.id || "")}" />
@@ -413,17 +409,14 @@
       const current = readProgram();
       const day = current[idx];
       if (day) {
-        day.body = (day.body || "") + (day.body ? "\n\n" : "") + " ";
+        // Force a trailing \n\n which becomes an extra empty paragraph
+        // on the next split. readProgram doesn't filter empties, so
+        // the new empty block survives the round-trip.
+        day.body = (day.body || "") + "\n\n";
         renderProgram(current);
-        // Focus the last paragraph after re-render so the manager can
-        // start typing immediately.
         const card = programList.querySelector(`.tc-program-card[data-idx="${idx}"]`);
         const paras = card?.querySelectorAll(".tc-program-paragraph");
-        if (paras && paras.length) {
-          const last = paras[paras.length - 1];
-          last.focus();
-          last.value = "";
-        }
+        if (paras && paras.length) paras[paras.length - 1].focus();
       }
       return;
     }
@@ -434,7 +427,7 @@
       const current = readProgram();
       const day = current[idx];
       if (day) {
-        const parts = (day.body || "").split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+        const parts = (day.body || "").split(/\n\s*\n/);
         if (parts.length > 1) {
           parts.splice(pi, 1);
           day.body = parts.join("\n\n");
@@ -520,10 +513,15 @@
         },
         // Body is stored as paragraphs joined by blank lines so the
         // public renderer can split them back into <p> elements.
-        body: Array.from(row.querySelectorAll(".tc-program-paragraph"))
-          .map((p) => (p.value || "").trim())
-          .filter(Boolean)
-          .join("\n\n"),
+        // We keep order intact (no filter) so the user's "+ Add text"
+        // additions persist; trailing empties are trimmed before save
+        // so the stored string doesn't bloat.
+        body: (() => {
+          const arr = Array.from(row.querySelectorAll(".tc-program-paragraph"))
+            .map((p) => (p.value || "").trimEnd());
+          while (arr.length && !arr[arr.length - 1].trim()) arr.pop();
+          return arr.join("\n\n");
+        })(),
         imageIds: idsRaw.split(",").map((s) => s.trim()).filter(Boolean),
       };
     });
@@ -855,7 +853,7 @@
     }
   }
 
-  saveBtn.addEventListener("click", save);
+  if (typeof saveBtn.addEventListener === "function") saveBtn.addEventListener("click", save);
 
   // refreshLivePreview is a no-op now that the side preview pane is
   // gone — we left the call site in save() to avoid editing flow that
