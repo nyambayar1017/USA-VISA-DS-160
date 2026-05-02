@@ -5123,6 +5123,26 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   width: 160px;
 }
 
+.stage-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.stage-pill.is-paid {
+  background: #dcf2e0;
+  color: #1f7a3a;
+}
+.stage-pill.is-unpaid {
+  background: #fde7df;
+  color: #b04923;
+}
+
 
 .camp-reservation-table th:nth-child(1),
 .camp-reservation-table td:nth-child(1) {

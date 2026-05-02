@@ -1658,14 +1658,20 @@ function renderActiveTripCampPayments() {
           ${rows
             .map((row, index) => {
               const approvedCount = approvedCounts.get(row.key) || 0;
+              const stagePill = (amount, paidDate) => {
+                if (!amount || amount <= 0) return "";
+                return paidDate
+                  ? `<span class="stage-pill is-paid">Paid</span>`
+                  : `<span class="stage-pill is-unpaid">Unpaid</span>`;
+              };
               return `
                 <tr>
                   <td class="table-center">${index + 1}</td>
                   <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button></td>
                   <td class="table-center">${row.reservations}</td>
-                  <td class="table-right">${formatMoney(row.deposit)}</td>
+                  <td class="table-right">${formatMoney(row.deposit)} ${stagePill(row.deposit, row.depositPaidDate)}</td>
                   <td>${formatDate(row.depositPaidDate)}</td>
-                  <td class="table-right">${formatMoney(row.secondPayment)}</td>
+                  <td class="table-right">${formatMoney(row.secondPayment)} ${stagePill(row.secondPayment, row.secondPaidDate)}</td>
                   <td>${formatDate(row.secondPaidDate)}</td>
                   <td class="table-right">${formatMoney(row.paidAmount)}</td>
                   <td class="table-right">${formatMoney(row.balancePayment)}</td>
