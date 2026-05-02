@@ -9362,6 +9362,106 @@ def _attach_paid_document_to_trip(trip_id, upload, actor):
     return doc_id
 
 
+def _attach_invoice_document_to_trip(trip_id, upload, actor):
+    """Save the camp's invoice PDF/image to the trip's documents
+    bucket under category "Invoice". Mirrors _attach_paid_document_-
+    to_trip so the file shows up in the trip's Documents list."""
+    if not trip_id or not upload:
+        return None, None
+    trips = read_camp_trips()
+    trip_index = next((i for i, t in enumerate(trips) if t.get("id") == trip_id), None)
+    if trip_index is None:
+        return None, None
+    original_name = upload.get("filename") or "invoice"
+    ext = Path(original_name).suffix.lower()
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        return None, None
+    data = upload.get("data") or b""
+    if len(data) > MAX_UPLOAD_BYTES:
+        return None, None
+    ensure_data_store()
+    doc_id = str(uuid4())
+    trip_upload_dir = TRIP_UPLOADS_DIR / trip_id
+    trip_upload_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = doc_id + ext
+    (trip_upload_dir / stored_name).write_bytes(data)
+    doc = {
+        "id": doc_id,
+        "originalName": original_name,
+        "storedName": stored_name,
+        "mimeType": upload.get("content_type") or "application/octet-stream",
+        "size": len(data),
+        "category": "Invoice",
+        "touristId": "",
+        "touristName": "",
+        "uploadedAt": now_mongolia().isoformat(),
+        "uploadedBy": actor_snapshot(actor),
+    }
+    trip = trips[trip_index]
+    documents = list(trip.get("documents") or [])
+    documents.append(doc)
+    trips[trip_index] = {**trip, "documents": documents}
+    write_camp_trips(trips)
+    return doc_id, original_name, stored_name
+
+
+def handle_upload_camp_group_invoice(environ, start_response, group_key):
+    """Upload a camp invoice PDF for a tripId+campName group. The
+    file is saved to the trip's Documents under "Invoice" and every
+    camp_reservation in the group is stamped with invoiceDocumentId
+    so the row's "View invoice" link survives reloads.
+
+    group_key format: "<tripId>::<campName>" (URL-encoded by the
+    client).
+    """
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    raw_key = unquote(group_key or "")
+    if "::" not in raw_key:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid group key."})
+    trip_id, _, camp_name = raw_key.partition("::")
+    if not trip_id or not camp_name:
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid group key."})
+    content_type = environ.get("CONTENT_TYPE", "")
+    if "multipart/form-data" not in content_type:
+        return json_response(start_response, "400 Bad Request", {"error": "Multipart upload required."})
+    fields, files = parse_multipart(environ)
+    upload = files.get("file")
+    if not upload:
+        return json_response(start_response, "400 Bad Request", {"error": "No file uploaded."})
+    result = _attach_invoice_document_to_trip(trip_id, upload, actor)
+    if not result or not result[0]:
+        return json_response(start_response, "400 Bad Request", {"error": "Could not attach invoice (file too large or unsupported type)."})
+    doc_id, original_name, stored_name = result
+    rows = read_camp_reservations()
+    now_iso = now_mongolia().isoformat()
+    actor_meta = actor_snapshot(actor)
+    changed = False
+    for i, r in enumerate(rows):
+        if r.get("tripId") == trip_id and (r.get("campName") or "") == camp_name:
+            rows[i] = {
+                **r,
+                "invoiceDocumentId": doc_id,
+                "invoiceDocumentName": original_name,
+                "invoiceStoredName": stored_name,
+                "invoiceUploadedAt": now_iso,
+                "invoiceUploadedBy": actor_meta,
+                "updatedAt": now_iso,
+                "updatedBy": actor_meta,
+            }
+            changed = True
+    if changed:
+        write_camp_reservations(rows)
+    return json_response(start_response, "200 OK", {
+        "ok": True,
+        "documentId": doc_id,
+        "documentName": original_name,
+        "storedName": stored_name,
+        "uploadedAt": now_iso,
+    })
+
+
 def handle_approve_payment_request(environ, start_response, request_id):
     actor = require_login(environ, start_response)
     if not actor:
@@ -19829,6 +19929,12 @@ def _dispatch(environ, start_response):
             return handle_update_fifa_sale(environ, start_response, sale_id)
         if method == "DELETE" and sale_id:
             return handle_delete_fifa_sale(environ, start_response, sale_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/camp-payment-groups/") and path.endswith("/invoice"):
+        group_key = path.replace("/api/camp-payment-groups/", "", 1).replace("/invoice", "", 1).strip("/")
+        if method == "POST" and group_key:
+            return handle_upload_camp_group_invoice(environ, start_response, group_key)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/camp-reservations/export":

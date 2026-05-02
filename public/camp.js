@@ -1595,6 +1595,9 @@ function renderActiveTripCampPayments() {
       paidAmount: Number(entry.paidAmount || 0),
       paymentStatus: entry.paymentStatus || "",
       currency: entry.currency || "MNT",
+      invoiceDocumentId: entry.invoiceDocumentId || "",
+      invoiceDocumentName: entry.invoiceDocumentName || "",
+      invoiceStoredName: entry.invoiceStoredName || "",
     };
     group.reservations += 1;
     grouped.set(key, group);
@@ -1650,6 +1653,7 @@ function renderActiveTripCampPayments() {
             <th>Balance</th>
             <th>Total</th>
             <th>Status</th>
+            <th>Invoice</th>
             <th>Receipts</th>
             <th>Actions</th>
           </tr>
@@ -1677,6 +1681,10 @@ function renderActiveTripCampPayments() {
                   <td class="table-right">${formatMoney(row.balancePayment)}</td>
                   <td class="table-right">${formatMoney(row.totalPayment)}</td>
                   <td><span class="status-pill is-${normalizeStatus(row.paymentStatus || "in_progress")}">${formatStatusLabel(row.paymentStatus || "in_progress")}</span></td>
+                  <td class="table-nowrap">${row.invoiceDocumentId && row.invoiceStoredName
+                    ? `<a class="table-link compact" target="_blank" rel="noopener" href="/trip-uploads/${encodeURIComponent(row.tripId)}/${encodeURIComponent(row.invoiceStoredName)}" title="${escapeHtml(row.invoiceDocumentName || "Invoice")}">View invoice</a>
+                       <button type="button" class="table-action compact secondary" data-action="upload-camp-group-invoice" data-group-key="${escapeHtml(row.key)}" title="Replace invoice">Replace</button>`
+                    : `<button type="button" class="table-action compact secondary" data-action="upload-camp-group-invoice" data-group-key="${escapeHtml(row.key)}">Upload</button>`}</td>
                   <td class="table-center">${approvedCount || "-"}</td>
                   <td>${renderActionsCell(row)}</td>
                 </tr>
@@ -3760,6 +3768,36 @@ async function handleCampTableClick(event) {
   }
   if (action === "delete-payment-group") {
     clearPaymentGroup(target.dataset.groupKey);
+    return;
+  }
+  if (action === "upload-camp-group-invoice") {
+    const groupKey = target.dataset.groupKey || "";
+    if (!groupKey) return;
+    const picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "application/pdf,image/*";
+    picker.addEventListener("change", async () => {
+      const file = picker.files && picker.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append("file", file);
+      campStatus.textContent = "Uploading invoice…";
+      try {
+        const r = await fetch(`/api/camp-payment-groups/${encodeURIComponent(groupKey)}/invoice`, {
+          method: "POST",
+          body: fd,
+        });
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          throw new Error(data.error || `Upload failed (${r.status})`);
+        }
+        campStatus.textContent = "Invoice uploaded.";
+        await loadReservations();
+      } catch (err) {
+        campStatus.textContent = err?.message || "Upload failed.";
+      }
+    });
+    picker.click();
     return;
   }
   if (action === "request-camp-group-payment") {
