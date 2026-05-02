@@ -5703,11 +5703,13 @@ def build_invoice_html(record, asset_mode="web"):
     script_markup = ""
     notice_markup = ""
     if asset_mode != "file":
+        # The auto-generated contract invoice should be read-only
+        # from this preview — managers edit invoice content via the
+        # Trip-finance "+ Add invoice" flow, not by tweaking the
+        # contract's automatic one. So we skip the View / Edit /
+        # Save toolbar buttons here and leave only "PDF Татах".
         toolbar_markup = f"""
     <div class="toolbar">
-      <button type="button" class="toolbar-button is-active" data-invoice-mode="view">View</button>
-      <button type="button" class="toolbar-button" data-invoice-mode="edit">Edit</button>
-      <button type="button" class="toolbar-button toolbar-save" data-save-invoice hidden>Save</button>
       <a href="{html.escape(_inv_viewer_href)}" target="_blank" rel="noreferrer">PDF Татах</a>
     </div>"""
         notice_markup = '<div class="save-notice" data-save-notice hidden>Saved successfully</div>'
