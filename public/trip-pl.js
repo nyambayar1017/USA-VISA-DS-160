@@ -56,10 +56,11 @@
   async function load() {
     const tripId = getTripId();
     if (!tripId) return;
-    const [tripsResp, invoicesResp, paymentsResp] = await Promise.all([
+    const [tripsResp, invoicesResp, paymentsResp, campResp] = await Promise.all([
       fetchJson("/api/camp-trips", { entries: [] }),
       fetchJson("/api/invoices", { entries: [] }),
       fetchJson(`/api/payment-requests?invoiceId=&workspace=`, { entries: [] }),
+      fetchJson("/api/camp-reservations", { entries: [] }),
     ]);
     const trips = tripsResp.entries || tripsResp || [];
     const trip = trips.find((t) => t.id === tripId);
@@ -101,7 +102,40 @@
 
     let plannedMnt = 0;
     let actualMnt = 0;
-    outgoingPaid.forEach((r) => { actualMnt += toMnt(r.paidAmount || 0, r.currency, rates); });
+    // Skip camp_group / camp_reservation requests when summing
+    // payment_requests because the underlying camp_reservation rows
+    // already carry the paid amount per stage — counting both would
+    // double the deposit.
+    outgoingPaid.forEach((r) => {
+      const rt = (r.recordType || "").toLowerCase();
+      if (rt === "camp_group" || rt === "camp_reservation") return;
+      actualMnt += toMnt(r.paidAmount || 0, r.currency, rates);
+    });
+    // Camp deposits / 2nd / 3rd / 4th paid amounts: count whichever
+    // stages have a paidDate set on a camp_reservation row in this
+    // trip. The Edit camp payment modal lets accountants record
+    // these without going through the payment_request flow, so the
+    // box's "PAID 540,000" pill needs to flow into Actual paid here.
+    const tripCampRes = (campResp.entries || []).filter((e) => e.tripId === tripId);
+    const seenCampGroup = new Set();
+    tripCampRes.forEach((entry) => {
+      // Only count once per camp+trip group since the same amounts
+      // are mirrored on every reservation in the group.
+      const key = `${entry.tripId}::${entry.campName}`;
+      if (seenCampGroup.has(key)) return;
+      seenCampGroup.add(key);
+      const stages = [
+        { paidDate: entry.depositPaidDate, amount: entry.deposit },
+        { paidDate: entry.secondPaidDate, amount: entry.secondPayment },
+        { paidDate: entry.thirdPaidDate, amount: entry.thirdPayment },
+        { paidDate: entry.fourthPaidDate, amount: entry.fourthPayment },
+      ];
+      stages.forEach((s) => {
+        if (s.paidDate && Number(s.amount) > 0) {
+          actualMnt += toMnt(s.amount, entry.currency || "MNT", rates);
+        }
+      });
+    });
 
     // Match each planned line to a paid request (category + payee both
     // case-insensitive). A used set avoids matching one paid request to

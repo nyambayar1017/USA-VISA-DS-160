@@ -8881,6 +8881,17 @@ def handle_invoice_payment(environ, start_response, invoice_id):
 #   3) accountant approves → register the payment on the invoice + attach
 #      the proof document to the trip's "Paid documents" category.
 def _payment_request_workspace(invoice):
+    """Workspace assigned to a payment_request derived from an invoice.
+
+    Looks up the invoice's trip and returns its company (DTX/USM).
+    Falls back to the serial prefix only if the trip can't be found
+    (e.g. legacy invoice without a tripId, or trip deleted).
+    """
+    trip_id = (invoice or {}).get("tripId") or ""
+    if trip_id:
+        trip = next((t for t in read_camp_trips() if t.get("id") == trip_id), None)
+        if trip:
+            return normalize_company(trip.get("company")) or "DTX"
     serial = (invoice.get("serial") or "").upper()
     if serial.startswith("S-"):
         return "USM"
@@ -9224,10 +9235,25 @@ def handle_list_payment_requests(environ, start_response):
     # paidDocumentUrl can be resolved without reading every trip's
     # documents inline. Skipped when there are no trip-bound requests.
     trips_by_id = None
+    # Some legacy payment_requests have a stale `workspace` field
+    # (an older heuristic stamped every "S-" serial as USM, even for
+    # DTX trips). When the request points at a trip, trust the
+    # trip's `company` field as the source of truth and ignore the
+    # stored workspace for filtering purposes.
+    def _workspace_of(record):
+        trip_id = record.get("tripId") or ""
+        if trip_id:
+            nonlocal trips_by_id
+            if trips_by_id is None:
+                trips_by_id = {t.get("id"): t for t in read_camp_trips()}
+            trip = trips_by_id.get(trip_id)
+            if trip:
+                return (normalize_company(trip.get("company")) or "DTX").upper()
+        return (record.get("workspace") or "").upper()
     for r in records:
         if status_filter and (r.get("status") or "").lower() != status_filter:
             continue
-        if workspace_filter and (r.get("workspace") or "").upper() != workspace_filter:
+        if workspace_filter and _workspace_of(r) != workspace_filter:
             continue
         if invoice_filter and r.get("invoiceId") != invoice_filter:
             continue
