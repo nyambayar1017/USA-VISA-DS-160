@@ -4014,6 +4014,100 @@ time {
   font-size: 13px;
 }
 
+/* Contract template editor — rendered inside the camp-modal-dialog
+   so it inherits modal sizing. Paragraphs use contenteditable so
+   the {{token}} markers can be highlighted in red while staying
+   readable as plain text on save. */
+#contract-template-editor .camp-modal-dialog {
+  width: min(960px, calc(100vw - 40px));
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.contract-template-section {
+  border: 1px solid #d6dae3;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: #fafbfd;
+}
+.contract-template-section legend {
+  padding: 0 8px;
+  font-weight: 600;
+  color: #19233d;
+  font-size: 13px;
+}
+.contract-template-title-label {
+  display: block;
+}
+.contract-template-title-label > span {
+  display: block;
+  font-size: 12px;
+  color: #5b6470;
+  margin-bottom: 4px;
+}
+.contract-template-title-label input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d6dae3;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #fff;
+}
+.contract-template-paragraphs {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.contract-template-paragraph-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.contract-template-paragraph-number {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: #19233d;
+  padding-top: 6px;
+  min-width: 36px;
+}
+.contract-template-textarea {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #d6dae3;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  background: #fff;
+  min-height: 70px;
+  outline: none;
+}
+.contract-template-textarea:focus {
+  border-color: #2f60c8;
+  box-shadow: 0 0 0 2px rgba(47, 96, 200, 0.15);
+}
+/* The red highlight that surrounds every {{token}} placeholder so
+   managers can see at a glance which words will be replaced when
+   the template is used to render a real contract. */
+.contract-var {
+  color: #c44747;
+  font-weight: 600;
+  background: #fdecec;
+  padding: 0 3px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.contract-template-section-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .contract-table {
   width: 100%;
   border-collapse: collapse;

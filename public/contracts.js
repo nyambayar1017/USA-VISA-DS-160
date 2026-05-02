@@ -1011,25 +1011,35 @@ const initContractForm = () => {
     `;
   }
 
+  // Wrap any {{token}} substring in a styled span so the editable
+  // paragraph shows variable parts in red. Plain text outside the
+  // tokens stays as-is so cursor / selection behaves normally.
+  function paragraphInnerHtml(text) {
+    return escText(text).replace(
+      /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g,
+      '<span class="contract-var">{{$1}}</span>'
+    );
+  }
+
   function renderEditorSections() {
     if (!tplSectionsHost) return;
     tplSectionsHost.innerHTML = editorSections.map((sec, sIdx) => `
-      <fieldset class="contract-template-section" data-section-index="${sIdx}" style="border:1px solid #d6dae3;border-radius:10px;padding:12px;margin-bottom:12px;background:#fafbfd;">
-        <legend style="padding:0 8px;font-weight:600;color:#19233d;">Section ${sIdx + 1}</legend>
-        <label style="display:block;">
-          <span style="display:block;font-size:12px;color:#5b6470;margin-bottom:4px;">Title</span>
-          <input type="text" data-section-title value="${escAttr(sec.title || "")}" style="width:100%;padding:6px 10px;border:1px solid #d6dae3;border-radius:6px;font-size:14px;" />
+      <fieldset class="contract-template-section" data-section-index="${sIdx}">
+        <legend>Section ${sIdx + 1}</legend>
+        <label class="contract-template-title-label">
+          <span>Title</span>
+          <input type="text" data-section-title value="${escAttr(sec.title || "")}" />
         </label>
-        <div data-paragraphs style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+        <div data-paragraphs class="contract-template-paragraphs">
           ${(sec.paragraphs || []).map((p, pIdx) => `
-            <div style="display:flex;align-items:flex-start;gap:8px;">
-              <span style="flex:0 0 auto;font-weight:600;color:#19233d;padding-top:6px;">${sIdx + 1}.${pIdx + 1}.</span>
-              <textarea data-paragraph data-paragraph-index="${pIdx}" rows="3" style="flex:1;padding:6px 10px;border:1px solid #d6dae3;border-radius:6px;font-size:14px;font-family:inherit;line-height:1.5;">${escText(p || "")}</textarea>
-              <button type="button" class="header-action-btn button-danger" data-paragraph-remove data-paragraph-index="${pIdx}">×</button>
+            <div class="contract-template-paragraph-row">
+              <span class="contract-template-paragraph-number">${sIdx + 1}.${pIdx + 1}.</span>
+              <div data-paragraph data-paragraph-index="${pIdx}" contenteditable="true" class="contract-template-textarea">${paragraphInnerHtml(p || "")}</div>
+              <button type="button" class="header-action-btn button-danger" data-paragraph-remove data-paragraph-index="${pIdx}" title="Remove paragraph">×</button>
             </div>
           `).join("")}
         </div>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="contract-template-section-actions">
           <button type="button" class="secondary-button" data-paragraph-add>+ Add paragraph</button>
           <span style="flex:1"></span>
           <button type="button" class="header-action-btn button-danger" data-section-remove>Remove section</button>
@@ -1042,8 +1052,11 @@ const initContractForm = () => {
     const fieldsets = tplSectionsHost.querySelectorAll("[data-section-index]");
     return Array.from(fieldsets).map((node) => {
       const title = node.querySelector("[data-section-title]")?.value || "";
+      // contenteditable: read .innerText so token spans collapse to
+      // their plain "{{tokenName}}" text. Trim trailing newlines a
+      // browser sometimes adds.
       const paragraphs = Array.from(node.querySelectorAll("[data-paragraph]"))
-        .map((t) => t.value || "");
+        .map((t) => (t.innerText || "").replace(/ /g, " ").replace(/\n+$/, ""));
       return { title, paragraphs };
     });
   }

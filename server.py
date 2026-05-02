@@ -4483,6 +4483,112 @@ def get_contract_display_blocks(data):
     return blocks
 
 
+# Template tokens — used both to seed the editor (sample values
+# in the DOCX get rewritten to {{tokens}} so the manager sees them
+# highlighted in red) and to expand at contract-render time.
+TEMPLATE_TOKEN_SUBSTITUTIONS = [
+    # Date ranges + individual dates (longest first to avoid
+    # partially matching the range).
+    ("2026/02/17-2026/02/25", "{{tripStartDate}}-{{tripEndDate}}"),
+    ("2026/03/28-2026/04/03", "{{tripStartDate}}-{{tripEndDate}}"),
+    ("2026/02/17", "{{tripStartDate}}"),
+    ("2026/02/25", "{{tripEndDate}}"),
+    ("2026/03/28", "{{tripStartDate}}"),
+    ("2026/04/03", "{{tripEndDate}}"),
+    ("2026 оны 01 сарын 26 өдөр", "{{contractDate}}"),
+    ("2026 оны 03 сарын 13 өдөр", "{{contractDate}}"),
+    ("2026 оны 02 сарын 06 өдөр", "{{balanceDueDate}}"),
+    # Money — longest first so 14,680,000 doesn't get cut by 4,680.
+    ("14,680,000 төгрөг", "{{totalPrice}} төгрөг"),
+    ("17,450,000 төгрөг", "{{totalPrice}} төгрөг"),
+    ("10,276,000 төгрөг", "{{balanceAmount}} төгрөг"),
+    ("8,725,000 төгрөг", "{{depositAmount}} төгрөг"),
+    ("4,404,000 төгрөг", "{{depositAmount}} төгрөг"),
+    ("7,340,000 төгрөг", "{{adultPrice}} төгрөг"),
+    ("3,990,000 төгрөг", "{{adultPrice}} төгрөг"),
+    ("3,390,000 төгрөг", "{{childPrice}} төгрөг"),
+    ("2,590,000 төгрөг", "{{landOnlyPrice}} төгрөг"),
+    # Destinations
+    ("Египет", "{{destination}}"),
+    ("Турк", "{{destination}}"),
+    # Compound name patterns first (so we don't double-tokenise).
+    ("Чулуунбаатар овогтой Нямбаяр", "{{managerLastName}} овогтой {{managerFirstName}}"),
+    ("Батмөнх овогтой Уранчимэг", "{{touristLastName}} овогтой {{touristFirstName}}"),
+    ("Цэдэн-Иш овогтой Чинзориг", "{{touristLastName}} овогтой {{touristFirstName}}"),
+    ("Б. Уранчимэг", "{{touristLastName}} {{touristFirstName}}"),
+    ("(РД: ШД84011762)", "(РД: {{touristRegister}})"),
+    ("(РД: ШЕ77111832)", "(РД: {{touristRegister}})"),
+    ("ШД84011762", "{{touristRegister}}"),
+    ("ШЕ77111832", "{{touristRegister}}"),
+    # Counts
+    ("2 жуулчин", "{{travelerCount}} жуулчин"),
+    ("5 аялагч", "{{travelerCount}} аялагч"),
+    ("3 том хүн", "{{adultCount}} том хүн"),
+    ("1 хүүхэд", "{{childCount}} хүүхэд"),
+    ("2 хүн", "{{travelerCount}} хүн"),
+    # Trip duration phrases
+    ("8 өдөр 7 шөнө", "{{tripDuration}}"),
+    ("7 өдөр 6 шөнө", "{{tripDuration}}"),
+]
+
+
+def _apply_template_tokens(text):
+    s = str(text or "")
+    for src, dst in TEMPLATE_TOKEN_SUBSTITUTIONS:
+        if src and src in s:
+            s = s.replace(src, dst)
+    return s
+
+
+def _template_token_values(data):
+    """Token name → value map used by render_template_body_html when
+    a contract is generated from a saved template. Covers every
+    field the contract form captures plus a few computed phrases."""
+    contract_date = data.get("contractDate") or ""
+    return {
+        "contractSerial":           data.get("contractSerial", "") or "",
+        "contractDate":             format_contract_header_date(contract_date) if contract_date else "",
+        "tripStartDate":            data.get("tripStartDate", "") or "",
+        "tripEndDate":              data.get("tripEndDate", "") or "",
+        "tripDuration":             data.get("tripDuration", "") or "",
+        "destination":              data.get("destination", "") or "",
+        "managerLastName":          data.get("managerLastName", "") or "",
+        "managerFirstName":         data.get("managerFirstName", "") or "",
+        "managerFormalName":        get_manager_contract_formal_name(data),
+        "managerSignatureName":     get_manager_signature_name(data),
+        "managerEmail":             data.get("managerEmail", "") or "",
+        "managerPhone":             data.get("managerPhone", "") or "",
+        "touristLastName":          data.get("touristLastName", "") or "",
+        "touristFirstName":         data.get("touristFirstName", "") or "",
+        "touristRegister":          data.get("touristRegister", "") or "",
+        "travelerCount":            str(data.get("travelerCount") or ""),
+        "adultCount":               str(data.get("adultCount") or ""),
+        "childCount":               str(data.get("childCount") or ""),
+        "infantCount":              str(data.get("infantCount") or ""),
+        "ticketOnlyCount":          str(data.get("ticketOnlyCount") or ""),
+        "landOnlyCount":            str(data.get("landOnlyCount") or ""),
+        "totalPrice":               data.get("totalPrice", "") or "",
+        "adultPrice":               data.get("adultPrice", "") or "",
+        "childPrice":               data.get("childPrice", "") or "",
+        "infantPrice":              data.get("infantPrice", "") or "",
+        "ticketOnlyPrice":          data.get("ticketOnlyPrice", "") or "",
+        "landOnlyPrice":            data.get("landOnlyPrice", "") or "",
+        "depositAmount":            data.get("depositAmount", "") or "",
+        "balanceAmount":            data.get("balanceAmount", "") or "",
+        "depositDueDate":           data.get("depositDueDate", "") or "",
+        "balanceDueDate":           data.get("balanceDueDate", "") or "",
+        "paymentParagraph":         data.get("paymentParagraph", "") or "",
+        "depositParagraph":         data.get("depositParagraph", "") or "",
+        "balanceParagraph":         data.get("balanceParagraph", "") or "",
+        "clientPhone":              data.get("clientPhone", "") or "",
+        "emergencyContactName":     data.get("emergencyContactName", "") or "",
+        "emergencyContactPhone":    data.get("emergencyContactPhone", "") or "",
+        "emergencyContactRelation": data.get("emergencyContactRelation", "") or "",
+        "tripRangePhrase":          format_trip_range_phrase(data.get("tripStartDate"), data.get("tripEndDate")),
+        "travelerRepresentationPhrase": build_traveler_representation_phrase(data),
+    }
+
+
 def _extract_contract_blocks_raw():
     """Same shape as extract_contract_blocks but skips the
     replace_template_paragraphs() pass, so the returned text is the
@@ -4535,6 +4641,11 @@ def _extract_contract_blocks_raw():
             # the DOCX paragraph started with one — section position
             # gives us numbering on render.
             cleaned = re.sub(rf"^\s*{re.escape(current_section)}\.\d+(?:\.\d+)?\.\s*", "", text)
+            # Replace the DOCX's hard-coded sample values (dates,
+            # destinations, names, prices) with {{token}} markers so
+            # the editor can render them in red and the renderer can
+            # substitute the live contract data later.
+            cleaned = _apply_template_tokens(cleaned)
             blocks.append({"type": "numbered-paragraph", "text": cleaned})
     return blocks
 
@@ -4566,17 +4677,18 @@ def render_template_body_html(template, data):
     """
     sections = (template or {}).get("sections") or []
 
+    tokens = _template_token_values(data)
+
     def format_text(text):
         s = str(text or "")
         # Honour the same hard-coded sentence replacements the DOCX
-        # template uses, so paragraphs the manager kept verbatim
-        # still get live data baked in. This is the lazy-but-safe
-        # path: we run the table from replace_template_paragraphs.
+        # template uses (legacy paragraphs that survive verbatim
+        # without any tokens get their data baked in too).
         for src, dst in _contract_text_replacements(data).items():
             if src and src in s:
                 s = s.replace(src, dst)
-        # Soft tokens: {{contractSerial}}, {{destination}}, etc.
-        s = re.sub(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}", lambda m: str(data.get(m.group(1), "") or ""), s)
+        # {{token}} expansion is the primary path for new templates.
+        s = re.sub(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}", lambda m: str(tokens.get(m.group(1), "") or ""), s)
         return s
 
     def html_text(text):
