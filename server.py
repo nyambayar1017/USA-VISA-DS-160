@@ -817,6 +817,20 @@ def build_invoice(payload, actor=None):
             "status": normalize_text(raw.get("status")) or "pending",
         })
     total = round(sum(i["total"] for i in items), 2)
+    # Per-invoice FX rate to MNT, frozen at save time so later rate
+    # moves don't rewrite past income. MNT invoices default to 1;
+    # USD/EUR/etc default to whatever the form sent (the form
+    # auto-suggests USD=3500, EUR=4100 but the user can override).
+    currency_for_invoice = (normalize_text(payload.get("currency")) or "MNT").upper()
+    try:
+        fx_rate = float(payload.get("fxRate") or 0)
+    except Exception:
+        fx_rate = 0
+    if currency_for_invoice == "MNT":
+        fx_rate = 1.0
+    if fx_rate <= 0:
+        fx_rate = 1.0
+    mnt_total = round(total * fx_rate, 2)
     # Snapshot the chosen bank account onto the invoice itself so the
     # invoice render survives later edits in Settings.
     bank_id = normalize_text(payload.get("bankAccountId"))
@@ -845,6 +859,8 @@ def build_invoice(payload, actor=None):
         "total": total,
         "installments": installments,
         "currency": normalize_text(payload.get("currency")) or "MNT",
+        "fxRate": fx_rate,
+        "mntTotal": mnt_total,
         "bankAccountId": bank_id,
         "bankAccount": bank_snapshot,
         "status": "draft",

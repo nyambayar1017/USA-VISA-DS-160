@@ -1382,25 +1382,46 @@
     const ccyOpts = CURRENCIES
       .map((c) => `<option value="${c.code}" ${c.code === (draft.currency || "MNT") ? "selected" : ""}>${escapeHtml(c.label)}</option>`)
       .join("");
+    const ccy = (draft.currency || "MNT").toUpperCase();
+    const fxRate = (draft.fxRate != null && draft.fxRate !== "") ? draft.fxRate : "";
     return `
       <div class="invoice-wizard-section">
-        <label class="invoice-field">
-          <span>Currency</span>
-          <select id="invoice-currency-select">${ccyOpts}</select>
-        </label>
+        <div class="invoice-currency-row">
+          <label class="invoice-field">
+            <span>Currency</span>
+            <select id="invoice-currency-select">${ccyOpts}</select>
+          </label>
+          <label class="invoice-field" id="invoice-fx-field" ${ccy === "MNT" ? "hidden" : ""}>
+            <span>FX rate to MNT <small style="color:#5b6470">(USD ≈ 3500, EUR ≈ 4100)</small></span>
+            <input id="invoice-fx-rate" type="number" min="0" step="0.01" value="${fxRate}" placeholder="${ccy === "USD" ? "3500" : ccy === "EUR" ? "4100" : ""}" />
+          </label>
+        </div>
         <div class="invoice-items-head"><span>Description</span><span>Qty</span><span>Price</span><span>Total</span><span></span></div>
         <div id="invoice-items-list">${itemRows}</div>
         <button type="button" class="secondary-button invoice-add-item" data-action="invoice-item-add">+ Add item</button>
-        <div class="invoice-grand-total">Total: <strong>${fmtMoney(grand)}</strong></div>
+        <div class="invoice-grand-total">Total: <strong>${fmtMoney(grand)}</strong>${ccy !== "MNT" && Number(fxRate) > 0 ? ` <span class="muted">≈ MNT ${(grand * Number(fxRate)).toLocaleString()}</span>` : ""}</div>
       </div>
     `;
   }
   function wireStep2(body) {
     const ccySelect = body.querySelector("#invoice-currency-select");
+    const fxInput = body.querySelector("#invoice-fx-rate");
     ccySelect?.addEventListener("change", () => {
       draft.currency = ccySelect.value;
+      // Auto-suggest a default FX rate when switching currencies, unless
+      // the user has already typed one. MNT invoices clear the rate.
+      const ccy = (ccySelect.value || "MNT").toUpperCase();
+      if (ccy === "MNT") draft.fxRate = 1;
+      else if (!Number(draft.fxRate)) draft.fxRate = ccy === "USD" ? 3500 : ccy === "EUR" ? 4100 : "";
       // Re-render so all the totals reformat with the new currency symbol.
       renderWizardStep();
+    });
+    fxInput?.addEventListener("input", () => {
+      draft.fxRate = Number(fxInput.value) || 0;
+      // Live-update the MNT-equivalent shown next to the Total.
+      const grand = draft.items.reduce((a, it) => a + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+      const node = body.querySelector(".invoice-grand-total .muted");
+      if (node && draft.fxRate > 0) node.textContent = `≈ MNT ${(grand * draft.fxRate).toLocaleString()}`;
     });
     body.querySelector("[data-action='invoice-item-add']").addEventListener("click", () => {
       draft.items.push({ description: "", qty: 1, price: 0 }); renderWizardStep();
@@ -1643,6 +1664,7 @@
         tripId, groupId: draft.groupId, payerId: draft.payerId, payerName: draft.payerName,
         participantIds: draft.participantIds, items: draft.items, installments: draft.installments,
         currency: draft.currency || "MNT",
+        fxRate: Number(draft.fxRate) || 0,
       };
       const url = editingInvoiceId ? `/api/invoices/${editingInvoiceId}` : "/api/invoices";
       await fetchJson(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });

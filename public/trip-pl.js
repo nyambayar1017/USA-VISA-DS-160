@@ -28,11 +28,16 @@
     return window.__tripIdOverride || new URLSearchParams(window.location.search).get("tripId") || "";
   }
 
-  function toMnt(amount, currency, rates) {
+  function toMnt(amount, currency, rates, invoiceFxRate) {
     const ccy = (currency || "MNT").toUpperCase();
     const amt = Number(amount) || 0;
     if (ccy === "MNT") return amt;
-    const r = Number(rates?.[ccy]) || 0;
+    // Prefer the rate frozen on the invoice itself (set when the
+    // invoice was saved). Falls back to the trip-level rate table
+    // for legacy invoices that pre-date the fxRate field.
+    const r = Number(invoiceFxRate) > 0
+      ? Number(invoiceFxRate)
+      : Number(rates?.[ccy]) || 0;
     return r ? amt * r : amt; // if no rate, leave the raw number — better than zero
   }
 
@@ -72,7 +77,7 @@
       (inv.installments || []).forEach((inst) => {
         const status = (inst.status || "").toLowerCase();
         const amt = Number(inst.paidAmount != null ? inst.paidAmount : inst.amount) || 0;
-        const m = toMnt(amt, inv.currency, rates);
+        const m = toMnt(amt, inv.currency, rates, inv.fxRate);
         if (status === "paid" || status === "confirmed") incomeMnt += m;
         else incomePending += m;
       });
