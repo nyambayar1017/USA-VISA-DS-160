@@ -104,6 +104,16 @@
     return pdfJsPromise;
   }
 
+  // Render every page of the PDF and stack them vertically into a
+  // single JPEG. Works for passport front+back, multi-page receipts,
+  // and short itineraries. Hard limits keep the output sane:
+  //   - up to MAX_PDF_PAGES pages,
+  //   - total canvas height ≤ MAX_PDF_HEIGHT,
+  //   - output must be smaller than the source PDF (else we keep
+  //     the PDF as-is — multi-page itineraries with lots of text
+  //     are typically bigger as a JPEG than as a PDF).
+  const MAX_PDF_PAGES = 20;
+  const MAX_PDF_HEIGHT = 60000; // canvas pixel cap
   async function rasterizePdfFirstPage(file) {
     if (!file || file.type !== "application/pdf") return null;
     let lib;
@@ -113,26 +123,54 @@
       const arrayBuf = await file.arrayBuffer();
       pdf = await lib.getDocument({ data: arrayBuf, disableWorker: false }).promise;
     } catch { return null; }
-    // Multi-page PDF → keep original (we don't want to lose pages).
-    if (pdf.numPages !== 1) return null;
+    const totalPages = Math.min(pdf.numPages, MAX_PDF_PAGES);
+    if (totalPages <= 0) return null;
     let blob;
     try {
-      const page = await pdf.getPage(1);
-      const base = page.getViewport({ scale: 1 });
-      // Render at enough resolution to keep the longer side ≤ MAX_DIMENSION
-      // but never below the page's native size — small docs stay sharp.
-      const longSide = Math.max(base.width, base.height);
-      const scale = Math.max(1, Math.min(MAX_DIMENSION / longSide * 1.5, 2.5));
-      const vp = page.getViewport({ scale });
+      // First pass: get every page's natural size so we can pick a
+      // single scale that fits each page within MAX_DIMENSION wide,
+      // and figure out the combined canvas height.
+      const pages = [];
+      for (let i = 1; i <= totalPages; i++) {
+        const page = await pdf.getPage(i);
+        pages.push({ page, base: page.getViewport({ scale: 1 }) });
+      }
+      const widest = Math.max(...pages.map((p) => p.base.width));
+      const scale = Math.max(1, Math.min(MAX_DIMENSION / widest * 1.5, 2.5));
+      // Pre-compute scaled sizes and total height.
+      const slices = pages.map(({ page, base }) => {
+        const vp = page.getViewport({ scale });
+        return { page, vp, w: Math.round(vp.width), h: Math.round(vp.height) };
+      });
+      const gap = totalPages > 1 ? 8 : 0;
+      const canvasW = Math.max(...slices.map((s) => s.w));
+      let canvasH = slices.reduce((acc, s) => acc + s.h, 0) + gap * (totalPages - 1);
+      if (canvasH > MAX_PDF_HEIGHT) {
+        // Don't bother — output would be huge. Caller falls back to the original PDF.
+        return null;
+      }
       const canvas = document.createElement("canvas");
-      canvas.width = Math.round(vp.width);
-      canvas.height = Math.round(vp.height);
+      canvas.width = canvasW;
+      canvas.height = canvasH;
       const ctx = canvas.getContext("2d");
       if (!ctx) return null;
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      await page.render({ canvasContext: ctx, viewport: vp }).promise;
-      // toBlob → Promise wrapper.
+      let y = 0;
+      for (let i = 0; i < slices.length; i++) {
+        const s = slices[i];
+        const offX = Math.round((canvasW - s.w) / 2);
+        // Render directly into the combined canvas at (offX, y).
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = s.w;
+        pageCanvas.height = s.h;
+        const pageCtx = pageCanvas.getContext("2d");
+        pageCtx.fillStyle = "#ffffff";
+        pageCtx.fillRect(0, 0, s.w, s.h);
+        await s.page.render({ canvasContext: pageCtx, viewport: s.vp }).promise;
+        ctx.drawImage(pageCanvas, offX, y);
+        y += s.h + gap;
+      }
       blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
     } catch { return null; }
     if (!blob || blob.size >= file.size) return null;
