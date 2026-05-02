@@ -318,49 +318,11 @@
     });
   }
 
-  // ── Cover photos ────────────────────────────────────────────────
-  const coverIdsInput = document.getElementById("tc-cover-ids");
-  const coverPreview = document.getElementById("tc-cover-preview");
-  const pickCoversBtn = document.getElementById("tc-pick-covers");
+  // Cover photos UI was removed — the public page now derives the hero
+  // strip directly from each day's heroImg, so a separate cover-photo
+  // collection is redundant.
 
-  function getCoverIds() {
-    return (coverIdsInput.value || "").split(",").map((s) => s.trim()).filter(Boolean);
-  }
-  function setCoverIds(ids) {
-    coverIdsInput.value = (ids || []).filter(Boolean).join(",");
-    refreshCoverPreview();
-  }
-  function refreshCoverPreview() {
-    const ids = getCoverIds();
-    if (!ids.length) {
-      coverPreview.innerHTML = `<p class="ct-hint">No cover photos. Click "+ Add cover photos".</p>`;
-      return;
-    }
-    coverPreview.innerHTML = ids
-      .map((id) => `
-        <div class="ct-image-thumb" title="${escapeHtml(id)}">
-          <img src="/api/gallery/${encodeURIComponent(id)}/file?size=thumb" alt="" loading="lazy" />
-          <button type="button" class="ct-image-remove" data-action="remove-cover" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
-        </div>
-      `)
-      .join("");
-  }
-  coverPreview.addEventListener("click", (event) => {
-    const remove = event.target.closest('[data-action="remove-cover"]');
-    if (!remove) return;
-    setCoverIds(getCoverIds().filter((id) => id !== remove.dataset.id));
-  });
-  pickCoversBtn?.addEventListener("click", async () => {
-    if (!window.ImagePicker) return;
-    const picked = await window.ImagePicker.open({
-      selected: getCoverIds(),
-      multiple: true,
-      title: "Choose cover photos for the trip",
-    });
-    if (Array.isArray(picked)) setCoverIds(picked);
-  });
-
-  // ── Quotation editor (rows) ─────────────────────────────────────
+// ── Quotation editor (rows) ─────────────────────────────────────
   const quoteRows = document.getElementById("tc-quote-rows");
   const quoteTotalNode = document.getElementById("tc-quote-total");
 
@@ -571,7 +533,6 @@
         // data on the trip-creator doc is preserved on the server and
         // only gets overwritten if the manager hits Publish/Save.
         renderProgram([]);
-        setCoverIds(Array.isArray(doc.coverIds) ? doc.coverIds : []);
         renderQuote((doc.quotation && doc.quotation.rows) || []);
         $("tc-quote-note").value = (doc.quotation && doc.quotation.note) || "";
         // Brochure tab
@@ -632,7 +593,6 @@
       comfort: Number($("tc-comfort").value) || 0,
       difficulty: Number($("tc-difficulty").value) || 0,
       intro: $("tc-intro").value,
-      coverIds: getCoverIds(),
       program: readProgram(),
       highlights: splitLines($("tc-highlights").value),
       included: splitLines($("tc-included").value),

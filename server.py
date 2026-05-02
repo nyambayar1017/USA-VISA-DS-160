@@ -2163,6 +2163,29 @@ def build_public_trip_view(trip_id):
                 continue
             seen.add(low)
             waypoints.append(value)
+    # Resolve location records used by any day row, so the public renderer
+    # can label pins / day cards in the trip's language and place markers
+    # at the location's saved lat/lon — no extra API call from the page.
+    location_ids = [
+        (r.get("locationId") or "").strip()
+        for r in (doc.get("program") or [])
+        if isinstance(r, dict) and (r.get("locationId") or "").strip()
+    ]
+    locations_map = {}
+    if location_ids:
+        all_locs = read_locations()
+        wanted = set(location_ids)
+        for loc in all_locs:
+            if loc.get("id") in wanted:
+                locations_map[loc["id"]] = {
+                    "id": loc.get("id"),
+                    "name": loc.get("name") or "",
+                    "names": loc.get("names") or {},
+                    "latitude": loc.get("latitude"),
+                    "longitude": loc.get("longitude"),
+                    "latlonEnabled": bool(loc.get("latlonEnabled")),
+                    "imageIds": loc.get("imageIds") or [],
+                }
     return {
         "tripId": trip_id,
         "title": doc.get("title") or trip.get("tripName") or "",
@@ -2188,6 +2211,7 @@ def build_public_trip_view(trip_id):
         "notIncluded": doc.get("notIncluded") or [],
         "manager": manager,
         "mapWaypoints": waypoints,
+        "locations": locations_map,
         "flightLegs": doc.get("flightLegs") or [],
         "mongoliaGuide": doc.get("mongoliaGuide") or "",
         "quotation": doc.get("quotation") or {"rows": [], "note": ""},

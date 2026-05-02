@@ -152,22 +152,37 @@ function mapServerToDesign(s) {
                pax: 0, staff: 0, totalDays: Number(s.totalDays) || 0 },
     inc: Array.isArray(s.included) ? s.included : [],
     notInc: Array.isArray(s.notIncluded) ? s.notIncluded : [],
-    days_data: (s.program || []).map((row, i) => ({
-      n: i + 1,
-      title: row.title || row.day || `Day ${i + 1}`,
-      date: row.date || '',
-      heroSlug: row.heroSlug || '',
-      heroImg: row.heroImg || (Array.isArray(row.imageIds) && row.imageIds[0] ? `/api/gallery/${row.imageIds[0]}/file` : ''),
-      from: { name: row.fromName || '' },
-      to: { name: row.toName || '' },
-      distance: row.distance || '',
-      drive: row.drive || '',
-      accommodation: row.accommodation || '',
-      meals: Array.isArray(row.meals) ? row.meals : [],
-      body: Array.isArray(row.body) ? row.body
-            : (row.description ? [{t:'p', c: row.description}]
-            : (row.content ? [{t:'p', c: row.content}] : [])),
-    })),
+    locations: s.locations || {},
+    days_data: (s.program || []).map((row, i) => {
+      const lang = (s.language || 'mn').toLowerCase();
+      const loc = (s.locations || {})[row.locationId];
+      // Prefer the location-template name in the trip's language so the
+      // public page reads naturally in the chosen tongue. Fall back to
+      // any saved free-form fromName, then the row's title.
+      const locLabel = loc ? ((loc.names && loc.names[lang]) || loc.name || '') : '';
+      const fromName = locLabel || row.fromName || '';
+      // Hero falls back to the location's first photo if the row didn't
+      // get its own picks.
+      const locFirstImg = loc && (loc.imageIds || [])[0];
+      return {
+        n: i + 1,
+        title: row.title || row.day || `Day ${i + 1}`,
+        date: row.date || '',
+        heroSlug: row.heroSlug || '',
+        heroImg: row.heroImg
+          || (Array.isArray(row.imageIds) && row.imageIds[0] ? `/api/gallery/${row.imageIds[0]}/file` : '')
+          || (locFirstImg ? `/api/gallery/${locFirstImg}/file` : ''),
+        from: { name: fromName },
+        to: { name: row.toName || '' },
+        distance: row.distance || '',
+        drive: row.drive || '',
+        accommodation: row.accommodation || '',
+        meals: Array.isArray(row.meals) ? row.meals : [],
+        body: Array.isArray(row.body) ? row.body
+              : (row.description ? [{t:'p', c: row.description}]
+              : (row.content ? [{t:'p', c: row.content}] : [])),
+      };
+    }),
   };
 }
 
@@ -307,7 +322,7 @@ function Lightbox({images, startIdx, onClose}) {
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
   }, [images.length, onClose]);
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', animation:'fadeIn 0.2s ease', padding:40}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', animation:'fadeIn 0.2s ease', padding:40}}>
       <button onClick={onClose} style={{position:'absolute', top:20, right:24, color:T.white, fontSize:32, fontWeight:300, lineHeight:1, padding:8}}>×</button>
       <button onClick={(e)=>{e.stopPropagation(); setIdx(i=>(i-1+images.length)%images.length);}} style={{position:'absolute', left:24, top:'50%', transform:'translateY(-50%)', color:T.white, fontSize:36, padding:'12px 18px', background:'rgba(255,255,255,0.1)', borderRadius:'50%'}}>‹</button>
       <button onClick={(e)=>{e.stopPropagation(); setIdx(i=>(i+1)%images.length);}} style={{position:'absolute', right:24, top:'50%', transform:'translateY(-50%)', color:T.white, fontSize:36, padding:'12px 18px', background:'rgba(255,255,255,0.1)', borderRadius:'50%'}}>›</button>
@@ -456,19 +471,36 @@ function Header() {
   );
 }
 
-/* ── MINI MAP (Leaflet, real tiles) ── */
-function MiniMap({onClick}) {
+/* ── MINI MAP (Leaflet, real tiles) ──
+   Pin set is derived from the trip's days: each day with a locationId
+   that resolves to a saved location with lat/lon becomes one stop, in
+   day order. If no day has coords, the map is hidden entirely (caller
+   decides). Names follow the trip's language (loc.names[lang] || name).
+*/
+function buildMapStops() {
+  const lang = (TRIP.language || 'mn').toLowerCase();
+  const locs = TRIP.locations || {};
+  const out = [];
+  (TRIP.program || []).forEach((row) => {
+    const id = row && row.locationId;
+    if (!id) return;
+    const loc = locs[id];
+    if (!loc || !loc.latlonEnabled) return;
+    const lat = parseFloat(loc.latitude);
+    const lon = parseFloat(loc.longitude);
+    if (!isFinite(lat) || !isFinite(lon)) return;
+    const name = (loc.names && loc.names[lang]) || loc.name || '';
+    out.push({ name, coords: [lat, lon] });
+  });
+  return out;
+}
+function MiniMap({onClick, stops}) {
   const ref = useRef(null);
   useEffect(() => {
-    if (!ref.current || !window.L) return;
+    if (!ref.current || !window.L || !stops.length) return;
     if (ref.current._leaflet_id) { ref.current._leaflet_id = null; ref.current.innerHTML=''; }
-    const stops = [
-      {name:'Ulaanbaatar', coords:[47.9184, 106.9177]},
-      {name:'Terelj NP', coords:[47.9667, 107.4500]},
-      {name:'Khustai NP', coords:[47.7333, 105.9000]},
-    ];
     const map = window.L.map(ref.current, {
-      center:[47.85, 106.6], zoom:7, zoomControl:false, attributionControl:false,
+      zoomControl:false, attributionControl:false,
       dragging:false, scrollWheelZoom:false, doubleClickZoom:false, touchZoom:false, boxZoom:false, keyboard:false,
     });
     window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -485,10 +517,14 @@ function MiniMap({onClick}) {
       });
       window.L.marker(s.coords, {icon}).addTo(map);
     });
-    const line = window.L.polyline(stops.map(s=>s.coords), {color:'#C46A2C', weight:3, opacity:0.85, dashArray:'6,5'}).addTo(map);
-    map.fitBounds(line.getBounds(), {padding:[24,24]});
+    if (stops.length === 1) {
+      map.setView(stops[0].coords, 9);
+    } else {
+      const line = window.L.polyline(stops.map(s=>s.coords), {color:'#C46A2C', weight:3, opacity:0.85, dashArray:'6,5'}).addTo(map);
+      map.fitBounds(line.getBounds(), {padding:[24,24]});
+    }
     return () => map.remove();
-  }, []);
+  }, [stops]);
   return (
     <div onClick={onClick} style={{height:170, position:'relative', cursor:'pointer', borderBottom:`1px solid ${T.bd}`}}>
       <div ref={ref} style={{position:'absolute', inset:0}}></div>
@@ -503,9 +539,10 @@ function InfoCard({openMap}) {
     <span key={i} style={{width:8, height:8, borderRadius:'50%', background:i<filled?T.or:'rgba(0,0,0,0.12)', display:'inline-block', marginRight:3}}></span>
   ));
   const m = TRIP.manager;
+  const stops = buildMapStops();
   return (
     <div style={{background:T.white, border:`1px solid ${T.bd}`, borderRadius:14, overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,0.03)'}}>
-      <MiniMap onClick={openMap}/>
+      {stops.length > 0 && <MiniMap onClick={openMap} stops={stops}/>}
       <div style={{padding:'18px 22px'}}>
         <div style={{fontSize:13, marginBottom:8}}><span style={{fontWeight:700}}>{TRIP.days} days,</span> <span style={{color:T.mid}}>{TRIP.dateRange}</span></div>
         <div style={{fontSize:14, marginBottom:14}}><span style={{fontWeight:700, fontSize:18}}>${TRIP.priceFrom}</span> <span style={{color:T.mid, fontSize:13}}>Price from</span></div>
@@ -572,23 +609,42 @@ function DayCard({day, defaultOpen, idx, openContent, openLightbox}) {
             <span style={{color:T.or, fontSize:13, marginTop:1}}>📍</span>
             <span style={{color:T.dk, fontWeight:600, fontSize:13, lineHeight:1.3}}>{day.from.name}</span>
           </div>
-          <div style={{paddingLeft:6, borderLeft:`1px dashed ${T.bd}`, marginLeft:5, paddingTop:6, paddingBottom:6, color:T.or, fontSize:12.5}}>
-            {day.distance !== '—' && day.drive !== '—' && day.drive !== 'Free day' ? (
-              <span style={{display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap'}}>
-                <span style={{fontSize:13}}>🚙</span>
-                <span>{day.distance}</span>
-                <span style={{color:T.midL}}>·</span>
-                <span style={{fontSize:13}}>⏱</span>
-                <span>{day.drive}</span>
-              </span>
-            ) : day.drive === 'Free day' ? (
-              <span style={{fontStyle:'italic', color:T.mid}}>Free day</span>
-            ) : null}
-          </div>
-          <div style={{display:'flex', alignItems:'flex-start', gap:6, marginTop:4}}>
-            <span style={{color:T.or, fontSize:13, marginTop:1}}>📍</span>
-            <span style={{color:T.dk, fontWeight:600, fontSize:13, lineHeight:1.3}}>{day.to.name}</span>
-          </div>
+          {(() => {
+            // Transfer / route block. Only render when there's actually
+            // a route to show — i.e. a non-empty distance OR drive (and
+            // they aren't the legacy "—" placeholders) — and a second
+            // location to terminate the line. Otherwise the day has just
+            // one location and we drop the dashed line + second pin.
+            const hasDistance = day.distance && day.distance !== '—';
+            const hasDrive = day.drive && day.drive !== '—' && day.drive !== 'Free day';
+            const hasFreeDay = day.drive === 'Free day';
+            const hasTo = day.to && day.to.name && day.to.name !== day.from.name;
+            const hasTransfer = hasDistance || hasDrive || hasFreeDay || hasTo;
+            if (!hasTransfer) return null;
+            return (
+              <>
+                <div style={{paddingLeft:6, borderLeft:`1px dashed ${T.bd}`, marginLeft:5, paddingTop:6, paddingBottom:6, color:T.or, fontSize:12.5}}>
+                  {(hasDistance || hasDrive) ? (
+                    <span style={{display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap'}}>
+                      <span style={{fontSize:13}}>🚙</span>
+                      <span>{day.distance || ''}</span>
+                      {(hasDistance && hasDrive) && <span style={{color:T.midL}}>·</span>}
+                      {hasDrive && <span style={{fontSize:13}}>⏱</span>}
+                      <span>{hasDrive ? day.drive : ''}</span>
+                    </span>
+                  ) : hasFreeDay ? (
+                    <span style={{fontStyle:'italic', color:T.mid}}>Free day</span>
+                  ) : null}
+                </div>
+                {hasTo && (
+                  <div style={{display:'flex', alignItems:'flex-start', gap:6, marginTop:4}}>
+                    <span style={{color:T.or, fontSize:13, marginTop:1}}>📍</span>
+                    <span style={{color:T.dk, fontWeight:600, fontSize:13, lineHeight:1.3}}>{day.to.name}</span>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
       {/* RIGHT content */}
@@ -814,16 +870,32 @@ function BigMap() {
     if (!ref.current || !window.L) return;
     if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     if (ref.current._leaflet_id) { ref.current._leaflet_id = null; ref.current.innerHTML=''; }
-    const stops = [
-      {name:'Ulaanbaatar', coords:[47.9184, 106.9177], desc:'Start & end · Day 1, 6, 7'},
-      {name:'Terelj National Park', coords:[47.9667, 107.4500], desc:'Days 2 – 4'},
-      {name:'Khustai National Park', coords:[47.7333, 105.9000], desc:'Days 5 – 6'},
-    ];
-    // Segments between consecutive stops (with mode + distance)
-    const segments = [
-      {from:0, to:1, mode:'car', icon:'🚙', km:'80km'},
-      {from:1, to:2, mode:'car', icon:'🚙', km:'180km'},
-    ];
+    // Real stops from the trip's day locations (in day order). Each stop's
+    // "desc" is "Day N" — derived from the day index that picked it.
+    const lang = (TRIP.language || 'mn').toLowerCase();
+    const locsMap = TRIP.locations || {};
+    const dayStops = [];
+    (TRIP.program || []).forEach((row, idx) => {
+      const id = row && row.locationId;
+      if (!id) return;
+      const loc = locsMap[id];
+      if (!loc || !loc.latlonEnabled) return;
+      const lat = parseFloat(loc.latitude);
+      const lon = parseFloat(loc.longitude);
+      if (!isFinite(lat) || !isFinite(lon)) return;
+      const name = (loc.names && loc.names[lang]) || loc.name || '';
+      dayStops.push({ name, coords: [lat, lon], desc: `Day ${idx + 1}` });
+    });
+    const stops = dayStops;
+    if (!stops.length) return; // nothing to render — caller hides the modal anyway
+    // Segments between consecutive stops — distance/duration come from
+    // the program rows when present, otherwise the leg is unlabelled.
+    const segments = [];
+    for (let i = 1; i < stops.length; i++) {
+      const row = (TRIP.program || []).filter((r) => r && r.locationId)[i];
+      const km = row && (row.distance || '');
+      segments.push({ from: i - 1, to: i, mode: 'car', icon: '🚙', km });
+    }
     const map = window.L.map(ref.current, {
       center:[47.85, 106.6], zoom:8, zoomControl:true, attributionControl:true, scrollWheelZoom:true,
     });
@@ -845,8 +917,10 @@ function BigMap() {
     });
     const line = window.L.polyline(stops.map(s=>s.coords), {color:'#C46A2C', weight:4, opacity:0.9, dashArray:'8,6'}).addTo(map);
     map._routeLine = line;
-    // Add segment labels (mode + distance) at the midpoint of each leg
+    // Segment labels (mode + distance) at the midpoint of each leg —
+    // only if the program row carried a non-empty distance for that leg.
     segments.forEach(seg => {
+      if (!seg.km) return;
       const a = stops[seg.from].coords, b = stops[seg.to].coords;
       const mid = [(a[0]+b[0])/2, (a[1]+b[1])/2];
       const labelIcon = window.L.divIcon({
@@ -858,7 +932,11 @@ function BigMap() {
       });
       window.L.marker(mid, {icon:labelIcon, interactive:false}).addTo(map);
     });
-    map.fitBounds(line.getBounds(), {padding:[60,60]});
+    if (stops.length === 1) {
+      map.setView(stops[0].coords, 9);
+    } else {
+      map.fitBounds(line.getBounds(), {padding:[60,60]});
+    }
     return () => map.remove();
   }, []);
   return (
@@ -896,10 +974,10 @@ function MapModal({onClose}) {
         </div>
         <BigMap />
         <div style={{padding:'18px 28px 24px', display:'flex', gap:18, flexWrap:'wrap'}}>
-          {[['1','Ulaanbaatar (start & end)'],['2','Terelj National Park'],['3','Khustai National Park']].map(([n,l])=>(
-            <div key={n} style={{display:'flex', alignItems:'center', gap:8, fontSize:13}}>
-              <span style={{width:24, height:24, borderRadius:'50%', background:T.or, color:'#fff', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}>{n}</span>
-              <span>{l}</span>
+          {buildMapStops().map((s, i) => (
+            <div key={i} style={{display:'flex', alignItems:'center', gap:8, fontSize:13}}>
+              <span style={{width:24, height:24, borderRadius:'50%', background:T.or, color:'#fff', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}>{i+1}</span>
+              <span>{s.name}</span>
             </div>
           ))}
         </div>
