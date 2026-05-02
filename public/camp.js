@@ -1554,16 +1554,13 @@ function renderCampPayments() {
   `;
 }
 
-// Trip-detail "Camp payments" — one card per camp showing total /
-// paid / balance, and the actions that drive the workflow:
-//   • Set / edit amounts (admin/accountant via the existing payment
-//     editor panel)
-//   • Request payment (manager-side; opens the standard expense
-//     request modal with recordType=camp_group so approval flips
-//     every reservation at this camp at once and auto-attaches the
-//     receipt to the trip's Paid documents)
-//   • REQUEST SENT pill while a request is awaiting accountant
-//     approval, replacing the Request payment button.
+// Trip-detail "Camp payments" — same per-camp grouping as the
+// global Camp Payments grid (Deposit / 2nd / Paid / Balance /
+// Total / Status), scoped to the active trip. Per-row Actions
+// column hosts Edit, Request payment (or REQUEST SENT pill while
+// a camp_group request is awaiting accountant approval), and
+// Delete. Approving the request flips every camp_reservation in
+// the trip+camp pair to paid in one shot.
 function renderActiveTripCampPayments() {
   if (!activeTripCampPayments) return;
   if (!activeTripId || !isTripDetailPage() || activeTripPanelHidden) {
@@ -1586,10 +1583,9 @@ function renderActiveTripCampPayments() {
       key,
       tripId: entry.tripId,
       tripName: entry.tripName,
+      reservationName: entry.reservationName || entry.tripName,
       campName: entry.campName,
       reservations: 0,
-      nights: 0,
-      checkIns: [],
       deposit: Number(entry.deposit || 0),
       depositPaidDate: entry.depositPaidDate || "",
       secondPayment: Number(entry.secondPayment || 0),
@@ -1601,8 +1597,6 @@ function renderActiveTripCampPayments() {
       currency: entry.currency || "MNT",
     };
     group.reservations += 1;
-    group.nights += Number(entry.nights || 0);
-    if (entry.checkIn) group.checkIns.push(entry.checkIn);
     grouped.set(key, group);
   });
 
@@ -1610,82 +1604,28 @@ function renderActiveTripCampPayments() {
     String(a.campName || "").localeCompare(String(b.campName || ""))
   );
 
-  const totals = rows.reduce(
-    (acc, r) => ({
-      total: acc.total + (r.totalPayment || 0),
-      paid: acc.paid + (r.paidAmount || 0),
-      balance: acc.balance + (r.balancePayment || 0),
-    }),
-    { total: 0, paid: 0, balance: 0 }
-  );
-
   const pendingSet = window.pendingCampGroupPaymentSet || new Set();
   const approvedCounts = window.approvedCampGroupCount || new Map();
 
-  const renderCard = (row) => {
-    const hasAmounts = row.totalPayment > 0 || row.paidAmount > 0 || row.deposit > 0;
+  const renderActionsCell = (row) => {
     const status = (row.paymentStatus || "in_progress").toLowerCase();
     const isPaid = status === "paid" || status === "paid_100";
     const isPending = pendingSet.has(row.key);
-    const approvedCount = approvedCounts.get(row.key) || 0;
-    const checkInRange =
-      row.checkIns.length > 0
-        ? `${formatDate([...row.checkIns].sort()[0])}${row.checkIns.length > 1 ? ` → ${formatDate([...row.checkIns].sort().slice(-1)[0])}` : ""}`
-        : "";
-
-    if (!hasAmounts) {
-      return `
-        <div class="camp-payment-card is-empty">
-          <div class="camp-payment-card-head">
-            <div>
-              <button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button>
-              <span class="camp-payment-meta">${row.reservations} reservation${row.reservations === 1 ? "" : "s"}${row.nights ? ` · ${row.nights} night${row.nights === 1 ? "" : "s"}` : ""}${checkInRange ? ` · ${checkInRange}` : ""}</span>
-            </div>
-            <span class="status-pill is-in_progress">No amounts set</span>
-          </div>
-          <div class="camp-payment-card-actions">
-            <button type="button" class="primary-button compact" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Set amounts</button>
-          </div>
-        </div>
-      `;
-    }
-
-    const requestButton = isPaid
+    const requestPart = isPaid
       ? ""
       : isPending
         ? `<span class="status-pill is-pending" title="Awaiting accountant approval">REQUEST SENT</span>`
-        : `<button type="button" class="primary-button compact" data-action="request-camp-group-payment"
+        : `<button type="button" class="table-action compact" data-action="request-camp-group-payment"
               data-group-key="${escapeHtml(row.key)}"
               data-trip-id="${escapeHtml(row.tripId)}"
               data-camp-name="${escapeHtml(row.campName)}"
               data-amount="${escapeHtml(String(row.balancePayment > 0 ? row.balancePayment : row.totalPayment))}"
               data-currency="${escapeHtml(row.currency || "MNT")}">Request payment</button>`;
-
     return `
-      <div class="camp-payment-card">
-        <div class="camp-payment-card-head">
-          <div>
-            <button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button>
-            <span class="camp-payment-meta">${row.reservations} reservation${row.reservations === 1 ? "" : "s"}${row.nights ? ` · ${row.nights} night${row.nights === 1 ? "" : "s"}` : ""}${checkInRange ? ` · ${checkInRange}` : ""}</span>
-          </div>
-          <span class="status-pill is-${normalizeStatus(row.paymentStatus || "in_progress")}">${formatStatusLabel(row.paymentStatus || "in_progress")}</span>
-        </div>
-        <div class="camp-payment-card-figures">
-          <div><span>Total</span><strong>${formatMoney(row.totalPayment)}</strong></div>
-          <div><span>Paid</span><strong>${formatMoney(row.paidAmount)}</strong></div>
-          <div><span>Balance</span><strong class="${row.balancePayment > 0 ? "is-balance-due" : ""}">${formatMoney(row.balancePayment)}</strong></div>
-        </div>
-        ${row.deposit || row.secondPayment ? `
-        <div class="camp-payment-card-breakdown">
-          ${row.deposit ? `<span>Deposit ${formatMoney(row.deposit)}${row.depositPaidDate ? ` · paid ${formatDate(row.depositPaidDate)}` : ""}</span>` : ""}
-          ${row.secondPayment ? `<span>2nd ${formatMoney(row.secondPayment)}${row.secondPaidDate ? ` · paid ${formatDate(row.secondPaidDate)}` : ""}</span>` : ""}
-        </div>` : ""}
-        <div class="camp-payment-card-actions">
-          <button type="button" class="secondary-button compact" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Edit amounts</button>
-          ${requestButton}
-          <button type="button" class="link-button compact danger" data-action="delete-payment-group" data-group-key="${escapeHtml(row.key)}">Clear</button>
-          ${approvedCount ? `<span class="camp-payment-receipts">${approvedCount} receipt${approvedCount === 1 ? "" : "s"} on file</span>` : ""}
-        </div>
+      <div class="trip-row-actions payment-row-actions">
+        <button type="button" class="table-action compact secondary" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Edit</button>
+        ${requestPart}
+        <button type="button" class="table-action compact danger" data-action="delete-payment-group" data-group-key="${escapeHtml(row.key)}">Delete</button>
       </div>
     `;
   };
@@ -1694,15 +1634,51 @@ function renderActiveTripCampPayments() {
   activeTripCampPayments.innerHTML = `
     <div class="section-head">
       <h2>Camp payments</h2>
-      <div class="camp-payment-totals">
-        <span>Total <strong>${formatMoney(totals.total)}</strong></span>
-        <span>Paid <strong>${formatMoney(totals.paid)}</strong></span>
-        <span>Balance <strong>${formatMoney(totals.balance)}</strong></span>
-      </div>
     </div>
-    <p class="camp-payment-help">One card per camp. Set amounts to see balance, then request payment — accountant approves with a receipt and every reservation at that camp flips to paid.</p>
-    <div class="camp-payment-cards">
-      ${rows.map(renderCard).join("")}
+    <div class="camp-table-wrap">
+      <table class="camp-table camp-payment-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Camp</th>
+            <th>Reservations</th>
+            <th>Deposit</th>
+            <th>Deposit paid date</th>
+            <th>2nd payment</th>
+            <th>2nd paid date</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Receipts</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map((row, index) => {
+              const approvedCount = approvedCounts.get(row.key) || 0;
+              return `
+                <tr>
+                  <td class="table-center">${index + 1}</td>
+                  <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button></td>
+                  <td class="table-center">${row.reservations}</td>
+                  <td class="table-right">${formatMoney(row.deposit)}</td>
+                  <td>${formatDate(row.depositPaidDate)}</td>
+                  <td class="table-right">${formatMoney(row.secondPayment)}</td>
+                  <td>${formatDate(row.secondPaidDate)}</td>
+                  <td class="table-right">${formatMoney(row.paidAmount)}</td>
+                  <td class="table-right">${formatMoney(row.balancePayment)}</td>
+                  <td class="table-right">${formatMoney(row.totalPayment)}</td>
+                  <td><span class="status-pill is-${normalizeStatus(row.paymentStatus || "in_progress")}">${formatStatusLabel(row.paymentStatus || "in_progress")}</span></td>
+                  <td class="table-center">${approvedCount || "-"}</td>
+                  <td>${renderActionsCell(row)}</td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
     </div>
   `;
 }
