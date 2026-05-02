@@ -4089,6 +4089,14 @@ time {
   border-color: #2f60c8;
   box-shadow: 0 0 0 2px rgba(47, 96, 200, 0.15);
 }
+.contract-template-textarea.is-readonly {
+  background: #f7f9fc;
+  cursor: default;
+}
+.contract-template-textarea.is-readonly:focus {
+  border-color: #d6dae3;
+  box-shadow: none;
+}
 /* The red highlight that surrounds every {{token}} placeholder so
    managers can see at a glance which words will be replaced when
    the template is used to render a real contract. */

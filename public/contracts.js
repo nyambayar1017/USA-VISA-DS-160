@@ -963,11 +963,12 @@ const initContractForm = () => {
   const tplSaveBtn = qs("#contract-template-save");
   const tplStatus = qs("#contract-template-status");
 
-  let editorMode = "create";          // "create" | "edit"
+  let editorMode = "create";          // "create" | "edit" | "view"
   let editorEditingId = "";
   let editorName = "";
   let editorIntro = [];               // ["preamble paragraph", …]
   let editorSections = [];            // [{title, paragraphs:[text,…]}]
+  const isReadOnly = () => editorMode === "view";
   const escAttr = (v) => String(v || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
   const escText = (v) => String(v || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
@@ -1004,6 +1005,7 @@ const initContractForm = () => {
                 <td>${(e.sections || []).length} sections · ${(e.sections || []).reduce((n, s) => n + (s.paragraphs || []).length, 0)} paragraphs</td>
                 <td>${escText((e.updatedAt || "").slice(0, 10))}</td>
                 <td>
+                  <button type="button" class="header-action-btn" data-tpl-action="view" data-id="${escAttr(e.id)}">View</button>
                   <button type="button" class="header-action-btn" data-tpl-action="edit" data-id="${escAttr(e.id)}">Edit</button>
                   <button type="button" class="header-action-btn button-danger" data-tpl-action="delete" data-id="${escAttr(e.id)}">Delete</button>
                 </td>
@@ -1027,6 +1029,7 @@ const initContractForm = () => {
 
   function renderEditorSections() {
     if (!tplSectionsHost) return;
+    const ro = isReadOnly();
     const introBlock = `
       <fieldset class="contract-template-section contract-template-intro" data-intro-block>
         <legend>Intro (preamble — appears above Section 1)</legend>
@@ -1034,14 +1037,14 @@ const initContractForm = () => {
           ${editorIntro.map((p, iIdx) => `
             <div class="contract-template-paragraph-row">
               <span class="contract-template-paragraph-number">¶</span>
-              <div data-intro-paragraph data-paragraph-index="${iIdx}" contenteditable="true" class="contract-template-textarea">${paragraphInnerHtml(p || "")}</div>
-              <button type="button" class="header-action-btn button-danger" data-intro-remove data-paragraph-index="${iIdx}" title="Remove paragraph">×</button>
+              <div data-intro-paragraph data-paragraph-index="${iIdx}" contenteditable="${ro ? "false" : "true"}" class="contract-template-textarea${ro ? " is-readonly" : ""}">${paragraphInnerHtml(p || "")}</div>
+              ${ro ? "" : `<button type="button" class="header-action-btn button-danger" data-intro-remove data-paragraph-index="${iIdx}" title="Remove paragraph">×</button>`}
             </div>
           `).join("")}
         </div>
-        <div class="contract-template-section-actions">
+        ${ro ? "" : `<div class="contract-template-section-actions">
           <button type="button" class="secondary-button" data-intro-add>+ Add intro paragraph</button>
-        </div>
+        </div>`}
       </fieldset>
     `;
     tplSectionsHost.innerHTML = introBlock + editorSections.map((sec, sIdx) => `
@@ -1049,24 +1052,27 @@ const initContractForm = () => {
         <legend>Section ${sIdx + 1}</legend>
         <label class="contract-template-title-label">
           <span>Title</span>
-          <input type="text" data-section-title value="${escAttr(sec.title || "")}" />
+          <input type="text" data-section-title value="${escAttr(sec.title || "")}" ${ro ? "readonly" : ""} />
         </label>
         <div data-paragraphs class="contract-template-paragraphs">
           ${(sec.paragraphs || []).map((p, pIdx) => `
             <div class="contract-template-paragraph-row">
               <span class="contract-template-paragraph-number">${sIdx + 1}.${pIdx + 1}.</span>
-              <div data-paragraph data-paragraph-index="${pIdx}" contenteditable="true" class="contract-template-textarea">${paragraphInnerHtml(p || "")}</div>
-              <button type="button" class="header-action-btn button-danger" data-paragraph-remove data-paragraph-index="${pIdx}" title="Remove paragraph">×</button>
+              <div data-paragraph data-paragraph-index="${pIdx}" contenteditable="${ro ? "false" : "true"}" class="contract-template-textarea${ro ? " is-readonly" : ""}">${paragraphInnerHtml(p || "")}</div>
+              ${ro ? "" : `<button type="button" class="header-action-btn button-danger" data-paragraph-remove data-paragraph-index="${pIdx}" title="Remove paragraph">×</button>`}
             </div>
           `).join("")}
         </div>
-        <div class="contract-template-section-actions">
+        ${ro ? "" : `<div class="contract-template-section-actions">
           <button type="button" class="secondary-button" data-paragraph-add>+ Add paragraph</button>
           <span style="flex:1"></span>
           <button type="button" class="header-action-btn button-danger" data-section-remove>Remove section</button>
-        </div>
+        </div>`}
       </fieldset>
     `).join("");
+    // Hide save / +Add title in read-only mode.
+    if (tplSaveBtn) tplSaveBtn.style.display = ro ? "none" : "";
+    if (tplAddSectionBtn) tplAddSectionBtn.style.display = ro ? "none" : "";
   }
 
   function readEditorIntro() {
@@ -1263,6 +1269,7 @@ const initContractForm = () => {
                 <td>${(e.sections || []).length} sections · ${(e.sections || []).reduce((n, s) => n + (s.paragraphs || []).length, 0)} paragraphs</td>
                 <td>${escText((e.updatedAt || "").slice(0, 10))}</td>
                 <td>
+                  <button type="button" class="header-action-btn" data-tpl-action="view" data-id="${escAttr(e.id)}">View</button>
                   <button type="button" class="header-action-btn" data-tpl-action="edit" data-id="${escAttr(e.id)}">Edit</button>
                   <button type="button" class="header-action-btn button-danger" data-tpl-action="delete" data-id="${escAttr(e.id)}">Delete</button>
                 </td>
@@ -1296,17 +1303,17 @@ const initContractForm = () => {
     if (!btn) return;
     const id = btn.dataset.id;
     const action = btn.dataset.tplAction;
-    if (action === "edit") {
+    if (action === "view" || action === "edit") {
       try {
         const data = await apiRequest(`/api/contract-templates/${encodeURIComponent(id)}`);
         const entry = data?.entry;
         if (!entry) throw new Error("Not found");
-        editorMode = "edit";
+        editorMode = action;
         editorEditingId = id;
         editorName = entry.name || "";
         editorIntro = Array.isArray(entry.intro) ? entry.intro : [];
         editorSections = Array.isArray(entry.sections) ? entry.sections : [];
-        if (tplEditorTitle) tplEditorTitle.textContent = `Edit template — ${editorName}`;
+        if (tplEditorTitle) tplEditorTitle.textContent = `${action === "view" ? "View" : "Edit"} template — ${editorName}`;
         closeTemplateListModal();
         openEditor();
       } catch (err) {
