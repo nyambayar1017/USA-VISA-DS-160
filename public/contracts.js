@@ -953,6 +953,9 @@ const initContractForm = () => {
   const tplSelect = qs("#contract-template-select");
   const tplListNode = qs("#contract-template-list");
   const tplAddBtn = qs("#contract-template-add-btn");
+  const tplViewBtn = qs("#contract-template-view-btn");
+  const tplListModal = qs("#contract-template-list-modal");
+  const tplListHost = qs("#contract-template-list-host");
   const tplEditor = qs("#contract-template-editor");
   const tplEditorTitle = qs("#contract-template-editor-title");
   const tplSectionsHost = qs("#contract-template-sections");
@@ -1239,6 +1242,89 @@ const initContractForm = () => {
 
   tplEditor?.addEventListener("click", (event) => {
     if (event.target.matches('[data-action="close-template-editor"]')) closeEditor();
+  });
+
+  // ── List modal (View templates) ────────────────────────────────
+  async function renderTemplateListModal() {
+    const entries = await loadTemplatesIntoSelect();
+    if (!tplListHost) return;
+    if (!entries.length) {
+      tplListHost.innerHTML = `<p class="empty">No custom templates yet. Click "+ Add contract template" to create one.</p>`;
+      return;
+    }
+    tplListHost.innerHTML = `
+      <div class="camp-table-wrap">
+        <table class="camp-table">
+          <thead><tr><th>Name</th><th>Sections</th><th>Updated</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${entries.map((e) => `
+              <tr>
+                <td><strong>${escText(e.name)}</strong></td>
+                <td>${(e.sections || []).length} sections · ${(e.sections || []).reduce((n, s) => n + (s.paragraphs || []).length, 0)} paragraphs</td>
+                <td>${escText((e.updatedAt || "").slice(0, 10))}</td>
+                <td>
+                  <button type="button" class="header-action-btn" data-tpl-action="edit" data-id="${escAttr(e.id)}">Edit</button>
+                  <button type="button" class="header-action-btn button-danger" data-tpl-action="delete" data-id="${escAttr(e.id)}">Delete</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+  function openTemplateListModal() {
+    if (!tplListModal) return;
+    tplListModal.classList.remove("is-hidden");
+    tplListModal.removeAttribute("hidden");
+    document.body.classList.add("modal-open");
+    renderTemplateListModal();
+  }
+  function closeTemplateListModal() {
+    if (!tplListModal) return;
+    tplListModal.classList.add("is-hidden");
+    tplListModal.setAttribute("hidden", "");
+    document.body.classList.remove("modal-open");
+  }
+  tplViewBtn?.addEventListener("click", openTemplateListModal);
+  tplListModal?.addEventListener("click", async (event) => {
+    if (event.target.matches('[data-action="close-template-list"]')) {
+      closeTemplateListModal();
+      return;
+    }
+    const btn = event.target.closest("[data-tpl-action]");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.tplAction;
+    if (action === "edit") {
+      try {
+        const data = await apiRequest(`/api/contract-templates/${encodeURIComponent(id)}`);
+        const entry = data?.entry;
+        if (!entry) throw new Error("Not found");
+        editorMode = "edit";
+        editorEditingId = id;
+        editorName = entry.name || "";
+        editorIntro = Array.isArray(entry.intro) ? entry.intro : [];
+        editorSections = Array.isArray(entry.sections) ? entry.sections : [];
+        if (tplEditorTitle) tplEditorTitle.textContent = `Edit template — ${editorName}`;
+        closeTemplateListModal();
+        openEditor();
+      } catch (err) {
+        alert(err.message || "Could not open template.");
+      }
+    } else if (action === "delete") {
+      try {
+        const ok = await window.UI.confirm(
+          "Delete this template? Existing contracts that referenced it will fall back to the default on re-render.",
+          { title: "Delete template", dangerous: true, confirmLabel: "Delete" }
+        );
+        if (!ok) return;
+        await apiRequest(`/api/contract-templates/${encodeURIComponent(id)}`, { method: "DELETE" });
+        await renderTemplateListModal();
+      } catch (err) {
+        if (err) alert(err.message || "Could not delete.");
+      }
+    }
   });
 
   loadTemplatesIntoSelect();

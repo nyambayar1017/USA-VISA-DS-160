@@ -32,6 +32,7 @@
           <div class="section-head">
             <h2>New contract</h2>
             <div class="camp-toolbar">
+              <button type="button" id="contract-template-view-btn" class="secondary-button">View templates</button>
               <button type="button" id="contract-template-add-btn" class="secondary-button">+ Add contract template</button>
               <button type="button" id="contract-toggle-form">Create Contract</button>
             </div>
@@ -290,6 +291,20 @@
       </main>
     </div>
 
+    <div id="contract-template-list-modal" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-template-list"></div>
+      <div class="camp-modal-dialog workspace-form-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Contract templates</h2>
+            <p class="camp-modal-copy">Edit wording or remove a template. Header / footer / signature blocks stay locked across every template.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-template-list" aria-label="Close">×</button>
+        </div>
+        <div id="contract-template-list-host"></div>
+      </div>
+    </div>
+
     <div id="contract-template-editor" class="camp-modal is-hidden" hidden>
       <div class="camp-modal-backdrop" data-action="close-template-editor"></div>
       <div class="camp-modal-dialog workspace-form-modal-dialog">
@@ -313,7 +328,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-147"></script>
-    <script src="/contracts.js?v=workspace-11"></script>
+    <script src="/contracts.js?v=workspace-12"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
