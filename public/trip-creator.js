@@ -140,73 +140,77 @@
       .map((row, idx) => {
         const ids = Array.isArray(row.imageIds) ? row.imageIds : [];
         const meals = row.meals || {};
-        const thumbs = ids
-          .map(
-            (id) => `
-              <div class="ct-image-thumb" data-id="${escapeHtml(id)}">
-                <img src="/api/gallery/${encodeURIComponent(id)}/file?size=thumb" alt="" loading="lazy" />
-                <button type="button" class="ct-image-remove" data-action="remove-day-image" data-idx="${idx}" data-id="${escapeHtml(id)}" aria-label="Remove">×</button>
-              </div>
-            `
-          )
-          .join("");
+        // Find the day's primary location (if any) so we can show the
+        // public-style 📍 pin label and the location's first photo as
+        // a fallback hero.
+        const loc = row.locationId ? LOC_CACHE.find((l) => l.id === row.locationId) : null;
+        const lang = getActiveLanguage();
+        const locLabel = loc ? locationLabelFor(loc, lang) : "";
+        const heroId = ids[0] || (loc && (loc.imageIds || [])[0]) || "";
+        const heroBg = heroId ? `background-image: url('/api/gallery/${encodeURIComponent(heroId)}/file?size=large');` : "";
+        const hasRouteData = !!(row.fromName || row.toName || row.distance || row.drive);
+        // Has-photo flag drives layout: two-column when there's a hero,
+        // single column placeholder when not.
+        const hasHero = !!heroId;
         return `
-          <div class="tc-program-row" data-idx="${idx}" data-day-id="${escapeHtml(row.id || "")}">
+          <div class="tc-program-card ${hasHero ? "has-hero" : "no-hero"}" data-idx="${idx}" data-day-id="${escapeHtml(row.id || "")}">
             <input type="hidden" class="tc-program-id" value="${escapeHtml(row.id || "")}" />
             <input type="hidden" class="tc-program-template-id" value="${escapeHtml(row.templateId || "")}" />
             <input type="hidden" class="tc-program-location-id" value="${escapeHtml(row.locationId || "")}" />
-            <div class="tc-program-row-head">
-              <input type="text" class="tc-program-day" placeholder="Өдөр ${idx + 1}" value="${escapeHtml(row.day || `Өдөр ${idx + 1}`)}" />
-              <input type="text" class="tc-program-title" placeholder="e.g. УБ - Истанбул нислэг" value="${escapeHtml(row.title || "")}" />
-              <button type="button" class="tc-program-delete" data-action="delete-day" data-idx="${idx}" aria-label="Remove day">✕</button>
-            </div>
-            <div class="tc-program-location-row">
-              <label>📍 Location
-                <select class="tc-program-location" data-idx="${idx}">${locationOptionsHtml(row.locationId)}</select>
-              </label>
-              <span class="tc-program-location-hint">Pulls the location's name and first photo into this day.</span>
-            </div>
-            <div class="tc-program-meta-row">
-              <label>Date <input type="text" class="tc-program-date" placeholder="e.g. 2026-07-11" value="${escapeHtml(row.date || "")}" /></label>
-            </div>
-            <div class="tc-program-route">
-              <label>From <input type="text" class="tc-program-from" placeholder="Origin" value="${escapeHtml(row.fromName || "")}" /></label>
-              <label>To <input type="text" class="tc-program-to" placeholder="Destination" value="${escapeHtml(row.toName || "")}" /></label>
-              <label>Distance <input type="text" class="tc-program-distance" placeholder="80km" value="${escapeHtml(row.distance || "")}" /></label>
-              <label>Drive <input type="text" class="tc-program-drive" placeholder="1h 30m" value="${escapeHtml(row.drive || "")}" /></label>
-            </div>
-            <textarea class="tc-program-body" rows="3" placeholder="Description. Use + Content link to embed [[slug]] markers that turn yellow on the public page.">${escapeHtml(row.body || "")}</textarea>
-            <div class="tc-program-accomm">
-              <label class="tc-program-accomm-name">Accommodation
-                <input type="text" class="tc-program-accommodation" placeholder="Holiday Inn (or content slug)" value="${escapeHtml(row.accommodation || "")}" />
-              </label>
-              <label>Breakfast
-                <div class="tc-meal-combo" data-meal-cat="breakfast">
-                  <input type="text" class="tc-program-meal-b tc-meal-combo-input" placeholder="Hotel" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" autocomplete="off" />
-                  <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
-                  <div class="tc-meal-combo-list" hidden></div>
-                </div>
-              </label>
-              <label>Lunch
-                <div class="tc-meal-combo" data-meal-cat="lunch">
-                  <input type="text" class="tc-program-meal-l tc-meal-combo-input" placeholder="Restaurant" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" autocomplete="off" />
-                  <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
-                  <div class="tc-meal-combo-list" hidden></div>
-                </div>
-              </label>
-              <label>Dinner
-                <div class="tc-meal-combo" data-meal-cat="dinner">
-                  <input type="text" class="tc-program-meal-d tc-meal-combo-input" placeholder="Restaurant" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" autocomplete="off" />
-                  <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
-                  <div class="tc-meal-combo-list" hidden></div>
-                </div>
-              </label>
-            </div>
             <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
-            <div class="tc-program-day-photos">
-              <button type="button" class="ct-add-item-btn" data-action="pick-day-images" data-idx="${idx}">+ Photos</button>
-              <button type="button" class="ct-add-item-btn" data-action="insert-content" data-idx="${idx}">+ Content link</button>
-              <div class="ct-image-preview tc-day-thumbs">${thumbs}</div>
+            <div class="tc-program-card-photo" data-action="pick-day-images" data-idx="${idx}" style="${heroBg}">
+              <span class="tc-program-card-daybadge">DAY ${idx + 1}</span>
+              ${hasHero ? "" : `<span class="tc-program-card-photohint">+ Add photo</span>`}
+            </div>
+            <div class="tc-program-card-body">
+              <button type="button" class="tc-program-delete" data-action="delete-day" data-idx="${idx}" aria-label="Remove day">✕</button>
+              <input type="text" class="tc-program-day" placeholder="Day ${idx + 1}" value="${escapeHtml(row.day || `Өдөр ${idx + 1}`)}" />
+              <input type="text" class="tc-program-title" placeholder="Day title — e.g. Welcome to Mongolia" value="${escapeHtml(row.title || "")}" />
+              <div class="tc-program-card-row">
+                <select class="tc-program-location tc-program-card-pick" data-idx="${idx}" title="Pick location">${locationOptionsHtml(row.locationId)}</select>
+                <input type="text" class="tc-program-date tc-program-card-date" placeholder="2026-07-11" value="${escapeHtml(row.date || "")}" />
+                ${locLabel ? `<span class="tc-program-card-locname">📍 ${escapeHtml(locLabel)}</span>` : ""}
+              </div>
+              <details class="tc-program-card-route" ${hasRouteData ? "open" : ""}>
+                <summary>🚙 Transfer (optional)</summary>
+                <div class="tc-program-route">
+                  <label>From <input type="text" class="tc-program-from" placeholder="Origin" value="${escapeHtml(row.fromName || "")}" /></label>
+                  <label>To <input type="text" class="tc-program-to" placeholder="Destination" value="${escapeHtml(row.toName || "")}" /></label>
+                  <label>Distance <input type="text" class="tc-program-distance" placeholder="80km" value="${escapeHtml(row.distance || "")}" /></label>
+                  <label>Drive <input type="text" class="tc-program-drive" placeholder="1h 30m" value="${escapeHtml(row.drive || "")}" /></label>
+                </div>
+              </details>
+              <textarea class="tc-program-body" rows="4" placeholder="Day narrative — what the travelers will do today. Type @ to insert a Content reference (turns into an orange link on the public page).">${escapeHtml(row.body || "")}</textarea>
+              <div class="tc-program-card-photos">
+                <button type="button" class="ct-add-item-btn" data-action="pick-day-images" data-idx="${idx}">📷 Photos (${ids.length})</button>
+                <button type="button" class="ct-add-item-btn" data-action="insert-content" data-idx="${idx}">+ Content link</button>
+              </div>
+              <div class="tc-program-accomm">
+                <label class="tc-program-accomm-name">🛏 Accommodation
+                  <input type="text" class="tc-program-accommodation" placeholder="Holiday Inn (or content slug)" value="${escapeHtml(row.accommodation || "")}" />
+                </label>
+                <label>☕ Breakfast
+                  <div class="tc-meal-combo" data-meal-cat="breakfast">
+                    <input type="text" class="tc-program-meal-b tc-meal-combo-input" placeholder="Hotel" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" autocomplete="off" />
+                    <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
+                    <div class="tc-meal-combo-list" hidden></div>
+                  </div>
+                </label>
+                <label>🍴 Lunch
+                  <div class="tc-meal-combo" data-meal-cat="lunch">
+                    <input type="text" class="tc-program-meal-l tc-meal-combo-input" placeholder="Restaurant" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" autocomplete="off" />
+                    <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
+                    <div class="tc-meal-combo-list" hidden></div>
+                  </div>
+                </label>
+                <label>🍷 Dinner
+                  <div class="tc-meal-combo" data-meal-cat="dinner">
+                    <input type="text" class="tc-program-meal-d tc-meal-combo-input" placeholder="Restaurant" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" autocomplete="off" />
+                    <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
+                    <div class="tc-meal-combo-list" hidden></div>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
         `;
@@ -291,7 +295,7 @@
     const insertContent = event.target.closest('[data-action="insert-content"]');
     if (insertContent && window.ContentPicker) {
       const idx = Number(insertContent.dataset.idx);
-      const row = programList.querySelector(`.tc-program-row[data-idx="${idx}"]`);
+      const row = programList.querySelector(`.tc-program-card[data-idx="${idx}"]`);
       const textarea = row?.querySelector(".tc-program-body");
       if (!textarea) return;
       const item = await window.ContentPicker.open({ title: "Insert content link" });
@@ -313,7 +317,7 @@
   });
 
   function readProgram() {
-    return Array.from(programList.querySelectorAll(".tc-program-row")).map((row) => {
+    return Array.from(programList.querySelectorAll(".tc-program-card")).map((row) => {
       const idsRaw = row.querySelector(".tc-program-image-ids")?.value || "";
       return {
         id: row.querySelector(".tc-program-id")?.value || "",

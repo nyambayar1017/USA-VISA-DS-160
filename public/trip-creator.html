@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-411" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-412" />
   </head>
   <body class="app-body" data-page="trip-creator">
     <div class="workspace-shell">
@@ -43,98 +43,84 @@
             <button type="button" class="header-action-btn header-action-publish" id="tc-save-btn">📢 Publish</button>
           </div>
 
-          <!-- Presentation tab -->
+          <!-- Presentation tab — center column reads like the public
+               trip page. Dense settings are tucked into the details panel
+               at the top; the rest is "looks like the rendered page,
+               edit in place". -->
           <section class="tc-pane is-active" id="tc-pane-presentation" role="tabpanel">
-            <div class="tc-form-grid">
-              <label>
-                Title
-                <input id="tc-title" type="text" placeholder="DTX Turkiye 2026-05-10 3+2+2" />
-              </label>
-              <label>
-                Total days
-                <input id="tc-total-days" type="number" min="1" />
-              </label>
-              <label>
-                Total km
-                <input id="tc-total-km" type="number" min="0" />
-              </label>
-              <label>
-                Language
-                <select id="tc-language">
-                  <option value="mn">MN</option>
-                  <option value="en">EN</option>
-                  <option value="ru">RU</option>
-                </select>
-              </label>
-              <label>
-                Trip type
-                <select id="tc-trip-type">
-                  <option value="GIT">GIT</option>
-                  <option value="FIT">FIT</option>
-                </select>
-              </label>
-              <label>
-                Currency
-                <select id="tc-currency">
-                  <option value="MNT">MNT</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="KRW">KRW</option>
-                </select>
-              </label>
-              <label>
-                Offer type
-                <select id="tc-offer-type">
-                  <option value="range">Range price</option>
-                  <option value="fixed">Fixed price</option>
-                </select>
-              </label>
-              <label>
-                International flight
-                <select id="tc-international-flight">
-                  <option value="included">Included</option>
-                  <option value="excluded">Excluded</option>
-                </select>
-              </label>
-              <label>
-                Price from
-                <input id="tc-price-from" type="text" placeholder="e.g. 1590" />
-              </label>
-              <label class="tc-full">
-                Subtitle (above the title)
-                <input id="tc-subtitle" type="text" placeholder="Family-friendly · 7 days · Central Mongolia" />
-              </label>
+            <details class="tc-settings-panel" id="tc-settings-panel">
+              <summary>⚙ Trip settings <span class="tc-settings-summary" id="tc-settings-summary"></span></summary>
+              <div class="tc-form-grid">
+                <label>Total days
+                  <input id="tc-total-days" type="number" min="1" />
+                </label>
+                <label>Total km
+                  <input id="tc-total-km" type="number" min="0" />
+                </label>
+                <label>Language
+                  <select id="tc-language">
+                    <option value="mn">Mongolian</option>
+                    <option value="en">English</option>
+                    <option value="ru">Russian</option>
+                    <option value="fr">French</option>
+                    <option value="it">Italian</option>
+                    <option value="es">Spanish</option>
+                    <option value="ko">Korean</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                  </select>
+                </label>
+                <label>Trip type
+                  <select id="tc-trip-type">
+                    <option value="GIT">GIT</option>
+                    <option value="FIT">FIT</option>
+                  </select>
+                </label>
+                <label>Currency
+                  <select id="tc-currency">
+                    <option value="MNT">MNT</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="CNY">CNY</option>
+                    <option value="JPY">JPY</option>
+                    <option value="KRW">KRW</option>
+                    <option value="RUB">RUB</option>
+                  </select>
+                </label>
+                <label>Offer type
+                  <select id="tc-offer-type">
+                    <option value="range">Range price</option>
+                    <option value="fixed">Fixed price</option>
+                  </select>
+                </label>
+                <label>International flight
+                  <select id="tc-international-flight">
+                    <option value="included">Included</option>
+                    <option value="excluded">Excluded</option>
+                  </select>
+                </label>
+                <label>Price from
+                  <input id="tc-price-from" type="text" placeholder="e.g. 1590" />
+                </label>
+                <label class="tc-full">Themes (comma-separated)
+                  <input id="tc-themes" type="text" placeholder="e.g. cultural, adventure, beach" />
+                </label>
+              </div>
+              <div class="tc-rating-row">
+                <label class="tc-rating"><span>Rate</span><input id="tc-rate" type="range" min="0" max="5" step="1" value="0" /><output id="tc-rate-out">0/5</output></label>
+                <label class="tc-rating"><span>Comfort</span><input id="tc-comfort" type="range" min="0" max="5" step="1" value="0" /><output id="tc-comfort-out">0/5</output></label>
+                <label class="tc-rating"><span>Difficulty</span><input id="tc-difficulty" type="range" min="0" max="5" step="1" value="0" /><output id="tc-difficulty-out">0/5</output></label>
+              </div>
+            </details>
+
+            <!-- Public-page-style hero stack -->
+            <div class="tc-hero-block">
+              <input id="tc-subtitle" type="text" class="tc-hero-subtitle" placeholder="Family-friendly · 7 days · Central Mongolia" />
+              <input id="tc-title" type="text" class="tc-hero-title" placeholder="Trip title" />
+              <textarea id="tc-intro" rows="4" class="tc-hero-intro" placeholder="Trip overview — shown above the day-by-day program on the public page."></textarea>
             </div>
 
-            <div class="tc-rating-row">
-              <label class="tc-rating">
-                <span>Rate</span>
-                <input id="tc-rate" type="range" min="0" max="5" step="1" value="0" />
-                <output id="tc-rate-out">0/5</output>
-              </label>
-              <label class="tc-rating">
-                <span>Comfort</span>
-                <input id="tc-comfort" type="range" min="0" max="5" step="1" value="0" />
-                <output id="tc-comfort-out">0/5</output>
-              </label>
-              <label class="tc-rating">
-                <span>Difficulty</span>
-                <input id="tc-difficulty" type="range" min="0" max="5" step="1" value="0" />
-                <output id="tc-difficulty-out">0/5</output>
-              </label>
-            </div>
-
-            <label class="tc-full">
-              Themes (comma-separated)
-              <input id="tc-themes" type="text" placeholder="e.g. cultural, adventure, beach" />
-            </label>
-
-            <label class="tc-full">
-              Intro / Хөтөлбөрийн хураангуй
-              <textarea id="tc-intro" rows="4" placeholder="Trip overview shown above the day-by-day program."></textarea>
-            </label>
-
-            <div class="tc-section-head">
+            <div class="tc-section-head tc-program-head">
               <h3>Day-by-day program</h3>
               <button type="button" class="header-action-btn" id="tc-add-day">+ Add day</button>
             </div>
@@ -261,6 +247,6 @@ A rich nomadic heritage shaped by Buddhism…"></textarea>
     <script src="/compress-upload.js?v=workspace-3"></script>
     <script src="/image-picker.js?v=workspace-2"></script>
     <script src="/content-picker.js?v=workspace-1"></script>
-    <script src="/trip-creator.js?v=workspace-18"></script>
+    <script src="/trip-creator.js?v=workspace-19"></script>
   </body>
 </html>
