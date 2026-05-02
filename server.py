@@ -4006,11 +4006,32 @@ def build_contract_data(payload):
         if price_breakdown
         else f"Энэхүү гэрээгээр аялагчийн төлбөр нь нийт {data['travelerCount']} хүний {data['totalPrice']} төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно."
     )
+    # Bank account chosen on the contract form — also reflect it in
+    # the contract body so the deposit / balance clauses show the
+    # actual account the client should wire to. Falls back to the
+    # default Төрийн Банк wording when no bank is picked, so legacy
+    # behaviour is preserved.
+    bank_id = normalize_text(payload.get("bankAccountId"))
+    bank_phrase = "Төрийн Банкны MN03 0034 3432 7777 9999"
+    if bank_id:
+        for b in read_settings().get("bankAccounts") or []:
+            if b.get("id") == bank_id:
+                name_parts = []
+                if b.get("bankName"):
+                    name_parts.append(f"{b['bankName']} банкны")
+                elif b.get("label"):
+                    name_parts.append(f"{b['label']} банкны")
+                if b.get("accountNumber"):
+                    name_parts.append(b["accountNumber"])
+                if name_parts:
+                    bank_phrase = " ".join(name_parts)
+                break
+    data["bankPhrase"] = bank_phrase
     data["depositParagraph"] = (
-        f"Аяллын төлбөр дараах байдлаар хийгдэнэ.\n5.3.1. Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_balance_due_date(data['depositDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN03 0034 3432 7777 9999 дансанд хийснээр аялал баталгаажна."
+        f"Аяллын төлбөр дараах байдлаар хийгдэнэ.\n5.3.1. Аяллын урьдчилгаа төлбөр болох {data['depositAmount']} төгрөгийг {format_balance_due_date(data['depositDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний {bank_phrase} дансанд хийснээр аялал баталгаажна."
     )
     data["balanceParagraph"] = (
-        f"5.3.2. Аяллын үлдэгдэл төлбөр болох {data['balanceAmount']} төгрөгийг {format_balance_due_date(data['balanceDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний Төрийн Банкны MN03 0034 3432 7777 9999 дансанд хийнэ."
+        f"5.3.2. Аяллын үлдэгдэл төлбөр болох {data['balanceAmount']} төгрөгийг {format_balance_due_date(data['balanceDueDate'])} өдөр “Дэлхий Трэвел Икс” ХХК-ний {bank_phrase} дансанд хийнэ."
     )
     return data
 
@@ -4585,6 +4606,7 @@ def _template_token_values(data):
         "emergencyContactPhone":    data.get("emergencyContactPhone", "") or "",
         "emergencyContactRelation": data.get("emergencyContactRelation", "") or "",
         "tripRangePhrase":          format_trip_range_phrase(data.get("tripStartDate"), data.get("tripEndDate")),
+        "bankPhrase":               data.get("bankPhrase", "") or "",
         "travelerRepresentationPhrase": build_traveler_representation_phrase(data),
     }
 
