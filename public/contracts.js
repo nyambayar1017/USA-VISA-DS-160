@@ -1465,20 +1465,38 @@ const initContractForm = () => {
     if (tokenPopover && !tokenPopover.contains(event.target)) closeTokenPopover();
   });
 
-  // Strip formatting when manager pastes from Word: drop the HTML
-  // payload, keep the plain text, and collapse non-breaking spaces
-  // / runs of whitespace so justified-text padding from Word doesn't
-  // ride along into the rendered contract.
+  // Paste from Word: strip formatting + normalise whitespace, and
+  // — when every line starts with a Word-style bullet glyph (○ ●
+  // • ▪ ◦ ▫ ‣ – etc) — turn the paragraphs into a proper <ul><li>
+  // list instead of leaving the literal glyph + tab sitting in
+  // the text (which rendered with Word's font fallback and looked
+  // broken).
+  const BULLET_LINE_RE = /^[\s ]*[\u2022\u25CB\u25CF\u25AA\u25C6\u25E6\u2023\u00B7\u2013-][\s ]+/;
   tplSectionsHost?.addEventListener("paste", (event) => {
     const target = event.target;
     if (!target || !target.matches || !target.matches("[data-paragraph], [data-intro-paragraph]")) return;
     event.preventDefault();
     const raw = (event.clipboardData || window.clipboardData)?.getData("text/plain") || "";
     const cleaned = raw
-      .replace(/ /g, " ")        // non-breaking → regular space
-      .replace(/[​-‍﻿]/g, "")  // zero-width chars
-      .replace(/[ \t]+/g, " ")        // collapse internal whitespace
-      .replace(/\r\n?/g, "\n");
+      .replace(/\u00a0/g, " ")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/\r\n?/g, "\n")
+      .replace(/[ \t]+/g, " ")
+      .trim();
+    if (!cleaned) return;
+    const lines = cleaned.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const allBulleted = lines.length >= 2 && lines.every((l) => BULLET_LINE_RE.test(l));
+    if (allBulleted) {
+      const items = lines
+        .map((l) => l.replace(BULLET_LINE_RE, "").trim())
+        .filter(Boolean)
+        .map((t) => `<li>${escText(t)}</li>`)
+        .join("");
+      try {
+        document.execCommand("insertHTML", false, `<ul>${items}</ul>`);
+        return;
+      } catch (_) {}
+    }
     document.execCommand("insertText", false, cleaned);
   });
 
