@@ -413,6 +413,24 @@ def write_contracts(contracts):
     write_json_list(CONTRACTS_FILE, contracts)
 
 
+# Manager-created contract templates. Each template is a structured
+# JSON {id, name, sections: [{title, paragraphs: [text, ...]}]}.
+# At contract render time, when data["templateId"] is set we replace
+# the body's sections with the template's; paragraphs go through the
+# same sentence-replacement table the DOCX flow uses, so legacy data
+# tokens like "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/..." still
+# get substituted with actual dates/names.
+CONTRACT_TEMPLATES_FILE = DATA_DIR / "contract_templates.json"
+
+
+def read_contract_templates():
+    return read_json_list(CONTRACT_TEMPLATES_FILE)
+
+
+def write_contract_templates(records):
+    write_json_list(CONTRACT_TEMPLATES_FILE, records)
+
+
 def read_ds160_applications():
     records = read_json_list(DS160_FILE)
     normalized = [normalize_ds160_record(record) for record in records if isinstance(record, dict)]
@@ -3940,6 +3958,7 @@ def build_contract_data(payload):
         "emergencyContactRelation": normalize_text(payload.get("emergencyContactRelation")),
         "emergencyContactPhone": normalize_text(payload.get("emergencyContactPhone")),
         "destination": normalize_text(payload.get("destination")),
+        "templateId": normalize_text(payload.get("templateId")),
         "tripStartDate": trip_start,
         "tripEndDate": trip_end,
         "tripDuration": trip_duration,
@@ -4464,7 +4483,153 @@ def get_contract_display_blocks(data):
     return blocks
 
 
+def _extract_contract_blocks_raw():
+    """Same shape as extract_contract_blocks but skips the
+    replace_template_paragraphs() pass, so the returned text is the
+    DOCX's raw source sentences (with the original sample dates /
+    names / prices). Used to seed the contract-template editor.
+    Saved templates therefore contain the same source sentences
+    that render_template_body_html knows how to replace at contract
+    render time, so manager-edited templates still substitute live
+    data without any extra work.
+    """
+    template_path = get_contract_template_path()
+    if not template_path.exists():
+        return []
+    with zipfile.ZipFile(template_path, "r") as source_zip:
+        document_xml = source_zip.read("word/document.xml")
+    root = ET.fromstring(document_xml)
+    # Re-walk the same heading/numbered-paragraph extraction logic as
+    # extract_contract_blocks but inline so we don't double-call
+    # replace_template_paragraphs on the tree.
+    body = root.find(qname("body"))
+    if body is None:
+        return []
+    section_heading_map = {
+        "ЕРӨНХИЙ ЗҮЙЛ": "1. ЕРӨНХИЙ ЗҮЙЛ",
+        "ГЭРЭЭНИЙ ХУГАЦАА": "2. ГЭРЭЭНИЙ ХУГАЦАА",
+        "АЯЛАЛ ЗОХИОН БАЙГУУЛАГЧИЙН ЭРХ, ҮҮРЭГ": "3. АЯЛАЛ ЗОХИОН БАЙГУУЛАГЧИЙН ЭРХ, ҮҮРЭГ",
+        "ЖУУЛЧИНЫ ЭРХ, ҮҮРЭГ": "4. ЖУУЛЧИНЫ ЭРХ, ҮҮРЭГ",
+        "АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО": "5. АЯЛЛЫН ЗАРДАЛ, ТӨЛБӨР ТООЦОО",
+        "ТАЛУУДЫН ХАРИУЦЛАГА": "6. ТАЛУУДЫН ХАРИУЦЛАГА",
+        "ХИЛИЙН ШАЛГАН НЭВТРҮҮЛЭХ ХЭСЭГ": "7. ХИЛИЙН ШАЛГАН НЭВТРҮҮЛЭХ ХЭСЭГ",
+        "БУСАД ЗҮЙЛ": "8. БУСАД ЗҮЙЛ",
+    }
+    blocks = []
+    current_section = None
+    for element in body:
+        tag = element.tag.split("}")[-1]
+        if tag != "p":
+            continue
+        text = paragraph_text(element).strip()
+        if not text:
+            continue
+        normalized = normalize_contract_heading(text)
+        if normalized in {"ГЭРЭЭГ БАЙГУУЛСАН:", "ГЭРЭЭГ БАЙГУУЛСАН"}:
+            break
+        if normalized in section_heading_map:
+            current_section = section_heading_map[normalized].split(".", 1)[0]
+            blocks.append({"type": "heading", "text": section_heading_map[normalized]})
+        elif current_section is not None:
+            # Strip a leading "N.M." or "N.M.K." numeric prefix if
+            # the DOCX paragraph started with one — section position
+            # gives us numbering on render.
+            cleaned = re.sub(rf"^\s*{re.escape(current_section)}\.\d+(?:\.\d+)?\.\s*", "", text)
+            blocks.append({"type": "numbered-paragraph", "text": cleaned})
+    return blocks
+
+
+def get_default_template_sections():
+    """Read the built-in DOCX once and return the structural section
+    list (`[{title, paragraphs: [text, ...]}, ...]`) used to pre-fill
+    the contract template editor when the manager creates a new
+    template. Re-parses on each call so any future edit to the
+    canonical DOCX flows through.
+    """
+    blocks = _extract_contract_blocks_raw()
+    sections = []
+    current = None
+    for block in blocks:
+        if block["type"] == "heading":
+            current = {"title": block["text"], "paragraphs": []}
+            sections.append(current)
+        elif block["type"] == "numbered-paragraph":
+            if current is not None:
+                current["paragraphs"].append(block["text"])
+    return sections
+
+
+def render_template_body_html(template, data):
+    """Render a saved template's sections into the contract body
+    HTML, applying the same sentence-substitution + token expansion
+    the DOCX flow uses so dates / names / prices substitute live.
+    """
+    sections = (template or {}).get("sections") or []
+
+    def format_text(text):
+        s = str(text or "")
+        # Honour the same hard-coded sentence replacements the DOCX
+        # template uses, so paragraphs the manager kept verbatim
+        # still get live data baked in. This is the lazy-but-safe
+        # path: we run the table from replace_template_paragraphs.
+        for src, dst in _contract_text_replacements(data).items():
+            if src and src in s:
+                s = s.replace(src, dst)
+        # Soft tokens: {{contractSerial}}, {{destination}}, etc.
+        s = re.sub(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}", lambda m: str(data.get(m.group(1), "") or ""), s)
+        return s
+
+    def html_text(text):
+        escaped = html.escape(format_text(text))
+        highlighted = re.sub(
+            r"(\d{1,3}(?:,\d{3})+(?:\s*төгрөг(?:ийг|ийн|өөр|өөс|төгрөг)?)?)",
+            r"<strong>\1</strong>",
+            escaped,
+        )
+        return highlighted.replace("\n", "<br />")
+
+    parts = []
+    for section_index, section in enumerate(sections, start=1):
+        title = format_text(section.get("title") or "").strip()
+        if title:
+            parts.append(f"<h2>{html.escape(title)}</h2>")
+        for para_index, para in enumerate(section.get("paragraphs") or [], start=1):
+            number = f"{section_index}.{para_index}."
+            parts.append(
+                "<p class=\"contract-numbered\">"
+                f"<span class=\"contract-number\">{html.escape(number)}</span>"
+                f"<span class=\"contract-text\">{html_text(para)}</span>"
+                "</p>"
+            )
+    return "\n".join(parts) or "<p>Template is empty.</p>"
+
+
+def _contract_text_replacements(data):
+    """Same mapping replace_template_paragraphs uses inline, exposed
+    as a function so render_template_body_html can apply it without
+    re-walking the XML tree."""
+    manager_formal_name = get_manager_contract_formal_name(data)
+    trip_range_phrase = format_trip_range_phrase(data.get("tripStartDate"), data.get("tripEndDate"))
+    traveler_representation_phrase = build_traveler_representation_phrase(data)
+    return {
+        "Дугаар: DTX-09А-26-_____": f"Дугаар: {data.get('contractSerial', '')}",
+        "Энэхүү гэрээгээр Дэлхий Трэвел Икс нь 2026/02/17-2026/02/25 хооронд Египет аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.":
+            f"Энэхүү гэрээгээр Дэлхий Трэвел Икс нь {trip_range_phrase} {data.get('destination', '')} чиглэлийн аяллын хөтөлбөртэй үйлчилгээг үзүүлэх, аялал зохион байгуулах, Жуулчин нь гэрээний нөхцөлийн дагуу төлбөрийг төлөх, аяллын үйлчилгээ авахтай холбоотой талуудын эдлэх эрх, үүрэг, хариуцлага, төлбөр тооцоотой холбогдон үүссэн харилцааг зохицуулна.",
+        "Энэхүү гэрээгээр аялагчийн төлбөр нь том хүний 7,340,000 төгрөг буюу нийт 2 хүний 14,680,000 төгрөг байхаар харилцан тохиролцож гэрээ байгуулав. Аялал зохион байгуулагч нь НӨАТ төлөгч биш болно.":
+            data.get("paymentParagraph", ""),
+        "Аяллын төлбөр дараах байдлаар хийгдэнэ. 5.3.1.Аяллын урьдчилгаа төлбөр болох 4,404,000 төгрөгийг 2026 оны 01-р сарын 26 өдөр “Дэлхий Трэвел Икс”  ХХК-ний  Төрийн Банкны MN03 0034 3432":
+            data.get("depositParagraph", ""),
+        "5.3.2 Аяллын үлдэгдэл төлбөр болох 10,276,000 төгрөгийг 2026 оны 02 сарын 06 өдөр “Дэлхий Трэвел Икс”  ХХК-ний  Төрийн Банкны MN03 0034 3432":
+            data.get("balanceParagraph", ""),
+    }
+
+
 def build_contract_body_html(data):
+    template_id = (data or {}).get("templateId") or ""
+    if template_id:
+        for tpl in read_contract_templates():
+            if tpl.get("id") == template_id:
+                return render_template_body_html(tpl, data)
     blocks = get_contract_display_blocks(data)
 
     if not blocks:
@@ -16657,6 +16822,113 @@ def build_invoice_from_contract(contract, actor):
     }
 
 
+def handle_list_contract_templates(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    return json_response(start_response, "200 OK", {"entries": read_contract_templates()})
+
+
+def handle_get_default_contract_template(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    return json_response(start_response, "200 OK", {"sections": get_default_template_sections()})
+
+
+def _normalize_contract_template_payload(payload):
+    """Coerce the editor payload into clean storage shape: every
+    section has a string title + a list of string paragraphs. Drops
+    sections whose title AND paragraphs are all blank."""
+    sections = []
+    raw_sections = (payload or {}).get("sections") or []
+    if not isinstance(raw_sections, list):
+        raw_sections = []
+    for raw in raw_sections:
+        if not isinstance(raw, dict):
+            continue
+        title = (raw.get("title") or "").strip()
+        paragraphs = []
+        for p in (raw.get("paragraphs") or []):
+            text = (p or "").strip() if isinstance(p, str) else ""
+            if text:
+                paragraphs.append(text)
+        if title or paragraphs:
+            sections.append({"title": title, "paragraphs": paragraphs})
+    return sections
+
+
+def handle_create_contract_template(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    name = (normalize_text(payload.get("name")) or "").strip()
+    if not name:
+        return json_response(start_response, "400 Bad Request", {"error": "Template name is required."})
+    record = {
+        "id": uuid4().hex,
+        "name": name,
+        "sections": _normalize_contract_template_payload(payload),
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": now_mongolia().isoformat(),
+        "updatedBy": actor_snapshot(actor),
+    }
+    records = read_contract_templates()
+    records.insert(0, record)
+    write_contract_templates(records)
+    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
+
+
+def handle_get_contract_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    target = next((r for r in read_contract_templates() if r.get("id") == template_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Template not found."})
+    return json_response(start_response, "200 OK", {"entry": target})
+
+
+def handle_update_contract_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    records = read_contract_templates()
+    target = next((r for r in records if r.get("id") == template_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Template not found."})
+    if "name" in payload:
+        name = (normalize_text(payload.get("name")) or "").strip()
+        if not name:
+            return json_response(start_response, "400 Bad Request", {"error": "Template name is required."})
+        target["name"] = name
+    if "sections" in payload:
+        target["sections"] = _normalize_contract_template_payload(payload)
+    target["updatedAt"] = now_mongolia().isoformat()
+    target["updatedBy"] = actor_snapshot(actor)
+    for i, r in enumerate(records):
+        if r.get("id") == template_id:
+            records[i] = target
+            break
+    write_contract_templates(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": target})
+
+
+def handle_delete_contract_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_contract_templates()
+    remaining = [r for r in records if r.get("id") != template_id]
+    if len(remaining) == len(records):
+        return json_response(start_response, "404 Not Found", {"error": "Template not found."})
+    write_contract_templates(remaining)
+    return json_response(start_response, "200 OK", {"ok": True, "deletedId": template_id})
+
+
 def handle_generate_contract(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -19829,6 +20101,28 @@ def _dispatch(environ, start_response):
         if filename:
             return handle_download_backup(environ, start_response, filename)
         return json_response(start_response, "404 Not Found", {"error": "Backup not found"})
+
+    if path == "/api/contract-templates":
+        if method == "GET":
+            return handle_list_contract_templates(environ, start_response)
+        if method == "POST":
+            return handle_create_contract_template(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/contract-templates/default":
+        if method == "GET":
+            return handle_get_default_contract_template(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/contract-templates/"):
+        template_id = path.replace("/api/contract-templates/", "", 1).strip("/")
+        if method == "GET" and template_id:
+            return handle_get_contract_template(environ, start_response, template_id)
+        if method == "POST" and template_id:
+            return handle_update_contract_template(environ, start_response, template_id)
+        if method == "DELETE" and template_id:
+            return handle_delete_contract_template(environ, start_response, template_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/contracts":
         if method == "GET":

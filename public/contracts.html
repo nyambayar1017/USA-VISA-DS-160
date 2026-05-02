@@ -91,6 +91,12 @@
                     <option value="">Нэвтэрсэн хэрэглэгч</option>
                   </select>
                 </label>
+                <label>
+                  Гэрээний загвар (template)
+                  <select id="contract-template-select" name="templateId">
+                    <option value="">Анхдагч (Default)</option>
+                  </select>
+                </label>
                 <label class="is-hidden">
                   Менежерийн овог
                   <input name="managerLastName" required />
@@ -280,11 +286,46 @@
           <div id="contract-list" class="submission-list"></div>
           <div id="contract-pagination" class="contract-pagination"></div>
         </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <h2>Contract templates</h2>
+              <p class="muted">Wording variations (e.g. JEJU, China visa-free). Header, footer, signature blocks and margins stay locked across every template.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="contract-template-add-btn">+ Add contract template</button>
+            </div>
+          </div>
+          <div id="contract-template-list" class="submission-list"></div>
+        </section>
       </main>
     </div>
+
+    <div id="contract-template-editor" class="camp-modal is-hidden" hidden>
+      <div class="camp-modal-backdrop" data-action="close-template-editor"></div>
+      <div class="camp-modal-dialog workspace-form-modal-dialog">
+        <div class="camp-modal-header">
+          <div>
+            <h2 id="contract-template-editor-title">Contract template</h2>
+            <p class="camp-modal-copy">Edit the section titles and numbered paragraphs. Header, footer, signature blocks and page margins are locked.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close-template-editor" aria-label="Close">×</button>
+        </div>
+        <div id="contract-template-sections"></div>
+        <div class="actions full-span" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+          <button type="button" id="contract-template-add-section" class="secondary-button">+ Add title</button>
+          <span style="flex:1"></span>
+          <button type="button" id="contract-template-save">Save template</button>
+          <button type="button" class="secondary-button" data-action="close-template-editor">Cancel</button>
+        </div>
+        <p id="contract-template-status" class="status"></p>
+      </div>
+    </div>
+
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-147"></script>
-    <script src="/contracts.js?v=workspace-7"></script>
+    <script src="/contracts.js?v=workspace-8"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

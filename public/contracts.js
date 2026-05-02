@@ -949,6 +949,229 @@ const initContractForm = () => {
   updateBalanceDueDate();
   loadManagers();
 
+  // ── Contract templates: list + structured editor ──────────────────
+  const tplSelect = qs("#contract-template-select");
+  const tplListNode = qs("#contract-template-list");
+  const tplAddBtn = qs("#contract-template-add-btn");
+  const tplEditor = qs("#contract-template-editor");
+  const tplEditorTitle = qs("#contract-template-editor-title");
+  const tplSectionsHost = qs("#contract-template-sections");
+  const tplAddSectionBtn = qs("#contract-template-add-section");
+  const tplSaveBtn = qs("#contract-template-save");
+  const tplStatus = qs("#contract-template-status");
+
+  let editorMode = "create";          // "create" | "edit"
+  let editorEditingId = "";
+  let editorName = "";
+  let editorSections = [];            // [{title, paragraphs:[text,…]}]
+  const escAttr = (v) => String(v || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+  const escText = (v) => String(v || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
+  async function loadTemplatesIntoSelect() {
+    if (!tplSelect) return [];
+    let entries = [];
+    try {
+      const data = await apiRequest("/api/contract-templates");
+      entries = Array.isArray(data?.entries) ? data.entries : [];
+    } catch {}
+    const current = tplSelect.value;
+    tplSelect.innerHTML =
+      `<option value="">Анхдагч (Default)</option>` +
+      entries.map((e) => `<option value="${escAttr(e.id)}">${escText(e.name)}</option>`).join("");
+    if (current && entries.some((e) => e.id === current)) tplSelect.value = current;
+    return entries;
+  }
+
+  async function loadTemplateList() {
+    const entries = await loadTemplatesIntoSelect();
+    if (!tplListNode) return;
+    if (!entries.length) {
+      tplListNode.innerHTML = `<p class="empty">No custom templates yet. Click "+ Add contract template" to create one.</p>`;
+      return;
+    }
+    tplListNode.innerHTML = `
+      <div class="camp-table-wrap">
+        <table class="camp-table">
+          <thead><tr><th>Name</th><th>Sections</th><th>Updated</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${entries.map((e) => `
+              <tr>
+                <td><strong>${escText(e.name)}</strong></td>
+                <td>${(e.sections || []).length} sections · ${(e.sections || []).reduce((n, s) => n + (s.paragraphs || []).length, 0)} paragraphs</td>
+                <td>${escText((e.updatedAt || "").slice(0, 10))}</td>
+                <td>
+                  <button type="button" class="header-action-btn" data-tpl-action="edit" data-id="${escAttr(e.id)}">Edit</button>
+                  <button type="button" class="header-action-btn button-danger" data-tpl-action="delete" data-id="${escAttr(e.id)}">Delete</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderEditorSections() {
+    if (!tplSectionsHost) return;
+    tplSectionsHost.innerHTML = editorSections.map((sec, sIdx) => `
+      <fieldset class="contract-template-section" data-section-index="${sIdx}" style="border:1px solid #d6dae3;border-radius:10px;padding:12px;margin-bottom:12px;background:#fafbfd;">
+        <legend style="padding:0 8px;font-weight:600;color:#19233d;">Section ${sIdx + 1}</legend>
+        <label style="display:block;">
+          <span style="display:block;font-size:12px;color:#5b6470;margin-bottom:4px;">Title</span>
+          <input type="text" data-section-title value="${escAttr(sec.title || "")}" style="width:100%;padding:6px 10px;border:1px solid #d6dae3;border-radius:6px;font-size:14px;" />
+        </label>
+        <div data-paragraphs style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+          ${(sec.paragraphs || []).map((p, pIdx) => `
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+              <span style="flex:0 0 auto;font-weight:600;color:#19233d;padding-top:6px;">${sIdx + 1}.${pIdx + 1}.</span>
+              <textarea data-paragraph data-paragraph-index="${pIdx}" rows="3" style="flex:1;padding:6px 10px;border:1px solid #d6dae3;border-radius:6px;font-size:14px;font-family:inherit;line-height:1.5;">${escText(p || "")}</textarea>
+              <button type="button" class="header-action-btn button-danger" data-paragraph-remove data-paragraph-index="${pIdx}">×</button>
+            </div>
+          `).join("")}
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="secondary-button" data-paragraph-add>+ Add paragraph</button>
+          <span style="flex:1"></span>
+          <button type="button" class="header-action-btn button-danger" data-section-remove>Remove section</button>
+        </div>
+      </fieldset>
+    `).join("");
+  }
+
+  function readEditorSections() {
+    const fieldsets = tplSectionsHost.querySelectorAll("[data-section-index]");
+    return Array.from(fieldsets).map((node) => {
+      const title = node.querySelector("[data-section-title]")?.value || "";
+      const paragraphs = Array.from(node.querySelectorAll("[data-paragraph]"))
+        .map((t) => t.value || "");
+      return { title, paragraphs };
+    });
+  }
+
+  function openEditor() {
+    if (!tplEditor) return;
+    renderEditorSections();
+    tplEditor.classList.remove("is-hidden");
+    tplEditor.removeAttribute("hidden");
+    document.body.classList.add("modal-open");
+  }
+  function closeEditor() {
+    if (!tplEditor) return;
+    tplEditor.classList.add("is-hidden");
+    tplEditor.setAttribute("hidden", "");
+    document.body.classList.remove("modal-open");
+    if (tplStatus) tplStatus.textContent = "";
+  }
+
+  tplAddBtn?.addEventListener("click", async () => {
+    let name;
+    try {
+      name = await window.UI.prompt("Template name (e.g. JEJU, Korea-FIT):", {
+        title: "New contract template",
+        defaultValue: "",
+        confirmLabel: "Continue",
+      });
+    } catch { return; }
+    if (!name) return;
+    let sections = [];
+    try {
+      const data = await apiRequest("/api/contract-templates/default");
+      sections = Array.isArray(data?.sections) ? data.sections : [];
+    } catch (err) {
+      alert(err.message || "Could not load default template.");
+      return;
+    }
+    editorMode = "create";
+    editorEditingId = "";
+    editorName = name;
+    editorSections = sections;
+    if (tplEditorTitle) tplEditorTitle.textContent = `New template — ${name}`;
+    openEditor();
+  });
+
+  tplListNode?.addEventListener("click", async (event) => {
+    const btn = event.target.closest("[data-tpl-action]");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.tplAction;
+    if (action === "edit") {
+      try {
+        const data = await apiRequest(`/api/contract-templates/${encodeURIComponent(id)}`);
+        const entry = data?.entry;
+        if (!entry) throw new Error("Not found");
+        editorMode = "edit";
+        editorEditingId = id;
+        editorName = entry.name || "";
+        editorSections = Array.isArray(entry.sections) ? entry.sections : [];
+        if (tplEditorTitle) tplEditorTitle.textContent = `Edit template — ${editorName}`;
+        openEditor();
+      } catch (err) {
+        alert(err.message || "Could not open template.");
+      }
+    } else if (action === "delete") {
+      try {
+        const ok = await window.UI.confirm(
+          "Delete this template? Existing contracts that referenced it will fall back to the default on re-render.",
+          { title: "Delete template", dangerous: true, confirmLabel: "Delete" }
+        );
+        if (!ok) return;
+        await apiRequest(`/api/contract-templates/${encodeURIComponent(id)}`, { method: "DELETE" });
+        await loadTemplateList();
+      } catch (err) {
+        if (err) alert(err.message || "Could not delete.");
+      }
+    }
+  });
+
+  tplSectionsHost?.addEventListener("click", (event) => {
+    const sectionNode = event.target.closest("[data-section-index]");
+    if (!sectionNode) return;
+    const sIdx = Number(sectionNode.dataset.sectionIndex);
+    // Sync current edits into model before mutating.
+    editorSections = readEditorSections();
+    if (event.target.matches("[data-paragraph-add]")) {
+      editorSections[sIdx].paragraphs.push("");
+      renderEditorSections();
+    } else if (event.target.matches("[data-paragraph-remove]")) {
+      const pIdx = Number(event.target.dataset.paragraphIndex);
+      editorSections[sIdx].paragraphs.splice(pIdx, 1);
+      renderEditorSections();
+    } else if (event.target.matches("[data-section-remove]")) {
+      editorSections.splice(sIdx, 1);
+      renderEditorSections();
+    }
+  });
+
+  tplAddSectionBtn?.addEventListener("click", () => {
+    editorSections = readEditorSections();
+    editorSections.push({ title: "", paragraphs: [""] });
+    renderEditorSections();
+  });
+
+  tplSaveBtn?.addEventListener("click", async () => {
+    const sections = readEditorSections();
+    if (tplStatus) tplStatus.textContent = "Saving…";
+    try {
+      const url = editorMode === "edit"
+        ? `/api/contract-templates/${encodeURIComponent(editorEditingId)}`
+        : "/api/contract-templates";
+      await apiRequest(url, {
+        method: "POST",
+        body: JSON.stringify({ name: editorName, sections }),
+      });
+      closeEditor();
+      await loadTemplateList();
+    } catch (err) {
+      if (tplStatus) tplStatus.textContent = err.message || "Could not save.";
+    }
+  });
+
+  tplEditor?.addEventListener("click", (event) => {
+    if (event.target.matches('[data-action="close-template-editor"]')) closeEditor();
+  });
+
+  loadTemplateList();
+
   const filterInputs = [
     qs("#contract-filter-manager"),
     qs("#contract-filter-destination"),
