@@ -127,90 +127,99 @@
     const names = loc.names || {};
     return names[lang] || loc.name || "";
   }
-  function locationOptionsHtml(selectedId) {
-    const opts = LOC_CACHE.map((l) => {
-      const sel = l.id === selectedId ? " selected" : "";
-      return `<option value="${escapeHtml(l.id)}"${sel}>${escapeHtml(l.name || "(unnamed)")}</option>`;
+  // Localised "Day N" badge so the editor reads in the trip's language.
+  // Also covers a few less-common scripts the workspace already uses.
+  function dayBadgeFor(idx, lang) {
+    const n = idx + 1;
+    const map = {
+      en: `Day ${n}`,
+      mn: `Өдөр ${n}`,
+      ru: `День ${n}`,
+      fr: `Jour ${n}`,
+      it: `Giorno ${n}`,
+      es: `Día ${n}`,
+      ko: `${n}일차`,
+      zh: `第${n}天`,
+      ja: `${n}日目`,
+    };
+    return map[lang] || map.en;
+  }
+  // "Saturday 11 July 2026" — long date in the trip's language. Returns
+  // empty string when input isn't a parseable yyyy-mm-dd.
+  function formatLongDate(dateStr, lang) {
+    if (!dateStr) return "";
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return "";
+    const localeMap = { en: "en-GB", mn: "mn-MN", ru: "ru-RU", fr: "fr-FR", it: "it-IT", es: "es-ES", ko: "ko-KR", zh: "zh-CN", ja: "ja-JP" };
+    try {
+      return new Intl.DateTimeFormat(localeMap[lang] || "en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(d);
+    } catch {
+      return d.toDateString();
+    }
+  }
+  // Populates the shared <datalist> with one option per location, label
+  // in the active trip language. Called whenever LOC_CACHE or the
+  // language changes.
+  function refreshLocationDatalist() {
+    const dl = document.getElementById("tc-locations-datalist");
+    if (!dl) return;
+    const lang = getActiveLanguage();
+    dl.innerHTML = LOC_CACHE.map((l) => {
+      const label = (l.names && l.names[lang]) || l.name || "";
+      return `<option value="${escapeHtml(label)}"></option>`;
     }).join("");
-    return `<option value="">— Pick a location —</option>${opts}`;
   }
 
   function renderProgram(rows) {
+    refreshLocationDatalist();
+    const lang = getActiveLanguage();
     programList.innerHTML = (rows || [])
       .map((row, idx) => {
         const ids = Array.isArray(row.imageIds) ? row.imageIds : [];
         const meals = row.meals || {};
-        // Find the day's primary location (if any) so we can show the
-        // public-style 📍 pin label and the location's first photo as
-        // a fallback hero.
         const loc = row.locationId ? LOC_CACHE.find((l) => l.id === row.locationId) : null;
-        const lang = getActiveLanguage();
         const locLabel = loc ? locationLabelFor(loc, lang) : "";
         const heroId = ids[0] || (loc && (loc.imageIds || [])[0]) || "";
         const heroBg = heroId ? `background-image: url('/api/gallery/${encodeURIComponent(heroId)}/file?size=large');` : "";
-        const hasRouteData = !!(row.fromName || row.toName || row.distance || row.drive);
-        // Has-photo flag drives layout: two-column when there's a hero,
-        // single column placeholder when not.
         const hasHero = !!heroId;
+        const dateLong = formatLongDate(row.date, lang);
+        const titleVal = row.title || locLabel || "";
+        const dayBadge = dayBadgeFor(idx, lang);
         return `
           <div class="tc-program-card ${hasHero ? "has-hero" : "no-hero"}" data-idx="${idx}" data-day-id="${escapeHtml(row.id || "")}">
             <input type="hidden" class="tc-program-id" value="${escapeHtml(row.id || "")}" />
             <input type="hidden" class="tc-program-template-id" value="${escapeHtml(row.templateId || "")}" />
             <input type="hidden" class="tc-program-location-id" value="${escapeHtml(row.locationId || "")}" />
             <input type="hidden" class="tc-program-image-ids" value="${escapeHtml(ids.join(","))}" />
-            <div class="tc-program-card-photo" data-action="pick-day-images" data-idx="${idx}" style="${heroBg}">
-              <span class="tc-program-card-daybadge">DAY ${idx + 1}</span>
-              ${hasHero ? "" : `<span class="tc-program-card-photohint">+ Add photo</span>`}
+            <input type="hidden" class="tc-program-from" value="${escapeHtml(row.fromName || "")}" />
+            <input type="hidden" class="tc-program-to" value="${escapeHtml(row.toName || "")}" />
+            <input type="hidden" class="tc-program-distance" value="${escapeHtml(row.distance || "")}" />
+            <input type="hidden" class="tc-program-drive" value="${escapeHtml(row.drive || "")}" />
+            <input type="hidden" class="tc-program-accommodation" value="${escapeHtml(row.accommodation || "")}" />
+            <input type="hidden" class="tc-program-meal-b" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" />
+            <input type="hidden" class="tc-program-meal-l" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" />
+            <input type="hidden" class="tc-program-meal-d" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" />
+            <div class="tc-program-card-photo" style="${heroBg}">
+              <span class="tc-program-card-daybadge">${escapeHtml(dayBadge.toUpperCase())}</span>
+              ${hasHero ? "" : `<span class="tc-program-card-photohint">Pick a location to fill the photo</span>`}
+              ${locLabel ? `<span class="tc-program-card-loctag">📍 ${escapeHtml(locLabel)}</span>` : ""}
             </div>
             <div class="tc-program-card-body">
               <button type="button" class="tc-program-delete" data-action="delete-day" data-idx="${idx}" aria-label="Remove day">✕</button>
-              <input type="text" class="tc-program-day" placeholder="Day ${idx + 1}" value="${escapeHtml(row.day || `Өдөр ${idx + 1}`)}" />
-              <input type="text" class="tc-program-title" placeholder="Day title — e.g. Welcome to Mongolia" value="${escapeHtml(row.title || "")}" />
-              <div class="tc-program-card-row">
-                <select class="tc-program-location tc-program-card-pick" data-idx="${idx}" title="Pick location">${locationOptionsHtml(row.locationId)}</select>
-                <input type="text" class="tc-program-date tc-program-card-date" placeholder="2026-07-11" value="${escapeHtml(row.date || "")}" />
-                ${locLabel ? `<span class="tc-program-card-locname">📍 ${escapeHtml(locLabel)}</span>` : ""}
+              <div class="tc-program-card-head">
+                <span class="tc-program-card-daylabel">${escapeHtml(dayBadge.toUpperCase())}</span>
+                <input type="text" class="tc-program-title" placeholder="Day title — e.g. Welcome to Mongolia" value="${escapeHtml(titleVal)}" />
               </div>
-              <details class="tc-program-card-route" ${hasRouteData ? "open" : ""}>
-                <summary>🚙 Transfer (optional)</summary>
-                <div class="tc-program-route">
-                  <label>From <input type="text" class="tc-program-from" placeholder="Origin" value="${escapeHtml(row.fromName || "")}" /></label>
-                  <label>To <input type="text" class="tc-program-to" placeholder="Destination" value="${escapeHtml(row.toName || "")}" /></label>
-                  <label>Distance <input type="text" class="tc-program-distance" placeholder="80km" value="${escapeHtml(row.distance || "")}" /></label>
-                  <label>Drive <input type="text" class="tc-program-drive" placeholder="1h 30m" value="${escapeHtml(row.drive || "")}" /></label>
-                </div>
-              </details>
-              <textarea class="tc-program-body" rows="4" placeholder="Day narrative — what the travelers will do today. Type @ to insert a Content reference (turns into an orange link on the public page).">${escapeHtml(row.body || "")}</textarea>
-              <div class="tc-program-card-photos">
-                <button type="button" class="ct-add-item-btn" data-action="pick-day-images" data-idx="${idx}">📷 Photos (${ids.length})</button>
-                <button type="button" class="ct-add-item-btn" data-action="insert-content" data-idx="${idx}">+ Content link</button>
+              <input type="hidden" class="tc-program-day" value="${escapeHtml(row.day || dayBadge)}" />
+              <div class="tc-program-card-meta">
+                <input type="date" class="tc-program-date tc-program-card-date" value="${escapeHtml(row.date || "")}" />
+                <span class="tc-program-card-datelong">${escapeHtml(dateLong)}</span>
               </div>
-              <div class="tc-program-accomm">
-                <label class="tc-program-accomm-name">🛏 Accommodation
-                  <input type="text" class="tc-program-accommodation" placeholder="Holiday Inn (or content slug)" value="${escapeHtml(row.accommodation || "")}" />
-                </label>
-                <label>☕ Breakfast
-                  <div class="tc-meal-combo" data-meal-cat="breakfast">
-                    <input type="text" class="tc-program-meal-b tc-meal-combo-input" placeholder="Hotel" value="${escapeHtml(typeof meals.breakfast === "string" ? meals.breakfast : "")}" autocomplete="off" />
-                    <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
-                    <div class="tc-meal-combo-list" hidden></div>
-                  </div>
-                </label>
-                <label>🍴 Lunch
-                  <div class="tc-meal-combo" data-meal-cat="lunch">
-                    <input type="text" class="tc-program-meal-l tc-meal-combo-input" placeholder="Restaurant" value="${escapeHtml(typeof meals.lunch === "string" ? meals.lunch : "")}" autocomplete="off" />
-                    <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
-                    <div class="tc-meal-combo-list" hidden></div>
-                  </div>
-                </label>
-                <label>🍷 Dinner
-                  <div class="tc-meal-combo" data-meal-cat="dinner">
-                    <input type="text" class="tc-program-meal-d tc-meal-combo-input" placeholder="Restaurant" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" autocomplete="off" />
-                    <button type="button" class="tc-meal-combo-toggle" tabindex="-1" aria-label="Show suggestions">⌄</button>
-                    <div class="tc-meal-combo-list" hidden></div>
-                  </div>
-                </label>
+              <div class="tc-program-card-locrow">
+                <span class="tc-program-card-loclabel">📍 Location</span>
+                <input type="text" class="tc-program-location-name" data-idx="${idx}" list="tc-locations-datalist" value="${escapeHtml(locLabel)}" placeholder="Search locations…" />
               </div>
+              <textarea class="tc-program-body" rows="5" placeholder="Day narrative — what the travelers will do today. Type @ to insert a Content reference (turns into an orange link on the public page).">${escapeHtml(row.body || "")}</textarea>
             </div>
           </div>
         `;
@@ -225,23 +234,29 @@
     renderProgram(current);
   });
 
-// Location picker: filling a day's location auto-fills the title in
-  // the trip's language and pushes the location's first photo into the
-  // day if no photo is set yet. The user can override afterwards — we
-  // only seed empty fields, never overwrite their typing.
+  // Searchable location picker — text input backed by the shared
+  // <datalist>. When the typed value matches a location label exactly
+  // (case-insensitive), we resolve it to its id, pre-fill the day's
+  // title, and pull the location's first photo as the hero — but only
+  // when the manager hasn't typed their own values for those fields.
+  // Also re-render the date so the long-form date below the input
+  // refreshes when the date input changes.
   programList.addEventListener("change", (event) => {
-    const sel = event.target.closest(".tc-program-location");
-    if (!sel) return;
-    const idx = Number(sel.dataset.idx);
-    const locId = sel.value;
-    const current = readProgram();
-    const day = current[idx];
-    if (!day) return;
-    day.locationId = locId;
-    if (locId) {
-      const loc = LOC_CACHE.find((l) => l.id === locId);
+    const inp = event.target.closest(".tc-program-location-name");
+    const dateInp = event.target.closest(".tc-program-date");
+    if (inp) {
+      const idx = Number(inp.dataset.idx);
+      const typed = (inp.value || "").trim().toLowerCase();
+      const lang = getActiveLanguage();
+      const loc = LOC_CACHE.find((l) => {
+        const label = ((l.names && l.names[lang]) || l.name || "").toLowerCase();
+        return label && label === typed;
+      });
+      const current = readProgram();
+      const day = current[idx];
+      if (!day) return;
+      day.locationId = loc ? loc.id : "";
       if (loc) {
-        const lang = getActiveLanguage();
         const label = locationLabelFor(loc, lang);
         if (label && !(day.title || "").trim()) day.title = label;
         const firstImg = (loc.images || [])[0];
@@ -249,9 +264,16 @@
           day.imageIds = [firstImg.id];
         }
       }
+      current[idx] = day;
+      renderProgram(current);
+      return;
     }
-    current[idx] = day;
-    renderProgram(current);
+    if (dateInp) {
+      // Re-render so the localised long-form date below the input
+      // (Saturday 11 July 2026) refreshes immediately. The date input's
+      // value is already in the DOM via readProgram.
+      renderProgram(readProgram());
+    }
   });
 
   programList.addEventListener("click", async (event) => {
