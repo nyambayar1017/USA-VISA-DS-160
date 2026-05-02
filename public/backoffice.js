@@ -806,6 +806,12 @@ todoList.addEventListener("click", async (event) => {
       return;
     }
     if (taskDone) {
+      const task = state.tasks.find((t) => t.id === taskDone.dataset.taskDone);
+      const label = task?.title ? `"${task.title}"` : "this task";
+      const ok = window.UI?.confirm
+        ? await window.UI.confirm(`Mark ${label} as done?`)
+        : window.confirm(`Mark ${label} as done?`);
+      if (!ok) return;
       await fetchJson(`/api/manager-dashboard/tasks/${taskDone.dataset.taskDone}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -824,6 +830,12 @@ todoList.addEventListener("click", async (event) => {
       return;
     }
     if (taskDelete) {
+      const task = state.tasks.find((t) => t.id === taskDelete.dataset.taskDelete);
+      const label = task?.title ? `"${task.title}"` : "this task";
+      const ok = window.UI?.confirm
+        ? await window.UI.confirm(`Delete ${label}? This can't be undone.`, { dangerous: true })
+        : window.confirm(`Delete ${label}? This can't be undone.`);
+      if (!ok) return;
       await fetchJson(`/api/manager-dashboard/tasks/${taskDelete.dataset.taskDelete}`, {
         method: "DELETE",
       });
@@ -947,4 +959,4 @@ setInterval(() => {
   if (taskFormPanel && !taskFormPanel.classList.contains("is-hidden")) return;
   if (contactFormPanel && !contactFormPanel.classList.contains("is-hidden")) return;
   loadDashboard();
-}, 15000);
+}, 120000);

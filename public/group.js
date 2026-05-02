@@ -1825,7 +1825,7 @@ loadAll();
     if (document.body.classList.contains("modal-open")) return;
     if (formPanel && !formPanel.classList.contains("is-hidden")) return;
     loadAll();
-  }, 15000);
+  }, 120000);
 })();
 
 // "Did you forget?" reminder when navigating away with incomplete participants.

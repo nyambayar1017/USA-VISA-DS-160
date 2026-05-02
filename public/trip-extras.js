@@ -1189,7 +1189,7 @@
       if (typeof window.loadTripDocuments === "function") {
         try { window.loadTripDocuments(tid); } catch {}
       }
-    }, 15000);
+    }, 120000);
   }
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") startLiveSync();

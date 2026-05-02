@@ -378,5 +378,5 @@
   setInterval(() => {
     if (document.visibilityState !== "visible") return;
     load();
-  }, 15000);
+  }, 120000);
 })();

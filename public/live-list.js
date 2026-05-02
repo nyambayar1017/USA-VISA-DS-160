@@ -24,7 +24,7 @@
   function subscribe(url, options) {
     options = options || {};
     var cacheKey = options.cacheKey || ("livelist:" + url);
-    var intervalMs = options.intervalMs || 15000;
+    var intervalMs = options.intervalMs || 120000;
     var onData = typeof options.onData === "function" ? options.onData : function () {};
     var onError = typeof options.onError === "function" ? options.onError : function () {};
     var fetchOptions = options.fetchOptions || { credentials: "same-origin" };
