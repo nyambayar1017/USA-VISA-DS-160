@@ -1254,28 +1254,37 @@ const initContractForm = () => {
   async function renderTemplateListModal() {
     const entries = await loadTemplatesIntoSelect();
     if (!tplListHost) return;
-    if (!entries.length) {
-      tplListHost.innerHTML = `<p class="empty">No custom templates yet. Click "+ Add contract template" to create one.</p>`;
-      return;
-    }
+    // Prepend a synthetic "Default" row so the manager can view the
+    // built-in template and clone it as the basis for a new one.
+    // No Delete on Default — it's the canonical fallback.
+    const defaultRow = `
+      <tr class="contract-template-default-row">
+        <td><strong>Анхдагч (Default)</strong> <span class="muted">— built-in</span></td>
+        <td class="muted">8 sections</td>
+        <td class="muted">—</td>
+        <td>
+          <button type="button" class="header-action-btn" data-tpl-action="view" data-id="__default__">View</button>
+          <button type="button" class="header-action-btn" data-tpl-action="clone" data-id="__default__">Clone &amp; edit</button>
+        </td>
+      </tr>
+    `;
+    const customRows = entries.map((e) => `
+      <tr>
+        <td><strong>${escText(e.name)}</strong></td>
+        <td>${(e.sections || []).length} sections · ${(e.sections || []).reduce((n, s) => n + (s.paragraphs || []).length, 0)} paragraphs</td>
+        <td>${escText((e.updatedAt || "").slice(0, 10))}</td>
+        <td>
+          <button type="button" class="header-action-btn" data-tpl-action="view" data-id="${escAttr(e.id)}">View</button>
+          <button type="button" class="header-action-btn" data-tpl-action="edit" data-id="${escAttr(e.id)}">Edit</button>
+          <button type="button" class="header-action-btn button-danger" data-tpl-action="delete" data-id="${escAttr(e.id)}">Delete</button>
+        </td>
+      </tr>
+    `).join("");
     tplListHost.innerHTML = `
       <div class="camp-table-wrap">
         <table class="camp-table">
           <thead><tr><th>Name</th><th>Sections</th><th>Updated</th><th>Actions</th></tr></thead>
-          <tbody>
-            ${entries.map((e) => `
-              <tr>
-                <td><strong>${escText(e.name)}</strong></td>
-                <td>${(e.sections || []).length} sections · ${(e.sections || []).reduce((n, s) => n + (s.paragraphs || []).length, 0)} paragraphs</td>
-                <td>${escText((e.updatedAt || "").slice(0, 10))}</td>
-                <td>
-                  <button type="button" class="header-action-btn" data-tpl-action="view" data-id="${escAttr(e.id)}">View</button>
-                  <button type="button" class="header-action-btn" data-tpl-action="edit" data-id="${escAttr(e.id)}">Edit</button>
-                  <button type="button" class="header-action-btn button-danger" data-tpl-action="delete" data-id="${escAttr(e.id)}">Delete</button>
-                </td>
-              </tr>
-            `).join("")}
-          </tbody>
+          <tbody>${defaultRow}${customRows}</tbody>
         </table>
       </div>
     `;
@@ -1303,6 +1312,46 @@ const initContractForm = () => {
     if (!btn) return;
     const id = btn.dataset.id;
     const action = btn.dataset.tplAction;
+    if (id === "__default__" && (action === "view" || action === "clone")) {
+      try {
+        const data = await apiRequest("/api/contract-templates/default");
+        const intro = Array.isArray(data?.intro) ? data.intro : [];
+        const sections = Array.isArray(data?.sections) ? data.sections : [];
+        if (action === "view") {
+          editorMode = "view";
+          editorEditingId = "";
+          editorName = "Анхдагч (Default)";
+          editorIntro = intro;
+          editorSections = sections;
+          if (tplEditorTitle) tplEditorTitle.textContent = `View template — ${editorName}`;
+          closeTemplateListModal();
+          openEditor();
+        } else {
+          // "Clone & edit": prompt for a new name, then open the
+          // editor in create mode pre-filled with the default body.
+          let name;
+          try {
+            name = await window.UI.prompt("New template name (e.g. JEJU, Korea-FIT):", {
+              title: "Clone Default template",
+              defaultValue: "",
+              confirmLabel: "Continue",
+            });
+          } catch { return; }
+          if (!name) return;
+          editorMode = "create";
+          editorEditingId = "";
+          editorName = name;
+          editorIntro = intro;
+          editorSections = sections;
+          if (tplEditorTitle) tplEditorTitle.textContent = `New template — ${name}`;
+          closeTemplateListModal();
+          openEditor();
+        }
+      } catch (err) {
+        alert(err.message || "Could not open Default template.");
+      }
+      return;
+    }
     if (action === "view" || action === "edit") {
       try {
         const data = await apiRequest(`/api/contract-templates/${encodeURIComponent(id)}`);
