@@ -500,6 +500,7 @@ function renderContracts() {
                         <a class="trip-menu-item" href="${escapeHtml(c.docxPath || "#")}" download>Word</a>
                         <button type="button" class="trip-menu-item" data-contract-action="copy" data-link="${escapeHtml(shareLink)}">Copy link</button>
                         <button type="button" class="trip-menu-item" data-contract-action="send" data-id="${escapeHtml(c.id)}">Send to client</button>
+                        <a class="trip-menu-item" href="/api/contracts/${encodeURIComponent(c.id)}/document?mode=download&paper=1" target="_blank" rel="noreferrer">Download (paper)</a>
                         <button type="button" class="trip-menu-item is-danger" data-contract-action="delete" data-id="${escapeHtml(c.id)}">Delete</button>
                       </div>
                     </details>
@@ -1094,22 +1095,13 @@ contractsListNode?.addEventListener("click", async (e) => {
   } else if (action === "edit") {
     window.open(`/contracts?editId=${encodeURIComponent(id)}#${encodeURIComponent(id)}`, "_blank", "noreferrer");
   } else if (action === "send") {
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Sending…";
-    try {
-      const r = await fetch(`/api/contracts/${encodeURIComponent(id)}/invite`, { method: "POST" });
-      if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        throw new Error(data.error || "Could not send.");
-      }
-      btn.textContent = "Sent";
-      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
-    } catch (err) {
-      btn.textContent = original;
-      btn.disabled = false;
-      alert(err.message || "Could not send.");
-    }
+    const c = contracts.find((x) => x.id === id);
+    const data = c?.data || {};
+    window.openContractSendModal?.({
+      contractId: id,
+      defaultEmail: data.clientEmail || "",
+      defaultName: [data.touristLastName, data.touristFirstName].filter(Boolean).join(" "),
+    });
   }
 });
 

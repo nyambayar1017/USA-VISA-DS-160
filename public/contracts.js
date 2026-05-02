@@ -264,6 +264,7 @@ const renderContractsTable = (contracts) => {
                           <a class="trip-menu-item" href="${entry.docxPath}" download>Word</a>
                           <button type="button" class="trip-menu-item" data-copy-link="${shareLink}">Copy link</button>
                           <button type="button" class="trip-menu-item" data-send-id="${entry.id}">Send to client</button>
+                          <a class="trip-menu-item" href="/api/contracts/${entry.id}/document?mode=download&paper=1" target="_blank" rel="noreferrer">Download (paper)</a>
                           <button type="button" class="trip-menu-item is-danger" data-delete-id="${entry.id}">Delete</button>
                         </div>
                       </details>
@@ -303,26 +304,114 @@ const renderContractsTable = (contracts) => {
   });
 
   qsa("[data-send-id]", container).forEach((button) => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const id = button.dataset.sendId;
-      const original = button.textContent;
-      button.disabled = true;
-      button.textContent = "Sending…";
-      try {
-        const r = await fetch(`/api/contracts/${encodeURIComponent(id)}/invite`, { method: "POST" });
-        if (!r.ok) {
-          const data = await r.json().catch(() => ({}));
-          throw new Error(data.error || "Could not send.");
-        }
-        button.textContent = "Sent";
-        setTimeout(() => { button.textContent = original; button.disabled = false; }, 2000);
-      } catch (err) {
-        button.textContent = original;
-        button.disabled = false;
-        alert(err.message || "Could not send.");
-      }
+      const contract = allContracts.find((entry) => entry.id === id);
+      const data = contract?.data || {};
+      window.openContractSendModal?.({
+        contractId: id,
+        defaultEmail: data.clientEmail || "",
+        defaultName: [data.touristLastName, data.touristFirstName].filter(Boolean).join(" "),
+      });
     });
   });
+};
+
+// Shared "Send to client" modal — used by /contracts, group, and
+// trip-detail pages. Shows recipient email (defaulted to the
+// contract's clientEmail), recipient name, and an optional extra
+// message; supports comma-separated multi-recipient.
+window.openContractSendModal = function (opts) {
+  const contractId = opts?.contractId || "";
+  if (!contractId) return;
+  let modal = document.getElementById("contract-send-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "contract-send-modal";
+    modal.className = "camp-modal workspace-form-modal is-hidden";
+    modal.hidden = true;
+    modal.innerHTML = `
+      <div class="camp-modal-backdrop" data-action="close"></div>
+      <div class="camp-modal-dialog workspace-form-modal-dialog" style="max-width:520px;">
+        <div class="camp-modal-header">
+          <div>
+            <h2>Send contract to client</h2>
+            <p class="camp-modal-copy">Manager invitation email with the signing link. Multiple recipients: separate with commas.</p>
+          </div>
+          <button type="button" class="camp-modal-close" data-action="close" aria-label="Close">×</button>
+        </div>
+        <form id="contract-send-form" class="field-grid" autocomplete="off">
+          <label class="full-span">
+            Recipient email(s) <span class="invoice-required">*</span>
+            <input name="to" type="text" required placeholder="client@example.com, partner@example.com" autocomplete="email" />
+          </label>
+          <label class="full-span">
+            Recipient's name <span class="muted" style="font-weight:400;">(optional, used in the greeting)</span>
+            <input name="recipientName" type="text" placeholder="Sukhbat" autocomplete="off" />
+          </label>
+          <label class="full-span">
+            Extra message <span class="muted" style="font-weight:400;">(optional)</span>
+            <textarea name="message" rows="3" placeholder="Any note you want to add to the email — leave blank to skip."></textarea>
+          </label>
+          <div class="actions full-span" style="display:flex; justify-content:flex-end; gap:8px; align-items:center;">
+            <button type="button" class="secondary-button" data-action="close">Cancel</button>
+            <button type="submit" id="contract-send-go">Send email</button>
+            <p id="contract-send-status" class="status" style="margin-left:auto"></p>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const close = () => {
+      modal.classList.add("is-hidden");
+      modal.hidden = true;
+    };
+    modal.addEventListener("click", (e) => {
+      if (e.target?.dataset?.action === "close") close();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !modal.hidden) close();
+    });
+    modal.querySelector("#contract-send-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const id = modal._contractId || "";
+      const to = (form.elements.to.value || "").trim();
+      if (!to.includes("@")) { alert("Please enter at least one valid email."); return; }
+      const name = (form.elements.recipientName.value || "").trim();
+      const message = (form.elements.message.value || "").trim();
+      const sendBtn = modal.querySelector("#contract-send-go");
+      const statusEl = modal.querySelector("#contract-send-status");
+      sendBtn.disabled = true;
+      statusEl.textContent = "Sending…";
+      statusEl.style.color = "";
+      try {
+        const res = await fetch(`/api/contracts/${encodeURIComponent(id)}/invite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to, recipientName: name, message }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { statusEl.textContent = data.error || "Could not send."; statusEl.style.color = "#b91c1c"; return; }
+        statusEl.textContent = `Sent ✓`;
+        statusEl.style.color = "#1f8550";
+        window.UI?.toast?.(`Contract sent to ${to}.`, "ok");
+        setTimeout(close, 800);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+  }
+  modal._contractId = contractId;
+  const form = modal.querySelector("#contract-send-form");
+  form.reset();
+  form.elements.to.value = opts.defaultEmail || "";
+  form.elements.recipientName.value = opts.defaultName || "";
+  modal.querySelector("#contract-send-status").textContent = "";
+  modal.classList.remove("is-hidden");
+  modal.hidden = false;
+  setTimeout(() => form.elements.to.focus(), 50);
 };
 
 const getContractsSignature = (contracts) =>

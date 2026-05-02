@@ -4869,7 +4869,7 @@ def build_contract_body_html(data):
     return "\n".join(parts)
 
 
-def build_contract_html(data, signature_path=None, asset_mode="web", contract_id=None):
+def build_contract_html(data, signature_path=None, asset_mode="web", contract_id=None, paper_mode=False):
     content = build_contract_body_html(data)
     # Big page title — manager-built templates can override the
     # default "АЯЛАЛ ЖУУЛЧЛАЛЫН ГЭРЭЭ" wording (e.g. memos use
@@ -4897,6 +4897,19 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         f'<p class="contract-number-line"><span class="contract-number-label">Дугаар:</span> {contract_serial}</p>'
         if contract_serial else ""
     )
+    # Paper mode strips the manager's stamp+signature image so the
+    # client can hand-sign on the printed copy at the office. The
+    # client signature block is already empty when there's no
+    # signature_path so paper mode just affects the manager column.
+    if paper_mode:
+        manager_signature_block = ""
+    else:
+        manager_signature_block = (
+            '<div class="signature-stack">'
+            f'<img class="stamp-image" src="{asset_src("dtx-stamp-cropped.png")}" alt="DTX stamp" />'
+            f'<img class="company-signature-image" src="{html.escape(manager_signature_src)}" alt="Manager signature" />'
+            '</div>'
+        )
     signature_markup = ""
     if signature_path:
         signature_src = signature_path
@@ -5289,10 +5302,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             </div>
             <p class="signature-sign-label">Гарын үсэг:</p>
             <div class="signature-sign-area">
-              <div class="signature-stack">
-                <img class="stamp-image" src="{asset_src('dtx-stamp-cropped.png')}" alt="DTX stamp" />
-                <img class="company-signature-image" src="{html.escape(manager_signature_src)}" alt="Manager signature" />
-              </div>
+              {manager_signature_block}
             </div>
             <div class="signature-contact">
               <p class="signature-name">{manager_display_name}</p>
@@ -17419,38 +17429,40 @@ def handle_sign_contract(environ, start_response, contract_id):
     return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
 
 
-def _send_contract_invitation_email(contract):
-    """Send the friendly "please sign" invitation to the client when
-    a manager creates a contract. Includes the signing link + the
-    manager's signature line. Failures bubble up so the caller can
-    surface the reason (Resend not configured, missing email, etc).
+def _send_contract_invitation_email(contract, to_list=None, recipient_name="", extra_message=""):
+    """Friendly "please sign" email. Caller can override the
+    recipient list / name / extra message; defaults to the
+    contract's clientEmail when no list is provided.
     """
     data = contract.get("data") or {}
-    client_email = (data.get("clientEmail") or "").strip()
-    if not client_email:
-        return {"ok": False, "error": "Үйлчлүүлэгчийн имэйл хаяг байхгүй байна."}
+    if not to_list:
+        client_email = (data.get("clientEmail") or "").strip()
+        if not client_email:
+            return {"ok": False, "error": "Үйлчлүүлэгчийн имэйл хаяг байхгүй байна."}
+        to_list = [client_email]
     serial = data.get("contractSerial") or contract.get("id")
     signing_link = f"https://www.backoffice.travelx.mn/contract/{contract.get('id')}"
     manager_full = " ".join(filter(None, [data.get("managerLastName"), data.get("managerFirstName")])).strip() or "Дэлхий Трэвел Икс"
     manager_email = (data.get("managerEmail") or "").strip()
     manager_phone = (data.get("managerPhone") or "").strip()
+    greeting = f"Сайн байна уу{(' ' + recipient_name) if recipient_name else ''},"
     body_lines = [
-        "Сайн байна уу,",
+        greeting,
         "",
         f"Дэлхий Трэвел Икс ХХК танд аяллын гэрээ {('№ ' + serial) if serial else ''} илгээлээ.".strip(),
         "Та доорх холбоосоор орж гэрээгээ бөглөж, гарын үсгээр баталгаажуулна уу:",
         "",
         signing_link,
-        "",
-        "Хүндэтгэсэн,",
-        manager_full,
     ]
+    if extra_message:
+        body_lines += ["", extra_message]
+    body_lines += ["", "Хүндэтгэсэн,", manager_full]
     if manager_phone:
         body_lines.append(f"Утас: {manager_phone}")
     if manager_email:
         body_lines.append(f"И-мэйл: {manager_email}")
     args = {
-        "to": [client_email],
+        "to": to_list,
         "subject": f"Travelx — Аяллын гэрээ{(' ' + serial) if serial else ''}",
         "body": "\n".join(body_lines),
         "attachments": [{"kind": "contract", "id": contract.get("id")}] if contract.get("pdfPath") else [],
@@ -17466,9 +17478,19 @@ def handle_send_contract_invitation(environ, start_response, contract_id):
     target = next((r for r in records if r.get("id") == contract_id), None)
     if not target:
         return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
-    result = _send_contract_invitation_email(target)
+    payload = collect_json(environ) or {}
+    to_raw = payload.get("to")
+    if isinstance(to_raw, str):
+        to_list = [t.strip() for t in re.split(r"[,;\s]+", to_raw) if t.strip()]
+    elif isinstance(to_raw, list):
+        to_list = [str(t).strip() for t in to_raw if str(t).strip()]
+    else:
+        to_list = None
+    recipient_name = (normalize_text(payload.get("recipientName")) or "").strip()
+    extra_message = (normalize_text(payload.get("message")) or "").strip()
+    result = _send_contract_invitation_email(target, to_list=to_list, recipient_name=recipient_name, extra_message=extra_message)
     if result.get("ok"):
-        return json_response(start_response, "200 OK", {"ok": True})
+        return json_response(start_response, "200 OK", {"ok": True, "to": to_list or [(target.get("data") or {}).get("clientEmail") or ""]})
     return json_response(start_response, "400 Bad Request", {"error": result.get("error") or "Could not send."})
 
 
@@ -17560,6 +17582,7 @@ def _send_signed_contract_email(contract):
 def handle_contract_document(environ, start_response, contract_id):
     params = parse_qs(environ.get("QUERY_STRING", ""))
     mode = (params.get("mode", ["view"])[0] or "view").strip().lower()
+    paper_mode = (params.get("paper", ["0"])[0] or "0").strip().lower() in ("1", "true", "yes")
     contracts = read_contracts()
     contract = None
     contract_index = None
@@ -17571,6 +17594,38 @@ def handle_contract_document(environ, start_response, contract_id):
     if not contract:
         return json_response(start_response, "404 Not Found", {"error": "Contract not found"})
     if mode == "download":
+        # Paper mode: generate a fresh PDF on the fly with no
+        # signatures / stamp so the office can print it for the
+        # client to sign by hand. Doesn't touch the stored PDF.
+        if paper_mode:
+            try:
+                from weasyprint import HTML
+                from io import BytesIO
+                paper_html = build_contract_html(
+                    contract.get("data") or {},
+                    signature_path=None,
+                    asset_mode="file",
+                    contract_id=contract.get("id"),
+                    paper_mode=True,
+                )
+                buf = BytesIO()
+                HTML(string=paper_html, base_url=str(BASE_DIR)).write_pdf(buf)
+                pdf_bytes = buf.getvalue()
+            except Exception as exc:
+                return json_response(
+                    start_response,
+                    "500 Internal Server Error",
+                    {"error": f"Could not generate paper PDF: {exc}"},
+                )
+            serial = (contract.get("data") or {}).get("contractSerial") or contract.get("id") or "contract"
+            filename = f"{serial}-paper.pdf"
+            headers = [
+                ("Content-Type", "application/pdf"),
+                ("Content-Length", str(len(pdf_bytes))),
+                ("Content-Disposition", f'attachment; filename="{filename}"'),
+            ]
+            start_response("200 OK", headers)
+            return [pdf_bytes]
         pdf_path = contract.get("pdfPath")
         if contract.get("status") == "signed":
             try:
