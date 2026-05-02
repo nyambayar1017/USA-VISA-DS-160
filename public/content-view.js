@@ -155,14 +155,26 @@
     // so the page paints fast.
     const urlsAttr = escapeHtml(JSON.stringify(images));
     const sizedThumb = (url, size) => url + (url.includes("?") ? "&" : "?") + "size=" + size;
+    // Mosaic that mirrors the trip-public ContentModal: featured
+    // big tile on the left, 2 thumbs stacked on the right top row,
+    // bottom row spans the right 2/3 width with a "+N more" badge
+    // when there are more photos than the 4 tiles we show. Click
+    // any tile (or the +N) to open the lightbox over all images.
+    const showCount = Math.min(images.length, 4);
+    const moreCount = Math.max(0, images.length - showCount);
     const galleryHtml = images.length
       ? `
-        <div class="content-gallery${images.length === 1 ? " is-single" : ""}">
-          ${images.map((url, i) => {
+        <div class="content-gallery${images.length === 1 ? " is-single" : (showCount === 2 ? " is-pair" : (showCount === 3 ? " is-triple" : ""))}">
+          ${images.slice(0, showCount).map((url, i) => {
             const variant = (i === 0 && images.length > 1) ? "medium" : "thumb";
+            const isLast = i === showCount - 1;
+            const badge = (isLast && moreCount > 0)
+              ? `<span class="content-gallery-more">🖼 +${moreCount} more</span>`
+              : "";
             return `
               <button type="button" class="content-gallery-tile${i === 0 ? " is-featured" : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${i}">
                 <img src="${escapeHtml(sizedThumb(url, variant))}" alt="" loading="lazy" />
+                ${badge}
               </button>
             `;
           }).join("")}

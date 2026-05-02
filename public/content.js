@@ -131,7 +131,7 @@
     }
     count.textContent = `${state.entries.length} item${state.entries.length === 1 ? "" : "s"}`;
     list.innerHTML = `
-      <div class="invoices-table-wrap">
+      <div class="invoices-table-wrap content-table-wrap">
         <table class="invoices-table">
           <thead>
             <tr>
