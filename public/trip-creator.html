@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-410" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-411" />
   </head>
   <body class="app-body" data-page="trip-creator">
     <div class="workspace-shell">
@@ -29,7 +29,6 @@
           </div>
         </section>
 
-        <div class="tc-split" data-tc-split>
         <section class="card tc-split-editor">
           <div class="tc-tab-strip" role="tablist" id="tc-tabs">
             <a href="#" id="tc-back-to-trip-strip" class="header-action-btn tc-back-strip-btn" hidden>← Trip details</a>
@@ -254,25 +253,6 @@ A rich nomadic heritage shaped by Buddhism…"></textarea>
             </label>
           </section>
         </section>
-
-        <aside class="tc-split-preview" id="tc-preview-pane" aria-label="Live trip preview">
-          <div class="tc-preview-head">
-            <strong>Live preview</strong>
-            <span class="tc-preview-hint" id="tc-preview-hint">Auto-refreshes after Publish</span>
-            <button type="button" class="header-action-btn" id="tc-preview-refresh" title="Refresh now">🔄</button>
-            <button type="button" class="header-action-btn" id="tc-preview-toggle" title="Hide preview">→</button>
-          </div>
-          <div class="tc-preview-body">
-            <iframe id="tc-preview-iframe" title="Live trip preview" loading="lazy" referrerpolicy="same-origin"></iframe>
-            <div class="tc-preview-empty" id="tc-preview-empty" hidden>
-              <p>Publish the trip once to see the live preview here.</p>
-              <p class="muted">Click 📢 Publish above — the preview iframe will refresh automatically.</p>
-            </div>
-          </div>
-        </aside>
-
-        <button type="button" class="header-action-btn tc-preview-show-btn" id="tc-preview-show" hidden>👁 Show preview</button>
-        </div>
       </main>
     </div>
 
@@ -281,6 +261,6 @@ A rich nomadic heritage shaped by Buddhism…"></textarea>
     <script src="/compress-upload.js?v=workspace-3"></script>
     <script src="/image-picker.js?v=workspace-2"></script>
     <script src="/content-picker.js?v=workspace-1"></script>
-    <script src="/trip-creator.js?v=workspace-17"></script>
+    <script src="/trip-creator.js?v=workspace-18"></script>
   </body>
 </html>

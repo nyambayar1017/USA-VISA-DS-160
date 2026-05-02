@@ -576,9 +576,6 @@
         // The doc has updatedAt only after at least one save — that's our
         // proxy for "this trip is live at /trip/<id>".
         setPublishedState(!!doc.updatedAt);
-        // Now that we know whether the trip is published, render the
-        // live-preview pane (iframe URL or "publish once" placeholder).
-        if (typeof refreshLivePreview === "function") refreshLivePreview();
       } else {
         metaNode.textContent = "Trip not found.";
         setPublishedState(false);
@@ -665,52 +662,11 @@
 
   saveBtn.addEventListener("click", save);
 
-  // ── Live preview pane ────────────────────────────────────────
-  // The right side of the screen holds an iframe pointing at the public
-  // /trip/<tripId> page. It refreshes after Publish (and on demand via
-  // the 🔄 button). The toggle hides the pane to give the editor full
-  // width when working on a smaller screen.
-  const splitWrap = document.querySelector("[data-tc-split]");
-  const previewPane = document.getElementById("tc-preview-pane");
-  const previewIframe = document.getElementById("tc-preview-iframe");
-  const previewEmpty = document.getElementById("tc-preview-empty");
-  const previewToggle = document.getElementById("tc-preview-toggle");
-  const previewShowBtn = document.getElementById("tc-preview-show");
-  const previewRefresh = document.getElementById("tc-preview-refresh");
-  const previewHint = document.getElementById("tc-preview-hint");
-  const previewKey = `tc-preview-on:${tripId}`;
-
-  function refreshLivePreview() {
-    if (!previewIframe || !tripId) return;
-    if (!isPublished) {
-      previewIframe.src = "about:blank";
-      previewIframe.style.visibility = "hidden";
-      if (previewEmpty) previewEmpty.hidden = false;
-      if (previewHint) previewHint.textContent = "Publish once to enable preview";
-      return;
-    }
-    if (previewEmpty) previewEmpty.hidden = true;
-    previewIframe.style.visibility = "visible";
-    // Cache-bust so the iframe actually re-fetches the saved doc.
-    previewIframe.src = `/trip/${encodeURIComponent(tripId)}?_t=${Date.now()}`;
-    if (previewHint) previewHint.textContent = "Auto-refreshes after Publish";
-  }
-  function setPreviewVisible(on) {
-    if (!splitWrap || !previewPane || !previewShowBtn) return;
-    splitWrap.classList.toggle("has-preview", on);
-    previewPane.style.display = on ? "" : "none";
-    previewShowBtn.hidden = on;
-    try { localStorage.setItem(previewKey, on ? "1" : "0"); } catch (_) {}
-    if (on) refreshLivePreview();
-  }
-  previewToggle?.addEventListener("click", () => setPreviewVisible(false));
-  previewShowBtn?.addEventListener("click", () => setPreviewVisible(true));
-  previewRefresh?.addEventListener("click", refreshLivePreview);
-
-  // Initial state — default ON unless the manager collapsed it before.
-  let prefOn = "1";
-  try { prefOn = localStorage.getItem(previewKey) ?? "1"; } catch (_) {}
-  setPreviewVisible(prefOn !== "0");
+  // refreshLivePreview is a no-op now that the side preview pane is
+  // gone — we left the call site in save() to avoid editing flow that
+  // already works. The full-blown WYSIWYG approach (editor renders as
+  // the public page) is a separate phase.
+  function refreshLivePreview() { /* intentionally empty */ }
 
   // ── Preview link + copy-to-clipboard ────────────────────────────
   const previewLink = document.getElementById("tc-preview-link");
