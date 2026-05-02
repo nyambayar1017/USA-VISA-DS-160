@@ -67,6 +67,7 @@ TOURISTS_FILE = DATA_DIR / "tourists.json"
 INVOICES_FILE = DATA_DIR / "invoices.json"
 PAYMENT_REQUESTS_FILE = DATA_DIR / "payment_requests.json"
 TRIP_TEMPLATES_FILE = DATA_DIR / "trip_templates.json"
+SERVICE_TEMPLATES_FILE = DATA_DIR / "service_templates.json"
 TRIP_CREATORS_FILE = DATA_DIR / "trip_creators.json"
 GALLERY_FILE = DATA_DIR / "gallery.json"
 GALLERY_FOLDERS_FILE = DATA_DIR / "gallery_folders.json"
@@ -689,6 +690,22 @@ def read_trip_templates():
 def write_trip_templates(records):
     TRIP_TEMPLATES_FILE.parent.mkdir(parents=True, exist_ok=True)
     TRIP_TEMPLATES_FILE.write_text(
+        json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def read_service_templates():
+    try:
+        if not SERVICE_TEMPLATES_FILE.exists():
+            SERVICE_TEMPLATES_FILE.write_text("[]", encoding="utf-8")
+        return json.loads(SERVICE_TEMPLATES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def write_service_templates(records):
+    SERVICE_TEMPLATES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SERVICE_TEMPLATES_FILE.write_text(
         json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
@@ -10737,6 +10754,137 @@ def handle_delete_trip_template(environ, start_response, template_id):
     return json_response(start_response, "200 OK", {"ok": True})
 
 
+# ── Service templates ────────────────────────────────────────────
+# A service is a costed activity (museum visit, pony riding, …) with:
+#   - prices per pax/staff type (empty/0 = excluded from the calc)
+#   - a multilingual prose description that may embed [[content:slug|Title]]
+#     references resolved at trip-render time.
+
+_SERVICE_PAX_KEYS = (
+    "adults", "teen", "child", "infant", "foc",
+    "guide", "driver", "cook", "tourLeader", "shaman", "shamanAssistant",
+)
+_SERVICE_LANG_CODES = ("mn", "en", "fr", "it", "es", "ko", "zh", "ja", "ru")
+_SERVICE_CURRENCIES = ("MNT", "USD", "EUR", "CNY", "JPY", "KRW", "RUB")
+
+
+def _normalize_service_prices(raw):
+    out = {k: 0 for k in _SERVICE_PAX_KEYS}
+    if isinstance(raw, dict):
+        for k in _SERVICE_PAX_KEYS:
+            try:
+                v = float(raw.get(k) or 0)
+            except (TypeError, ValueError):
+                v = 0
+            out[k] = v if v > 0 else 0
+    return out
+
+
+def _normalize_service_descriptions(raw):
+    out = {k: "" for k in _SERVICE_LANG_CODES}
+    if isinstance(raw, dict):
+        for k in _SERVICE_LANG_CODES:
+            v = raw.get(k)
+            if isinstance(v, str):
+                out[k] = v.strip()
+    return out
+
+
+def _build_service_template(payload, actor):
+    name = normalize_text(payload.get("name"))
+    workspace = (normalize_text(payload.get("workspace")) or "DTX").upper()
+    if workspace not in ("DTX", "USM", "BOTH"):
+        workspace = "DTX"
+    currency = (normalize_text(payload.get("currency")) or "MNT").upper()
+    if currency not in _SERVICE_CURRENCIES:
+        currency = "MNT"
+    return {
+        "id": uuid4().hex,
+        "name": name,
+        "workspace": workspace,
+        "currency": currency,
+        "prices": _normalize_service_prices(payload.get("prices")),
+        "descriptions": _normalize_service_descriptions(payload.get("descriptions")),
+        "createdAt": now_mongolia().isoformat(),
+        "createdBy": actor_snapshot(actor),
+        "updatedAt": now_mongolia().isoformat(),
+        "updatedBy": actor_snapshot(actor),
+    }
+
+
+def handle_list_service_templates(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    workspace_filter = (active_workspace(environ) or "").upper()
+    records = read_service_templates()
+    if workspace_filter:
+        records = [
+            r for r in records
+            if (r.get("workspace") or "").upper() in ("", "BOTH", workspace_filter)
+        ]
+    return json_response(start_response, "200 OK", {"entries": records})
+
+
+def handle_create_service_template(environ, start_response):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    if not normalize_text(payload.get("name")):
+        return json_response(start_response, "400 Bad Request", {"error": "Name is required"})
+    record = _build_service_template(payload, actor)
+    records = read_service_templates()
+    records.insert(0, record)
+    write_service_templates(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": record})
+
+
+def handle_update_service_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    payload = collect_json(environ) or {}
+    records = read_service_templates()
+    target = next((r for r in records if r.get("id") == template_id), None)
+    if not target:
+        return json_response(start_response, "404 Not Found", {"error": "Template not found"})
+    if "name" in payload:
+        target["name"] = normalize_text(payload.get("name")) or target.get("name")
+    if "workspace" in payload:
+        ws = (normalize_text(payload.get("workspace")) or "").upper()
+        if ws in ("DTX", "USM", "BOTH"):
+            target["workspace"] = ws
+    if "currency" in payload:
+        ccy = (normalize_text(payload.get("currency")) or "").upper()
+        if ccy in _SERVICE_CURRENCIES:
+            target["currency"] = ccy
+    if "prices" in payload:
+        target["prices"] = _normalize_service_prices(payload.get("prices"))
+    if "descriptions" in payload:
+        target["descriptions"] = _normalize_service_descriptions(payload.get("descriptions"))
+    target["updatedAt"] = now_mongolia().isoformat()
+    target["updatedBy"] = actor_snapshot(actor)
+    for i, r in enumerate(records):
+        if r.get("id") == template_id:
+            records[i] = target
+            break
+    write_service_templates(records)
+    return json_response(start_response, "200 OK", {"ok": True, "entry": target})
+
+
+def handle_delete_service_template(environ, start_response, template_id):
+    actor = require_login(environ, start_response)
+    if not actor:
+        return []
+    records = read_service_templates()
+    if not any(r.get("id") == template_id for r in records):
+        return json_response(start_response, "404 Not Found", {"error": "Template not found"})
+    records = [r for r in records if r.get("id") != template_id]
+    write_service_templates(records)
+    return json_response(start_response, "200 OK", {"ok": True})
+
+
 def handle_accountant_download_zip(environ, start_response):
     """POST { ids: ["paymentRequestId", ...] } → streams a ZIP of every
     paid receipt for the given approved requests. Used by the
@@ -20174,6 +20322,21 @@ def _dispatch(environ, start_response):
             return handle_update_trip_template(environ, start_response, template_id)
         if method == "DELETE" and template_id:
             return handle_delete_trip_template(environ, start_response, template_id)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path == "/api/service-templates":
+        if method == "GET":
+            return handle_list_service_templates(environ, start_response)
+        if method == "POST":
+            return handle_create_service_template(environ, start_response)
+        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
+
+    if path.startswith("/api/service-templates/"):
+        template_id = path.replace("/api/service-templates/", "", 1).strip("/")
+        if method == "POST" and template_id:
+            return handle_update_service_template(environ, start_response, template_id)
+        if method == "DELETE" and template_id:
+            return handle_delete_service_template(environ, start_response, template_id)
         return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/accountant/paid":

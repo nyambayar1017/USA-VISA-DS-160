@@ -941,4 +941,347 @@
   });
 
   loadTripTemplates();
+
+  // ── Service templates ──────────────────────────────────────
+  const SVC_LANGS = LOC_LANGS; // same 9: mn, en, fr, it, es, ko, zh, ja, ru
+  const SVC_PAX_KEYS = ["adults","teen","child","infant","foc","guide","driver","cook","tourLeader","shaman","shamanAssistant"];
+  const svcListNode = document.getElementById("tpl-svc-list");
+  const svcModal = document.getElementById("tpl-svc-modal");
+  const svcForm = document.getElementById("tpl-svc-form");
+  const svcStatus = document.getElementById("tpl-svc-status");
+  const svcLangTabs = document.getElementById("tpl-svc-lang-tabs");
+  const svcEditor = document.getElementById("tpl-svc-editor");
+  const svcContentPopover = document.getElementById("tpl-svc-content-popover");
+  let svcTemplates = [];
+  let svcContentCache = [];
+  let svcDescriptions = {}; // { mn: html, en: html, ... }
+  let svcCurrentLang = "en";
+
+  function svcEscapeHtml(s) { return escapeHtml(s); }
+
+  // ── Description: storage ↔ HTML conversion ──
+  // Stored format inside descriptions[lang]:
+  //   "We will visit [[content:national-museum|National Museum of History]] in the morning."
+  // The contenteditable HTML mirrors the same prose with each reference
+  // wrapped in a <span class="svc-content-ref" data-content-slug="..."> chip.
+  function svcStoredToHtml(stored) {
+    const text = String(stored || "");
+    const escapedSegments = [];
+    const re = /\[\[content:([^\|\]]+)\|([^\]]*)\]\]/g;
+    let lastIndex = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      escapedSegments.push(svcEscapeHtml(text.slice(lastIndex, m.index)));
+      escapedSegments.push(`<span class="svc-content-ref" data-content-slug="${svcEscapeHtml(m[1])}">${svcEscapeHtml(m[2])}</span>`);
+      lastIndex = re.lastIndex;
+    }
+    escapedSegments.push(svcEscapeHtml(text.slice(lastIndex)));
+    return escapedSegments.join("").replace(/\n/g, "<br>");
+  }
+  function svcHtmlToStored(node) {
+    // Walk children: text nodes → plain text, .svc-content-ref → marker,
+    // <br> → newline. Anything else: read its textContent (paragraphs,
+    // strong, etc. are flattened — we don't support inline formatting yet).
+    const out = [];
+    const walk = (n) => {
+      if (n.nodeType === Node.TEXT_NODE) { out.push(n.nodeValue || ""); return; }
+      if (n.nodeType !== Node.ELEMENT_NODE) return;
+      if (n.classList && n.classList.contains("svc-content-ref")) {
+        const slug = n.dataset.contentSlug || "";
+        const label = (n.textContent || "").replace(/\]\]/g, "");
+        if (slug) out.push(`[[content:${slug}|${label}]]`);
+        else out.push(label);
+        return;
+      }
+      const tag = n.nodeName.toLowerCase();
+      if (tag === "br") { out.push("\n"); return; }
+      if (tag === "p" || tag === "div") {
+        if (out.length && !/\n$/.test(out[out.length - 1])) out.push("\n");
+        n.childNodes.forEach(walk);
+        out.push("\n");
+        return;
+      }
+      n.childNodes.forEach(walk);
+    };
+    node.childNodes.forEach(walk);
+    return out.join("").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  // Persist current editor pane HTML into svcDescriptions before swap.
+  function svcCommitCurrentEditor() {
+    if (!svcCurrentLang) return;
+    svcDescriptions[svcCurrentLang] = svcHtmlToStored(svcEditor);
+    svcRefreshLangTabFilledStates();
+  }
+  function svcRefreshLangTabFilledStates() {
+    svcLangTabs.querySelectorAll("[data-svc-lang]").forEach((tab) => {
+      const code = tab.dataset.svcLang;
+      const filled = !!(svcDescriptions[code] || "").trim();
+      tab.classList.toggle("is-filled", filled);
+    });
+  }
+  function svcLoadEditorForLang(code) {
+    svcCurrentLang = code;
+    svcLangTabs.querySelectorAll("[data-svc-lang]").forEach((tab) => {
+      tab.classList.toggle("is-active", tab.dataset.svcLang === code);
+    });
+    svcEditor.innerHTML = svcStoredToHtml(svcDescriptions[code] || "");
+  }
+
+  // ── Content @-picker ──
+  let svcMentionStart = null; // { node, offset } where the "@" was typed
+  async function svcEnsureContentLoaded() {
+    if (svcContentCache.length) return;
+    try {
+      const r = await fetch("/api/content");
+      const d = await r.json();
+      svcContentCache = (d.entries || []).map((e) => ({
+        slug: e.slug || "",
+        title: e.title || e.slug || "(untitled)",
+        type: e.type || "",
+      })).filter((e) => e.slug);
+    } catch { svcContentCache = []; }
+  }
+  function svcShowContentPopover(query) {
+    const q = (query || "").trim().toLowerCase();
+    const filtered = svcContentCache
+      .filter((c) => !q || c.slug.toLowerCase().includes(q) || c.title.toLowerCase().includes(q))
+      .slice(0, 12);
+    svcContentPopover.innerHTML = filtered.length
+      ? filtered.map((c) => `<button type="button" data-content-slug="${escapeHtml(c.slug)}" data-content-title="${escapeHtml(c.title)}">${escapeHtml(c.title)} <span style="color:#94a3b8;font-size:11px;">${escapeHtml(c.slug)}</span></button>`).join("")
+      : `<div class="tpl-svc-empty">No content matches "${escapeHtml(query || "")}".</div>`;
+    // Position near the caret.
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) {
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      const wrapRect = svcEditor.parentElement.getBoundingClientRect();
+      svcContentPopover.style.left = `${Math.max(0, rect.left - wrapRect.left)}px`;
+      svcContentPopover.style.top = `${rect.bottom - wrapRect.top + 4}px`;
+    }
+    svcContentPopover.hidden = false;
+  }
+  function svcHideContentPopover() {
+    svcContentPopover.hidden = true;
+    svcMentionStart = null;
+  }
+  function svcInsertContentRef(slug, title) {
+    // Replace the typed "@…" range with a chip.
+    if (!svcMentionStart) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = document.createRange();
+    range.setStart(svcMentionStart.node, svcMentionStart.offset);
+    range.setEnd(sel.anchorNode, sel.anchorOffset);
+    range.deleteContents();
+    const span = document.createElement("span");
+    span.className = "svc-content-ref";
+    span.dataset.contentSlug = slug;
+    span.textContent = title;
+    range.insertNode(span);
+    // Trailing space + caret after the chip.
+    const trailing = document.createTextNode(" ");
+    span.parentNode.insertBefore(trailing, span.nextSibling);
+    const after = document.createRange();
+    after.setStart(trailing, 1);
+    after.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(after);
+    svcHideContentPopover();
+  }
+
+  svcEditor?.addEventListener("input", () => {
+    if (!svcMentionStart) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) { svcHideContentPopover(); return; }
+    // Read text from svcMentionStart to caret to use as filter query.
+    try {
+      const range = document.createRange();
+      range.setStart(svcMentionStart.node, svcMentionStart.offset);
+      range.setEnd(sel.anchorNode, sel.anchorOffset);
+      const typed = range.toString();
+      // Cancel if user typed past whitespace/newline.
+      if (/[\s\n]/.test(typed)) { svcHideContentPopover(); return; }
+      svcShowContentPopover(typed.slice(1)); // drop the leading "@"
+    } catch { svcHideContentPopover(); }
+  });
+  svcEditor?.addEventListener("keydown", async (e) => {
+    if (e.key === "@") {
+      await svcEnsureContentLoaded();
+      // Mark the position WHERE the "@" lands (after the keypress is applied).
+      // Use rAF so we capture the post-insertion caret.
+      requestAnimationFrame(() => {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        const node = sel.anchorNode;
+        const offset = sel.anchorOffset - 1; // before the "@"
+        if (offset < 0) return;
+        svcMentionStart = { node, offset };
+        svcShowContentPopover("");
+      });
+      return;
+    }
+    if (e.key === "Escape" && !svcContentPopover.hidden) {
+      e.preventDefault();
+      svcHideContentPopover();
+    }
+  });
+  svcContentPopover?.addEventListener("mousedown", (e) => {
+    const btn = e.target.closest("button[data-content-slug]");
+    if (!btn) return;
+    e.preventDefault();
+    svcInsertContentRef(btn.dataset.contentSlug, btn.dataset.contentTitle);
+  });
+  // Click anywhere else hides the popover.
+  document.addEventListener("mousedown", (e) => {
+    if (svcContentPopover.hidden) return;
+    if (svcContentPopover.contains(e.target) || svcEditor.contains(e.target)) return;
+    svcHideContentPopover();
+  });
+
+  // ── List / load ──
+  async function loadServiceTemplates() {
+    if (!svcListNode) return;
+    svcListNode.innerHTML = `<p class="tpl-empty">Loading…</p>`;
+    try {
+      const r = await fetch("/api/service-templates");
+      const d = await r.json();
+      svcTemplates = d.entries || [];
+    } catch {
+      svcTemplates = [];
+    }
+    renderServiceList();
+  }
+  function fmtMoney(n, ccy) {
+    if (!Number(n)) return "—";
+    return `${ccy || "MNT"} ${Number(n).toLocaleString()}`;
+  }
+  function renderServiceList() {
+    if (!svcTemplates.length) {
+      svcListNode.innerHTML = `<p class="tpl-empty">No service templates yet. Click + New service template to start.</p>`;
+      return;
+    }
+    svcListNode.innerHTML = svcTemplates.map((t) => {
+      const prices = t.prices || {};
+      const pricedKeys = SVC_PAX_KEYS.filter((k) => Number(prices[k]) > 0);
+      const sample = pricedKeys.slice(0, 3).map((k) => `${k}: ${Number(prices[k]).toLocaleString()}`).join(" · ");
+      const made = (t.createdBy && (t.createdBy.name || t.createdBy.email)) || "—";
+      return `
+        <div class="tpl-svc-list-row" data-id="${escapeHtml(t.id)}">
+          <div>
+            <div class="tpl-svc-name">${escapeHtml(t.name || "(unnamed)")}</div>
+            <div class="tpl-svc-meta">${escapeHtml(t.currency || "MNT")} · ${pricedKeys.length} priced · ${escapeHtml(sample || "no prices")}</div>
+          </div>
+          <span class="tpl-svc-meta">${escapeHtml(t.workspace || "DTX")}</span>
+          <span class="tpl-svc-meta">${escapeHtml(made)}</span>
+          <button type="button" class="header-action-btn" data-svc-edit="${escapeHtml(t.id)}">Edit</button>
+          <button type="button" class="button-secondary" data-svc-delete="${escapeHtml(t.id)}" style="color:#9b2f2f;border-color:rgba(182,58,58,0.2);">Delete</button>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function openServiceModal(rec) {
+    svcDescriptions = {};
+    SVC_LANGS.forEach((l) => { svcDescriptions[l.code] = ""; });
+    if (rec) {
+      svcForm.elements.id.value = rec.id;
+      svcForm.elements.name.value = rec.name || "";
+      svcForm.elements.workspace.value = rec.workspace || "DTX";
+      svcForm.elements.currency.value = rec.currency || "MNT";
+      const prices = rec.prices || {};
+      SVC_PAX_KEYS.forEach((k) => {
+        const inp = svcForm.querySelector(`[data-svc-price="${k}"]`);
+        if (inp) inp.value = Number(prices[k]) > 0 ? String(prices[k]) : "";
+      });
+      const desc = rec.descriptions || {};
+      SVC_LANGS.forEach((l) => { svcDescriptions[l.code] = desc[l.code] || ""; });
+    } else {
+      svcForm.reset();
+      svcForm.elements.id.value = "";
+      svcForm.elements.workspace.value = "DTX";
+      svcForm.elements.currency.value = "MNT";
+      SVC_PAX_KEYS.forEach((k) => {
+        const inp = svcForm.querySelector(`[data-svc-price="${k}"]`);
+        if (inp) inp.value = "";
+      });
+    }
+    // Render language tabs.
+    svcLangTabs.innerHTML = SVC_LANGS.map((l, i) => `
+      <button type="button" class="tpl-svc-lang-tab ${i === 1 ? "is-active" : ""}" data-svc-lang="${l.code}">${escapeHtml(l.label)}</button>
+    `).join("");
+    svcCurrentLang = "en";
+    svcLoadEditorForLang("en");
+    svcRefreshLangTabFilledStates();
+    svcStatus.textContent = "";
+    svcModal.hidden = false;
+    svcModal.classList.remove("is-hidden");
+  }
+  function closeServiceModal() {
+    svcModal.hidden = true;
+    svcModal.classList.add("is-hidden");
+    svcHideContentPopover();
+  }
+  document.getElementById("tpl-svc-add")?.addEventListener("click", () => openServiceModal(null));
+  svcListNode?.addEventListener("click", async (e) => {
+    const editId = e.target.closest("[data-svc-edit]")?.dataset?.svcEdit;
+    if (editId) {
+      const rec = svcTemplates.find((t) => t.id === editId);
+      if (rec) openServiceModal(rec);
+      return;
+    }
+    const delId = e.target.closest("[data-svc-delete]")?.dataset?.svcDelete;
+    if (delId) {
+      const rec = svcTemplates.find((t) => t.id === delId);
+      if (!rec) return;
+      if (!confirm(`Delete service template "${rec.name}"?`)) return;
+      try {
+        await fetch(`/api/service-templates/${encodeURIComponent(delId)}`, { method: "DELETE" });
+        await loadServiceTemplates();
+      } catch (err) { alert(err.message || "Delete failed"); }
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (e.target?.dataset?.action === "close-svc-tpl") closeServiceModal();
+  });
+  svcLangTabs?.addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-svc-lang]");
+    if (!tab) return;
+    svcCommitCurrentEditor();
+    svcLoadEditorForLang(tab.dataset.svcLang);
+  });
+  svcForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    svcCommitCurrentEditor();
+    const id = svcForm.elements.id.value;
+    const prices = {};
+    SVC_PAX_KEYS.forEach((k) => {
+      const v = Number(svcForm.querySelector(`[data-svc-price="${k}"]`)?.value);
+      if (v > 0) prices[k] = v;
+    });
+    const body = {
+      name: (svcForm.elements.name.value || "").trim(),
+      workspace: svcForm.elements.workspace.value || "DTX",
+      currency: svcForm.elements.currency.value || "MNT",
+      prices,
+      descriptions: { ...svcDescriptions },
+    };
+    if (!body.name) { svcStatus.textContent = "Name is required."; return; }
+    svcStatus.textContent = "Saving…";
+    try {
+      const url = id ? `/api/service-templates/${encodeURIComponent(id)}` : "/api/service-templates";
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Save failed");
+      closeServiceModal();
+      loadServiceTemplates();
+    } catch (err) {
+      svcStatus.textContent = err.message || "Save failed";
+    }
+  });
+
+  loadServiceTemplates();
 })();
