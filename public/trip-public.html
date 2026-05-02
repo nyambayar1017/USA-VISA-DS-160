@@ -155,6 +155,30 @@ function mapServerToDesign(s) {
     locations: s.locations || {},
     days_data: (s.program || []).map((row, i) => {
       const lang = (s.language || 'mn').toLowerCase();
+      // Format the day's date as "Tuesday, 1 September 2026" in the
+      // trip's locale. If the row has no explicit date, derive Day i
+      // from the trip's startDate (set on the parent trip itself).
+      function fmtLongDate(ds) {
+        if (!ds) return '';
+        const d = new Date(`${ds}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return ds || '';
+        const map = { en:'en-GB', mn:'mn-MN', ru:'ru-RU', fr:'fr-FR', it:'it-IT', es:'es-ES', ko:'ko-KR', zh:'zh-CN', ja:'ja-JP' };
+        try {
+          return new Intl.DateTimeFormat(map[lang] || 'en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(d);
+        } catch { return d.toDateString(); }
+      }
+      function autoDayDate() {
+        const base = (s.trip && s.trip.startDate) || '';
+        if (!base) return '';
+        const d = new Date(`${base}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return '';
+        d.setDate(d.getDate() + i);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const dd = String(d.getDate()).padStart(2,'0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      const effDate = row.date || autoDayDate();
       const loc = (s.locations || {})[row.locationId];
       // Prefer the location-template name in the trip's language so the
       // public page reads naturally in the chosen tongue. Fall back to
@@ -167,7 +191,7 @@ function mapServerToDesign(s) {
       return {
         n: i + 1,
         title: row.title || row.day || `Day ${i + 1}`,
-        date: row.date || '',
+        date: fmtLongDate(effDate),
         heroSlug: row.heroSlug || '',
         heroImg: row.heroImg
           || (Array.isArray(row.imageIds) && row.imageIds[0] ? `/api/gallery/${row.imageIds[0]}/file` : '')

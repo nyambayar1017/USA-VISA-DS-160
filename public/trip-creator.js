@@ -752,18 +752,13 @@
         renderProgram(Array.isArray(doc.program) ? doc.program : []);
         renderQuote((doc.quotation && doc.quotation.rows) || []);
         $("tc-quote-note").value = (doc.quotation && doc.quotation.note) || "";
-        // Brochure tab
-        $("tc-highlights").value = (doc.highlights || []).join("\n");
-        $("tc-included").value = (doc.included || []).join("\n");
-        $("tc-not-included").value = (doc.notIncluded || []).join("\n");
-        const m = doc.manager || {};
-        $("tc-manager-name").value = m.name || "";
-        $("tc-manager-role").value = m.role || "";
-        $("tc-manager-phone").value = m.phone || "";
-        $("tc-manager-email").value = m.email || "";
-        $("tc-manager-avatar").value = m.avatar || "";
-        renderAccommSummary(doc.accommSummary || []);
-        renderFlightLegs(doc.flightLegs || []);
+        // Inclusions moved to Presentation; rest of the old Brochure
+        // tab (highlights / manager / accomm / flights) is now derived
+        // server-side, so we only restore the survivors.
+        const includedEl = $("tc-included");
+        const notIncludedEl = $("tc-not-included");
+        if (includedEl) includedEl.value = (doc.included || []).join("\n");
+        if (notIncludedEl) notIncludedEl.value = (doc.notIncluded || []).join("\n");
         // Guide tab
         $("tc-mongolia-guide").value = doc.mongoliaGuide || "";
         // The doc has updatedAt only after at least one save — that's our
@@ -811,18 +806,11 @@
       difficulty: Number($("tc-difficulty").value) || 0,
       intro: $("tc-intro").value,
       program: readProgram(),
-      highlights: splitLines($("tc-highlights").value),
-      included: splitLines($("tc-included").value),
-      notIncluded: splitLines($("tc-not-included").value),
-      accommSummary: readAccommSummary(),
-      flightLegs: readFlightLegs(),
-      manager: {
-        name: $("tc-manager-name").value.trim(),
-        role: $("tc-manager-role").value.trim(),
-        phone: $("tc-manager-phone").value.trim(),
-        email: $("tc-manager-email").value.trim(),
-        avatar: $("tc-manager-avatar").value.trim(),
-      },
+      // Inclusions live on the Presentation pane now; the rest of
+      // the old Brochure fields are derived server-side (highlights
+      // mirror day titles, manager mirrors the editor's profile).
+      included: splitLines(($("tc-included") || {}).value || ""),
+      notIncluded: splitLines(($("tc-not-included") || {}).value || ""),
       mongoliaGuide: $("tc-mongolia-guide").value,
       quotation: {
         rows: readQuoteRows(),

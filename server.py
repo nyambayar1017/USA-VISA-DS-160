@@ -2205,7 +2205,14 @@ def build_public_trip_view(trip_id):
         "intro": doc.get("intro") or "",
         "coverIds": doc.get("coverIds") or [],
         "program": doc.get("program") or [],
-        "highlights": doc.get("highlights") or [],
+        "highlights": (
+            doc.get("highlights")
+            or [
+                (r.get("title") or "").strip()
+                for r in (doc.get("program") or [])
+                if isinstance(r, dict) and (r.get("title") or "").strip()
+            ]
+        ),
         "accommSummary": doc.get("accommSummary") or [],
         "included": doc.get("included") or [],
         "notIncluded": doc.get("notIncluded") or [],

@@ -33,12 +33,9 @@
           <div class="tc-tab-strip" role="tablist" id="tc-tabs">
             <a href="#" id="tc-back-to-trip-strip" class="header-action-btn tc-back-strip-btn" hidden>← Trip details</a>
             <button type="button" class="tc-tab is-active" role="tab" data-tab="presentation">Presentation</button>
-            <button type="button" class="tc-tab" role="tab" data-tab="brochure">Brochure</button>
             <button type="button" class="tc-tab" role="tab" data-tab="guide">Guide</button>
             <button type="button" class="tc-tab" role="tab" data-tab="quotation">Quotation</button>
-            <span class="tc-publish-state" id="tc-publish-state" data-state="draft">Draft — not yet published</span>
             <span class="tc-save-status" id="tc-save-status"></span>
-            <button type="button" class="header-action-btn" id="tc-copy-link-btn" title="Copy public link" disabled>🔗 Copy link</button>
             <a class="header-action-btn header-action-publish tc-preview-link" id="tc-preview-link" target="_blank" rel="noopener">👁 Preview</a>
           </div>
 
@@ -125,24 +122,6 @@
             </div>
             <div id="tc-program-list" class="tc-program-list"></div>
             <div class="tc-loc-popover" id="tc-loc-popover" hidden></div>
-          </section>
-
-          <!-- Brochure tab -->
-          <section class="tc-pane" id="tc-pane-brochure" role="tabpanel" hidden>
-            <div class="tc-section-head"><h3>Trip highlights</h3></div>
-            <p class="ct-hint">Bullet list shown above the day-by-day program. One highlight per line.</p>
-            <label class="tc-full">
-              <textarea id="tc-highlights" rows="6" placeholder="Day 1: Arrival in Ulaanbaatar
-Day 2: Drive to Terelj National Park
-…"></textarea>
-            </label>
-
-            <div class="tc-section-head">
-              <h3>Accommodation summary</h3>
-              <button type="button" class="header-action-btn" id="tc-add-accomm-row">+ Add row</button>
-            </div>
-            <p class="ct-hint">e.g. "Ulaanbaatar (2 nights)" — "Family-friendly 3★ Hotel".</p>
-            <div id="tc-accomm-rows" class="tc-repeat-rows"></div>
 
             <div class="tc-section-head"><h3>What's included</h3></div>
             <div class="tc-form-grid">
@@ -159,37 +138,6 @@ Travel insurance
 …"></textarea>
               </label>
             </div>
-
-            <div class="tc-section-head"><h3>Manager (sidebar contact)</h3></div>
-            <div class="tc-form-grid">
-              <label>
-                Name
-                <input id="tc-manager-name" type="text" placeholder="Nyambayar Chuluunbaatar" />
-              </label>
-              <label class="tc-full">
-                Role / blurb
-                <input id="tc-manager-role" type="text" placeholder="Your local agent, tailor-made tour specialist" />
-              </label>
-              <label>
-                Phone
-                <input id="tc-manager-phone" type="tel" placeholder="+976 ..." />
-              </label>
-              <label>
-                Email
-                <input id="tc-manager-email" type="email" placeholder="info@..." />
-              </label>
-              <label class="tc-full">
-                Avatar URL (optional)
-                <input id="tc-manager-avatar" type="url" placeholder="https://..." />
-              </label>
-            </div>
-
-            <div class="tc-section-head">
-              <h3>International flights</h3>
-              <button type="button" class="header-action-btn" id="tc-add-flight">+ Add leg</button>
-            </div>
-            <p class="ct-hint">Shown in a small table on the public page if filled in.</p>
-            <div id="tc-flight-rows" class="tc-repeat-rows"></div>
           </section>
 
           <!-- Guide tab -->
@@ -247,6 +195,6 @@ A rich nomadic heritage shaped by Buddhism…"></textarea>
     <script src="/compress-upload.js?v=workspace-3"></script>
     <script src="/image-picker.js?v=workspace-2"></script>
     <script src="/content-picker.js?v=workspace-1"></script>
-    <script src="/trip-creator.js?v=workspace-23"></script>
+    <script src="/trip-creator.js?v=workspace-24"></script>
   </body>
 </html>
