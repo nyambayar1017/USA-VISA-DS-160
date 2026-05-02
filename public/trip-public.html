@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Family Mongolia Adventure · 7-day itinerary</title>
+<title>TravelX Trip</title>
+<link rel="icon" type="image/png" href="/assets/favicon-dtx-x.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -107,6 +108,13 @@ const RAW_TRIP = (() => {
     return node ? JSON.parse(node.textContent) : null;
   } catch (e) { console.warn('initial data parse', e); return null; }
 })();
+
+// Match the rest of the back-office: tab title shows the trip name +
+// "TravelX" instead of the hard-coded "Family Mongolia Adventure".
+try {
+  const tripName = (RAW_TRIP && (RAW_TRIP.title || (RAW_TRIP.trip && RAW_TRIP.trip.tripName))) || "";
+  document.title = tripName ? `${tripName} · TravelX` : "TravelX Trip";
+} catch (e) {}
 
 /* ── Adapter: server shape → design shape ── */
 function mapServerToDesign(s) {
