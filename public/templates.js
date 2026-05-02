@@ -420,11 +420,39 @@
     locMapNode.hidden = false;
     if (!window.L) return;
     if (!locLeafletMap) {
-      locLeafletMap = L.map(locMapNode, { scrollWheelZoom: false }).setView([lat, lon], 8);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      locLeafletMap = L.map(locMapNode, {
+        scrollWheelZoom: true,
+        zoomControl: true,
+      }).setView([lat, lon], 8);
+      // Two base layers + a Google-Maps-style switcher in the top-
+      // right corner. Default is the OSM road map; "Satellite" pulls
+      // the imagery from Esri's free World_Imagery service.
+      const street = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: "© OpenStreetMap contributors",
-      }).addTo(locLeafletMap);
+      });
+      const satellite = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          maxZoom: 19,
+          attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
+        }
+      );
+      const hybrid = L.layerGroup([
+        satellite,
+        L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+          { maxZoom: 19, attribution: "" }
+        ),
+      ]);
+      street.addTo(locLeafletMap);
+      L.control
+        .layers(
+          { Map: street, Satellite: satellite, Hybrid: hybrid },
+          {},
+          { position: "topright", collapsed: false }
+        )
+        .addTo(locLeafletMap);
       locLeafletMarker = L.marker([lat, lon], { draggable: true }).addTo(locLeafletMap);
       locLeafletMarker.on("dragend", () => {
         const ll = locLeafletMarker.getLatLng();
