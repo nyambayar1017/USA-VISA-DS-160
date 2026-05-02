@@ -9101,12 +9101,19 @@ def handle_create_payment_request(environ, start_response):
         # Reject duplicate pending requests on the same reservation —
         # spam-click guard, mirrors the per-installment lock used for
         # invoices.
+        # Optional stage qualifier for camp_group: "deposit" or "balance"
+        # so each payment stage has its own independent request lock and
+        # the approval flips only that stage.
+        stage = (normalize_text(payload.get("stage")) or "").lower()
+        if stage and stage not in ("deposit", "balance"):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid stage (deposit | balance)."})
         if record_type and record_id:
             existing = next(
                 (
                     r for r in read_payment_requests()
                     if r.get("recordType") == record_type
                     and r.get("recordId") == record_id
+                    and (r.get("stage") or "") == stage
                     and (r.get("status") or "") == "pending"
                 ),
                 None,
@@ -9124,6 +9131,7 @@ def handle_create_payment_request(environ, start_response):
             "tripName": trip_name,
             "recordType": record_type,
             "recordId": record_id,
+            "stage": stage,
             "installmentIndex": -1,
             "installmentDescription": category,
             "paidDate": "",
@@ -9430,6 +9438,9 @@ def handle_upload_camp_group_invoice(environ, start_response, group_key):
     upload = files.get("file")
     if not upload:
         return json_response(start_response, "400 Bad Request", {"error": "No file uploaded."})
+    stage = (normalize_text(fields.get("stage")) or "deposit").lower()
+    if stage not in ("deposit", "balance"):
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid stage (deposit | balance)."})
     result = _attach_invoice_document_to_trip(trip_id, upload, actor)
     if not result or not result[0]:
         return json_response(start_response, "400 Bad Request", {"error": "Could not attach invoice (file too large or unsupported type)."})
@@ -9437,16 +9448,17 @@ def handle_upload_camp_group_invoice(environ, start_response, group_key):
     rows = read_camp_reservations()
     now_iso = now_mongolia().isoformat()
     actor_meta = actor_snapshot(actor)
+    prefix = "depositInvoice" if stage == "deposit" else "balanceInvoice"
     changed = False
     for i, r in enumerate(rows):
         if r.get("tripId") == trip_id and (r.get("campName") or "") == camp_name:
             rows[i] = {
                 **r,
-                "invoiceDocumentId": doc_id,
-                "invoiceDocumentName": original_name,
-                "invoiceStoredName": stored_name,
-                "invoiceUploadedAt": now_iso,
-                "invoiceUploadedBy": actor_meta,
+                f"{prefix}DocumentId": doc_id,
+                f"{prefix}DocumentName": original_name,
+                f"{prefix}StoredName": stored_name,
+                f"{prefix}UploadedAt": now_iso,
+                f"{prefix}UploadedBy": actor_meta,
                 "updatedAt": now_iso,
                 "updatedBy": actor_meta,
             }
@@ -9455,6 +9467,7 @@ def handle_upload_camp_group_invoice(environ, start_response, group_key):
         write_camp_reservations(rows)
     return json_response(start_response, "200 OK", {
         "ok": True,
+        "stage": stage,
         "documentId": doc_id,
         "documentName": original_name,
         "storedName": stored_name,
@@ -9563,21 +9576,42 @@ def handle_approve_payment_request(environ, start_response, request_id):
                     writer(rows)
                     break
         elif rec_type == "camp_group" and rec_id and "::" in rec_id:
-            # recordId format: "<tripId>::<campName>" — flip every
-            # camp_reservation in the trip+camp pair to paid.
+            # recordId format: "<tripId>::<campName>". When the request
+            # carries a stage ("deposit" or "balance") only that stage's
+            # paid date is set; if every positive stage is now paid, the
+            # whole camp's paymentStatus also flips to paid. With no
+            # stage (legacy), every reservation in the pair flips to
+            # paid in one shot.
             group_trip_id, _, group_camp_name = rec_id.partition("::")
+            stage = (target.get("stage") or "").lower()
             rows = read_camp_reservations()
             changed = False
+            now_iso = now_mongolia().isoformat()
+            actor_meta = actor_snapshot(actor)
             for i, r in enumerate(rows):
-                if r.get("tripId") == group_trip_id and (r.get("campName") or "") == group_camp_name:
+                if r.get("tripId") != group_trip_id or (r.get("campName") or "") != group_camp_name:
+                    continue
+                if stage in ("deposit", "balance"):
+                    date_field = "depositPaidDate" if stage == "deposit" else "secondPaidDate"
+                    updated = {**r, date_field: paid_date or r.get(date_field) or now_iso[:10],
+                               "updatedAt": now_iso, "updatedBy": actor_meta}
+                    deposit_amt = float(updated.get("deposit") or 0)
+                    second_amt = float(updated.get("secondPayment") or 0)
+                    deposit_done = (deposit_amt <= 0) or bool(updated.get("depositPaidDate"))
+                    second_done = (second_amt <= 0) or bool(updated.get("secondPaidDate"))
+                    if deposit_done and second_done and (deposit_amt > 0 or second_amt > 0):
+                        updated["paymentStatus"] = "paid"
+                        updated["paidDate"] = paid_date or updated.get("paidDate") or now_iso[:10]
+                    rows[i] = updated
+                else:
                     rows[i] = {
                         **r,
                         "paymentStatus": "paid",
                         "paidDate": paid_date or r.get("paidDate") or "",
-                        "updatedAt": now_mongolia().isoformat(),
-                        "updatedBy": actor_snapshot(actor),
+                        "updatedAt": now_iso,
+                        "updatedBy": actor_meta,
                     }
-                    changed = True
+                changed = True
             if changed:
                 write_camp_reservations(rows)
 

@@ -863,6 +863,7 @@ let expenseTrips = [];
 // the accountant's approval flips the right reservation to paid.
 let expenseRecordType = "";
 let expenseRecordId = "";
+let expenseStage = "";
 
 async function loadExpenseSettings() {
   try {
@@ -1077,6 +1078,7 @@ window.openExpenseRequestModal = async function openExpenseRequestModal(opts = {
   // so approval flips the linked reservation's paymentStatus.
   expenseRecordType = (opts.recordType || "").toString().toLowerCase();
   expenseRecordId = (opts.recordId || "").toString();
+  expenseStage = (opts.stage || "").toString().toLowerCase();
   expenseOnSuccess = opts.onSuccess || null;
   expenseModalNode.classList.remove("is-hidden");
   document.body.classList.add("modal-open");
@@ -1089,6 +1091,7 @@ function closeExpenseRequestModal() {
   expenseOnSuccess = null;
   expenseRecordType = "";
   expenseRecordId = "";
+  expenseStage = "";
 }
 
 async function submitExpenseRequest(event) {
@@ -1110,6 +1113,7 @@ async function submitExpenseRequest(event) {
     tripId: fd.get("scope") === "trip" ? (fd.get("tripId") || "") : "",
     recordType: expenseRecordType,
     recordId: expenseRecordId,
+    stage: expenseStage,
     payeeName: (fd.get("payeeName") || "").trim(),
     paidAmount: Number(fd.get("paidAmount") || 0),
     currency: fd.get("currency") || "MNT",

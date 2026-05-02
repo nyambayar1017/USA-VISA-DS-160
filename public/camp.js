@@ -1595,9 +1595,12 @@ function renderActiveTripCampPayments() {
       paidAmount: Number(entry.paidAmount || 0),
       paymentStatus: entry.paymentStatus || "",
       currency: entry.currency || "MNT",
-      invoiceDocumentId: entry.invoiceDocumentId || "",
-      invoiceDocumentName: entry.invoiceDocumentName || "",
-      invoiceStoredName: entry.invoiceStoredName || "",
+      depositInvoiceDocumentId: entry.depositInvoiceDocumentId || entry.invoiceDocumentId || "",
+      depositInvoiceDocumentName: entry.depositInvoiceDocumentName || entry.invoiceDocumentName || "",
+      depositInvoiceStoredName: entry.depositInvoiceStoredName || entry.invoiceStoredName || "",
+      balanceInvoiceDocumentId: entry.balanceInvoiceDocumentId || "",
+      balanceInvoiceDocumentName: entry.balanceInvoiceDocumentName || "",
+      balanceInvoiceStoredName: entry.balanceInvoiceStoredName || "",
     };
     group.reservations += 1;
     grouped.set(key, group);
@@ -1610,28 +1613,48 @@ function renderActiveTripCampPayments() {
   const pendingSet = window.pendingCampGroupPaymentSet || new Set();
   const approvedCounts = window.approvedCampGroupCount || new Map();
 
-  const renderActionsCell = (row) => {
-    const status = (row.paymentStatus || "in_progress").toLowerCase();
-    const isPaid = status === "paid" || status === "paid_100";
-    const isPending = pendingSet.has(row.key);
-    const requestPart = isPaid
+  // One stage = one table cell containing amount + paid pill, paid
+  // date, invoice link/upload button, and a Request payment button
+  // (or REQUEST SENT pill while a stage-specific camp_group request
+  // is awaiting accountant approval).
+  const renderStageCell = (row, stage, amount, paidDate, invoice) => {
+    const stageKey = `${row.key}::${stage}`;
+    const isPending = pendingSet.has(stageKey);
+    const isPaid = !!paidDate;
+    const hasAmount = amount > 0;
+    const invoiceCtl = invoice.documentId && invoice.storedName
+      ? `<a class="table-link compact" target="_blank" rel="noopener" href="/trip-uploads/${encodeURIComponent(row.tripId)}/${encodeURIComponent(invoice.storedName)}" title="${escapeHtml(invoice.documentName || "Invoice")}">📎 View invoice</a>
+         <button type="button" class="link-button compact" data-action="upload-camp-group-invoice" data-group-key="${escapeHtml(row.key)}" data-stage="${stage}" title="Replace invoice">Replace</button>`
+      : `<button type="button" class="link-button compact" data-action="upload-camp-group-invoice" data-group-key="${escapeHtml(row.key)}" data-stage="${stage}">📎 Upload invoice</button>`;
+    const requestCtl = isPaid
       ? ""
       : isPending
         ? `<span class="status-pill is-pending" title="Awaiting accountant approval">REQUEST SENT</span>`
-        : `<button type="button" class="table-action compact" data-action="request-camp-group-payment"
-              data-group-key="${escapeHtml(row.key)}"
-              data-trip-id="${escapeHtml(row.tripId)}"
-              data-camp-name="${escapeHtml(row.campName)}"
-              data-amount="${escapeHtml(String(row.balancePayment > 0 ? row.balancePayment : row.totalPayment))}"
-              data-currency="${escapeHtml(row.currency || "MNT")}">Request payment</button>`;
+        : (hasAmount
+            ? `<button type="button" class="table-action compact" data-action="request-camp-group-payment"
+                  data-group-key="${escapeHtml(row.key)}"
+                  data-trip-id="${escapeHtml(row.tripId)}"
+                  data-camp-name="${escapeHtml(row.campName)}"
+                  data-amount="${escapeHtml(String(amount))}"
+                  data-currency="${escapeHtml(row.currency || "MNT")}"
+                  data-stage="${stage}">Request payment</button>`
+            : "");
     return `
-      <div class="trip-row-actions payment-row-actions">
-        <button type="button" class="table-action compact secondary" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Edit</button>
-        ${requestPart}
-        <button type="button" class="table-action compact danger" data-action="delete-payment-group" data-group-key="${escapeHtml(row.key)}">Delete</button>
-      </div>
+      <td class="stage-cell">
+        <div class="stage-cell-amount">${formatMoney(amount)} ${hasAmount ? (isPaid ? `<span class="stage-pill is-paid">Paid</span>` : `<span class="stage-pill is-unpaid">Unpaid</span>`) : ""}</div>
+        <div class="stage-cell-date">${paidDate ? formatDate(paidDate) : "—"}</div>
+        <div class="stage-cell-invoice">${invoiceCtl}</div>
+        <div class="stage-cell-action">${requestCtl}</div>
+      </td>
     `;
   };
+
+  const renderActionsCell = (row) => `
+    <div class="trip-row-actions payment-row-actions">
+      <button type="button" class="table-action compact secondary" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Edit</button>
+      <button type="button" class="table-action compact danger" data-action="delete-payment-group" data-group-key="${escapeHtml(row.key)}">Delete</button>
+    </div>
+  `;
 
   activeTripCampPayments.classList.remove("is-hidden");
   activeTripCampPayments.innerHTML = `
@@ -1644,16 +1667,11 @@ function renderActiveTripCampPayments() {
           <tr>
             <th>#</th>
             <th>Camp</th>
-            <th>Reservations</th>
+            <th>Res.</th>
             <th>Deposit</th>
-            <th>Deposit paid date</th>
-            <th>2nd payment</th>
-            <th>2nd paid date</th>
-            <th>Paid</th>
             <th>Balance</th>
             <th>Total</th>
             <th>Status</th>
-            <th>Invoice</th>
             <th>Receipts</th>
             <th>Actions</th>
           </tr>
@@ -1662,29 +1680,23 @@ function renderActiveTripCampPayments() {
           ${rows
             .map((row, index) => {
               const approvedCount = approvedCounts.get(row.key) || 0;
-              const stagePill = (amount, paidDate) => {
-                if (!amount || amount <= 0) return "";
-                return paidDate
-                  ? `<span class="stage-pill is-paid">Paid</span>`
-                  : `<span class="stage-pill is-unpaid">Unpaid</span>`;
-              };
               return `
                 <tr>
                   <td class="table-center">${index + 1}</td>
                   <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button></td>
                   <td class="table-center">${row.reservations}</td>
-                  <td class="table-right">${formatMoney(row.deposit)} ${stagePill(row.deposit, row.depositPaidDate)}</td>
-                  <td>${formatDate(row.depositPaidDate)}</td>
-                  <td class="table-right">${formatMoney(row.secondPayment)} ${stagePill(row.secondPayment, row.secondPaidDate)}</td>
-                  <td>${formatDate(row.secondPaidDate)}</td>
-                  <td class="table-right">${formatMoney(row.paidAmount)}</td>
-                  <td class="table-right">${formatMoney(row.balancePayment)}</td>
-                  <td class="table-right">${formatMoney(row.totalPayment)}</td>
+                  ${renderStageCell(row, "deposit", row.deposit, row.depositPaidDate, {
+                    documentId: row.depositInvoiceDocumentId,
+                    documentName: row.depositInvoiceDocumentName,
+                    storedName: row.depositInvoiceStoredName,
+                  })}
+                  ${renderStageCell(row, "balance", row.secondPayment, row.secondPaidDate, {
+                    documentId: row.balanceInvoiceDocumentId,
+                    documentName: row.balanceInvoiceDocumentName,
+                    storedName: row.balanceInvoiceStoredName,
+                  })}
+                  <td class="table-right"><strong>${formatMoney(row.totalPayment)}</strong></td>
                   <td><span class="status-pill is-${normalizeStatus(row.paymentStatus || "in_progress")}">${formatStatusLabel(row.paymentStatus || "in_progress")}</span></td>
-                  <td class="table-nowrap">${row.invoiceDocumentId && row.invoiceStoredName
-                    ? `<a class="table-link compact" target="_blank" rel="noopener" href="/trip-uploads/${encodeURIComponent(row.tripId)}/${encodeURIComponent(row.invoiceStoredName)}" title="${escapeHtml(row.invoiceDocumentName || "Invoice")}">View invoice</a>
-                       <button type="button" class="table-action compact secondary" data-action="upload-camp-group-invoice" data-group-key="${escapeHtml(row.key)}" title="Replace invoice">Replace</button>`
-                    : `<button type="button" class="table-action compact secondary" data-action="upload-camp-group-invoice" data-group-key="${escapeHtml(row.key)}">Upload</button>`}</td>
                   <td class="table-center">${approvedCount || "-"}</td>
                   <td>${renderActionsCell(row)}</td>
                 </tr>
@@ -2609,8 +2621,13 @@ async function loadPendingCampPaymentRequests() {
       window.pendingCampPaymentSet = new Set(
         entries.filter((x) => x.recordType === "camp_reservation" && x.recordId).map((x) => x.recordId)
       );
+      // Key by "<recordId>::<stage>" so each payment stage of a
+      // camp_group request has its own independent pending state.
+      // Stageless legacy requests fall back to "::" suffix.
       window.pendingCampGroupPaymentSet = new Set(
-        entries.filter((x) => x.recordType === "camp_group" && x.recordId).map((x) => x.recordId)
+        entries
+          .filter((x) => x.recordType === "camp_group" && x.recordId)
+          .map((x) => `${x.recordId}::${(x.stage || "").toLowerCase()}`)
       );
     }
     if (approvedRes.ok) {
@@ -3772,6 +3789,7 @@ async function handleCampTableClick(event) {
   }
   if (action === "upload-camp-group-invoice") {
     const groupKey = target.dataset.groupKey || "";
+    const stage = (target.dataset.stage || "deposit").toLowerCase();
     if (!groupKey) return;
     const picker = document.createElement("input");
     picker.type = "file";
@@ -3781,6 +3799,7 @@ async function handleCampTableClick(event) {
       if (!file) return;
       const fd = new FormData();
       fd.append("file", file);
+      fd.append("stage", stage);
       campStatus.textContent = "Uploading invoice…";
       try {
         const r = await fetch(`/api/camp-payment-groups/${encodeURIComponent(groupKey)}/invoice`, {
@@ -3805,11 +3824,13 @@ async function handleCampTableClick(event) {
     const tripId = target.dataset.tripId || "";
     const campName = target.dataset.campName || "";
     const amount = Number(target.dataset.amount || 0);
+    const stage = (target.dataset.stage || "").toLowerCase();
     window.openExpenseRequestModal({
       recordType: "camp_group",
       recordId: target.dataset.groupKey || `${tripId}::${campName}`,
+      stage,
       tripId,
-      payeeName: campName,
+      payeeName: stage ? `${campName} (${stage})` : campName,
       amount: amount > 0 ? amount : "",
       currency: target.dataset.currency || "MNT",
       category: "Camp / Hotel",
