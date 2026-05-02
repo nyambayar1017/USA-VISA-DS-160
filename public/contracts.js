@@ -1161,6 +1161,23 @@ const initContractForm = () => {
     }
   });
 
+  // Strip formatting when manager pastes from Word: drop the HTML
+  // payload, keep the plain text, and collapse non-breaking spaces
+  // / runs of whitespace so justified-text padding from Word doesn't
+  // ride along into the rendered contract.
+  tplSectionsHost?.addEventListener("paste", (event) => {
+    const target = event.target;
+    if (!target || !target.matches || !target.matches("[data-paragraph], [data-intro-paragraph]")) return;
+    event.preventDefault();
+    const raw = (event.clipboardData || window.clipboardData)?.getData("text/plain") || "";
+    const cleaned = raw
+      .replace(/ /g, " ")        // non-breaking → regular space
+      .replace(/[​-‍﻿]/g, "")  // zero-width chars
+      .replace(/[ \t]+/g, " ")        // collapse internal whitespace
+      .replace(/\r\n?/g, "\n");
+    document.execCommand("insertText", false, cleaned);
+  });
+
   tplSectionsHost?.addEventListener("click", (event) => {
     // Sync both intro + sections from current DOM before mutating.
     editorIntro = readEditorIntro();
