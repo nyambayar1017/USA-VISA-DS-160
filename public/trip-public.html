@@ -178,9 +178,16 @@ function mapServerToDesign(s) {
         drive: row.drive || '',
         accommodation: row.accommodation || '',
         meals: Array.isArray(row.meals) ? row.meals : [],
+        // Body normalises three input shapes into [{t,c}, …]:
+        //   - already an array of {t,c} blocks → used as-is
+        //   - a plain string (what the new paragraph editor saves) →
+        //     split on blank lines into one {t:'p', c} per paragraph
+        //   - legacy description/content single-string fields
         body: Array.isArray(row.body) ? row.body
-              : (row.description ? [{t:'p', c: row.description}]
-              : (row.content ? [{t:'p', c: row.content}] : [])),
+              : (typeof row.body === 'string' && row.body.trim()
+                  ? row.body.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(c => ({t:'p', c}))
+                  : (row.description ? [{t:'p', c: row.description}]
+                  : (row.content ? [{t:'p', c: row.content}] : []))),
       };
     }),
   };
