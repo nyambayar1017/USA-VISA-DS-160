@@ -2886,7 +2886,7 @@ function startTripEdit(id) {
   if (tripForm.elements.currency) tripForm.elements.currency.value = (trip.currency || "MNT").toUpperCase();
   tripForm.elements.totalDays.value = String(trip.totalDays || 1);
   if (tripForm.elements.language) tripForm.elements.language.value = trip.language || "";
-  tripForm.elements.status.value = trip.status || "planning";
+  tripForm.elements.status.value = trip.status || "offer";
   if (tripForm.elements.tags) {
     tripForm.elements.tags.value = Array.isArray(trip.tags) ? trip.tags.join(", ") : "";
     tripForm.elements.tags.dispatchEvent(new CustomEvent("destinations:set"));
@@ -2915,7 +2915,7 @@ function resetTripFormState() {
   setEl("staffTourLeader", "0"); setEl("staffShaman", "0"); setEl("staffShamanAsst", "0");
   setEl("currency", "MNT");
   tripForm.elements.totalDays.value = "1";
-  tripForm.elements.status.value = "planning";
+  tripForm.elements.status.value = "offer";
   if (tripForm.elements.tripType) tripForm.elements.tripType.value = "git";
   applyTripTypeMode();
   clearTripFlightRows();

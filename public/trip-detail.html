@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-406" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-407" />
   </head>
   <body class="app-body" data-page="home">
     <script>
@@ -77,11 +77,9 @@
               <select id="trip-filter-status">
                 <option value="">All statuses</option>
                 <option value="offer">Offer</option>
-                <option value="planning">Planning</option>
                 <option value="confirmed">Confirmed</option>
-                <option value="travelling">Travelling</option>
-                <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
+                <option value="ignored">Ignored</option>
               </select>
             </label>
             <label>
@@ -116,9 +114,23 @@
                   Start date
                   <input name="startDate" type="date" required />
                 </label>
+
+                <label>
+                  Total days of tour
+                  <input name="totalDays" type="number" min="1" value="1" required />
+                </label>
                 <label>
                   End date
                   <input name="endDate" type="date" />
+                </label>
+                <label>
+                  Status
+                  <select name="status">
+                    <option value="offer" selected>Offer</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="ignored">Ignored</option>
+                  </select>
                 </label>
                 <input type="hidden" name="participantCount" value="2" />
                 <input type="hidden" name="staffCount" value="0" />
@@ -142,23 +154,7 @@
                     <label>Shaman<input name="staffShaman" type="number" min="0" value="0" /></label>
                     <label>Shaman Assistant<input name="staffShamanAsst" type="number" min="0" value="0" /></label>
                   </div>
-                </div>
-                <label>
-                  Total days of tour
-                  <input name="totalDays" type="number" min="1" value="1" required />
-                </label>
-                <label>
-                  Status
-                  <select name="status">
-                    <option value="offer">Offer</option>
-                    <option value="planning">Planning</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="travelling">Travelling</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </label>
-                <label>
+                </div>                <label>
                   Language
                   <select name="language" id="trip-language-select" required>
                     <option value="">Choose language</option>
@@ -1306,7 +1302,7 @@
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-178"></script>
+    <script src="/camp.js?v=workspace-179"></script>
     <script src="/reservations-addon.js?v=workspace-28"></script>
     <script src="/participant-chooser.js?v=workspace-1"></script>
     <script src="/nationality-select.js?v=workspace-1"></script>
