@@ -157,17 +157,21 @@
       return d.toDateString();
     }
   }
-  // Populates the shared <datalist> with one option per location, label
-  // in the active trip language. Called whenever LOC_CACHE or the
-  // language changes.
-  function refreshLocationDatalist() {
-    const dl = document.getElementById("tc-locations-datalist");
-    if (!dl) return;
-    const lang = getActiveLanguage();
-    dl.innerHTML = LOC_CACHE.map((l) => {
-      const label = (l.names && l.names[lang]) || l.name || "";
-      return `<option value="${escapeHtml(label)}"></option>`;
-    }).join("");
+  // No-op stub — datalist was replaced by a popover that's wired below.
+  function refreshLocationDatalist() {}
+  // Day N's default date = trip.startDate + N-1 days (so Day 1 lands
+  // on the trip's start). Manager can still override; we only compute
+  // when the row's own date is blank.
+  function autoDayDate(idx, baseStr) {
+    const base = baseStr || window.__tcTripStartDate || "";
+    if (!base) return "";
+    const d = new Date(`${base}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return "";
+    d.setDate(d.getDate() + idx);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   function renderProgram(rows) {
@@ -182,7 +186,8 @@
         const heroId = ids[0] || (loc && (loc.imageIds || [])[0]) || "";
         const heroBg = heroId ? `background-image: url('/api/gallery/${encodeURIComponent(heroId)}/file?size=large');` : "";
         const hasHero = !!heroId;
-        const dateLong = formatLongDate(row.date, lang);
+        const effectiveDate = row.date || autoDayDate(idx);
+        const dateLong = formatLongDate(effectiveDate, lang);
         const titleVal = row.title || locLabel || "";
         const dayBadge = dayBadgeFor(idx, lang);
         return `
@@ -212,12 +217,12 @@
               </div>
               <input type="hidden" class="tc-program-day" value="${escapeHtml(row.day || dayBadge)}" />
               <div class="tc-program-card-meta">
-                <input type="date" class="tc-program-date tc-program-card-date" value="${escapeHtml(row.date || "")}" />
+                <input type="date" class="tc-program-date tc-program-card-date" value="${escapeHtml(effectiveDate)}" />
                 <span class="tc-program-card-datelong">${escapeHtml(dateLong)}</span>
               </div>
               <div class="tc-program-card-locrow">
                 <span class="tc-program-card-loclabel">📍 Location</span>
-                <input type="text" class="tc-program-location-name" data-idx="${idx}" list="tc-locations-datalist" value="${escapeHtml(locLabel)}" placeholder="Search locations…" />
+                <input type="text" class="tc-program-location-name" data-idx="${idx}" autocomplete="off" value="${escapeHtml(locLabel)}" placeholder="Search locations…" />
               </div>
               <textarea class="tc-program-body" rows="5" placeholder="Day narrative — what the travelers will do today. Type @ to insert a Content reference (turns into an orange link on the public page).">${escapeHtml(row.body || "")}</textarea>
             </div>
@@ -234,44 +239,124 @@
     renderProgram(current);
   });
 
-  // Searchable location picker — text input backed by the shared
-  // <datalist>. When the typed value matches a location label exactly
-  // (case-insensitive), we resolve it to its id, pre-fill the day's
-  // title, and pull the location's first photo as the hero — but only
-  // when the manager hasn't typed their own values for those fields.
-  // Also re-render the date so the long-form date below the input
-  // refreshes when the date input changes.
-  programList.addEventListener("change", (event) => {
-    const inp = event.target.closest(".tc-program-location-name");
-    const dateInp = event.target.closest(".tc-program-date");
-    if (inp) {
-      const idx = Number(inp.dataset.idx);
-      const typed = (inp.value || "").trim().toLowerCase();
-      const lang = getActiveLanguage();
-      const loc = LOC_CACHE.find((l) => {
-        const label = ((l.names && l.names[lang]) || l.name || "").toLowerCase();
-        return label && label === typed;
-      });
-      const current = readProgram();
-      const day = current[idx];
-      if (!day) return;
-      day.locationId = loc ? loc.id : "";
-      if (loc) {
-        const label = locationLabelFor(loc, lang);
-        if (label && !(day.title || "").trim()) day.title = label;
-        const firstImg = (loc.images || [])[0];
-        if (firstImg && !(day.imageIds || []).length) {
-          day.imageIds = [firstImg.id];
-        }
-      }
-      current[idx] = day;
-      renderProgram(current);
-      return;
+  // ── Custom location autocomplete popover ──
+  // Native <datalist> proved unreliable across browsers, so we render
+  // the suggestions ourselves. Focus a location input → popover anchors
+  // below it with all locations; type → list filters; click an option
+  // → the day's locationId is set and we re-render to pull title +
+  // hero photo from the location template.
+  const locPopover = document.getElementById("tc-loc-popover");
+  let locPopoverIdx = -1;
+  let locPopoverActive = -1; // keyboard cursor position
+
+  function locOptions(query) {
+    const q = (query || "").trim().toLowerCase();
+    const lang = getActiveLanguage();
+    const opts = LOC_CACHE.map((l) => ({
+      id: l.id,
+      label: ((l.names && l.names[lang]) || l.name || "").trim(),
+    })).filter((o) => o.label);
+    if (!q) return opts.slice(0, 30);
+    const starts = opts.filter((o) => o.label.toLowerCase().startsWith(q));
+    const contains = opts.filter((o) => !starts.includes(o) && o.label.toLowerCase().includes(q));
+    return [...starts, ...contains].slice(0, 30);
+  }
+
+  function showLocPopover(input, idx) {
+    if (!locPopover || !input) return;
+    locPopoverIdx = idx;
+    const opts = locOptions(input.value);
+    if (!LOC_CACHE.length) {
+      locPopover.innerHTML = `<div class="tc-loc-popover-empty">No locations saved yet. <a href="/templates" target="_blank">Add locations →</a></div>`;
+    } else if (!opts.length) {
+      locPopover.innerHTML = `<div class="tc-loc-popover-empty">No matches for "${escapeHtml(input.value)}".</div>`;
+    } else {
+      locPopover.innerHTML = opts.map((o, i) => `
+        <button type="button" class="tc-loc-popover-item ${i === 0 ? "is-focus" : ""}" data-loc-id="${escapeHtml(o.id)}" data-loc-label="${escapeHtml(o.label)}">
+          ${escapeHtml(o.label)}
+        </button>
+      `).join("");
     }
+    locPopoverActive = 0;
+    const r = input.getBoundingClientRect();
+    locPopover.style.left = `${window.scrollX + r.left}px`;
+    locPopover.style.top = `${window.scrollY + r.bottom + 4}px`;
+    locPopover.style.width = `${r.width}px`;
+    locPopover.hidden = false;
+  }
+  function hideLocPopover() {
+    if (!locPopover) return;
+    locPopover.hidden = true;
+    locPopoverIdx = -1;
+  }
+  function commitLocPick(idAttr, labelAttr) {
+    if (locPopoverIdx < 0) return;
+    const idx = locPopoverIdx;
+    const lang = getActiveLanguage();
+    const current = readProgram();
+    const day = current[idx];
+    if (!day) return;
+    day.locationId = idAttr;
+    const loc = LOC_CACHE.find((l) => l.id === idAttr);
+    if (loc) {
+      const label = locationLabelFor(loc, lang);
+      if (label && !(day.title || "").trim()) day.title = label;
+      const firstImg = (loc.images || [])[0];
+      if (firstImg && !(day.imageIds || []).length) day.imageIds = [firstImg.id];
+    }
+    current[idx] = day;
+    hideLocPopover();
+    renderProgram(current);
+  }
+
+  programList.addEventListener("focusin", (e) => {
+    const inp = e.target.closest(".tc-program-location-name");
+    if (!inp) return;
+    showLocPopover(inp, Number(inp.dataset.idx));
+  });
+  programList.addEventListener("input", (e) => {
+    const inp = e.target.closest(".tc-program-location-name");
+    if (!inp) return;
+    showLocPopover(inp, Number(inp.dataset.idx));
+  });
+  programList.addEventListener("keydown", (e) => {
+    const inp = e.target.closest(".tc-program-location-name");
+    if (!inp || locPopover.hidden) return;
+    const items = Array.from(locPopover.querySelectorAll(".tc-loc-popover-item"));
+    if (!items.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      locPopoverActive = (locPopoverActive + 1) % items.length;
+      items.forEach((it, i) => it.classList.toggle("is-focus", i === locPopoverActive));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      locPopoverActive = (locPopoverActive - 1 + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle("is-focus", i === locPopoverActive));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const it = items[locPopoverActive];
+      if (it) commitLocPick(it.dataset.locId, it.dataset.locLabel);
+    } else if (e.key === "Escape") {
+      hideLocPopover();
+    }
+  });
+  document.addEventListener("mousedown", (e) => {
+    if (locPopover.hidden) return;
+    if (locPopover.contains(e.target)) return;
+    if (e.target.closest(".tc-program-location-name")) return;
+    hideLocPopover();
+  });
+  locPopover?.addEventListener("mousedown", (e) => {
+    const btn = e.target.closest("[data-loc-id]");
+    if (!btn) return;
+    e.preventDefault();
+    commitLocPick(btn.dataset.locId, btn.dataset.locLabel);
+  });
+
+  // Date input change → re-render so the long-form locale date refreshes.
+  programList.addEventListener("change", (event) => {
+    const dateInp = event.target.closest(".tc-program-date");
     if (dateInp) {
-      // Re-render so the localised long-form date below the input
-      // (Saturday 11 July 2026) refreshes immediately. The date input's
-      // value is already in the DOM via readProgram.
       renderProgram(readProgram());
     }
   });
@@ -547,6 +632,9 @@
       await locsLoading;
       const trip = (tripsRes.entries || []).find((t) => t.id === tripId);
       if (trip) {
+        // Stash the trip's start date so day rows can auto-derive their
+        // own dates (Day 1 = startDate, Day 2 = startDate + 1, …).
+        window.__tcTripStartDate = trip.startDate || "";
         titleNode.textContent = `Trip Creator · ${trip.tripName || trip.serial || ""}`.trim();
         metaNode.textContent = [
           trip.serial,

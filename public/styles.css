@@ -16406,31 +16406,31 @@ body[data-page="trip-creator"] .workspace-main {
   margin: 0;
 }
 
-.tc-program-list { gap: 16px; }
+.tc-program-list { gap: 18px; }
 body[data-page="trip-creator"] .tc-program-card {
-  background: #fff !important;
-  border: 1px solid rgba(31, 27, 22, 0.12) !important;
-  border-radius: 16px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
   padding: 0 !important;
   display: grid !important;
-  grid-template-columns: 280px 1fr !important;
-  gap: 0 !important;
-  overflow: hidden;
+  grid-template-columns: 260px 1fr !important;
+  gap: 18px !important;
+  align-items: start !important;
   position: relative;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
-body[data-page="trip-creator"] .tc-program-card.no-hero { grid-template-columns: 280px 1fr !important; }
+body[data-page="trip-creator"] .tc-program-card.no-hero { grid-template-columns: 260px 1fr !important; }
 .tc-program-card-photo {
   position: relative;
   background: #f1eee8 center/cover no-repeat;
-  min-height: 220px;
+  height: 160px;
+  border-radius: 14px;
   display: flex;
   align-items: flex-end;
-  padding: 12px;
-  border-right: 1px solid rgba(31, 27, 22, 0.08);
+  padding: 10px;
+  border: 1px solid rgba(31, 27, 22, 0.08);
 }
 .tc-program-card.no-hero .tc-program-card-photo {
-  background: linear-gradient(135deg, rgba(197,97,63,0.05), rgba(31,27,22,0.04));
+  background: linear-gradient(135deg, rgba(197,97,63,0.06), rgba(31,27,22,0.04));
   align-items: center;
   justify-content: center;
 }
@@ -16473,6 +16473,10 @@ body[data-page="trip-creator"] .tc-program-card.no-hero { grid-template-columns:
   gap: 10px;
   position: relative;
   min-width: 0;
+  background: #fff;
+  border: 1px solid rgba(31, 27, 22, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .tc-program-card-head {
   display: flex;
@@ -16569,9 +16573,38 @@ body[data-page="trip-creator"] .tc-program-card-body .tc-program-body:focus { ou
 @media (max-width: 880px) {
   body[data-page="trip-creator"] .tc-program-card,
   body[data-page="trip-creator"] .tc-program-card.no-hero { grid-template-columns: 1fr !important; }
-  .tc-program-card-photo { border-right: 0; border-bottom: 1px solid rgba(31, 27, 22, 0.08); }
   .tc-hero-title { font-size: 1.8rem; }
 }
+
+/* Custom location autocomplete popover (replaces native datalist). */
+.tc-loc-popover {
+  position: absolute;
+  z-index: 200;
+  max-height: 280px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid rgba(31, 27, 22, 0.18);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 4px 0;
+  min-width: 220px;
+}
+.tc-loc-popover-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  color: #1e293b;
+  cursor: pointer;
+  font-family: inherit;
+}
+.tc-loc-popover-item:hover,
+.tc-loc-popover-item.is-focus { background: rgba(197, 97, 63, 0.08); color: #c5613f; }
+.tc-loc-popover-empty { padding: 10px 14px; color: #94a3b8; font-size: 0.85rem; }
+.tc-loc-popover-empty a { color: #c5613f; text-decoration: underline; }
 body[data-page="trip-creator"] .workspace-topbar h1 {
   color: var(--tp-dk);
 }
