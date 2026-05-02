@@ -413,29 +413,6 @@ def write_contracts(contracts):
     write_json_list(CONTRACTS_FILE, contracts)
 
 
-# Manager-created contract templates: a small library of named DOCX
-# files so different destinations / scenarios can have their own
-# wording while the page header + footer + margins stay locked in
-# code (build_contract_html). The .docx files live under
-# data/contract-templates/<id>.docx; the JSON index (id, name,
-# notes, createdBy, etc) lives in CONTRACT_TEMPLATES_FILE so we
-# don't have to read the directory to list templates.
-CONTRACT_TEMPLATES_DIR = DATA_DIR / "contract-templates"
-CONTRACT_TEMPLATES_FILE = DATA_DIR / "contract_templates.json"
-
-
-def read_contract_templates():
-    return read_json_list(CONTRACT_TEMPLATES_FILE)
-
-
-def write_contract_templates(records):
-    write_json_list(CONTRACT_TEMPLATES_FILE, records)
-
-
-def contract_template_docx_path(template_id):
-    return CONTRACT_TEMPLATES_DIR / f"{template_id}.docx"
-
-
 def read_ds160_applications():
     records = read_json_list(DS160_FILE)
     normalized = [normalize_ds160_record(record) for record in records if isinstance(record, dict)]
@@ -3963,7 +3940,6 @@ def build_contract_data(payload):
         "emergencyContactRelation": normalize_text(payload.get("emergencyContactRelation")),
         "emergencyContactPhone": normalize_text(payload.get("emergencyContactPhone")),
         "destination": normalize_text(payload.get("destination")),
-        "templateId": normalize_text(payload.get("templateId")),
         "tripStartDate": trip_start,
         "tripEndDate": trip_end,
         "tripDuration": trip_duration,
@@ -4232,16 +4208,7 @@ def replace_template_paragraphs(root, data):
             set_paragraph_text(paragraph, "Зорчих чиглэл нь визтэй эсвэл визний тусгай нөхцөлтэй чиглэл бол энэхүү гэрээний Хавсралт 2 - Харилцан ойлголцлын санамж бичиг нь гэрээний салшгүй хэсэг байна.")
 
 
-def get_contract_template_path(template_id=None):
-    """When a contract carries a `templateId`, look up the manager-
-    uploaded template under data/contract-templates/<id>.docx. Falls
-    back to the built-in default template if the id is missing or
-    the file has been deleted, so existing contracts never break.
-    """
-    if template_id:
-        custom = contract_template_docx_path(template_id)
-        if custom.exists():
-            return custom
+def get_contract_template_path():
     template_path = TEMPLATE_FILE
     if not template_path.exists() and ALT_TEMPLATE.exists():
         template_path = ALT_TEMPLATE
@@ -4251,8 +4218,7 @@ def get_contract_template_path(template_id=None):
 
 
 def load_contract_template_root(data):
-    template_id = (data or {}).get("templateId") or ""
-    template_path = get_contract_template_path(template_id)
+    template_path = get_contract_template_path()
     if not template_path.exists():
         return None
 
@@ -16691,147 +16657,6 @@ def build_invoice_from_contract(contract, actor):
     }
 
 
-def handle_list_contract_templates(environ, start_response):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    return json_response(start_response, "200 OK", {"entries": read_contract_templates()})
-
-
-def handle_create_contract_template(environ, start_response):
-    """Manager uploads a .docx, names it, and we save the file +
-    record. Body parsing happens at contract-render time, so
-    nothing about the DOCX is validated up-front beyond extension.
-    """
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    content_type = environ.get("CONTENT_TYPE", "")
-    if "multipart/form-data" not in content_type:
-        return json_response(start_response, "400 Bad Request", {"error": "Multipart upload required."})
-    fields, files = parse_multipart(environ)
-    name = (normalize_text(fields.get("name")) or "").strip()
-    notes = (normalize_text(fields.get("notes")) or "").strip()
-    upload = files.get("file")
-    if not name:
-        return json_response(start_response, "400 Bad Request", {"error": "Template name is required."})
-    if not upload:
-        return json_response(start_response, "400 Bad Request", {"error": "DOCX file is required."})
-    original = upload.get("filename") or "template.docx"
-    if not original.lower().endswith(".docx"):
-        return json_response(start_response, "400 Bad Request", {"error": "Only .docx files are accepted."})
-    data = upload.get("data") or b""
-    if not data:
-        return json_response(start_response, "400 Bad Request", {"error": "Uploaded file is empty."})
-    CONTRACT_TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
-    template_id = uuid4().hex
-    contract_template_docx_path(template_id).write_bytes(data)
-    record = {
-        "id": template_id,
-        "name": name,
-        "notes": notes,
-        "originalName": original,
-        "size": len(data),
-        "createdAt": now_mongolia().isoformat(),
-        "createdBy": actor_snapshot(actor),
-        "updatedAt": now_mongolia().isoformat(),
-        "updatedBy": actor_snapshot(actor),
-    }
-    records = read_contract_templates()
-    records.insert(0, record)
-    write_contract_templates(records)
-    return json_response(start_response, "201 Created", {"ok": True, "entry": record})
-
-
-def handle_update_contract_template(environ, start_response, template_id):
-    """Rename + update notes. Multipart with a `file` field also
-    replaces the underlying .docx (existing contract data points at
-    templateId, not a content hash, so re-rendering a past contract
-    would pick up the replacement — same as Word's "save over the
-    template" behaviour the user described).
-    """
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    records = read_contract_templates()
-    target = next((r for r in records if r.get("id") == template_id), None)
-    if not target:
-        return json_response(start_response, "404 Not Found", {"error": "Template not found."})
-    content_type = environ.get("CONTENT_TYPE", "")
-    if "multipart/form-data" in content_type:
-        fields, files = parse_multipart(environ)
-        upload = files.get("file")
-    else:
-        fields = collect_json(environ) or {}
-        upload = None
-    if "name" in fields:
-        name = (normalize_text(fields.get("name")) or "").strip()
-        if not name:
-            return json_response(start_response, "400 Bad Request", {"error": "Template name is required."})
-        target["name"] = name
-    if "notes" in fields:
-        target["notes"] = (normalize_text(fields.get("notes")) or "").strip()
-    if upload:
-        original = upload.get("filename") or "template.docx"
-        if not original.lower().endswith(".docx"):
-            return json_response(start_response, "400 Bad Request", {"error": "Only .docx files are accepted."})
-        data = upload.get("data") or b""
-        if not data:
-            return json_response(start_response, "400 Bad Request", {"error": "Uploaded file is empty."})
-        CONTRACT_TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
-        contract_template_docx_path(template_id).write_bytes(data)
-        target["originalName"] = original
-        target["size"] = len(data)
-    target["updatedAt"] = now_mongolia().isoformat()
-    target["updatedBy"] = actor_snapshot(actor)
-    for i, r in enumerate(records):
-        if r.get("id") == template_id:
-            records[i] = target
-            break
-    write_contract_templates(records)
-    return json_response(start_response, "200 OK", {"ok": True, "entry": target})
-
-
-def handle_delete_contract_template(environ, start_response, template_id):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    records = read_contract_templates()
-    remaining = [r for r in records if r.get("id") != template_id]
-    if len(remaining) == len(records):
-        return json_response(start_response, "404 Not Found", {"error": "Template not found."})
-    write_contract_templates(remaining)
-    docx = contract_template_docx_path(template_id)
-    if docx.exists():
-        try:
-            docx.unlink()
-        except Exception:
-            pass
-    return json_response(start_response, "200 OK", {"ok": True, "deletedId": template_id})
-
-
-def handle_download_contract_template(environ, start_response, template_id):
-    actor = require_login(environ, start_response)
-    if not actor:
-        return []
-    records = read_contract_templates()
-    target = next((r for r in records if r.get("id") == template_id), None)
-    if not target:
-        return json_response(start_response, "404 Not Found", {"error": "Template not found."})
-    docx = contract_template_docx_path(template_id)
-    if not docx.exists():
-        return json_response(start_response, "404 Not Found", {"error": "Template file missing."})
-    payload = docx.read_bytes()
-    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", target.get("name") or "template") + ".docx"
-    headers = [
-        ("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        ("Content-Length", str(len(payload))),
-        ("Content-Disposition", f'attachment; filename="{safe_name}"'),
-    ]
-    start_response("200 OK", headers)
-    return [payload]
-
-
 def handle_generate_contract(environ, start_response):
     actor = require_login(environ, start_response)
     if not actor:
@@ -20004,27 +19829,6 @@ def _dispatch(environ, start_response):
         if filename:
             return handle_download_backup(environ, start_response, filename)
         return json_response(start_response, "404 Not Found", {"error": "Backup not found"})
-
-    if path == "/api/contract-templates":
-        if method == "GET":
-            return handle_list_contract_templates(environ, start_response)
-        if method == "POST":
-            return handle_create_contract_template(environ, start_response)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
-    if path.startswith("/api/contract-templates/") and path.endswith("/document"):
-        template_id = path.replace("/api/contract-templates/", "", 1).replace("/document", "", 1).strip("/")
-        if method == "GET" and template_id:
-            return handle_download_contract_template(environ, start_response, template_id)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
-
-    if path.startswith("/api/contract-templates/"):
-        template_id = path.replace("/api/contract-templates/", "", 1).strip("/")
-        if method == "POST" and template_id:
-            return handle_update_contract_template(environ, start_response, template_id)
-        if method == "DELETE" and template_id:
-            return handle_delete_contract_template(environ, start_response, template_id)
-        return json_response(start_response, "405 Method Not Allowed", {"error": "Method not allowed"})
 
     if path == "/api/contracts":
         if method == "GET":
