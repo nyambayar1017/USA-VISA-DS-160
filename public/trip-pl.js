@@ -14,6 +14,7 @@
   const section = document.getElementById("trip-pnl-section");
   if (!section) return;
   const tbody = document.getElementById("trip-pl-tbody");
+  const tfoot = document.getElementById("trip-pl-tfoot");
   const summary = document.getElementById("trip-pl-summary");
   const addBtn = document.getElementById("trip-pl-add-line");
   if (!tbody || !summary) return;
@@ -56,11 +57,13 @@
   async function load() {
     const tripId = getTripId();
     if (!tripId) return;
-    const [tripsResp, invoicesResp, paymentsResp, campResp] = await Promise.all([
+    const [tripsResp, invoicesResp, paymentsResp, campResp, flightResp, transferResp] = await Promise.all([
       fetchJson("/api/camp-trips", { entries: [] }),
       fetchJson("/api/invoices", { entries: [] }),
       fetchJson(`/api/payment-requests?invoiceId=&workspace=`, { entries: [] }),
       fetchJson("/api/camp-reservations", { entries: [] }),
+      fetchJson("/api/flight-reservations", { entries: [] }),
+      fetchJson("/api/transfer-reservations", { entries: [] }),
     ]);
     const trips = tripsResp.entries || tripsResp || [];
     const trip = trips.find((t) => t.id === tripId);
@@ -164,7 +167,8 @@
     };
 
     // Render rows.
-    if (!expenseLines.length && !outgoingPaid.length && !outgoingPending.length) {
+    const hasAnyData = expenseLines.length || outgoingPaid.length || outgoingPending.length || tripCampRes.length;
+    if (!hasAnyData) {
       tbody.innerHTML = `<tr><td colspan="8" class="empty">No expense plan for this trip. Edit the trip and pick a costing template, or add lines manually.</td></tr>`;
     } else {
       const vendorCell = (req) => {
@@ -204,9 +208,21 @@
       });
 
       // Plus any paid/pending requests that didn't match a planned line
-      // (manager added an ad-hoc expense from the ₮ flow).
-      const adhoc = outgoingPaid.filter((r) => !usedReqIds.has(r.id))
-        .concat(outgoingPending.filter((p) => !expenseLines.some((l) => (l.category || "").toLowerCase() === (p.category || "").toLowerCase())));
+      // (manager added an ad-hoc expense from the ₮ flow). Skip
+      // camp_group / camp_reservation requests — those already
+      // surface as their own camp rows below to avoid double-counting.
+      const adhoc = outgoingPaid
+        .filter((r) => !usedReqIds.has(r.id))
+        .filter((r) => {
+          const rt = (r.recordType || "").toLowerCase();
+          return rt !== "camp_group" && rt !== "camp_reservation";
+        })
+        .concat(outgoingPending
+          .filter((p) => !expenseLines.some((l) => (l.category || "").toLowerCase() === (p.category || "").toLowerCase()))
+          .filter((p) => {
+            const rt = (p.recordType || "").toLowerCase();
+            return rt !== "camp_group" && rt !== "camp_reservation";
+          }));
       adhoc.forEach((r) => {
         const status = (r.status || "") === "approved"
           ? `<span class="payment-status paid">Paid</span>`
@@ -225,7 +241,109 @@
         `);
       });
 
+      // Camp paid stages — one row per (camp+trip group, stage) where
+      // a paidDate is set. Counts directly from camp_reservation so
+      // deposits set via the Edit camp payment modal show up here even
+      // when no payment_request was raised. Day labels mirror the
+      // Camp payments box.
+      const seenCampGroupRow = new Set();
+      tripCampRes.forEach((entry) => {
+        const groupKey = `${entry.tripId}::${entry.campName}`;
+        if (seenCampGroupRow.has(groupKey)) return;
+        seenCampGroupRow.add(groupKey);
+        const stages = [
+          { label: "Deposit", paidDate: entry.depositPaidDate, amount: entry.deposit, invoiceStored: entry.depositInvoiceStoredName, invoiceName: entry.depositInvoiceDocumentName },
+          { label: "Balance", paidDate: entry.secondPaidDate, amount: entry.secondPayment, invoiceStored: entry.balanceInvoiceStoredName, invoiceName: entry.balanceInvoiceDocumentName },
+          { label: "3rd",     paidDate: entry.thirdPaidDate, amount: entry.thirdPayment, invoiceStored: entry.thirdInvoiceStoredName, invoiceName: entry.thirdInvoiceDocumentName },
+          { label: "4th",     paidDate: entry.fourthPaidDate, amount: entry.fourthPayment, invoiceStored: entry.fourthInvoiceStoredName, invoiceName: entry.fourthInvoiceDocumentName },
+        ];
+        const dayLabel = (function () {
+          const ts = trip.startDate ? new Date(`${trip.startDate}T00:00:00`).getTime() : NaN;
+          const ci = entry.checkIn ? new Date(`${entry.checkIn}T00:00:00`).getTime() : NaN;
+          if (Number.isNaN(ts) || Number.isNaN(ci)) return "—";
+          const start = Math.round((ci - ts) / (1000 * 60 * 60 * 24)) + 1;
+          if (start <= 0) return "—";
+          const nights = Math.max(Number(entry.nights || 1), 1);
+          return nights === 1 ? `Day ${start}` : `Day ${start}-${start + nights - 1}`;
+        })();
+        stages.forEach((s) => {
+          if (!s.paidDate || !(Number(s.amount) > 0)) return;
+          const invoiceLink = s.invoiceStored
+            ? `<a href="/trip-uploads/${encodeURIComponent(entry.tripId)}/${encodeURIComponent(s.invoiceStored)}" target="_blank" rel="noreferrer">${escapeHtml(s.invoiceName || "Invoice")}</a>`
+            : `<span class="muted">—</span>`;
+          lineRows.push(`
+            <tr>
+              <td>${escapeHtml(dayLabel)}</td>
+              <td>Camp · ${escapeHtml(s.label)}</td>
+              <td>${escapeHtml(entry.campName || "—")}</td>
+              <td class="muted">—</td>
+              <td>${escapeHtml(entry.currency || "MNT")} ${Number(s.amount).toLocaleString()}</td>
+              <td>${invoiceLink}</td>
+              <td><span class="payment-status paid">Paid · ${escapeHtml(s.paidDate)}</span></td>
+              <td></td>
+            </tr>
+          `);
+        });
+      });
+
+      // Flight + transfer reservations linked to this trip — show
+      // every paid one as a row. paidAmount lives on the approved
+      // payment_request, so we match by recordId. paymentStatus on
+      // the reservation flips to "paid" when the request is approved.
+      const flightRes = (flightResp.entries || []).filter((e) => e.tripId === tripId);
+      const transferRes = (transferResp.entries || []).filter((e) => e.tripId === tripId);
+      const reqByRecordId = new Map();
+      outgoingPaid.forEach((r) => {
+        const rt = (r.recordType || "").toLowerCase();
+        if (rt === "flight_reservation" || rt === "transfer_reservation") {
+          reqByRecordId.set(r.recordId || "", r);
+        }
+      });
+      const reservationDayLabel = (entry) => {
+        const ts = trip.startDate ? new Date(`${trip.startDate}T00:00:00`).getTime() : NaN;
+        const ci = entry.flightDate || entry.transferDate || entry.checkIn || "";
+        const cit = ci ? new Date(`${ci}T00:00:00`).getTime() : NaN;
+        if (Number.isNaN(ts) || Number.isNaN(cit)) return "—";
+        const start = Math.round((cit - ts) / (1000 * 60 * 60 * 24)) + 1;
+        return start > 0 ? `Day ${start}` : "—";
+      };
+      const pushReservationRow = (entry, kind) => {
+        const status = (entry.paymentStatus || "").toLowerCase();
+        if (status !== "paid" && status !== "paid_100" && status !== "paid_deposit") return;
+        const req = reqByRecordId.get(entry.id);
+        const amt = req?.paidAmount ?? entry.totalPrice ?? 0;
+        const ccy = req?.currency || entry.currency || "MNT";
+        const payee = entry.airline || entry.vendor || entry.companyName || entry.driverName || "—";
+        lineRows.push(`
+          <tr>
+            <td>${escapeHtml(reservationDayLabel(entry))}</td>
+            <td>${kind}</td>
+            <td>${escapeHtml(payee)}</td>
+            <td class="muted">—</td>
+            <td>${escapeHtml(ccy)} ${Number(amt).toLocaleString()}</td>
+            <td>${vendorCell(req)}</td>
+            <td><span class="payment-status paid">Paid${req?.paidDate ? ` · ${escapeHtml(req.paidDate)}` : ""}</span></td>
+            <td></td>
+          </tr>
+        `);
+      };
+      flightRes.forEach((e) => pushReservationRow(e, "Flight"));
+      transferRes.forEach((e) => pushReservationRow(e, "Transfer"));
+
       tbody.innerHTML = lineRows.join("");
+    }
+
+    // Footer totals on the Expenses table — total income, total
+    // expense (actual paid across all sources), net. Mirrors the
+    // tile values but keeps the bottom of the table readable as a
+    // self-contained statement.
+    if (tfoot) {
+      const totalsNet = incomeMnt - actualMnt;
+      tfoot.innerHTML = `
+        <tr class="trip-pl-total"><td colspan="3" class="table-right"><strong>Total income</strong></td><td colspan="5"><strong class="is-positive">MNT ${incomeMnt.toLocaleString()}</strong></td></tr>
+        <tr class="trip-pl-total"><td colspan="3" class="table-right"><strong>Total expense (actual paid)</strong></td><td colspan="5"><strong class="is-negative">MNT ${actualMnt.toLocaleString()}</strong></td></tr>
+        <tr class="trip-pl-total"><td colspan="3" class="table-right"><strong>Net (income − expense)</strong></td><td colspan="5"><strong class="${totalsNet >= 0 ? "is-positive" : "is-negative"}">MNT ${totalsNet.toLocaleString()}</strong></td></tr>
+      `;
     }
 
     // Summary cards.
