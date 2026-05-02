@@ -28,6 +28,7 @@ const tripToggleForm = document.querySelector("#trip-toggle-form");
 const tripFormPanel = document.querySelector("#trip-form-panel");
 const activeTripBox = document.querySelector("#active-trip");
 const activeTripReservations = document.querySelector("#active-trip-reservations");
+const activeTripCampPayments = document.querySelector("#active-trip-camp-payments");
 const activeCampReservations = document.querySelector("#active-camp-reservations");
 const reservationEditPanel = document.querySelector("#reservation-edit-panel");
 const paymentEditPanel = document.querySelector("#payment-edit-panel");
@@ -674,7 +675,7 @@ function setActiveTrip(tripId, options = {}) {
   renderEntries();
   renderActiveTripReservations();
   renderActiveCampReservations();
-  renderCampPayments();
+  renderCampPayments();  renderActiveTripCampPayments();
   if (isTripDetailPage() && activeTripId) {
     const ws = (typeof readWorkspace === "function" ? readWorkspace() : "") || "DTX";
     if (tripTabBar) {
@@ -929,7 +930,7 @@ function focusReservationResults(trip, options = {}) {
   renderActiveTrip();
   renderActiveTripReservations();
   renderActiveCampReservations();
-  renderCampPayments();
+  renderCampPayments();  renderActiveTripCampPayments();
   requestAnimationFrame(() => {
     const anchor = activeTripReservations.classList.contains("is-hidden") ? campList : activeTripReservations;
     anchor.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1479,6 +1480,7 @@ async function loadTripFlightInfo(tripId) {
 }
 
 function renderCampPayments() {
+  if (!campPaymentList) return;
   const rows = getFilteredPaymentGroups();
   if (!rows.length) {
     campPaymentList.innerHTML = '<p class="empty">No camp payment data found for the selected filters.</p>';
@@ -1548,6 +1550,113 @@ function renderCampPayments() {
         <button type="button" data-action="payment-page-prev" ${currentPaymentPage === 1 ? "disabled" : ""}>Previous</button>
         <button type="button" data-action="payment-page-next" ${currentPaymentPage === totalPages ? "disabled" : ""}>Next</button>
       </div>
+    </div>
+  `;
+}
+
+// Trip-detail companion to renderCampPayments(): same per-camp grouping
+// (Deposit / 2nd / Paid / Balance / Total / Status), but scoped to the
+// active trip and rendered as a "Camp payments" card below the trip's
+// reservations table.
+function renderActiveTripCampPayments() {
+  if (!activeTripCampPayments) return;
+  if (!activeTripId || !isTripDetailPage() || activeTripPanelHidden) {
+    activeTripCampPayments.classList.add("is-hidden");
+    activeTripCampPayments.innerHTML = "";
+    return;
+  }
+
+  const tripEntries = currentEntries.filter((e) => e.tripId === activeTripId);
+  if (!tripEntries.length) {
+    activeTripCampPayments.classList.add("is-hidden");
+    activeTripCampPayments.innerHTML = "";
+    return;
+  }
+
+  const grouped = new Map();
+  tripEntries.forEach((entry) => {
+    const key = `${entry.tripId}::${entry.campName}`;
+    const group = grouped.get(key) || {
+      key,
+      tripId: entry.tripId,
+      tripName: entry.tripName,
+      reservationName: entry.reservationName || entry.tripName,
+      campName: entry.campName,
+      reservations: 0,
+      deposit: Number(entry.deposit || 0),
+      depositPaidDate: entry.depositPaidDate || "",
+      secondPayment: Number(entry.secondPayment || 0),
+      secondPaidDate: entry.secondPaidDate || "",
+      totalPayment: Number(entry.totalPayment || 0),
+      balancePayment: Number(entry.balancePayment || 0),
+      paidAmount: Number(entry.paidAmount || 0),
+      paymentStatus: entry.paymentStatus || "",
+    };
+    group.reservations += 1;
+    grouped.set(key, group);
+  });
+
+  const rows = [...grouped.values()].sort((a, b) =>
+    String(a.campName || "").localeCompare(String(b.campName || ""))
+  );
+
+  if (!rows.length) {
+    activeTripCampPayments.classList.add("is-hidden");
+    activeTripCampPayments.innerHTML = "";
+    return;
+  }
+
+  activeTripCampPayments.classList.remove("is-hidden");
+  activeTripCampPayments.innerHTML = `
+    <div class="section-head">
+      <h2>Camp payments</h2>
+    </div>
+    <div class="camp-table-wrap">
+      <table class="camp-table camp-payment-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Camp</th>
+            <th>Reservations</th>
+            <th>Deposit</th>
+            <th>Deposit paid date</th>
+            <th>2nd payment</th>
+            <th>2nd paid date</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (row, index) => `
+                <tr>
+                  <td class="table-center">${index + 1}</td>
+                  <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button></td>
+                  <td class="table-center">${row.reservations}</td>
+                  <td class="table-right">${formatMoney(row.deposit)}</td>
+                  <td>${formatDate(row.depositPaidDate)}</td>
+                  <td class="table-right">${formatMoney(row.secondPayment)}</td>
+                  <td>${formatDate(row.secondPaidDate)}</td>
+                  <td class="table-right">${formatMoney(row.paidAmount)}</td>
+                  <td class="table-right">${formatMoney(row.balancePayment)}</td>
+                  <td class="table-right">${formatMoney(row.totalPayment)}</td>
+                  <td><span class="status-pill is-${normalizeStatus(row.paymentStatus || "in_progress")}">${formatStatusLabel(row.paymentStatus || "in_progress")}</span></td>
+                  <td>
+                    <div class="trip-row-actions payment-row-actions">
+                      <button type="button" class="table-action compact secondary" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Edit</button>
+                      <button type="button" class="table-action compact danger" data-action="delete-payment-group" data-group-key="${escapeHtml(row.key)}">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              `
+            )
+            .join("")}
+        </tbody>
+      </table>
     </div>
   `;
 }
@@ -2470,7 +2579,7 @@ async function loadReservations() {
   renderActiveTripReservations();
   renderActiveCampReservations();
   renderEntries();
-  renderCampPayments();
+  renderCampPayments();  renderActiveTripCampPayments();
 }
 
 async function saveSettings() {
@@ -3607,13 +3716,13 @@ async function handleCampTableClick(event) {
   }
   if (action === "payment-page-prev") {
     currentPaymentPage = Math.max(1, currentPaymentPage - 1);
-    renderCampPayments();
+    renderCampPayments();    renderActiveTripCampPayments();
     return;
   }
   if (action === "payment-page-next") {
     const totalPages = Math.max(1, Math.ceil(getFilteredPaymentGroups().length / PAGE_SIZE));
     currentPaymentPage = Math.min(totalPages, currentPaymentPage + 1);
-    renderCampPayments();
+    renderCampPayments();    renderActiveTripCampPayments();
     return;
   }
   if (action === "toggle-select-all") {
@@ -3766,25 +3875,25 @@ campPaymentList.addEventListener("click", handleCampTableClick);
     renderEntries();
     renderActiveTripReservations();
     renderActiveCampReservations();
-    renderCampPayments();
+    renderCampPayments();    renderActiveTripCampPayments();
   });
   node.addEventListener("change", () => {
     currentPage = 1;
     renderEntries();
     renderActiveTripReservations();
     renderActiveCampReservations();
-    renderCampPayments();
+    renderCampPayments();    renderActiveTripCampPayments();
   });
 });
 
 [paymentFilterTripName, paymentFilterCampName].forEach((node) => {
   node?.addEventListener("input", () => {
     currentPaymentPage = 1;
-    renderCampPayments();
+    renderCampPayments();    renderActiveTripCampPayments();
   });
   node?.addEventListener("change", () => {
     currentPaymentPage = 1;
-    renderCampPayments();
+    renderCampPayments();    renderActiveTripCampPayments();
   });
 });
 
