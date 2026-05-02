@@ -310,6 +310,17 @@
       const pushReservationRow = (entry, kind) => {
         const status = (entry.paymentStatus || "").toLowerCase();
         if (status !== "paid" && status !== "paid_100" && status !== "paid_deposit") return;
+        // Flights have separate "Paid by" markers per seat type
+        // (tourist seat / guide seat). When BOTH are "By Client",
+        // the agency didn't actually pay anything for this flight,
+        // so it shouldn't appear in the trip-expense list. Same
+        // rule the flight-payments page uses.
+        if (kind === "Flight") {
+          const t = String(entry.touristPaidBy || "").toLowerCase();
+          const g = String(entry.guidePaidBy || "").toLowerCase();
+          const isAgency = (v) => v === "usm" || v === "dtx";
+          if (!isAgency(t) && !isAgency(g)) return;
+        }
         const req = reqByRecordId.get(entry.id);
         const amt = req?.paidAmount ?? entry.totalPrice ?? 0;
         const ccy = req?.currency || entry.currency || "MNT";
