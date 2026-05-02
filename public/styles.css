@@ -15271,28 +15271,60 @@ body.gallery-file-drag .gallery-folder-card.is-drop-hover {
 }
 
 @media (max-width: 720px) {
-  /* Mobile list view: 5-column grid (32+56+160+120+auto) overflowed
-     iPhone 375-430px viewports, pushing the thumbnail off-screen.
-     Drop to checkbox + thumb + everything-stacked, with actions on
-     a second visual row via flex-wrap. */
+  /* Mobile list view: was display:grid + display:contents on
+     .gallery-card-body. display:contents is buggy on older
+     Samsung/Huawei WebViews — it removes the body from layout but
+     the grandchildren never become grid items, so the whole row
+     collapses to 0 height and "nothing appears". Switch to flex
+     for the row, with the body as its own flex child holding
+     title+meta+actions stacked. */
+  .gallery-grid--list { display: flex !important; flex-direction: column; gap: 6px; }
   .gallery-grid--list .gallery-card {
-    grid-template-columns: 32px 64px 1fr;
-    gap: 8px;
-    align-items: start;
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
     padding: 8px 10px;
+    grid-template-columns: none;
   }
-  .gallery-grid--list .gallery-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .gallery-grid--list .gallery-card-title { white-space: normal; }
+  .gallery-grid--list .gallery-select { flex: 0 0 auto; }
+  .gallery-grid--list .gallery-thumb {
+    flex: 0 0 64px;
+    width: 64px;
+    height: 64px;
+    min-height: 64px;
+    aspect-ratio: 1;
+  }
+  .gallery-grid--list .gallery-card-body {
+    display: flex !important;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0;
+  }
+  .gallery-grid--list .gallery-card-title,
   .gallery-grid--list .gallery-card-meta { white-space: normal; }
-  .gallery-grid--list .gallery-actions { grid-column: 1 / -1; flex-wrap: wrap; padding-top: 4px; }
-  /* Compact view: tighter min-column on phones so 3 thumbs fit per row. */
-  .gallery-grid--compact { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important; }
-  /* Safety: explicit min-height on gallery-thumb for older WebKit
-     where aspect-ratio sometimes collapses to 0. */
-  .gallery-thumb { min-height: 80px; }
-  .gallery-grid--compact .gallery-thumb,
-  .gallery-grid--list .gallery-thumb { min-height: 0; }
-  .gallery-grid--list .gallery-thumb { width: 64px; height: 64px; }
+  .gallery-grid--list .gallery-actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    padding-top: 4px;
+  }
+
+  /* Compact view: tighter min-column on phones so 3 thumbs fit per
+     row. min-height keeps thumbs visible on browsers where
+     aspect-ratio collapses to 0. */
+  .gallery-grid--compact {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important;
+  }
+  .gallery-grid--compact .gallery-thumb {
+    aspect-ratio: 1;
+    min-height: 90px;
+  }
+
+  /* Icon view safety net for the same browsers. */
+  .gallery-grid--icons .gallery-thumb { min-height: 120px; }
 }
 
 /* Group-by headers shown when state.group !== "none" */
