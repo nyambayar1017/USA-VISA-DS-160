@@ -238,7 +238,6 @@
             <input type="hidden" class="tc-program-meal-d" value="${escapeHtml(typeof meals.dinner === "string" ? meals.dinner : "")}" />
             <div class="tc-program-card-side">
               <div class="tc-program-card-photo" style="${heroBg}">
-                <span class="tc-program-card-daybadge">${escapeHtml(dayBadge.toUpperCase())}</span>
                 ${hasHero ? "" : `<span class="tc-program-card-photohint">Pick a location to fill the photo</span>`}
               </div>
               <div class="tc-program-card-locrow">
