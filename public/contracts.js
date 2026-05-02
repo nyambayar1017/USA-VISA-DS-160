@@ -949,6 +949,24 @@ const initContractForm = () => {
   updateBalanceDueDate();
   loadManagers();
 
+  // Skip-serial checkbox: when ticked, disable the serial input
+  // and clear it so the contract is saved without a number; the
+  // auto-numbering loop ignores empty serials so the next normal
+  // contract still continues the sequence.
+  const skipSerialCheckbox = qs("#contract-skip-serial");
+  const serialInput = qs("#contract-serial-input");
+  skipSerialCheckbox?.addEventListener("change", () => {
+    if (!serialInput) return;
+    if (skipSerialCheckbox.checked) {
+      serialInput.value = "";
+      serialInput.disabled = true;
+      serialInput.placeholder = "— skipped —";
+    } else {
+      serialInput.disabled = false;
+      serialInput.placeholder = "DTX-09-26-001";
+    }
+  });
+
   // ── Contract templates: list + structured editor ──────────────────
   const tplSelect = qs("#contract-template-select");
   const tplListNode = qs("#contract-template-list");

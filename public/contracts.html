@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-396" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-397" />
   </head>
   <body class="app-body" data-page="contracts">
     <div class="workspace-shell">
@@ -81,7 +81,11 @@
               <form id="contract-form" class="field-grid contract-grid is-hidden" hidden>
                 <label>
                   Гэрээний дугаар (автоматаар үүснэ)
-                  <input name="contractSerial" placeholder="DTX-09-26-001" />
+                  <input name="contractSerial" id="contract-serial-input" placeholder="DTX-09-26-001" />
+                </label>
+                <label class="contract-skip-serial-label">
+                  <input type="checkbox" name="skipSerial" id="contract-skip-serial" value="1" />
+                  <span>Дугаарлахгүй (Skip serial — render this contract without a number)</span>
                 </label>
                 <label>
                   Гэрээ байгуулсан өдөр
@@ -340,7 +344,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-147"></script>
-    <script src="/contracts.js?v=workspace-19"></script>
+    <script src="/contracts.js?v=workspace-20"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

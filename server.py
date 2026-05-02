@@ -3903,7 +3903,15 @@ def build_contract_data(payload):
     serial_matches = re.findall(r"DTX-\d{2}[A-ZА-Я]?-?\d{2}-\d+|DTX-\d{2}[A-ZА-Я]?-\d{2}-\d+", contract_serial)
     if serial_matches:
         contract_serial = serial_matches[-1]
-    if not contract_serial:
+    # Manager opted out of numbering for this one contract — store
+    # an empty serial so the rendered page omits the "Дугаар: …"
+    # line. The auto-numbering loop only looks at non-empty
+    # serials with the matching prefix, so the next normal contract
+    # still continues the sequence (no gap, no re-use).
+    skip_serial = str(payload.get("skipSerial") or "").strip().lower() in ("1", "true", "yes", "on")
+    if skip_serial:
+        contract_serial = ""
+    elif not contract_serial:
         now = datetime.now(timezone.utc).astimezone(MONGOLIA_TZ)
         year = str(now.year)[-2:]
         prefix = f"DTX-09A-{year}-"
@@ -4037,8 +4045,11 @@ def build_contract_data(payload):
 
 
 def validate_contract_data(data):
+    # contractSerial is intentionally NOT required: managers can opt
+    # out via the "Skip serial" checkbox for off-cycle contracts.
+    # The auto-numbering loop ignores empty serials so the next
+    # numbered contract still picks up where the sequence left off.
     required = [
-        "contractSerial",
         "contractDate",
         "managerLastName",
         "managerFirstName",
@@ -4881,7 +4892,11 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
     manager_email = html.escape(get_manager_contract_email(data))
     manager_phone = html.escape(get_manager_contract_phone(data))
     contract_date = html.escape(format_contract_header_date(data["contractDate"]))
-    contract_serial = html.escape(data["contractSerial"])
+    contract_serial = html.escape(data.get("contractSerial", "") or "")
+    contract_serial_line = (
+        f'<p class="contract-number-line"><span class="contract-number-label">Дугаар:</span> {contract_serial}</p>'
+        if contract_serial else ""
+    )
     signature_markup = ""
     if signature_path:
         signature_src = signature_path
@@ -5258,7 +5273,7 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         <img src="{asset_src('logo.png')}" alt="Дэлхий Трэвел Икс" class="doc-logo-image" />
       </div>
       <h1>{big_title}</h1>
-      <p class="contract-number-line"><span class="contract-number-label">Дугаар:</span> {contract_serial}</p>
+      {contract_serial_line}
       <div class="contract-date-row">
         <span>{contract_date}</span>
         <span>Улаанбаатар хот</span>

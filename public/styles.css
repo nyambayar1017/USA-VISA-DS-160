@@ -4132,6 +4132,19 @@ time {
   margin: 0 4px;
 }
 .contract-template-toolbar-hint { color: #5b6470; }
+.contract-skip-serial-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #5b6470;
+  background: #fafbfd;
+  border: 1px dashed #d6dae3;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.contract-skip-serial-label input { width: auto; margin: 0; }
 .contract-template-big-title input {
   width: 100%;
   padding: 10px 12px;
