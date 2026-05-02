@@ -410,13 +410,13 @@
     const folderFilter = state.activeFolder;
     const filtered = sortEntries(currentFiltered());
 
-    // Folder cards appear inline with media — but only on the "All" view
-    // (no folder selected, no grouping, no search/tag/kind filter) and
-    // only in icon mode where the visual cards make sense.
-    // Show folder cards in any folder view (root or drilled-in) when no
-    // search/tag/kind filter is active. Only shows direct children, not
-    // every folder in the tree.
-    const showFolderCards = folderFilter !== "__none__" && !q && !tag && !kind && state.group === "none" && state.view === "icons";
+    // Folder cards appear inline with media in any folder view (root
+    // or drilled-in) when no search/tag/kind filter is active and
+    // the user isn't grouping. Previously this was gated to icons
+    // mode only, which made compact + list views render "0 items"
+    // on the root "All" tab whenever every photo lived inside a
+    // folder. Folder cards now show in all three view modes.
+    const showFolderCards = folderFilter !== "__none__" && !q && !tag && !kind && state.group === "none";
     const childPaths = showFolderCards ? directChildrenOf(folderFilter || "", allFolderPaths()) : [];
     const folderCardsHtml = childPaths.map((p) => {
       const leaf = p.split("/").pop();
