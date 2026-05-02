@@ -91,6 +91,12 @@
                     <option value="">Нэвтэрсэн хэрэглэгч</option>
                   </select>
                 </label>
+                <label>
+                  Гэрээний загвар (template)
+                  <select id="contract-template-select" name="templateId">
+                    <option value="">Анхдагч (Default)</option>
+                  </select>
+                </label>
                 <label class="is-hidden">
                   Менежерийн овог
                   <input name="managerLastName" required />
@@ -280,11 +286,27 @@
           <div id="contract-list" class="submission-list"></div>
           <div id="contract-pagination" class="contract-pagination"></div>
         </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <h2>Contract templates</h2>
+              <p class="muted">Upload edited .docx files to use different wording for specific destinations or scenarios. Header, footer, signature blocks and margins are always kept identical across templates.</p>
+            </div>
+            <div class="camp-toolbar">
+              <button type="button" id="contract-template-add-btn">+ Upload template</button>
+            </div>
+          </div>
+          <div id="contract-template-list" class="submission-list"></div>
+        </section>
       </main>
     </div>
+
+    <input type="file" id="contract-template-file-picker" accept=".docx" hidden />
+    <input type="file" id="contract-template-replace-picker" accept=".docx" hidden />
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-147"></script>
-    <script src="/contracts.js?v=workspace-7"></script>
+    <script src="/contracts.js?v=workspace-8"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>
