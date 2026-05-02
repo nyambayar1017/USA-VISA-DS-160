@@ -1802,74 +1802,159 @@ const initContractForm = () => {
 };
 
 const initSignatureCanvas = (canvas) => {
+  // Smoother / more pen-like signature pad. Uses Pointer Events so
+  // mouse / finger / stylus go through the same code path, draws
+  // each stroke as a series of quadratic curves between midpoints
+  // of consecutive samples (no more jagged poly-lines), and
+  // varies line width with cursor velocity so slow strokes look
+  // thicker and quick flicks taper — closer to ink on paper.
   const ctx = canvas.getContext("2d");
-  let drawing = false;
-  let hasInk = false;
   const baseWidth = 700;
   const baseHeight = 220;
-  const pixelRatio = Math.max(window.devicePixelRatio || 1, 1);
+  let pixelRatio = Math.max(window.devicePixelRatio || 1, 1);
+  let hasInk = false;
+  let stroke = null;            // {points: [{x,y,t,w}, …]}
+  let lastPoint = null;
+  let lastVelocity = 0;
+  let lastWidth = 2.4;
+
+  const MIN_W = 1.6;
+  const MAX_W = 4.4;
+  const VELOCITY_FILTER = 0.7;
 
   const setupCanvas = () => {
-    canvas.width = Math.floor(baseWidth * pixelRatio);
-    canvas.height = Math.floor(baseHeight * pixelRatio);
+    pixelRatio = Math.max(window.devicePixelRatio || 1, 1);
+    const rect = canvas.getBoundingClientRect();
+    const cssW = rect.width || baseWidth;
+    const cssH = rect.height || baseHeight;
+    canvas.width = Math.floor(cssW * pixelRatio);
+    canvas.height = Math.floor(cssH * pixelRatio);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(pixelRatio, pixelRatio);
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, baseWidth, baseHeight);
-    ctx.lineWidth = 2.6;
+    ctx.fillRect(0, 0, cssW, cssH);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.imageSmoothingEnabled = true;
+    // Dotted base line so users know where to sign.
     ctx.setLineDash([8, 8]);
     ctx.strokeStyle = "rgba(37, 58, 119, 0.24)";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(28, 178);
-    ctx.lineTo(baseWidth - 28, 178);
+    ctx.moveTo(28, cssH - 36);
+    ctx.lineTo(cssW - 28, cssH - 36);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.strokeStyle = "#1b2a6b";
+    ctx.strokeStyle = "#0c1e4d";
+    ctx.fillStyle = "#0c1e4d";
     hasInk = false;
   };
 
   setupCanvas();
+  // Re-setup if the canvas's CSS box ever changes (modal resize,
+  // mobile rotation). ResizeObserver fires once on attach which
+  // already calls setupCanvas above; the guard prevents wiping
+  // existing ink on first observation.
+  let firstResize = true;
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(() => {
+      if (firstResize) { firstResize = false; return; }
+      // Ignore resize after ink — preserve user's signature.
+      if (hasInk) return;
+      setupCanvas();
+    }).observe(canvas);
+  }
 
   const getPos = (event) => {
     const rect = canvas.getBoundingClientRect();
-    const touch = event.touches ? event.touches[0] : null;
     return {
-      x: ((touch ? touch.clientX : event.clientX) - rect.left) * (baseWidth / rect.width),
-      y: ((touch ? touch.clientY : event.clientY) - rect.top) * (baseHeight / rect.height),
+      x: (event.clientX - rect.left) * (canvas.width / pixelRatio / rect.width),
+      y: (event.clientY - rect.top)  * (canvas.height / pixelRatio / rect.height),
+      t: event.timeStamp,
     };
   };
 
-  const startDraw = (event) => {
-    event.preventDefault();
-    drawing = true;
-    const pos = getPos(event);
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
+  const strokeWidthFor = (velocity) => {
+    // Higher velocity → thinner. lastWidth low-pass-filters jumps.
+    const target = Math.max(MIN_W, MAX_W - velocity * 0.18);
+    return lastWidth = lastWidth * 0.5 + target * 0.5;
   };
 
-  const draw = (event) => {
-    if (!drawing) return;
-    event.preventDefault();
-    const pos = getPos(event);
-    ctx.lineTo(pos.x, pos.y);
+  const drawDot = (p, w) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, w / 2, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const drawCurveSegment = (p0, p1, p2, w) => {
+    // Quadratic curve through midpoints — gives a smooth line
+    // through every sample without sharp corners.
+    const mid1 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+    const mid2 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    ctx.moveTo(mid1.x, mid1.y);
+    ctx.quadraticCurveTo(p1.x, p1.y, mid2.x, mid2.y);
     ctx.stroke();
+  };
+
+  const onPointerDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    canvas.setPointerCapture?.(event.pointerId);
+    const p = getPos(event);
+    stroke = { points: [p] };
+    lastPoint = p;
+    lastVelocity = 0;
+    lastWidth = 2.6;
+    drawDot(p, lastWidth);
     hasInk = true;
   };
 
-  const endDraw = () => {
-    drawing = false;
+  const onPointerMove = (event) => {
+    if (!stroke) return;
+    event.preventDefault();
+    const p = getPos(event);
+    const dt = Math.max(p.t - lastPoint.t, 1);
+    const dx = p.x - lastPoint.x;
+    const dy = p.y - lastPoint.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const velocity = dist / dt;
+    lastVelocity = lastVelocity * (1 - VELOCITY_FILTER) + velocity * VELOCITY_FILTER;
+    const w = strokeWidthFor(lastVelocity);
+    stroke.points.push(p);
+    if (stroke.points.length >= 3) {
+      const n = stroke.points.length;
+      drawCurveSegment(stroke.points[n - 3], stroke.points[n - 2], stroke.points[n - 1], w);
+    } else {
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(lastPoint.x, lastPoint.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+    lastPoint = p;
   };
 
-  canvas.addEventListener("mousedown", startDraw);
-  canvas.addEventListener("mousemove", draw);
-  canvas.addEventListener("mouseup", endDraw);
-  canvas.addEventListener("mouseleave", endDraw);
-  canvas.addEventListener("touchstart", startDraw, { passive: false });
-  canvas.addEventListener("touchmove", draw, { passive: false });
-  canvas.addEventListener("touchend", endDraw);
+  const onPointerUp = (event) => {
+    if (!stroke) return;
+    event?.preventDefault?.();
+    canvas.releasePointerCapture?.(event?.pointerId);
+    // Tail-cap: small dot at the last point to close the stroke.
+    if (lastPoint) drawDot(lastPoint, lastWidth);
+    stroke = null;
+    lastPoint = null;
+  };
+
+  // Pointer Events cover mouse, touch, and stylus uniformly.
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointermove", onPointerMove);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("pointerleave", (e) => { if (stroke) onPointerUp(e); });
+  // iOS Safari: prevent the page from scrolling while signing.
+  canvas.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  canvas.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
   return {
     clear: setupCanvas,

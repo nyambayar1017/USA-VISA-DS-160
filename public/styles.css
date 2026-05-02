@@ -4351,11 +4351,16 @@ time {
 
 .signature-box canvas {
   width: 100%;
-  height: 180px;
+  height: 220px;
   display: block;
   border-radius: 12px;
   background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
   cursor: crosshair;
+  /* Stop the page from scrolling while signing on mobile. */
+  touch-action: none;
+}
+@media (max-width: 720px) {
+  .signature-box canvas { height: 200px; }
 }
 
 .signature-actions {
