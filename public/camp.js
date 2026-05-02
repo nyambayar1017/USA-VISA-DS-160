@@ -1586,10 +1586,16 @@ function renderActiveTripCampPayments() {
       reservationName: entry.reservationName || entry.tripName,
       campName: entry.campName,
       reservations: 0,
+      checkIns: [],
+      checkOuts: [],
       deposit: Number(entry.deposit || 0),
       depositPaidDate: entry.depositPaidDate || "",
       secondPayment: Number(entry.secondPayment || 0),
       secondPaidDate: entry.secondPaidDate || "",
+      thirdPayment: Number(entry.thirdPayment || 0),
+      thirdPaidDate: entry.thirdPaidDate || "",
+      fourthPayment: Number(entry.fourthPayment || 0),
+      fourthPaidDate: entry.fourthPaidDate || "",
       totalPayment: Number(entry.totalPayment || 0),
       balancePayment: Number(entry.balancePayment || 0),
       paidAmount: Number(entry.paidAmount || 0),
@@ -1601,8 +1607,16 @@ function renderActiveTripCampPayments() {
       balanceInvoiceDocumentId: entry.balanceInvoiceDocumentId || "",
       balanceInvoiceDocumentName: entry.balanceInvoiceDocumentName || "",
       balanceInvoiceStoredName: entry.balanceInvoiceStoredName || "",
+      thirdInvoiceDocumentId: entry.thirdInvoiceDocumentId || "",
+      thirdInvoiceDocumentName: entry.thirdInvoiceDocumentName || "",
+      thirdInvoiceStoredName: entry.thirdInvoiceStoredName || "",
+      fourthInvoiceDocumentId: entry.fourthInvoiceDocumentId || "",
+      fourthInvoiceDocumentName: entry.fourthInvoiceDocumentName || "",
+      fourthInvoiceStoredName: entry.fourthInvoiceStoredName || "",
     };
     group.reservations += 1;
+    if (entry.checkIn) group.checkIns.push(entry.checkIn);
+    if (entry.checkOut) group.checkOuts.push(entry.checkOut);
     grouped.set(key, group);
   });
 
@@ -1616,7 +1630,9 @@ function renderActiveTripCampPayments() {
   // One stage = one table cell containing amount + paid pill, paid
   // date, invoice link/upload button, and a Request payment button
   // (or REQUEST SENT pill while a stage-specific camp_group request
-  // is awaiting accountant approval).
+  // is awaiting accountant approval). Request payment is always
+  // available so a manager can raise a request for a stage even
+  // before the amount is keyed in (the modal asks for the amount).
   const renderStageCell = (row, stage, amount, paidDate, invoice) => {
     const stageKey = `${row.key}::${stage}`;
     const isPending = pendingSet.has(stageKey);
@@ -1630,15 +1646,13 @@ function renderActiveTripCampPayments() {
       ? ""
       : isPending
         ? `<span class="status-pill is-pending" title="Awaiting accountant approval">REQUEST SENT</span>`
-        : (hasAmount
-            ? `<button type="button" class="table-action compact" data-action="request-camp-group-payment"
-                  data-group-key="${escapeHtml(row.key)}"
-                  data-trip-id="${escapeHtml(row.tripId)}"
-                  data-camp-name="${escapeHtml(row.campName)}"
-                  data-amount="${escapeHtml(String(amount))}"
-                  data-currency="${escapeHtml(row.currency || "MNT")}"
-                  data-stage="${stage}">Request payment</button>`
-            : "");
+        : `<button type="button" class="table-action compact" data-action="request-camp-group-payment"
+              data-group-key="${escapeHtml(row.key)}"
+              data-trip-id="${escapeHtml(row.tripId)}"
+              data-camp-name="${escapeHtml(row.campName)}"
+              data-amount="${escapeHtml(String(amount || ""))}"
+              data-currency="${escapeHtml(row.currency || "MNT")}"
+              data-stage="${stage}">Request payment</button>`;
     return `
       <td class="stage-cell">
         <div class="stage-cell-amount">${formatMoney(amount)} ${hasAmount ? (isPaid ? `<span class="stage-pill is-paid">Paid</span>` : `<span class="stage-pill is-unpaid">Unpaid</span>`) : ""}</div>
@@ -1649,12 +1663,42 @@ function renderActiveTripCampPayments() {
     `;
   };
 
+  const stageLabel = (s) => ({deposit:"Deposit", balance:"Balance", third:"3rd", fourth:"4th"})[s] || s;
+  const renderReceiptsCell = (row) => {
+    const list = (window.approvedCampGroupReceipts || new Map()).get(row.key) || [];
+    if (!list.length) return "-";
+    if (list.length === 1) {
+      const r = list[0];
+      return r.paidDocumentUrl
+        ? `<a class="table-link compact" target="_blank" rel="noopener" href="${escapeHtml(r.paidDocumentUrl)}" title="${escapeHtml(r.paidDocumentName || "Receipt")}">⤓ ${escapeHtml(stageLabel(r.stage) || "Receipt")}</a>`
+        : `1 receipt`;
+    }
+    return `
+      <details class="row-action-menu camp-receipts-menu">
+        <summary class="table-link compact">▾ ${list.length} receipts</summary>
+        <div class="trip-menu-popover">
+          ${list.map((r) => `
+            <a class="trip-menu-item" target="_blank" rel="noopener" href="${escapeHtml(r.paidDocumentUrl || "#")}" title="${escapeHtml(r.paidDocumentName || "")}">
+              <strong>${escapeHtml(stageLabel(r.stage) || "Stage")}</strong> · ${escapeHtml(formatDate(r.approvedAt) || "")} · ${escapeHtml(r.approvedBy || "")}
+            </a>
+          `).join("")}
+        </div>
+      </details>
+    `;
+  };
+
   const renderActionsCell = (row) => `
     <div class="trip-row-actions payment-row-actions">
       <button type="button" class="table-action compact secondary" data-action="edit-payment-group" data-group-key="${escapeHtml(row.key)}">Edit</button>
       <button type="button" class="table-action compact danger" data-action="delete-payment-group" data-group-key="${escapeHtml(row.key)}">Delete</button>
     </div>
   `;
+
+  // Render stage 3 / 4 cells only when at least one row in the box
+  // has data for that stage, so a default 2-stage trip stays at 2
+  // stage columns instead of showing 4 zero-filled cells.
+  const anyThird = rows.some((r) => r.thirdPayment > 0 || !!r.thirdPaidDate || r.thirdInvoiceDocumentId);
+  const anyFourth = rows.some((r) => r.fourthPayment > 0 || !!r.fourthPaidDate || r.fourthInvoiceDocumentId);
 
   activeTripCampPayments.classList.remove("is-hidden");
   activeTripCampPayments.innerHTML = `
@@ -1670,6 +1714,8 @@ function renderActiveTripCampPayments() {
             <th>Res.</th>
             <th>Deposit</th>
             <th>Balance</th>
+            ${anyThird ? "<th>3rd</th>" : ""}
+            ${anyFourth ? "<th>4th</th>" : ""}
             <th>Total</th>
             <th>Status</th>
             <th>Receipts</th>
@@ -1679,11 +1725,18 @@ function renderActiveTripCampPayments() {
         <tbody>
           ${rows
             .map((row, index) => {
-              const approvedCount = approvedCounts.get(row.key) || 0;
+              const stayFrom = row.checkIns.length ? [...row.checkIns].sort()[0] : "";
+              const stayTo = row.checkOuts.length ? [...row.checkOuts].sort().slice(-1)[0] : "";
+              const stayLine = stayFrom || stayTo
+                ? `<div class="camp-row-meta">${formatDate(stayFrom) || "?"} → ${formatDate(stayTo) || "?"}</div>`
+                : "";
               return `
                 <tr>
                   <td class="table-center">${index + 1}</td>
-                  <td><button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button></td>
+                  <td>
+                    <button type="button" class="table-link compact secondary" data-action="select-camp" data-camp-name="${escapeHtml(row.campName)}">${escapeHtml(row.campName)}</button>
+                    ${stayLine}
+                  </td>
                   <td class="table-center">${row.reservations}</td>
                   ${renderStageCell(row, "deposit", row.deposit, row.depositPaidDate, {
                     documentId: row.depositInvoiceDocumentId,
@@ -1695,9 +1748,19 @@ function renderActiveTripCampPayments() {
                     documentName: row.balanceInvoiceDocumentName,
                     storedName: row.balanceInvoiceStoredName,
                   })}
+                  ${anyThird ? renderStageCell(row, "third", row.thirdPayment, row.thirdPaidDate, {
+                    documentId: row.thirdInvoiceDocumentId,
+                    documentName: row.thirdInvoiceDocumentName,
+                    storedName: row.thirdInvoiceStoredName,
+                  }) : ""}
+                  ${anyFourth ? renderStageCell(row, "fourth", row.fourthPayment, row.fourthPaidDate, {
+                    documentId: row.fourthInvoiceDocumentId,
+                    documentName: row.fourthInvoiceDocumentName,
+                    storedName: row.fourthInvoiceStoredName,
+                  }) : ""}
                   <td class="table-right"><strong>${formatMoney(row.totalPayment)}</strong></td>
                   <td><span class="status-pill is-${normalizeStatus(row.paymentStatus || "in_progress")}">${formatStatusLabel(row.paymentStatus || "in_progress")}</span></td>
-                  <td class="table-center">${approvedCount || "-"}</td>
+                  <td class="table-center">${renderReceiptsCell(row)}</td>
                   <td>${renderActionsCell(row)}</td>
                 </tr>
               `;
@@ -2339,11 +2402,25 @@ function renderPaymentEditPanel(groupKey) {
     depositPaidDate: getGroupPaymentValue(entries, "depositPaidDate") || "",
     secondPayment: Number(getGroupPaymentValue(entries, "secondPayment") || 0),
     secondPaidDate: getGroupPaymentValue(entries, "secondPaidDate") || "",
+    thirdPayment: Number(getGroupPaymentValue(entries, "thirdPayment") || 0),
+    thirdPaidDate: getGroupPaymentValue(entries, "thirdPaidDate") || "",
+    fourthPayment: Number(getGroupPaymentValue(entries, "fourthPayment") || 0),
+    fourthPaidDate: getGroupPaymentValue(entries, "fourthPaidDate") || "",
     paidAmount: Number(getGroupPaymentValue(entries, "paidAmount") || 0),
     balancePayment: Number(getGroupPaymentValue(entries, "balancePayment") || 0),
     totalPayment: Number(getGroupPaymentValue(entries, "totalPayment") || 0),
     paymentStatus: getGroupPaymentValue(entries, "paymentStatus") || "in_progress",
   };
+  // Earliest check-in / latest check-out across the group's
+  // reservations — shown as the traveling/sleeping window so the
+  // user can see the dates the camp is being booked for without
+  // leaving the modal.
+  const checkIns = entries.map((e) => e.checkIn).filter(Boolean).sort();
+  const checkOuts = entries.map((e) => e.checkOut).filter(Boolean).sort();
+  const stayFrom = checkIns[0] || "";
+  const stayTo = checkOuts[checkOuts.length - 1] || "";
+  const hasThird = group.thirdPayment > 0 || !!group.thirdPaidDate;
+  const hasFourth = group.fourthPayment > 0 || !!group.fourthPaidDate;
   paymentEditPanel.classList.remove("is-hidden");
   document.body.classList.add("modal-open");
   paymentEditPanel.innerHTML = `
@@ -2367,12 +2444,17 @@ function renderPaymentEditPanel(groupKey) {
         <div class="camp-form-section-head">
           <h3>${escapeHtml(group.tripName)} · ${escapeHtml(group.campName)}</h3>
           <p>Reservation Name: ${escapeHtml(group.reservationName)}</p>
+          ${stayFrom || stayTo ? `<p class="camp-modal-copy">Traveling: ${formatDate(stayFrom) || "?"} → ${formatDate(stayTo) || "?"}</p>` : ""}
         </div>
         <div class="field-grid field-grid-compact">
           <label>Deposit<input name="deposit" inputmode="numeric" value="${String(group.deposit || "")}" /></label>
           <label>Deposit paid date<input name="depositPaidDate" type="date" value="${escapeHtml(group.depositPaidDate)}" /></label>
           <label>2nd payment<input name="secondPayment" inputmode="numeric" value="${String(group.secondPayment || "")}" /></label>
           <label>2nd paid date<input name="secondPaidDate" type="date" value="${escapeHtml(group.secondPaidDate)}" /></label>
+          <label data-stage-row="third" ${hasThird ? "" : "hidden"}>3rd payment<input name="thirdPayment" inputmode="numeric" value="${String(group.thirdPayment || "")}" /></label>
+          <label data-stage-row="third" ${hasThird ? "" : "hidden"}>3rd paid date<input name="thirdPaidDate" type="date" value="${escapeHtml(group.thirdPaidDate)}" /></label>
+          <label data-stage-row="fourth" ${hasFourth ? "" : "hidden"}>4th payment<input name="fourthPayment" inputmode="numeric" value="${String(group.fourthPayment || "")}" /></label>
+          <label data-stage-row="fourth" ${hasFourth ? "" : "hidden"}>4th paid date<input name="fourthPaidDate" type="date" value="${escapeHtml(group.fourthPaidDate)}" /></label>
           <label>Paid amount<input name="paidAmount" inputmode="numeric" value="${String(group.paidAmount || "")}" /></label>
           <label>Balance<input name="balancePayment" inputmode="numeric" value="${String(group.balancePayment || "")}" /></label>
           <label>Total payment<input name="totalPayment" inputmode="numeric" value="${String(group.totalPayment || "")}" /></label>
@@ -2382,10 +2464,11 @@ function renderPaymentEditPanel(groupKey) {
               <option value="in_progress" ${group.paymentStatus === "in_progress" ? "selected" : ""}>In progress</option>
               <option value="paid_deposit" ${group.paymentStatus === "paid_deposit" ? "selected" : ""}>Deposit paid</option>
               <option value="paid" ${group.paymentStatus === "paid" ? "selected" : ""}>Paid</option>
-              <option value="paid_100" ${group.paymentStatus === "paid_100" ? "selected" : ""}>Paid 100%</option>
-              <option value="finished" ${group.paymentStatus === "finished" ? "selected" : ""}>Finished</option>
             </select>
           </label>
+        </div>
+        <div class="actions" style="margin-top:8px">
+          <button type="button" class="link-button" data-action="add-payment-stage" ${hasFourth ? "disabled" : ""}>+ Add payment</button>
         </div>
       </div>
       <div class="actions full-span">
@@ -2534,6 +2617,10 @@ async function handleInlinePaymentSubmit(event) {
             depositPaidDate: payload.depositPaidDate,
             secondPayment: payload.secondPayment,
             secondPaidDate: payload.secondPaidDate,
+            thirdPayment: payload.thirdPayment,
+            thirdPaidDate: payload.thirdPaidDate,
+            fourthPayment: payload.fourthPayment,
+            fourthPaidDate: payload.fourthPaidDate,
             paidAmount: payload.paidAmount,
             balancePayment: payload.balancePayment,
             totalPayment: payload.totalPayment,
@@ -2609,6 +2696,10 @@ window.pendingCampGroupPaymentSet = new Set();
 // Map of "<tripId>::<campName>" → number of approved camp_group
 // requests, displayed inline on each card.
 window.approvedCampGroupCount = new Map();
+// Map of "<tripId>::<campName>" → array of approved request rows
+// (stage, paidDocumentUrl, paidDocumentName, approvedAt,
+// approvedBy) — used to render the multi-receipt dropdown.
+window.approvedCampGroupReceipts = new Map();
 async function loadPendingCampPaymentRequests() {
   try {
     const [pendingRes, approvedRes] = await Promise.all([
@@ -2633,10 +2724,25 @@ async function loadPendingCampPaymentRequests() {
     if (approvedRes.ok) {
       const data = await approvedRes.json();
       const counts = new Map();
+      const lists = new Map();
       (data.entries || [])
         .filter((x) => x.recordType === "camp_group" && x.recordId)
-        .forEach((x) => counts.set(x.recordId, (counts.get(x.recordId) || 0) + 1));
+        .forEach((x) => {
+          counts.set(x.recordId, (counts.get(x.recordId) || 0) + 1);
+          const arr = lists.get(x.recordId) || [];
+          arr.push({
+            stage: (x.stage || "").toLowerCase(),
+            paidDocumentUrl: x.paidDocumentUrl || "",
+            paidDocumentName: x.paidDocumentName || "",
+            approvedAt: x.approvedAt || "",
+            approvedBy: (x.approvedBy && (x.approvedBy.fullName || x.approvedBy.email)) || "",
+            paidAmount: x.paidAmount || 0,
+            currency: x.currency || "MNT",
+          });
+          lists.set(x.recordId, arr);
+        });
       window.approvedCampGroupCount = counts;
+      window.approvedCampGroupReceipts = lists;
     }
   } catch {}
 }
@@ -2916,6 +3022,10 @@ async function updateReservation(id) {
     "depositPaidDate",
     "secondPayment",
     "secondPaidDate",
+    "thirdPayment",
+    "thirdPaidDate",
+    "fourthPayment",
+    "fourthPaidDate",
     "paymentStatus",
     "status",
     "notes",
@@ -3785,6 +3895,23 @@ async function handleCampTableClick(event) {
   }
   if (action === "delete-payment-group") {
     clearPaymentGroup(target.dataset.groupKey);
+    return;
+  }
+  if (action === "add-payment-stage") {
+    // Reveal the next hidden stage row (third, then fourth) inside
+    // the payment-edit modal. Once both are visible the +Add
+    // button is disabled.
+    const form = paymentEditPanel.querySelector("form");
+    if (!form) return;
+    const nextHidden = form.querySelector('label[data-stage-row][hidden]');
+    if (nextHidden) {
+      // The stage's amount + date labels share the same data-stage-row
+      // attribute — reveal both.
+      const stage = nextHidden.dataset.stageRow;
+      form.querySelectorAll(`label[data-stage-row="${stage}"]`).forEach((l) => l.removeAttribute("hidden"));
+      const stillHidden = form.querySelector('label[data-stage-row][hidden]');
+      if (!stillHidden) target.disabled = true;
+    }
     return;
   }
   if (action === "upload-camp-group-invoice") {

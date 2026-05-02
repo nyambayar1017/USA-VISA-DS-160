@@ -9105,8 +9105,8 @@ def handle_create_payment_request(environ, start_response):
         # so each payment stage has its own independent request lock and
         # the approval flips only that stage.
         stage = (normalize_text(payload.get("stage")) or "").lower()
-        if stage and stage not in ("deposit", "balance"):
-            return json_response(start_response, "400 Bad Request", {"error": "Invalid stage (deposit | balance)."})
+        if stage and stage not in ("deposit", "balance", "third", "fourth"):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid stage (deposit | balance | third | fourth)."})
         if record_type and record_id:
             existing = next(
                 (
@@ -9439,8 +9439,8 @@ def handle_upload_camp_group_invoice(environ, start_response, group_key):
     if not upload:
         return json_response(start_response, "400 Bad Request", {"error": "No file uploaded."})
     stage = (normalize_text(fields.get("stage")) or "deposit").lower()
-    if stage not in ("deposit", "balance"):
-        return json_response(start_response, "400 Bad Request", {"error": "Invalid stage (deposit | balance)."})
+    if stage not in ("deposit", "balance", "third", "fourth"):
+        return json_response(start_response, "400 Bad Request", {"error": "Invalid stage (deposit | balance | third | fourth)."})
     result = _attach_invoice_document_to_trip(trip_id, upload, actor)
     if not result or not result[0]:
         return json_response(start_response, "400 Bad Request", {"error": "Could not attach invoice (file too large or unsupported type)."})
@@ -9448,7 +9448,12 @@ def handle_upload_camp_group_invoice(environ, start_response, group_key):
     rows = read_camp_reservations()
     now_iso = now_mongolia().isoformat()
     actor_meta = actor_snapshot(actor)
-    prefix = "depositInvoice" if stage == "deposit" else "balanceInvoice"
+    prefix = {
+        "deposit": "depositInvoice",
+        "balance": "balanceInvoice",
+        "third":   "thirdInvoice",
+        "fourth":  "fourthInvoice",
+    }[stage]
     changed = False
     for i, r in enumerate(rows):
         if r.get("tripId") == trip_id and (r.get("campName") or "") == camp_name:
@@ -9591,15 +9596,40 @@ def handle_approve_payment_request(environ, start_response, request_id):
             for i, r in enumerate(rows):
                 if r.get("tripId") != group_trip_id or (r.get("campName") or "") != group_camp_name:
                     continue
-                if stage in ("deposit", "balance"):
-                    date_field = "depositPaidDate" if stage == "deposit" else "secondPaidDate"
-                    updated = {**r, date_field: paid_date or r.get(date_field) or now_iso[:10],
+                if stage in ("deposit", "balance", "third", "fourth"):
+                    date_field_for_stage = {
+                        "deposit": "depositPaidDate",
+                        "balance": "secondPaidDate",
+                        "third":   "thirdPaidDate",
+                        "fourth":  "fourthPaidDate",
+                    }[stage]
+                    updated = {**r, date_field_for_stage: paid_date or r.get(date_field_for_stage) or now_iso[:10],
                                "updatedAt": now_iso, "updatedBy": actor_meta}
-                    deposit_amt = float(updated.get("deposit") or 0)
-                    second_amt = float(updated.get("secondPayment") or 0)
-                    deposit_done = (deposit_amt <= 0) or bool(updated.get("depositPaidDate"))
-                    second_done = (second_amt <= 0) or bool(updated.get("secondPaidDate"))
-                    if deposit_done and second_done and (deposit_amt > 0 or second_amt > 0):
+                    # Whole camp flips to paid only when every stage
+                    # that has a positive amount is now paid. Empty
+                    # stages (amount = 0) are treated as already done
+                    # so a 2-stage camp doesn't need stage 3/4 set.
+                    stage_amount_field = {
+                        "deposit": "deposit",
+                        "balance": "secondPayment",
+                        "third":   "thirdPayment",
+                        "fourth":  "fourthPayment",
+                    }
+                    stage_date_field = {
+                        "deposit": "depositPaidDate",
+                        "balance": "secondPaidDate",
+                        "third":   "thirdPaidDate",
+                        "fourth":  "fourthPaidDate",
+                    }
+                    any_positive = False
+                    all_done = True
+                    for s in ("deposit", "balance", "third", "fourth"):
+                        amt = float(updated.get(stage_amount_field[s]) or 0)
+                        if amt > 0:
+                            any_positive = True
+                            if not updated.get(stage_date_field[s]):
+                                all_done = False
+                    if any_positive and all_done:
                         updated["paymentStatus"] = "paid"
                         updated["paidDate"] = paid_date or updated.get("paidDate") or now_iso[:10]
                     rows[i] = updated
@@ -10743,6 +10773,13 @@ def build_camp_reservation(payload, actor=None):
         "depositPaidDate": normalize_text(payload.get("depositPaidDate")),
         "secondPayment": parse_int(payload.get("secondPayment")),
         "secondPaidDate": normalize_text(payload.get("secondPaidDate")),
+        # Optional 3rd / 4th payment stages — camps occasionally
+        # invoice in 3 or 4 installments. Empty by default; the
+        # Edit camp payment modal exposes them via "+ Add payment".
+        "thirdPayment": parse_int(payload.get("thirdPayment")),
+        "thirdPaidDate": normalize_text(payload.get("thirdPaidDate")),
+        "fourthPayment": parse_int(payload.get("fourthPayment")),
+        "fourthPaidDate": normalize_text(payload.get("fourthPaidDate")),
         "totalPayment": parse_int(payload.get("totalPayment")),
         "balancePayment": parse_int(payload.get("balancePayment")),
         "paidAmount": parse_int(payload.get("paidAmount")),
@@ -16115,6 +16152,8 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
             "dinner",
             "depositPaidDate",
             "secondPaidDate",
+            "thirdPaidDate",
+            "fourthPaidDate",
             "paymentStatus",
         ]:
             if key in payload:
@@ -16134,7 +16173,7 @@ def handle_update_camp_reservation(environ, start_response, reservation_id):
             settings["locationNames"] = normalize_option_list(settings["locationNames"] + [normalize_text(merged["locationName"])])
         write_camp_settings(settings)
 
-        for key in ["clientCount", "staffCount", "gerCount", "deposit", "secondPayment", "totalPayment", "balancePayment", "paidAmount"]:
+        for key in ["clientCount", "staffCount", "gerCount", "deposit", "secondPayment", "thirdPayment", "fourthPayment", "totalPayment", "balancePayment", "paidAmount"]:
             if key in payload:
                 merged[key] = parse_int(payload.get(key))
 

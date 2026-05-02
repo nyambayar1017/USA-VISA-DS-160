@@ -5147,6 +5147,17 @@ details.trip-menu.is-upward[open] > .trip-menu-popover {
   vertical-align: top;
   min-width: 200px;
 }
+.camp-row-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted, #5b6470);
+}
+.camp-receipts-menu .trip-menu-item {
+  display: block;
+  padding: 6px 10px;
+  font-size: 12px;
+}
 .stage-cell-amount {
   font-weight: 600;
   color: var(--text-strong, #19233d);
