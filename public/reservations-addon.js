@@ -459,7 +459,11 @@
                     <td>
                       <div class="trip-row-actions payment-row-actions">
                         <button type="button" class="table-action compact secondary" data-action="edit-flight-payment" data-id="${escapeHtml(entry.id)}">Edit</button>
-                        ${(entry.paymentStatus || "unpaid") !== "paid" ? `<button type="button" class="table-action compact" data-action="request-flight-payment" data-id="${escapeHtml(entry.id)}" data-trip-id="${escapeHtml(entry.tripId)}" data-amount="${escapeHtml(entry.totalTicketPrice || entry.amount || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.paidTo || entry.airline || "")}">Request paid</button>` : ""}
+                        ${(entry.paymentStatus || "unpaid") === "paid"
+                          ? ""
+                          : pendingPaymentSet.has(entry.id)
+                            ? `<span class="status-pill is-pending" title="Awaiting accountant approval">REQUEST SENT</span>`
+                            : `<button type="button" class="table-action compact" data-action="request-flight-payment" data-id="${escapeHtml(entry.id)}" data-trip-id="${escapeHtml(entry.tripId)}" data-amount="${escapeHtml(entry.totalTicketPrice || entry.amount || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.paidTo || entry.airline || "")}">Request paid</button>`}
                       </div>
                     </td>
                   </tr>
@@ -587,11 +591,14 @@
                     <td><span class="status-pill is-${escapeHtml(entry.paymentStatus)}">${escapeHtml(formatStatus(entry.paymentStatus))}</span></td>
                     <td>${escapeHtml(entry.notes || "-")}</td>
                     <td>
+                      ${(entry.paymentStatus || "unpaid") !== "paid" && pendingPaymentSet.has(entry.id)
+                        ? `<span class="status-pill is-pending" title="Awaiting accountant approval" style="margin-right:6px">REQUEST SENT</span>`
+                        : ""}
                       <details class="trip-menu row-action-menu">
                         <summary class="trip-menu-trigger" aria-label="Transfer reservation actions">⋯</summary>
                         <div class="trip-menu-popover">
                           <button type="button" class="trip-menu-item" data-action="edit-transfer" data-id="${escapeHtml(entry.id)}">Edit</button>
-                          ${(entry.paymentStatus || "unpaid") !== "paid" ? `<button type="button" class="trip-menu-item" data-action="request-transfer-payment" data-id="${escapeHtml(entry.id)}" data-trip-id="${escapeHtml(entry.tripId)}" data-amount="${escapeHtml(entry.driverSalary || entry.amount || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.driverName || "")}">Request paid</button>` : ""}
+                          ${(entry.paymentStatus || "unpaid") !== "paid" && !pendingPaymentSet.has(entry.id) ? `<button type="button" class="trip-menu-item" data-action="request-transfer-payment" data-id="${escapeHtml(entry.id)}" data-trip-id="${escapeHtml(entry.tripId)}" data-amount="${escapeHtml(entry.driverSalary || entry.amount || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.driverName || "")}">Request paid</button>` : ""}
                           <button type="button" class="trip-menu-item is-danger" data-action="delete-transfer" data-id="${escapeHtml(entry.id)}">Delete</button>
                         </div>
                       </details>
@@ -613,8 +620,30 @@
     applyQueryFilters();
   }
 
+  // Set of reservation ids (flight / transfer / camp) that currently
+  // have a pending payment_request. Used to show "REQUEST SENT" pills
+  // instead of "Request paid" buttons. Refreshed on every list load.
+  let pendingPaymentSet = new Set();
+  async function loadPendingPaymentRequests() {
+    try {
+      const payload = await fetchJson("/api/payment-requests?status=pending");
+      const entries = payload?.entries || [];
+      pendingPaymentSet = new Set(
+        entries
+          .filter((r) => r.recordType && r.recordId)
+          .map((r) => r.recordId)
+      );
+    } catch {
+      // If the fetch fails the page still works; users just don't see
+      // the badge until next reload.
+    }
+  }
+
   async function loadFlights() {
-    const payload = await fetchJson("/api/flight-reservations");
+    const [payload] = await Promise.all([
+      fetchJson("/api/flight-reservations"),
+      loadPendingPaymentRequests(),
+    ]);
     flights = payload.entries || [];
     refreshFlightPaymentSelector(flightPaymentSelect.value);
     renderFlights();
@@ -622,7 +651,10 @@
   }
 
   async function loadTransfers() {
-    const payload = await fetchJson("/api/transfer-reservations");
+    const [payload] = await Promise.all([
+      fetchJson("/api/transfer-reservations"),
+      loadPendingPaymentRequests(),
+    ]);
     transfers = payload.entries || [];
     renderTransfers();
   }

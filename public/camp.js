@@ -1771,7 +1771,11 @@ function renderReadOnlyRow(entry, index, options = {}) {
             <button type="button" class="trip-menu-item" data-action="edit" data-id="${entry.id}">Edit</button>
             <button type="button" class="trip-menu-item" data-action="view-pdf" data-id="${entry.id}">View</button>
             <button type="button" class="trip-menu-item" data-action="download-pdf" data-id="${entry.id}">Download PDF</button>
-            ${(entry.paymentStatus || "in_progress") !== "paid" && (entry.paymentStatus || "") !== "paid_100" ? `<button type="button" class="trip-menu-item" data-action="request-camp-payment" data-id="${entry.id}" data-trip-id="${escapeHtml(entry.tripId || "")}" data-amount="${escapeHtml(entry.totalPrice || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.campName || "")}">Request paid</button>` : ""}
+            ${(entry.paymentStatus || "in_progress") !== "paid" && (entry.paymentStatus || "") !== "paid_100"
+              ? ((window.pendingCampPaymentSet && window.pendingCampPaymentSet.has(entry.id))
+                  ? `<span class="trip-menu-item" style="background:#fef3c7;color:#8a4b12;cursor:default" title="Awaiting accountant approval">REQUEST SENT</span>`
+                  : `<button type="button" class="trip-menu-item" data-action="request-camp-payment" data-id="${entry.id}" data-trip-id="${escapeHtml(entry.tripId || "")}" data-amount="${escapeHtml(entry.totalPrice || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.campName || "")}">Request paid</button>`)
+              : ""}
             <button type="button" class="trip-menu-item is-danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
           </div>
         </details>
@@ -2438,8 +2442,28 @@ async function loadSettings() {
   renderAllSettings();
 }
 
+// Set of camp_reservation ids with a pending payment_request. The
+// renderReadOnlyRow() helper reads it to decide between rendering a
+// "REQUEST SENT" pill or a clickable "Request paid" item.
+window.pendingCampPaymentSet = new Set();
+async function loadPendingCampPaymentRequests() {
+  try {
+    const r = await fetch("/api/payment-requests?status=pending");
+    if (!r.ok) return;
+    const data = await r.json();
+    window.pendingCampPaymentSet = new Set(
+      (data.entries || [])
+        .filter((x) => x.recordType === "camp_reservation" && x.recordId)
+        .map((x) => x.recordId)
+    );
+  } catch {}
+}
+
 async function loadReservations() {
-  const payload = await fetchJson("/api/camp-reservations");
+  const [payload] = await Promise.all([
+    fetchJson("/api/camp-reservations"),
+    loadPendingCampPaymentRequests(),
+  ]);
   currentEntries = payload.entries || [];
   selectedReservationIds = new Set([...selectedReservationIds].filter((id) => currentEntries.some((entry) => entry.id === id)));
   renderActiveTrip();
