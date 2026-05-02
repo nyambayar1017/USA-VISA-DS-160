@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-393" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-394" />
   </head>
   <body class="app-body" data-page="contracts">
     <div class="workspace-shell">
@@ -315,6 +315,18 @@
           </div>
           <button type="button" class="camp-modal-close" data-action="close-template-editor" aria-label="Close">×</button>
         </div>
+        <div id="contract-template-toolbar" class="contract-template-toolbar">
+          <button type="button" data-fmt-cmd="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+          <button type="button" data-fmt-cmd="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+          <button type="button" data-fmt-cmd="underline" title="Underline"><u>U</u></button>
+          <span class="contract-template-toolbar-sep"></span>
+          <button type="button" data-fmt-cmd="insertUnorderedList" title="Bulleted list">• List</button>
+          <button type="button" data-fmt-cmd="insertOrderedList" title="Numbered list">1. List</button>
+          <span class="contract-template-toolbar-sep"></span>
+          <button type="button" data-fmt-cmd="removeFormat" title="Clear formatting">Clear</button>
+          <span class="contract-template-toolbar-sep"></span>
+          <span class="muted contract-template-toolbar-hint">Tip: type <strong>@</strong> to insert a token</span>
+        </div>
         <div id="contract-template-sections"></div>
         <div class="actions full-span" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
           <button type="button" id="contract-template-add-section" class="secondary-button">+ Add title</button>
@@ -328,7 +340,7 @@
 
     <script src="/compress-upload.js?v=workspace-1"></script>
     <script src="/app-shell.js?v=workspace-147"></script>
-    <script src="/contracts.js?v=workspace-15"></script>
+    <script src="/contracts.js?v=workspace-16"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>
 </html>

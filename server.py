@@ -4709,10 +4709,39 @@ def get_default_template_payload():
     return {"intro": intro, "sections": sections}
 
 
+_TEMPLATE_ALLOWED_TAGS = {"strong", "b", "em", "i", "u", "ul", "ol", "li", "br", "p"}
+_TEMPLATE_TAG_RE = re.compile(r"</?\s*([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>")
+
+
+def _sanitize_template_html(s):
+    """Tag-and-attribute strip to the allowlist used by the editor.
+    Anything outside the list is removed (text content survives).
+    """
+    if not s:
+        return ""
+    def repl(m):
+        full = m.group(0)
+        tag = m.group(1).lower()
+        if tag not in _TEMPLATE_ALLOWED_TAGS:
+            return ""
+        is_close = full.startswith("</")
+        is_self = full.rstrip(">").endswith("/")
+        if is_close:
+            return f"</{tag}>"
+        if tag == "br" or is_self:
+            return f"<{tag}/>"
+        return f"<{tag}>"
+    return _TEMPLATE_TAG_RE.sub(repl, str(s))
+
+
 def render_template_body_html(template, data):
     """Render a saved template's sections into the contract body
     HTML, applying the same sentence-substitution + token expansion
     the DOCX flow uses so dates / names / prices substitute live.
+    Templates may include light HTML (lists, bold, italic, etc); we
+    sanitise to a small allowlist before emitting and substitute
+    {{tokens}} regardless of whether they live in plain text or
+    inside a tag's text content.
     """
     sections = (template or {}).get("sections") or []
 
@@ -4720,24 +4749,27 @@ def render_template_body_html(template, data):
 
     def format_text(text):
         s = str(text or "")
-        # Honour the same hard-coded sentence replacements the DOCX
-        # template uses (legacy paragraphs that survive verbatim
-        # without any tokens get their data baked in too).
         for src, dst in _contract_text_replacements(data).items():
             if src and src in s:
                 s = s.replace(src, dst)
-        # {{token}} expansion is the primary path for new templates.
         s = re.sub(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}", lambda m: str(tokens.get(m.group(1), "") or ""), s)
         return s
 
     def html_text(text):
-        escaped = html.escape(format_text(text))
-        highlighted = re.sub(
+        # Templates store sanitised HTML; expand tokens inside the
+        # raw string (since they live in text segments anyway), then
+        # sanitise again to be safe and bold any money amounts.
+        s = format_text(text)
+        s = _sanitize_template_html(s)
+        # Bold money amounts only inside plain text segments — apply
+        # to the whole string is fine because the regex doesn't match
+        # inside tag names.
+        s = re.sub(
             r"(\d{1,3}(?:,\d{3})+(?:\s*төгрөг(?:ийг|ийн|өөр|өөс|төгрөг)?)?)",
             r"<strong>\1</strong>",
-            escaped,
+            s,
         )
-        return highlighted.replace("\n", "<br />")
+        return s
 
     parts = []
     intro = (template or {}).get("intro") or []
@@ -16996,14 +17028,16 @@ def handle_get_default_contract_template(environ, start_response):
 
 def _normalize_contract_template_payload(payload):
     """Coerce the editor payload into clean storage shape:
-    {intro: [text…], sections: [{title, paragraphs:[text…]}]}.
-    Drops empty entries.
+    {intro: [html…], sections: [{title, paragraphs:[html…]}]}.
+    Each paragraph is sanitised to the allowlist (ul/ol/li/strong/
+    em/i/u/b/br/p, no attributes) so stored bodies are safe to
+    re-emit at render time without escaping. Drops empty entries.
     """
     intro = []
     for p in ((payload or {}).get("intro") or []):
-        text = (p or "").strip() if isinstance(p, str) else ""
-        if text:
-            intro.append(text)
+        cleaned = _sanitize_template_html((p or "").strip()) if isinstance(p, str) else ""
+        if cleaned:
+            intro.append(cleaned)
     sections = []
     raw_sections = (payload or {}).get("sections") or []
     if not isinstance(raw_sections, list):
@@ -17014,9 +17048,9 @@ def _normalize_contract_template_payload(payload):
         title = (raw.get("title") or "").strip()
         paragraphs = []
         for p in (raw.get("paragraphs") or []):
-            text = (p or "").strip() if isinstance(p, str) else ""
-            if text:
-                paragraphs.append(text)
+            cleaned = _sanitize_template_html((p or "").strip()) if isinstance(p, str) else ""
+            if cleaned:
+                paragraphs.append(cleaned)
         if title or paragraphs:
             sections.append({"title": title, "paragraphs": paragraphs})
     return {"intro": intro, "sections": sections}

@@ -1017,14 +1017,70 @@ const initContractForm = () => {
     `;
   }
 
-  // Wrap any {{token}} substring in a styled span so the editable
-  // paragraph shows variable parts in red. Plain text outside the
-  // tokens stays as-is so cursor / selection behaves normally.
-  function paragraphInnerHtml(text) {
-    return escText(text).replace(
-      /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g,
-      '<span class="contract-var">{{$1}}</span>'
-    );
+  // Templates accept light HTML (lists, bold, italic, underline)
+  // via the toolbar. Saved bodies are sanitised to this allowlist
+  // and tokens are stored as plain "{{name}}" text — they get
+  // re-wrapped in red contract-var spans only when rendered into
+  // the editor.
+  const TEMPLATE_ALLOWED_TAGS = new Set(["ul", "ol", "li", "strong", "b", "em", "i", "u", "br", "p"]);
+
+  // Take stored HTML and wrap every {{token}} substring in a
+  // .contract-var span — walking text nodes so list / bold tags
+  // are preserved untouched.
+  function paragraphInnerHtml(stored) {
+    if (stored == null || stored === "") return "";
+    const tmp = document.createElement("div");
+    tmp.innerHTML = String(stored);
+    const walker = document.createTreeWalker(tmp, NodeFilter.SHOW_TEXT);
+    const targets = [];
+    let n;
+    while ((n = walker.nextNode())) {
+      if (/\{\{\s*[a-zA-Z][a-zA-Z0-9_]*\s*\}\}/.test(n.nodeValue || "")) targets.push(n);
+    }
+    targets.forEach((node) => {
+      const text = node.nodeValue;
+      const frag = document.createDocumentFragment();
+      let lastIdx = 0;
+      const re = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g;
+      let m;
+      while ((m = re.exec(text))) {
+        if (m.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, m.index)));
+        const span = document.createElement("span");
+        span.className = "contract-var";
+        span.textContent = `{{${m[1]}}}`;
+        frag.appendChild(span);
+        lastIdx = m.index + m[0].length;
+      }
+      if (lastIdx < text.length) frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+      node.parentNode.replaceChild(frag, node);
+    });
+    return tmp.innerHTML;
+  }
+
+  // Convert the live contenteditable DOM back into a sanitised
+  // storable HTML string. Strips contract-var spans (keeps just
+  // the "{{name}}" text), drops tags outside the allowlist, and
+  // removes every attribute on tags we keep.
+  function paragraphHtmlForStorage(node) {
+    if (!node) return "";
+    const clone = node.cloneNode(true);
+    clone.querySelectorAll(".contract-var").forEach((span) => {
+      span.replaceWith(document.createTextNode(span.textContent || ""));
+    });
+    function clean(host) {
+      Array.from(host.children).forEach((child) => {
+        clean(child);
+        const tag = (child.tagName || "").toLowerCase();
+        if (!TEMPLATE_ALLOWED_TAGS.has(tag)) {
+          while (child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
+          child.parentNode.removeChild(child);
+        } else {
+          Array.from(child.attributes).forEach((a) => child.removeAttribute(a.name));
+        }
+      });
+    }
+    clean(clone);
+    return clone.innerHTML.replace(/(?:\s*<br\s*\/?>)+$/i, "").trim();
   }
 
   function renderEditorSections() {
@@ -1077,7 +1133,7 @@ const initContractForm = () => {
 
   function readEditorIntro() {
     return Array.from(tplSectionsHost.querySelectorAll("[data-intro-paragraph]"))
-      .map((t) => (t.innerText || "").replace(/\n+$/, ""));
+      .map((t) => paragraphHtmlForStorage(t));
   }
   function readEditorSections() {
     const fieldsets = tplSectionsHost.querySelectorAll("[data-section-index]");
@@ -1087,7 +1143,7 @@ const initContractForm = () => {
       // their plain "{{tokenName}}" text. Trim trailing newlines a
       // browser sometimes adds.
       const paragraphs = Array.from(node.querySelectorAll("[data-paragraph]"))
-        .map((t) => (t.innerText || "").replace(/ /g, " ").replace(/\n+$/, ""));
+        .map((t) => paragraphHtmlForStorage(t));
       return { title, paragraphs };
     });
   }
@@ -1168,6 +1224,26 @@ const initContractForm = () => {
         if (err) alert(err.message || "Could not delete.");
       }
     }
+  });
+
+  // ── Formatting toolbar (Bold / Italic / Underline / lists) ──
+  // Each button runs document.execCommand on the current selection
+  // inside the focused paragraph. We track the last focused
+  // contenteditable so clicking a toolbar button doesn't kill the
+  // selection.
+  let lastFocusedParagraph = null;
+  tplSectionsHost?.addEventListener("focusin", (event) => {
+    const t = event.target;
+    if (t && t.matches && t.matches("[data-paragraph], [data-intro-paragraph]")) {
+      lastFocusedParagraph = t;
+    }
+  });
+  document.querySelector("#contract-template-toolbar")?.addEventListener("mousedown", (event) => {
+    const btn = event.target.closest("[data-fmt-cmd]");
+    if (!btn) return;
+    event.preventDefault();
+    if (lastFocusedParagraph) lastFocusedParagraph.focus();
+    try { document.execCommand(btn.dataset.fmtCmd, false, null); } catch (_) {}
   });
 
   // ── @-autocomplete for {{tokens}} inside template paragraphs ──
