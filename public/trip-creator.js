@@ -103,6 +103,26 @@
   function getActiveLanguage() {
     return ($("tc-language")?.value || "mn").toLowerCase();
   }
+  // The trip stores the language as a full English name picked from the
+  // workspace dropdown (English / Mongolian / Russian / French / …). The
+  // brochure dropdown uses 2-letter codes. Map the common names so the
+  // brochure inherits whatever the trip-creator picked.
+  function normalizeTripLangCode(value) {
+    const v = String(value || "").trim().toLowerCase();
+    if (!v) return "";
+    const map = {
+      english: "en", en: "en",
+      mongolian: "mn", mongol: "mn", монгол: "mn", mn: "mn",
+      russian: "ru", russe: "ru", ru: "ru",
+      french: "fr", français: "fr", francais: "fr", fr: "fr",
+      italian: "it", italiano: "it", it: "it",
+      spanish: "es", español: "es", espanol: "es", es: "es",
+      korean: "ko", 한국어: "ko", ko: "ko",
+      chinese: "zh", "中文": "zh", zh: "zh",
+      japanese: "ja", "日本語": "ja", ja: "ja",
+    };
+    return map[v] || "";
+  }
   function locationLabelFor(loc, lang) {
     const names = loc.names || {};
     return names[lang] || loc.name || "";
@@ -516,8 +536,13 @@
         $("tc-total-days").value = doc.totalDays || trip.totalDays || "";
         $("tc-total-km").value = doc.totalKm || "";
         $("tc-price-from").value = doc.priceFrom || "";
-        $("tc-language").value = doc.language || "mn";
-        $("tc-trip-type").value = doc.tripType || (trip.tripType || "TRIP").toUpperCase();
+        // Fall back to the trip's own language when this brochure doc
+        // hasn't picked one yet. The trip stores a full name ("English",
+        // "Mongolian", …) while the dropdown uses 2-letter codes.
+        $("tc-language").value = doc.language || normalizeTripLangCode(trip.language) || "mn";
+        // Trip type always GIT or FIT now — anything else from older docs
+        // collapses to the closest valid value.
+        $("tc-trip-type").value = (doc.tripType === "FIT" || (trip.tripType || "").toUpperCase() === "FIT") ? "FIT" : "GIT";
         $("tc-currency").value = doc.currency || "MNT";
         $("tc-offer-type").value = doc.offerType || "range";
         $("tc-international-flight").value = doc.internationalFlight || "included";
@@ -527,12 +552,11 @@
           $(`tc-${key}`).value = String(doc[key] || 0);
           $(`tc-${key}-out`).textContent = `${doc[key] || 0}/5`;
         });
-        // The editor always opens with no day rows — the manager builds
-        // the program from scratch each time, "+ Add day" by "+ Add day"
-        // (eventually drag-and-drop from day templates). Saved program
-        // data on the trip-creator doc is preserved on the server and
-        // only gets overwritten if the manager hits Publish/Save.
-        renderProgram([]);
+        // Show whatever was saved last. New trips with no saved program
+        // start empty (we no longer auto-seed N rows from trip.totalDays).
+        // Re-opening an existing trip shows its persisted day rows so
+        // the manager can keep editing instead of losing their work.
+        renderProgram(Array.isArray(doc.program) ? doc.program : []);
         renderQuote((doc.quotation && doc.quotation.rows) || []);
         $("tc-quote-note").value = (doc.quotation && doc.quotation.note) || "";
         // Brochure tab
@@ -552,6 +576,9 @@
         // The doc has updatedAt only after at least one save — that's our
         // proxy for "this trip is live at /trip/<id>".
         setPublishedState(!!doc.updatedAt);
+        // Now that we know whether the trip is published, render the
+        // live-preview pane (iframe URL or "publish once" placeholder).
+        if (typeof refreshLivePreview === "function") refreshLivePreview();
       } else {
         metaNode.textContent = "Trip not found.";
         setPublishedState(false);
@@ -627,6 +654,7 @@
       if (!res.ok) throw new Error(data.error || "Publish failed");
       setStatus("✓ Published.", "ok");
       setPublishedState(true);
+      refreshLivePreview();
       setTimeout(() => setStatus(""), 1800);
     } catch (err) {
       setStatus(err.message || "Publish failed.", "error");
@@ -636,6 +664,53 @@
   }
 
   saveBtn.addEventListener("click", save);
+
+  // ── Live preview pane ────────────────────────────────────────
+  // The right side of the screen holds an iframe pointing at the public
+  // /trip/<tripId> page. It refreshes after Publish (and on demand via
+  // the 🔄 button). The toggle hides the pane to give the editor full
+  // width when working on a smaller screen.
+  const splitWrap = document.querySelector("[data-tc-split]");
+  const previewPane = document.getElementById("tc-preview-pane");
+  const previewIframe = document.getElementById("tc-preview-iframe");
+  const previewEmpty = document.getElementById("tc-preview-empty");
+  const previewToggle = document.getElementById("tc-preview-toggle");
+  const previewShowBtn = document.getElementById("tc-preview-show");
+  const previewRefresh = document.getElementById("tc-preview-refresh");
+  const previewHint = document.getElementById("tc-preview-hint");
+  const previewKey = `tc-preview-on:${tripId}`;
+
+  function refreshLivePreview() {
+    if (!previewIframe || !tripId) return;
+    if (!isPublished) {
+      previewIframe.src = "about:blank";
+      previewIframe.style.visibility = "hidden";
+      if (previewEmpty) previewEmpty.hidden = false;
+      if (previewHint) previewHint.textContent = "Publish once to enable preview";
+      return;
+    }
+    if (previewEmpty) previewEmpty.hidden = true;
+    previewIframe.style.visibility = "visible";
+    // Cache-bust so the iframe actually re-fetches the saved doc.
+    previewIframe.src = `/trip/${encodeURIComponent(tripId)}?_t=${Date.now()}`;
+    if (previewHint) previewHint.textContent = "Auto-refreshes after Publish";
+  }
+  function setPreviewVisible(on) {
+    if (!splitWrap || !previewPane || !previewShowBtn) return;
+    splitWrap.classList.toggle("has-preview", on);
+    previewPane.style.display = on ? "" : "none";
+    previewShowBtn.hidden = on;
+    try { localStorage.setItem(previewKey, on ? "1" : "0"); } catch (_) {}
+    if (on) refreshLivePreview();
+  }
+  previewToggle?.addEventListener("click", () => setPreviewVisible(false));
+  previewShowBtn?.addEventListener("click", () => setPreviewVisible(true));
+  previewRefresh?.addEventListener("click", refreshLivePreview);
+
+  // Initial state — default ON unless the manager collapsed it before.
+  let prefOn = "1";
+  try { prefOn = localStorage.getItem(previewKey) ?? "1"; } catch (_) {}
+  setPreviewVisible(prefOn !== "0");
 
   // ── Preview link + copy-to-clipboard ────────────────────────────
   const previewLink = document.getElementById("tc-preview-link");
