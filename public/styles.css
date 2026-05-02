@@ -15485,9 +15485,17 @@ body.gallery-file-drag .gallery-folder-card.is-drop-hover {
   position: static;
 }
 .gallery-grid--list .gallery-folder-card {
-  /* Folder cards are hidden in list mode (see render()), but if any
-     slip through, keep them visually consistent. */
-  grid-template-columns: 32px 56px 1fr;
+  /* Folder cards in list view: 3 grid items (thumb, title, meta —
+     no checkbox), so the columns are sized to the actual layout
+     instead of squeezing the title into 56px. */
+  grid-template-columns: 72px minmax(220px, 1fr) auto;
+}
+.gallery-grid--list .gallery-folder-card .gallery-thumb {
+  width: 64px;
+  height: 64px;
+}
+.gallery-grid--list .gallery-folder-card .gallery-card-title {
+  font-size: 0.95rem;
 }
 
 @media (max-width: 720px) {
