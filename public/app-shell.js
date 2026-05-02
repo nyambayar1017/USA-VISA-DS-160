@@ -858,6 +858,11 @@ function isAccountantOrAdmin() {
 let expenseModalNode = null;
 let expenseSettings = { expenseCategories: [], expensePayees: [], bankAccounts: [] };
 let expenseTrips = [];
+// When the modal is opened from a flight / transfer / camp row, these
+// hold the link so the submitted payment_request includes them and
+// the accountant's approval flips the right reservation to paid.
+let expenseRecordType = "";
+let expenseRecordId = "";
 
 async function loadExpenseSettings() {
   try {
@@ -1067,6 +1072,11 @@ window.openExpenseRequestModal = async function openExpenseRequestModal(opts = {
   if (opts.payeeName) form.payeeName.value = opts.payeeName;
   if (opts.amount) form.paidAmount.value = opts.amount;
   if (opts.currency) form.currency.value = opts.currency;
+  // Reservation link — stashed in module scope; submitExpenseRequest
+  // reads them and the server denormalises onto the payment_request
+  // so approval flips the linked reservation's paymentStatus.
+  expenseRecordType = (opts.recordType || "").toString().toLowerCase();
+  expenseRecordId = (opts.recordId || "").toString();
   expenseOnSuccess = opts.onSuccess || null;
   expenseModalNode.classList.remove("is-hidden");
   document.body.classList.add("modal-open");
@@ -1077,6 +1087,8 @@ function closeExpenseRequestModal() {
   expenseModalNode.classList.add("is-hidden");
   document.body.classList.remove("modal-open");
   expenseOnSuccess = null;
+  expenseRecordType = "";
+  expenseRecordId = "";
 }
 
 async function submitExpenseRequest(event) {
@@ -1096,6 +1108,8 @@ async function submitExpenseRequest(event) {
     scope: fd.get("scope") || "office",
     category,
     tripId: fd.get("scope") === "trip" ? (fd.get("tripId") || "") : "",
+    recordType: expenseRecordType,
+    recordId: expenseRecordId,
     payeeName: (fd.get("payeeName") || "").trim(),
     paidAmount: Number(fd.get("paidAmount") || 0),
     currency: fd.get("currency") || "MNT",

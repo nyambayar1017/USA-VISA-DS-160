@@ -459,6 +459,7 @@
                     <td>
                       <div class="trip-row-actions payment-row-actions">
                         <button type="button" class="table-action compact secondary" data-action="edit-flight-payment" data-id="${escapeHtml(entry.id)}">Edit</button>
+                        ${(entry.paymentStatus || "unpaid") !== "paid" ? `<button type="button" class="table-action compact" data-action="request-flight-payment" data-id="${escapeHtml(entry.id)}" data-trip-id="${escapeHtml(entry.tripId)}" data-amount="${escapeHtml(entry.totalTicketPrice || entry.amount || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.paidTo || entry.airline || "")}">Request paid</button>` : ""}
                       </div>
                     </td>
                   </tr>
@@ -590,6 +591,7 @@
                         <summary class="trip-menu-trigger" aria-label="Transfer reservation actions">⋯</summary>
                         <div class="trip-menu-popover">
                           <button type="button" class="trip-menu-item" data-action="edit-transfer" data-id="${escapeHtml(entry.id)}">Edit</button>
+                          ${(entry.paymentStatus || "unpaid") !== "paid" ? `<button type="button" class="trip-menu-item" data-action="request-transfer-payment" data-id="${escapeHtml(entry.id)}" data-trip-id="${escapeHtml(entry.tripId)}" data-amount="${escapeHtml(entry.driverSalary || entry.amount || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.driverName || "")}">Request paid</button>` : ""}
                           <button type="button" class="trip-menu-item is-danger" data-action="delete-transfer" data-id="${escapeHtml(entry.id)}">Delete</button>
                         </div>
                       </details>
@@ -973,6 +975,24 @@
       await Promise.all([loadTrips(), loadFlights(), loadBankAccounts()]);
       fillFlightPaymentForm(entry);
       openPanel(flightPaymentFormPanel);
+      return;
+    }
+    if (target.dataset.action === "request-flight-payment") {
+      if (typeof window.openExpenseRequestModal !== "function") {
+        alert("Expense request modal not loaded — refresh the page.");
+        return;
+      }
+      window.openExpenseRequestModal({
+        scope: "trip",
+        tripId: target.dataset.tripId || "",
+        recordType: "flight_reservation",
+        recordId: target.dataset.id,
+        category: "Flight payment",
+        payeeName: target.dataset.payee || "",
+        amount: target.dataset.amount || "",
+        currency: target.dataset.currency || "MNT",
+        onSuccess: () => loadFlightPayments?.() || loadFlights(),
+      });
     }
   });
 
@@ -993,6 +1013,24 @@
       resetTransferForm();
       fillTransferForm(entry);
       openPanel(transferFormPanel);
+      return;
+    }
+    if (target.dataset.action === "request-transfer-payment") {
+      if (typeof window.openExpenseRequestModal !== "function") {
+        alert("Expense request modal not loaded — refresh the page.");
+        return;
+      }
+      window.openExpenseRequestModal({
+        scope: "trip",
+        tripId: target.dataset.tripId || "",
+        recordType: "transfer_reservation",
+        recordId: target.dataset.id,
+        category: "Transfer payment",
+        payeeName: target.dataset.payee || "",
+        amount: target.dataset.amount || "",
+        currency: target.dataset.currency || "MNT",
+        onSuccess: () => loadTransfers(),
+      });
       return;
     }
     if (target.dataset.action === "delete-transfer") {

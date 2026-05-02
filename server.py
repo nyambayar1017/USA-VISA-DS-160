@@ -9084,6 +9084,32 @@ def handle_create_payment_request(environ, start_response):
         except Exception:
             pass
         vendor_meta = _attach_vendor_invoice(vendor_upload, actor) if vendor_upload else None
+        # Optional link to a flight / transfer / camp reservation. When
+        # set, approving this payment_request flips the underlying
+        # reservation's paymentStatus to "paid" (mirrors how invoice
+        # approval flips the installment status).
+        record_type = (normalize_text(payload.get("recordType")) or "").lower()
+        valid_record_types = {"flight_reservation", "transfer_reservation", "camp_reservation"}
+        record_id = normalize_text(payload.get("recordId"))
+        if record_type and record_type not in valid_record_types:
+            return json_response(start_response, "400 Bad Request", {"error": f"Unknown recordType: {record_type}"})
+        if record_type and not record_id:
+            return json_response(start_response, "400 Bad Request", {"error": "recordId is required when recordType is set."})
+        # Reject duplicate pending requests on the same reservation —
+        # spam-click guard, mirrors the per-installment lock used for
+        # invoices.
+        if record_type and record_id:
+            existing = next(
+                (
+                    r for r in read_payment_requests()
+                    if r.get("recordType") == record_type
+                    and r.get("recordId") == record_id
+                    and (r.get("status") or "") == "pending"
+                ),
+                None,
+            )
+            if existing:
+                return json_response(start_response, "409 Conflict", {"error": "A payment request is already pending for this reservation."})
         request = {
             "id": uuid4().hex,
             "direction": "outgoing",
@@ -9093,6 +9119,8 @@ def handle_create_payment_request(environ, start_response):
             "invoiceSerial": "",
             "tripId": trip_id,
             "tripName": trip_name,
+            "recordType": record_type,
+            "recordId": record_id,
             "installmentIndex": -1,
             "installmentDescription": category,
             "paidDate": "",
@@ -9404,6 +9432,33 @@ def handle_approve_payment_request(environ, start_response, request_id):
                 invoices[i] = invoice
                 break
         write_invoices(invoices)
+    else:
+        # Outgoing payment_request linked to a flight / transfer / camp
+        # reservation — flip the reservation's paymentStatus to "paid"
+        # so the trip dashboards reflect the confirmation. Skipped when
+        # recordType is empty (legacy office-overhead expenses don't
+        # link to a reservation).
+        rec_type = (target.get("recordType") or "").lower()
+        rec_id = target.get("recordId") or ""
+        readers_writers = {
+            "flight_reservation":   (read_flight_reservations,   write_flight_reservations),
+            "transfer_reservation": (read_transfer_reservations, write_transfer_reservations),
+            "camp_reservation":     (read_camp_reservations,     write_camp_reservations),
+        }
+        if rec_type in readers_writers and rec_id:
+            reader, writer = readers_writers[rec_type]
+            rows = reader()
+            for i, r in enumerate(rows):
+                if r.get("id") == rec_id:
+                    rows[i] = {
+                        **r,
+                        "paymentStatus": "paid",
+                        "paidDate": paid_date or r.get("paidDate") or "",
+                        "updatedAt": now_mongolia().isoformat(),
+                        "updatedBy": actor_snapshot(actor),
+                    }
+                    writer(rows)
+                    break
 
     target["status"] = "approved"
     target["approvedBy"] = actor_snapshot(actor)

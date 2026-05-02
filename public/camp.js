@@ -1771,6 +1771,7 @@ function renderReadOnlyRow(entry, index, options = {}) {
             <button type="button" class="trip-menu-item" data-action="edit" data-id="${entry.id}">Edit</button>
             <button type="button" class="trip-menu-item" data-action="view-pdf" data-id="${entry.id}">View</button>
             <button type="button" class="trip-menu-item" data-action="download-pdf" data-id="${entry.id}">Download PDF</button>
+            ${(entry.paymentStatus || "in_progress") !== "paid" && (entry.paymentStatus || "") !== "paid_100" ? `<button type="button" class="trip-menu-item" data-action="request-camp-payment" data-id="${entry.id}" data-trip-id="${escapeHtml(entry.tripId || "")}" data-amount="${escapeHtml(entry.totalPrice || "")}" data-currency="${escapeHtml(entry.currency || "MNT")}" data-payee="${escapeHtml(entry.campName || "")}">Request paid</button>` : ""}
             <button type="button" class="trip-menu-item is-danger" data-action="delete-reservation" data-id="${entry.id}">Delete</button>
           </div>
         </details>
@@ -3534,6 +3535,24 @@ async function handleCampTableClick(event) {
   if (action === "delete-reservation") {
     const ok = await UI.confirm("Delete this reservation?", { dangerous: true });
     if (ok) deleteReservation(target.dataset.id);
+    return;
+  }
+  if (action === "request-camp-payment") {
+    if (typeof window.openExpenseRequestModal !== "function") {
+      alert("Expense request modal not loaded — refresh the page.");
+      return;
+    }
+    window.openExpenseRequestModal({
+      scope: "trip",
+      tripId: target.dataset.tripId || "",
+      recordType: "camp_reservation",
+      recordId: target.dataset.id,
+      category: "Camp payment",
+      payeeName: target.dataset.payee || "",
+      amount: target.dataset.amount || "",
+      currency: target.dataset.currency || "MNT",
+      onSuccess: () => loadReservations(),
+    });
     return;
   }
   if (action === "select-camp") {
