@@ -193,7 +193,7 @@
   function renderProgram(rows) {
     refreshLocationDatalist();
     const lang = getActiveLanguage();
-    setTimeout(() => autoGrowAll(programList), 0);
+    setTimeout(() => { autoGrowAll(programList); refreshSidebar(rows); }, 0);
     programList.innerHTML = (rows || [])
       .map((row, idx) => {
         const ids = Array.isArray(row.imageIds) ? row.imageIds : [];
@@ -848,6 +848,110 @@
   // already works. The full-blown WYSIWYG approach (editor renders as
   // the public page) is a separate phase.
   function refreshLivePreview() { /* intentionally empty */ }
+
+  // ── Trip-builder sidebar (map + manager + flight info) ─────────
+  // Mirrors the public trip page's right rail so the manager can see
+  // the coordinates pin / contact card / pax + days while editing,
+  // without clicking Preview every time.
+  let sidebarMap = null;
+  function buildSidebarStops(rows) {
+    const lang = getActiveLanguage();
+    const out = [];
+    (rows || []).forEach((r) => {
+      if (!r || !r.locationId) return;
+      const loc = LOC_CACHE.find((l) => l.id === r.locationId);
+      if (!loc || !loc.latlonEnabled) return;
+      const lat = parseFloat(loc.latitude), lon = parseFloat(loc.longitude);
+      if (!isFinite(lat) || !isFinite(lon)) return;
+      out.push({ name: (loc.names && loc.names[lang]) || loc.name || "", coords: [lat, lon] });
+    });
+    return out;
+  }
+  function refreshSidebarMap(rows) {
+    const node = document.getElementById("tc-sidebar-map");
+    if (!node || !window.L) return;
+    if (sidebarMap) { try { sidebarMap.remove(); } catch (_) {} sidebarMap = null; node.innerHTML = ""; }
+    const stops = buildSidebarStops(rows);
+    if (!stops.length) {
+      node.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12.5px;text-align:center;padding:14px;">Pick a location on a day to see the route here.</div>`;
+      return;
+    }
+    sidebarMap = window.L.map(node, {
+      zoomControl: false, attributionControl: false,
+      dragging: true, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: true, boxZoom: false, keyboard: false,
+    });
+    window.L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19, subdomains: "abcd",
+    }).addTo(sidebarMap);
+    stops.forEach((s, i) => {
+      const icon = window.L.divIcon({
+        className: "",
+        html: `<div style="position:relative;width:26px;height:34px;transform:translate(-13px,-30px);">
+          <div style="position:absolute;left:50%;bottom:0;width:22px;height:22px;background:#C46A2C;border-radius:50% 50% 50% 0;transform:translateX(-50%) rotate(-45deg);box-shadow:0 2px 4px rgba(0,0,0,0.25);"></div>
+          <div style="position:absolute;left:50%;top:4px;transform:translateX(-50%);width:16px;height:16px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#C46A2C;font-family:'Plus Jakarta Sans',sans-serif;">${i + 1}</div>
+        </div>`,
+        iconSize: [26, 34], iconAnchor: [13, 30],
+      });
+      window.L.marker(s.coords, { icon }).addTo(sidebarMap);
+    });
+    if (stops.length === 1) {
+      sidebarMap.setView(stops[0].coords, 9);
+    } else {
+      const line = window.L.polyline(stops.map((s) => s.coords), { color: "#C46A2C", weight: 3, opacity: 0.85, dashArray: "6,5" }).addTo(sidebarMap);
+      sidebarMap.fitBounds(line.getBounds(), { padding: [20, 20] });
+    }
+  }
+  function refreshSidebarManager() {
+    const node = document.getElementById("tc-sidebar-manager");
+    if (!node) return;
+    const u = window.currentUser || {};
+    const name = u.fullName || u.email || "TravelX";
+    const role = u.role || "Trip designer";
+    const phone = u.contractPhone || u.phone || "";
+    const email = u.email || "";
+    const avatar = u.avatarPath || "";
+    node.innerHTML = `
+      ${avatar ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(name)}" />` : `<div style="width:44px;height:44px;border-radius:50%;background:rgba(197,97,63,0.18);grid-row:1/3;display:flex;align-items:center;justify-content:center;color:#c5613f;font-weight:700;">${escapeHtml(name.slice(0,1).toUpperCase())}</div>`}
+      <div class="tc-sidebar-mname">${escapeHtml(name)}</div>
+      <div class="tc-sidebar-mrole">${escapeHtml(role)}</div>
+      <div class="tc-sidebar-mcontact">
+        ${phone ? `<span>📞 ${escapeHtml(phone)}</span>` : ""}
+        ${email ? `<span>✉ ${escapeHtml(email)}</span>` : ""}
+      </div>
+    `;
+  }
+  function refreshSidebarMeta(rows) {
+    const meta = document.getElementById("tc-sidebar-meta");
+    if (!meta) return;
+    const totalDays = Number($("tc-total-days")?.value) || (rows || []).length || 0;
+    const start = window.__tcTripStartDate || "";
+    let endStr = "";
+    if (start && totalDays) {
+      const d = new Date(`${start}T00:00:00`);
+      d.setDate(d.getDate() + Math.max(0, totalDays - 1));
+      const yyyy = d.getFullYear(), mm = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+      endStr = `${yyyy}-${mm}-${dd}`;
+    }
+    const priceFrom = ($("tc-price-from")?.value || "").trim();
+    const currency = $("tc-currency")?.value || "MNT";
+    meta.innerHTML = `
+      <strong>${totalDays || "—"} days</strong>${start ? `, ${start}${endStr ? ` – ${endStr}` : ""}` : ""}<br/>
+      ${priceFrom ? `<strong>${currency} ${escapeHtml(priceFrom)}</strong> Price from` : ""}
+    `;
+  }
+  function refreshSidebarFlightInfo(rows) {
+    const days = Number($("tc-total-days")?.value) || (rows || []).length || 0;
+    const daysOut = document.getElementById("tc-sidebar-days");
+    if (daysOut) daysOut.textContent = String(days);
+    // Pax / staff would come from the trip record; we don't fetch it
+    // here, leave defaults.
+  }
+  function refreshSidebar(rows) {
+    refreshSidebarMap(rows);
+    refreshSidebarManager();
+    refreshSidebarMeta(rows);
+    refreshSidebarFlightInfo(rows);
+  }
 
   // ── Preview link + copy-to-clipboard ────────────────────────────
   const previewLink = document.getElementById("tc-preview-link");

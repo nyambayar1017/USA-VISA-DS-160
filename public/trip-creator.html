@@ -8,7 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-415" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-416" />
   </head>
   <body class="app-body" data-page="trip-creator">
     <div class="workspace-shell">
@@ -29,6 +30,7 @@
           </div>
         </section>
 
+        <div class="tc-layout">
         <section class="card tc-split-editor">
           <div class="tc-tab-strip" role="tablist" id="tc-tabs">
             <a href="#" id="tc-back-to-trip-strip" class="header-action-btn tc-back-strip-btn" hidden>← Trip details</a>
@@ -187,14 +189,36 @@ A rich nomadic heritage shaped by Buddhism…"></textarea>
             </label>
           </section>
         </section>
+
+        <aside class="tc-sidebar" id="tc-sidebar" aria-label="Trip preview">
+          <div class="tc-sidebar-card">
+            <div class="tc-sidebar-map" id="tc-sidebar-map"></div>
+            <div class="tc-sidebar-summary">
+              <div class="tc-sidebar-meta" id="tc-sidebar-meta"></div>
+            </div>
+          </div>
+          <div class="tc-sidebar-card tc-sidebar-manager" id="tc-sidebar-manager"></div>
+          <div class="tc-sidebar-card tc-sidebar-flightinfo" id="tc-sidebar-flightinfo">
+            <strong>Flight information</strong>
+            <span class="tc-sidebar-serial" id="tc-sidebar-serial">—</span>
+            <div class="tc-sidebar-flightgrid">
+              <div><dt>PAX</dt><dd id="tc-sidebar-pax">0</dd></div>
+              <div><dt>STAFF</dt><dd id="tc-sidebar-staff">0</dd></div>
+              <div><dt>DAYS</dt><dd id="tc-sidebar-days">0</dd></div>
+            </div>
+          </div>
+        </aside>
+
+        </div>
       </main>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="/app-shell.js?v=workspace-147"></script>
     <script src="/ui-dialog.js?v=workspace-1"></script>
     <script src="/compress-upload.js?v=workspace-3"></script>
     <script src="/image-picker.js?v=workspace-2"></script>
     <script src="/content-picker.js?v=workspace-1"></script>
-    <script src="/trip-creator.js?v=workspace-24"></script>
+    <script src="/trip-creator.js?v=workspace-25"></script>
   </body>
 </html>
