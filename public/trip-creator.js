@@ -86,6 +86,35 @@
   // ── Program editor (day rows) ────────────────────────────────────
   const programList = document.getElementById("tc-program-list");
 
+  // Locations cache — fetched once, used to populate each day row's
+  // location picker. Picking a location pre-fills the day title in the
+  // trip's language and drops the location's first photo into the day.
+  let LOC_CACHE = [];
+  let LOC_LOAD_PROMISE = null;
+  function ensureLocationsLoaded() {
+    if (!LOC_LOAD_PROMISE) {
+      LOC_LOAD_PROMISE = fetch("/api/locations")
+        .then((r) => r.json())
+        .then((d) => { LOC_CACHE = (d.entries || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "")); })
+        .catch(() => { LOC_CACHE = []; });
+    }
+    return LOC_LOAD_PROMISE;
+  }
+  function getActiveLanguage() {
+    return ($("tc-language")?.value || "mn").toLowerCase();
+  }
+  function locationLabelFor(loc, lang) {
+    const names = loc.names || {};
+    return names[lang] || loc.name || "";
+  }
+  function locationOptionsHtml(selectedId) {
+    const opts = LOC_CACHE.map((l) => {
+      const sel = l.id === selectedId ? " selected" : "";
+      return `<option value="${escapeHtml(l.id)}"${sel}>${escapeHtml(l.name || "(unnamed)")}</option>`;
+    }).join("");
+    return `<option value="">— Pick a location —</option>${opts}`;
+  }
+
   function renderProgram(rows) {
     programList.innerHTML = (rows || [])
       .map((row, idx) => {
@@ -105,10 +134,17 @@
           <div class="tc-program-row" data-idx="${idx}" data-day-id="${escapeHtml(row.id || "")}">
             <input type="hidden" class="tc-program-id" value="${escapeHtml(row.id || "")}" />
             <input type="hidden" class="tc-program-template-id" value="${escapeHtml(row.templateId || "")}" />
+            <input type="hidden" class="tc-program-location-id" value="${escapeHtml(row.locationId || "")}" />
             <div class="tc-program-row-head">
               <input type="text" class="tc-program-day" placeholder="Өдөр ${idx + 1}" value="${escapeHtml(row.day || `Өдөр ${idx + 1}`)}" />
               <input type="text" class="tc-program-title" placeholder="e.g. УБ - Истанбул нислэг" value="${escapeHtml(row.title || "")}" />
               <button type="button" class="tc-program-delete" data-action="delete-day" data-idx="${idx}" aria-label="Remove day">✕</button>
+            </div>
+            <div class="tc-program-location-row">
+              <label>📍 Location
+                <select class="tc-program-location" data-idx="${idx}">${locationOptionsHtml(row.locationId)}</select>
+              </label>
+              <span class="tc-program-location-hint">Pulls the location's name and first photo into this day.</span>
             </div>
             <div class="tc-program-meta-row">
               <label>Date <input type="text" class="tc-program-date" placeholder="e.g. 2026-07-11" value="${escapeHtml(row.date || "")}" /></label>
@@ -158,9 +194,39 @@
       .join("");
   }
 
-  document.getElementById("tc-add-day").addEventListener("click", () => {
+  document.getElementById("tc-add-day").addEventListener("click", async () => {
+    await ensureLocationsLoaded();
     const current = readProgram();
     current.push({ day: `Өдөр ${current.length + 1}`, title: "", body: "" });
+    renderProgram(current);
+  });
+
+  // Location picker: filling a day's location auto-fills the title in
+  // the trip's language and pushes the location's first photo into the
+  // day if no photo is set yet. The user can override afterwards — we
+  // only seed empty fields, never overwrite their typing.
+  programList.addEventListener("change", (event) => {
+    const sel = event.target.closest(".tc-program-location");
+    if (!sel) return;
+    const idx = Number(sel.dataset.idx);
+    const locId = sel.value;
+    const current = readProgram();
+    const day = current[idx];
+    if (!day) return;
+    day.locationId = locId;
+    if (locId) {
+      const loc = LOC_CACHE.find((l) => l.id === locId);
+      if (loc) {
+        const lang = getActiveLanguage();
+        const label = locationLabelFor(loc, lang);
+        if (label && !(day.title || "").trim()) day.title = label;
+        const firstImg = (loc.images || [])[0];
+        if (firstImg && !(day.imageIds || []).length) {
+          day.imageIds = [firstImg.id];
+        }
+      }
+    }
+    current[idx] = day;
     renderProgram(current);
   });
 
@@ -232,6 +298,7 @@
       return {
         id: row.querySelector(".tc-program-id")?.value || "",
         templateId: row.querySelector(".tc-program-template-id")?.value || "",
+        locationId: row.querySelector(".tc-program-location-id")?.value || "",
         day: row.querySelector(".tc-program-day")?.value || "",
         title: row.querySelector(".tc-program-title")?.value || "",
         date: row.querySelector(".tc-program-date")?.value || "",
@@ -464,8 +531,12 @@
   async function loadDoc() {
     setStatus("Loading…");
     saveBtn.disabled = true;
+    // Kick off the locations fetch in parallel so the day-row dropdowns
+    // already have options by the time renderProgram runs.
+    const locsLoading = ensureLocationsLoaded();
     try {
       const tripsRes = await fetch("/api/camp-trips").then((r) => r.json());
+      await locsLoading;
       const trip = (tripsRes.entries || []).find((t) => t.id === tripId);
       if (trip) {
         titleNode.textContent = `Trip Creator · ${trip.tripName || trip.serial || ""}`.trim();
@@ -527,17 +598,12 @@
     }
   }
 
-  function seedProgramFromTrip(trip) {
-    // First time the editor opens for a trip, scaffold one row per day so
-    // the user has something to fill in. After they save once, we trust
-    // the stored program and never re-seed.
-    const days = Number(trip.totalDays || 0);
-    if (!days || days > 30) return [];
-    const out = [];
-    for (let i = 1; i <= days; i++) {
-      out.push({ day: `Өдөр ${i}`, title: "", body: "" });
-    }
-    return out;
+  function seedProgramFromTrip(_trip) {
+    // We used to auto-create one row per day from trip.totalDays, but the
+    // empty rows just clutter the editor. Now we start with zero days and
+    // the manager clicks "+ Add day" to build the program one day at a
+    // time (eventually drag-and-drop from day templates).
+    return [];
   }
 
   function splitLines(value) {

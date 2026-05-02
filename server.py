@@ -2032,6 +2032,7 @@ def _trip_creator_normalize(payload):
             prog.append({
                 "id": _ensure_id(entry),
                 "templateId": str(entry.get("templateId") or "").strip(),
+                "locationId": str(entry.get("locationId") or "").strip(),
                 "day": str(entry.get("day") or "").strip(),
                 "title": str(entry.get("title") or "").strip(),
                 "date": str(entry.get("date") or "").strip(),
