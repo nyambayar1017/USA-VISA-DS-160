@@ -9089,7 +9089,10 @@ def handle_create_payment_request(environ, start_response):
         # reservation's paymentStatus to "paid" (mirrors how invoice
         # approval flips the installment status).
         record_type = (normalize_text(payload.get("recordType")) or "").lower()
-        valid_record_types = {"flight_reservation", "transfer_reservation", "camp_reservation"}
+        # camp_group is a fan-out type: recordId is "<tripId>::<campName>"
+        # and approval flips every camp_reservation whose tripId + campName
+        # match. Mirrors the trip-detail "Camp payments" card flow.
+        valid_record_types = {"flight_reservation", "transfer_reservation", "camp_reservation", "camp_group"}
         record_id = normalize_text(payload.get("recordId"))
         if record_type and record_type not in valid_record_types:
             return json_response(start_response, "400 Bad Request", {"error": f"Unknown recordType: {record_type}"})
@@ -9459,6 +9462,24 @@ def handle_approve_payment_request(environ, start_response, request_id):
                     }
                     writer(rows)
                     break
+        elif rec_type == "camp_group" and rec_id and "::" in rec_id:
+            # recordId format: "<tripId>::<campName>" — flip every
+            # camp_reservation in the trip+camp pair to paid.
+            group_trip_id, _, group_camp_name = rec_id.partition("::")
+            rows = read_camp_reservations()
+            changed = False
+            for i, r in enumerate(rows):
+                if r.get("tripId") == group_trip_id and (r.get("campName") or "") == group_camp_name:
+                    rows[i] = {
+                        **r,
+                        "paymentStatus": "paid",
+                        "paidDate": paid_date or r.get("paidDate") or "",
+                        "updatedAt": now_mongolia().isoformat(),
+                        "updatedBy": actor_snapshot(actor),
+                    }
+                    changed = True
+            if changed:
+                write_camp_reservations(rows)
 
     target["status"] = "approved"
     target["approvedBy"] = actor_snapshot(actor)
