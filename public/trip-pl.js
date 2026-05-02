@@ -73,13 +73,24 @@
     const invoices = (invoicesResp.entries || []).filter((i) => i.tripId === tripId);
     let incomeMnt = 0;
     let incomePending = 0;
+    // Per-currency income breakdown so the Trip-finance summary
+    // can surface a rate input next to each non-MNT currency. Both
+    // paid + pending stack onto the same currency bucket.
+    const incomePaidByCcy = {};
+    const incomePendingByCcy = {};
     invoices.forEach((inv) => {
+      const ccy = (inv.currency || "MNT").toUpperCase();
       (inv.installments || []).forEach((inst) => {
         const status = (inst.status || "").toLowerCase();
         const amt = Number(inst.paidAmount != null ? inst.paidAmount : inst.amount) || 0;
         const m = toMnt(amt, inv.currency, rates, inv.fxRate);
-        if (status === "paid" || status === "confirmed") incomeMnt += m;
-        else incomePending += m;
+        if (status === "paid" || status === "confirmed") {
+          incomeMnt += m;
+          incomePaidByCcy[ccy] = (incomePaidByCcy[ccy] || 0) + amt;
+        } else {
+          incomePending += m;
+          incomePendingByCcy[ccy] = (incomePendingByCcy[ccy] || 0) + amt;
+        }
       });
     });
 
@@ -190,13 +201,70 @@
     const margin = (plannedMnt > 0 && marginPct < 100)
       ? Math.round(plannedMnt / (1 - marginPct / 100))
       : 0;
+
+    // Build one tile per non-MNT currency present in invoices: shows
+    // the original-currency total plus an editable Rate → MNT input.
+    // When the rate is blank the MNT-equivalent tile reads "—" so the
+    // missing-rate state is obvious.
+    const ccySymbols = { USD: "$", EUR: "€", MNT: "₮", GBP: "£", JPY: "¥", KRW: "₩", CNY: "¥" };
+    const fmtCcy = (ccy, amt) => {
+      const n = Math.round(Number(amt) || 0).toLocaleString();
+      return ccy === "MNT" ? `MNT ${n}` : `${ccySymbols[ccy] || ""}${n} ${ccy}`;
+    };
+    const otherCurrencies = Object.keys(incomePaidByCcy).filter((c) => c !== "MNT" && incomePaidByCcy[c] > 0);
+    const rateTiles = otherCurrencies.map((ccy) => {
+      const paidOriginal = incomePaidByCcy[ccy] || 0;
+      const currentRate = Number(rates[ccy]) || 0;
+      const placeholder = ccy === "USD" ? "3500" : ccy === "EUR" ? "4100" : "0";
+      const mntFromCcy = currentRate > 0 ? Math.round(paidOriginal * currentRate) : null;
+      return `
+        <div class="trip-pl-card"><dt>Income paid (${ccy})</dt><dd class="is-positive">${fmtCcy(ccy, paidOriginal)}</dd></div>
+        <div class="trip-pl-card trip-pl-rate-card"><dt>Rate ${ccy} → MNT</dt>
+          <dd>
+            <input type="number" min="0" step="0.01" value="${currentRate || ""}" placeholder="${placeholder}" data-trip-rate-input="${ccy}" />
+            <button type="button" class="header-action-btn" data-trip-rate-save="${ccy}">Save</button>
+          </dd>
+        </div>
+        <div class="trip-pl-card"><dt>Income in MNT (${ccy})</dt><dd class="${mntFromCcy != null ? "is-positive" : "muted"}">${mntFromCcy != null ? `MNT ${mntFromCcy.toLocaleString()}` : "— set rate"}</dd></div>
+      `;
+    }).join("");
+
     summary.innerHTML = `
-      <div class="trip-pl-card"><dt>Income (paid)</dt><dd class="is-positive">MNT ${incomeMnt.toLocaleString()}</dd></div>
+      ${rateTiles}
+      <div class="trip-pl-card"><dt>Income (paid, MNT total)</dt><dd class="is-positive">MNT ${incomeMnt.toLocaleString()}</dd></div>
       ${incomePending ? `<div class="trip-pl-card"><dt>Income (pending)</dt><dd class="muted">MNT ${incomePending.toLocaleString()}</dd></div>` : ""}
       <div class="trip-pl-card"><dt>Actual paid</dt><dd class="is-negative">MNT ${actualMnt.toLocaleString()}</dd></div>
       <div class="trip-pl-card"><dt>Net (income − paid)</dt><dd class="${net >= 0 ? "is-positive" : "is-negative"}">MNT ${net.toLocaleString()}</dd></div>
       ${margin ? `<div class="trip-pl-card"><dt>Quote price (margin ${marginPct}%)</dt><dd>MNT ${margin.toLocaleString()}</dd></div>` : ""}
     `;
+
+    // Wire each "Save" button to PATCH the trip's exchangeRates and
+    // re-render. Inputs Enter-key trigger the same save.
+    summary.querySelectorAll("[data-trip-rate-save]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const ccy = btn.dataset.tripRateSave;
+        const input = summary.querySelector(`input[data-trip-rate-input="${ccy}"]`);
+        const value = Number(input?.value) || 0;
+        if (value <= 0) return;
+        const nextRates = { ...(trip.exchangeRates || {}), [ccy]: value };
+        try {
+          await fetch(`/api/camp-trips/${tripId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...trip, exchangeRates: nextRates }),
+          });
+          await load();
+        } catch (err) { alert(err.message || "Could not save rate."); }
+      });
+    });
+    summary.querySelectorAll("[data-trip-rate-input]").forEach((inp) => {
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          summary.querySelector(`[data-trip-rate-save="${inp.dataset.tripRateInput}"]`)?.click();
+        }
+      });
+    });
   }
 
   // Wire row buttons.

@@ -17835,6 +17835,9 @@ body.lightbox-open { overflow: hidden; }
 .trip-pl-card dd { margin: 0; font-size: 16px; font-weight: 700; color: #1f2d50; }
 .trip-pl-card dd.is-positive { color: #1f8550; }
 .trip-pl-card dd.is-negative { color: #c44747; }
+.trip-pl-rate-card dd { display: flex; gap: 6px; align-items: center; }
+.trip-pl-rate-card input { width: 100px; padding: 4px 8px; font-size: 14px; border: 1px solid #d6dae3; border-radius: 6px; }
+.trip-pl-rate-card button { font-size: 12px; padding: 4px 10px; }
 .trip-pl-adhoc td { background: rgba(255, 245, 189, 0.18); }
 .trip-finance-heading {
   margin: 18px 0 8px;
