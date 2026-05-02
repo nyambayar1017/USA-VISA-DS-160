@@ -17857,6 +17857,10 @@ body.trip-popup-open { overflow: hidden; }
   background: #e2e8f0;
   overflow: hidden;
   cursor: zoom-in;
+  /* Explicit zero so this tile never inherits a circle / oval radius
+     from any older stylesheet variant — the corner radii below set
+     just the outer edges of the mosaic. */
+  border-radius: 0;
 }
 .content-gallery-tile img {
   width: 100%;

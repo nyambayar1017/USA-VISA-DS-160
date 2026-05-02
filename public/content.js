@@ -402,6 +402,40 @@
         <ul>${(g.items || []).map((it) => `<li>${escapeHtml(it)}</li>`).join("")}</ul>
       </div>
     `).join("");
+
+    // YouTube / uploaded video — same logic the standalone /c/<slug>
+    // page uses: prefer manager-uploaded MP4 over the YouTube URL.
+    let video = "";
+    if (content.videoFile) {
+      video = `<div class="trip-popup-video"><video src="${escapeHtml(content.videoFile)}" controls preload="metadata" playsinline></video></div>`;
+    } else if (content.videoUrl) {
+      const m = String(content.videoUrl).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([\w-]{11})/);
+      const id = m ? m[1] : "";
+      video = id
+        ? `<div class="trip-popup-video"><iframe src="https://www.youtube.com/embed/${id}" loading="lazy" allowfullscreen></iframe></div>`
+        : `<div class="trip-popup-video-link"><a href="${escapeHtml(content.videoUrl)}" target="_blank" rel="noopener">▶ Watch video</a></div>`;
+    }
+
+    // Map — embed Google Maps when content.location is set, plus a
+    // "Open in Google Maps" link.
+    let map = "";
+    if (content.location) {
+      const q = encodeURIComponent(content.location);
+      const mapSrc = `https://www.google.com/maps?q=${q}&output=embed`;
+      const openUrl = `https://www.google.com/maps/search/?api=1&query=${q}`;
+      map = `
+        <div class="trip-popup-map-section">
+          <div class="trip-popup-map-head">
+            <h3>📍 Байршил</h3>
+            <a class="trip-popup-map-link" href="${openUrl}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+          </div>
+          <div class="trip-popup-map">
+            <iframe src="${mapSrc}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+          </div>
+        </div>
+      `;
+    }
+
     return `
       ${galleryHtml}
       <div class="trip-popup-body">
@@ -409,6 +443,8 @@
         <h2>${escapeHtml(content.title || content.slug || "")}</h2>
         ${summary}
         ${groups}
+        ${video}
+        ${map}
       </div>
     `;
   }
