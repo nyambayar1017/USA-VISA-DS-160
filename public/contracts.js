@@ -1549,13 +1549,11 @@ const initContractForm = () => {
   async function renderTemplateListModal() {
     const entries = await loadTemplatesIntoSelect();
     if (!tplListHost) return;
-    // Prepend a synthetic "Default" row so the manager can view the
-    // built-in template and clone it as the basis for a new one.
-    // No Delete on Default — it's the canonical fallback.
     const defaultRow = `
       <tr class="contract-template-default-row">
         <td><strong>Анхдагч (Default)</strong> <span class="muted">— built-in</span></td>
         <td class="muted">8 sections</td>
+        <td class="muted">TravelX</td>
         <td class="muted">—</td>
         <td>
           <button type="button" class="header-action-btn" data-tpl-action="view" data-id="__default__">View</button>
@@ -1563,10 +1561,15 @@ const initContractForm = () => {
         </td>
       </tr>
     `;
+    const creatorName = (e) => {
+      const cb = e.createdBy || {};
+      return cb.name || cb.fullName || cb.email || "—";
+    };
     const customRows = entries.map((e) => `
       <tr>
         <td><strong>${escText(e.name)}</strong></td>
         <td>${(e.sections || []).length} sections · ${(e.sections || []).reduce((n, s) => n + (s.paragraphs || []).length, 0)} paragraphs</td>
+        <td>${escText(creatorName(e))}</td>
         <td>${escText((e.updatedAt || "").slice(0, 10))}</td>
         <td>
           <button type="button" class="header-action-btn" data-tpl-action="view" data-id="${escAttr(e.id)}">View</button>
@@ -1578,7 +1581,7 @@ const initContractForm = () => {
     tplListHost.innerHTML = `
       <div class="camp-table-wrap">
         <table class="camp-table">
-          <thead><tr><th>Name</th><th>Sections</th><th>Updated</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Sections</th><th>Made by</th><th>Updated</th><th>Actions</th></tr></thead>
           <tbody>${defaultRow}${customRows}</tbody>
         </table>
       </div>

@@ -4023,6 +4023,11 @@ time {
   max-height: 90vh;
   overflow-y: auto;
 }
+#contract-template-list-modal .camp-modal-dialog {
+  width: min(1080px, calc(100vw - 40px));
+  max-height: 90vh;
+  overflow-y: auto;
+}
 .contract-template-section {
   border: 1px solid #d6dae3;
   border-radius: 10px;
