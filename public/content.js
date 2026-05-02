@@ -164,6 +164,7 @@
                   <details class="row-menu">
                     <summary class="row-menu-trigger" aria-label="Actions">⋯</summary>
                     <div class="row-menu-popover">
+                      <button type="button" class="row-menu-item" data-action="view" data-id="${escapeHtml(e.id)}" data-slug="${escapeHtml(e.slug || "")}">View</button>
                       <button type="button" class="row-menu-item" data-action="edit" data-id="${escapeHtml(e.id)}">Edit</button>
                       <button type="button" class="row-menu-item is-danger" data-action="delete" data-id="${escapeHtml(e.id)}" data-title="${escapeHtml(e.title)}">Delete</button>
                     </div>
@@ -314,6 +315,103 @@
   }
 
   addBtn.addEventListener("click", () => { refreshCountryOptions(); openModal(null); });
+
+  // ── In-page content preview popup ──
+  // Click "View" on a row → fetches /api/public/content/<slug> and
+  // shows the same horizontal mosaic + body the trip-public
+  // ContentModal uses, as a centred dialog over the /content page.
+  // Mobile collapses to a vertical stack via the existing
+  // .content-gallery media query.
+  async function openContentPreview(slug) {
+    let modal = document.getElementById("ct-preview-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "ct-preview-modal";
+      modal.className = "ct-preview-backdrop is-hidden";
+      modal.innerHTML = `
+        <div class="ct-preview-dialog" data-stop>
+          <button type="button" class="ct-preview-close" data-close aria-label="Close">×</button>
+          <div class="ct-preview-body" data-body>Loading…</div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      const close = () => {
+        modal.classList.add("is-hidden");
+        document.body.classList.remove("modal-open");
+      };
+      modal.addEventListener("click", (e) => {
+        if (e.target.closest("[data-close]") || e.target === modal) close();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !modal.classList.contains("is-hidden")) close();
+      });
+    }
+    const body = modal.querySelector("[data-body]");
+    body.innerHTML = `<p class="ct-preview-loading">Loading…</p>`;
+    modal.classList.remove("is-hidden");
+    document.body.classList.add("modal-open");
+    let data;
+    try {
+      const res = await fetch(`/api/public/content/${encodeURIComponent(slug)}`);
+      if (!res.ok) throw new Error("Not published yet — save first.");
+      data = await res.json();
+    } catch (err) {
+      body.innerHTML = `<p class="ct-preview-empty">${escapeHtml(err.message || "Could not load")}</p>`;
+      return;
+    }
+    body.innerHTML = renderContentPreview(data);
+    // Wire lightbox clicks on the gallery.
+    body.querySelectorAll("[data-lightbox-urls]").forEach((tile) => {
+      tile.addEventListener("click", () => {
+        try {
+          const urls = JSON.parse(tile.getAttribute("data-lightbox-urls") || "[]");
+          const idx = Number(tile.getAttribute("data-lightbox-index") || 0);
+          if (typeof window.openImageLightbox === "function") window.openImageLightbox(urls, idx);
+        } catch {}
+      });
+    });
+  }
+
+  function renderContentPreview(content) {
+    const images = (content.images || []).map((img) => (typeof img === "string" ? img : img.url)).filter(Boolean);
+    const urlsAttr = escapeHtml(JSON.stringify(images));
+    const moreCount = Math.max(0, images.length - 4);
+    const tile = (i, classes, dataIdx) => `
+      <button type="button" class="content-gallery-tile${classes ? " " + classes : ""}" data-lightbox-urls="${urlsAttr}" data-lightbox-index="${dataIdx ?? i}">
+        <img src="${escapeHtml(images[i] || images[1] || images[0] || "")}" alt="" loading="lazy" />
+        ${i === 3 && moreCount > 0 ? `<span class="content-gallery-more"><span class="content-gallery-more-icon">🖼</span> +${moreCount} more</span>` : ""}
+      </button>
+    `;
+    const galleryHtml = images.length
+      ? `<div class="content-gallery${images.length === 1 ? " is-single" : ""}">
+          ${tile(0, "is-featured", 0)}
+          ${images.length > 1 ? tile(1, "", 1) : ""}
+          ${images.length > 1 ? tile(2, "", 2) : ""}
+          ${images.length > 1 ? tile(3, "is-bottom", moreCount > 0 ? 3 : 1) : ""}
+        </div>`
+      : "";
+    const summaryIsHtml = /<\/?(p|h[1-6]|ul|ol|li|br|strong|em|a)\b/i.test(content.summary || "");
+    const summary = content.summary
+      ? (summaryIsHtml
+          ? `<div class="trip-popup-summary content-rich">${content.summary}</div>`
+          : `<p class="trip-popup-summary">${escapeHtml(content.summary).replace(/\n/g, "<br>")}</p>`)
+      : "";
+    const groups = (content.bulletGroups || []).map((g) => `
+      <div class="trip-popup-group">
+        ${g.heading ? `<h3>${escapeHtml(g.heading)}</h3>` : ""}
+        <ul>${(g.items || []).map((it) => `<li>${escapeHtml(it)}</li>`).join("")}</ul>
+      </div>
+    `).join("");
+    return `
+      ${galleryHtml}
+      <div class="trip-popup-body">
+        <span class="ct-preview-badge">${escapeHtml((content.type || "").toUpperCase())}${content.country ? ` · ${escapeHtml(content.country.toUpperCase())}` : ""}</span>
+        <h2>${escapeHtml(content.title || content.slug || "")}</h2>
+        ${summary}
+        ${groups}
+      </div>
+    `;
+  }
   list.addEventListener("click", async (event) => {
     // Close any open row-menu <details> as soon as the user picks an
     // action — otherwise the popover sticks around floating over the
@@ -322,6 +420,16 @@
     if (actionBtn) {
       const det = actionBtn.closest("details.row-menu");
       if (det) det.removeAttribute("open");
+    }
+    const viewBtn = event.target.closest('[data-action="view"]');
+    if (viewBtn) {
+      const slug = viewBtn.dataset.slug || "";
+      if (!slug) {
+        alert("This content has no slug yet — save it first.");
+        return;
+      }
+      openContentPreview(slug);
+      return;
     }
     const editBtn = event.target.closest('[data-action="edit"]');
     if (editBtn) {
