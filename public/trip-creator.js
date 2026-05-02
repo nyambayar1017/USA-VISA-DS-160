@@ -852,53 +852,41 @@
   // Mirrors the public trip page's right rail so the manager can see
   // the coordinates pin / contact card / pax + days while editing,
   // without clicking Preview every time.
-  let sidebarMap = null;
   function buildSidebarStops(rows) {
     const lang = getActiveLanguage();
     const out = [];
     (rows || []).forEach((r) => {
       if (!r || !r.locationId) return;
       const loc = LOC_CACHE.find((l) => l.id === r.locationId);
-      if (!loc || !loc.latlonEnabled) return;
+      if (!loc) return;
       const lat = parseFloat(loc.latitude), lon = parseFloat(loc.longitude);
-      if (!isFinite(lat) || !isFinite(lon)) return;
-      out.push({ name: (loc.names && loc.names[lang]) || loc.name || "", coords: [lat, lon] });
+      const hasCoords = isFinite(lat) && isFinite(lon);
+      const name = (loc.names && loc.names[lang]) || loc.name || "";
+      if (!name && !hasCoords) return;
+      out.push({ name, lat: hasCoords ? lat : null, lon: hasCoords ? lon : null });
     });
     return out;
   }
+  function gmapsSrcForBuilder(stops) {
+    if (!stops.length) return "";
+    if (stops.length === 1) {
+      const s = stops[0];
+      if (s.lat != null && s.lon != null) return `https://www.google.com/maps?q=${s.lat},${s.lon}&z=9&output=embed`;
+      return `https://www.google.com/maps?q=${encodeURIComponent(s.name)}&output=embed`;
+    }
+    const tok = (s) => (s.lat != null && s.lon != null) ? `${s.lat},${s.lon}` : s.name;
+    return `https://www.google.com/maps?saddr=${encodeURIComponent(tok(stops[0]))}&daddr=${encodeURIComponent(stops.slice(1).map(tok).join("+to:"))}&output=embed`;
+  }
   function refreshSidebarMap(rows) {
     const node = document.getElementById("tc-sidebar-map");
-    if (!node || !window.L) return;
-    if (sidebarMap) { try { sidebarMap.remove(); } catch (_) {} sidebarMap = null; node.innerHTML = ""; }
+    if (!node) return;
     const stops = buildSidebarStops(rows);
     if (!stops.length) {
       node.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12.5px;text-align:center;padding:14px;">Pick a location on a day to see the route here.</div>`;
       return;
     }
-    sidebarMap = window.L.map(node, {
-      zoomControl: false, attributionControl: false,
-      dragging: true, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: true, boxZoom: false, keyboard: false,
-    });
-    window.L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      maxZoom: 19, subdomains: "abcd",
-    }).addTo(sidebarMap);
-    stops.forEach((s, i) => {
-      const icon = window.L.divIcon({
-        className: "",
-        html: `<div style="position:relative;width:26px;height:34px;transform:translate(-13px,-30px);">
-          <div style="position:absolute;left:50%;bottom:0;width:22px;height:22px;background:#C46A2C;border-radius:50% 50% 50% 0;transform:translateX(-50%) rotate(-45deg);box-shadow:0 2px 4px rgba(0,0,0,0.25);"></div>
-          <div style="position:absolute;left:50%;top:4px;transform:translateX(-50%);width:16px;height:16px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#C46A2C;font-family:'Plus Jakarta Sans',sans-serif;">${i + 1}</div>
-        </div>`,
-        iconSize: [26, 34], iconAnchor: [13, 30],
-      });
-      window.L.marker(s.coords, { icon }).addTo(sidebarMap);
-    });
-    if (stops.length === 1) {
-      sidebarMap.setView(stops[0].coords, 9);
-    } else {
-      const line = window.L.polyline(stops.map((s) => s.coords), { color: "#C46A2C", weight: 3, opacity: 0.85, dashArray: "6,5" }).addTo(sidebarMap);
-      sidebarMap.fitBounds(line.getBounds(), { padding: [20, 20] });
-    }
+    const src = gmapsSrcForBuilder(stops);
+    node.innerHTML = `<iframe src="${escapeHtml(src)}" title="Trip map" style="width:100%;height:100%;border:0;display:block;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`;
   }
   function refreshSidebarManager() {
     const node = document.getElementById("tc-sidebar-manager");

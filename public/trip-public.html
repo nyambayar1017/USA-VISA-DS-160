@@ -501,11 +501,12 @@ function Header() {
   );
 }
 
-/* ── MINI MAP (Leaflet, real tiles) ──
+/* ── MAP (Google Maps embed) ──
    Pin set is derived from the trip's days: each day with a locationId
-   that resolves to a saved location with lat/lon becomes one stop, in
-   day order. If no day has coords, the map is hidden entirely (caller
-   decides). Names follow the trip's language (loc.names[lang] || name).
+   that resolves to a saved location with EITHER lat/lon OR a name we
+   can search by becomes one stop, in day order. We dropped Leaflet —
+   Google Maps' iframe embed is more reliable across browsers and
+   doesn't depend on tile-server uptime / lifecycle hooks.
 */
 function buildMapStops() {
   const lang = (TRIP.language || 'mn').toLowerCase();
@@ -515,49 +516,42 @@ function buildMapStops() {
     const id = row && row.locationId;
     if (!id) return;
     const loc = locs[id];
-    if (!loc || !loc.latlonEnabled) return;
+    if (!loc) return;
     const lat = parseFloat(loc.latitude);
     const lon = parseFloat(loc.longitude);
-    if (!isFinite(lat) || !isFinite(lon)) return;
+    const hasCoords = isFinite(lat) && isFinite(lon);
     const name = (loc.names && loc.names[lang]) || loc.name || '';
-    out.push({ name, coords: [lat, lon] });
+    if (!name && !hasCoords) return;
+    out.push({ name, lat: hasCoords ? lat : null, lon: hasCoords ? lon : null });
   });
   return out;
 }
-function MiniMap({onClick, stops}) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!ref.current || !window.L || !stops.length) return;
-    if (ref.current._leaflet_id) { ref.current._leaflet_id = null; ref.current.innerHTML=''; }
-    const map = window.L.map(ref.current, {
-      zoomControl:false, attributionControl:false,
-      dragging:false, scrollWheelZoom:false, doubleClickZoom:false, touchZoom:false, boxZoom:false, keyboard:false,
-    });
-    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom:19, subdomains:'abcd',
-    }).addTo(map);
-    stops.forEach((s,i) => {
-      const icon = window.L.divIcon({
-        className:'',
-        html:`<div style="position:relative;width:28px;height:36px;transform:translate(-14px,-32px);">
-          <div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:24px;height:24px;background:#C46A2C;border-radius:50% 50% 50% 0;transform-origin:center;transform:translateX(-50%) rotate(-45deg);box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>
-          <div style="position:absolute;left:50%;top:4px;transform:translateX(-50%);width:18px;height:18px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#C46A2C;font-family:'Plus Jakarta Sans',sans-serif;">${i+1}</div>
-        </div>`,
-        iconSize:[28,36], iconAnchor:[14,32],
-      });
-      window.L.marker(s.coords, {icon}).addTo(map);
-    });
-    if (stops.length === 1) {
-      map.setView(stops[0].coords, 9);
-    } else {
-      const line = window.L.polyline(stops.map(s=>s.coords), {color:'#C46A2C', weight:3, opacity:0.85, dashArray:'6,5'}).addTo(map);
-      map.fitBounds(line.getBounds(), {padding:[24,24]});
+function gmapsSrcFor(stops, opts) {
+  const o = opts || {};
+  if (!stops.length) return '';
+  if (stops.length === 1) {
+    const s = stops[0];
+    if (s.lat != null && s.lon != null) {
+      return `https://www.google.com/maps?q=${s.lat},${s.lon}&z=${o.zoom || 9}&output=embed`;
     }
-    return () => map.remove();
-  }, [stops]);
+    return `https://www.google.com/maps?q=${encodeURIComponent(s.name)}&output=embed`;
+  }
+  // Multi-stop: build a directions URL. Google's free embed accepts
+  // `saddr` + `daddr` query, with extra waypoints joined by "+to:".
+  const toToken = (s) => (s.lat != null && s.lon != null) ? `${s.lat},${s.lon}` : s.name;
+  const saddr = toToken(stops[0]);
+  const daddrChain = stops.slice(1).map(toToken).join('+to:');
+  return `https://www.google.com/maps?saddr=${encodeURIComponent(saddr)}&daddr=${encodeURIComponent(daddrChain)}&output=embed`;
+}
+function MiniMap({onClick, stops}) {
+  const src = gmapsSrcFor(stops);
   return (
     <div onClick={onClick} style={{height:170, position:'relative', cursor:'pointer', borderBottom:`1px solid ${T.bd}`}}>
-      <div ref={ref} style={{position:'absolute', inset:0}}></div>
+      {src ? (
+        <iframe src={src} title="Trip map" style={{width:'100%', height:'100%', border:0, display:'block'}} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
+      ) : (
+        <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:T.mid, fontSize:12.5}}>No locations on this trip yet.</div>
+      )}
       <div style={{position:'absolute', top:8, right:8, padding:'4px 9px', background:'rgba(255,255,255,0.95)', borderRadius:24, fontSize:10.5, fontWeight:700, color:T.or, letterSpacing:'0.04em', zIndex:400, pointerEvents:'none'}}>EXPAND ⤢</div>
     </div>
   );
@@ -871,21 +865,8 @@ function RelatedTrips() {
 
 /* Map popup */
 function BigMap() {
-  const ref = useRef(null);
-  const mapRef = useRef(null);
   const wrapRef = useRef(null);
   const [isFs, setIsFs] = useState(false);
-  useEffect(() => {
-    // Resize Leaflet whenever fullscreen state changes, then re-fit bounds
-    const t = setTimeout(() => {
-      if (!mapRef.current) return;
-      mapRef.current.invalidateSize();
-      if (mapRef.current._routeLine) {
-        mapRef.current.fitBounds(mapRef.current._routeLine.getBounds(), {padding: isFs ? [120,120] : [60,60]});
-      }
-    }, 250);
-    return () => clearTimeout(t);
-  }, [isFs]);
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape' && isFs) setIsFs(false); };
     window.addEventListener('keydown', onKey);
@@ -895,85 +876,20 @@ function BigMap() {
     e && e.stopPropagation();
     setIsFs(v => !v);
   };
-  useEffect(() => {
-    if (!ref.current || !window.L) return;
-    if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-    if (ref.current._leaflet_id) { ref.current._leaflet_id = null; ref.current.innerHTML=''; }
-    // Real stops from the trip's day locations (in day order). Each stop's
-    // "desc" is "Day N" — derived from the day index that picked it.
-    const lang = (TRIP.language || 'mn').toLowerCase();
-    const locsMap = TRIP.locations || {};
-    const dayStops = [];
-    (TRIP.program || []).forEach((row, idx) => {
-      const id = row && row.locationId;
-      if (!id) return;
-      const loc = locsMap[id];
-      if (!loc || !loc.latlonEnabled) return;
-      const lat = parseFloat(loc.latitude);
-      const lon = parseFloat(loc.longitude);
-      if (!isFinite(lat) || !isFinite(lon)) return;
-      const name = (loc.names && loc.names[lang]) || loc.name || '';
-      dayStops.push({ name, coords: [lat, lon], desc: `Day ${idx + 1}` });
-    });
-    const stops = dayStops;
-    if (!stops.length) return; // nothing to render — caller hides the modal anyway
-    // Segments between consecutive stops — distance/duration come from
-    // the program rows when present, otherwise the leg is unlabelled.
-    const segments = [];
-    for (let i = 1; i < stops.length; i++) {
-      const row = (TRIP.program || []).filter((r) => r && r.locationId)[i];
-      const km = row && (row.distance || '');
-      segments.push({ from: i - 1, to: i, mode: 'car', icon: '🚙', km });
-    }
-    const map = window.L.map(ref.current, {
-      center:[47.85, 106.6], zoom:8, zoomControl:true, attributionControl:true, scrollWheelZoom:true,
-    });
-    mapRef.current = map;
-    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom:19, subdomains:'abcd',
-      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    }).addTo(map);
-    stops.forEach((s,i) => {
-      const icon = window.L.divIcon({
-        className:'',
-        html:`<div style="position:relative;width:36px;height:46px;">
-          <div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%) rotate(-45deg);width:32px;height:32px;background:#C46A2C;border-radius:50% 50% 50% 0;box-shadow:0 3px 6px rgba(0,0,0,0.35);"></div>
-          <div style="position:absolute;left:50%;top:6px;transform:translateX(-50%);width:22px;height:22px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#C46A2C;font-family:'Plus Jakarta Sans',sans-serif;">${i+1}</div>
-        </div>`,
-        iconSize:[36,46], iconAnchor:[18,42],
-      });
-      window.L.marker(s.coords, {icon}).addTo(map).bindPopup(`<strong>${s.name}</strong><br/><span style="color:#5C5448;font-size:12px;">${s.desc}</span>`);
-    });
-    const line = window.L.polyline(stops.map(s=>s.coords), {color:'#C46A2C', weight:4, opacity:0.9, dashArray:'8,6'}).addTo(map);
-    map._routeLine = line;
-    // Segment labels (mode + distance) at the midpoint of each leg —
-    // only if the program row carried a non-empty distance for that leg.
-    segments.forEach(seg => {
-      if (!seg.km) return;
-      const a = stops[seg.from].coords, b = stops[seg.to].coords;
-      const mid = [(a[0]+b[0])/2, (a[1]+b[1])/2];
-      const labelIcon = window.L.divIcon({
-        className:'',
-        html:`<div style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;background:rgba(255,255,255,0.92);border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;color:#C46A2C;white-space:nowrap;text-shadow:0 1px 2px rgba(255,255,255,0.8);">
-          <span style="font-size:11px;">${seg.icon}</span><span>${seg.km}</span>
-        </div>`,
-        iconSize:[null,null], iconAnchor:[0,10],
-      });
-      window.L.marker(mid, {icon:labelIcon, interactive:false}).addTo(map);
-    });
-    if (stops.length === 1) {
-      map.setView(stops[0].coords, 9);
-    } else {
-      map.fitBounds(line.getBounds(), {padding:[60,60]});
-    }
-    return () => map.remove();
-  }, []);
+  const stops = buildMapStops();
+  const src = gmapsSrcFor(stops);
   return (
     <div ref={wrapRef} style={isFs
       ? {position:'fixed', inset:0, zIndex:2000, background:'#F4EFE6'}
       : {position:'relative', background:'#F4EFE6'}
     }>
-      <div ref={ref} style={{height: isFs ? '100vh' : 560, background:'#F4EFE6'}}></div>
+      <div style={{height: isFs ? '100vh' : 560, background:'#F4EFE6'}}>
+        {src ? (
+          <iframe src={src} title="Trip route map" style={{width:'100%', height:'100%', border:0, display:'block'}} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
+        ) : (
+          <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:T.mid, fontSize:14}}>No locations on this trip yet.</div>
+        )}
+      </div>
       <button onClick={toggleFs} title={isFs ? 'Exit fullscreen' : 'Fullscreen'} style={{
         position:'absolute', top:12, right:12, zIndex:1000,
         width:36, height:36, padding:0, background:'rgba(255,255,255,0.95)', border:`1px solid ${T.bd}`,
