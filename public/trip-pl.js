@@ -177,7 +177,7 @@
         const url = `/trip-uploads/_vendor/${encodeURIComponent(meta.storedName)}`;
         return `<a href="${url}" target="_blank" rel="noreferrer">${escapeHtml(meta.originalName || "View")}</a>`;
       };
-      const lineRows = expenseLines.map((line) => {
+      const lineRows = expenseLines.map((line, idx) => {
         const paid = findMatchedPaid(line);
         const pending = !paid ? findMatchedPending(line) : null;
         const plannedMntLine = toMnt(line.amount, line.currency, rates);
@@ -190,9 +190,11 @@
         const actualText = paid
           ? `${escapeHtml(paid.currency || "MNT")} ${Number(paid.paidAmount || 0).toLocaleString()}`
           : "—";
-        const actionBtn = (!paid && !pending)
+        const payBtn = (!paid && !pending)
           ? `<button type="button" class="header-action-btn" data-pay-line="1" data-day="${escapeHtml(line.dayOffset)}" data-category="${escapeHtml(line.category)}" data-payee="${escapeHtml(line.payeeName)}" data-amount="${escapeHtml(line.amount)}" data-currency="${escapeHtml(line.currency)}">+ Pay</button>`
           : "";
+        const editBtn = `<button type="button" class="trip-pl-rowbtn" data-edit-plan="${idx}" title="Edit planned line">✎</button>`;
+        const delBtn = `<button type="button" class="trip-pl-rowbtn is-danger" data-delete-plan="${idx}" title="Delete planned line">🗑</button>`;
         return `
           <tr>
             <td>${escapeHtml(line.dayOffset)}</td>
@@ -202,7 +204,7 @@
             <td>${actualText}</td>
             <td>${vendorCell(paid || pending)}</td>
             <td>${status}</td>
-            <td>${actionBtn}</td>
+            <td>${payBtn}${editBtn}${delBtn}</td>
           </tr>
         `;
       });
@@ -459,6 +461,162 @@
       tripId: getTripId(),
       onSuccess: load,
     });
+  });
+
+  // ── Planned-expense editor (modal) ──
+  // Add / Edit / Delete planned lines from inside the trip detail page.
+  // Saving issues a POST to /api/camp-trips/<id> with a fresh expenseLines
+  // array; the server replaces it wholesale.
+  const planModal = document.getElementById("trip-plan-modal");
+  const planForm = document.getElementById("trip-plan-form");
+  const planTitle = document.getElementById("trip-plan-modal-title");
+  const planDeleteBtn = document.getElementById("trip-plan-delete-btn");
+  const planStatus = document.getElementById("trip-plan-status");
+  const planAddBtn = document.getElementById("trip-plan-add-btn");
+  const csModal = document.getElementById("trip-costing-settings-modal");
+  const csForm = document.getElementById("trip-costing-settings-form");
+  const csStatus = document.getElementById("trip-costing-settings-status");
+  const csBtn = document.getElementById("trip-costing-settings-btn");
+  const csTplPick = csForm?.querySelector("[data-trip-template-pick]");
+  let csTemplateCache = [];
+
+  function showModal(node) { if (!node) return; node.hidden = false; node.classList.remove("is-hidden"); }
+  function hideModal(node) { if (!node) return; node.hidden = true; node.classList.add("is-hidden"); }
+
+  function openPlanModal(idx) {
+    if (!planForm || !cachedTrip) return;
+    const lines = cachedTrip.expenseLines || [];
+    const isEdit = idx !== undefined && idx !== null && idx !== "";
+    const line = isEdit ? lines[idx] : null;
+    planForm.elements.lineIndex.value = isEdit ? String(idx) : "";
+    planForm.elements.dayOffset.value = String((line && line.dayOffset) || 1);
+    planForm.elements.category.value = (line && line.category) || "";
+    planForm.elements.payeeName.value = (line && line.payeeName) || "";
+    planForm.elements.amount.value = String((line && line.amount) || "");
+    planForm.elements.currency.value = (line && line.currency) || (cachedTrip.currency || "MNT");
+    planForm.elements.note.value = (line && line.note) || "";
+    if (planDeleteBtn) planDeleteBtn.hidden = !isEdit;
+    if (planTitle) planTitle.textContent = isEdit ? "Edit planned expense" : "Plan an expense";
+    if (planStatus) planStatus.textContent = "";
+    showModal(planModal);
+  }
+
+  async function savePlanLines(nextLines, statusEl) {
+    if (!cachedTrip) return;
+    if (statusEl) statusEl.textContent = "Saving…";
+    try {
+      const r = await fetch(`/api/camp-trips/${getTripId()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expenseLines: nextLines }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      hideModal(planModal);
+      await load();
+    } catch (err) {
+      if (statusEl) statusEl.textContent = err.message || "Save failed.";
+    }
+  }
+
+  planAddBtn?.addEventListener("click", () => openPlanModal());
+  document.addEventListener("click", (e) => {
+    if (e.target?.dataset?.action === "close-plan-modal") { hideModal(planModal); }
+    if (e.target?.dataset?.action === "close-cs-modal") { hideModal(csModal); }
+  });
+  tbody.addEventListener("click", (e) => {
+    const editIdx = e.target.closest("[data-edit-plan]")?.dataset?.editPlan;
+    if (editIdx !== undefined) { openPlanModal(Number(editIdx)); return; }
+    const delIdx = e.target.closest("[data-delete-plan]")?.dataset?.deletePlan;
+    if (delIdx !== undefined) {
+      if (!confirm("Delete this planned line?")) return;
+      const lines = (cachedTrip?.expenseLines || []).slice();
+      lines.splice(Number(delIdx), 1);
+      savePlanLines(lines);
+    }
+  });
+  planForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const idxRaw = planForm.elements.lineIndex.value;
+    const isEdit = idxRaw !== "";
+    const newLine = {
+      dayOffset: Number(planForm.elements.dayOffset.value) || 0,
+      category: (planForm.elements.category.value || "").trim(),
+      payeeName: (planForm.elements.payeeName.value || "").trim(),
+      amount: Number(planForm.elements.amount.value) || 0,
+      currency: (planForm.elements.currency.value || "MNT").toUpperCase(),
+      note: (planForm.elements.note.value || "").trim(),
+    };
+    const lines = (cachedTrip?.expenseLines || []).slice();
+    if (isEdit) lines[Number(idxRaw)] = newLine;
+    else lines.push(newLine);
+    savePlanLines(lines, planStatus);
+  });
+  planDeleteBtn?.addEventListener("click", () => {
+    const idxRaw = planForm.elements.lineIndex.value;
+    if (idxRaw === "") return;
+    if (!confirm("Delete this planned line?")) return;
+    const lines = (cachedTrip?.expenseLines || []).slice();
+    lines.splice(Number(idxRaw), 1);
+    savePlanLines(lines, planStatus);
+  });
+
+  // ── Costing settings (margin + FX rates + template pick) ──
+  async function ensureTemplatesLoaded() {
+    if (csTemplateCache.length || !csTplPick) return;
+    try {
+      const r = await fetch("/api/trip-templates");
+      const data = await r.json();
+      csTemplateCache = data.entries || [];
+    } catch { csTemplateCache = []; }
+    csTplPick.innerHTML = '<option value="">— No template —</option>'
+      + csTemplateCache.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}${t.workspace ? ` (${escapeHtml(t.workspace)})` : ""}</option>`).join("");
+  }
+  csBtn?.addEventListener("click", async () => {
+    if (!cachedTrip || !csForm) return;
+    await ensureTemplatesLoaded();
+    csForm.elements.templateId.value = "";
+    csForm.elements.marginPct.value = String(cachedTrip.marginPct || 0);
+    const r = cachedTrip.exchangeRates || {};
+    csForm.elements.rateUsd.value = r.USD || "";
+    csForm.elements.rateEur.value = r.EUR || "";
+    csForm.elements.rateCny.value = r.CNY || "";
+    csForm.elements.rateJpy.value = r.JPY || "";
+    csForm.elements.rateKrw.value = r.KRW || "";
+    csForm.elements.rateRub.value = r.RUB || "";
+    if (csStatus) csStatus.textContent = "";
+    showModal(csModal);
+  });
+  csForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!cachedTrip) return;
+    if (csStatus) csStatus.textContent = "Saving…";
+    const tplId = csForm.elements.templateId.value;
+    const tpl = tplId ? csTemplateCache.find((t) => t.id === tplId) : null;
+    const fx = {};
+    [["USD", "rateUsd"], ["EUR", "rateEur"], ["CNY", "rateCny"], ["JPY", "rateJpy"], ["KRW", "rateKrw"], ["RUB", "rateRub"]].forEach(([ccy, name]) => {
+      const v = Number(csForm.elements[name].value) || 0;
+      if (v > 0) fx[ccy] = v;
+    });
+    const body = {
+      marginPct: Number(csForm.elements.marginPct.value) || 0,
+      exchangeRates: fx,
+    };
+    // Picking a template REPLACES expenseLines wholesale (matches the
+    // legacy create-trip behaviour). Lines are deep-copied so the
+    // template stays untouched after future edits.
+    if (tpl) body.expenseLines = (tpl.expenseLines || []).map((l) => ({ ...l }));
+    try {
+      const r = await fetch(`/api/camp-trips/${getTripId()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      hideModal(csModal);
+      await load();
+    } catch (err) {
+      if (csStatus) csStatus.textContent = err.message || "Save failed.";
+    }
   });
 
   // Refresh after the user approves a request elsewhere on the page.

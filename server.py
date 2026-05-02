@@ -8388,7 +8388,7 @@ def build_camp_trip(payload, actor=None):
         trip_type = "git"
     raw_rates = payload.get("exchangeRates") or {}
     fx = {}
-    for k in ("USD", "EUR"):
+    for k in ("USD", "EUR", "CNY", "JPY", "KRW", "RUB"):
         try:
             v = float(raw_rates.get(k) or 0)
         except (TypeError, ValueError):
@@ -8399,6 +8399,17 @@ def build_camp_trip(payload, actor=None):
         margin_pct = float(payload.get("marginPct") or 0)
     except (TypeError, ValueError):
         margin_pct = 0
+    tourists = _normalize_tourist_breakdown(payload.get("tourists"))
+    staff = _normalize_staff_breakdown(payload.get("staff"))
+    pax_total = parse_int(payload.get("participantCount"))
+    if not pax_total:
+        pax_total = sum(tourists.values())
+    staff_total = parse_int(payload.get("staffCount"))
+    if not staff_total:
+        staff_total = sum(staff.values())
+    currency = (normalize_text(payload.get("currency")) or "MNT").upper()
+    if currency not in {"MNT", "USD", "EUR", "CNY", "JPY", "KRW", "RUB"}:
+        currency = "MNT"
     return {
         "id": str(uuid4()),
         "serial": next_trip_serial(company),
@@ -8410,8 +8421,11 @@ def build_camp_trip(payload, actor=None):
         "startDate": normalize_text(payload.get("startDate")),
         "endDate": normalize_text(payload.get("endDate")),
         "totalDays": parse_int(payload.get("totalDays")) or 1,
-        "participantCount": parse_int(payload.get("participantCount")),
-        "staffCount": parse_int(payload.get("staffCount")),
+        "participantCount": pax_total,
+        "staffCount": staff_total,
+        "tourists": tourists,
+        "staff": staff,
+        "currency": currency,
         "guideName": normalize_text(payload.get("guideName")),
         "driverName": normalize_text(payload.get("driverName")),
         "cookName": normalize_text(payload.get("cookName")),
@@ -8427,6 +8441,26 @@ def build_camp_trip(payload, actor=None):
         "updatedAt": "",
         "updatedBy": actor_snapshot(actor),
     }
+
+
+_TOURIST_KEYS = ("adults", "teen", "child", "infant", "foc")
+_STAFF_KEYS = ("guide", "driver", "cook", "tourLeader", "shaman", "shamanAssistant")
+
+
+def _normalize_tourist_breakdown(value):
+    out = {k: 0 for k in _TOURIST_KEYS}
+    if isinstance(value, dict):
+        for k in _TOURIST_KEYS:
+            out[k] = max(0, parse_int(value.get(k)) or 0)
+    return out
+
+
+def _normalize_staff_breakdown(value):
+    out = {k: 0 for k in _STAFF_KEYS}
+    if isinstance(value, dict):
+        for k in _STAFF_KEYS:
+            out[k] = max(0, parse_int(value.get(k)) or 0)
+    return out
 
 
 def validate_camp_trip(data):
@@ -13228,6 +13262,19 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         for key in ["participantCount", "staffCount", "totalDays"]:
             if key in payload:
                 merged[key] = parse_int(payload.get(key))
+        if "tourists" in payload:
+            merged["tourists"] = _normalize_tourist_breakdown(payload.get("tourists"))
+            # Keep the total in sync if the client didn't send it explicitly.
+            if "participantCount" not in payload:
+                merged["participantCount"] = sum(merged["tourists"].values())
+        if "staff" in payload:
+            merged["staff"] = _normalize_staff_breakdown(payload.get("staff"))
+            if "staffCount" not in payload:
+                merged["staffCount"] = sum(merged["staff"].values())
+        if "currency" in payload:
+            ccy = (normalize_text(payload.get("currency")) or "MNT").upper()
+            if ccy in {"MNT", "USD", "EUR", "CNY", "JPY", "KRW", "RUB"}:
+                merged["currency"] = ccy
         if "tags" in payload:
             merged["tags"] = normalize_tag_list(payload.get("tags"))
         if "tripType" in payload:
@@ -13244,7 +13291,7 @@ def handle_update_camp_trip(environ, start_response, trip_id):
         if "exchangeRates" in payload:
             raw_rates = payload.get("exchangeRates") or {}
             fx = {}
-            for k in ("USD", "EUR"):
+            for k in ("USD", "EUR", "CNY", "JPY", "KRW", "RUB"):
                 try:
                     v = float(raw_rates.get(k) or 0)
                 except (TypeError, ValueError):

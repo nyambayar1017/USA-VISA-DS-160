@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-404" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-406" />
   </head>
   <body class="app-body" data-page="home">
     <script>
@@ -120,14 +120,29 @@
                   End date
                   <input name="endDate" type="date" />
                 </label>
-                <label>
-                  Number of tourists
-                  <input name="participantCount" type="number" min="1" value="2" required />
-                </label>
-                <label>
-                  Number of staff
-                  <input name="staffCount" type="number" min="0" value="0" required />
-                </label>
+                <input type="hidden" name="participantCount" value="2" />
+                <input type="hidden" name="staffCount" value="0" />
+                <div class="full-span trip-pax-block">
+                  <strong class="trip-pax-title">Number of tourists</strong>
+                  <div class="trip-pax-grid">
+                    <label>Adults<input name="paxAdults" type="number" min="0" value="2" /></label>
+                    <label>Teen<input name="paxTeen" type="number" min="0" value="0" /></label>
+                    <label>Child<input name="paxChild" type="number" min="0" value="0" /></label>
+                    <label>Infant<input name="paxInfant" type="number" min="0" value="0" /></label>
+                    <label>FOC<input name="paxFoc" type="number" min="0" value="0" /></label>
+                  </div>
+                </div>
+                <div class="full-span trip-pax-block">
+                  <strong class="trip-pax-title">Number of staff</strong>
+                  <div class="trip-pax-grid trip-pax-grid--staff">
+                    <label>Guide<input name="staffGuide" type="number" min="0" value="0" /></label>
+                    <label>Driver<input name="staffDriver" type="number" min="0" value="0" /></label>
+                    <label>Cook<input name="staffCook" type="number" min="0" value="0" /></label>
+                    <label>Tour Leader<input name="staffTourLeader" type="number" min="0" value="0" /></label>
+                    <label>Shaman<input name="staffShaman" type="number" min="0" value="0" /></label>
+                    <label>Shaman Assistant<input name="staffShamanAsst" type="number" min="0" value="0" /></label>
+                  </div>
+                </div>
                 <label>
                   Total days of tour
                   <input name="totalDays" type="number" min="1" value="1" required />
@@ -149,6 +164,18 @@
                     <option value="">Choose language</option>
                   </select>
                 </label>
+                <label>
+                  Currency
+                  <select name="currency" required>
+                    <option value="MNT" selected>MNT — Mongolian tögrög</option>
+                    <option value="USD">USD — US dollar</option>
+                    <option value="EUR">EUR — Euro</option>
+                    <option value="CNY">CNY — Chinese yuan</option>
+                    <option value="JPY">JPY — Japanese yen</option>
+                    <option value="KRW">KRW — Korean won</option>
+                    <option value="RUB">RUB — Russian ruble</option>
+                  </select>
+                </label>
                 <label class="full-span" data-trip-form-destinations>
                   Destinations <span class="invoice-required">*</span>
                   <input type="hidden" name="tags" data-destinations-multi />
@@ -159,40 +186,6 @@
                     <button type="button" class="secondary-button trip-flight-add" data-action="trip-flight-add">+ Add flight</button>
                   </div>
                   <div class="trip-flights-list" data-trip-flights-list></div>
-                </div>
-                <div class="full-span trip-costing-block" data-trip-form-costing>
-                  <div class="trip-flights-head">
-                    <strong>Trip costing</strong>
-                    <span class="muted" style="font-size:12px;">Plan the expenses for this trip. Pick a template to fill the table or add lines manually.</span>
-                  </div>
-                  <div class="field-grid trip-costing-toolbar">
-                    <label>Use template
-                      <select data-trip-template-pick>
-                        <option value="">— No template —</option>
-                      </select>
-                    </label>
-                    <label>Margin %
-                      <input type="number" min="0" step="0.01" name="marginPct" value="0" />
-                    </label>
-                    <label>USD → MNT rate
-                      <input type="number" min="0" step="0.01" name="rateUsd" placeholder="e.g. 3450" />
-                    </label>
-                    <label>EUR → MNT rate
-                      <input type="number" min="0" step="0.01" name="rateEur" placeholder="e.g. 3700" />
-                    </label>
-                  </div>
-                  <div class="camp-table-wrap">
-                    <table class="camp-table tpl-trip-lines-table">
-                      <thead>
-                        <tr><th>Day</th><th>Category</th><th>Payee</th><th>Amount</th><th>Currency</th><th>Note</th><th></th></tr>
-                      </thead>
-                      <tbody data-trip-expense-lines></tbody>
-                    </table>
-                  </div>
-                  <div class="trip-costing-foot">
-                    <button type="button" class="secondary-button" data-action="trip-expense-add">+ Add line</button>
-                    <span class="trip-costing-totals" data-trip-costing-totals></span>
-                  </div>
                 </div>
                 <div class="actions full-span">
                   <button type="submit">Save trip</button>
@@ -279,7 +272,9 @@
             </div>
             <div class="camp-toolbar">
               <button type="button" id="invoice-create-btn" class="header-action-btn">+ Add invoice</button>
-              <button type="button" class="header-action-btn" id="trip-pl-add-line">+ Pay an expense</button>
+              <button type="button" class="header-action-btn" id="trip-plan-add-btn">+ Plan an expense</button>
+              <button type="button" class="header-action-btn" id="trip-costing-settings-btn">⚙ Costing settings</button>
+              <button type="button" id="trip-pl-add-line">+ Pay an expense</button>
             </div>
           </div>
           <div id="trip-pl-summary" class="trip-pl-summary"></div>
@@ -307,6 +302,71 @@
             </table>
           </div>
         </section>
+
+        <div id="trip-plan-modal" class="camp-modal is-hidden" hidden>
+          <div class="camp-modal-backdrop" data-action="close-plan-modal"></div>
+          <div class="camp-modal-dialog">
+            <div class="camp-modal-header">
+              <div><h3 id="trip-plan-modal-title">Plan an expense</h3></div>
+              <button type="button" class="camp-modal-close" data-action="close-plan-modal" aria-label="Close">×</button>
+            </div>
+            <form id="trip-plan-form" class="field-grid">
+              <input type="hidden" name="lineIndex" />
+              <label>Day<input name="dayOffset" type="number" min="0" value="1" /></label>
+              <label>Category<input name="category" placeholder="Camp / Driver salary / Museum…" required /></label>
+              <label>Payee<input name="payeeName" placeholder="Vendor name" /></label>
+              <label>Amount<input name="amount" type="number" min="0" step="0.01" required /></label>
+              <label>Currency
+                <select name="currency">
+                  <option value="MNT">MNT</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="CNY">CNY</option>
+                  <option value="JPY">JPY</option>
+                  <option value="KRW">KRW</option>
+                  <option value="RUB">RUB</option>
+                </select>
+              </label>
+              <label class="full-span">Note<input name="note" placeholder="Optional" /></label>
+              <div class="actions full-span">
+                <button type="submit">Save planned line</button>
+                <button type="button" class="secondary-button" data-action="close-plan-modal">Cancel</button>
+                <button type="button" class="secondary-button" id="trip-plan-delete-btn" hidden style="margin-left:auto;color:#9b2f2f;border-color:rgba(182,58,58,0.2);background:rgba(182,58,58,0.08);">Delete</button>
+                <p id="trip-plan-status" class="status"></p>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="trip-costing-settings-modal" class="camp-modal is-hidden" hidden>
+          <div class="camp-modal-backdrop" data-action="close-cs-modal"></div>
+          <div class="camp-modal-dialog">
+            <div class="camp-modal-header">
+              <div>
+                <h3>Costing settings</h3>
+                <p class="camp-modal-copy">Margin and FX rates apply to every planned line. Changing them updates the MNT totals on the Planned column.</p>
+              </div>
+              <button type="button" class="camp-modal-close" data-action="close-cs-modal" aria-label="Close">×</button>
+            </div>
+            <form id="trip-costing-settings-form" class="field-grid">
+              <label>Use template
+                <select name="templateId" data-trip-template-pick><option value="">— No template —</option></select>
+              </label>
+              <label>Margin %<input name="marginPct" type="number" min="0" step="0.01" value="0" /></label>
+              <label>USD → MNT<input name="rateUsd" type="number" min="0" step="0.01" placeholder="e.g. 3500" /></label>
+              <label>EUR → MNT<input name="rateEur" type="number" min="0" step="0.01" placeholder="e.g. 4100" /></label>
+              <label>CNY → MNT<input name="rateCny" type="number" min="0" step="0.01" /></label>
+              <label>JPY → MNT<input name="rateJpy" type="number" min="0" step="0.01" /></label>
+              <label>KRW → MNT<input name="rateKrw" type="number" min="0" step="0.01" /></label>
+              <label>RUB → MNT<input name="rateRub" type="number" min="0" step="0.01" /></label>
+              <div class="actions full-span">
+                <button type="submit">Save settings</button>
+                <button type="button" class="secondary-button" data-action="close-cs-modal">Cancel</button>
+                <p id="trip-costing-settings-status" class="status"></p>
+              </div>
+            </form>
+          </div>
+        </div>
 
         <section class="card" id="tourists-section">
           <div class="section-head">
@@ -1246,7 +1306,7 @@
     <script src="/destinations-multi.js?v=workspace-1"></script>
     <script src="/live-list.js?v=workspace-1"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-177"></script>
+    <script src="/camp.js?v=workspace-178"></script>
     <script src="/reservations-addon.js?v=workspace-28"></script>
     <script src="/participant-chooser.js?v=workspace-1"></script>
     <script src="/nationality-select.js?v=workspace-1"></script>
@@ -1256,6 +1316,6 @@
     <script src="/trip-notes.js?v=workspace-11"></script>
     <script src="/contracts.js?v=workspace-23"></script>
     <script src="/invoice.js?v=workspace-45"></script>
-    <script src="/trip-pl.js?v=workspace-11"></script>
+    <script src="/trip-pl.js?v=workspace-12"></script>
   </body>
 </html>

@@ -2865,6 +2865,25 @@ function startTripEdit(id) {
   }
   tripForm.elements.participantCount.value = String(trip.participantCount || 0);
   tripForm.elements.staffCount.value = String(trip.staffCount || 0);
+  // Tourist / staff breakdowns. Legacy trips that pre-date these fields
+  // get the total dropped into Adults / Guide so the sum still matches.
+  const t = trip.tourists || {};
+  const hasPaxBreakdown = ["adults","teen","child","infant","foc"].some((k) => Number(t[k]) > 0);
+  const setEl = (name, value) => { if (tripForm.elements[name]) tripForm.elements[name].value = String(value || 0); };
+  setEl("paxAdults", hasPaxBreakdown ? t.adults : trip.participantCount);
+  setEl("paxTeen", hasPaxBreakdown ? t.teen : 0);
+  setEl("paxChild", hasPaxBreakdown ? t.child : 0);
+  setEl("paxInfant", hasPaxBreakdown ? t.infant : 0);
+  setEl("paxFoc", hasPaxBreakdown ? t.foc : 0);
+  const s = trip.staff || {};
+  const hasStaffBreakdown = ["guide","driver","cook","tourLeader","shaman","shamanAssistant"].some((k) => Number(s[k]) > 0);
+  setEl("staffGuide", hasStaffBreakdown ? s.guide : trip.staffCount);
+  setEl("staffDriver", hasStaffBreakdown ? s.driver : 0);
+  setEl("staffCook", hasStaffBreakdown ? s.cook : 0);
+  setEl("staffTourLeader", hasStaffBreakdown ? s.tourLeader : 0);
+  setEl("staffShaman", hasStaffBreakdown ? s.shaman : 0);
+  setEl("staffShamanAsst", hasStaffBreakdown ? s.shamanAssistant : 0);
+  if (tripForm.elements.currency) tripForm.elements.currency.value = (trip.currency || "MNT").toUpperCase();
   tripForm.elements.totalDays.value = String(trip.totalDays || 1);
   if (tripForm.elements.language) tripForm.elements.language.value = trip.language || "";
   tripForm.elements.status.value = trip.status || "planning";
@@ -2890,6 +2909,11 @@ function resetTripFormState() {
   tripForm.reset();
   tripForm.elements.participantCount.value = "2";
   tripForm.elements.staffCount.value = "0";
+  const setEl = (name, value) => { if (tripForm.elements[name]) tripForm.elements[name].value = value; };
+  setEl("paxAdults", "2"); setEl("paxTeen", "0"); setEl("paxChild", "0"); setEl("paxInfant", "0"); setEl("paxFoc", "0");
+  setEl("staffGuide", "0"); setEl("staffDriver", "0"); setEl("staffCook", "0");
+  setEl("staffTourLeader", "0"); setEl("staffShaman", "0"); setEl("staffShamanAsst", "0");
+  setEl("currency", "MNT");
   tripForm.elements.totalDays.value = "1";
   tripForm.elements.status.value = "planning";
   if (tripForm.elements.tripType) tripForm.elements.tripType.value = "git";
@@ -3452,14 +3476,32 @@ tripForm.addEventListener("submit", async (event) => {
   try {
     const payload = buildPayload(tripForm);
     if (!payload.language) payload.language = "Other";
-    // Trip costing fields — expense plan, margin %, FX snapshot.
-    payload.expenseLines = readTripExpenseLines();
-    payload.marginPct = Number(tripForm.elements.marginPct?.value) || 0;
-    payload.exchangeRates = {};
-    const rateUsd = Number(tripForm.elements.rateUsd?.value) || 0;
-    const rateEur = Number(tripForm.elements.rateEur?.value) || 0;
-    if (rateUsd) payload.exchangeRates.USD = rateUsd;
-    if (rateEur) payload.exchangeRates.EUR = rateEur;
+    // Tourist + staff breakdowns — keep the totals (participantCount /
+    // staffCount) in sync as the rest of the codebase reads them.
+    const numOr0 = (v) => Number(v) || 0;
+    const tourists = {
+      adults: numOr0(payload.paxAdults),
+      teen: numOr0(payload.paxTeen),
+      child: numOr0(payload.paxChild),
+      infant: numOr0(payload.paxInfant),
+      foc: numOr0(payload.paxFoc),
+    };
+    const staff = {
+      guide: numOr0(payload.staffGuide),
+      driver: numOr0(payload.staffDriver),
+      cook: numOr0(payload.staffCook),
+      tourLeader: numOr0(payload.staffTourLeader),
+      shaman: numOr0(payload.staffShaman),
+      shamanAssistant: numOr0(payload.staffShamanAsst),
+    };
+    payload.tourists = tourists;
+    payload.staff = staff;
+    payload.participantCount = Object.values(tourists).reduce((a, b) => a + b, 0);
+    payload.staffCount = Object.values(staff).reduce((a, b) => a + b, 0);
+    delete payload.paxAdults; delete payload.paxTeen; delete payload.paxChild; delete payload.paxInfant; delete payload.paxFoc;
+    delete payload.staffGuide; delete payload.staffDriver; delete payload.staffCook;
+    delete payload.staffTourLeader; delete payload.staffShaman; delete payload.staffShamanAsst;
+    payload.currency = (payload.currency || "MNT").toUpperCase();
     // Destinations are required on DTX so the trip flows correctly
     // into the confirmed-tourist destination breakdown and the
     // public render. USM only operates inside Mongolia and the

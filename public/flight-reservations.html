@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=workspace-404" />
+    <link rel="stylesheet" href="/styles.css?v=workspace-406" />
   </head>
   <body class="app-body" data-page="flight-reservations">
     <script>
@@ -135,14 +135,29 @@
                   End date
                   <input name="endDate" type="date" />
                 </label>
-                <label>
-                  Number of tourists
-                  <input name="participantCount" type="number" min="1" value="2" required />
-                </label>
-                <label>
-                  Number of staff
-                  <input name="staffCount" type="number" min="0" value="0" required />
-                </label>
+                <input type="hidden" name="participantCount" value="2" />
+                <input type="hidden" name="staffCount" value="0" />
+                <div class="full-span trip-pax-block">
+                  <strong class="trip-pax-title">Number of tourists</strong>
+                  <div class="trip-pax-grid">
+                    <label>Adults<input name="paxAdults" type="number" min="0" value="2" /></label>
+                    <label>Teen<input name="paxTeen" type="number" min="0" value="0" /></label>
+                    <label>Child<input name="paxChild" type="number" min="0" value="0" /></label>
+                    <label>Infant<input name="paxInfant" type="number" min="0" value="0" /></label>
+                    <label>FOC<input name="paxFoc" type="number" min="0" value="0" /></label>
+                  </div>
+                </div>
+                <div class="full-span trip-pax-block">
+                  <strong class="trip-pax-title">Number of staff</strong>
+                  <div class="trip-pax-grid trip-pax-grid--staff">
+                    <label>Guide<input name="staffGuide" type="number" min="0" value="0" /></label>
+                    <label>Driver<input name="staffDriver" type="number" min="0" value="0" /></label>
+                    <label>Cook<input name="staffCook" type="number" min="0" value="0" /></label>
+                    <label>Tour Leader<input name="staffTourLeader" type="number" min="0" value="0" /></label>
+                    <label>Shaman<input name="staffShaman" type="number" min="0" value="0" /></label>
+                    <label>Shaman Assistant<input name="staffShamanAsst" type="number" min="0" value="0" /></label>
+                  </div>
+                </div>
                 <label>
                   Total days of tour
                   <input name="totalDays" type="number" min="1" value="1" required />
@@ -156,6 +171,18 @@
                     <option value="travelling">Travelling</option>
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+                <label>
+                  Currency
+                  <select name="currency" required>
+                    <option value="MNT" selected>MNT — Mongolian tögrög</option>
+                    <option value="USD">USD — US dollar</option>
+                    <option value="EUR">EUR — Euro</option>
+                    <option value="CNY">CNY — Chinese yuan</option>
+                    <option value="JPY">JPY — Japanese yen</option>
+                    <option value="KRW">KRW — Korean won</option>
+                    <option value="RUB">RUB — Russian ruble</option>
                   </select>
                 </label>
                 <label class="full-span">
@@ -838,7 +865,7 @@
     <script src="/compress-upload.js?v=workspace-3"></script>
     <script src="/app-shell.js?v=workspace-147"></script>
     <script src="/trip-picker.js?v=workspace-1"></script>
-    <script src="/camp.js?v=workspace-177"></script>
+    <script src="/camp.js?v=workspace-178"></script>
     <script src="/reservations-addon.js?v=workspace-28"></script>
       <script src="/ui-dialog.js?v=workspace-1"></script>
   </body>

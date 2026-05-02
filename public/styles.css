@@ -1743,6 +1743,59 @@ td {
   flex-direction: column;
   gap: 10px;
 }
+.trip-pax-block {
+  border: 1px dashed rgba(32, 53, 111, 0.18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(32, 53, 111, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.trip-pl-rowbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  border: 1px solid rgba(32, 53, 111, 0.16);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #475569;
+}
+.trip-pl-rowbtn:hover { background: rgba(32, 53, 111, 0.06); }
+.trip-pl-rowbtn.is-danger { color: #9b2f2f; border-color: rgba(182, 58, 58, 0.2); background: rgba(182, 58, 58, 0.06); }
+.trip-pax-title {
+  color: var(--brand);
+  font-size: 0.95rem;
+}
+.trip-pax-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.trip-pax-grid--staff { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.trip-pax-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+.trip-pax-grid input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(32, 53, 111, 0.18);
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+@media (max-width: 720px) {
+  .trip-pax-grid,
+  .trip-pax-grid--staff { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 .trip-flights-head {
   display: flex;
