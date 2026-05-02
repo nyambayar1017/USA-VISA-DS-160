@@ -4897,19 +4897,6 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
         f'<p class="contract-number-line"><span class="contract-number-label">Дугаар:</span> {contract_serial}</p>'
         if contract_serial else ""
     )
-    # Paper mode strips the manager's stamp+signature image so the
-    # client can hand-sign on the printed copy at the office. The
-    # client signature block is already empty when there's no
-    # signature_path so paper mode just affects the manager column.
-    if paper_mode:
-        manager_signature_block = ""
-    else:
-        manager_signature_block = (
-            '<div class="signature-stack">'
-            f'<img class="stamp-image" src="{asset_src("dtx-stamp-cropped.png")}" alt="DTX stamp" />'
-            f'<img class="company-signature-image" src="{html.escape(manager_signature_src)}" alt="Manager signature" />'
-            '</div>'
-        )
     signature_markup = ""
     if signature_path:
         signature_src = signature_path
@@ -4932,6 +4919,18 @@ def build_contract_html(data, signature_path=None, asset_mode="web", contract_id
             manager_file = (GENERATED_DIR / manager_signature_path.replace("/generated/", "", 1)).resolve()
             if manager_file.exists():
                 manager_signature_src = manager_file.as_uri()
+
+    # Paper mode strips the stamp + manager signature so the office
+    # can print a clean copy and the client / manager hand-sign it.
+    if paper_mode:
+        manager_signature_block = ""
+    else:
+        manager_signature_block = (
+            '<div class="signature-stack">'
+            f'<img class="stamp-image" src="{asset_src("dtx-stamp-cropped.png")}" alt="DTX stamp" />'
+            f'<img class="company-signature-image" src="{html.escape(manager_signature_src)}" alt="Manager signature" />'
+            '</div>'
+        )
 
     download_href = f"/api/contracts/{contract_id}/document?mode=download" if contract_id else ""
     _dl_title = quote(data.get("contractSerial", "") or (contract_id or ""), safe="")
